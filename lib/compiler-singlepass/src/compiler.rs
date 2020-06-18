@@ -10,18 +10,17 @@ use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState, Target,
+    CompileModuleInfo, CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
-use wasmer_runtime::{MemoryPlan, TablePlan, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -37,18 +36,13 @@ impl SinglepassCompiler {
         }
     }
 
-    /// Gets the WebAssembly features for this Compiler
+    /// Gets the config for this Compiler
     fn config(&self) -> &SinglepassConfig {
         &self.config
     }
 }
 
 impl Compiler for SinglepassCompiler {
-    /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> &Features {
-        self.config.features()
-    }
-
     /// Gets the target associated to this Compiler.
     fn target(&self) -> &Target {
         self.config.target()
@@ -58,13 +52,17 @@ impl Compiler for SinglepassCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        module: &ModuleInfo,
+        compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
+        if compile_info.features.multi_value {
+            return Err(CompileError::UnsupportedFeature("multivalue"));
+        }
         let vmoffsets = VMOffsets::new(8, module);
+        let memory_plans = compile_info.memory_plans;
+        let table_plans = compile_info.table_plans;
+        let module = compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()

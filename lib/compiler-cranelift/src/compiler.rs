@@ -26,10 +26,9 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, CompilerConfig, ModuleTranslationState, Target};
 use wasmer_compiler::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Compiler,
-    Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
+    Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
@@ -60,11 +59,6 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
-    /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> &Features {
-        self.config.features()
-    }
-
     /// Gets the target associated to the Cranelift ISA.
     fn target(&self) -> &Target {
         self.config.target()
@@ -74,14 +68,15 @@ impl Compiler for CraneliftCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        module: &ModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
         let isa = self.isa();
         let frontend_config = isa.frontend_config();
+        let memory_plans = &compile_info.memory_plans;
+        let table_plans = &compile_info.table_plans;
+        let module = &compile_info.module;
         let signatures = module
             .signatures
             .iter()

@@ -3,13 +3,11 @@ use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
-use wasm_common::Features;
-use wasm_common::{LocalFunctionIndex, MemoryIndex, TableIndex};
+use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
-    Compilation, CompileError, Compiler, CompilerConfig, FunctionBodyData, ModuleTranslationState,
-    RelocationTarget, SectionIndex, Target,
+    Compilation, CompileError, CompileModuleInfo, Compiler, CompilerConfig, FunctionBodyData,
+    ModuleTranslationState, RelocationTarget, SectionIndex, Target,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
 //use std::sync::{Arc, Mutex};
 
@@ -27,18 +25,13 @@ impl LLVMCompiler {
         }
     }
 
-    /// Gets the WebAssembly features for this Compiler
+    /// Gets the config for this Compiler
     fn config(&self) -> &LLVMConfig {
         &self.config
     }
 }
 
 impl Compiler for LLVMCompiler {
-    /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> &Features {
-        self.config.features()
-    }
-
     /// Gets the target associated to this Compiler.
     fn target(&self) -> &Target {
         self.config.target()
@@ -48,14 +41,15 @@ impl Compiler for LLVMCompiler {
     /// associated relocations.
     fn compile_module<'data, 'module>(
         &self,
-        module: &'module ModuleInfo,
+        compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let mut func_names = SecondaryMap::new();
+        let memory_plans = &compile_info.memory_plans;
+        let table_plans = &compile_info.table_plans;
+        let module = &compile_info.module;
 
         // TODO: merge constants in sections.
 
@@ -75,7 +69,7 @@ impl Compiler for LLVMCompiler {
                 // TODO: remove (to serialize)
                 //let mut data = data.lock().unwrap();
                 func_translator.translate(
-                    module,
+                    &module,
                     module_translation,
                     i,
                     input,

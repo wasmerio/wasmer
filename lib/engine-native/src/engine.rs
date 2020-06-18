@@ -5,7 +5,7 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use wasm_common::FunctionType;
+use wasm_common::{Features, FunctionType};
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{Compiler, CompilerConfig};
@@ -26,6 +26,7 @@ impl NativeEngine {
     pub fn new(
         mut config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
+        features: Features,
     ) -> Self {
         config.enable_pic();
         let compiler = config.compiler();
@@ -35,6 +36,7 @@ impl NativeEngine {
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
+                features,
             })),
             tunables: Arc::new(tunables),
             engine_id: EngineId::default(),
@@ -62,6 +64,7 @@ impl NativeEngine {
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
+                features: Features::default(),
             })),
             tunables: Arc::new(tunables),
             engine_id: EngineId::default(),
@@ -154,6 +157,8 @@ pub struct NativeEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler + Send>>,
+    /// The WebAssembly features to use
+    features: Features,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
@@ -186,10 +191,14 @@ impl NativeEngineInner {
         }
     }
 
+    pub(crate) fn features(&self) -> &Features {
+        &self.features
+    }
+
     /// Validate the module
     #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(data)
+        self.compiler()?.validate_module(self.features(), data)
     }
 
     /// Validate the module

@@ -26,9 +26,13 @@ pub fn get_store() -> Store {
     let features = Features::default();
     let try_nan_canonicalization = false;
     let compiler_config =
-        get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization, features);
+        get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization);
     let tunables = Tunables::for_target(compiler_config.target().triple());
-    let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+    let store = Store::new(Arc::new(JITEngine::new(
+        compiler_config,
+        tunables,
+        features,
+    )));
     store
 }
 
@@ -38,12 +42,16 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn FunctionMiddlewareG
     let features = Features::default();
     let try_nan_canonicalization = false;
     let mut compiler_config =
-        get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization, features);
+        get_compiler_config_from_str(get_compiler_str(), try_nan_canonicalization);
     for x in middlewares {
         compiler_config.push_middleware(x);
     }
     let tunables = Tunables::for_target(compiler_config.target().triple());
-    let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+    let store = Store::new(Arc::new(JITEngine::new(
+        compiler_config,
+        tunables,
+        features,
+    )));
     store
 }
 

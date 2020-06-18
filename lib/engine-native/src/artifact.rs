@@ -28,7 +28,7 @@ use wasmer_compiler::{
     Architecture, BinaryFormat, CustomSectionProtection, Endianness, ModuleEnvironment,
     OperatingSystem, RelocationTarget, Triple,
 };
-use wasmer_compiler::{CompileError, Features};
+use wasmer_compiler::{CompileError, CompileModuleInfo, Features};
 #[cfg(feature = "compiler")]
 use wasmer_engine::Engine;
 use wasmer_engine::{
@@ -101,7 +101,7 @@ impl NativeArtifact {
         let tunables = engine.tunables();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-
+        let features = engine_inner.features();
         let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
             .module
             .memories
@@ -115,14 +115,19 @@ impl NativeArtifact {
             .map(|table_type| tunables.table_plan(*table_type))
             .collect();
 
+        let compile_info = CompileModuleInfo {
+            module: Arc::new(translation.module),
+            features: features.clone(),
+            memory_plans,
+            table_plans,
+        };
+
         let compiler = engine_inner.compiler()?;
         // Compile the Module
         let compilation = compiler.compile_module(
-            &translation.module,
+            &compile_info,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,
-            memory_plans.clone(),
-            table_plans.clone(),
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
         let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
@@ -180,13 +185,10 @@ impl NativeArtifact {
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
         let metadata = ModuleMetadata {
-            features: compiler.features().clone(),
-            module: Arc::new(translation.module),
+            compile_info,
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
             function_body_lengths,
-            memory_plans,
-            table_plans,
         };
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
@@ -530,7 +532,7 @@ impl NativeArtifact {
         }
 
         // Retrieve function call trampolines (for all signatures in the module)
-        for (sig_index, func_type) in metadata.module.signatures.iter() {
+        for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
             let function_name = metadata.get_function_call_trampoline_name(sig_index);
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
@@ -544,12 +546,13 @@ impl NativeArtifact {
         let mut finished_dynamic_function_trampolines: PrimaryMap<
             FunctionIndex,
             *mut [VMFunctionBody],
-        > = PrimaryMap::with_capacity(metadata.module.num_imported_funcs);
+        > = PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_funcs);
         for func_index in metadata
+            .compile_info
             .module
             .functions
             .keys()
-            .take(metadata.module.num_imported_funcs)
+            .take(metadata.compile_info.module.num_imported_funcs)
         {
             let function_name = metadata.get_dynamic_function_trampoline_name(func_index);
             unsafe {
@@ -582,6 +585,7 @@ impl NativeArtifact {
         let signatures = {
             let signature_registry = engine_inner.signatures();
             metadata
+                .compile_info
                 .module
                 .signatures
                 .values()
@@ -697,15 +701,15 @@ impl NativeArtifact {
 
 impl Artifact for NativeArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
-        self.metadata.module.clone()
+        self.metadata.compile_info.module.clone()
     }
 
     fn module_ref(&self) -> &ModuleInfo {
-        &self.metadata.module
+        &self.metadata.compile_info.module
     }
 
     fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
-        Arc::get_mut(&mut self.metadata.module)
+        Arc::get_mut(&mut self.metadata.compile_info.module)
     }
 
     fn register_frame_info(&self) {
@@ -713,7 +717,7 @@ impl Artifact for NativeArtifact {
     }
 
     fn features(&self) -> &Features {
-        &self.metadata.features
+        &self.metadata.compile_info.features
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
@@ -721,11 +725,11 @@ impl Artifact for NativeArtifact {
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.metadata.memory_plans
+        &self.metadata.compile_info.memory_plans
     }
 
     fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.metadata.table_plans
+        &self.metadata.compile_info.table_plans
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {

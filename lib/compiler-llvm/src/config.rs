@@ -8,9 +8,7 @@ use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
 use wasm_common::{FunctionType, LocalFunctionIndex};
-use wasmer_compiler::{
-    Compiler, CompilerConfig, Features, FunctionMiddlewareGenerator, Target, Triple,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -66,25 +64,24 @@ pub struct LLVMConfig {
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 
-    features: Features,
     target: Target,
 }
 
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(target: Target) -> Self {
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
             is_pic: false,
-            features,
             target,
             callbacks: None,
             middlewares: vec![],
         }
     }
+
     fn reloc_mode(&self) -> RelocMode {
         if self.is_pic {
             RelocMode::PIC
@@ -171,11 +168,6 @@ impl LLVMConfig {
 }
 
 impl CompilerConfig for LLVMConfig {
-    /// Gets the WebAssembly features.
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -202,6 +194,6 @@ impl CompilerConfig for LLVMConfig {
 
 impl Default for LLVMConfig {
     fn default() -> LLVMConfig {
-        Self::new(Default::default(), Default::default())
+        Self::new(Default::default())
     }
 }

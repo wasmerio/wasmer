@@ -179,17 +179,16 @@ impl StoreOptions {
         target: Target,
     ) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
         let compiler = self.get_compiler()?;
-        let features = self.get_features()?;
         let compiler_config: Box<dyn CompilerConfig> = match compiler {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
+                let config = wasmer_compiler_singlepass::SinglepassConfig::new(target);
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
+                let config = wasmer_compiler_cranelift::CraneliftConfig::new(target);
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -201,7 +200,7 @@ impl StoreOptions {
                     CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
                     LLVMConfig,
                 };
-                let mut config = LLVMConfig::new(features, target);
+                let mut config = LLVMConfig::new(target);
                 struct Callbacks {
                     debug_dir: PathBuf,
                 }
@@ -320,15 +319,19 @@ impl StoreOptions {
         compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
+        let features = self.get_features()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineType::JIT => {
-                Arc::new(wasmer_engine_jit::JITEngine::new(compiler_config, tunables))
-            }
+            EngineType::JIT => Arc::new(wasmer_engine_jit::JITEngine::new(
+                compiler_config,
+                tunables,
+                features,
+            )),
             #[cfg(feature = "native")]
             EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
                 compiler_config,
                 tunables,
+                features,
             )),
             #[cfg(not(all(feature = "jit", feature = "native",)))]
             engine => bail!(

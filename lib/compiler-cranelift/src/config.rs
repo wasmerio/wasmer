@@ -41,12 +41,14 @@ pub struct CraneliftConfig {
     /// The verifier assures that the generated Cranelift IR is valid.
     pub enable_verifier: bool,
 
+    /// Should we enable simd support?
+    pub enable_simd: bool,
+
     enable_pic: bool,
 
     /// The optimization levels when optimizing the IR.
     pub opt_level: OptLevel,
 
-    features: Features,
     target: Target,
 
     /// The middleware chain.
@@ -56,13 +58,13 @@ pub struct CraneliftConfig {
 impl CraneliftConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new(target: Target) -> Self {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptLevel::Speed,
             enable_pic: false,
-            features,
+            enable_simd: false,
             target,
             middlewares: vec![],
         }
@@ -148,7 +150,7 @@ impl CraneliftConfig {
             .set("enable_verifier", enable_verifier)
             .expect("should be valid flag");
 
-        let opt_level = if self.features.simd {
+        let opt_level = if self.enable_simd {
             "none"
         } else {
             match self.opt_level {
@@ -162,7 +164,7 @@ impl CraneliftConfig {
             .set("opt_level", opt_level)
             .expect("should be valid flag");
 
-        let enable_simd = if self.features.simd { "true" } else { "false" };
+        let enable_simd = if self.enable_simd { "true" } else { "false" };
         flags
             .set("enable_simd", enable_simd)
             .expect("should be valid flag");
@@ -181,11 +183,6 @@ impl CraneliftConfig {
 }
 
 impl CompilerConfig for CraneliftConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
     fn enable_pic(&mut self) {
         self.enable_pic = true;
     }
@@ -209,6 +206,6 @@ impl CompilerConfig for CraneliftConfig {
 
 impl Default for CraneliftConfig {
     fn default() -> Self {
-        Self::new(Default::default(), Default::default())
+        Self::new(Default::default())
     }
 }

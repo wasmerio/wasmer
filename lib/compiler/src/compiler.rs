@@ -5,6 +5,7 @@ use crate::error::CompileError;
 use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
+use crate::module::CompileModuleInfo;
 use crate::target::Target;
 use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
@@ -20,9 +21,6 @@ use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 /// This options must have WebAssembly `Features` and a specific
 /// `Target` to compile to.
 pub trait CompilerConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features;
-
     /// Should Position Independent Code (PIC) be enabled.
     ///
     /// This is required for shared object generation (Native Engine),
@@ -46,14 +44,14 @@ pub trait Compiler {
     /// Gets the target associated with this compiler
     fn target(&self) -> &Target;
 
-    /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> &Features;
-
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
-    fn validate_module<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        let features = self.features();
+    fn validate_module<'data>(
+        &self,
+        features: &Features,
+        data: &'data [u8],
+    ) -> Result<(), CompileError> {
         let config = ValidatingParserConfig {
             operator_config: OperatorValidatorConfig {
                 enable_threads: features.threads,
@@ -72,13 +70,9 @@ pub trait Compiler {
     /// It returns the [`Compilation`] or a [`CompileError`].
     fn compile_module<'data, 'module>(
         &self,
-        module: &'module ModuleInfo,
+        module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-        // The plans for the module memories (imported and local)
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        // The plans for the module tables (imported and local)
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError>;
 }

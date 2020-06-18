@@ -4,7 +4,7 @@
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
 use wasmer_compiler::{
-    Compiler, CompilerConfig, CpuFeature, Features, FunctionMiddlewareGenerator, Target,
+    Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target,
 };
 
 #[derive(Clone)]
@@ -24,7 +24,6 @@ pub struct SinglepassConfig {
     /// different platforms.
     pub enable_stack_check: bool,
 
-    features: Features,
     target: Target,
 
     /// The middleware chain.
@@ -34,14 +33,10 @@ pub struct SinglepassConfig {
 impl SinglepassConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(mut features: Features, target: Target) -> Self {
-        // Override the default multi-value switch
-        features.multi_value = false;
-
+    pub fn new(target: Target) -> Self {
         Self {
             enable_nan_canonicalization: true,
             enable_stack_check: false,
-            features,
             target,
             middlewares: vec![],
         }
@@ -49,11 +44,6 @@ impl SinglepassConfig {
 }
 
 impl CompilerConfig for SinglepassConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.

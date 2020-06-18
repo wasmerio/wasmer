@@ -5,6 +5,7 @@ use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
+use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
@@ -30,6 +31,7 @@ impl JITEngine {
     pub fn new(
         config: Box<dyn CompilerConfig>,
         tunables: impl Tunables + 'static + Send + Sync,
+        features: Features,
     ) -> Self {
         let compiler = config.compiler();
         Self {
@@ -38,6 +40,7 @@ impl JITEngine {
                 function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
+                features,
             })),
             tunables: Arc::new(tunables),
             engine_id: EngineId::default(),
@@ -65,6 +68,7 @@ impl JITEngine {
                 function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
+                features: Features::default(),
             })),
             tunables: Arc::new(tunables),
             engine_id: EngineId::default(),
@@ -130,6 +134,8 @@ pub struct JITEngineInner {
     compiler: Option<Box<dyn Compiler + Send>>,
     /// Pointers to trampoline functions used to enter particular signatures
     function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
+    /// The features to compile the Wasm module with
+    features: Features,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: CodeMemory,
@@ -151,7 +157,7 @@ impl JITEngineInner {
     /// Validate the module
     #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(data)
+        self.compiler()?.validate_module(self.features(), data)
     }
 
     /// Validate the module
@@ -161,6 +167,11 @@ impl JITEngineInner {
             "The JITEngine is not compiled with compiler support, which is required for validating"
                 .to_string(),
         ))
+    }
+
+    /// The Wasm featuress
+    pub fn features(&self) -> &Features {
+        &self.features
     }
 
     /// Allocate custom sections into memory

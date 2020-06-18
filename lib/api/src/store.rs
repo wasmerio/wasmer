@@ -57,10 +57,18 @@ impl Default for Store {
             let tunables = Tunables::for_target(config.target().triple());
 
             #[cfg(feature = "jit")]
-            return Arc::new(wasmer_engine_jit::JITEngine::new(config, tunables));
+            return Arc::new(wasmer_engine_jit::JITEngine::new(
+                config,
+                tunables,
+                Default::default(),
+            ));
 
             #[cfg(feature = "native")]
-            return Arc::new(wasmer_engine_native::NativeEngine::new(config, tunables));
+            return Arc::new(wasmer_engine_native::NativeEngine::new(
+                config,
+                tunables,
+                Default::default(),
+            ));
         }
 
         let config = get_config();

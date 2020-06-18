@@ -6,7 +6,8 @@ use wasm_common::{
     TableIndex,
 };
 use wasmer_compiler::{
-    CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation, SectionIndex,
+    CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
+    SectionIndex,
 };
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_runtime::ModuleInfo;
@@ -45,10 +46,6 @@ pub struct SerializableCompilation {
 #[derive(Serialize, Deserialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
-    pub features: Features,
-    pub module: Arc<ModuleInfo>,
+    pub compile_info: CompileModuleInfo,
     pub data_initializers: Box<[OwnedDataInitializer]>,
-    // Plans for that module
-    pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-    pub table_plans: PrimaryMap<TableIndex, TablePlan>,
 }
