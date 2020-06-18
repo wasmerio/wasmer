@@ -86,46 +86,44 @@ impl Compiler for LLVMCompiler {
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .map(
-                |(mut compiled_function, function_custom_sections, eh_frame_section_indices)| {
-                    let first_section = module_custom_sections.len() as u32;
-                    for (section_index, custom_section) in function_custom_sections.iter() {
-                        // TODO: remove this call to clone()
-                        let mut custom_section = custom_section.clone();
-                        for mut reloc in &mut custom_section.relocations {
-                            if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
-                                reloc.reloc_target = RelocationTarget::CustomSection(
-                                    SectionIndex::from_u32(first_section + index.as_u32()),
-                                )
-                            }
-                        }
-                        if eh_frame_section_indices.contains(&section_index) {
-                            let offset = frame_section_bytes.len() as u32;
-                            for mut reloc in &mut custom_section.relocations {
-                                reloc.offset += offset;
-                            }
-                            frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
-                            frame_section_relocations.extend(custom_section.relocations);
-                            // TODO: we do this to keep the count right, remove it.
-                            module_custom_sections.push(CustomSection {
-                                protection: CustomSectionProtection::Read,
-                                bytes: SectionBody::new_with_vec(vec![]),
-                                relocations: vec![],
-                            });
-                        } else {
-                            module_custom_sections.push(custom_section);
-                        }
-                    }
-                    for mut reloc in &mut compiled_function.relocations {
+            .map(|mut compiled_function| {
+                let first_section = module_custom_sections.len() as u32;
+                for (section_index, custom_section) in compiled_function.custom_sections.iter() {
+                    // TODO: remove this call to clone()
+                    let mut custom_section = custom_section.clone();
+                    for mut reloc in &mut custom_section.relocations {
                         if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
                             reloc.reloc_target = RelocationTarget::CustomSection(
                                 SectionIndex::from_u32(first_section + index.as_u32()),
                             )
                         }
                     }
-                    compiled_function
-                },
-            )
+                    if compiled_function.eh_frame_section_indices.contains(&section_index) {
+                        let offset = frame_section_bytes.len() as u32;
+                        for mut reloc in &mut custom_section.relocations {
+                            reloc.offset += offset;
+                        }
+                        frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                        frame_section_relocations.extend(custom_section.relocations);
+                        // TODO: we do this to keep the count right, remove it.
+                        module_custom_sections.push(CustomSection {
+                            protection: CustomSectionProtection::Read,
+                            bytes: SectionBody::new_with_vec(vec![]),
+                            relocations: vec![],
+                        });
+                    } else {
+                        module_custom_sections.push(custom_section);
+                    }
+                }
+                for mut reloc in &mut compiled_function.compiled_function.relocations {
+                    if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
+                        reloc.reloc_target = RelocationTarget::CustomSection(
+                            SectionIndex::from_u32(first_section + index.as_u32()),
+                        )
+                    }
+                }
+                compiled_function.compiled_function
+            })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let dwarf = if !frame_section_bytes.is_empty() {

@@ -3,7 +3,7 @@ use std::convert::TryFrom;
 
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasmer_compiler::{
-    CompileError, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
+    CompileError, CompiledFunctionFrameInfo, CustomSection,
     CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
     InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
     SourceLoc,
@@ -38,12 +38,18 @@ fn map_goblin_err(error: goblin::error::Error) -> CompileError {
     CompileError::Codegen(format!("error parsing ELF file: {}", error))
 }
 
+pub struct CompiledFunction {
+    pub compiled_function: wasmer_compiler::CompiledFunction,
+    pub custom_sections: CustomSections,
+    pub eh_frame_section_indices: Vec<SectionIndex>,
+}
+
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
     root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
-) -> Result<(CompiledFunction, CustomSections, Vec<SectionIndex>), CompileError>
+) -> Result<CompiledFunction, CompileError>
 where
     F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
 {
@@ -284,8 +290,8 @@ where
         body_len: function_body.body.len(),
     };
 
-    Ok((
-        CompiledFunction {
+    Ok(CompiledFunction {
+        compiled_function: wasmer_compiler::CompiledFunction {
             body: function_body,
             jt_offsets: SecondaryMap::new(),
             relocations: relocations
@@ -298,5 +304,5 @@ where
         },
         custom_sections,
         eh_frame_section_indices,
-    ))
+    })
 }
