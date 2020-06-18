@@ -1,5 +1,6 @@
 //! JIT compilation.
 
+use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -162,6 +163,7 @@ impl JITEngineInner {
         ))
     }
 
+    /// Allocate custom sections into memory
     pub(crate) fn allocate_custom_sections(
         &mut self,
         custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
@@ -169,13 +171,21 @@ impl JITEngineInner {
         let mut result = PrimaryMap::with_capacity(custom_sections.len());
         for (_, section) in custom_sections.iter() {
             let buffer: &[u8] = match section.protection {
-                CustomSectionProtection::Read => section.bytes.as_slice(),
+                CustomSectionProtection::Read => self
+                    .code_memory
+                    .allocate_for_custom_section(&section.bytes)
+                    .map_err(|message| {
+                        CompileError::Resource(format!(
+                            "failed to allocate readable memory for custom section: {}",
+                            message
+                        ))
+                    })?,
                 CustomSectionProtection::ReadExecute => self
                     .code_memory
                     .allocate_for_executable_custom_section(&section.bytes)
                     .map_err(|message| {
                         CompileError::Resource(format!(
-                            "failed to allocate memory for custom section: {}",
+                            "failed to allocate executable memory for custom section: {}",
                             message
                         ))
                     })?,
@@ -185,10 +195,11 @@ impl JITEngineInner {
         Ok(result)
     }
 
-    /// Compile the given function bodies.
+    /// Allocate compiled functions into memory
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
+        registry: &mut UnwindRegistry,
         module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
@@ -196,42 +207,54 @@ impl JITEngineInner {
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<FunctionIndex, *const VMFunctionBody>,
+            PrimaryMap<SignatureIndex, *mut [VMFunctionBody]>,
+            PrimaryMap<FunctionIndex, *mut [VMFunctionBody]>,
         ),
         CompileError,
     > {
         // Allocate all of the compiled functions into executable memory,
         // copying over their contents.
-        let allocated_functions =
-            self.code_memory
-                .allocate_functions(&functions)
-                .map_err(|message| {
-                    CompileError::Resource(format!(
-                        "failed to allocate memory for functions: {}",
-                        message
-                    ))
-                })?;
+        let allocated_functions = self
+            .code_memory
+            .allocate_functions(registry, &functions)
+            .map_err(|message| {
+                CompileError::Resource(format!(
+                    "failed to allocate memory for functions: {}",
+                    message
+                ))
+            })?;
 
+        let mut alllocated_function_call_trampolines: PrimaryMap<
+            SignatureIndex,
+            *mut [VMFunctionBody],
+        > = PrimaryMap::new();
+        // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
+        //     let func_type = module.signatures.get(sig_index).unwrap();
+        //     let index = self.signatures.register(&func_type);
+        //     (index, compiled_function)
+        // }).filter(|(index, _)| {
+        //     !self.function_call_trampolines.contains_key(index)
+        // }).unzip();
         for (sig_index, compiled_function) in function_call_trampolines.iter() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
-            if self.function_call_trampolines.contains_key(&index) {
-                // We don't need to allocate the trampoline in case
-                // it's signature is already allocated.
-                continue;
-            }
+            // if self.function_call_trampolines.contains_key(&index) {
+            //     // We don't need to allocate the trampoline in case
+            //     // it's signature is already allocated.
+            //     continue;
+            // }
             let ptr = self
                 .code_memory
-                .allocate_for_function(&compiled_function)
+                .allocate_for_function(registry, &compiled_function)
                 .map_err(|message| {
                     CompileError::Resource(format!(
                         "failed to allocate memory for function call trampolines: {}",
                         message
                     ))
-                })?
-                .as_ptr();
+                })?;
+            alllocated_function_call_trampolines.push(ptr);
             let trampoline =
-                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
+                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
             self.function_call_trampolines.insert(index, trampoline);
         }
 
@@ -240,24 +263,32 @@ impl JITEngineInner {
             .map(|compiled_function| {
                 let ptr = self
                     .code_memory
-                    .allocate_for_function(&compiled_function)
+                    .allocate_for_function(registry, &compiled_function)
                     .map_err(|message| {
                         CompileError::Resource(format!(
                             "failed to allocate memory for dynamic function trampolines: {}",
                             message
                         ))
-                    })?
-                    .as_ptr();
-                Ok(ptr)
+                    })?;
+                Ok(ptr as _)
             })
             .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
 
-        Ok((allocated_functions, allocated_dynamic_function_trampolines))
+        Ok((
+            allocated_functions,
+            alllocated_function_call_trampolines,
+            allocated_dynamic_function_trampolines,
+        ))
     }
 
     /// Make memory containing compiled code executable.
     pub(crate) fn publish_compiled_code(&mut self) {
         self.code_memory.publish();
+    }
+
+    /// Publish the unwind registry into code memory.
+    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
+        self.code_memory.publish_unwind_registry(unwind_registry);
     }
 
     /// Shared signature registry.

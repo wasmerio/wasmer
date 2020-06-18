@@ -5,7 +5,9 @@ use crate::store::Store;
 use crate::MemoryType;
 use std::slice;
 use wasm_common::{Pages, ValueType};
-use wasmer_runtime::{Export, ExportMemory, LinearMemory, MemoryError, VMMemoryDefinition};
+use wasmer_runtime::{
+    Export, ExportMemory, Memory as MemoryTrait, MemoryError, VMMemoryDefinition,
+};
 
 #[derive(Clone)]
 pub struct Memory {
@@ -27,7 +29,7 @@ impl Memory {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportMemory {
-                from: Box::leak(Box::new(memory)),
+                from: memory,
                 definition: Box::leak(Box::new(definition)),
             },
         })
@@ -78,15 +80,15 @@ impl Memory {
         self.memory().size()
     }
 
-    fn memory(&self) -> &LinearMemory {
-        unsafe { &*self.exported.from }
+    fn memory(&self) -> &dyn MemoryTrait {
+        &*self.exported.from
     }
 
     pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
-        self.memory().grow(delta)
+        self.memory().grow(delta.into())
     }
 
     /// Return a "view" of the currently accessible memory. By

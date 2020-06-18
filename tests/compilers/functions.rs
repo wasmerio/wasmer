@@ -1,5 +1,7 @@
 use crate::utils::get_store;
 use anyhow::Result;
+use std::cell::RefCell;
+use std::rc::Rc;
 
 use wasmer::*;
 
@@ -37,5 +39,132 @@ fn native_function_works_for_wasm() -> Result<()> {
 
     let result = f.call(4, 6)?;
     assert_eq!(result, 20);
+    Ok(())
+}
+
+#[test]
+fn static_raw_call_no_env() -> anyhow::Result<()> {
+    let store = get_store();
+    fn reverse_duplicate_host(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
+    let reverse_duplicate = wasmer::Function::new(&store, reverse_duplicate_host);
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    Ok(())
+}
+
+#[test]
+fn static_raw_call_with_env() -> anyhow::Result<()> {
+    let store = get_store();
+    #[derive(Clone)]
+    struct Env {
+        val: Rc<RefCell<i32>>,
+    };
+    let env = Env {
+        val: Rc::new(RefCell::new(100)),
+    };
+    fn reverse_duplicate_host(
+        env: &mut Env,
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> (f64, f32, i64, i32) {
+        assert_eq!(*env.val.borrow(), 100);
+        env.val.replace(101);
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
+    let reverse_duplicate = wasmer::Function::new_env(&store, env.clone(), reverse_duplicate_host);
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    assert_eq!(*env.val.borrow(), 100);
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    assert_eq!(*env.val.borrow(), 101);
+    Ok(())
+}
+
+#[test]
+fn dynamic_raw_call_no_env() -> anyhow::Result<()> {
+    let store = get_store();
+    let reverse_duplicate = wasmer::Function::new_dynamic(
+        &store,
+        &wasmer::FunctionType::new(
+            vec![
+                wasmer::ValType::I32,
+                wasmer::ValType::I64,
+                wasmer::ValType::F32,
+                wasmer::ValType::F64,
+            ],
+            vec![
+                wasmer::ValType::F64,
+                wasmer::ValType::F32,
+                wasmer::ValType::I64,
+                wasmer::ValType::I32,
+            ],
+        ),
+        |values| {
+            Ok(vec![
+                Value::F64(values[3].unwrap_f64() * 4.0),
+                Value::F32(values[2].unwrap_f32() * 3.0),
+                Value::I64(values[1].unwrap_i64() * 2),
+                Value::I32(values[0].unwrap_i32() * 1),
+            ])
+        },
+    );
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    Ok(())
+}
+
+#[test]
+fn dynamic_raw_call_with_env() -> anyhow::Result<()> {
+    let store = get_store();
+    #[derive(Clone)]
+    struct Env {
+        val: Rc<RefCell<i32>>,
+    };
+    let env = Env {
+        val: Rc::new(RefCell::new(100)),
+    };
+    let reverse_duplicate = wasmer::Function::new_dynamic_env(
+        &store,
+        &wasmer::FunctionType::new(
+            vec![
+                wasmer::ValType::I32,
+                wasmer::ValType::I64,
+                wasmer::ValType::F32,
+                wasmer::ValType::F64,
+            ],
+            vec![
+                wasmer::ValType::F64,
+                wasmer::ValType::F32,
+                wasmer::ValType::I64,
+                wasmer::ValType::I32,
+            ],
+        ),
+        env.clone(),
+        |env, values| {
+            assert_eq!(*env.val.borrow(), 100);
+            env.val.replace(101);
+            Ok(vec![
+                Value::F64(values[3].unwrap_f64() * 4.0),
+                Value::F32(values[2].unwrap_f32() * 3.0),
+                Value::I64(values[1].unwrap_i64() * 2),
+                Value::I32(values[0].unwrap_i32() * 1),
+            ])
+        },
+    );
+    let reverse_duplicate_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+        reverse_duplicate.native().unwrap();
+    assert_eq!(*env.val.borrow(), 100);
+    let result = reverse_duplicate_native.call(1, 3, 5.0, 7.0)?;
+    assert_eq!(result, (28.0, 15.0, 6, 1));
+    assert_eq!(*env.val.borrow(), 101);
     Ok(())
 }

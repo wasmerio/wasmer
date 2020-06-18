@@ -51,8 +51,12 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
         // We don't support multivalue yet in singlepass
         wast.allow_instantiation_failures(&[
             "Validation error: invalid result arity: func type returns multiple values",
-            "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled"
+            "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled",
         ]);
+    } else if compiler == "cranelift" && cfg!(windows) {
+        // Cranelift 0.63 have a bug on multivalue in Windows
+        // It's fixed by: https://github.com/bytecodealliance/wasmtime/pull/1774/files
+        wast.allow_instantiation_failures(&["Compilation error: Implementation limit exceeded"]);
     }
     wast.fail_fast = false;
     let path = Path::new(wast_path);

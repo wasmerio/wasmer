@@ -7,11 +7,15 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
+#[cfg(feature = "engine")]
+use wasmer::Tunables;
 use wasmer::{
-    CompilerConfig, Engine, ExportType, Extern, ExternType, Function, FunctionType, Global,
-    GlobalType, Instance, JITEngine, Memory, MemoryType, Module, Mutability, OrderedResolver,
-    Pages, RuntimeError, Store, Table, TableType, Tunables, Val, ValType,
+    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
+    Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
+    TableType, Val, ValType,
 };
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
 
 use crate::error::update_last_error;
 
@@ -44,29 +48,50 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 
 #[repr(C)]
 pub struct wasm_engine_t {
-    inner: Arc<dyn Engine + Send + Sync>,
+    pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 
-fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
-    cfg_if! {
-        if #[cfg(feature = "cranelift")] {
-            Box::new(wasmer::CraneliftConfig::default())
-        } else if #[cfg(feature = "llvm")] {
-            Box::new(wasmer::LLVMConfig::default())
-        } else if #[cfg(feature = "singlepass")] {
-            Box::new(wasmer::SinglepassConfig::default())
-        } else {
-            compile_error!("Please enable one of the compiler backends")
+cfg_if! {
+    if #[cfg(all(feature = "jit", feature = "compiler"))] {
+        // Compiler JIT
+        use wasmer_compiler::CompilerConfig;
+        fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
+            cfg_if! {
+                if #[cfg(feature = "cranelift")] {
+                    Box::new(wasmer_compiler_cranelift::CraneliftConfig::default())
+                } else if #[cfg(feature = "llvm")] {
+                    Box::new(wasmer_compiler_llvm::LLVMConfig::default())
+                } else if #[cfg(feature = "singlepass")] {
+                    Box::new(wasmer_compiler_singlepass::SinglepassConfig::default())
+                } else {
+                    compile_error!("Please enable one of the compiler backends")
+                }
+            }
+        }
+
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let tunables = Tunables::default();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
+            Box::new(wasm_engine_t { inner: engine })
         }
     }
-}
-
-#[no_mangle]
-pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-    let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-    let tunables = Tunables::default();
-    let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
-    Box::new(wasm_engine_t { inner: engine })
+    else if #[cfg(feature = "jit")] {
+        // Headless JIT
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let tunables = Tunables::default();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            unimplemented!("The JITEngine is not attached");
+        }
+    }
 }
 
 #[no_mangle]
@@ -467,7 +492,7 @@ impl From<wasm_valkind_enum> for ValType {
             WASM_I64 => ValType::I64,
             WASM_F32 => ValType::F32,
             WASM_F64 => ValType::F64,
-            WASM_ANYREF => ValType::AnyRef,
+            WASM_ANYREF => ValType::ExternRef,
             WASM_FUNCREF => ValType::FuncRef,
         }
     }
@@ -507,7 +532,7 @@ impl From<ValType> for wasm_valkind_enum {
             ValType::F32 => Self::WASM_F32,
             ValType::F64 => Self::WASM_F64,
             ValType::V128 => todo!("no v128 type in Wasm C API yet!"),
-            ValType::AnyRef => Self::WASM_ANYREF,
+            ValType::ExternRef => Self::WASM_ANYREF,
             ValType::FuncRef => Self::WASM_FUNCREF,
         }
     }
@@ -712,37 +737,33 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let store = store_ptr.as_ref();
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
-    let inner_callback = move |env: &mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
-        let processed_args = args
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed");
+    let inner_callback =
+        move |env: &mut *mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+            let processed_args = args
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed");
 
-        let mut results = vec![
-            wasm_val_t {
-                kind: wasm_valkind_enum::WASM_I64 as _,
-                of: wasm_val_inner { int64_t: 0 },
-            };
-            num_rets
-        ];
+            let mut results = vec![
+                wasm_val_t {
+                    kind: wasm_valkind_enum::WASM_I64 as _,
+                    of: wasm_val_inner { int64_t: 0 },
+                };
+                num_rets
+            ];
 
-        let _traps = callback(env, processed_args.as_ptr(), results.as_mut_ptr());
-        // TODO: do something with `traps`
+            let _traps = callback(*env, processed_args.as_ptr(), results.as_mut_ptr());
+            // TODO: do something with `traps`
 
-        let processed_results = results
-            .into_iter()
-            .map(TryInto::try_into)
-            .collect::<Result<Vec<Val>, _>>()
-            .expect("Result conversion failed");
-        Ok(processed_results)
-    };
-    let f = Function::new_dynamic_env(
-        store,
-        &func_sig,
-        mem::transmute::<*mut c_void, &mut c_void>(env),
-        inner_callback,
-    );
+            let processed_results = results
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Val>, _>>()
+                .expect("Result conversion failed");
+            Ok(processed_results)
+        };
+    let f = Function::new_dynamic_env(store, &func_sig, env, inner_callback);
     Some(Box::new(wasm_func_t {
         instance: None,
         inner: f,
@@ -966,7 +987,7 @@ pub unsafe extern "C" fn wasm_table_grow(
 ) -> bool {
     // TODO: maybe need to look at result to return `true`; also maybe report error here
     //wasm_table.inner.grow(delta, init).is_ok()
-    todo!("Blocked on transforming AnyRef into a val type")
+    todo!("Blocked on transforming ExternRef into a val type")
 }
 
 macro_rules! wasm_declare_own {
@@ -1118,7 +1139,7 @@ macro_rules! wasm_declare_ref_base {
 pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
 
-// opaque type over `AnyRef`?
+// opaque type over `ExternRef`?
 #[allow(non_camel_case_types)]
 pub struct wasm_ref_t;
 

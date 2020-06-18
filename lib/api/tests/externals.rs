@@ -72,11 +72,11 @@ fn table_new() -> Result<()> {
 
     // Anyrefs not yet supported
     // let table_type = TableType {
-    //     ty: Type::AnyRef,
+    //     ty: Type::ExternRef,
     //     minimum: 0,
     //     maximum: None,
     // };
-    // let table = Table::new(&store, table_type, Value::AnyRef(AnyRef::Null))?;
+    // let table = Table::new(&store, table_type, Value::ExternRef(ExternRef::Null))?;
     // assert_eq!(*table.ty(), table_type);
 
     Ok(())
@@ -94,7 +94,7 @@ fn table_get() -> Result<()> {
     let f = Function::new(&store, |num: i32| num + 1);
     let table = Table::new(&store, table_type, Value::FuncRef(f.clone()))?;
     assert_eq!(*table.ty(), table_type);
-    let elem = table.get(0).unwrap();
+    let _elem = table.get(0).unwrap();
     // assert_eq!(elem.funcref().unwrap(), f);
     Ok(())
 }
@@ -102,7 +102,7 @@ fn table_get() -> Result<()> {
 #[test]
 #[ignore]
 fn table_set() -> Result<()> {
-    /// Table set not yet tested
+    // Table set not yet tested
     Ok(())
 }
 
@@ -220,32 +220,33 @@ fn function_new() -> Result<()> {
 #[test]
 fn function_new_env() -> Result<()> {
     let store = Store::default();
+    #[derive(Clone)]
     struct MyEnv {};
-    let mut my_env = MyEnv {};
-    let function = Function::new_env(&store, &mut my_env, |_env: &mut MyEnv| {});
+    let my_env = MyEnv {};
+    let function = Function::new_env(&store, my_env.clone(), |_env: &mut MyEnv| {});
     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
-    let function = Function::new_env(&store, &mut my_env, |_env: &mut MyEnv, _a: i32| {});
+    let function = Function::new_env(&store, my_env.clone(), |_env: &mut MyEnv, _a: i32| {});
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![Type::I32], vec![])
     );
     let function = Function::new_env(
         &store,
-        &mut my_env,
+        my_env.clone(),
         |_env: &mut MyEnv, _a: i32, _b: i64, _c: f32, _d: f64| {},
     );
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
     );
-    let function = Function::new_env(&store, &mut my_env, |_env: &mut MyEnv| -> i32 { 1 });
+    let function = Function::new_env(&store, my_env.clone(), |_env: &mut MyEnv| -> i32 { 1 });
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![], vec![Type::I32])
     );
     let function = Function::new_env(
         &store,
-        &mut my_env,
+        my_env.clone(),
         |_env: &mut MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
     );
     assert_eq!(
@@ -260,23 +261,23 @@ fn function_new_dynamic() -> Result<()> {
     let store = Store::default();
     let function_type = FunctionType::new(vec![], vec![]);
     let function =
-        Function::new_dynamic(&store, &function_type, |values: &[Value]| unimplemented!());
+        Function::new_dynamic(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32], vec![]);
     let function =
-        Function::new_dynamic(&store, &function_type, |values: &[Value]| unimplemented!());
+        Function::new_dynamic(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
     let function =
-        Function::new_dynamic(&store, &function_type, |values: &[Value]| unimplemented!());
+        Function::new_dynamic(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32]);
     let function =
-        Function::new_dynamic(&store, &function_type, |values: &[Value]| unimplemented!());
+        Function::new_dynamic(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function =
-        Function::new_dynamic(&store, &function_type, |values: &[Value]| unimplemented!());
+        Function::new_dynamic(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
     Ok(())
 }
@@ -284,47 +285,48 @@ fn function_new_dynamic() -> Result<()> {
 #[test]
 fn function_new_dynamic_env() -> Result<()> {
     let store = Store::default();
+    #[derive(Clone)]
     struct MyEnv {};
-    let mut my_env = MyEnv {};
+    let my_env = MyEnv {};
 
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new_dynamic_env(
         &store,
         &function_type,
-        &mut my_env,
-        |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
+        my_env.clone(),
+        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32], vec![]);
     let function = Function::new_dynamic_env(
         &store,
         &function_type,
-        &mut my_env,
-        |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
+        my_env.clone(),
+        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
     let function = Function::new_dynamic_env(
         &store,
         &function_type,
-        &mut my_env,
-        |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
+        my_env.clone(),
+        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32]);
     let function = Function::new_dynamic_env(
         &store,
         &function_type,
-        &mut my_env,
-        |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
+        my_env.clone(),
+        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function = Function::new_dynamic_env(
         &store,
         &function_type,
-        &mut my_env,
-        |_env: &mut MyEnv, values: &[Value]| unimplemented!(),
+        my_env.clone(),
+        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     Ok(())

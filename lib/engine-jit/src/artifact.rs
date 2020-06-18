@@ -6,6 +6,7 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
 use wasm_common::{
@@ -14,7 +15,7 @@ use wasm_common::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_compiler::{CompileError, Features};
+use wasmer_compiler::{CompileError, Features, Triple};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
@@ -24,10 +25,10 @@ use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMShared
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
+    _unwind_registry: Arc<UnwindRegistry>,
     serializable: SerializableModule,
-
     finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
@@ -64,30 +65,6 @@ impl JITArtifact {
 
         let compiler = inner_jit.compiler()?;
 
-        // Compile the trampolines
-        // We compile the call trampolines for all the signatures
-        let func_types = translation
-            .module
-            .signatures
-            .values()
-            .cloned()
-            .collect::<Vec<_>>();
-        let function_call_trampolines = compiler
-            .compile_function_call_trampolines(&func_types)?
-            .into_iter()
-            .collect::<PrimaryMap<SignatureIndex, _>>();
-
-        // We compile the dynamic function trampolines only for the imported functions
-        let func_types = translation
-            .module
-            .functions
-            .values()
-            .take(translation.module.num_imported_funcs)
-            .map(|&sig_index| translation.module.signatures[sig_index].clone())
-            .collect::<Vec<_>>();
-        let dynamic_function_trampolines =
-            compiler.compile_dynamic_function_trampolines(&func_types)?;
-
         // Compile the Module
         let compilation = compiler.compile_module(
             &translation.module,
@@ -96,6 +73,8 @@ impl JITArtifact {
             memory_plans.clone(),
             table_plans.clone(),
         )?;
+        let function_call_trampolines = compilation.get_function_call_trampolines();
+        let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
 
         let data_initializers = translation
             .data_initializers
@@ -119,6 +98,7 @@ impl JITArtifact {
             dynamic_function_trampolines,
             custom_sections: compilation.get_custom_sections(),
             custom_section_relocations: compilation.get_custom_section_relocations(),
+            debug: compilation.get_debug(),
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
@@ -163,7 +143,13 @@ impl JITArtifact {
         inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let (finished_functions, finished_dynamic_function_trampolines) = inner_jit.allocate(
+        let mut unwind_registry = UnwindRegistry::new();
+        let (
+            finished_functions,
+            _finished_function_call_trampolines,
+            finished_dynamic_function_trampolines,
+        ) = inner_jit.allocate(
+            &mut unwind_registry,
             &serializable.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
@@ -192,8 +178,30 @@ impl JITArtifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
+        let eh_frame = match &serializable.compilation.debug {
+            Some(debug) => {
+                let eh_frame_section_size = serializable.compilation.custom_sections
+                    [debug.eh_frame]
+                    .bytes
+                    .len();
+                let eh_frame_section_pointer = custom_sections[debug.eh_frame];
+                Some(unsafe {
+                    std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
+                })
+            }
+            None => None,
+        };
         // Make all code compiled thus far executable.
         inner_jit.publish_compiled_code();
+
+        unwind_registry.publish(eh_frame).map_err(|e| {
+            CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+        })?;
+
+        let unwind_registry = Arc::new(unwind_registry);
+        // Save the unwind registry into CodeMemory, so it can survive longer than
+        // the Module.
+        inner_jit.publish_unwind_registry(unwind_registry.clone());
 
         let finished_functions = finished_functions.into_boxed_slice();
         let finished_dynamic_function_trampolines =
@@ -201,12 +209,19 @@ impl JITArtifact {
         let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
+            _unwind_registry: unwind_registry,
             serializable,
             finished_functions,
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
         })
+    }
+
+    /// Get the default extension when serializing this artifact
+    pub fn get_default_extension(_triple: &Triple) -> &'static str {
+        // `.wjit` is the default extension for all the triples
+        "wjit"
     }
 }
 
@@ -259,9 +274,10 @@ impl Artifact for JITArtifact {
         &self.finished_functions
     }
 
+    // TODO: return *const instead of *mut
     fn finished_dynamic_function_trampolines(
         &self,
-    ) -> &BoxedSlice<FunctionIndex, *const VMFunctionBody> {
+    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
         &self.finished_dynamic_function_trampolines
     }
 

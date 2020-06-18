@@ -8,13 +8,16 @@ use crate::codegen_x64::{
 };
 use crate::config::SinglepassConfig;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
-use wasmer_compiler::wasmparser::{BinaryReader, BinaryReaderError};
+use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
-use wasmer_compiler::{CompilerConfig, ModuleTranslationState, Target};
+use wasmer_compiler::{
+    CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState, Target,
+};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::TrapCode;
@@ -77,7 +80,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let mut reader = BinaryReader::new_with_offset(input.data, input.module_offset);
+                let middleware_chain = self.config.middlewares.generate_middleware_chain(*i);
+                let mut reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(middleware_chain);
 
                 // This local list excludes arguments.
                 let mut locals = vec![];
@@ -114,31 +120,33 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunction>>();
 
-        Ok(Compilation::new(functions, import_trampolines))
-    }
-
-    fn compile_function_call_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<Vec<FunctionBody>, CompileError> {
-        Ok(signatures
+        let function_call_trampolines = module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
             .par_iter()
             .cloned()
             .map(gen_std_trampoline)
-            .collect())
-    }
+            .collect::<Vec<_>>()
+            .into_iter()
+            .collect::<PrimaryMap<_, _>>();
 
-    fn compile_dynamic_function_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError> {
-        let vmoffsets = VMOffsets::new_for_trampolines(8);
-        Ok(signatures
+        let dynamic_function_trampolines = module
+            .imported_function_types()
+            .collect::<Vec<_>>()
             .par_iter()
             .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
-            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>())
+            .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();
+
+        Ok(Compilation::new(
+            functions,
+            import_trampolines,
+            function_call_trampolines,
+            dynamic_function_trampolines,
+            None,
+        ))
     }
 }
 

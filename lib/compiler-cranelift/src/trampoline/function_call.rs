@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! A trampoline generator for calling Wasm functions easily.
 //!
 //! That way, you can start calling Wasm functions doing things like:
@@ -44,7 +47,6 @@ pub fn make_trampoline_function_call(
 
     let mut context = Context::new();
     context.func = ir::Function::with_name_signature(ir::ExternalName::user(0, 0), wrapper_sig);
-    context.func.collect_frame_layout_info();
 
     let value_size = mem::size_of::<u128>();
     {
@@ -118,7 +120,7 @@ pub fn make_trampoline_function_call(
         )
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
-    let unwind_info = compiled_function_unwind_info(isa, &context);
+    let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 
     Ok(FunctionBody {
         body: code_buf,

@@ -8,5 +8,11 @@ is not prone to JIT bombs and also offers great compilation performance
 orders of magnitude faster than `wasmer-compiler-cranelift` and
 `wasmer-compiler-llvm`, however with a bit slower runtime speed.
 
-> Note: this crate requires on Rust nightly to be compiled, as depends on
-`dynasm-rs` and that crate can only be compiled in Nigthly.
+The fact that singlepass is not prone to JIT bombs and offers a very
+predictable compilation speed makes it ideal for **blockchains** and other
+systems where fast and consistent compilation times are very critical.
+
+## Requirements
+
+At the moment, this crate depends on Rust nightly to be compiled, as it uses
+`dynasm-rs` which can only be compiled in Nightly.

@@ -1,11 +1,13 @@
+use crate::memory::LinearMemory;
+use crate::table::LinearTable;
 use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
+use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;
-use wasmer_runtime::{LinearMemory, Table};
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TablePlan, TableStyle};
+use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -91,13 +93,13 @@ impl BaseTunables for Tunables {
     }
 
     /// Create a memory given a memory type
-    fn create_memory(&self, plan: MemoryPlan) -> Result<LinearMemory, MemoryError> {
-        LinearMemory::new(&plan)
+    fn create_memory(&self, plan: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError> {
+        Ok(Arc::new(LinearMemory::new(&plan)?))
     }
 
     /// Create a memory given a memory type
-    fn create_table(&self, plan: TablePlan) -> Result<Table, String> {
-        Table::new(&plan)
+    fn create_table(&self, plan: TablePlan) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::new(&plan)?))
     }
 }
 

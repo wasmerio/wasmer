@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! A trampoline generator for calling dynamic host functions from Wasm.
 
 use super::binemit::TrampolineRelocSink;
@@ -118,7 +121,7 @@ pub fn make_trampoline_dynamic_function(
         )
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
-    let unwind_info = compiled_function_unwind_info(isa, &context);
+    let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 
     Ok(FunctionBody {
         body: code_buf,

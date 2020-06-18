@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
@@ -460,6 +463,29 @@ where
     {
         unsafe { (*(payload as *mut F))() }
     }
+}
+
+/// Catches any wasm traps that happen within the execution of `closure`,
+/// returning them as a `Result`, with the closure contents.
+///
+/// The main difference from this method and `catch_traps`, is that is able
+/// to return the results from the closure.
+///
+/// # Safety
+///
+/// Check [`catch_traps`].
+pub unsafe fn catch_traps_with_result<F, R>(
+    vmctx: *mut VMContext,
+    mut closure: F,
+) -> Result<R, Trap>
+where
+    F: FnMut() -> R,
+{
+    let mut global_results = mem::MaybeUninit::<R>::uninit();
+    catch_traps(vmctx, || {
+        global_results.as_mut_ptr().write(closure());
+    })?;
+    Ok(global_results.assume_init())
 }
 
 /// Temporary state stored on the stack which is registered in the `tls` module

@@ -1,4 +1,7 @@
-//! Stand-alone WebAssembly to Cranelift IR translator.
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
+//! Standalone WebAssembly to Cranelift IR translator.
 //!
 //! This module defines the `FuncTranslator` type which can translate a single WebAssembly
 //! function to Cranelift IR guided by a `FuncEnvironment` which provides information about the
@@ -8,13 +11,18 @@ use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_t
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
+use crate::config::CraneliftConfig;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
-use wasmer_compiler::wasmparser::{self, BinaryReader};
-use wasmer_compiler::{to_wasm_error, wasm_unsupported, ModuleTranslationState, WasmResult};
+use wasm_common::LocalFunctionIndex;
+use wasmer_compiler::wasmparser;
+use wasmer_compiler::{
+    to_wasm_error, wasm_unsupported, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    ModuleTranslationState, WasmResult,
+};
 
 /// WebAssembly to Cranelift IR function translator.
 ///
@@ -60,20 +68,23 @@ impl FuncTranslator {
         code_offset: usize,
         func: &mut ir::Function,
         environ: &mut FE,
+        local_function_index: LocalFunctionIndex,
+        config: &CraneliftConfig,
     ) -> WasmResult<()> {
-        self.translate_from_reader(
-            module_translation_state,
-            BinaryReader::new_with_offset(code, code_offset),
-            func,
-            environ,
-        )
+        let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
+        reader.set_middleware_chain(
+            config
+                .middlewares
+                .generate_middleware_chain(local_function_index),
+        );
+        self.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
-    /// Translate a binary WebAssembly function from a `BinaryReader`.
+    /// Translate a binary WebAssembly function from a `MiddlewareBinaryReader`.
     pub fn translate_from_reader<FE: FuncEnvironment + ?Sized>(
         &mut self,
         module_translation_state: &ModuleTranslationState,
-        mut reader: BinaryReader,
+        mut reader: MiddlewareBinaryReader,
         func: &mut ir::Function,
         environ: &mut FE,
     ) -> WasmResult<()> {
@@ -157,7 +168,7 @@ fn declare_wasm_parameters<FE: FuncEnvironment + ?Sized>(
 ///
 /// Declare local variables, starting from `num_params`.
 fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
-    reader: &mut BinaryReader,
+    reader: &mut MiddlewareBinaryReader,
     builder: &mut FunctionBuilder,
     num_params: usize,
     environ: &mut FE,
@@ -198,9 +209,8 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
             let constant_handle = builder.func.dfg.constants.insert([0; 16].to_vec().into());
             builder.ins().vconst(ir::types::I8X16, constant_handle)
         }
-        NullRef => builder.ins().null(environ.reference_type()),
-        AnyRef => builder.ins().null(environ.reference_type()),
-        AnyFunc => builder.ins().null(environ.reference_type()),
+        ExternRef => builder.ins().null(environ.reference_type()),
+        FuncRef => builder.ins().null(environ.reference_type()),
         ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
     };
 
@@ -221,7 +231,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
 /// arguments and locals are declared in the builder.
 fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     module_translation_state: &ModuleTranslationState,
-    mut reader: BinaryReader,
+    mut reader: MiddlewareBinaryReader,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,
@@ -269,7 +279,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
 }
 
 /// Get the current source location from a reader.
-fn cur_srcloc(reader: &BinaryReader) -> ir::SourceLoc {
+fn cur_srcloc(reader: &MiddlewareBinaryReader) -> ir::SourceLoc {
     // We record source locations as byte code offsets relative to the beginning of the file.
     // This will wrap around if byte code is larger than 4 GB.
     ir::SourceLoc::new(reader.original_position() as u32)

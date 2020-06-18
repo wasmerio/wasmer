@@ -2,7 +2,10 @@
 use enumset::{EnumSet, EnumSetType};
 use std::str::FromStr;
 use std::string::ToString;
-pub use target_lexicon::{Architecture, BinaryFormat, CallingConvention, OperatingSystem, Triple};
+pub use target_lexicon::{
+    Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
+    Triple,
+};
 use thiserror::Error;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]

@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Data structure for representing WebAssembly modules
 //! in a [`Module`].
 
@@ -317,6 +320,14 @@ impl ModuleInfo {
             Some(ref name) => name.to_string(),
             None => "<module>".to_string(),
         }
+    }
+
+    /// Get the imported function types of the module.
+    pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
+        self.functions
+            .values()
+            .take(self.num_imported_funcs)
+            .map(move |sig_index| self.signatures[*sig_index].clone())
     }
 }
 

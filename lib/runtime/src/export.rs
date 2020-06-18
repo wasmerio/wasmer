@@ -1,9 +1,13 @@
-use crate::memory::{LinearMemory, MemoryPlan};
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
+use crate::memory::{Memory, MemoryPlan};
 use crate::table::{Table, TablePlan};
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
     VMTableDefinition,
 };
+use std::sync::Arc;
 use wasm_common::{FunctionType, GlobalType};
 
 /// The value of an export passed from one instance to another.
@@ -47,18 +51,19 @@ pub struct ExportTable {
     /// The address of the table descriptor.
     pub definition: *mut VMTableDefinition,
     /// Pointer to the containing `Table`.
-    pub from: *mut Table,
+    pub from: Arc<dyn Table>,
 }
 
 impl ExportTable {
     /// Get the plan for this exported memory
     pub fn plan(&self) -> &TablePlan {
-        unsafe { self.from.as_ref().unwrap() }.plan()
+        self.from.plan()
     }
 
     /// Returns whether or not the two `ExportTable`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        self.definition == other.definition && self.from == other.from
+        // TODO: comparing
+        self.definition == other.definition //&& self.from == other.from
     }
 }
 
@@ -73,19 +78,20 @@ impl From<ExportTable> for Export {
 pub struct ExportMemory {
     /// The address of the memory descriptor.
     pub definition: *mut VMMemoryDefinition,
-    /// Pointer to the containing `LinearMemory`.
-    pub from: *mut LinearMemory,
+    /// Pointer to the containing `Memory`.
+    pub from: Arc<dyn Memory>,
 }
 
 impl ExportMemory {
     /// Get the plan for this exported memory
     pub fn plan(&self) -> &MemoryPlan {
-        unsafe { self.from.as_ref().unwrap() }.plan()
+        self.from.plan()
     }
 
     /// Returns whether or not the two `ExportMemory`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        self.definition == other.definition && self.from == other.from
+        // TODO: implement comparison
+        self.definition == other.definition //&& self.from == other.from
     }
 }
 

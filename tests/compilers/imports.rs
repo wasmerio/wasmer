@@ -5,6 +5,7 @@
 use crate::utils::get_store;
 use anyhow::Result;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
+use std::sync::Arc;
 use wasmer::*;
 
 fn get_module(store: &Store) -> Result<Module> {
@@ -82,27 +83,27 @@ fn dynamic_function_with_env() -> Result<()> {
     let store = get_store();
     let module = get_module(&store)?;
 
-    let mut env: AtomicUsize = AtomicUsize::new(0);
+    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_dynamic_env(&store, &FunctionType::new(vec![], vec![]), &mut env, |env, _values| {
+                "0" => Function::new_dynamic_env(&store, &FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), &mut env, |env, values| {
+                "1" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), &mut env, |env, values| {
+                "2" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), &mut env, |env, values| {
+                "3" => Function::new_dynamic_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -161,25 +162,25 @@ fn native_function_with_env() -> Result<()> {
     let store = get_store();
     let module = get_module(&store)?;
 
-    let mut env: AtomicUsize = AtomicUsize::new(0);
+    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_env(&store, &mut env, |env: &mut AtomicUsize| {
+                "0" => Function::new_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                 }),
-                "1" => Function::new_env(&store, &mut env, |env: &mut AtomicUsize, x: i32| -> i32 {
+                "1" => Function::new_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32| -> i32 {
                     assert_eq!(x, 0);
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     1
                 }),
-                "2" => Function::new_env(&store, &mut env, |env: &mut AtomicUsize, x: i32, y: i64| {
+                "2" => Function::new_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32, y: i64| {
                     assert_eq!(x, 2);
                     assert_eq!(y, 3);
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                 }),
-                "3" => Function::new_env(&store, &mut env, |env: &mut AtomicUsize, a: i32, b: i64, c: i32, d: f32, e: f64| {
+                "3" => Function::new_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, a: i32, b: i64, c: i32, d: f32, e: f64| {
                     assert_eq!(a, 100);
                     assert_eq!(b, 200);
                     assert_eq!(c, 300);

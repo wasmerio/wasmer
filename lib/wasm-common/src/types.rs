@@ -24,7 +24,7 @@ pub enum Type {
     /// A 128 bit number.
     V128,
     /// A reference to opaque data in the Wasm instance.
-    AnyRef, /* = 128 */
+    ExternRef, /* = 128 */
     /// A reference to a Wasm function.
     FuncRef,
 }
@@ -42,7 +42,7 @@ impl Type {
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(self) -> bool {
         match self {
-            Self::AnyRef | Self::FuncRef => true,
+            Self::ExternRef | Self::FuncRef => true,
             _ => false,
         }
     }
@@ -407,7 +407,7 @@ impl GlobalInit {
 /// A descriptor for a table in a WebAssembly module.
 ///
 /// Tables are contiguous chunks of a specific element, typically a `funcref` or
-/// an `anyref`. The most common use for tables is a function table through
+/// an `externref`. The most common use for tables is a function table through
 /// which `call_indirect` can invoke other functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

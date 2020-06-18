@@ -5,12 +5,14 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
+mod memory;
 mod memory_view;
 mod module;
 mod native;
 mod ordered_resolver;
 mod ptr;
 mod store;
+mod table;
 mod tunables;
 mod types;
 mod utils;
@@ -27,17 +29,23 @@ pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
 pub use crate::types::{
-    AnyRef, ExportType, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
+    ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
 };
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
-pub use wasm_common::{Bytes, Pages, ValueType, WasmExternType, WasmTypeList};
+pub use wasm_common::{
+    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WasmExternType, WasmTypeList,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
-pub use wasmer_compiler::{CpuFeature, Features, Target};
+pub use wasmer_compiler::{
+    wasmparser, CpuFeature, Features, FunctionMiddleware, FunctionMiddlewareGenerator,
+    MiddlewareReaderState, Target,
+};
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,

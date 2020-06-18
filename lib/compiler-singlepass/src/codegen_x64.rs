@@ -8201,8 +8201,8 @@ fn type_to_wp_type(ty: Type) -> WpType {
         Type::F32 => WpType::F32,
         Type::F64 => WpType::F64,
         Type::V128 => WpType::V128,
-        Type::AnyRef => WpType::AnyRef,
-        Type::FuncRef => WpType::AnyFunc, // TODO: AnyFunc or Func?
+        Type::ExternRef => WpType::ExternRef,
+        Type::FuncRef => WpType::FuncRef, // TODO: FuncRef or Func?
     }
 }
 
@@ -8256,7 +8256,7 @@ fn sort_call_movs(movs: &mut [(Location, GPR)]) {
 }
 
 // Standard entry trampoline.
-pub fn gen_std_trampoline(sig: FunctionType) -> FunctionBody {
+pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     let mut a = Assembler::new().unwrap();
 
     // Calculate stack offset.

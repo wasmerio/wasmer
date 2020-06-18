@@ -32,6 +32,7 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
     fn reloc_external(
         &mut self,
         offset: binemit::CodeOffset,
+        _source_loc: ir::SourceLoc,
         reloc: binemit::Reloc,
         name: &ExternalName,
         addend: binemit::Addend,
@@ -125,7 +126,6 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
         ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
         ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
         ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
-        ir::TrapCode::OutOfBounds => TrapCode::OutOfBounds,
         ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
         ir::TrapCode::BadSignature => TrapCode::BadSignature,
         ir::TrapCode::IntegerOverflow => TrapCode::IntegerOverflow,

@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::{Val, ValAnyFunc};
+use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
 use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
@@ -20,7 +20,7 @@ pub struct Table {
 }
 
 fn set_table_item(
-    table: &RuntimeTable,
+    table: &dyn RuntimeTable,
     item_index: u32,
     item: VMCallerCheckedAnyfunc,
 ) -> Result<(), RuntimeError> {
@@ -41,21 +41,21 @@ impl Table {
 
         let definition = table.vmtable();
         for i in 0..definition.current_elements {
-            set_table_item(&table, i, item.clone())?;
+            set_table_item(table.as_ref(), i, item.clone())?;
         }
 
         Ok(Table {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportTable {
-                from: Box::leak(Box::new(table)),
+                from: table,
                 definition: Box::leak(Box::new(definition)),
             },
         })
     }
 
-    fn table(&self) -> &RuntimeTable {
-        unsafe { &*self.exported.from }
+    fn table(&self) -> &dyn RuntimeTable {
+        &*self.exported.from
     }
 
     /// Gets the underlying [`TableType`].
@@ -70,7 +70,7 @@ impl Table {
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
         let item = self.table().get(index)?;
-        Some(ValAnyFunc::from_checked_anyfunc(item, &self.store))
+        Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.

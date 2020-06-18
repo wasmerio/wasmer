@@ -23,7 +23,7 @@ pub fn spectest_importobject(store: &Store) -> ImportObject {
     let global_f64 = Global::new(store, Val::F64(f64::from_bits(0x4084_d000_0000_0000)));
 
     let ty = TableType::new(ValType::FuncRef, 10, Some(20));
-    let table = Table::new(store, ty, Val::AnyRef(AnyRef::Null)).unwrap();
+    let table = Table::new(store, ty, Val::ExternRef(ExternRef::Null)).unwrap();
 
     let ty = MemoryType::new(1, Some(2), false);
     let memory = Memory::new(store, ty).unwrap();

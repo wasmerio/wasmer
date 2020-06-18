@@ -29,10 +29,11 @@ use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
 };
-use wasmer_compiler::wasmparser::{BinaryReader, MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, ModuleTranslationState, RelocationTarget,
+    FunctionBodyData, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState,
+    RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
@@ -129,8 +130,15 @@ impl FuncTranslator {
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
 
-        let mut reader =
-            BinaryReader::new_with_offset(function_body.data, function_body.module_offset);
+        let mut reader = MiddlewareBinaryReader::new_with_offset(
+            function_body.data,
+            function_body.module_offset,
+        );
+        reader.set_middleware_chain(
+            config
+                .middlewares
+                .generate_middleware_chain(*local_func_index),
+        );
 
         let mut params = vec![];
         let first_param =
@@ -2609,14 +2617,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_int_mul(v1, v2, "");
                 self.state.push1(res);
             }
-            Operator::I8x16Mul => {
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_i8x16(v1, i1);
-                let (v2, _) = self.v128_into_i8x16(v2, i2);
-                let res = self.builder.build_int_mul(v1, v2, "");
-                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                self.state.push1(res);
-            }
+            // Operator::I8x16Mul => {
+            //     let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+            //     let (v1, _) = self.v128_into_i8x16(v1, i1);
+            //     let (v2, _) = self.v128_into_i8x16(v2, i2);
+            //     let res = self.builder.build_int_mul(v1, v2, "");
+            //     let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+            //     self.state.push1(res);
+            // }
             Operator::I16x8Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1);
@@ -4956,36 +4964,36 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 self.state.push1(res);
             }
-            Operator::I64x2TruncSatF64x2S => {
-                let (v, i) = self.state.pop1_extra()?;
-                let v = self.apply_pending_canonicalization(v, i);
-                let v = v.into_int_value();
-                let res = self.trunc_sat(
-                    self.intrinsics.f64x2_ty,
-                    self.intrinsics.i64x2_ty,
-                    std::i64::MIN as u64,
-                    std::i64::MAX as u64,
-                    std::i64::MIN as u64,
-                    std::i64::MAX as u64,
-                    v,
-                );
-                self.state.push1(res);
-            }
-            Operator::I64x2TruncSatF64x2U => {
-                let (v, i) = self.state.pop1_extra()?;
-                let v = self.apply_pending_canonicalization(v, i);
-                let v = v.into_int_value();
-                let res = self.trunc_sat(
-                    self.intrinsics.f64x2_ty,
-                    self.intrinsics.i64x2_ty,
-                    std::u64::MIN,
-                    std::u64::MAX,
-                    std::u64::MIN,
-                    std::u64::MAX,
-                    v,
-                );
-                self.state.push1(res);
-            }
+            // Operator::I64x2TruncSatF64x2S => {
+            //     let (v, i) = self.state.pop1_extra()?;
+            //     let v = self.apply_pending_canonicalization(v, i);
+            //     let v = v.into_int_value();
+            //     let res = self.trunc_sat(
+            //         self.intrinsics.f64x2_ty,
+            //         self.intrinsics.i64x2_ty,
+            //         std::i64::MIN as u64,
+            //         std::i64::MAX as u64,
+            //         std::i64::MIN as u64,
+            //         std::i64::MAX as u64,
+            //         v,
+            //     );
+            //     self.state.push1(res);
+            // }
+            // Operator::I64x2TruncSatF64x2U => {
+            //     let (v, i) = self.state.pop1_extra()?;
+            //     let v = self.apply_pending_canonicalization(v, i);
+            //     let v = v.into_int_value();
+            //     let res = self.trunc_sat(
+            //         self.intrinsics.f64x2_ty,
+            //         self.intrinsics.i64x2_ty,
+            //         std::u64::MIN,
+            //         std::u64::MAX,
+            //         std::u64::MIN,
+            //         std::u64::MAX,
+            //         v,
+            //     );
+            //     self.state.push1(res);
+            // }
             Operator::I32TruncF32S => {
                 let v1 = self.state.pop1()?.into_float_value();
                 self.trap_if_not_representable_as_int(
@@ -5268,30 +5276,30 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::F64x2ConvertI64x2S => {
-                let v = self.state.pop1()?;
-                let v = self
-                    .builder
-                    .build_bitcast(v, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let res = self
-                    .builder
-                    .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
-                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                self.state.push1(res);
-            }
-            Operator::F64x2ConvertI64x2U => {
-                let v = self.state.pop1()?;
-                let v = self
-                    .builder
-                    .build_bitcast(v, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let res = self
-                    .builder
-                    .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
-                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                self.state.push1(res);
-            }
+            // Operator::F64x2ConvertI64x2S => {
+            //     let v = self.state.pop1()?;
+            //     let v = self
+            //         .builder
+            //         .build_bitcast(v, self.intrinsics.i64x2_ty, "")
+            //         .into_vector_value();
+            //     let res = self
+            //         .builder
+            //         .build_signed_int_to_float(v, self.intrinsics.f64x2_ty, "");
+            //     let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+            //     self.state.push1(res);
+            // }
+            // Operator::F64x2ConvertI64x2U => {
+            //     let v = self.state.pop1()?;
+            //     let v = self
+            //         .builder
+            //         .build_bitcast(v, self.intrinsics.i64x2_ty, "")
+            //         .into_vector_value();
+            //     let res = self
+            //         .builder
+            //         .build_unsigned_int_to_float(v, self.intrinsics.f64x2_ty, "");
+            //     let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+            //     self.state.push1(res);
+            // }
             Operator::I32ReinterpretF32 => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
@@ -5872,10 +5880,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_not(v, "");
                 self.state.push1(res);
             }
-            Operator::I8x16AnyTrue
-            | Operator::I16x8AnyTrue
-            | Operator::I32x4AnyTrue
-            | Operator::I64x2AnyTrue => {
+            Operator::I8x16AnyTrue | Operator::I16x8AnyTrue | Operator::I32x4AnyTrue => {
+                // | Operator::I64x2AnyTrue
                 // Skip canonicalization, it never changes non-zero values to zero or vice versa.
                 let v = self.state.pop1()?.into_int_value();
                 let res = self.builder.build_int_compare(
@@ -5892,15 +5898,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     ExtraInfo::arithmetic_f32() | ExtraInfo::arithmetic_f64(),
                 );
             }
-            Operator::I8x16AllTrue
-            | Operator::I16x8AllTrue
-            | Operator::I32x4AllTrue
-            | Operator::I64x2AllTrue => {
+            Operator::I8x16AllTrue | Operator::I16x8AllTrue | Operator::I32x4AllTrue => {
+                // | Operator::I64x2AllTrue
                 let vec_ty = match op {
                     Operator::I8x16AllTrue => self.intrinsics.i8x16_ty,
                     Operator::I16x8AllTrue => self.intrinsics.i16x8_ty,
                     Operator::I32x4AllTrue => self.intrinsics.i32x4_ty,
-                    Operator::I64x2AllTrue => self.intrinsics.i64x2_ty,
+                    // Operator::I64x2AllTrue => self.intrinsics.i64x2_ty,
                     _ => unreachable!(),
                 };
                 let (v, i) = self.state.pop1_extra()?;

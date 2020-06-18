@@ -58,7 +58,7 @@ impl Features {
     /// feature can be enabled through this method for appropriate WebAssembly
     /// modules.
     ///
-    /// This feature gates items such as the `anyref` type and multiple tables
+    /// This feature gates items such as the `externref` type and multiple tables
     /// being in a module. Note that enabling the reference types feature will
     /// also enable the bulk memory feature.
     ///

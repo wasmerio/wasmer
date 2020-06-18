@@ -2,7 +2,10 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, Features, Target};
+use std::sync::Arc;
+use wasmer_compiler::{
+    Compiler, CompilerConfig, CpuFeature, Features, FunctionMiddlewareGenerator, Target,
+};
 
 #[derive(Clone)]
 pub struct SinglepassConfig {
@@ -23,6 +26,9 @@ pub struct SinglepassConfig {
 
     features: Features,
     target: Target,
+
+    /// The middleware chain.
+    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
 
 impl SinglepassConfig {
@@ -37,6 +43,7 @@ impl SinglepassConfig {
             enable_stack_check: false,
             features,
             target,
+            middlewares: vec![],
         }
     }
 }
@@ -61,6 +68,11 @@ impl CompilerConfig for SinglepassConfig {
     /// Transform it into the compiler
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(SinglepassCompiler::new(&self))
+    }
+
+    /// Pushes a middleware onto the back of the middleware chain.
+    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+        self.middlewares.push(middleware);
     }
 }
 

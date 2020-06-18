@@ -1,12 +1,16 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
 use crate::instance::Instance;
-use crate::memory::LinearMemory;
+use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use std::any::Any;
 use std::convert::TryFrom;
+use std::sync::Arc;
 use std::{ptr, u32};
 
 /// An imported function.
@@ -46,7 +50,7 @@ mod test_vmfunction_import {
     }
 }
 
-/// The `VMDynamicFunctionImportContext` is the context that dynamic
+/// The `VMDynamicFunctionContext` is the context that dynamic
 /// functions will receive when called (rather than `vmctx`).
 /// A dynamic function is a function for which we don't know the signature
 /// until runtime.
@@ -55,7 +59,7 @@ mod test_vmfunction_import {
 /// containing the relevant context for running the function indicated
 /// in `address`.
 #[repr(C)]
-pub struct VMDynamicFunctionImportContext<T: Sized> {
+pub struct VMDynamicFunctionContext<T: Sized> {
     /// The address of the inner dynamic function.
     ///
     /// Note: The function must be on the form of
@@ -68,7 +72,7 @@ pub struct VMDynamicFunctionImportContext<T: Sized> {
 
 #[cfg(test)]
 mod test_vmdynamicfunction_import_context {
-    use super::VMDynamicFunctionImportContext;
+    use super::VMDynamicFunctionContext;
     use crate::{ModuleInfo, VMOffsets};
     use memoffset::offset_of;
     use std::mem::size_of;
@@ -78,15 +82,15 @@ mod test_vmdynamicfunction_import_context {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<VMDynamicFunctionImportContext<usize>>(),
+            size_of::<VMDynamicFunctionContext<usize>>(),
             usize::from(offsets.size_of_vmdynamicfunction_import_context())
         );
         assert_eq!(
-            offset_of!(VMDynamicFunctionImportContext<usize>, address),
+            offset_of!(VMDynamicFunctionContext<usize>, address),
             usize::from(offsets.vmdynamicfunction_import_context_address())
         );
         assert_eq!(
-            offset_of!(VMDynamicFunctionImportContext<usize>, ctx),
+            offset_of!(VMDynamicFunctionContext<usize>, ctx),
             usize::from(offsets.vmdynamicfunction_import_context_ctx())
         );
     }
@@ -132,14 +136,14 @@ pub enum VMFunctionKind {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
     pub definition: *mut VMTableDefinition,
 
     /// A pointer to the `Table` that owns the table description.
-    pub from: *mut Table,
+    pub from: Arc<dyn Table>,
 }
 
 #[cfg(test)]
@@ -170,14 +174,14 @@ mod test_vmtable_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear
 /// memory imported from another instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
     pub definition: *mut VMMemoryDefinition,
 
-    /// A pointer to the `LinearMemory` that owns the memory description.
-    pub from: *mut LinearMemory,
+    /// A pointer to the `Memory` that owns the memory description.
+    pub from: Arc<dyn Memory>,
 }
 
 #[cfg(test)]

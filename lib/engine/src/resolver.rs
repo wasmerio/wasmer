@@ -128,7 +128,7 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
 pub fn resolve_imports(
     module: &ModuleInfo,
     resolver: &dyn Resolver,
-    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *const VMFunctionBody>,
+    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
@@ -166,7 +166,7 @@ pub fn resolve_imports(
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index]
+                        finished_dynamic_function_trampolines[index] as *mut VMFunctionBody as _
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
@@ -181,7 +181,7 @@ pub fn resolve_imports(
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
                     definition: t.definition,
-                    from: t.from,
+                    from: t.from.clone(),
                 });
             }
             Export::Memory(ref m) => {
@@ -214,7 +214,7 @@ pub fn resolve_imports(
 
                 memory_imports.push(VMMemoryImport {
                     definition: m.definition,
-                    from: m.from,
+                    from: m.from.clone(),
                 });
             }
 

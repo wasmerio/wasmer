@@ -40,14 +40,14 @@ mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         #[macro_use]
-        pub use alloc::{borrow, boxed, string, vec};
+        pub use alloc::{borrow, boxed, string, vec, sync};
         pub use core::fmt;
         pub use hashbrown as collections;
     }
 
     #[cfg(feature = "std")]
     pub mod std {
-        pub use std::{borrow, boxed, collections, fmt, string, vec};
+        pub use std::{borrow, boxed, collections, fmt, string, sync, vec};
     }
 }
 
@@ -72,7 +72,7 @@ pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 pub use crate::compiler::{Compiler, CompilerConfig};
 pub use crate::error::{CompileError, WasmError, WasmResult};
 pub use crate::function::{
-    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, FunctionBody,
+    Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
@@ -80,16 +80,17 @@ pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Reloca
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
-    Architecture, BinaryFormat, CallingConvention, CpuFeature, OperatingSystem,
-    ParseCpuFeatureError, Target, Triple,
+    Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
+    ParseCpuFeatureError, PointerWidth, Target, Triple,
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    to_wasm_error, translate_module, wptype_to_type, FunctionBodyData, ModuleEnvironment,
-    ModuleInfoTranslation, ModuleTranslationState,
+    to_wasm_error, translate_module, wptype_to_type, FunctionBodyData, FunctionMiddleware,
+    FunctionMiddlewareGenerator, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    MiddlewareReaderState, ModuleEnvironment, ModuleInfoTranslation, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
-pub use crate::unwind::{CompiledFunctionUnwindInfo, FDERelocEntry, FunctionTableReloc};
+pub use crate::unwind::CompiledFunctionUnwindInfo;
 
 pub use wasm_common::Features;
 

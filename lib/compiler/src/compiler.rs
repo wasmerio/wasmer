@@ -2,16 +2,15 @@
 //! compilers will need to implement.
 
 use crate::error::CompileError;
-use crate::function::{Compilation, FunctionBody};
+use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
-use crate::lib::std::vec::Vec;
+use crate::lib::std::sync::Arc;
 use crate::target::Target;
+use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{
-    Features, FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex,
-};
+use wasm_common::{Features, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::ModuleInfo;
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
@@ -37,6 +36,9 @@ pub trait CompilerConfig {
 
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
+
+    /// Pushes a middleware onto the back of the middleware chain.
+    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
@@ -57,6 +59,7 @@ pub trait Compiler {
                 enable_threads: features.threads,
                 enable_reference_types: features.reference_types,
                 enable_bulk_memory: features.bulk_memory,
+                enable_tail_call: false,
                 enable_simd: features.simd,
                 enable_multi_value: features.multi_value,
             },
@@ -66,8 +69,7 @@ pub trait Compiler {
 
     /// Compiles a parsed module.
     ///
-    /// It returns the `Compilation` result (with a list of `CompiledFunction`)
-    /// or a `CompileError`.
+    /// It returns the [`Compilation`] or a [`CompileError`].
     fn compile_module<'data, 'module>(
         &self,
         module: &'module ModuleInfo,
@@ -79,40 +81,4 @@ pub trait Compiler {
         // The plans for the module tables (imported and local)
         table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError>;
-
-    /// Compile the trampolines to call a function defined in
-    /// a Wasm module.
-    ///
-    /// This allows us to call easily Wasm functions, such as:
-    ///
-    /// ```ignore
-    /// let func = instance.exports.get_function("my_func");
-    /// func.call(&[Value::I32(1)]);
-    /// ```
-    fn compile_function_call_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<Vec<FunctionBody>, CompileError>;
-
-    /// Compile the trampolines to call a dynamic function defined in
-    /// a host, from a Wasm module.
-    ///
-    /// This allows us to create dynamic Wasm functions, such as:
-    ///
-    /// ```ignore
-    /// fn my_func(values: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-    ///     // do something
-    /// }
-    ///
-    /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
-    /// let imports = imports!{
-    ///     "namespace" => {
-    ///         "my_func" => Function::new_dynamic(my_func_type, my_func),
-    ///     }
-    /// }
-    /// ```
-    fn compile_dynamic_function_trampolines(
-        &self,
-        signatures: &[FunctionType],
-    ) -> Result<PrimaryMap<FunctionIndex, FunctionBody>, CompileError>;
 }

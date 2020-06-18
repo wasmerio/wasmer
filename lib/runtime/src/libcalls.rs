@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 //! Runtime library calls.
 //!
 //! Note that Wasm compilers may sometimes perform these inline rather than
@@ -33,7 +36,6 @@
 //!   ```
 
 use crate::probestack::PROBESTACK;
-use crate::table::Table;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
@@ -214,7 +216,7 @@ pub unsafe extern "C" fn wasmer_table_copy(
         let instance = (&*vmctx).instance();
         let dst_table = instance.get_table(dst_table_index);
         let src_table = instance.get_table(src_table_index);
-        Table::copy(dst_table, src_table, dst, src, len)
+        dst_table.copy(src_table, dst, src, len)
     };
     if let Err(trap) = result {
         raise_lib_trap(trap);
@@ -405,36 +407,36 @@ pub unsafe extern "C" fn wasmer_probestack() {
 /// This list is likely to grow over time.
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum LibCall {
+    /// ceil.f32
+    CeilF32,
+
+    /// ceil.f64
+    CeilF64,
+
+    /// floor.f32
+    FloorF32,
+
+    /// floor.f64
+    FloorF64,
+
+    /// nearest.f32
+    NearestF32,
+
+    /// nearest.f64
+    NearestF64,
+
     /// probe for stack overflow. These are emitted for functions which need
     /// when the `enable_probestack` setting is true.
     Probestack,
-    /// ceil.f32
-    CeilF32,
-    /// ceil.f64
-    CeilF64,
-    /// floor.f32
-    FloorF32,
-    /// floor.f64
-    FloorF64,
-    /// trunc.f32
-    TruncF32,
-    /// frunc.f64
-    TruncF64,
-    /// nearest.f32
-    NearestF32,
-    /// nearest.f64
-    NearestF64,
+
     /// A custom trap
     RaiseTrap,
-    // /// libc.memcpy
-    // Memcpy,
-    // /// libc.memset
-    // Memset,
-    // /// libc.memmove
-    // Memmove,
 
-    // /// Elf __tls_get_addr
-    // ElfTlsGetAddr,
+    /// trunc.f32
+    TruncF32,
+
+    /// frunc.f64
+    TruncF64,
 }
 
 impl LibCall {
@@ -442,16 +444,31 @@ impl LibCall {
     pub fn function_pointer(self) -> usize {
         match self {
             Self::CeilF32 => wasmer_f32_ceil as usize,
-            Self::FloorF32 => wasmer_f32_floor as usize,
-            Self::TruncF32 => wasmer_f32_trunc as usize,
-            Self::NearestF32 => wasmer_f32_nearest as usize,
             Self::CeilF64 => wasmer_f64_ceil as usize,
+            Self::FloorF32 => wasmer_f32_floor as usize,
             Self::FloorF64 => wasmer_f64_floor as usize,
-            Self::TruncF64 => wasmer_f64_trunc as usize,
+            Self::NearestF32 => wasmer_f32_nearest as usize,
             Self::NearestF64 => wasmer_f64_nearest as usize,
+            Self::Probestack => wasmer_probestack as usize,
             Self::RaiseTrap => wasmer_raise_trap as usize,
-            Self::Probestack => PROBESTACK as usize,
-            // other => panic!("unexpected libcall: {}", other),
+            Self::TruncF32 => wasmer_f32_trunc as usize,
+            Self::TruncF64 => wasmer_f64_trunc as usize,
+        }
+    }
+
+    /// Return the function name associated to the libcall.
+    pub fn to_function_name(&self) -> &str {
+        match self {
+            Self::CeilF32 => "wasmer_f32_ceil",
+            Self::CeilF64 => "wasmer_f64_ceil",
+            Self::FloorF32 => "wasmer_f32_floor",
+            Self::FloorF64 => "wasmer_f64_floor",
+            Self::NearestF32 => "wasmer_f32_nearest",
+            Self::NearestF64 => "wasmer_f64_nearest",
+            Self::Probestack => "wasmer_probestack",
+            Self::RaiseTrap => "wasmer_raise_trap",
+            Self::TruncF32 => "wasmer_f32_trunc",
+            Self::TruncF64 => "wasmer_f64_trunc",
         }
     }
 }

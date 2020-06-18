@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
+
 use crate::translator::{
     type_to_irtype, FuncEnvironment as BaseFuncEnvironment, GlobalVariable, TargetEnvironment,
 };
@@ -536,7 +539,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_table_grow(
         &mut self,
         _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: u32,
+        _: TableIndex,
         _: ir::Value,
         _: ir::Value,
     ) -> WasmResult<ir::Value> {
@@ -548,7 +551,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_table_get(
         &mut self,
         _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: u32,
+        _: TableIndex,
         _: ir::Value,
     ) -> WasmResult<ir::Value> {
         Err(WasmError::Unsupported(
@@ -559,7 +562,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_table_set(
         &mut self,
         _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: u32,
+        _: TableIndex,
         _: ir::Value,
         _: ir::Value,
     ) -> WasmResult<()> {
@@ -571,7 +574,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_table_fill(
         &mut self,
         _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: u32,
+        _: TableIndex,
         _: ir::Value,
         _: ir::Value,
         _: ir::Value,

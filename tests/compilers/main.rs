@@ -6,6 +6,7 @@
 
 mod functions;
 mod imports;
+mod middlewares;
 mod multi_value_imports;
 mod serialize;
 mod traps;
