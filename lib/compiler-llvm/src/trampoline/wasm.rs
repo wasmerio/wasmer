@@ -1,4 +1,4 @@
-use crate::config::{CompiledFunctionKind, LLVMConfig};
+use crate::config::{CompiledFunctionKind, LLVM};
 use crate::object_file::load_object_file;
 use crate::translator::abi::{
     func_type_to_llvm, get_vmctx_ptr_param, is_sret, pack_values_for_register_return,
@@ -38,7 +38,7 @@ impl FuncTrampoline {
     pub fn trampoline(
         &mut self,
         ty: &FunctionType,
-        config: &LLVMConfig,
+        config: &LLVM,
     ) -> Result<FunctionBody, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
@@ -127,7 +127,7 @@ impl FuncTrampoline {
     pub fn dynamic_trampoline(
         &mut self,
         ty: &FunctionType,
-        config: &LLVMConfig,
+        config: &LLVM,
     ) -> Result<FunctionBody, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());

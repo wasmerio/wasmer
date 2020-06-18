@@ -29,7 +29,7 @@ pub enum OptLevel {
 /// This structure exposed a builder-like interface and is primarily consumed by
 /// [`Engine::new()`]
 #[derive(Clone)]
-pub struct CraneliftConfig {
+pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
     enable_simd: bool,
@@ -39,7 +39,7 @@ pub struct CraneliftConfig {
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
 
-impl CraneliftConfig {
+impl Cranelift {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new() -> Self {
@@ -193,7 +193,7 @@ impl CraneliftConfig {
     }
 }
 
-impl CompilerConfig for CraneliftConfig {
+impl CompilerConfig for Cranelift {
     fn enable_pic(&mut self) {
         self.enable_pic = true;
     }
@@ -209,7 +209,7 @@ impl CompilerConfig for CraneliftConfig {
     }
 }
 
-impl Default for CraneliftConfig {
+impl Default for Cranelift {
     fn default() -> Self {
         Self::new()
     }

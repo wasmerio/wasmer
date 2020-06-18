@@ -1,6 +1,4 @@
-use crate::{
-    common_decl::*, config::SinglepassConfig, emitter_x64::*, machine::Machine, x64_decl::*,
-};
+use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
@@ -32,7 +30,7 @@ pub struct FuncGen<'a> {
     module: &'a ModuleInfo,
 
     /// ModuleInfo compilation config.
-    config: &'a SinglepassConfig,
+    config: &'a Singlepass,
 
     /// Offsets of vmctx fields.
     vmoffsets: &'a VMOffsets,
@@ -1781,7 +1779,7 @@ impl<'a> FuncGen<'a> {
 
     pub fn new(
         module: &'a ModuleInfo,
-        config: &'a SinglepassConfig,
+        config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
         memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,

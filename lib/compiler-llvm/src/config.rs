@@ -39,7 +39,7 @@ pub trait LLVMCallbacks: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct LLVMConfig {
+pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,
     pub(crate) opt_level: OptimizationLevel,
@@ -49,7 +49,7 @@ pub struct LLVMConfig {
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
 
-impl LLVMConfig {
+impl LLVM {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new() -> Self {
@@ -176,7 +176,7 @@ impl LLVMConfig {
     }
 }
 
-impl CompilerConfig for LLVMConfig {
+impl CompilerConfig for LLVM {
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -195,8 +195,8 @@ impl CompilerConfig for LLVMConfig {
     }
 }
 
-impl Default for LLVMConfig {
-    fn default() -> LLVMConfig {
+impl Default for LLVM {
+    fn default() -> LLVM {
         Self::new()
     }
 }

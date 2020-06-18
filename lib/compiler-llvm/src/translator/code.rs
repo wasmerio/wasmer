@@ -22,7 +22,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 
-use crate::config::{CompiledFunctionKind, LLVMConfig};
+use crate::config::{CompiledFunctionKind, LLVM};
 use crate::object_file::load_object_file;
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
@@ -72,7 +72,7 @@ impl FuncTranslator {
         module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
-        config: &LLVMConfig,
+        config: &LLVM,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,

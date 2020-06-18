@@ -6,7 +6,7 @@ use crate::codegen_x64::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
     CodegenError, FuncGen,
 };
-use crate::config::SinglepassConfig;
+use crate::config::Singlepass;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
@@ -24,19 +24,19 @@ use wasmer_runtime::{ModuleInfo, TrapCode, VMOffsets};
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
 pub struct SinglepassCompiler {
-    config: SinglepassConfig,
+    config: Singlepass,
 }
 
 impl SinglepassCompiler {
     /// Creates a new Singlepass compiler
-    pub fn new(config: &SinglepassConfig) -> Self {
+    pub fn new(config: &Singlepass) -> Self {
         Self {
             config: config.clone(),
         }
     }
 
     /// Gets the config for this Compiler
-    fn config(&self) -> &SinglepassConfig {
+    fn config(&self) -> &Singlepass {
         &self.config
     }
 }

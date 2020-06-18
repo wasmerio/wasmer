@@ -69,19 +69,19 @@ If you wish to use more than one compiler, you can simply create the own store. 
 ```
 use wasmer::{Store, JIT, Singlepass};
 
-let engine = JIT::new(&SinglepassConfig::default()).engine();
+let engine = JIT::new(&Singlepass::default()).engine();
 let store = Store::new(&engine);
 ```"#
 );
 
 #[cfg(feature = "singlepass")]
-pub use wasmer_compiler_singlepass::SinglepassConfig;
+pub use wasmer_compiler_singlepass::Singlepass;
 
 #[cfg(feature = "cranelift")]
-pub use wasmer_compiler_cranelift::CraneliftConfig;
+pub use wasmer_compiler_cranelift::Cranelift;
 
 #[cfg(feature = "llvm")]
-pub use wasmer_compiler_llvm::LLVMConfig;
+pub use wasmer_compiler_llvm::LLVM;
 
 #[cfg(feature = "jit")]
 pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};

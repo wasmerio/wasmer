@@ -11,15 +11,15 @@ pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
         ))] {
             compile_error!("Only one compiler can be selected")
         } else if #[cfg(feature = "test-cranelift")] {
-            let mut compiler = wasmer_compiler_cranelift::CraneliftConfig::new();
+            let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
             compiler.canonicalize_nans(canonicalize_nans);
             compiler
         } else if #[cfg(feature = "test-llvm")] {
-            let mut compiler = wasmer_compiler_llvm::LLVMConfig::new();
+            let mut compiler = wasmer_compiler_llvm::LLVM::new();
             compiler.canonicalize_nans(canonicalize_nans);
             compiler
         } else if #[cfg(feature = "test-singlepass")] {
-            let mut compiler = wasmer_compiler_singlepass::SinglepassConfig::new();
+            let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
             compiler.canonicalize_nans(canonicalize_nans);
             compiler
         } else {

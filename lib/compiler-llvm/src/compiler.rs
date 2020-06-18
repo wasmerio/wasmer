@@ -1,4 +1,4 @@
-use crate::config::LLVMConfig;
+use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
@@ -14,19 +14,19 @@ use wasmer_compiler::{
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
 pub struct LLVMCompiler {
-    config: LLVMConfig,
+    config: LLVM,
 }
 
 impl LLVMCompiler {
     /// Creates a new LLVM compiler
-    pub fn new(config: &LLVMConfig) -> LLVMCompiler {
+    pub fn new(config: &LLVM) -> LLVMCompiler {
         LLVMCompiler {
             config: config.clone(),
         }
     }
 
     /// Gets the config for this Compiler
-    fn config(&self) -> &LLVMConfig {
+    fn config(&self) -> &LLVM {
         &self.config
     }
 }

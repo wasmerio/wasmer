@@ -180,12 +180,12 @@ impl StoreOptions {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::SinglepassConfig::new();
+                let config = wasmer_compiler_singlepass::Singlepass::new();
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::CraneliftConfig::new();
+                let config = wasmer_compiler_cranelift::Cranelift::new();
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -194,10 +194,9 @@ impl StoreOptions {
                 use std::io::Write;
                 use wasm_common::entity::EntityRef;
                 use wasmer_compiler_llvm::{
-                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
-                    LLVMConfig,
+                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };
-                let mut config = LLVMConfig::new();
+                let mut config = LLVM::new();
                 struct Callbacks {
                     debug_dir: PathBuf,
                 }

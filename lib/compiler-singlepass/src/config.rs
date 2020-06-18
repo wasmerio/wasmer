@@ -6,14 +6,14 @@ use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
 
 #[derive(Clone)]
-pub struct SinglepassConfig {
+pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
 
-impl SinglepassConfig {
+impl Singlepass {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new() -> Self {
@@ -46,7 +46,7 @@ impl SinglepassConfig {
     }
 }
 
-impl CompilerConfig for SinglepassConfig {
+impl CompilerConfig for Singlepass {
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.
@@ -63,8 +63,8 @@ impl CompilerConfig for SinglepassConfig {
     }
 }
 
-impl Default for SinglepassConfig {
-    fn default() -> SinglepassConfig {
+impl Default for Singlepass {
+    fn default() -> Singlepass {
         Self::new()
     }
 }

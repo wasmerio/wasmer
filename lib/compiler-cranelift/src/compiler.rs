@@ -1,7 +1,7 @@
 //! Support for compiling with Cranelift.
 
 use crate::address_map::get_function_address_map;
-use crate::config::CraneliftConfig;
+use crate::config::Cranelift;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
 use crate::func_environ::{get_func_name, FuncEnvironment};
@@ -33,19 +33,19 @@ use wasmer_compiler::{
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
 pub struct CraneliftCompiler {
-    config: CraneliftConfig,
+    config: Cranelift,
 }
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
-    pub fn new(config: &CraneliftConfig) -> Self {
+    pub fn new(config: &Cranelift) -> Self {
         Self {
             config: config.clone(),
         }
     }
 
     /// Gets the WebAssembly features for this Compiler
-    pub fn config(&self) -> &CraneliftConfig {
+    pub fn config(&self) -> &Cranelift {
         &self.config
     }
 }

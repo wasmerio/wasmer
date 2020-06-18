@@ -58,11 +58,11 @@ cfg_if! {
         fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
             cfg_if! {
                 if #[cfg(feature = "cranelift")] {
-                    Box::new(wasmer_compiler_cranelift::CraneliftConfig::default())
+                    Box::new(wasmer_compiler_cranelift::Cranelift::default())
                 } else if #[cfg(feature = "llvm")] {
-                    Box::new(wasmer_compiler_llvm::LLVMConfig::default())
+                    Box::new(wasmer_compiler_llvm::LLVM::default())
                 } else if #[cfg(feature = "singlepass")] {
-                    Box::new(wasmer_compiler_singlepass::SinglepassConfig::default())
+                    Box::new(wasmer_compiler_singlepass::Singlepass::default())
                 } else {
                     compile_error!("Please enable one of the compiler backends")
                 }
