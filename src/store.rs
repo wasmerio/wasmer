@@ -6,6 +6,7 @@ use anyhow::{Error, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
+#[cfg(feature = "engine")]
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
