@@ -146,15 +146,17 @@ where
     // Also add any .eh_frame sections.
     let mut eh_frame_section_indices = vec![];
     // TODO: this constant has been added to goblin, now waiting for release
-    const SHT_X86_64_UNWIND: u64 = 0x7000_0001;
+    const SHT_X86_64_UNWIND: u32 = 0x7000_0001;
     for (index, shdr) in elf.section_headers.iter().enumerate() {
-        if shdr.sh_flags & SHT_X86_64_UNWIND != 0 {
+        if shdr.sh_type == SHT_X86_64_UNWIND {
             let index = ElfSectionIndex::from_usize(index)?;
             worklist.push(index);
             visited.insert(index);
             eh_frame_section_indices.push(index);
+            // This allocates a custom section index for the ELF section.
+            elf_section_to_target(index);
         }
-    }    
+    }
     
     while let Some(section_index) = worklist.pop() {
         for reloc in reloc_sections
@@ -166,6 +168,7 @@ where
                 // TODO: these constants are not per-arch, we'll need to
                 // make the whole match per-arch.
                 goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                goblin::elf::reloc::R_X86_64_PC64 => RelocationKind::X86PCRel8,
                 goblin::elf::reloc::R_X86_64_GOT64 => {
                     return Err(CompileError::Codegen(
                         "unimplemented PIC relocation R_X86_64_GOT64".into(),
@@ -234,6 +237,21 @@ where
         }
     }
 
+    let eh_frame_section_indices = eh_frame_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".eh_frame section with index={:?} was never loaded",
+                        index
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
+
     let mut custom_sections = section_to_custom_section
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
@@ -254,8 +272,6 @@ where
         .into_iter()
         .map(|(_, v)| v)
         .collect::<PrimaryMap<SectionIndex, _>>();
-
-    let eh_frame_section_indices = eh_frame_section_indices.iter().map(|index| section_to_custom_section.get(index).map_or_else(|| Err(CompileError::Codegen(format!(".eh_frame section with index={:?} was never loaded", index))), |idx| Ok(*idx))).collect::<Result<Vec<SectionIndex>, _>>()?;
 
     let function_body = FunctionBody {
         body: section_bytes(root_section_index),

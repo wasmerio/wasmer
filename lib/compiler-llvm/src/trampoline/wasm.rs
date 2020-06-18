@@ -94,18 +94,20 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, sections, _eh_frame_section_indices) =
+        let (function, _sections, _eh_frame_section_indices) =
             load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
                     name
                 )))
             })?;
+        /*
         if !sections.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced custom sections".into(),
             ));
         }
+         */
         if !function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),
@@ -175,18 +177,20 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, sections, _eh_frame_section_indices) =
+        let (function, _sections, _eh_frame_section_indices) =
             load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
                     name
                 )))
             })?;
+        /*
         if !sections.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced custom sections".into(),
             ));
         }
+         */
         if !function.relocations.is_empty() {
             return Err(CompileError::Codegen(
                 "trampoline generation produced relocations".into(),

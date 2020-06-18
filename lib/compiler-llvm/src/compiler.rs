@@ -6,8 +6,11 @@ use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, FunctionBodyData,
-    ModuleTranslationState, RelocationTarget, SectionIndex, Target,
+    ModuleTranslationState, RelocationTarget, SectionIndex, Target, CustomSection,
+    SectionBody, CustomSectionProtection, Dwarf,
 };
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
+//use gimli::read::UnwindSection;
 
 //use std::sync::{Arc, Mutex};
 
@@ -30,6 +33,17 @@ impl LLVMCompiler {
         &self.config
     }
 }
+
+/*
+fn cie_to_cie(read_cie: gimli::read::CommonInformationEntry) -> gimli::write::CommonInformationEntry {
+    
+}
+
+fn fde_to_fde(read_fde: gimli::read::FrameDescriptionEntry) -> gimli::write::FrameDescriptionEntry {
+    let mut write_fde = gimli::write::FrameDescriptionEntry::new(?, read_fde.len())
+    
+}
+ */
 
 impl Compiler for LLVMCompiler {
     /// Compile the module using LLVM, producing a compilation result with
@@ -57,6 +71,9 @@ impl Compiler for LLVMCompiler {
                 .unwrap_or_else(|| format!("fn{}", func_index.index()));
         }
         let mut module_custom_sections = PrimaryMap::new();
+        //let mut frame_table = gimli::write::FrameTable::default();
+        let mut frame_section_bytes = vec![];
+        let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
@@ -83,9 +100,9 @@ impl Compiler for LLVMCompiler {
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .map(|(mut compiled_function, function_custom_sections, _eh_frame_section_indices)| {
+            .map(|(mut compiled_function, function_custom_sections, eh_frame_section_indices)| {
                 let first_section = module_custom_sections.len() as u32;
-                for (_, custom_section) in function_custom_sections.iter() {
+                for (section_index, custom_section) in function_custom_sections.iter() {
                     // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
                     for mut reloc in &mut custom_section.relocations {
@@ -95,7 +112,42 @@ impl Compiler for LLVMCompiler {
                             )
                         }
                     }
-                    module_custom_sections.push(custom_section);
+                    if eh_frame_section_indices.contains(&section_index) {
+                        // TODO: pull endianness out of target
+                        /*
+                        let eh_frame = gimli::read::EhFrame::new(custom_section.bytes.as_slice(), gimli::NativeEndian);
+                        let base_addresses = gimli::read::BaseAddresses::default();
+                        let mut entries = eh_frame.entries(&base_addresses);
+                        let mut current_cie = None;
+                        while let Some(entry) = entries.next().unwrap() {
+                            match entry {
+                                gimli::CieOrFde::Cie(cie) => {
+                                    current_cie = Some(cie);
+                                    frame_table.add_cie(cie.into());
+                                },
+                                gimli::CieOrFde::Fde(partial_fde) => {
+                                    // TODO: unwrap safety
+                                    let fde = partial_fde.parse(current_cie.unwrap()).unwrap();
+                                    frame_table.add_fde(current_cie.unwrap().into(), fde.into());
+                                }
+                            };
+                        }
+                         */
+                        let offset = frame_section_bytes.len() as u32;
+                        for mut reloc in &mut custom_section.relocations {
+                            reloc.offset += offset;
+                        }
+                        frame_section_bytes.extend_from_slice(custom_section.bytes.as_slice());
+                        frame_section_relocations.extend(custom_section.relocations);
+                        // TODO: we do this to keep the count right, remove it.
+                        module_custom_sections.push(CustomSection {
+                            protection: CustomSectionProtection::Read,
+                            bytes: SectionBody::new_with_vec(vec![]),
+                            relocations: vec![]
+                        });
+                    } else {
+                        module_custom_sections.push(custom_section);
+                    }
                 }
                 for mut reloc in &mut compiled_function.relocations {
                     if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
@@ -107,6 +159,30 @@ impl Compiler for LLVMCompiler {
                 compiled_function
             })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+
+        let dwarf = if !frame_section_bytes.is_empty() {
+            let dwarf = Some(Dwarf::new(SectionIndex::from_u32(module_custom_sections.len() as u32)));
+            // Terminator CIE.
+            frame_section_bytes.extend(vec!
+                [0x00, 0x00, 0x00, 0x00,  // Length
+                 0x00, 0x00, 0x00, 0x00,  // CIE ID
+                 0x10,  // Version (must be 1)
+                 0x00,  // Augmentation data
+                 0x00, 0x00,  
+                 0xa4, 0x2e, 0x00, 0x00,
+                 0x30, 0x73, 0xff, 0xff,
+                 0x00, 0x00, 0x00, 0x00,
+                 0x00, 0x00, 0x00, 0x00,
+                 0x00, 0x00, 0x00, 0x00]);
+            module_custom_sections.push(CustomSection {
+                protection: CustomSectionProtection::Read,
+                bytes: SectionBody::new_with_vec(frame_section_bytes),
+                relocations: frame_section_relocations
+            });
+            dwarf
+        } else {
+            None
+        };
 
         let function_call_trampolines = module
             .signatures
@@ -146,7 +222,7 @@ impl Compiler for LLVMCompiler {
             module_custom_sections,
             function_call_trampolines,
             dynamic_function_trampolines,
-            None,
+            dwarf,
         ))
     }
 }
