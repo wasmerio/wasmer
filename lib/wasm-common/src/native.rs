@@ -411,16 +411,6 @@ impl WasmTypeList for Infallible {
     fn wasm_types() -> &'static [Type] {
         &[]
     }
-
-    // #[allow(non_snake_case)]
-    // unsafe fn call<Rets>(
-    //     self,
-    // ) -> Result<Rets>
-    // where
-    //     Rets: WasmTypeList,
-    // {
-    //     unreachable!()
-    // }
 }
 
 macro_rules! impl_traits {
@@ -492,66 +482,10 @@ macro_rules! impl_traits {
                     $($x: WasmExternType,)*
                     FN: Fn( $( $x ),* ) -> Rets + 'static
                 {
-                    // println!("WRAP");
-                    // println!("Struct {:?}", (($( $x ),*) as WasmTypeList).into_c_struct());
-                    // $( println!("X: {:?}", $x); )*
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                     f( $( WasmExternType::from_native($x) ),* ).into_c_struct()
                 }
                 wrap::<$( $x, )* Rets, Self> as *const FunctionBody
-
-                // extern fn wrap<$( $x: WasmExternType, )* Rets>(a: &dyn Any, b: &dyn Any, $($x: $x, )* ) -> Rets::CStruct
-                // where
-                //     Rets: WasmTypeList
-                // {
-                //     println!("WRAP");
-                //     let f: &fn( &dyn Any, &dyn Any, $( $x ),* ) -> Rets = unsafe { std::mem::transmute(&()) };
-                //     f( a, b, $( $x ),* ).into_c_struct()
-                // }
-                // wrap::<$( $x, )* Rets> as *const FunctionBody
-
-                // extern fn wrap<$( $x, )* Rets, FN>(
-                //     $($x: <$x as WasmExternType>::Native , )*
-                // ) -> Rets::CStruct
-                // where
-                //     $( $x: WasmExternType, )*
-                //     Rets: WasmTypeList,
-                //     FN: Fn($( $x, )*) -> Rets::CStruct,
-                // {
-                //     // let self_pointer = wrap::<$( $x, )* Rets, FN> as *const FunctionBody;
-                //     let f: &FN = unsafe {
-                //         std::mem::transmute(&())
-                //     };
-                //     f($( $x, )*)
-                // }
-                // unimplemented!("");
-                // extern fn wrap<Args, Rets>(
-                //     env: &FuncEnv,
-                //     args: Args::Array,
-                //     returns: Rets::Array
-                // )
-                // where
-                //     Args: WasmTypeList,
-                //     Rets: WasmTypeList,
-                // {
-                //     let self_pointer = wrap::<Args, Rets> as *const FunctionBody;
-                //     self_pointer($( $x , )*);
-                // }
-                // unimplemented!("");
-                //             $( $x: WasmExternType, )*
-        //             Rets: WasmTypeList,
-        //             Trap: TrapEarly<Rets>,
-        //             FN: Fn($( $x, )*) -> Trap,
-        //         {
-        // let x = |args: <(i32, i32) as WasmTypeList>::Array, rets: &mut <(i32, i32) as WasmTypeList>::Array| {
-        //     let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);
-        //     rets[0] = result.0 as _;
-        //     rets[1] = result.1 as _;
-        // };
-
-        //         &self as *const _ as *const FunctionBody
-                // let x: *const FunctionBody = unsafe { std::mem::transmute(self) };
-                // unimplemented!("");
             }
         }
 
