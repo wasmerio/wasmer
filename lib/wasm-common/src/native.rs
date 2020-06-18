@@ -467,49 +467,60 @@ macro_rules! impl_traits {
         }
 
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, FN > HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()> for FN
+        impl< $( $x, )* Rets, Trap, FN > HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
-            FN: Fn($( $x , )*) -> Rets + 'static + Send
+            Trap: TrapEarly<Rets>,
+            FN: Fn($( $x , )*) -> Trap + 'static + Send,
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                // unimplemented!("");
-                extern fn wrap<$( $x, )* Rets, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Result<Rets::CStruct, Trap::Error>
                 where
                     Rets: WasmTypeList,
-                    $($x: WasmExternType,)*
-                    FN: Fn( $( $x ),* ) -> Rets + 'static
+                    Trap: TrapEarly<Rets>,
+                    $( $x: WasmExternType, )*
+                    FN: Fn( $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-                    f( $( WasmExternType::from_native($x) ),* ).into_c_struct()
+
+                    f( $( WasmExternType::from_native($x) ),* )
+                        .report()
+                        .map(|results| results.into_c_struct())
                 }
-                wrap::<$( $x, )* Rets, Self> as *const FunctionBody
+
+                wrap::<$( $x, )* Rets, Trap, Self> as *const FunctionBody
             }
         }
 
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets, FN, T > HostFunction<( $( $x ),* ), Rets, WithEnv, T> for FN
+        impl< $( $x, )* Rets, Trap, T, FN > HostFunction<( $( $x ),* ), Rets, WithEnv, T> for FN
         where
             $( $x: WasmExternType, )*
             Rets: WasmTypeList,
+            Trap: TrapEarly<Rets>,
             T: Sized,
-            FN: Fn(&mut T, $( $x , )*) -> Rets + 'static + Send
+            FN: Fn(&mut T, $( $x , )*) -> Trap + 'static + Send
         {
             #[allow(non_snake_case)]
             fn to_raw(self) -> *const FunctionBody {
-                extern fn wrap<$( $x, )* Rets, FN, T>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
+                extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Result<Rets::CStruct, Trap::Error>
                 where
                     Rets: WasmTypeList,
-                    $($x: WasmExternType,)*
+                    Trap: TrapEarly<Rets>,
+                    $( $x: WasmExternType, )*
                     T: Sized,
-                    FN: Fn(&mut T, $( $x ),* ) -> Rets + 'static
+                    FN: Fn(&mut T, $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-                    f(ctx, $( WasmExternType::from_native($x) ),* ).into_c_struct()
+
+                    f(ctx, $( WasmExternType::from_native($x) ),* )
+                        .report()
+                        .map(|results| results.into_c_struct())
                 }
-                wrap::<$( $x, )* Rets, Self, T> as *const FunctionBody
+
+                wrap::<$( $x, )* Rets, Trap, T, Self> as *const FunctionBody
             }
         }
     };
