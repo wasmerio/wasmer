@@ -5,6 +5,7 @@ use more_asserts::assert_ge;
 use std::cmp::min;
 use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
+use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle};
@@ -12,6 +13,8 @@ use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableSty
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
 pub struct Tunables {
+    pub target: Target,
+
     /// For static heaps, the size in wasm pages of the heap protected by bounds checking.
     pub static_memory_bound: Pages,
 
@@ -24,7 +27,8 @@ pub struct Tunables {
 
 impl Tunables {
     /// Get the `Tunables` for a specific Target
-    pub fn for_target(triple: &Triple) -> Self {
+    pub fn for_target(target: Target) -> Self {
+        let triple = target.triple();
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
         let (mut static_memory_bound, mut static_memory_offset_guard_size): (Pages, u64) =
             match pointer_width {
@@ -54,11 +58,17 @@ impl Tunables {
             static_memory_bound,
             static_memory_offset_guard_size,
             dynamic_memory_offset_guard_size,
+            target,
         }
     }
 }
 
 impl BaseTunables for Tunables {
+    /// Get the target for this Tunables
+    fn target(&self) -> &Target {
+        &self.target
+    }
+
     /// Get a `MemoryPlan` for the provided `MemoryType`
     fn memory_plan(&self, memory: MemoryType) -> MemoryPlan {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
@@ -105,6 +115,6 @@ impl BaseTunables for Tunables {
 
 impl Default for Tunables {
     fn default() -> Self {
-        Self::for_target(&HOST)
+        Self::for_target(Target::default())
     }
 }

@@ -174,21 +174,18 @@ impl StoreOptions {
 
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
-    fn get_compiler_config(
-        &self,
-        target: Target,
-    ) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
+    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
         let compiler = self.get_compiler()?;
         let compiler_config: Box<dyn CompilerConfig> = match compiler {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::SinglepassConfig::new(target);
+                let config = wasmer_compiler_singlepass::SinglepassConfig::new();
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::CraneliftConfig::new(target);
+                let config = wasmer_compiler_cranelift::CraneliftConfig::new();
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -200,7 +197,7 @@ impl StoreOptions {
                     CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
                     LLVMConfig,
                 };
-                let mut config = LLVMConfig::new(target);
+                let mut config = LLVMConfig::new();
                 struct Callbacks {
                     debug_dir: PathBuf,
                 }
@@ -290,11 +287,6 @@ impl StoreOptions {
         Ok((compiler_config, compiler))
     }
 
-    /// Gets the tunables for the compiler target
-    pub fn get_tunables(&self, compiler_config: &dyn CompilerConfig) -> Tunables {
-        Tunables::for_target(compiler_config.target().triple())
-    }
-
     /// Gets the store for the host target, with the engine name and compiler name selected
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         let target = Target::default();
@@ -306,8 +298,8 @@ impl StoreOptions {
         &self,
         target: Target,
     ) -> Result<(Store, EngineType, CompilerType)> {
-        let (compiler_config, compiler_type) = self.get_compiler_config(target)?;
-        let tunables = self.get_tunables(&*compiler_config);
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let tunables = Tunables::for_target(target);
         let (engine, engine_type) = self.get_engine_with_compiler(tunables, compiler_config)?;
         let store = Store::new(engine);
         Ok((store, engine_type, compiler_type))

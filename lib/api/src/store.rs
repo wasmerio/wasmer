@@ -54,7 +54,7 @@ impl Default for Store {
         fn get_engine(
             config: Box<dyn CompilerConfig + Send + Sync>,
         ) -> Arc<dyn Engine + Send + Sync> {
-            let tunables = Tunables::for_target(config.target().triple());
+            let tunables = Tunables::default();
 
             #[cfg(feature = "jit")]
             return Arc::new(wasmer_engine_jit::JITEngine::new(

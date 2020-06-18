@@ -33,23 +33,15 @@ use wasmer_compiler::{
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
 pub struct CraneliftCompiler {
-    isa: Box<dyn isa::TargetIsa>,
     config: CraneliftConfig,
 }
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
     pub fn new(config: &CraneliftConfig) -> Self {
-        let isa = config.isa();
         Self {
-            isa,
             config: config.clone(),
         }
-    }
-
-    /// Retrieves the starget ISA
-    fn isa(&self) -> &dyn isa::TargetIsa {
-        &*self.isa
     }
 
     /// Gets the WebAssembly features for this Compiler
@@ -59,20 +51,16 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
-    /// Gets the target associated to the Cranelift ISA.
-    fn target(&self) -> &Target {
-        self.config.target()
-    }
-
     /// Compile the module using Cranelift, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
+        target: &Target,
         compile_info: &CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        let isa = self.isa();
+        let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
         let memory_plans = &compile_info.memory_plans;
         let table_plans = &compile_info.table_plans;
@@ -87,7 +75,7 @@ impl Compiler for CraneliftCompiler {
         #[cfg(feature = "unwind")]
         let dwarf_frametable = {
             use std::sync::{Arc, Mutex};
-            match self.target().triple().default_calling_convention() {
+            match target.triple().default_calling_convention() {
                 Ok(CallingConvention::SystemV) => {
                     match isa.create_systemv_cie() {
                         Some(cie) => {
@@ -139,17 +127,17 @@ impl Compiler for CraneliftCompiler {
                 let mut stackmap_sink = binemit::NullStackmapSink {};
                 context
                     .compile_and_emit(
-                        isa,
+                        &*isa,
                         &mut code_buf,
                         &mut reloc_sink,
                         &mut trap_sink,
                         &mut stackmap_sink,
                     )
                     .map_err(|error| {
-                        CompileError::Codegen(pretty_error(&context.func, Some(isa), error))
+                        CompileError::Codegen(pretty_error(&context.func, Some(&*isa), error))
                     })?;
 
-                let unwind_info = match compiled_function_unwind_info(isa, &context)? {
+                let unwind_info = match compiled_function_unwind_info(&*isa, &context)? {
                     #[cfg(feature = "unwind")]
                     CraneliftUnwindInfo::FDE(fde) => {
                         if let Some((dwarf_frametable, cie_id)) = &dwarf_frametable {
@@ -176,7 +164,7 @@ impl Compiler for CraneliftCompiler {
                     other => other.maybe_into_to_windows_unwind(),
                 };
 
-                let address_map = get_function_address_map(&context, input, code_buf.len(), isa);
+                let address_map = get_function_address_map(&context, input, code_buf.len(), &*isa);
 
                 // We transform the Cranelift JumpTable's into compiler JumpTables
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
@@ -202,9 +190,7 @@ impl Compiler for CraneliftCompiler {
         let (custom_sections, dwarf) = {
             let mut custom_sections = PrimaryMap::new();
             let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
-                let mut eh_frame = EhFrame(WriterRelocate::new(
-                    self.target().triple().endianness().ok(),
-                ));
+                let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
                 dwarf_frametable
                     .lock()
                     .unwrap()
@@ -229,7 +215,7 @@ impl Compiler for CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, sig| {
-                make_trampoline_function_call(&*self.isa, &mut cx, sig)
+                make_trampoline_function_call(&*isa, &mut cx, sig)
             })
             .collect::<Result<Vec<FunctionBody>, CompileError>>()?
             .into_iter()
@@ -243,7 +229,7 @@ impl Compiler for CraneliftCompiler {
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(FunctionBuilderContext::new, |mut cx, func_type| {
-                make_trampoline_dynamic_function(&*self.isa, &offsets, &mut cx, &func_type)
+                make_trampoline_dynamic_function(&*isa, &offsets, &mut cx, &func_type)
             })
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

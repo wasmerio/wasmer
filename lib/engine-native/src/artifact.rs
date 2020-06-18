@@ -123,8 +123,11 @@ impl NativeArtifact {
         };
 
         let compiler = engine_inner.compiler()?;
+        let target = tunables.target();
+
         // Compile the Module
         let compilation = compiler.compile_module(
+            &target,
             &compile_info,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,
@@ -139,7 +142,6 @@ impl NativeArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let target = compiler.target();
         let target_triple = target.triple().clone();
 
         let obj_binary_format = match target_triple.binary_format {

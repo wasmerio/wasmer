@@ -17,9 +17,6 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
 /// The compiler configuration options.
-///
-/// This options must have WebAssembly `Features` and a specific
-/// `Target` to compile to.
 pub trait CompilerConfig {
     /// Should Position Independent Code (PIC) be enabled.
     ///
@@ -27,10 +24,6 @@ pub trait CompilerConfig {
     /// but will make the JIT Engine to fail, since PIC is not yet
     /// supported in the JIT linking phase.
     fn enable_pic(&mut self);
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target;
 
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
@@ -41,9 +34,6 @@ pub trait CompilerConfig {
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
 pub trait Compiler {
-    /// Gets the target associated with this compiler
-    fn target(&self) -> &Target;
-
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
@@ -70,6 +60,7 @@ pub trait Compiler {
     /// It returns the [`Compilation`] or a [`CompileError`].
     fn compile_module<'data, 'module>(
         &self,
+        target: &Target,
         module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies

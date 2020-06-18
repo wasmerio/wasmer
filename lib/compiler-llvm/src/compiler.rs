@@ -5,7 +5,7 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
-    Compilation, CompileError, CompileModuleInfo, Compiler, CompilerConfig, FunctionBodyData,
+    Compilation, CompileError, CompileModuleInfo, Compiler, FunctionBodyData,
     ModuleTranslationState, RelocationTarget, SectionIndex, Target,
 };
 
@@ -32,15 +32,11 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
-    /// Gets the target associated to this Compiler.
-    fn target(&self) -> &Target {
-        self.config.target()
-    }
-
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
     fn compile_module<'data, 'module>(
         &self,
+        target: &Target,
         compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -65,20 +61,26 @@ impl Compiler for LLVMCompiler {
             .into_iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
-            .map_init(FuncTranslator::new, |func_translator, (i, input)| {
-                // TODO: remove (to serialize)
-                //let mut data = data.lock().unwrap();
-                func_translator.translate(
-                    &module,
-                    module_translation,
-                    i,
-                    input,
-                    self.config(),
-                    &memory_plans,
-                    &table_plans,
-                    &func_names,
-                )
-            })
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTranslator::new(target_machine)
+                },
+                |func_translator, (i, input)| {
+                    // TODO: remove (to serialize)
+                    //let mut data = data.lock().unwrap();
+                    func_translator.translate(
+                        &module,
+                        module_translation,
+                        i,
+                        input,
+                        self.config(),
+                        &memory_plans,
+                        &table_plans,
+                        &func_names,
+                    )
+                },
+            )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .map(|(mut compiled_function, function_custom_sections)| {
@@ -111,9 +113,13 @@ impl Compiler for LLVMCompiler {
             .values()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FuncTrampoline::new, |func_trampoline, sig| {
-                func_trampoline.trampoline(sig, self.config())
-            })
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTrampoline::new(target_machine)
+                },
+                |func_trampoline, sig| func_trampoline.trampoline(sig, self.config()),
+            )
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<Result<PrimaryMap<_, _>, CompileError>>()?;
@@ -122,9 +128,15 @@ impl Compiler for LLVMCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .par_iter()
-            .map_init(FuncTrampoline::new, |func_trampoline, func_type| {
-                func_trampoline.dynamic_trampoline(&func_type, self.config())
-            })
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTrampoline::new(target_machine)
+                },
+                |func_trampoline, func_type| {
+                    func_trampoline.dynamic_trampoline(&func_type, self.config())
+                },
+            )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
             .collect::<PrimaryMap<_, _>>();

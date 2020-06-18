@@ -63,20 +63,17 @@ pub struct LLVMConfig {
 
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
-
-    target: Target,
 }
 
 impl LLVMConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(target: Target) -> Self {
+    pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: true,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
             is_pic: false,
-            target,
             callbacks: None,
             middlewares: vec![],
         }
@@ -94,8 +91,7 @@ impl LLVMConfig {
         CodeModel::Large
     }
 
-    pub fn target_triple(&self) -> TargetTriple {
-        let target = self.target();
+    fn target_triple(&self, target: &Target) -> TargetTriple {
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
                 // LLVM detects static relocation + darwin + 64-bit and
@@ -119,8 +115,7 @@ impl LLVMConfig {
     }
 
     /// Generates the target machine for the current target
-    pub fn target_machine(&self) -> TargetMachine {
-        let target = self.target();
+    pub fn target_machine(&self, target: &Target) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
 
@@ -152,7 +147,7 @@ impl LLVMConfig {
             .map(|feature| format!("+{}", feature.to_string()))
             .join(",");
 
-        let target_triple = self.target_triple();
+        let target_triple = self.target_triple(&target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
         llvm_target
             .create_target_machine(
@@ -175,12 +170,6 @@ impl CompilerConfig for LLVMConfig {
         self.is_pic = true;
     }
 
-    /// Gets the target that we will use for compiling.
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
-    }
-
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
@@ -194,6 +183,6 @@ impl CompilerConfig for LLVMConfig {
 
 impl Default for LLVMConfig {
     fn default() -> LLVMConfig {
-        Self::new(Default::default())
+        Self::new()
     }
 }

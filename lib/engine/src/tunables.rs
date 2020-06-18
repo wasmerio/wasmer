@@ -5,16 +5,20 @@ use wasm_common::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
     TableType,
 };
+use wasmer_compiler::Target;
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Tunables for an engine
 pub trait Tunables {
-    /// Get a `MemoryPlan` for the provided `MemoryType`
+    /// Get the target for this Tunables
+    fn target(&self) -> &Target;
+
+    /// Construct a `MemoryPlan` for the provided `MemoryType`
     fn memory_plan(&self, memory: MemoryType) -> MemoryPlan;
 
-    /// Get a `TablePlan` for the provided `TableType`
+    /// Construct a `TablePlan` for the provided `TableType`
     fn table_plan(&self, table: TableType) -> TablePlan;
 
     /// Create a memory given a memory type

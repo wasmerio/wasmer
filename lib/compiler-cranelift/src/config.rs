@@ -49,8 +49,6 @@ pub struct CraneliftConfig {
     /// The optimization levels when optimizing the IR.
     pub opt_level: OptLevel,
 
-    target: Target,
-
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
@@ -58,21 +56,19 @@ pub struct CraneliftConfig {
 impl CraneliftConfig {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(target: Target) -> Self {
+    pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptLevel::Speed,
             enable_pic: false,
             enable_simd: false,
-            target,
             middlewares: vec![],
         }
     }
 
-    /// Generates the ISA for the current target
-    pub fn isa(&self) -> Box<dyn TargetIsa> {
-        let target = self.target();
+    /// Generates the ISA for the provided target
+    pub fn isa(&self, target: &Target) -> Box<dyn TargetIsa> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
@@ -126,7 +122,7 @@ impl CraneliftConfig {
         builder.finish(self.flags())
     }
 
-    /// Generates the flags for the current target
+    /// Generates the flags for the compiler
     pub fn flags(&self) -> settings::Flags {
         let mut flags = settings::builder();
 
@@ -187,12 +183,6 @@ impl CompilerConfig for CraneliftConfig {
         self.enable_pic = true;
     }
 
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
-    }
-
     /// Transform it into the compiler
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(CraneliftCompiler::new(&self))
@@ -206,6 +196,6 @@ impl CompilerConfig for CraneliftConfig {
 
 impl Default for CraneliftConfig {
     fn default() -> Self {
-        Self::new(Default::default())
+        Self::new()
     }
 }

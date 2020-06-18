@@ -12,7 +12,7 @@ use inkwell::{
     context::Context,
     module::{Linkage, Module},
     passes::PassManager,
-    targets::FileType,
+    targets::{FileType, TargetMachine},
     types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
@@ -55,12 +55,14 @@ fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
 
 pub struct FuncTranslator {
     ctx: Context,
+    target_machine: TargetMachine,
 }
 
 impl FuncTranslator {
-    pub fn new() -> Self {
+    pub fn new(target_machine: TargetMachine) -> Self {
         Self {
             ctx: Context::create(),
+            target_machine,
         }
     }
 
@@ -85,8 +87,8 @@ impl FuncTranslator {
         };
         let module = self.ctx.create_module(module_name.as_str());
 
-        let target_triple = config.target_triple();
-        let target_machine = config.target_machine();
+        let target_machine = &self.target_machine;
+        let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let wasm_fn_type = wasm_module

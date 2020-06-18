@@ -40,7 +40,7 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
         features.bulk_memory(true);
     }
     let compiler_config = get_compiler_config_from_str(compiler, try_nan_canonicalization);
-    let tunables = Tunables::for_target(compiler_config.target().triple());
+    let tunables = Tunables::default();
     let store = Store::new(Arc::new(JITEngine::new(
         compiler_config,
         tunables,
