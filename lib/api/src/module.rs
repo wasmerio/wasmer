@@ -8,7 +8,7 @@ use thiserror::Error;
 use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
-use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError, Tunables as _};
 use wasmer_runtime::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
 
 #[derive(Error, Debug)]
@@ -156,7 +156,7 @@ impl Module {
     }
 
     fn compile(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
-        let artifact = store.engine().compile(binary)?;
+        let artifact = store.engine().compile(binary, store.tunables())?;
         Ok(Self::from_artifact(store, artifact))
     }
 
@@ -261,11 +261,9 @@ impl Module {
         resolver: &dyn Resolver,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle = self.artifact.instantiate(
-                self.store.engine().tunables(),
-                resolver,
-                Box::new(()),
-            )?;
+            let instance_handle =
+                self.artifact
+                    .instantiate(self.store.tunables(), resolver, Box::new(()))?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any

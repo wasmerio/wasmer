@@ -314,7 +314,6 @@ impl StoreOptions {
             #[cfg(feature = "jit")]
             EngineType::JIT => Box::new(
                 wasmer_engine_jit::JIT::new(&*compiler_config)
-                    .tunables(Tunables::for_target)
                     .features(features)
                     .target(target)
                     .engine(),
@@ -322,7 +321,6 @@ impl StoreOptions {
             #[cfg(feature = "native")]
             EngineType::Native => Box::new(
                 wasmer_engine_native::Native::new(&mut *compiler_config)
-                    .tunables(Tunables::for_target)
                     .target(target)
                     .features(features)
                     .engine(),
@@ -364,17 +362,9 @@ impl StoreOptions {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineType::JIT => Arc::new(
-                wasmer_engine_jit::JIT::headless()
-                    .tunables(Tunables::for_target)
-                    .engine(),
-            ),
+            EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
             #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(
-                wasmer_engine_native::Native::headless()
-                    .tunables(Tunables::for_target)
-                    .engine(),
-            ),
+            EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
             #[cfg(not(all(feature = "jit", feature = "native",)))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",

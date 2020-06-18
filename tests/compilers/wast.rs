@@ -42,12 +42,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
     let compiler_config = get_compiler(true);
-    let store = Store::new(
-        &JIT::new(&compiler_config)
-            .tunables(Tunables::for_target)
-            .features(features)
-            .engine(),
-    );
+    let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
     // let store = Store::new(&native);

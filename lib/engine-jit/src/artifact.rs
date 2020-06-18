@@ -18,6 +18,7 @@ use wasmer_compiler::{CompileError, Features, Triple};
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
+    Tunables,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
@@ -43,10 +44,13 @@ impl JITArtifact {
 
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
-    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(
+        jit: &JITEngine,
+        data: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut inner_jit = jit.inner_mut();
-        let tunables = jit.tunables();
         let features = inner_jit.features();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
@@ -75,7 +79,7 @@ impl JITArtifact {
 
         // Compile the Module
         let compilation = compiler.compile_module(
-            &inner_jit.target(),
+            &jit.target(),
             &compile_info,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,

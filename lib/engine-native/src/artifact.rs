@@ -33,6 +33,7 @@ use wasmer_compiler::{CompileError, CompileModuleInfo, Features};
 use wasmer_engine::Engine;
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
+    Tunables,
 };
 use wasmer_runtime::{MemoryPlan, TablePlan};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
@@ -95,10 +96,13 @@ impl NativeArtifact {
 
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
-    pub fn new(engine: &NativeEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(
+        engine: &NativeEngine,
+        data: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut engine_inner = engine.inner_mut();
-        let tunables = engine.tunables();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let features = engine_inner.features();
@@ -123,7 +127,7 @@ impl NativeArtifact {
         };
 
         let compiler = engine_inner.compiler()?;
-        let target = engine_inner.target();
+        let target = engine.target();
 
         // Compile the Module
         let compilation = compiler.compile_module(

@@ -21,19 +21,15 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
-    tunables: Arc<dyn Tunables + Send + Sync>,
+    /// The target for the compiler
+    target: Arc<Target>,
     engine_id: EngineId,
 }
 
 impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(
-        compiler: Box<dyn Compiler + Send>,
-        target: Target,
-        tunables: Arc<dyn Tunables + 'static + Send + Sync>,
-        features: Features,
-    ) -> Self {
+    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
@@ -41,9 +37,8 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
                 features,
-                target: Some(target),
             })),
-            tunables: tunables,
+            target: Arc::new(target),
             engine_id: EngineId::default(),
         }
     }
@@ -61,7 +56,7 @@ impl JITEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: Arc<dyn Tunables + 'static + Send + Sync>) -> Self {
+    pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
@@ -70,9 +65,8 @@ impl JITEngine {
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
-                target: None,
             })),
-            tunables,
+            target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
         }
     }
@@ -87,9 +81,9 @@ impl JITEngine {
 }
 
 impl Engine for JITEngine {
-    /// Get the tunables
-    fn tunables(&self) -> &dyn Tunables {
-        &*self.tunables
+    /// The target
+    fn target(&self) -> &Target {
+        &self.target
     }
 
     /// Register a signature
@@ -115,8 +109,12 @@ impl Engine for JITEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(JITArtifact::new(&self, binary)?))
+    fn compile(
+        &self,
+        binary: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(JITArtifact::new(&self, binary, tunables)?))
     }
 
     /// Deserializes a WebAssembly module
@@ -142,8 +140,6 @@ pub struct JITEngineInner {
     function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The features to compile the Wasm module with
     features: Features,
-    /// The target for the compiler
-    target: Option<Target>,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: CodeMemory,
@@ -175,11 +171,6 @@ impl JITEngineInner {
             "The JITEngine is not compiled with compiler support, which is required for validating"
                 .to_string(),
         ))
-    }
-
-    /// The target
-    pub fn target(&self) -> &Target {
-        &self.target.as_ref().unwrap()
     }
 
     /// The Wasm features

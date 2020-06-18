@@ -1,7 +1,7 @@
-#[cfg(all(feature = "compiler", feature = "engine"))]
 use crate::tunables::Tunables;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
+use wasmer_engine::Tunables as BaseTunables;
 
 use std::sync::Arc;
 use wasmer_engine::Engine;
@@ -9,6 +9,7 @@ use wasmer_engine::Engine;
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
+    tunables: Arc<dyn BaseTunables + Send + Sync>,
 }
 
 impl Store {
@@ -18,7 +19,25 @@ impl Store {
     {
         Store {
             engine: engine.cloned(),
+            tunables: Arc::new(Tunables::for_target(engine.target())),
         }
+    }
+
+    pub fn new_with_tunables<E>(
+        engine: &E,
+        tunables: impl BaseTunables + Send + Sync + 'static,
+    ) -> Store
+    where
+        E: Engine + ?Sized,
+    {
+        Store {
+            engine: engine.cloned(),
+            tunables: Arc::new(tunables),
+        }
+    }
+
+    pub fn tunables(&self) -> &dyn BaseTunables {
+        self.tunables.as_ref()
     }
 
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
@@ -63,11 +82,9 @@ impl Default for Store {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-jit")] {
                     wasmer_engine_jit::JIT::new(&config)
-                        .tunables(Tunables::for_target)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
                     wasmer_engine_native::Native::new(&config)
-                        .tunables(Tunables::for_target)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")
@@ -77,8 +94,10 @@ impl Default for Store {
 
         let config = get_config();
         let engine = get_engine(config);
+        let tunables = Tunables::for_target(engine.target());
         Store {
             engine: Arc::new(engine),
+            tunables: Arc::new(tunables),
         }
     }
 }
