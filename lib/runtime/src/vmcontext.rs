@@ -126,7 +126,7 @@ pub enum VMFunctionKind {
     /// 2. In the WebAssembly file
     Static,
 
-    /// A function is dynamic when it's address matches the signature:
+    /// A function is dynamic when its address matches the signature:
     /// (ctx, &[Type]) -> Vec<Type>
     ///
     /// This is the default for functions that are defined:
