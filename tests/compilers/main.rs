@@ -11,3 +11,7 @@ mod multi_value_imports;
 mod serialize;
 mod traps;
 mod utils;
+mod wast;
+
+pub use crate::utils::get_compiler;
+pub use crate::wast::run_wast;

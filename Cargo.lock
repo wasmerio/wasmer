@@ -1795,18 +1795,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-utils"
-version = "1.0.0-alpha.1"
-dependencies = [
- "wasmer",
- "wasmer-compiler",
- "wasmer-compiler-cranelift",
- "wasmer-compiler-llvm",
- "wasmer-compiler-singlepass",
- "wasmer-engine-jit",
-]
-
-[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2098,7 +2086,6 @@ dependencies = [
  "rustc_version",
  "structopt",
  "test-generator",
- "test-utils",
  "wasm-common",
  "wasmer",
  "wasmer-cache",

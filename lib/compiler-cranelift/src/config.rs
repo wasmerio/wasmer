@@ -29,48 +29,61 @@ pub enum OptLevel {
 /// This structure exposed a builder-like interface and is primarily consumed by
 /// [`Engine::new()`]
 #[derive(Clone)]
-pub struct CraneliftConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
-
-    /// Should the Cranelift verifier be enabled.
-    ///
-    /// The verifier assures that the generated Cranelift IR is valid.
-    pub enable_verifier: bool,
-
+pub struct Cranelift {
+    enable_nan_canonicalization: bool,
+    enable_verifier: bool,
+    enable_simd: bool,
     enable_pic: bool,
-
-    /// The optimization levels when optimizing the IR.
-    pub opt_level: OptLevel,
-
-    features: Features,
-    target: Target,
-
+    opt_level: OptLevel,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
 }
 
-impl CraneliftConfig {
+impl Cranelift {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new() -> Self {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptLevel::Speed,
             enable_pic: false,
-            features,
-            target,
+            enable_simd: false,
             middlewares: vec![],
         }
     }
 
-    /// Generates the ISA for the current target
-    pub fn isa(&self) -> Box<dyn TargetIsa> {
-        let target = self.target();
+    /// Should the Cranelift verifier be enabled.
+    ///
+    /// The verifier assures that the generated Cranelift IR is valid.
+    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
+        self.enable_verifier = enable;
+        self
+    }
+
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// Enable SIMD support.
+    pub fn enable_simd(&mut self, enable: bool) -> &mut Self {
+        self.enable_simd = enable;
+        self
+    }
+
+    /// The optimization levels when optimizing the IR.
+    pub fn opt_level(&mut self, opt_level: OptLevel) -> &mut Self {
+        self.opt_level = opt_level;
+        self
+    }
+
+    /// Generates the ISA for the provided target
+    pub fn isa(&self, target: &Target) -> Box<dyn TargetIsa> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
@@ -124,7 +137,7 @@ impl CraneliftConfig {
         builder.finish(self.flags())
     }
 
-    /// Generates the flags for the current target
+    /// Generates the flags for the compiler
     pub fn flags(&self) -> settings::Flags {
         let mut flags = settings::builder();
 
@@ -148,7 +161,7 @@ impl CraneliftConfig {
             .set("enable_verifier", enable_verifier)
             .expect("should be valid flag");
 
-        let opt_level = if self.features.simd {
+        let opt_level = if self.enable_simd {
             "none"
         } else {
             match self.opt_level {
@@ -162,7 +175,7 @@ impl CraneliftConfig {
             .set("opt_level", opt_level)
             .expect("should be valid flag");
 
-        let enable_simd = if self.features.simd { "true" } else { "false" };
+        let enable_simd = if self.enable_simd { "true" } else { "false" };
         flags
             .set("enable_simd", enable_simd)
             .expect("should be valid flag");
@@ -180,20 +193,9 @@ impl CraneliftConfig {
     }
 }
 
-impl CompilerConfig for CraneliftConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
+impl CompilerConfig for Cranelift {
     fn enable_pic(&mut self) {
         self.enable_pic = true;
-    }
-
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
     }
 
     /// Transform it into the compiler
@@ -205,10 +207,15 @@ impl CompilerConfig for CraneliftConfig {
     fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
         self.middlewares.push(middleware);
     }
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, _target: &Target) -> Features {
+        Features::default()
+    }
 }
 
-impl Default for CraneliftConfig {
+impl Default for Cranelift {
     fn default() -> Self {
-        Self::new(Default::default(), Default::default())
+        Self::new()
     }
 }

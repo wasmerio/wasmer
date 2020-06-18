@@ -1,8 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
-use test_utils::get_compiler_config_from_str;
 
 use wasmer::*;
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 
 static BASIC_WAT: &str = r#"(module
     (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
@@ -151,19 +150,19 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
 fn run_static_benchmarks(c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store = test_utils::get_default_llvm_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_static_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = test_utils::get_default_cranelift_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_cranelift::Cranelift::new()).engine());
         run_basic_static_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let store = test_utils::get_default_singlepass_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_singlepass::Singlepass::new()).engine());
         run_basic_static_function(&store, "singlepass", c);
     }
 }
@@ -171,19 +170,19 @@ fn run_static_benchmarks(c: &mut Criterion) {
 fn run_dynamic_benchmarks(c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
-        let store = test_utils::get_default_llvm_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_llvm::LLVM::new()).engine());
         run_basic_dynamic_function(&store, "llvm", c);
     }
 
     #[cfg(feature = "cranelift")]
     {
-        let store = test_utils::get_default_cranelift_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_cranelift::Cranelift::new()).engine());
         run_basic_dynamic_function(&store, "cranelift", c);
     }
 
     #[cfg(feature = "singlepass")]
     {
-        let store = test_utils::get_default_singlepass_store();
+        let store = Store::new(&JIT::new(&wasmer_compiler_singlepass::Singlepass::new()).engine());
         run_basic_dynamic_function(&store, "singlepass", c);
     }
 }

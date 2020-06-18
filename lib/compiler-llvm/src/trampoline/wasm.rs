@@ -1,4 +1,4 @@
-use crate::config::{CompiledFunctionKind, LLVMConfig};
+use crate::config::{CompiledFunctionKind, LLVM};
 use crate::object_file::load_object_file;
 use crate::translator::abi::{
     func_type_to_llvm, get_vmctx_ptr_param, is_sret, pack_values_for_register_return,
@@ -10,7 +10,7 @@ use inkwell::{
     context::Context,
     module::Linkage,
     passes::PassManager,
-    targets::FileType,
+    targets::{FileType, TargetMachine},
     types::BasicType,
     values::{BasicValue, FunctionValue},
     AddressSpace,
@@ -22,27 +22,29 @@ use wasmer_compiler::{CompileError, FunctionBody};
 
 pub struct FuncTrampoline {
     ctx: Context,
+    target_machine: TargetMachine,
 }
 
 const FUNCTION_SECTION: &str = ".wasmer_trampoline";
 
 impl FuncTrampoline {
-    pub fn new() -> Self {
+    pub fn new(target_machine: TargetMachine) -> Self {
         Self {
             ctx: Context::create(),
+            target_machine,
         }
     }
 
     pub fn trampoline(
         &mut self,
         ty: &FunctionType,
-        config: &LLVMConfig,
+        config: &LLVM,
     ) -> Result<FunctionBody, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
-        let target_triple = config.target_triple();
-        let target_machine = config.target_machine();
+        let target_machine = &self.target_machine;
+        let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
@@ -125,13 +127,13 @@ impl FuncTrampoline {
     pub fn dynamic_trampoline(
         &mut self,
         ty: &FunctionType,
-        config: &LLVMConfig,
+        config: &LLVM,
     ) -> Result<FunctionBody, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
-        let target_triple = config.target_triple();
-        let target_machine = config.target_machine();
+        let target_machine = &self.target_machine;
+        let target_triple = target_machine.get_triple();
         module.set_triple(&target_triple);
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
