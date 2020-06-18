@@ -1452,7 +1452,7 @@ impl WasiFs {
 /// Usage:
 ///
 /// ```no_run
-/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
 /// WasiState::new("program_name")
 ///    .env(b"HOME", "/home/home".to_string())

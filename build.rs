@@ -12,10 +12,38 @@ use test_generator::{
     build_ignores_from_textfile, test_directory, test_directory_module, wast_processor,
     with_features, with_test_module, Testsuite,
 };
+use wasi_test_generator;
+
+static WASITESTS_ENV_VAR: &str = "WASM_WASI_GENERATE_WASITESTS";
+static WASITESTS_SET_UP_TOOLCHAIN: &str = "WASM_WASI_SET_UP_TOOLCHAIN";
+static WASITESTS_GENERATE_ALL: &str = "WASI_TEST_GENERATE_ALL";
+
+fn is_truthy_env(name: &str) -> bool {
+    env::var(name).map(|n| n == "1").unwrap_or_default()
+}
 
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=tests/ignores.txt");
+    println!("cargo:rerun-if-env-changed={}", WASITESTS_ENV_VAR);
+    println!("cargo:rerun-if-env-changed={}", WASITESTS_SET_UP_TOOLCHAIN);
+    println!("cargo:rerun-if-env-changed={}", WASITESTS_GENERATE_ALL);
+
+    let wasi_versions = if is_truthy_env(WASITESTS_GENERATE_ALL) {
+        wasi_test_generator::ALL_WASI_VERSIONS
+    } else {
+        wasi_test_generator::LATEST_WASI_VERSION
+    };
+
+    // Install the Rust WASI toolchains for each of the versions
+    if is_truthy_env(WASITESTS_SET_UP_TOOLCHAIN) {
+        wasi_test_generator::install_toolchains(wasi_versions);
+    }
+
+    // Generate the WASI Wasm files
+    if is_truthy_env(WASITESTS_ENV_VAR) {
+        wasi_test_generator::build(wasi_versions);
+    }
 
     let out_dir = PathBuf::from(
         env::var_os("OUT_DIR").expect("The OUT_DIR environment variable must be set"),

@@ -91,6 +91,24 @@ build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi
 
+###################
+# Test Generation #
+###################
+
+generate-wasitests:
+	WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
+	&& echo "formatting" \
+	&& cargo fmt
+
+generate-wasitests-all:
+	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
+	&& echo "formatting" \
+	&& cargo fmt
+
+wasitests-setup-toolchain: wasitests-setup
+	WASM_WASI_SET_UP_TOOLCHAIN=1 cargo build --release -vv
+
+generate: generate-wasitests
 
 ###########
 # Testing #
@@ -111,6 +129,7 @@ test-packages:
 	cargo test -p wasmer --release
 	cargo test -p wasmer-runtime --release
 	cargo test -p wasm-common --release
+	cargo test -p wasmer-wasi --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -125,6 +144,9 @@ test-capi-llvm: build-capi-llvm
 		--no-default-features --features jit,llvm,wasi -- --nocapture
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+
+test-wasi-unit:
+	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 #############
 # Packaging #
