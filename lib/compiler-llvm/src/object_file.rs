@@ -43,7 +43,7 @@ pub fn load_object_file<F>(
     root_section: &str,
     self_referential_relocation_target: Option<RelocationTarget>,
     mut symbol_name_to_relocation_target: F,
-) -> Result<(CompiledFunction, CustomSections), CompileError>
+) -> Result<(CompiledFunction, CustomSections, Vec<SectionIndex>), CompileError>
 where
     F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
 {
@@ -142,6 +142,20 @@ where
     // the sections we want to include.
     worklist.push(root_section_index);
     visited.insert(root_section_index);
+
+    // Also add any .eh_frame sections.
+    let mut eh_frame_section_indices = vec![];
+    // TODO: this constant has been added to goblin, now waiting for release
+    const SHT_X86_64_UNWIND: u64 = 0x7000_0001;
+    for (index, shdr) in elf.section_headers.iter().enumerate() {
+        if shdr.sh_flags & SHT_X86_64_UNWIND != 0 {
+            let index = ElfSectionIndex::from_usize(index)?;
+            worklist.push(index);
+            visited.insert(index);
+            eh_frame_section_indices.push(index);
+        }
+    }    
+    
     while let Some(section_index) = worklist.pop() {
         for reloc in reloc_sections
             .get(&section_index)
@@ -241,6 +255,8 @@ where
         .map(|(_, v)| v)
         .collect::<PrimaryMap<SectionIndex, _>>();
 
+    let eh_frame_section_indices = eh_frame_section_indices.iter().map(|index| section_to_custom_section.get(index).map_or_else(|| Err(CompileError::Codegen(format!(".eh_frame section with index={:?} was never loaded", index))), |idx| Ok(*idx))).collect::<Result<Vec<SectionIndex>, _>>()?;
+
     let function_body = FunctionBody {
         body: section_bytes(root_section_index),
         unwind_info: None,
@@ -271,5 +287,6 @@ where
             },
         },
         custom_sections,
+        eh_frame_section_indices,
     ))
 }

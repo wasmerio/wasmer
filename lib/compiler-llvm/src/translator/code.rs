@@ -33,7 +33,7 @@ use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
     FunctionBodyData, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState,
-    RelocationTarget,
+    RelocationTarget, SectionIndex,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
@@ -76,7 +76,7 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
-    ) -> Result<(CompiledFunction, CustomSections), CompileError> {
+    ) -> Result<(CompiledFunction, CustomSections, Vec<SectionIndex>), CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);

@@ -83,7 +83,7 @@ impl Compiler for LLVMCompiler {
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
-            .map(|(mut compiled_function, function_custom_sections)| {
+            .map(|(mut compiled_function, function_custom_sections, _eh_frame_section_indices)| {
                 let first_section = module_custom_sections.len() as u32;
                 for (_, custom_section) in function_custom_sections.iter() {
                     // TODO: remove this call to clone()

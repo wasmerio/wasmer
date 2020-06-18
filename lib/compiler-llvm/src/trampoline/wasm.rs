@@ -94,7 +94,7 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, sections) =
+        let (function, sections, _eh_frame_section_indices) =
             load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
@@ -175,7 +175,7 @@ impl FuncTrampoline {
         }
 
         let mem_buf_slice = memory_buffer.as_slice();
-        let (function, sections) =
+        let (function, sections, _eh_frame_section_indices) =
             load_object_file(mem_buf_slice, FUNCTION_SECTION, None, |name: &String| {
                 Err(CompileError::Codegen(format!(
                     "trampoline generation produced reference to unknown function {}",
