@@ -23,7 +23,7 @@ use inkwell::{
 use smallvec::SmallVec;
 
 use crate::config::{CompiledFunctionKind, LLVM};
-use crate::object_file::load_object_file;
+use crate::object_file::{load_object_file, CompiledFunction};
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
@@ -31,9 +31,8 @@ use wasm_common::{
 };
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wptype_to_type, CompileError, CompiledFunction, CustomSections,
-    FunctionBodyData, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState,
-    RelocationTarget,
+    to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
+    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
 use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
 
@@ -76,7 +75,7 @@ impl FuncTranslator {
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
         _table_plans: &PrimaryMap<TableIndex, TablePlan>,
         func_names: &SecondaryMap<FunctionIndex, String>,
-    ) -> Result<(CompiledFunction, CustomSections), CompileError> {
+    ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
@@ -274,7 +273,7 @@ impl FuncTranslator {
         load_object_file(
             mem_buf_slice,
             ".wasmer_function",
-            Some(RelocationTarget::LocalFunc(*local_func_index)),
+            RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
                 if let Some((index, _)) = func_names
                     .iter()
