@@ -21,6 +21,7 @@
 
 mod error;
 mod spectest;
+mod wasi_wast;
 mod wast;
 
 pub use crate::error::{DirectiveError, DirectiveErrors};

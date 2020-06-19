@@ -1994,16 +1994,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
-name = "wasi-test-generator"
-version = "0.17.0"
-dependencies = [
- "glob",
- "serde",
- "serde_json",
- "tempfile",
-]
-
-[[package]]
 name = "wasm-bindgen"
 version = "0.2.63"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2109,7 +2099,6 @@ dependencies = [
  "structopt",
  "test-generator",
  "test-utils",
- "wasi-test-generator",
  "wasm-common",
  "wasmer",
  "wasmer-cache",

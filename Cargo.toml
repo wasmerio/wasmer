@@ -56,7 +56,6 @@ members = [
 
 [build-dependencies]
 test-generator = { path = "tests/lib/test-generator" }
-wasi-test-generator = { path = "tests/lib/wasi-test-generator" }
 anyhow = "1.0"
 glob = "0.3"
 rustc_version = "0.2"
