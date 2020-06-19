@@ -5,6 +5,7 @@ use crate::types::{FunctionType, Type};
 use crate::values::Value;
 use std::convert::Infallible;
 use std::marker::PhantomData;
+use std::panic::{self, AssertUnwindSafe};
 
 /// `NativeWasmType` represents a native Wasm type.
 /// It uses the Rust Type system to automatically detect the
@@ -484,11 +485,14 @@ macro_rules! impl_traits {
                     FN: Fn( $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-                    let results = f( $( WasmExternType::from_native($x) ),* ).report();
+                    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        f( $( WasmExternType::from_native($x) ),* ).report()
+                    }));
 
-                    match results {
-                        Ok(results) => return results.into_c_struct(),
-                        Err(error) => panic!(error),
+                    match result {
+                        Ok(Ok(result)) => return result.into_c_struct(),
+                        Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
+                        Err(panic) => wasmer_runtime::resume_panic(panic),
                     }
                 }
 
@@ -516,11 +520,15 @@ macro_rules! impl_traits {
                     FN: Fn(&mut T, $( $x ),* ) -> Trap + 'static
                 {
                     let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-                    let results = f(ctx, $( WasmExternType::from_native($x) ),* ).report();
 
-                    match results {
-                        Ok(results) => return results.into_c_struct(),
-                        Err(error) => panic!(error),
+                    let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                        f(ctx, $( WasmExternType::from_native($x) ),* ).report()
+                    }));
+
+                    match result {
+                        Ok(Ok(result)) => return result.into_c_struct(),
+                        Ok(Err(trap)) => wasmer_runtime::raise_user_trap(Box::new(trap)),
+                        Err(panic) => wasmer_runtime::resume_panic(panic),
                     }
                 }
 
