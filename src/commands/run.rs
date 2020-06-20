@@ -78,10 +78,10 @@ impl Run {
             format!(
                 "failed to run `{}`{}",
                 self.path.display(),
-                if compilers.len() > 0 {
-                    ""
-                } else {
+                if compilers.is_empty() {
                     " (no compilers enabled)"
+                } else {
+                    ""
                 }
             )
         })

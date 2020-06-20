@@ -408,7 +408,7 @@ impl<'a> FuncGen<'a> {
         let inner = |m: &mut Machine, a: &mut Assembler, src: Location| match dst {
             Location::Imm32(_) | Location::Imm64(_) => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_zx_sx dst Imm: unreachable code"),
+                    message: "emit_relaxed_zx_sx dst Imm: unreachable code".to_string(),
                 })
             }
             Location::Memory(_, _) => {
@@ -425,7 +425,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_zx_sx dst: unreachable code"),
+                    message: "emit_relaxed_zx_sx dst: unreachable code".to_string(),
                 })
             }
         };
@@ -446,7 +446,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_zx_sx src: unreachable code"),
+                    message: "emit_relaxed_zx_sx src: unreachable code".to_string(),
                 })
             }
         }
@@ -582,7 +582,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_avx_base src1: unreachable code"),
+                    message: "emit_relaxed_avx_base src1: unreachable code".to_string(),
                 })
             }
         };
@@ -611,7 +611,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_avx_base src2: unreachable code"),
+                    message: "emit_relaxed_avx_base src2: unreachable code".to_string(),
                 })
             }
         };
@@ -626,7 +626,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_relaxed_avx_base dst: unreachable code"),
+                    message: "emit_relaxed_avx_base dst: unreachable code".to_string(),
                 })
             }
         }
@@ -701,7 +701,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_cmpop_i32_dynamic_b ret: unreachable code"),
+                    message: "emit_cmpop_i32_dynamic_b ret: unreachable code".to_string(),
                 })
             }
         }
@@ -748,7 +748,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_cmpop_i64_dynamic_b ret: unreachable code"),
+                    message: "emit_cmpop_i64_dynamic_b ret: unreachable code".to_string(),
                 })
             }
         }
@@ -808,7 +808,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_xcnt_i32 loc: unreachable code"),
+                    message: "emit_xcnt_i32 loc: unreachable code".to_string(),
                 })
             }
         }
@@ -861,7 +861,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_xcnt_i64 loc: unreachable code"),
+                    message: "emit_xcnt_i64 loc: unreachable code".to_string(),
                 })
             }
         }
@@ -965,7 +965,7 @@ impl<'a> FuncGen<'a> {
                 self.machine.state.register_values[X64Register::GPR(*r).to_index().0].clone();
             if content == MachineValue::Undefined {
                 return Err(CodegenError {
-                    message: format!("emit_call_sysv: Undefined used_gprs content"),
+                    message: "emit_call_sysv: Undefined used_gprs content".to_string(),
                 });
             }
             self.machine.state.stack_values.push(content);
@@ -992,7 +992,7 @@ impl<'a> FuncGen<'a> {
                     self.machine.state.register_values[X64Register::XMM(*r).to_index().0].clone();
                 if content == MachineValue::Undefined {
                     return Err(CodegenError {
-                        message: format!("emit_call_sysv: Undefined used_xmms content"),
+                        message: "emit_call_sysv: Undefined used_xmms content".to_string(),
                     });
                 }
                 self.machine.state.stack_values.push(content);
@@ -1003,12 +1003,8 @@ impl<'a> FuncGen<'a> {
 
         // Calculate stack offset.
         for (i, _param) in params.iter().enumerate() {
-            let loc = Machine::get_param_location(1 + i);
-            match loc {
-                Location::Memory(_, _) => {
-                    stack_offset += 8;
-                }
-                _ => {}
+            if let Location::Memory(_, _) = Machine::get_param_location(1 + i) {
+                stack_offset += 8;
             }
         }
 
@@ -1060,7 +1056,8 @@ impl<'a> FuncGen<'a> {
                         Location::Memory(reg, offset) => {
                             if reg != GPR::RBP {
                                 return Err(CodegenError {
-                                    message: format!("emit_call_sysv loc param: unreachable code"),
+                                    message: "emit_call_sysv loc param: unreachable code"
+                                        .to_string(),
                                 });
                             }
                             self.machine
@@ -1110,7 +1107,7 @@ impl<'a> FuncGen<'a> {
                 }
                 _ => {
                     return Err(CodegenError {
-                        message: format!("emit_call_sysv loc: unreachable code"),
+                        message: "emit_call_sysv loc: unreachable code".to_string(),
                     })
                 }
             }
@@ -1135,7 +1132,7 @@ impl<'a> FuncGen<'a> {
 
         if (self.machine.state.stack_values.len() % 2) != 1 {
             return Err(CodegenError {
-                message: format!("emit_call_sysv: explicit shadow takes one slot"),
+                message: "emit_call_sysv: explicit shadow takes one slot".to_string(),
             });
         }
 
@@ -1169,7 +1166,7 @@ impl<'a> FuncGen<'a> {
             );
             if (stack_offset % 8) != 0 {
                 return Err(CodegenError {
-                    message: format!("emit_call_sysv: Bad restoring stack alignement"),
+                    message: "emit_call_sysv: Bad restoring stack alignement".to_string(),
                 });
             }
             for _ in 0..stack_offset / 8 {
@@ -1178,7 +1175,7 @@ impl<'a> FuncGen<'a> {
         }
 
         // Restore XMMs.
-        if used_xmms.len() > 0 {
+        if !used_xmms.is_empty() {
             for (i, r) in used_xmms.iter().enumerate() {
                 self.assembler.emit_mov(
                     Size::S64,
@@ -1204,7 +1201,7 @@ impl<'a> FuncGen<'a> {
 
         if self.machine.state.stack_values.pop().unwrap() != MachineValue::ExplicitShadow {
             return Err(CodegenError {
-                message: format!("emit_call_sysv: Popped value is not ExplicitShadow"),
+                message: "emit_call_sysv: Popped value is not ExplicitShadow".to_string(),
             });
         }
         Ok(())
@@ -1328,7 +1325,7 @@ impl<'a> FuncGen<'a> {
             3 => 8,
             _ => {
                 return Err(CodegenError {
-                    message: format!("emit_memory_op align: unreachable value"),
+                    message: "emit_memory_op align: unreachable value".to_string(),
                 })
             }
         };
@@ -1369,7 +1366,7 @@ impl<'a> FuncGen<'a> {
     ) -> Result<(), CodegenError> {
         if memory_sz > stack_sz {
             return Err(CodegenError {
-                message: format!("emit_compare_and_swap: memory size > stac size"),
+                message: "emit_compare_and_swap: memory size > stack size".to_string(),
             });
         }
 
@@ -1771,7 +1768,7 @@ impl<'a> FuncGen<'a> {
 
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
-                message: format!("emit_head: wasm_inst_offset not std::usize::MAX"),
+                message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
             });
         }
         Ok(())
@@ -1840,7 +1837,7 @@ impl<'a> FuncGen<'a> {
     }
 
     pub fn has_control_frames(&self) -> bool {
-        self.control_stack.len() > 0
+        !self.control_stack.is_empty()
     }
 
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
@@ -2158,7 +2155,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I32Clz src: unreachable code"),
+                            message: "I32Clz src: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2175,7 +2172,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I32Clz dst: unreachable code"),
+                            message: "I32Clz dst: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2209,12 +2206,9 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {}
                 };
-                match ret {
-                    Location::Memory(_, _) => {
-                        self.assembler.emit_mov(Size::S32, Location::GPR(dst), ret);
-                        self.machine.release_temp_gpr(dst);
-                    }
-                    _ => {}
+                if let Location::Memory(_, _) = ret {
+                    self.assembler.emit_mov(Size::S32, Location::GPR(dst), ret);
+                    self.machine.release_temp_gpr(dst);
                 };
             }
             Operator::I32Ctz => {
@@ -2228,7 +2222,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I32Ctz src: unreachable code"),
+                            message: "I32Ctz src: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2245,7 +2239,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I32Ctz dst: unreachable code"),
+                            message: "I32Ctz dst: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2277,12 +2271,9 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {}
                 };
-                match ret {
-                    Location::Memory(_, _) => {
-                        self.assembler.emit_mov(Size::S32, Location::GPR(dst), ret);
-                        self.machine.release_temp_gpr(dst);
-                    }
-                    _ => {}
+                if let Location::Memory(_, _) = ret {
+                    self.assembler.emit_mov(Size::S32, Location::GPR(dst), ret);
+                    self.machine.release_temp_gpr(dst);
                 };
             }
             Operator::I32Popcnt => self.emit_xcnt_i32(Assembler::emit_popcnt)?,
@@ -2403,7 +2394,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I64Clz src: unreachable code"),
+                            message: "I64Clz src: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2420,7 +2411,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I64Clz dst: unreachable code"),
+                            message: "I64Clz dst: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2454,12 +2445,9 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {}
                 };
-                match ret {
-                    Location::Memory(_, _) => {
-                        self.assembler.emit_mov(Size::S64, Location::GPR(dst), ret);
-                        self.machine.release_temp_gpr(dst);
-                    }
-                    _ => {}
+                if let Location::Memory(_, _) = ret {
+                    self.assembler.emit_mov(Size::S64, Location::GPR(dst), ret);
+                    self.machine.release_temp_gpr(dst);
                 };
             }
             Operator::I64Ctz => {
@@ -2473,7 +2461,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I64Ctz src: unreachable code"),
+                            message: "I64Ctz src: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2490,7 +2478,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(reg) => reg,
                     _ => {
                         return Err(CodegenError {
-                            message: format!("I64Ctz dst: unreachable code"),
+                            message: "I64Ctz dst: unreachable code".to_string(),
                         })
                     }
                 };
@@ -2522,12 +2510,9 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {}
                 };
-                match ret {
-                    Location::Memory(_, _) => {
-                        self.assembler.emit_mov(Size::S64, Location::GPR(dst), ret);
-                        self.machine.release_temp_gpr(dst);
-                    }
-                    _ => {}
+                if let Location::Memory(_, _) = ret {
+                    self.assembler.emit_mov(Size::S64, Location::GPR(dst), ret);
+                    self.machine.release_temp_gpr(dst);
                 };
             }
             Operator::I64Popcnt => self.emit_xcnt_i64(Assembler::emit_popcnt)?,
@@ -2719,7 +2704,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Max src1: unreachable code"),
+                                message: "F32Max src1: unreachable code".to_string(),
                             })
                         }
                     };
@@ -2752,7 +2737,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Max src2: unreachable code"),
+                                message: "F32Max src2: unreachable code".to_string(),
                             })
                         }
                     };
@@ -2809,7 +2794,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Max ret: unreachable code"),
+                                message: "F32Max ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -2863,7 +2848,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Min src1: unreachable code"),
+                                message: "F32Min src1: unreachable code".to_string(),
                             })
                         }
                     };
@@ -2896,7 +2881,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Min src2: unreachable code"),
+                                message: "F32Min src2: unreachable code".to_string(),
                             })
                         }
                     };
@@ -2962,7 +2947,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F32Min ret: unreachable code"),
+                                message: "F32Min ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -3209,7 +3194,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Max src1: unreachable code"),
+                                message: "F64Max src1: unreachable code".to_string(),
                             })
                         }
                     };
@@ -3242,7 +3227,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Max src2: unreachable code"),
+                                message: "F64Max src2: unreachable code".to_string(),
                             })
                         }
                     };
@@ -3299,7 +3284,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Max ret: unreachable code"),
+                                message: "F64Max ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -3354,7 +3339,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Min src1: unreachable code"),
+                                message: "F64Min src1: unreachable code".to_string(),
                             })
                         }
                     };
@@ -3387,7 +3372,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Min src2: unreachable code"),
+                                message: "F64Min src2: unreachable code".to_string(),
                             })
                         }
                     };
@@ -3453,7 +3438,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("F64Min ret: unreachable code"),
+                                message: "F64Min ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -5185,13 +5170,13 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
                     },
-                    params.iter().map(|x| *x),
+                    params.iter().copied(),
                 )?;
 
                 self.machine
                     .release_locations_only_stack(&mut self.assembler, &params);
 
-                if return_types.len() > 0 {
+                if !return_types.is_empty() {
                     let ret = self.machine.acquire_locations(
                         &mut self.assembler,
                         &[(
@@ -5215,7 +5200,7 @@ impl<'a> FuncGen<'a> {
             Operator::CallIndirect { index, table_index } => {
                 if table_index != 0 {
                     return Err(CodegenError {
-                        message: format!("CallIndirect: table_index is not 0"),
+                        message: "CallIndirect: table_index is not 0".to_string(),
                     });
                 }
                 let table_index = TableIndex::new(table_index as _);
@@ -5385,13 +5370,13 @@ impl<'a> FuncGen<'a> {
                             ));
                         }
                     },
-                    params.iter().map(|x| *x),
+                    params.iter().copied(),
                 )?;
 
                 self.machine
                     .release_locations_only_stack(&mut self.assembler, &params);
 
-                if return_types.len() > 0 {
+                if !return_types.is_empty() {
                     let ret = self.machine.acquire_locations(
                         &mut self.assembler,
                         &[(
@@ -5427,7 +5412,7 @@ impl<'a> FuncGen<'a> {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("If: multi-value returns not yet implemented"),
+                                message: "If: multi-value returns not yet implemented".to_string(),
                             })
                         }
                     },
@@ -5443,7 +5428,7 @@ impl<'a> FuncGen<'a> {
             Operator::Else => {
                 let frame = self.control_stack.last_mut().unwrap();
 
-                if !was_unreachable && frame.returns.len() > 0 {
+                if !was_unreachable && !frame.returns.is_empty() {
                     let first_return = frame.returns[0];
                     let loc = *self.value_stack.last().unwrap();
                     if first_return.is_float() {
@@ -5495,7 +5480,7 @@ impl<'a> FuncGen<'a> {
                     }
                     _ => {
                         return Err(CodegenError {
-                            message: format!("Else: frame.if_else unreachable code"),
+                            message: "Else: frame.if_else unreachable code".to_string(),
                         })
                     }
                 }
@@ -5568,7 +5553,8 @@ impl<'a> FuncGen<'a> {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("Block: multi-value returns not yet implemented"),
+                                message: "Block: multi-value returns not yet implemented"
+                                    .to_string(),
                             })
                         }
                     },
@@ -5596,7 +5582,7 @@ impl<'a> FuncGen<'a> {
                 let _activate_offset = self.assembler.get_offset().0;
 
                 self.control_stack.push(ControlFrame {
-                    label: label,
+                    label,
                     loop_like: true,
                     if_else: IfElseState::None,
                     returns: match ty {
@@ -5604,7 +5590,8 @@ impl<'a> FuncGen<'a> {
                         WpTypeOrFuncType::Type(inner_ty) => smallvec![inner_ty],
                         _ => {
                             return Err(CodegenError {
-                                message: format!("Loop: multi-value returns not yet implemented"),
+                                message: "Loop: multi-value returns not yet implemented"
+                                    .to_string(),
                             })
                         }
                     },
@@ -5625,7 +5612,7 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(
-                            if let Some(_) = self.module.local_memory_index(memory_index) {
+                            if self.module.local_memory_index(memory_index).is_some() {
                                 VMBuiltinFunctionIndex::get_memory32_size_index()
                             } else {
                                 VMBuiltinFunctionIndex::get_imported_memory32_size_index()
@@ -5667,7 +5654,7 @@ impl<'a> FuncGen<'a> {
                     Location::Memory(
                         Machine::get_vmctx_reg(),
                         self.vmoffsets.vmctx_builtin_function(
-                            if let Some(_) = self.module.local_memory_index(memory_index) {
+                            if self.module.local_memory_index(memory_index).is_some() {
                                 VMBuiltinFunctionIndex::get_memory32_grow_index()
                             } else {
                                 VMBuiltinFunctionIndex::get_imported_memory32_grow_index()
@@ -6033,7 +6020,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("I64Load32U ret: unreachable code"),
+                                message: "I64Load32U ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -6156,10 +6143,10 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Return => {
                 let frame = &self.control_stack[0];
-                if frame.returns.len() > 0 {
+                if !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
                         return Err(CodegenError {
-                            message: format!("Return: incorrect frame.returns"),
+                            message: "Return: incorrect frame.returns".to_string(),
                         });
                     }
                     let first_return = frame.returns[0];
@@ -6206,10 +6193,10 @@ impl<'a> FuncGen<'a> {
             Operator::Br { relative_depth } => {
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && frame.returns.len() > 0 {
+                if !frame.loop_like && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
                         return Err(CodegenError {
-                            message: format!("Br: incorrect frame.returns"),
+                            message: "Br: incorrect frame.returns".to_string(),
                         });
                     }
                     let first_return = frame.returns[0];
@@ -6260,10 +6247,10 @@ impl<'a> FuncGen<'a> {
 
                 let frame =
                     &self.control_stack[self.control_stack.len() - 1 - (relative_depth as usize)];
-                if !frame.loop_like && frame.returns.len() > 0 {
+                if !frame.loop_like && !frame.returns.is_empty() {
                     if frame.returns.len() != 1 {
                         return Err(CodegenError {
-                            message: format!("BrIf: incorrect frame.returns"),
+                            message: "BrIf: incorrect frame.returns".to_string(),
                         });
                     }
 
@@ -6343,7 +6330,7 @@ impl<'a> FuncGen<'a> {
                     table.push(label);
                     let frame =
                         &self.control_stack[self.control_stack.len() - 1 - (*target as usize)];
-                    if !frame.loop_like && frame.returns.len() > 0 {
+                    if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CodegenError {
                                 message: format!(
@@ -6395,10 +6382,10 @@ impl<'a> FuncGen<'a> {
                 {
                     let frame = &self.control_stack
                         [self.control_stack.len() - 1 - (default_target as usize)];
-                    if !frame.loop_like && frame.returns.len() > 0 {
+                    if !frame.loop_like && !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CodegenError {
-                                message: format!("BrTable: incorrect frame.returns"),
+                                message: "BrTable: incorrect frame.returns".to_string(),
                             });
                         }
 
@@ -6457,7 +6444,7 @@ impl<'a> FuncGen<'a> {
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
 
-                if !was_unreachable && frame.returns.len() > 0 {
+                if !was_unreachable && !frame.returns.is_empty() {
                     let loc = *self.value_stack.last().unwrap();
                     if frame.returns[0].is_float() {
                         let fp = self.fp_stack.peek1()?;
@@ -6492,7 +6479,7 @@ impl<'a> FuncGen<'a> {
                     }
                 }
 
-                if self.control_stack.len() == 0 {
+                if self.control_stack.is_empty() {
                     self.assembler.emit_label(frame.label);
                     self.machine
                         .finalize_locals(&mut self.assembler, &self.locals);
@@ -6530,10 +6517,10 @@ impl<'a> FuncGen<'a> {
                         self.assembler.emit_label(label);
                     }
 
-                    if frame.returns.len() > 0 {
+                    if !frame.returns.is_empty() {
                         if frame.returns.len() != 1 {
                             return Err(CodegenError {
-                                message: format!("End: incorrect frame.returns"),
+                                message: "End: incorrect frame.returns".to_string(),
                             });
                         }
                         let loc = self.machine.acquire_locations(
@@ -6745,7 +6732,7 @@ impl<'a> FuncGen<'a> {
                         }
                         _ => {
                             return Err(CodegenError {
-                                message: format!("I64AtomicLoad32U ret: unreachable code"),
+                                message: "I64AtomicLoad32U ret: unreachable code".to_string(),
                             })
                         }
                     }
@@ -8260,12 +8247,8 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     // Calculate stack offset.
     let mut stack_offset: u32 = 0;
     for (i, _param) in sig.params().iter().enumerate() {
-        let loc = Machine::get_param_location(1 + i);
-        match loc {
-            Location::Memory(_, _) => {
-                stack_offset += 8;
-            }
-            _ => {}
+        if let Location::Memory(_, _) = Machine::get_param_location(1 + i) {
+            stack_offset += 8;
         }
     }
 
@@ -8336,7 +8319,7 @@ pub fn gen_std_trampoline(sig: &FunctionType) -> FunctionBody {
     );
 
     // Write return value.
-    if sig.results().len() > 0 {
+    if !sig.results().is_empty() {
         a.emit_mov(
             Size::S64,
             Location::GPR(GPR::RAX),
@@ -8372,7 +8355,7 @@ pub fn gen_std_dynamic_import_trampoline(
     );
 
     // Copy arguments.
-    if sig.params().len() > 0 {
+    if !sig.params().is_empty() {
         let mut argalloc = ArgumentRegisterAllocator::default();
         argalloc.next(Type::I64).unwrap(); // skip VMContext
 
@@ -8424,7 +8407,7 @@ pub fn gen_std_dynamic_import_trampoline(
     a.emit_call_location(Location::GPR(GPR::RAX));
 
     // Fetch return value.
-    if sig.results().len() > 0 {
+    if !sig.results().is_empty() {
         assert_eq!(sig.results().len(), 1);
         a.emit_mov(
             Size::S64,
@@ -8468,8 +8451,7 @@ pub fn gen_import_call_trampoline(
     if sig
         .params()
         .iter()
-        .find(|&&x| x == Type::F32 || x == Type::F64)
-        .is_some()
+        .any(|&x| x == Type::F32 || x == Type::F64)
     {
         let mut param_locations: Vec<Location> = vec![];
 
@@ -8491,8 +8473,7 @@ pub fn gen_import_call_trampoline(
         for i in 0..sig.params().len() {
             let loc = match i {
                 0..=4 => {
-                    static PARAM_REGS: &'static [GPR] =
-                        &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
+                    static PARAM_REGS: &[GPR] = &[GPR::RSI, GPR::RDX, GPR::RCX, GPR::R8, GPR::R9];
                     let loc = Location::Memory(GPR::RSP, (i * 8) as i32);
                     a.emit_mov(Size::S64, Location::GPR(PARAM_REGS[i]), loc);
                     loc

@@ -33,11 +33,11 @@ pub fn _pthread_attr_setstacksize(_ctx: &mut EmEnv, _a: i32, _b: i32) -> i32 {
     0
 }
 
-pub fn _pthread_cleanup_pop(_ctx: &mut EmEnv, _a: i32) -> () {
+pub fn _pthread_cleanup_pop(_ctx: &mut EmEnv, _a: i32) {
     trace!("emscripten::_pthread_cleanup_pop");
 }
 
-pub fn _pthread_cleanup_push(_ctx: &mut EmEnv, _a: i32, _b: i32) -> () {
+pub fn _pthread_cleanup_push(_ctx: &mut EmEnv, _a: i32, _b: i32) {
     trace!("emscripten::_pthread_cleanup_push");
 }
 
@@ -97,7 +97,7 @@ pub fn _pthread_equal(_ctx: &mut EmEnv, _a: i32, _b: i32) -> i32 {
     0
 }
 
-pub fn _pthread_exit(_ctx: &mut EmEnv, _a: i32) -> () {
+pub fn _pthread_exit(_ctx: &mut EmEnv, _a: i32) {
     trace!("emscripten::_pthread_exit");
 }
 

@@ -155,7 +155,7 @@ impl ModuleInfo {
             .iter()
             .filter_map(|(_name, export_index)| match export_index {
                 ExportIndex::Function(i) => {
-                    let signature = self.functions.get(i.clone()).unwrap();
+                    let signature = self.functions.get(*i).unwrap();
                     let func_type = self.signatures.get(signature.clone()).unwrap();
                     Some(func_type.clone())
                 }
@@ -169,20 +169,20 @@ impl ModuleInfo {
         let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
-                    let signature = self.functions.get(i.clone()).unwrap();
-                    let func_type = self.signatures.get(signature.clone()).unwrap();
+                    let signature = self.functions.get(*i).unwrap();
+                    let func_type = self.signatures.get(*signature).unwrap();
                     ExternType::Function(func_type.clone())
                 }
                 ExportIndex::Table(i) => {
-                    let table_type = self.tables.get(i.clone()).unwrap();
+                    let table_type = self.tables.get(*i).unwrap();
                     ExternType::Table(*table_type)
                 }
                 ExportIndex::Memory(i) => {
-                    let memory_type = self.memories.get(i.clone()).unwrap();
+                    let memory_type = self.memories.get(*i).unwrap();
                     ExternType::Memory(*memory_type)
                 }
                 ExportIndex::Global(i) => {
-                    let global_type = self.globals.get(i.clone()).unwrap();
+                    let global_type = self.globals.get(*i).unwrap();
                     ExternType::Global(*global_type)
                 }
             };
@@ -202,20 +202,20 @@ impl ModuleInfo {
             .map(move |((module, field, _), import_index)| {
                 let extern_type = match import_index {
                     ImportIndex::Function(i) => {
-                        let signature = self.functions.get(i.clone()).unwrap();
-                        let func_type = self.signatures.get(signature.clone()).unwrap();
+                        let signature = self.functions.get(*i).unwrap();
+                        let func_type = self.signatures.get(*signature).unwrap();
                         ExternType::Function(func_type.clone())
                     }
                     ImportIndex::Table(i) => {
-                        let table_type = self.tables.get(i.clone()).unwrap();
+                        let table_type = self.tables.get(*i).unwrap();
                         ExternType::Table(*table_type)
                     }
                     ImportIndex::Memory(i) => {
-                        let memory_type = self.memories.get(i.clone()).unwrap();
+                        let memory_type = self.memories.get(*i).unwrap();
                         ExternType::Memory(*memory_type)
                     }
                     ImportIndex::Global(i) => {
-                        let global_type = self.globals.get(i.clone()).unwrap();
+                        let global_type = self.globals.get(*i).unwrap();
                         ExternType::Global(*global_type)
                     }
                 };

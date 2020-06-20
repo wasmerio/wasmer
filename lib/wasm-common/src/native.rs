@@ -679,7 +679,6 @@ mod test_wasm_type_list {
 mod test_func {
     use super::*;
     use crate::types::Type;
-    use std::ptr;
     // WasmTypeList
 
     fn func() {}
