@@ -6,17 +6,28 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
+use wasmer_vm::ModuleInfo;
 use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
 
 /// A shared builder for function middlewares.
-pub trait FunctionMiddlewareGenerator: Debug + Send + Sync {
+pub trait ModuleMiddleware: Debug + Send + Sync {
     /// Generates a `FunctionMiddleware` for a given function.
-    fn generate(&self, local_function_index: LocalFunctionIndex) -> Box<dyn FunctionMiddleware>;
+    ///
+    /// Here we generate a separate object for each function instead of executing directly on per-function operators,
+    /// in order to enable concurrent middleware application. Takes immutable `&self` because this function can be called
+    /// concurrently from multiple compilation threads.
+    fn generate_function_middleware(
+        &self,
+        local_function_index: LocalFunctionIndex,
+    ) -> Box<dyn FunctionMiddleware>;
+
+    /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
+    fn transform_module_info(&self, _: &mut ModuleInfo) {}
 }
 
 /// A function middleware specialized for a single function.
 pub trait FunctionMiddleware: Debug {
-    /// Processes the given event, module info and sink.
+    /// Processes the given operator.
     fn feed<'a>(
         &mut self,
         operator: Operator<'a>,
@@ -48,23 +59,33 @@ pub struct MiddlewareReaderState<'a> {
 }
 
 /// Trait for generating middleware chains from "prototype" (generator) chains.
-pub trait GenerateMiddlewareChain {
-    /// Generates a middleware chain.
-    fn generate_middleware_chain(
+pub trait ModuleMiddlewareChain {
+    /// Generates a function middleware chain.
+    fn generate_function_middleware_chain(
         &self,
         local_function_index: LocalFunctionIndex,
     ) -> Vec<Box<dyn FunctionMiddleware>>;
+
+    /// Applies the chain on a `ModuleInfo` struct.
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo);
 }
 
-impl<T: Deref<Target = dyn FunctionMiddlewareGenerator>> GenerateMiddlewareChain for [T] {
-    /// Generates a middleware chain.
-    fn generate_middleware_chain(
+impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
+    /// Generates a function middleware chain.
+    fn generate_function_middleware_chain(
         &self,
         local_function_index: LocalFunctionIndex,
     ) -> Vec<Box<dyn FunctionMiddleware>> {
         self.iter()
-            .map(|x| x.generate(local_function_index))
+            .map(|x| x.generate_function_middleware(local_function_index))
             .collect()
+    }
+
+    /// Applies the chain on a `ModuleInfo` struct.
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo) {
+        for item in self {
+            item.transform_module_info(module_info);
+        }
     }
 }
 

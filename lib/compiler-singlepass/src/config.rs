@@ -3,7 +3,7 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
-use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
+use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
 
 #[derive(Debug, Clone)]
@@ -11,7 +11,7 @@ pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,
     /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+    pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl Singlepass {
@@ -66,7 +66,7 @@ impl CompilerConfig for Singlepass {
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
     }
 }

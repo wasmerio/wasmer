@@ -69,8 +69,7 @@ pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
-    wasmparser, CompilerConfig, FunctionMiddleware, FunctionMiddlewareGenerator,
-    MiddlewareReaderState,
+    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{

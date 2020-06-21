@@ -16,8 +16,8 @@ mod sections;
 pub use self::environ::{FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation};
 pub use self::error::to_wasm_error;
 pub use self::middleware::{
-    FunctionMiddleware, FunctionMiddlewareGenerator, GenerateMiddlewareChain,
-    MiddlewareBinaryReader, MiddlewareReaderState,
+    FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState, ModuleMiddleware,
+    ModuleMiddlewareChain,
 };
 pub use self::module::translate_module;
 pub use self::sections::wptype_to_type;

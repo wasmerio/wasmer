@@ -13,7 +13,7 @@ use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompileModuleInfo, CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
@@ -73,7 +73,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let middleware_chain = self.config.middlewares.generate_middleware_chain(*i);
+                let middleware_chain = self
+                    .config
+                    .middlewares
+                    .generate_function_middleware_chain(*i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);

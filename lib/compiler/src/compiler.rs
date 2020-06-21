@@ -7,7 +7,7 @@ use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
-use crate::translator::FunctionMiddlewareGenerator;
+use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
@@ -45,7 +45,7 @@ pub trait CompilerConfig {
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
