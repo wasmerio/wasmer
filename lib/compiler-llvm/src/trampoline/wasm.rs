@@ -113,7 +113,7 @@ impl FuncTrampoline {
         if eh_frame_section_indices.len() != custom_sections.len() {
             all_sections_are_eh_sections = false;
         } else {
-            let mut eh_frame_section_indices = eh_frame_section_indices.clone();
+            let mut eh_frame_section_indices = eh_frame_section_indices;
             eh_frame_section_indices.sort_unstable();
             for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
                 if idx as u32 != section_idx.as_u32() {
@@ -215,7 +215,7 @@ impl FuncTrampoline {
         if eh_frame_section_indices.len() != custom_sections.len() {
             all_sections_are_eh_sections = false;
         } else {
-            let mut eh_frame_section_indices = eh_frame_section_indices.clone();
+            let mut eh_frame_section_indices = eh_frame_section_indices;
             eh_frame_section_indices.sort_unstable();
             for (idx, section_idx) in eh_frame_section_indices.iter().enumerate() {
                 if idx as u32 != section_idx.as_u32() {

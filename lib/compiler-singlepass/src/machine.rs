@@ -50,7 +50,7 @@ impl Machine {
     /// This method does not mark the register as used.
     pub fn pick_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &'static [GPR] = &[RSI, RDI, R8, R9, R10, R11];
+        static REGS: &[GPR] = &[RSI, RDI, R8, R9, R10, R11];
         for r in REGS {
             if !self.used_gprs.contains(r) {
                 return Some(*r);
@@ -64,7 +64,7 @@ impl Machine {
     /// This method does not mark the register as used.
     pub fn pick_temp_gpr(&self) -> Option<GPR> {
         use GPR::*;
-        static REGS: &'static [GPR] = &[RAX, RCX, RDX];
+        static REGS: &[GPR] = &[RAX, RCX, RDX];
         for r in REGS {
             if !self.used_gprs.contains(r) {
                 return Some(*r);
@@ -99,7 +99,7 @@ impl Machine {
     /// This method does not mark the register as used.
     pub fn pick_xmm(&self) -> Option<XMM> {
         use XMM::*;
-        static REGS: &'static [XMM] = &[XMM3, XMM4, XMM5, XMM6, XMM7];
+        static REGS: &[XMM] = &[XMM3, XMM4, XMM5, XMM6, XMM7];
         for r in REGS {
             if !self.used_xmms.contains(r) {
                 return Some(*r);
@@ -113,7 +113,7 @@ impl Machine {
     /// This method does not mark the register as used.
     pub fn pick_temp_xmm(&self) -> Option<XMM> {
         use XMM::*;
-        static REGS: &'static [XMM] = &[XMM0, XMM1, XMM2];
+        static REGS: &[XMM] = &[XMM0, XMM1, XMM2];
         for r in REGS {
             if !self.used_xmms.contains(r) {
                 return Some(*r);
@@ -260,20 +260,17 @@ impl Machine {
         let mut delta_stack_offset: usize = 0;
 
         for loc in locs.iter().rev() {
-            match *loc {
-                Location::Memory(GPR::RBP, x) => {
-                    if x >= 0 {
-                        unreachable!();
-                    }
-                    let offset = (-x) as usize;
-                    if offset != self.stack_offset.0 {
-                        unreachable!();
-                    }
-                    self.stack_offset.0 -= 8;
-                    delta_stack_offset += 8;
-                    self.state.stack_values.pop().unwrap();
+            if let Location::Memory(GPR::RBP, x) = *loc {
+                if x >= 0 {
+                    unreachable!();
                 }
-                _ => {}
+                let offset = (-x) as usize;
+                if offset != self.stack_offset.0 {
+                    unreachable!();
+                }
+                self.stack_offset.0 -= 8;
+                delta_stack_offset += 8;
+                self.state.stack_values.pop().unwrap();
             }
             // Wasm state popping is deferred to `release_locations_only_osr_state`.
         }
@@ -302,19 +299,16 @@ impl Machine {
         let mut stack_offset = self.stack_offset.0;
 
         for loc in locs.iter().rev() {
-            match *loc {
-                Location::Memory(GPR::RBP, x) => {
-                    if x >= 0 {
-                        unreachable!();
-                    }
-                    let offset = (-x) as usize;
-                    if offset != stack_offset {
-                        unreachable!();
-                    }
-                    stack_offset -= 8;
-                    delta_stack_offset += 8;
+            if let Location::Memory(GPR::RBP, x) = *loc {
+                if x >= 0 {
+                    unreachable!();
                 }
-                _ => {}
+                let offset = (-x) as usize;
+                if offset != stack_offset {
+                    unreachable!();
+                }
+                stack_offset -= 8;
+                delta_stack_offset += 8;
             }
         }
 

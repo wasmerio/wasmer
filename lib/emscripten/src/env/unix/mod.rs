@@ -263,7 +263,7 @@ pub fn _getaddrinfo(
                     .get_mut();
 
                 guest_sockaddr.sa_family = (*host_sockaddr_ptr).sa_family as i16;
-                guest_sockaddr.sa_data = (*host_sockaddr_ptr).sa_data.clone();
+                guest_sockaddr.sa_data = (*host_sockaddr_ptr).sa_data;
                 guest_sockaddr_ptr
             };
 
@@ -308,7 +308,7 @@ pub fn _getaddrinfo(
         }
         // this frees all connected nodes on the linked list
         freeaddrinfo(out_ptr);
-        head_of_list.unwrap_or(WasmPtr::new(0))
+        head_of_list.unwrap_or_else(|| WasmPtr::new(0))
     };
 
     res_val_ptr.deref(ctx.memory(0)).unwrap().set(head_of_list);

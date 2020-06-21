@@ -41,7 +41,7 @@ impl Config {
     /// Runs logic for the `config` subcommand
     pub fn execute(&self) -> Result<()> {
         self.inner_execute()
-            .context(format!("failed to retrieve the wasmer config"))
+            .context("failed to retrieve the wasmer config".to_string())
     }
     fn inner_execute(&self) -> Result<()> {
         let key = "WASMER_DIR";
@@ -64,7 +64,7 @@ impl Config {
             println!("exec_prefix={}", bindir);
             println!("includedir={}", includedir);
             println!("libdir={}", libdir);
-            println!("");
+            println!();
             println!("Name: wasmer");
             println!("Description: The Wasmer library for running WebAssembly");
             println!("Version: {}", VERSION);

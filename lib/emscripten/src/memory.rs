@@ -93,7 +93,7 @@ pub fn sbrk(ctx: &mut EmEnv, increment: i32) -> i32 {
         }
     }
     ctx.memory(0).view::<u32>()[dynamictop_ptr].set(new_dynamic_top as u32);
-    return old_dynamic_top as _;
+    old_dynamic_top as _
 }
 
 /// emscripten: getTotalMemory

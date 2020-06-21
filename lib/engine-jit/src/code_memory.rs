@@ -3,7 +3,6 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use region;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::{cmp, mem};
@@ -150,7 +149,7 @@ impl CodeMemory {
         Ok(self
             .read_sections
             .last_mut()
-            .ok_or("Can't get last section".to_string())?)
+            .ok_or_else(|| "Can't get last section".to_string())?)
     }
 
     /// Make all allocated memory executable.
