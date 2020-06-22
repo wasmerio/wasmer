@@ -501,34 +501,38 @@ mod inner {
     }
 
     macro_rules! wasm_extern_type {
-        ($type:ty => $native_type:ty) => {
-            #[allow(clippy::use_self)]
-            unsafe impl WasmExternType for $type {
-                type Native = $native_type;
+        ( $( $type:ty => $native_type:ty ),* ) => {
+            $(
+                #[allow(clippy::use_self)]
+                unsafe impl WasmExternType for $type {
+                    type Native = $native_type;
 
-                #[inline]
-                fn from_native(native: Self::Native) -> Self {
-                    native as _
-                }
+                    #[inline]
+                    fn from_native(native: Self::Native) -> Self {
+                        native as _
+                    }
 
-                #[inline]
-                fn to_native(self) -> Self::Native {
-                    self as _
+                    #[inline]
+                    fn to_native(self) -> Self::Native {
+                        self as _
+                    }
                 }
-            }
+            )*
         };
     }
 
-    wasm_extern_type!(i8 => i32);
-    wasm_extern_type!(u8 => i32);
-    wasm_extern_type!(i16 => i32);
-    wasm_extern_type!(u16 => i32);
-    wasm_extern_type!(i32 => i32);
-    wasm_extern_type!(u32 => i32);
-    wasm_extern_type!(i64 => i64);
-    wasm_extern_type!(u64 => i64);
-    wasm_extern_type!(f32 => f32);
-    wasm_extern_type!(f64 => f64);
+    wasm_extern_type!(
+        i8 => i32,
+        u8 => i32,
+        i16 => i32,
+        u16 => i32,
+        i32 => i32,
+        u32 => i32,
+        i64 => i64,
+        u64 => i64,
+        f32 => f32,
+        f64 => f64
+    );
 
     /// Represents a list of WebAssembly values.
     pub trait WasmTypeList {
@@ -918,7 +922,7 @@ mod inner {
 
     #[allow(non_snake_case)]
     #[cfg(test)]
-    mod test_func {
+    mod test_function {
         use super::*;
         use wasm_common::Type;
 
