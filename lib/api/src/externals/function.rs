@@ -49,10 +49,13 @@ pub struct Function {
 }
 
 impl Function {
-    /// Creates a new `Func` with the given parameters.
+    /// Creates a new `Function` that is:
     ///
-    /// * `store` - a global cache to store information in
-    /// * `func` - the function.
+    /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
+    ///    unique _statically declared type_. The outputs can be
+    ///    wrapped in a `Result`.
+    /// 2. Independent, i.e. the function _does not_ receive an
+    ///    environment argument.
     pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
@@ -60,10 +63,11 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
-        let func: inner::Func<Args, Rets> = inner::Func::new(func);
-        let address = func.address() as *const VMFunctionBody;
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as *const VMFunctionBody;
         let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
-        let signature = func.ty();
+        let signature = function.ty();
+
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -77,6 +81,53 @@ impl Function {
         }
     }
 
+    /// Creates a new `Function` that is:
+    ///
+    /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
+    ///    unique statically declared type. The outputs can be wrapped
+    ///    in a `Result`.
+    /// 2. Dependent, i.e. the function _does_ receive an environment
+    ///    argument (given by `env`).
+    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
+    where
+        F: HostFunction<Args, Rets, WithEnv, Env>,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        Env: Sized + 'static,
+    {
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address() as *const VMFunctionBody;
+
+        // TODO: We need to refactor the Function context.
+        // Right now is structured as it's always a `VMContext`. However, only
+        // Wasm-defined functions have a `VMContext`.
+        // In the case of Host-defined functions `VMContext` is whatever environment
+        // the user want to attach to the function.
+        let box_env = Box::new(env);
+        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let signature = function.ty();
+
+        Self {
+            store: store.clone(),
+            owned_by_store: true,
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Static,
+                vmctx,
+                signature,
+            },
+        }
+    }
+
+    /// Creates a new `Function` that is:
+    ///
+    /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
+    ///    slice of `Val` (the set of all Wasm values), and all
+    ///    outputs are stored in a vector of `Val`, wrapped in a
+    ///    `Result`.
+    /// 2. Independent, i.e. the function _does not_ receive an
+    ///    environment argument.
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
     where
@@ -91,6 +142,7 @@ impl Function {
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -104,6 +156,14 @@ impl Function {
         }
     }
 
+    /// Creates a new `Function` that is:
+    ///
+    /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
+    ///    slice of `Val` (the set of all Wasm values), and all
+    ///    outputs are stored in a vector of `Val`, wrapped in a
+    ///    `Result`.
+    /// 2. Dependent, i.e. the function _does_ receive an environment
+    ///    argument (given by `env`).
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
@@ -120,6 +180,7 @@ impl Function {
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+
         Self {
             store: store.clone(),
             owned_by_store: true,
@@ -129,41 +190,6 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
-            },
-        }
-    }
-
-    /// Creates a new `Func` with the given parameters.
-    ///
-    /// * `store` - a global cache to store information in.
-    /// * `env` - the function environment.
-    /// * `func` - the function.
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
-    where
-        F: HostFunction<Args, Rets, WithEnv, Env>,
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        Env: Sized + 'static,
-    {
-        let func: inner::Func<Args, Rets> = inner::Func::new(func);
-        let address = func.address() as *const VMFunctionBody;
-        // TODO: We need to refactor the Function context.
-        // Right now is structured as it's always a `VMContext`. However, only
-        // Wasm-defined functions have a `VMContext`.
-        // In the case of Host-defined functions `VMContext` is whatever environment
-        // the user want to attach to the function.
-        let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
-        let signature = func.ty();
-        Self {
-            store: store.clone(),
-            owned_by_store: true,
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Static,
-                vmctx,
-                signature,
             },
         }
     }
@@ -449,6 +475,8 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
     }
 }
 
+/// This private inner module contains the low-level implementation
+/// for `Func` and its siblings.
 mod inner {
     use std::convert::Infallible;
     use std::error::Error;
@@ -606,27 +634,27 @@ mod inner {
 
     /// Represents a function that can be used by WebAssembly.
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
-    pub struct Func<Args = (), Rets = ()> {
+    pub struct Function<Args = (), Rets = ()> {
         address: *const FunctionBody,
         _phantom: PhantomData<(Args, Rets)>,
     }
 
-    unsafe impl<Args, Rets> Send for Func<Args, Rets> {}
+    unsafe impl<Args, Rets> Send for Function<Args, Rets> {}
 
-    impl<Args, Rets> Func<Args, Rets>
+    impl<Args, Rets> Function<Args, Rets>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        /// Creates a new `Func`.
-        pub fn new<F, T, E>(func: F) -> Self
+        /// Creates a new `Function`.
+        pub fn new<F, T, E>(function: F) -> Self
         where
             F: HostFunction<Args, Rets, T, E>,
             T: HostFunctionKind,
             E: Sized,
         {
             Self {
-                address: func.to_raw(),
+                address: function.to_raw(),
                 _phantom: PhantomData,
             }
         }
@@ -835,7 +863,7 @@ mod inner {
     #[cfg(test)]
     mod test_wasm_type_list {
         use super::*;
-        use crate::types::Type;
+        use wasm_common::Type;
         // WasmTypeList
 
         #[test]
@@ -892,8 +920,8 @@ mod inner {
     #[cfg(test)]
     mod test_func {
         use super::*;
-        use crate::types::Type;
         use std::ptr;
+        use wasm_common::Type;
         // WasmTypeList
 
         fn func() {}
@@ -916,36 +944,36 @@ mod inner {
 
         #[test]
         fn test_function_types() {
-            assert_eq!(Func::new(func).ty(), FunctionType::new(vec![], vec![]));
+            assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
             assert_eq!(
-                Func::new(func__i32).ty(),
+                Function::new(func__i32).ty(),
                 FunctionType::new(vec![], vec![Type::I32])
             );
             assert_eq!(
-                Func::new(func_i32).ty(),
+                Function::new(func_i32).ty(),
                 FunctionType::new(vec![Type::I32], vec![])
             );
             assert_eq!(
-                Func::new(func_i32__i32).ty(),
+                Function::new(func_i32__i32).ty(),
                 FunctionType::new(vec![Type::I32], vec![Type::I32])
             );
             assert_eq!(
-                Func::new(func_i32_i32__i32).ty(),
+                Function::new(func_i32_i32__i32).ty(),
                 FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32])
             );
             assert_eq!(
-                Func::new(func_i32_i32__i32_i32).ty(),
+                Function::new(func_i32_i32__i32_i32).ty(),
                 FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32, Type::I32])
             );
             assert_eq!(
-                Func::new(func_f32_i32__i32_f32).ty(),
+                Function::new(func_f32_i32__i32_f32).ty(),
                 FunctionType::new(vec![Type::F32, Type::I32], vec![Type::I32, Type::F32])
             );
         }
 
         #[test]
         fn test_function_pointer() {
-            let f = Func::new(func_i32__i32);
+            let f = Function::new(func_i32__i32);
             let function = unsafe {
                 std::mem::transmute::<*const FunctionBody, fn(usize, i32) -> i32>(f.address)
             };
@@ -954,7 +982,7 @@ mod inner {
 
         #[test]
         fn test_function_call() {
-            let f = Func::new(func_i32__i32);
+            let f = Function::new(func_i32__i32);
             let x = |args: <(i32, i32) as WasmTypeList>::Array,
                      rets: &mut <(i32, i32) as WasmTypeList>::Array| {
                 let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);
