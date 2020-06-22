@@ -572,37 +572,43 @@ mod inner {
         fn wasm_types() -> &'static [Type];
     }
 
-    /// Represents a TrapEarly type.
-    pub trait TrapEarly<Rets>
+    /// The `IntoResult` trait turns a `WasmTypeList` into a
+    /// `Result<WasmTypeList, Self::Error>`.
+    ///
+    /// It is mostly used to turn result values of a Wasm function
+    /// call into a `Result`.
+    pub trait IntoResult<T>
     where
-        Rets: WasmTypeList,
+        T: WasmTypeList,
     {
         /// The error type for this trait.
         type Error: Error + Sync + Send + 'static;
 
-        /// Get returns or error result.
-        fn report(self) -> Result<Rets, Self::Error>;
+        /// Transforms `Self` into a `Result`.
+        fn into_result(self) -> Result<T, Self::Error>;
     }
 
-    impl<Rets> TrapEarly<Rets> for Rets
+    impl<T> IntoResult<T> for T
     where
-        Rets: WasmTypeList,
+        T: WasmTypeList,
     {
+        // `T` is not a `Result`, it's already a value, so no error
+        // can be built.
         type Error = Infallible;
 
-        fn report(self) -> Result<Self, Infallible> {
+        fn into_result(self) -> Result<Self, Infallible> {
             Ok(self)
         }
     }
 
-    impl<Rets, E> TrapEarly<Rets> for Result<Rets, E>
+    impl<T, E> IntoResult<T> for Result<T, E>
     where
-        Rets: WasmTypeList,
+        T: WasmTypeList,
         E: Error + Sync + Send + 'static,
     {
         type Error = E;
 
-        fn report(self) -> Self {
+        fn into_result(self) -> Self {
             self
         }
     }
@@ -771,7 +777,7 @@ mod inner {
             where
                 $( $x: WasmExternType, )*
                 Rets: WasmTypeList,
-                Trap: TrapEarly<Rets>,
+                Trap: IntoResult<Rets>,
                 FN: Fn($( $x , )*) -> Trap + 'static + Send,
             {
                 #[allow(non_snake_case)]
@@ -779,13 +785,13 @@ mod inner {
                     extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
-                        Trap: TrapEarly<Rets>,
+                        Trap: IntoResult<Rets>,
                         $( $x: WasmExternType, )*
                         FN: Fn( $( $x ),* ) -> Trap + 'static
                     {
                         let f: &FN = unsafe { &*(&() as *const () as *const FN) };
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            f( $( WasmExternType::from_native($x) ),* ).report()
+                            f( $( WasmExternType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
@@ -804,7 +810,7 @@ mod inner {
             where
                 $( $x: WasmExternType, )*
                 Rets: WasmTypeList,
-                Trap: TrapEarly<Rets>,
+                Trap: IntoResult<Rets>,
                 T: Sized,
                 FN: Fn(&mut T, $( $x , )*) -> Trap + 'static + Send
             {
@@ -813,7 +819,7 @@ mod inner {
                     extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
-                        Trap: TrapEarly<Rets>,
+                        Trap: IntoResult<Rets>,
                         $( $x: WasmExternType, )*
                         T: Sized,
                         FN: Fn(&mut T, $( $x ),* ) -> Trap + 'static
@@ -821,7 +827,7 @@ mod inner {
                         let f: &FN = unsafe { &*(&() as *const () as *const FN) };
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            f(ctx, $( WasmExternType::from_native($x) ),* ).report()
+                            f(ctx, $( WasmExternType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
