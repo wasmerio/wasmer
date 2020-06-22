@@ -96,7 +96,7 @@ impl Function {
         Env: Sized + 'static,
     {
         let function = inner::Function::<Args, Rets>::new(func);
-        let address = function.address() as *const VMFunctionBody;
+        let address = function.address();
 
         // TODO: We need to refactor the Function context.
         // Right now is structured as it's always a `VMContext`. However, only
@@ -483,7 +483,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
     use wasm_common::{FunctionType, NativeWasmType, Type};
-    use wasmer_runtime::{raise_user_trap, resume_panic};
+    use wasmer_runtime::{raise_user_trap, resume_panic, VMFunctionBody};
 
     /// A trait to represent a wasm extern type.
     pub unsafe trait WasmExternType: Copy
@@ -613,15 +613,10 @@ mod inner {
         }
     }
 
-    /// `FunctionBody` is a transparent type representing a pointer to
-    /// a function, i.e. a function address.
-    #[repr(transparent)]
-    pub struct FunctionBody(*mut u8);
-
     /// The `HostFunction` trait represents the set of functions that
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
-    /// `FunctionBody`.
+    /// `VMFunctionBody`.
     pub trait HostFunction<Args, Rets, Kind, T>
     where
         Args: WasmTypeList,
@@ -631,7 +626,7 @@ mod inner {
         Self: Sized,
     {
         /// Get the pointer to the function body.
-        fn function_body_ptr(self) -> *const FunctionBody;
+        fn function_body_ptr(self) -> *const VMFunctionBody;
     }
 
     /// Empty trait to specify the kind of `HostFunction`: With or
@@ -659,7 +654,7 @@ mod inner {
     /// Represents a function that can be used by WebAssembly.
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct Function<Args = (), Rets = ()> {
-        address: *const FunctionBody,
+        address: *const VMFunctionBody,
         _phantom: PhantomData<(Args, Rets)>,
     }
 
@@ -689,7 +684,7 @@ mod inner {
         }
 
         /// Get the address of the Func
-        pub fn address(&self) -> *const FunctionBody {
+        pub fn address(&self) -> *const VMFunctionBody {
             self.address
         }
     }
@@ -785,7 +780,7 @@ mod inner {
                 FN: Fn($( $x , )*) -> Trap + 'static + Send,
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const FunctionBody {
+                fn function_body_ptr(self) -> *const VMFunctionBody {
                     extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
@@ -805,7 +800,7 @@ mod inner {
                         }
                     }
 
-                    wrap::<$( $x, )* Rets, Trap, Self> as *const FunctionBody
+                    wrap::<$( $x, )* Rets, Trap, Self> as *const VMFunctionBody
                 }
             }
 
@@ -819,7 +814,7 @@ mod inner {
                 FN: Fn(&mut T, $( $x , )*) -> Trap + 'static + Send
             {
                 #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const FunctionBody {
+                fn function_body_ptr(self) -> *const VMFunctionBody {
                     extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
@@ -841,7 +836,7 @@ mod inner {
                         }
                     }
 
-                    wrap::<$( $x, )* Rets, Trap, T, Self> as *const FunctionBody
+                    wrap::<$( $x, )* Rets, Trap, T, Self> as *const VMFunctionBody
                 }
             }
         };
