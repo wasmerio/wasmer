@@ -13,6 +13,7 @@ edition = "2018"
 [dependencies]
 anyhow = "1.0"
 wasmer = { path = "../../../lib/api", version = "1.0.0-alpha.1", default-features = false }
+wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.0-alpha.1" }
 wast = "17.0"
 thiserror = "1.0"
 

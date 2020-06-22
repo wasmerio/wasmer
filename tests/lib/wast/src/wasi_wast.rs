@@ -1,7 +1,17 @@
-use wast::parser::{self, Parse, Parser};
+use anyhow::Context;
+use std::fs::File;
+use std::io::Read;
+use std::path::PathBuf;
+use std::sync::Arc;
+use wasmer::{ImportObject, Instance, Memory, Module, Store};
+use wasmer_wasi::{
+    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiState, WasiVersion,
+};
+use wast::parser::{self, Parse, ParseBuffer, Parser};
 
+/// Crate holding metadata parsed from the WASI WAST about the test to be run.
 #[derive(Debug, Clone, Hash)]
-pub(crate) struct WasiTest<'a> {
+pub struct WasiTest<'a> {
     wasm_path: &'a str,
     args: Vec<&'a str>,
     envs: Vec<(&'a str, &'a str)>,
@@ -10,6 +20,85 @@ pub(crate) struct WasiTest<'a> {
     assert_return: Option<AssertReturn>,
     assert_stdout: Option<AssertStdout<'a>>,
     assert_stderr: Option<AssertStderr<'a>>,
+}
+
+#[allow(dead_code)]
+impl<'a> WasiTest<'a> {
+    /// Turn a WASI WAST string into a list of tokens.
+    pub fn lex_string(wast: &'a str) -> parser::Result<ParseBuffer<'a>> {
+        ParseBuffer::new(wast)
+    }
+
+    /// Turn a WASI WAST list of tokens into a `WasiTest` struct.
+    pub fn parse_tokens(tokens: &'a ParseBuffer<'a>) -> parser::Result<Self> {
+        parser::parse(tokens)
+    }
+
+    /// Execute the WASI test and assert.
+    pub fn run(&self, store: &Store, base_path: &str) -> anyhow::Result<bool> {
+        let mut pb = PathBuf::from(base_path);
+        pb.push(self.wasm_path);
+        let wasm_bytes = {
+            let mut wasm_module = File::open(pb)?;
+            let mut out = vec![];
+            wasm_module.read_to_end(&mut out)?;
+            out
+        };
+        let module = Module::new(&store, &wasm_bytes)?;
+        let mut env = self.create_wasi_env()?;
+        let imports = self.get_imports(store, &module, env.clone())?;
+        let instance = Instance::new(&module, &imports)?;
+        let memory: &Memory = instance.exports.get("memory")?;
+        // TODO:
+        env.set_memory(Arc::new(memory.clone()));
+
+        let start = instance.exports.get_function("_start")?;
+        start
+            .call(&[])
+            .with_context(|| "failed to run WASI `_start` function")?;
+        Ok(true)
+    }
+
+    /// Create the wasi env with the given metadata.
+    fn create_wasi_env(&self) -> anyhow::Result<WasiEnv> {
+        let mut builder = WasiState::new(self.wasm_path);
+        for (name, value) in &self.envs {
+            builder.env(name, value);
+        }
+        // TODO: implement map dirs
+        /*
+        // TODO: check the order
+        for (alias, real_dir) in &self.mapped_dirs {
+            builder.map_dir(alias, real_dir);
+        }*/
+
+        let out = builder
+            .args(&self.args)
+            .preopen_dirs(&self.dirs)?
+            // TODO: capture stdout and stderr
+            // can be done with a custom file, inserted here
+            .finalize()?;
+        Ok(out)
+    }
+
+    /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
+    fn get_version(&self, module: &Module) -> anyhow::Result<WasiVersion> {
+        let version = get_wasi_version(module, true)
+            .with_context(|| "failed to detect a version of WASI from the module")?;
+        Ok(version)
+    }
+
+    /// Get the correct WASI import object for the given module and set it up with the
+    /// [`WasiEnv`].
+    fn get_imports(
+        &self,
+        store: &Store,
+        module: &Module,
+        env: WasiEnv,
+    ) -> anyhow::Result<ImportObject> {
+        let version = self.get_version(module)?;
+        Ok(generate_import_object_from_env(store, env, version))
+    }
 }
 
 mod wasi_kw {

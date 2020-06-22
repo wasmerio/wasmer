@@ -504,5 +504,3 @@ impl NaNCheck for f64 {
         (self.to_bits() & 0x7fff_ffff_ffff_ffff) == 0x7ff8_0000_0000_0000
     }
 }
-
-wast::custom_keyword!(wasi_test);

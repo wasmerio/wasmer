@@ -2363,6 +2363,7 @@ dependencies = [
  "anyhow",
  "thiserror",
  "wasmer",
+ "wasmer-wasi",
  "wast",
 ]
 

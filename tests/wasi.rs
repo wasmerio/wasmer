@@ -1,0 +1,47 @@
+#![cfg(all(feature = "compiler", feature = "engine"))]
+
+use std::fs::File;
+use std::io::Read;
+use std::sync::Arc;
+use test_utils::get_compiler_config_from_str;
+use wasmer::{Features, Store, Tunables};
+#[cfg(feature = "jit")]
+use wasmer_engine_jit::JITEngine;
+use wasmer_wast::WasiTest;
+
+// The generated tests (from build.rs) look like:
+// #[cfg(test)]
+// mod singlepass {
+//     mod spec {
+//         #[test]
+//         fn address() -> anyhow::Result<()> {
+//             crate::run_wast("tests/spectests/address.wast", "singlepass")
+//         }
+//     }
+// }
+include!(concat!(env!("OUT_DIR"), "/generated_wasitests.rs"));
+
+fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Result<()> {
+    println!(
+        "Running wasi wast `{}` with the {} compiler",
+        wast_path, compiler
+    );
+    let features = Features::default();
+    let compiler_config = get_compiler_config_from_str(compiler, false, features);
+    let tunables = Tunables::for_target(compiler_config.target().triple());
+    let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+
+    let source = {
+        let mut out = String::new();
+        let mut f = File::open(wast_path)?;
+        f.read_to_string(&mut out);
+        out
+    };
+    let tokens = WasiTest::lex_string(&source)?;
+    let wasi_test = WasiTest::parse_tokens(&tokens)?;
+
+    let succeeded = wasi_test.run(&store, base_dir)?;
+    assert!(succeeded);
+
+    Ok(())
+}
