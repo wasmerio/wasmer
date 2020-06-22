@@ -207,11 +207,6 @@ impl CompilerConfig for Cranelift {
     fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
         self.middlewares.push(middleware);
     }
-
-    /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
-        Features::default()
-    }
 }
 
 impl Default for Cranelift {

@@ -190,11 +190,6 @@ impl CompilerConfig for LLVM {
         Box::new(LLVMCompiler::new(&self))
     }
 
-    /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, _target: &Target) -> Features {
-        Features::default()
-    }
-
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
         self.middlewares.push(middleware);

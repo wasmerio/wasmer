@@ -21,13 +21,18 @@ pub trait CompilerConfig {
     /// This is required for shared object generation (Native Engine),
     /// but will make the JIT Engine to fail, since PIC is not yet
     /// supported in the JIT linking phase.
-    fn enable_pic(&mut self);
+    fn enable_pic(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they do something special for emitting PIC code.
+    }
 
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, target: &Target) -> Features;
+    fn default_features_for_target(&self, target: &Target) -> Features {
+        Features::default()
+    }
 
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
