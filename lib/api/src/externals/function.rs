@@ -613,6 +613,27 @@ mod inner {
         }
     }
 
+    /// `FunctionBody` is a transparent type representing a pointer to
+    /// a function, i.e. a function address.
+    #[repr(transparent)]
+    pub struct FunctionBody(*mut u8);
+
+    /// The `HostFunction` trait represents the set of functions that
+    /// can be used as host function. To uphold this statement, it is
+    /// necessary for a function to be transformed into a pointer to
+    /// `FunctionBody`.
+    pub trait HostFunction<Args, Rets, Kind, T>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        Kind: HostFunctionKind,
+        T: Sized,
+        Self: Sized,
+    {
+        /// Get the pointer to the function body.
+        fn function_body_ptr(self) -> *const FunctionBody;
+    }
+
     /// Empty trait to specify the kind of `HostFunction`: With or
     /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
     /// `ImplicitVmCtx` structures.
@@ -634,23 +655,6 @@ mod inner {
     pub struct WithoutEnv {}
 
     impl HostFunctionKind for WithoutEnv {}
-
-    /// Represents a function that can be converted to a `vm::Func`
-    /// (function pointer) that can be called within WebAssembly.
-    pub trait HostFunction<Args, Rets, Kind, T>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-        Kind: HostFunctionKind,
-        T: Sized,
-        Self: Sized,
-    {
-        /// Convert to function pointer.
-        fn to_raw(self) -> *const FunctionBody;
-    }
-
-    #[repr(transparent)]
-    pub struct FunctionBody(*mut u8);
 
     /// Represents a function that can be used by WebAssembly.
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
@@ -674,7 +678,7 @@ mod inner {
             E: Sized,
         {
             Self {
-                address: function.to_raw(),
+                address: function.function_body_ptr(),
                 _phantom: PhantomData,
             }
         }
@@ -781,7 +785,7 @@ mod inner {
                 FN: Fn($( $x , )*) -> Trap + 'static + Send,
             {
                 #[allow(non_snake_case)]
-                fn to_raw(self) -> *const FunctionBody {
+                fn function_body_ptr(self) -> *const FunctionBody {
                     extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
@@ -815,7 +819,7 @@ mod inner {
                 FN: Fn(&mut T, $( $x , )*) -> Trap + 'static + Send
             {
                 #[allow(non_snake_case)]
-                fn to_raw(self) -> *const FunctionBody {
+                fn function_body_ptr(self) -> *const FunctionBody {
                     extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
                         Rets: WasmTypeList,
