@@ -597,6 +597,35 @@ mod inner {
         }
     }
 
+    impl WasmTypeList for Infallible {
+        type CStruct = Self;
+        type Array = [i128; 0];
+
+        fn from_array(_: Self::Array) -> Self {
+            unreachable!()
+        }
+
+        fn into_array(self) -> Self::Array {
+            []
+        }
+
+        fn empty_array() -> Self::Array {
+            unreachable!()
+        }
+
+        fn from_c_struct(_: Self::CStruct) -> Self {
+            unreachable!()
+        }
+
+        fn into_c_struct(self) -> Self::CStruct {
+            unreachable!()
+        }
+
+        fn wasm_types() -> &'static [Type] {
+            &[]
+        }
+    }
+
     macro_rules! impl_traits {
         ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
             /// Struct for typed funcs.
@@ -730,7 +759,7 @@ mod inner {
         }};
     }
 
-    impl_traits!([C] S0,);
+    //impl_traits!([C] S0,);
     //impl_traits!([transparent] S1, A1);
     impl_traits!([C] S2, A1, A2);
     impl_traits!([C] S3, A1, A2, A3);
