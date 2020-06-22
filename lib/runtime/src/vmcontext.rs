@@ -118,7 +118,7 @@ mod test_vmfunction_body {
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
-    /// A function is static when it's address matches the signature:
+    /// A function is static when its address matches the signature:
     /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
     ///
     /// This is the default for functions that are defined:
