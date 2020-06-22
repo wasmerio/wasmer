@@ -3,10 +3,9 @@ use std::convert::TryFrom;
 
 use wasm_common::entity::{PrimaryMap, SecondaryMap};
 use wasmer_compiler::{
-    CompileError, CompiledFunction, CompiledFunctionFrameInfo, CustomSection,
-    CustomSectionProtection, CustomSections, FunctionAddressMap, FunctionBody,
-    InstructionAddressMap, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
-    SourceLoc,
+    CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
+    CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
+    RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
 use wasmer_runtime::libcalls::LibCall;
 
@@ -38,12 +37,18 @@ fn map_goblin_err(error: goblin::error::Error) -> CompileError {
     CompileError::Codegen(format!("error parsing ELF file: {}", error))
 }
 
+pub struct CompiledFunction {
+    pub compiled_function: wasmer_compiler::CompiledFunction,
+    pub custom_sections: CustomSections,
+    pub eh_frame_section_indices: Vec<SectionIndex>,
+}
+
 pub fn load_object_file<F>(
     contents: &[u8],
     root_section: &str,
-    self_referential_relocation_target: Option<RelocationTarget>,
+    root_section_reloc_target: RelocationTarget,
     mut symbol_name_to_relocation_target: F,
-) -> Result<(CompiledFunction, CustomSections), CompileError>
+) -> Result<CompiledFunction, CompileError>
 where
     F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
 {
@@ -102,9 +107,7 @@ where
 
     let mut section_to_custom_section = HashMap::new();
 
-    if let Some(reloc_target) = self_referential_relocation_target {
-        section_targets.insert(root_section_index, reloc_target);
-    };
+    section_targets.insert(root_section_index, root_section_reloc_target);
 
     let mut next_custom_section: u32 = 0;
     let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
@@ -142,6 +145,22 @@ where
     // the sections we want to include.
     worklist.push(root_section_index);
     visited.insert(root_section_index);
+
+    // Also add any .eh_frame sections.
+    let mut eh_frame_section_indices = vec![];
+    // TODO: this constant has been added to goblin, now waiting for release
+    const SHT_X86_64_UNWIND: u32 = 0x7000_0001;
+    for (index, shdr) in elf.section_headers.iter().enumerate() {
+        if shdr.sh_type == SHT_X86_64_UNWIND {
+            let index = ElfSectionIndex::from_usize(index)?;
+            worklist.push(index);
+            visited.insert(index);
+            eh_frame_section_indices.push(index);
+            // This allocates a custom section index for the ELF section.
+            elf_section_to_target(index);
+        }
+    }
+
     while let Some(section_index) = worklist.pop() {
         for reloc in reloc_sections
             .get(&section_index)
@@ -152,6 +171,7 @@ where
                 // TODO: these constants are not per-arch, we'll need to
                 // make the whole match per-arch.
                 goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                goblin::elf::reloc::R_X86_64_PC64 => RelocationKind::X86PCRel8,
                 goblin::elf::reloc::R_X86_64_GOT64 => {
                     return Err(CompileError::Codegen(
                         "unimplemented PIC relocation R_X86_64_GOT64".into(),
@@ -180,17 +200,13 @@ where
                 ))
             })?;
             let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
-            let reloc_target = if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
+            let reloc_target = if elf_target_section == root_section_index {
+                root_section_reloc_target
+            } else if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
                 if visited.insert(elf_target_section) {
                     worklist.push(elf_target_section);
                 }
                 elf_section_to_target(elf_target_section)
-            } else if elf_target.st_type() == goblin::elf::sym::STT_FUNC
-                && elf_target_section == root_section_index
-                && self_referential_relocation_target.is_some()
-            {
-                // This is a function referencing its own byte stream.
-                self_referential_relocation_target.unwrap()
             } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
                 && elf_target_section.is_undef()
             {
@@ -219,6 +235,21 @@ where
                 });
         }
     }
+
+    let eh_frame_section_indices = eh_frame_section_indices
+        .iter()
+        .map(|index| {
+            section_to_custom_section.get(index).map_or_else(
+                || {
+                    Err(CompileError::Codegen(format!(
+                        ".eh_frame section with index={:?} was never loaded",
+                        index
+                    )))
+                },
+                |idx| Ok(*idx),
+            )
+        })
+        .collect::<Result<Vec<SectionIndex>, _>>()?;
 
     let mut custom_sections = section_to_custom_section
         .iter()
@@ -258,8 +289,8 @@ where
         body_len: function_body.body.len(),
     };
 
-    Ok((
-        CompiledFunction {
+    Ok(CompiledFunction {
+        compiled_function: wasmer_compiler::CompiledFunction {
             body: function_body,
             jt_offsets: SecondaryMap::new(),
             relocations: relocations
@@ -271,5 +302,6 @@ where
             },
         },
         custom_sections,
-    ))
+        eh_frame_section_indices,
+    })
 }

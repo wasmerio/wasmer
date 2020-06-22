@@ -6,6 +6,7 @@ use anyhow::{Error, Result};
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
+#[allow(unused_imports)]
 use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
@@ -174,22 +175,18 @@ impl StoreOptions {
 
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
-    fn get_compiler_config(
-        &self,
-        target: Target,
-    ) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
+    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
         let compiler = self.get_compiler()?;
-        let features = self.get_features()?;
         let compiler_config: Box<dyn CompilerConfig> = match compiler {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::SinglepassConfig::new(features, target);
+                let config = wasmer_compiler_singlepass::Singlepass::new();
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::CraneliftConfig::new(features, target);
+                let config = wasmer_compiler_cranelift::Cranelift::new();
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -198,10 +195,9 @@ impl StoreOptions {
                 use std::io::Write;
                 use wasm_common::entity::EntityRef;
                 use wasmer_compiler_llvm::{
-                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks,
-                    LLVMConfig,
+                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };
-                let mut config = LLVMConfig::new(features, target);
+                let mut config = LLVM::new();
                 struct Callbacks {
                     debug_dir: PathBuf,
                 }
@@ -278,7 +274,7 @@ impl StoreOptions {
                     }
                 }
                 if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
-                    config.callbacks = Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?));
+                    config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
                 }
                 Box::new(config)
             }
@@ -289,11 +285,6 @@ impl StoreOptions {
             ),
         };
         Ok((compiler_config, compiler))
-    }
-
-    /// Gets the tunables for the compiler target
-    pub fn get_tunables(&self, compiler_config: &dyn CompilerConfig) -> Tunables {
-        Tunables::for_target(compiler_config.target().triple())
     }
 
     /// Gets the store for the host target, with the engine name and compiler name selected
@@ -307,29 +298,34 @@ impl StoreOptions {
         &self,
         target: Target,
     ) -> Result<(Store, EngineType, CompilerType)> {
-        let (compiler_config, compiler_type) = self.get_compiler_config(target)?;
-        let tunables = self.get_tunables(&*compiler_config);
-        let (engine, engine_type) = self.get_engine_with_compiler(tunables, compiler_config)?;
-        let store = Store::new(engine);
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let (engine, engine_type) = self.get_engine_with_compiler(target, compiler_config)?;
+        let store = Store::new(&*engine);
         Ok((store, engine_type, compiler_type))
     }
 
     fn get_engine_with_compiler(
         &self,
-        tunables: Tunables,
-        compiler_config: Box<dyn CompilerConfig>,
-    ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
+        target: Target,
+        mut compiler_config: Box<dyn CompilerConfig>,
+    ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
-        let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
+        let features = self.get_features()?;
+        let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineType::JIT => {
-                Arc::new(wasmer_engine_jit::JITEngine::new(compiler_config, tunables))
-            }
+            EngineType::JIT => Box::new(
+                wasmer_engine_jit::JIT::new(&*compiler_config)
+                    .features(features)
+                    .target(target)
+                    .engine(),
+            ),
             #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::new(
-                compiler_config,
-                tunables,
-            )),
+            EngineType::Native => Box::new(
+                wasmer_engine_native::Native::new(&mut *compiler_config)
+                    .target(target)
+                    .features(features)
+                    .engine(),
+            ),
             #[cfg(not(all(feature = "jit", feature = "native",)))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
@@ -363,16 +359,13 @@ impl StoreOptions {
 // If we don't have a compiler, but we have an engine
 #[cfg(all(not(feature = "compiler"), feature = "engine"))]
 impl StoreOptions {
-    fn get_engine_headless(
-        &self,
-        tunables: Tunables,
-    ) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
+    fn get_engine_headless(&self) -> Result<(Arc<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
-            EngineType::JIT => Arc::new(wasmer_engine_jit::JITEngine::headless(tunables)),
+            EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
             #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::NativeEngine::headless(tunables)),
+            EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
             #[cfg(not(all(feature = "jit", feature = "native",)))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
@@ -384,10 +377,8 @@ impl StoreOptions {
 
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
-        // Get the tunables for the current host
-        let tunables = Tunables::default();
-        let (engine, engine_type) = self.get_engine_headless(tunables)?;
-        let store = Store::new(engine);
+        let (engine, engine_type) = self.get_engine_headless()?;
+        let store = Store::new(&engine);
         Ok((store, engine_type, CompilerType::Headless))
     }
 

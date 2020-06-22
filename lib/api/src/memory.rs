@@ -107,7 +107,6 @@ impl Memory for LinearMemory {
     /// of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
         // Optimization of memory.grow 0 calls.
-        let delta: Pages = delta.into();
         let mut mmap = self.mmap.borrow_mut();
         if delta.0 == 0 {
             return Ok(mmap.size);

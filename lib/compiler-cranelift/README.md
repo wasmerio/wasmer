@@ -3,7 +3,28 @@
 This is the `wasmer-compiler-cranelift` crate, which contains a
 compiler implementation based on Cranelift.
 
-We recommend using this compiler only for development proposes.
+## Usage
+
+First, add this crate into your `Cargo.toml` dependencies:
+
+```toml
+wasmer-compiler-cranelift = "1.0.0-alpha.1"
+```
+
+And then:
+
+```rust
+use wasmer::{Store, JIT};
+use wasmer_compiler_cranelift::Cranelift;
+
+let compiler = Cranelift::new();
+// Put it into an engine and add it to the store
+let store = Store::new(&JIT::new(&compiler).engine());
+```
+
+## When to use Cranelift
+
+We recommend using this compiler crate **only for development proposes**.
 For production we recommend using `wasmer-compiler-llvm` as it offers
 a much better runtime speed (50% faster on average).
 

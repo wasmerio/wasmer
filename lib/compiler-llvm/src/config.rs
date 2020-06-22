@@ -7,10 +7,9 @@ use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
+use wasm_common::Features;
 use wasm_common::{FunctionType, LocalFunctionIndex};
-use wasmer_compiler::{
-    Compiler, CompilerConfig, Features, FunctionMiddlewareGenerator, Target, Triple,
-};
+use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;
@@ -41,50 +40,60 @@ pub trait LLVMCallbacks: Send + Sync {
 }
 
 #[derive(Clone)]
-pub struct LLVMConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
-
-    /// Should the LLVM IR verifier be enabled.
-    ///
-    /// The verifier assures that the generated LLVM IR is valid.
-    pub enable_verifier: bool,
-
-    /// The optimization levels when optimizing the IR.
-    pub opt_level: OptimizationLevel,
-
-    /// Whether to emit PIC.
-    pub is_pic: bool,
-
-    /// Callbacks that will triggered in the different compilation
-    /// phases in LLVM.
-    pub callbacks: Option<Arc<dyn LLVMCallbacks>>,
-
+pub struct LLVM {
+    pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_verifier: bool,
+    pub(crate) opt_level: OptimizationLevel,
+    is_pic: bool,
+    pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
-
-    features: Features,
-    target: Target,
 }
 
-impl LLVMConfig {
+impl LLVM {
     /// Creates a new configuration object with the default configuration
     /// specified.
-    pub fn new(features: Features, target: Target) -> Self {
+    pub fn new() -> Self {
         Self {
-            enable_nan_canonicalization: true,
+            enable_nan_canonicalization: false,
             enable_verifier: false,
             opt_level: OptimizationLevel::Aggressive,
             is_pic: false,
-            features,
-            target,
             callbacks: None,
             middlewares: vec![],
         }
     }
+
+    /// Should the LLVM verifier be enabled.
+    ///
+    /// The verifier assures that the generated LLVM IR is valid.
+    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
+        self.enable_verifier = enable;
+        self
+    }
+
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
+    }
+
+    /// The optimization levels when optimizing the IR.
+    pub fn opt_level(&mut self, opt_level: OptimizationLevel) -> &mut Self {
+        self.opt_level = opt_level;
+        self
+    }
+
+    /// Callbacks that will triggered in the different compilation
+    /// phases in LLVM.
+    pub fn callbacks(&mut self, callbacks: Option<Arc<dyn LLVMCallbacks>>) -> &mut Self {
+        self.callbacks = callbacks;
+        self
+    }
+
     fn reloc_mode(&self) -> RelocMode {
         if self.is_pic {
             RelocMode::PIC
@@ -97,8 +106,7 @@ impl LLVMConfig {
         CodeModel::Large
     }
 
-    pub fn target_triple(&self) -> TargetTriple {
-        let target = self.target();
+    fn target_triple(&self, target: &Target) -> TargetTriple {
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
                 // LLVM detects static relocation + darwin + 64-bit and
@@ -122,8 +130,7 @@ impl LLVMConfig {
     }
 
     /// Generates the target machine for the current target
-    pub fn target_machine(&self) -> TargetMachine {
-        let target = self.target();
+    pub fn target_machine(&self, target: &Target) -> TargetMachine {
         let triple = target.triple();
         let cpu_features = &target.cpu_features();
 
@@ -155,7 +162,7 @@ impl LLVMConfig {
             .map(|feature| format!("+{}", feature.to_string()))
             .join(",");
 
-        let target_triple = self.target_triple();
+        let target_triple = self.target_triple(&target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();
         llvm_target
             .create_target_machine(
@@ -170,12 +177,7 @@ impl LLVMConfig {
     }
 }
 
-impl CompilerConfig for LLVMConfig {
-    /// Gets the WebAssembly features.
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
+impl CompilerConfig for LLVM {
     /// Emit code suitable for dlopen.
     fn enable_pic(&mut self) {
         // TODO: although we can emit PIC, the object file parser does not yet
@@ -183,15 +185,14 @@ impl CompilerConfig for LLVMConfig {
         self.is_pic = true;
     }
 
-    /// Gets the target that we will use for compiling.
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
-    }
-
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
+    }
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, _target: &Target) -> Features {
+        Features::default()
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
@@ -200,8 +201,8 @@ impl CompilerConfig for LLVMConfig {
     }
 }
 
-impl Default for LLVMConfig {
-    fn default() -> LLVMConfig {
-        Self::new(Default::default(), Default::default())
+impl Default for LLVM {
+    fn default() -> LLVM {
+        Self::new()
     }
 }

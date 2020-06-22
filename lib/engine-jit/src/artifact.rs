@@ -13,11 +13,12 @@ use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-#[cfg(feature = "compiler")]
-use wasmer_compiler::ModuleEnvironment;
 use wasmer_compiler::{CompileError, Features, Triple};
+#[cfg(feature = "compiler")]
+use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
+    Tunables,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
@@ -43,10 +44,14 @@ impl JITArtifact {
 
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
-    pub fn new(jit: &JITEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(
+        jit: &JITEngine,
+        data: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut inner_jit = jit.inner_mut();
-        let tunables = jit.tunables();
+        let features = inner_jit.features();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
@@ -63,15 +68,21 @@ impl JITArtifact {
             .map(|table_type| tunables.table_plan(*table_type))
             .collect();
 
+        let compile_info = CompileModuleInfo {
+            module: Arc::new(translation.module),
+            features: features.clone(),
+            memory_plans,
+            table_plans,
+        };
+
         let compiler = inner_jit.compiler()?;
 
         // Compile the Module
         let compilation = compiler.compile_module(
-            &translation.module,
+            &jit.target(),
+            &compile_info,
             translation.module_translation.as_ref().unwrap(),
             translation.function_body_inputs,
-            memory_plans.clone(),
-            table_plans.clone(),
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
         let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
@@ -102,11 +113,8 @@ impl JITArtifact {
         };
         let serializable = SerializableModule {
             compilation: serializable_compilation,
-            module: Arc::new(translation.module),
-            features: inner_jit.compiler()?.features().clone(),
+            compile_info,
             data_initializers,
-            memory_plans,
-            table_plans,
         };
         Self::from_parts(&mut inner_jit, serializable)
     }
@@ -150,7 +158,7 @@ impl JITArtifact {
             finished_dynamic_function_trampolines,
         ) = inner_jit.allocate(
             &mut unwind_registry,
-            &serializable.module,
+            &serializable.compile_info.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
@@ -159,7 +167,7 @@ impl JITArtifact {
             inner_jit.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
-            &serializable.module,
+            &serializable.compile_info.module,
             &finished_functions,
             &serializable.compilation.function_jt_offsets,
             serializable.compilation.function_relocations.clone(),
@@ -171,6 +179,7 @@ impl JITArtifact {
         let signatures = {
             let signature_registry = inner_jit.signatures();
             serializable
+                .compile_info
                 .module
                 .signatures
                 .values()
@@ -227,15 +236,15 @@ impl JITArtifact {
 
 impl Artifact for JITArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
-        self.serializable.module.clone()
+        self.serializable.compile_info.module.clone()
     }
 
     fn module_ref(&self) -> &ModuleInfo {
-        &self.serializable.module
+        &self.serializable.compile_info.module
     }
 
     fn module_mut(&mut self) -> Option<&mut ModuleInfo> {
-        Arc::get_mut(&mut self.serializable.module)
+        Arc::get_mut(&mut self.serializable.compile_info.module)
     }
 
     fn register_frame_info(&self) {
@@ -248,14 +257,14 @@ impl Artifact for JITArtifact {
         let frame_infos = &self.serializable.compilation.function_frame_info;
         let finished_functions = &self.finished_functions;
         *info = register_frame_info(
-            self.serializable.module.clone(),
+            self.serializable.compile_info.module.clone(),
             finished_functions,
             frame_infos.clone(),
         );
     }
 
     fn features(&self) -> &Features {
-        &self.serializable.features
+        &self.serializable.compile_info.features
     }
 
     fn data_initializers(&self) -> &[OwnedDataInitializer] {
@@ -263,11 +272,11 @@ impl Artifact for JITArtifact {
     }
 
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.serializable.memory_plans
+        &self.serializable.compile_info.memory_plans
     }
 
     fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.serializable.table_plans
+        &self.serializable.compile_info.table_plans
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {

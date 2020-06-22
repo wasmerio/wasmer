@@ -57,6 +57,7 @@ mod compiler;
 mod error;
 mod function;
 mod jump_table;
+mod module;
 mod relocation;
 mod target;
 mod trap;
@@ -76,6 +77,7 @@ pub use crate::function::{
     Functions,
 };
 pub use crate::jump_table::{JumpTable, JumpTableOffsets};
+pub use crate::module::CompileModuleInfo;
 pub use crate::relocation::{Relocation, RelocationKind, RelocationTarget, Relocations};
 pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, SectionIndex};
 pub use crate::sourceloc::SourceLoc;

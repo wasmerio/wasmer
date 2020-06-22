@@ -11,10 +11,10 @@ use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Tunables for an engine
 pub trait Tunables {
-    /// Get a `MemoryPlan` for the provided `MemoryType`
+    /// Construct a `MemoryPlan` for the provided `MemoryType`
     fn memory_plan(&self, memory: MemoryType) -> MemoryPlan;
 
-    /// Get a `TablePlan` for the provided `TableType`
+    /// Construct a `TablePlan` for the provided `TableType`
     fn table_plan(&self, table: TableType) -> TablePlan;
 
     /// Create a memory given a memory type

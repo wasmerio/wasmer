@@ -57,7 +57,7 @@ mod trampoline;
 mod translator;
 
 pub use crate::compiler::CraneliftCompiler;
-pub use crate::config::CraneliftConfig;
+pub use crate::config::Cranelift;
 pub use crate::debug::{ModuleInfoMemoryOffset, ModuleInfoVmctxInfo, ValueLabelsRanges};
 pub use crate::trampoline::make_trampoline_function_call;
 

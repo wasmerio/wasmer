@@ -3,17 +3,27 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
-use wasmer_compiler::{
-    Compiler, CompilerConfig, CpuFeature, Features, FunctionMiddlewareGenerator, Target,
-};
+use wasm_common::Features;
+use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
 
 #[derive(Clone)]
-pub struct SinglepassConfig {
-    /// Enable NaN canonicalization.
-    ///
-    /// NaN canonicalization is useful when trying to run WebAssembly
-    /// deterministically across different architectures.
-    pub enable_nan_canonicalization: bool,
+pub struct Singlepass {
+    pub(crate) enable_nan_canonicalization: bool,
+    pub(crate) enable_stack_check: bool,
+    /// The middleware chain.
+    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+}
+
+impl Singlepass {
+    /// Creates a new configuration object with the default configuration
+    /// specified.
+    pub fn new() -> Self {
+        Self {
+            enable_nan_canonicalization: true,
+            enable_stack_check: false,
+            middlewares: vec![],
+        }
+    }
 
     /// Enable stack check.
     ///
@@ -22,52 +32,37 @@ pub struct SinglepassConfig {
     ///
     /// Note that this doesn't guarantee deterministic execution across
     /// different platforms.
-    pub enable_stack_check: bool,
+    pub fn enable_stack_check(&mut self, enable: bool) -> &mut Self {
+        self.enable_stack_check = enable;
+        self
+    }
 
-    features: Features,
-    target: Target,
-
-    /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
-}
-
-impl SinglepassConfig {
-    /// Creates a new configuration object with the default configuration
-    /// specified.
-    pub fn new(mut features: Features, target: Target) -> Self {
-        // Override the default multi-value switch
-        features.multi_value = false;
-
-        Self {
-            enable_nan_canonicalization: true,
-            enable_stack_check: false,
-            features,
-            target,
-            middlewares: vec![],
-        }
+    /// Enable NaN canonicalization.
+    ///
+    /// NaN canonicalization is useful when trying to run WebAssembly
+    /// deterministically across different architectures.
+    pub fn canonicalize_nans(&mut self, enable: bool) -> &mut Self {
+        self.enable_nan_canonicalization = enable;
+        self
     }
 }
 
-impl CompilerConfig for SinglepassConfig {
-    /// Gets the WebAssembly features
-    fn features(&self) -> &Features {
-        &self.features
-    }
-
+impl CompilerConfig for Singlepass {
     fn enable_pic(&mut self) {
         // Do nothing, since singlepass already emits
         // PIC code.
     }
 
-    /// Gets the target that we will use for compiling
-    /// the WebAssembly module
-    fn target(&self) -> &Target {
-        &self.target
-    }
-
     /// Transform it into the compiler
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(SinglepassCompiler::new(&self))
+    }
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, _target: &Target) -> Features {
+        let mut features = Features::default();
+        features.multi_value(false);
+        features
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
@@ -76,8 +71,8 @@ impl CompilerConfig for SinglepassConfig {
     }
 }
 
-impl Default for SinglepassConfig {
-    fn default() -> SinglepassConfig {
-        Self::new(Default::default(), Default::default())
+impl Default for Singlepass {
+    fn default() -> Singlepass {
+        Self::new()
     }
 }

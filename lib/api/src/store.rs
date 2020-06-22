@@ -1,7 +1,7 @@
-#[cfg(all(feature = "compiler", feature = "engine"))]
 use crate::tunables::Tunables;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
+use wasmer_engine::Tunables as BaseTunables;
 
 use std::sync::Arc;
 use wasmer_engine::Engine;
@@ -9,11 +9,35 @@ use wasmer_engine::Engine;
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
+    tunables: Arc<dyn BaseTunables + Send + Sync>,
 }
 
 impl Store {
-    pub fn new(engine: Arc<dyn Engine + Send + Sync>) -> Store {
-        Store { engine }
+    pub fn new<E>(engine: &E) -> Store
+    where
+        E: Engine + ?Sized,
+    {
+        Store {
+            engine: engine.cloned(),
+            tunables: Arc::new(Tunables::for_target(engine.target())),
+        }
+    }
+
+    pub fn new_with_tunables<E>(
+        engine: &E,
+        tunables: impl BaseTunables + Send + Sync + 'static,
+    ) -> Store
+    where
+        E: Engine + ?Sized,
+    {
+        Store {
+            engine: engine.cloned(),
+            tunables: Arc::new(tunables),
+        }
+    }
+
+    pub fn tunables(&self) -> &dyn BaseTunables {
+        self.tunables.as_ref()
     }
 
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
@@ -32,40 +56,49 @@ impl PartialEq for Store {
 }
 
 // We only implement default if we have assigned a default compiler and engine
-#[cfg(all(feature = "compiler", feature = "engine"))]
+#[cfg(all(feature = "default-compiler", feature = "default-engine"))]
 impl Default for Store {
     fn default() -> Store {
         // We store them on a function that returns to make
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> Box<dyn CompilerConfig + Send + Sync> {
-            #[cfg(feature = "cranelift")]
-            return Box::new(wasmer_compiler_cranelift::CraneliftConfig::default());
-
-            #[cfg(feature = "llvm")]
-            return Box::new(wasmer_compiler_llvm::LLVMConfig::default());
-
-            #[cfg(feature = "singlepass")]
-            return Box::new(wasmer_compiler_singlepass::SinglepassConfig::default());
+        fn get_config() -> impl CompilerConfig + Send + Sync {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "default-cranelift")] {
+                    wasmer_compiler_cranelift::Cranelift::default()
+                } else if #[cfg(feature = "default-llvm")] {
+                    wasmer_compiler_llvm::LLVM::default()
+                } else if #[cfg(feature = "default-singlepass")] {
+                    wasmer_compiler_singlepass::Singlepass::default()
+                } else {
+                    compile_error!("No default compiler chosen")
+                }
+            }
         }
 
         #[allow(unreachable_code)]
-        fn get_engine(
-            config: Box<dyn CompilerConfig + Send + Sync>,
-        ) -> Arc<dyn Engine + Send + Sync> {
-            let tunables = Tunables::for_target(config.target().triple());
-
-            #[cfg(feature = "jit")]
-            return Arc::new(wasmer_engine_jit::JITEngine::new(config, tunables));
-
-            #[cfg(feature = "native")]
-            return Arc::new(wasmer_engine_native::NativeEngine::new(config, tunables));
+        fn get_engine(config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
+            cfg_if::cfg_if! {
+                if #[cfg(feature = "default-jit")] {
+                    wasmer_engine_jit::JIT::new(&config)
+                        .engine()
+                } else if #[cfg(feature = "default-native")] {
+                    wasmer_engine_native::Native::new(&config)
+                        .engine()
+                } else {
+                    compile_error!("No default engine chosen")
+                }
+            }
         }
 
         let config = get_config();
         let engine = get_engine(config);
-        Store::new(engine)
+        let tunables = Tunables::for_target(engine.target());
+        Store {
+            engine: Arc::new(engine),
+            tunables: Arc::new(tunables),
+        }
     }
 }
 

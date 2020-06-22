@@ -61,27 +61,24 @@ pub fn parse_type_section(
     environ.reserve_signatures(count)?;
 
     for entry in types {
-        match entry.map_err(to_wasm_error)? {
-            WPFunctionType { params, returns } => {
-                let sig_params: Vec<Type> = params
-                    .iter()
-                    .map(|ty| {
-                        wptype_to_type(*ty)
-                            .expect("only numeric types are supported in function signatures")
-                    })
-                    .collect();
-                let sig_returns: Vec<Type> = returns
-                    .iter()
-                    .map(|ty| {
-                        wptype_to_type(*ty)
-                            .expect("only numeric types are supported in function signatures")
-                    })
-                    .collect();
-                let sig = FunctionType::new(sig_params, sig_returns);
-                environ.declare_signature(sig)?;
-                module_translation_state.wasm_types.push((params, returns));
-            }
-        }
+        let WPFunctionType { params, returns } = entry.map_err(to_wasm_error)?;
+        let sig_params: Vec<Type> = params
+            .iter()
+            .map(|ty| {
+                wptype_to_type(*ty)
+                    .expect("only numeric types are supported in function signatures")
+            })
+            .collect();
+        let sig_returns: Vec<Type> = returns
+            .iter()
+            .map(|ty| {
+                wptype_to_type(*ty)
+                    .expect("only numeric types are supported in function signatures")
+            })
+            .collect();
+        let sig = FunctionType::new(sig_params, sig_returns);
+        environ.declare_signature(sig)?;
+        module_translation_state.wasm_types.push((params, returns));
     }
     Ok(())
 }

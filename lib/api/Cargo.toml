@@ -40,7 +40,7 @@ anyhow = "1.0"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["wat", "cranelift", "jit"]
+default = ["wat", "default-cranelift", "default-jit"]
 compiler = [
     "wasmer-engine-jit/compiler",
     "wasmer-engine-native/compiler",
@@ -65,4 +65,27 @@ cranelift = [
 llvm = [
     "wasmer-compiler-llvm",
     "compiler",
+]
+default-compiler = []
+default-engine = []
+
+default-singlepass = [
+    "singlepass",
+    "default-compiler"
+]
+default-cranelift = [
+    "cranelift",
+    "default-compiler"
+]
+default-llvm = [
+    "llvm",
+    "default-compiler"
+]
+default-jit = [
+    "jit",
+    "default-engine"
+]
+default-native = [
+    "native",
+    "default-engine"
 ]

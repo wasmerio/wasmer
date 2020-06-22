@@ -33,7 +33,7 @@ impl Table {
     /// All the elements in the table will be set to the `init` value.
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
-        let tunables = store.engine().tunables();
+        let tunables = store.tunables();
         let table_plan = tunables.table_plan(ty);
         let table = tunables
             .create_table(table_plan)

@@ -6,65 +6,58 @@ use crate::codegen_x64::{
     gen_import_call_trampoline, gen_std_dynamic_import_trampoline, gen_std_trampoline,
     CodegenError, FuncGen,
 };
-use crate::config::SinglepassConfig;
+use crate::config::Singlepass;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader, ModuleTranslationState, Target,
+    CompileModuleInfo, CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::TrapCode;
-use wasmer_runtime::{MemoryPlan, TablePlan, VMOffsets};
+use wasmer_runtime::{ModuleInfo, TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
 pub struct SinglepassCompiler {
-    config: SinglepassConfig,
+    config: Singlepass,
 }
 
 impl SinglepassCompiler {
     /// Creates a new Singlepass compiler
-    pub fn new(config: &SinglepassConfig) -> Self {
+    pub fn new(config: &Singlepass) -> Self {
         Self {
             config: config.clone(),
         }
     }
 
-    /// Gets the WebAssembly features for this Compiler
-    fn config(&self) -> &SinglepassConfig {
+    /// Gets the config for this Compiler
+    fn config(&self) -> &Singlepass {
         &self.config
     }
 }
 
 impl Compiler for SinglepassCompiler {
-    /// Gets the WebAssembly features for this Compiler
-    fn features(&self) -> &Features {
-        self.config.features()
-    }
-
-    /// Gets the target associated to this Compiler.
-    fn target(&self) -> &Target {
-        self.config.target()
-    }
-
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
-        module: &ModuleInfo,
+        _target: &Target,
+        compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
-        memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: PrimaryMap<TableIndex, TablePlan>,
     ) -> Result<Compilation, CompileError> {
-        let vmoffsets = VMOffsets::new(8, module);
+        if compile_info.features.multi_value {
+            return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
+        }
+        let vmoffsets = VMOffsets::new(8, &compile_info.module);
+        let memory_plans = &compile_info.memory_plans;
+        let table_plans = &compile_info.table_plans;
+        let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()

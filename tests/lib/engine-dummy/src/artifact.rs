@@ -13,7 +13,7 @@ use wasm_common::{
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
-use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError};
+use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_runtime::{
     MemoryPlan, ModuleInfo, TablePlan, VMContext, VMFunctionBody, VMSharedSignatureIndex,
 };
@@ -55,9 +55,12 @@ impl DummyArtifact {
 
     #[cfg(feature = "compiler")]
     /// Compile a data buffer into a `DummyArtifact`, which may then be instantiated.
-    pub fn new(engine: &DummyEngine, data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(
+        engine: &DummyEngine,
+        data: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
-        let tunables = engine.tunables();
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 

@@ -6,7 +6,7 @@ use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::FunctionType;
-use wasmer_compiler::CompileError;
+use wasmer_compiler::{CompileError, Target};
 use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
@@ -16,8 +16,8 @@ use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
 ///
 /// The product that an `Engine` produces and consumes is the [`Artifact`].
 pub trait Engine {
-    /// Get the tunables
-    fn tunables(&self) -> &dyn Tunables;
+    /// Gets the target
+    fn target(&self) -> &Target;
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
@@ -32,7 +32,11 @@ pub trait Engine {
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError>;
+    fn compile(
+        &self,
+        binary: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError>;
 
     /// Deserializes a WebAssembly module
     ///
@@ -60,6 +64,9 @@ pub trait Engine {
     /// comparing two trait objects unsafely relies on implementation details
     /// of trait representation.
     fn id(&self) -> &EngineId;
+
+    /// Clone the engine
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync>;
 }
 
 #[derive(Debug, PartialEq, Eq, PartialOrd, Ord)]

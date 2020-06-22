@@ -19,7 +19,7 @@ pub struct Memory {
 
 impl Memory {
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
-        let tunables = store.engine().tunables();
+        let tunables = store.tunables();
         let memory_plan = tunables.memory_plan(ty);
         let memory = tunables.create_memory(memory_plan)?;
 

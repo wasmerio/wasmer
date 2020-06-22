@@ -26,10 +26,12 @@
 )]
 
 mod artifact;
+mod builder;
 mod engine;
 mod serialize;
 
 pub use crate::artifact::NativeArtifact;
+pub use crate::builder::Native;
 pub use crate::engine::NativeEngine;
 
 /// Version number of this crate.

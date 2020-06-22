@@ -47,6 +47,11 @@ fn apply_relocation(
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
+        #[cfg(target_pointer_width = "64")]
+        RelocationKind::X86PCRel8 => unsafe {
+            let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
+            write_unaligned(reloc_address as *mut u64, reloc_delta);
+        },
         #[cfg(target_pointer_width = "32")]
         RelocationKind::X86CallPCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
