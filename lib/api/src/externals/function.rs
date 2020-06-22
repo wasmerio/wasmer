@@ -630,28 +630,27 @@ mod inner {
     }
 
     /// Empty trait to specify the kind of `HostFunction`: With or
-    /// without a `vm::Ctx` argument. See the `ExplicitVmCtx` and the
-    /// `ImplicitVmCtx` structures.
+    /// without an environment.
     ///
-    /// This trait is never aimed to be used by a user. It is used by the
-    /// trait system to automatically generate an appropriate `wrap`
-    /// function.
+    /// This trait is never aimed to be used by a user. It is used by
+    /// the trait system to automatically generate the appropriate
+    /// host functions.
     #[doc(hidden)]
     pub trait HostFunctionKind {}
 
     /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` doesn't take an Environment
-    pub struct WithEnv {}
+    /// when a `HostFunction` does have an environment.
+    pub struct WithEnv;
 
     impl HostFunctionKind for WithEnv {}
 
     /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` takes an Environment
-    pub struct WithoutEnv {}
+    /// when a `HostFunction` does not have an environment.
+    pub struct WithoutEnv;
 
     impl HostFunctionKind for WithoutEnv {}
 
-    /// Represents a function that can be used by WebAssembly.
+    /// Represents a low-level Wasm host function.
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct Function<Args = (), Rets = ()> {
         address: *const VMFunctionBody,
