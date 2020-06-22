@@ -3,11 +3,14 @@
 
 use std::fmt;
 use std::sync::Mutex;
-use wasmer::wasmparser::{BinaryReader, Operator, Result as WpResult};
-use wasmer::{
-    FunctionMiddleware, GlobalInit, GlobalType, LocalFunctionIndex, ModuleMiddleware, Mutability,
-    Type,
+use wasmer::wasmparser::{
+    Operator, Result as WpResult, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
+use wasmer::{
+    FunctionMiddleware, GlobalInit, GlobalType, LocalFunctionIndex, MiddlewareReaderState,
+    ModuleMiddleware, Mutability, Type,
+};
+use wasmer_types::entity::EntityRef;
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
 
@@ -18,7 +21,7 @@ use wasmer_vm::ModuleInfo;
 /// An instance of `Metering` should not be shared among different modules, since it tracks
 /// module-specific information like the global index to store metering state. Attempts to use
 /// a `Metering` instance from multiple modules will result in a panic.
-pub struct Metering<F: Fn(&Operator) -> u64 + Send + Sync> {
+pub struct Metering<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> {
     /// Initial limit of points.
     initial_limit: u64,
 
@@ -29,7 +32,19 @@ pub struct Metering<F: Fn(&Operator) -> u64 + Send + Sync> {
     remaining_points_index: Mutex<Option<GlobalIndex>>,
 }
 
-impl<F: Fn(&Operator) -> u64 + Send + Sync> Metering<F> {
+/// The function-level metering middleware.
+pub struct FunctionMetering<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> {
+    /// Function that maps each operator to a cost in "points".
+    cost_function: F,
+
+    /// The global index in the current module for remaining points.
+    remaining_points_index: GlobalIndex,
+
+    /// Accumulated cost of the current basic block.
+    accumulated_cost: u64,
+}
+
+impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
     /// Creates a `Metering` middleware.
     pub fn new(initial_limit: u64, cost_function: F) -> Self {
         Self {
@@ -40,7 +55,7 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> Metering<F> {
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for Metering<F> {
+impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Metering<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Metering")
             .field("initial_limit", &self.initial_limit)
@@ -50,10 +65,18 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for Metering<F> {
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Send + Sync> ModuleMiddleware for Metering<F> {
+impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync + 'static> ModuleMiddleware
+    for Metering<F>
+{
     /// Generates a `FunctionMiddleware` for a given function.
     fn generate_function_middleware(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
-        unimplemented!();
+        Box::new(FunctionMetering {
+            cost_function: self.cost_function,
+            remaining_points_index: self.remaining_points_index.lock().unwrap().expect(
+                "Metering::generate_function_middleware: Remaining points index not set up.",
+            ),
+            accumulated_cost: 0,
+        })
     }
 
     /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
@@ -72,5 +95,65 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync> ModuleMiddleware for Metering<F> {
         module_info
             .global_initializers
             .push(GlobalInit::I64Const(self.initial_limit as i64));
+    }
+}
+
+impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for FunctionMetering<F> {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("FunctionMetering")
+            .field("cost_function", &"<function>")
+            .field("remaining_points_index", &self.remaining_points_index)
+            .finish()
+    }
+}
+
+impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
+    for FunctionMetering<F>
+{
+    fn feed<'a>(
+        &mut self,
+        operator: Operator<'a>,
+        state: &mut MiddlewareReaderState<'a>,
+    ) -> WpResult<()> {
+        // Get the cost of the current operator, and add it to the accumulator.
+        // This needs to be done before the metering logic, to prevent operators like `Call` from escaping metering in some
+        // corner cases.
+        self.accumulated_cost += (self.cost_function)(&operator);
+
+        // Possible sources and targets of a branch. Finalize the cost of the previous basic block and perform necessary checks.
+        match operator {
+            Operator::Loop { .. } // loop headers are branch targets
+            | Operator::End // block ends are branch targets
+            | Operator::Else // "else" is the "end" of an if branch
+            | Operator::Br { .. } // branch source
+            | Operator::BrTable { .. } // branch source
+            | Operator::BrIf { .. } // branch source
+            | Operator::Call { .. } // function call - branch source
+            | Operator::CallIndirect { .. } // function call - branch source
+            | Operator::Return // end of function - branch source
+            => {
+                if self.accumulated_cost > 0 {
+                    // if unsigned(globals[remaining_points_index]) < unsigned(self.accumulated_cost) { throw(); }
+                    state.push_operator(Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() });
+                    state.push_operator(Operator::I64Const { value: self.accumulated_cost as i64 });
+                    state.push_operator(Operator::I64LtU);
+                    state.push_operator(Operator::If { ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType) });
+                    state.push_operator(Operator::Unreachable); // FIXME: Signal the error properly.
+                    state.push_operator(Operator::End);
+
+                    // globals[remaining_points_index] -= self.accumulated_cost;
+                    state.push_operator(Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() });
+                    state.push_operator(Operator::I64Const { value: self.accumulated_cost as i64 });
+                    state.push_operator(Operator::I64Sub);
+                    state.push_operator(Operator::GlobalSet { global_index: self.remaining_points_index.as_u32() });
+
+                    self.accumulated_cost = 0;
+                }
+            }
+            _ => {}
+        }
+        state.push_operator(operator);
+
+        Ok(())
     }
 }

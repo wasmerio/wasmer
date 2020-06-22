@@ -1,3 +1,3 @@
-mod metering;
+pub mod metering;
 
 pub use metering::Metering;
