@@ -476,7 +476,7 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
 }
 
 /// This private inner module contains the low-level implementation
-/// for `Func` and its siblings.
+/// for `Function` and its siblings.
 mod inner {
     use std::convert::Infallible;
     use std::error::Error;
