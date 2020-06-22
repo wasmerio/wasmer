@@ -118,7 +118,7 @@ mod test_vmfunction_body {
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
-    /// A function is static when it's address matches the signature:
+    /// A function is static when its address matches the signature:
     /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
     ///
     /// This is the default for functions that are defined:
@@ -126,7 +126,7 @@ pub enum VMFunctionKind {
     /// 2. In the WebAssembly file
     Static,
 
-    /// A function is dynamic when it's address matches the signature:
+    /// A function is dynamic when its address matches the signature:
     /// (ctx, &[Type]) -> Vec<Type>
     ///
     /// This is the default for functions that are defined:
