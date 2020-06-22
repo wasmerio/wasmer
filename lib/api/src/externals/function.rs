@@ -534,31 +534,41 @@ mod inner {
         f64 => f64
     );
 
-    /// Represents a list of WebAssembly values.
+    /// The `WasmTypeList` trait represents a tuple (list) of Wasm
+    /// typed values. It is used to get low-level representation of
+    /// such a tuple.
     pub trait WasmTypeList {
-        /// CStruct type.
+        /// The C type (a struct) that can hold/represent all the
+        /// represented values.
         type CStruct;
 
-        /// Array of return values.
+        /// The array type that can hold all the represented values.
+        ///
+        /// Note that all values are stored in their binary form.
         type Array: AsMut<[i128]>;
 
-        /// Construct `Self` based on an array of returned values.
+        /// Constructs `Self` based on an array of values.
         fn from_array(array: Self::Array) -> Self;
 
-        /// Transforms Rust values into an Array
+        /// Builds and returns an array of type `Array` from a tuple
+        /// (list) of values.
         fn into_array(self) -> Self::Array;
 
-        /// Generates an empty array that will hold the returned values of
-        /// the WebAssembly function.
+        /// Allocates and return an empty array of type `Array` that
+        /// will hold a tuple (list) of values, usually to hold the
+        /// returned values of a WebAssembly function call.
         fn empty_array() -> Self::Array;
 
-        /// Transforms C values into Rust values.
+        /// Builds a tuple (list) of values from a C struct of type
+        /// `CStruct`.
         fn from_c_struct(c_struct: Self::CStruct) -> Self;
 
-        /// Transforms Rust values into C values.
+        /// Builds and returns a C struct of type `CStruct` from a
+        /// tuple (list) of values.
         fn into_c_struct(self) -> Self::CStruct;
 
-        /// Get types of the current values.
+        /// Get the Wasm types for the tuple (list) of currently
+        /// represented values.
         fn wasm_types() -> &'static [Type];
     }
 
