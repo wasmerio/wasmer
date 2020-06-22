@@ -11,7 +11,7 @@ use super::code_translator::{bitcast_arguments, translate_operator, wasm_param_t
 use super::func_environ::{FuncEnvironment, ReturnMode};
 use super::func_state::FuncTranslationState;
 use super::translation_utils::get_vmctx_value_label;
-use crate::config::CraneliftConfig;
+use crate::config::Cranelift;
 use cranelift_codegen::entity::EntityRef;
 use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
@@ -69,7 +69,7 @@ impl FuncTranslator {
         func: &mut ir::Function,
         environ: &mut FE,
         local_function_index: LocalFunctionIndex,
-        config: &CraneliftConfig,
+        config: &Cranelift,
     ) -> WasmResult<()> {
         let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
         reader.set_middleware_chain(

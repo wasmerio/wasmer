@@ -5,10 +5,10 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use wasm_common::FunctionType;
-use wasmer_compiler::CompileError;
+use wasm_common::{Features, FunctionType};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, CompilerConfig};
+use wasmer_compiler::Compiler;
+use wasmer_compiler::{CompileError, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
@@ -16,27 +16,24 @@ use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 #[derive(Clone)]
 pub struct NativeEngine {
     inner: Arc<Mutex<NativeEngineInner>>,
-    tunables: Arc<dyn Tunables + Send + Sync>,
+    /// The target for the compiler
+    target: Arc<Target>,
     engine_id: EngineId,
 }
 
 impl NativeEngine {
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(
-        mut config: Box<dyn CompilerConfig>,
-        tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self {
-        config.enable_pic();
-        let compiler = config.compiler();
+    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 compiler: Some(compiler),
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
+                features,
             })),
-            tunables: Arc::new(tunables),
+            target: Arc::new(target),
             engine_id: EngineId::default(),
         }
     }
@@ -54,7 +51,7 @@ impl NativeEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
+    pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 #[cfg(feature = "compiler")]
@@ -62,8 +59,9 @@ impl NativeEngine {
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
+                features: Features::default(),
             })),
-            tunables: Arc::new(tunables),
+            target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
         }
     }
@@ -96,9 +94,9 @@ impl NativeEngine {
 }
 
 impl Engine for NativeEngine {
-    /// Get the tunables
-    fn tunables(&self) -> &dyn Tunables {
-        &*self.tunables
+    /// The target
+    fn target(&self) -> &Target {
+        &self.target
     }
 
     /// Register a signature
@@ -124,8 +122,12 @@ impl Engine for NativeEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(NativeArtifact::new(&self, binary)?))
+    fn compile(
+        &self,
+        binary: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(NativeArtifact::new(&self, binary, tunables)?))
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
@@ -147,6 +149,10 @@ impl Engine for NativeEngine {
     fn id(&self) -> &EngineId {
         &self.engine_id
     }
+
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync> {
+        Arc::new(self.clone())
+    }
 }
 
 /// The inner contents of `NativeEngine`
@@ -154,6 +160,8 @@ pub struct NativeEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler + Send>>,
+    /// The WebAssembly features to use
+    features: Features,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
@@ -186,10 +194,14 @@ impl NativeEngineInner {
         }
     }
 
+    pub(crate) fn features(&self) -> &Features {
+        &self.features
+    }
+
     /// Validate the module
     #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(data)
+        self.compiler()?.validate_module(self.features(), data)
     }
 
     /// Validate the module

@@ -23,6 +23,10 @@ pub enum CompileError {
     #[error("Validation error: {0}")]
     Validate(String),
 
+    /// The compiler doesn't support a Wasm feature
+    #[error("Feature {0} is not yet supported")]
+    UnsupportedFeature(String),
+
     /// Insufficient resources available for execution.
     #[error("Insufficient resources: {0}")]
     Resource(String),

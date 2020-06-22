@@ -3,7 +3,7 @@
 use crate::DummyArtifact;
 use std::sync::Arc;
 use wasm_common::FunctionType;
-use wasmer_compiler::{CompileError, Features};
+use wasmer_compiler::{CompileError, Features, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
@@ -22,17 +22,17 @@ extern "C" fn dummy_trampoline(
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
     features: Arc<Features>,
-    tunables: Arc<dyn Tunables + Send + Sync>,
+    target: Arc<Target>,
     engine_id: EngineId,
 }
 
 impl DummyEngine {
     #[cfg(feature = "compiler")]
-    pub fn new(tunables: impl Tunables + 'static + Send + Sync) -> Self {
+    pub fn new() -> Self {
         Self {
             signatures: Arc::new(SignatureRegistry::new()),
-            tunables: Arc::new(tunables),
             features: Arc::new(Default::default()),
+            target: Arc::new(Default::default()),
             engine_id: EngineId::default(),
         }
     }
@@ -44,8 +44,8 @@ impl DummyEngine {
 
 impl Engine for DummyEngine {
     /// Get the tunables
-    fn tunables(&self) -> &dyn Tunables {
-        &*self.tunables
+    fn target(&self) -> &Target {
+        &self.target
     }
 
     /// Register a signature
@@ -92,8 +92,12 @@ impl Engine for DummyEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(DummyArtifact::new(&self, &binary)?))
+    fn compile(
+        &self,
+        binary: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(DummyArtifact::new(&self, binary, tunables)?))
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
@@ -103,5 +107,9 @@ impl Engine for DummyEngine {
 
     fn id(&self) -> &EngineId {
         &self.engine_id
+    }
+
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync> {
+        Arc::new(self.clone())
     }
 }

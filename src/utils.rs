@@ -33,7 +33,7 @@ pub fn parse_mapdir(entry: &str) -> Result<(String, PathBuf)> {
 /// Parses a mapdir from an env var
 pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
     if let [env_var, value] = entry.split('=').collect::<Vec<&str>>()[..] {
-        return Ok((env_var.to_string(), value.to_string()));
+        Ok((env_var.to_string(), value.to_string()))
     } else {
         bail!(
             "Env vars must be of the form <var_name>=<value>. Found {}",

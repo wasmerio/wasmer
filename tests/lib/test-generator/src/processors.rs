@@ -12,7 +12,7 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     }
 
     // Ignore files starting with `.`, which could be editor temporary files
-    if p.file_stem()?.to_str()?.starts_with(".") {
+    if p.file_stem()?.to_str()?.starts_with('.') {
         return None;
     }
 

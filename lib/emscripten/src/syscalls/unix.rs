@@ -646,7 +646,7 @@ pub fn ___syscall102(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_
             let address_addr = unsafe { address.deref_mut(ctx.memory(0)).unwrap().get_mut() };
 
             address_addr.sa_family = host_address.sa_family as _;
-            address_addr.sa_data = host_address.sa_data.clone();
+            address_addr.sa_data = host_address.sa_data;
 
             // why is this here?
             // set_cloexec
@@ -686,7 +686,7 @@ pub fn ___syscall102(ctx: &mut EmEnv, _which: c_int, mut varargs: VarArgs) -> c_
             // translate from host data into emscripten data
             let mut address_mut = unsafe { address.deref_mut(ctx.memory(0)).unwrap().get_mut() };
             address_mut.sa_family = sock_addr_host.sa_family as _;
-            address_mut.sa_data = sock_addr_host.sa_data.clone();
+            address_mut.sa_data = sock_addr_host.sa_data;
 
             debug!(
                 "=> socket: {}, address, {:?}, address_len: {}, result = {}",

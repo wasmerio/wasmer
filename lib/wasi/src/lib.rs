@@ -31,6 +31,9 @@ pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 use thiserror::Error;
 use wasmer::{imports, Function, ImportObject, Memory, Module, Store};
 
+use std::cell::UnsafeCell;
+use std::mem::MaybeUninit;
+use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// This is returned in `RuntimeError`.
@@ -48,14 +51,88 @@ pub enum WasiError {
 #[derive(Clone)]
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
-    memory: Option<Arc<Memory>>,
+    memory: Arc<WasiMemory>,
+}
+
+/// Wrapper type around `Memory` used to delay initialization of the memory.
+///
+/// The `initialized` field is used to indicate if it's safe to read `memory` as `Memory`.
+///
+/// The `mutate_lock` is used to prevent access from multiple threads during initialization.
+struct WasiMemory {
+    initialized: AtomicBool,
+    memory: UnsafeCell<MaybeUninit<Memory>>,
+    mutate_lock: Mutex<()>,
+}
+
+impl WasiMemory {
+    fn new() -> Self {
+        Self {
+            initialized: AtomicBool::new(false),
+            memory: UnsafeCell::new(MaybeUninit::zeroed()),
+            mutate_lock: Mutex::new(()),
+        }
+    }
+
+    /// Initialize the memory, making it safe to read from.
+    ///
+    /// Returns whether or not the set was successful. If the set failed then
+    /// the memory has already been initialized.
+    fn set_memory(&self, memory: Memory) -> bool {
+        // synchronize it
+        let _guard = self.mutate_lock.lock();
+        if self.initialized.load(Ordering::Acquire) {
+            return false;
+        }
+
+        unsafe {
+            let ptr = self.memory.get();
+            let mem_inner: &mut MaybeUninit<Memory> = &mut *ptr;
+            mem_inner.as_mut_ptr().write(memory);
+        }
+        self.initialized.store(true, Ordering::Release);
+
+        true
+    }
+
+    /// Returns `None` if the memory has not been initialized yet.
+    /// Otherwise returns the memory that was used to initialize it.
+    fn get_memory(&self) -> Option<&Memory> {
+        // Based on normal usage, `Relaxed` is fine...
+        // TODO: investigate if it's possible to use the API in a way where `Relaxed`
+        //       is not fine
+        if self.initialized.load(Ordering::Relaxed) {
+            unsafe {
+                let maybe_mem = self.memory.get();
+                Some(&*(*maybe_mem).as_ptr())
+            }
+        } else {
+            None
+        }
+    }
+}
+
+impl Drop for WasiMemory {
+    fn drop(&mut self) {
+        if self.initialized.load(Ordering::Acquire) {
+            unsafe {
+                // We want to get the internal value in memory, so we need to consume
+                // the `UnsafeCell` and assume the `MapbeInit` is initialized, but because
+                // we only have a `&mut self` we can't do this directly, so we swap the data
+                // out so we can drop it (via `assume_init`).
+                let mut maybe_uninit = UnsafeCell::new(MaybeUninit::zeroed());
+                std::mem::swap(&mut self.memory, &mut maybe_uninit);
+                maybe_uninit.into_inner().assume_init();
+            }
+        }
+    }
 }
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
-            memory: None,
+            memory: Arc::new(WasiMemory::new()),
         }
     }
 
@@ -69,8 +146,8 @@ impl WasiEnv {
     }
 
     /// Set the memory
-    pub fn set_memory(&mut self, memory: Arc<Memory>) {
-        self.memory = Some(memory);
+    pub fn set_memory(&mut self, memory: Memory) -> bool {
+        self.memory.set_memory(memory)
     }
 
     /// Get the WASI state
@@ -85,14 +162,14 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory.as_ref().expect("The expected Memory is not attached to the `WasiEnv`. Did you forgot to call wasi_env.set_memory(...)?")
+        self.memory.get_memory().expect("The expected Memory is not attached to the `WasiEnv`. Did you forgot to call wasi_env.set_memory(...)?")
     }
 
     pub(crate) fn get_memory_and_wasi_state(
         &mut self,
         _mem_index: u32,
     ) -> (&Memory, MutexGuard<WasiState>) {
-        let memory = self.memory.as_ref().unwrap();
+        let memory = self.memory.get_memory().unwrap();
         let state = self.state.lock().unwrap();
         (memory, state)
     }

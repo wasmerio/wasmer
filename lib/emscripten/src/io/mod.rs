@@ -31,7 +31,7 @@ pub fn sigdelset(ctx: &mut EmEnv, set: i32, signum: i32) -> i32 {
     #[allow(clippy::cast_ptr_alignment)]
     let ptr = emscripten_memory_pointer!(memory, set) as *mut i32;
 
-    unsafe { *ptr = *ptr & !(1 << (signum - 1)) }
+    unsafe { *ptr &= !(1 << (signum - 1)) }
 
     0
 }

@@ -5,12 +5,13 @@ use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 use wasm_common::entity::PrimaryMap;
+use wasm_common::Features;
 use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
-use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex,
-};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, CompilerConfig};
+use wasmer_compiler::Compiler;
+use wasmer_compiler::{
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
+};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_runtime::{
     ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
@@ -20,26 +21,24 @@ use wasmer_runtime::{
 #[derive(Clone)]
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
-    tunables: Arc<dyn Tunables + Send + Sync>,
+    /// The target for the compiler
+    target: Arc<Target>,
     engine_id: EngineId,
 }
 
 impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(
-        config: Box<dyn CompilerConfig>,
-        tunables: impl Tunables + 'static + Send + Sync,
-    ) -> Self {
-        let compiler = config.compiler();
+    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
                 function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
+                features,
             })),
-            tunables: Arc::new(tunables),
+            target: Arc::new(target),
             engine_id: EngineId::default(),
         }
     }
@@ -57,7 +56,7 @@ impl JITEngine {
     ///
     /// Headless engines can't compile or validate any modules,
     /// they just take already processed Modules (via `Module::serialize`).
-    pub fn headless(tunables: impl Tunables + 'static + Send + Sync) -> Self {
+    pub fn headless() -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
@@ -65,8 +64,9 @@ impl JITEngine {
                 function_call_trampolines: HashMap::new(),
                 code_memory: CodeMemory::new(),
                 signatures: SignatureRegistry::new(),
+                features: Features::default(),
             })),
-            tunables: Arc::new(tunables),
+            target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
         }
     }
@@ -81,9 +81,9 @@ impl JITEngine {
 }
 
 impl Engine for JITEngine {
-    /// Get the tunables
-    fn tunables(&self) -> &dyn Tunables {
-        &*self.tunables
+    /// The target
+    fn target(&self) -> &Target {
+        &self.target
     }
 
     /// Register a signature
@@ -109,8 +109,12 @@ impl Engine for JITEngine {
     }
 
     /// Compile a WebAssembly binary
-    fn compile(&self, binary: &[u8]) -> Result<Arc<dyn Artifact>, CompileError> {
-        Ok(Arc::new(JITArtifact::new(&self, binary)?))
+    fn compile(
+        &self,
+        binary: &[u8],
+        tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Ok(Arc::new(JITArtifact::new(&self, binary, tunables)?))
     }
 
     /// Deserializes a WebAssembly module
@@ -121,6 +125,10 @@ impl Engine for JITEngine {
     fn id(&self) -> &EngineId {
         &self.engine_id
     }
+
+    fn cloned(&self) -> Arc<dyn Engine + Send + Sync> {
+        Arc::new(self.clone())
+    }
 }
 
 /// The inner contents of `JITEngine`
@@ -130,6 +138,8 @@ pub struct JITEngineInner {
     compiler: Option<Box<dyn Compiler + Send>>,
     /// Pointers to trampoline functions used to enter particular signatures
     function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
+    /// The features to compile the Wasm module with
+    features: Features,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
     code_memory: CodeMemory,
@@ -151,7 +161,7 @@ impl JITEngineInner {
     /// Validate the module
     #[cfg(feature = "compiler")]
     pub fn validate<'data>(&self, data: &'data [u8]) -> Result<(), CompileError> {
-        self.compiler()?.validate_module(data)
+        self.compiler()?.validate_module(self.features(), data)
     }
 
     /// Validate the module
@@ -161,6 +171,11 @@ impl JITEngineInner {
             "The JITEngine is not compiled with compiler support, which is required for validating"
                 .to_string(),
         ))
+    }
+
+    /// The Wasm features
+    pub fn features(&self) -> &Features {
+        &self.features
     }
 
     /// Allocate custom sections into memory

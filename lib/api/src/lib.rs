@@ -18,7 +18,9 @@ mod types;
 mod utils;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
-pub use crate::externals::{Extern, Function, Global, Memory, Table};
+pub use crate::externals::{
+    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,
+};
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
 pub use crate::memory_view::{Atomically, MemoryView};
@@ -34,11 +36,10 @@ pub use crate::types::{
 };
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
-
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use wasm_common::{
-    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WasmExternType, WasmTypeList,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
@@ -56,37 +57,38 @@ pub use wat::parse_bytes as wat2wasm;
 
 // The compilers are mutually exclusive
 #[cfg(any(
-    all(feature = "llvm", any(feature = "cranelift", feature = "singlepass")),
-    all(feature = "cranelift", feature = "singlepass")
+    all(
+        feature = "default-llvm",
+        any(feature = "default-cranelift", feature = "default-singlepass")
+    ),
+    all(feature = "default-cranelift", feature = "default-singlepass")
 ))]
 compile_error!(
-    r#"The `singlepass`, `cranelift` and `llvm` features are mutually exclusive.
-If you wish to use more than one compiler, you can simply import it from it's own crate. Eg.:
+    r#"The `default-singlepass`, `default-cranelift` and `default-llvm` features are mutually exclusive.
+If you wish to use more than one compiler, you can simply create the own store. Eg.:
 
 ```
-use wasmer::{Store, Engine};
-use wasmer_compiler_singlepass::SinglepassConfig;
+use wasmer::{Store, JIT, Singlepass};
 
-// TODO: update this, this is now out of date:
-let engine = Engine::new(SinglepassConfig::default());
-let store = Store::new_config(&engine);
+let engine = JIT::new(&Singlepass::default()).engine();
+let store = Store::new(&engine);
 ```"#
 );
 
 #[cfg(feature = "singlepass")]
-pub use wasmer_compiler_singlepass::SinglepassConfig;
+pub use wasmer_compiler_singlepass::Singlepass;
 
 #[cfg(feature = "cranelift")]
-pub use wasmer_compiler_cranelift::CraneliftConfig;
+pub use wasmer_compiler_cranelift::Cranelift;
 
 #[cfg(feature = "llvm")]
-pub use wasmer_compiler_llvm::LLVMConfig;
+pub use wasmer_compiler_llvm::LLVM;
 
 #[cfg(feature = "jit")]
-pub use wasmer_engine_jit::JITEngine;
+pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};
 
 #[cfg(feature = "native")]
-pub use wasmer_engine_native::NativeEngine;
+pub use wasmer_engine_native::{Native, NativeArtifact, NativeEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
