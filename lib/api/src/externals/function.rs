@@ -862,6 +862,7 @@ mod inner {
                     func_wrapper::<$( $x, )* Rets, RetsAsResult, Env, Self> as *const VMFunctionBody
                 }
             }
+
         };
     }
 
@@ -943,24 +944,32 @@ mod inner {
     mod test_wasm_type_list {
         use super::*;
         use wasm_common::Type;
-        // WasmTypeList
 
         #[test]
-        fn test_simple_values() {
-            // Simple values
-            assert_eq!(<i32>::wasm_types(), [Type::I32]);
-            assert_eq!(<i64>::wasm_types(), [Type::I64]);
-            assert_eq!(<f32>::wasm_types(), [Type::F32]);
-            assert_eq!(<f64>::wasm_types(), [Type::F64]);
+        fn test_from_array() {
+            assert_eq!(<()>::from_array([]), ());
+            assert_eq!(<i32>::from_array([1]), (1i32));
+            assert_eq!(<(i32, i64)>::from_array([1, 2]), (1i32, 2i64));
+            assert_eq!(
+                <(i32, i64, f32, f64)>::from_array([
+                    1,
+                    2,
+                    (3.1f32).to_bits().into(),
+                    (4.2f64).to_bits().into()
+                ]),
+                (1, 2, 3.1f32, 4.2f64)
+            );
+        }
 
-            // Multi values
-            assert_eq!(<(i32, i32)>::wasm_types(), [Type::I32, Type::I32]);
-            assert_eq!(<(i64, i64)>::wasm_types(), [Type::I64, Type::I64]);
-            assert_eq!(<(f32, f32)>::wasm_types(), [Type::F32, Type::F32]);
-            assert_eq!(<(f64, f64)>::wasm_types(), [Type::F64, Type::F64]);
-
-            // Mixed values
-            // assert_eq!(<(i32, i64, f32, f64)>::wasm_types(), [Type::I32, Type::I64, Type::F32, Type::F64]);
+        #[test]
+        fn test_into_array() {
+            assert_eq!(().into_array(), []);
+            assert_eq!((1).into_array(), [1]);
+            assert_eq!((1i32, 2i64).into_array(), [1, 2]);
+            assert_eq!(
+                (1i32, 2i32, 3.1f32, 4.2f64).into_array(),
+                [1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]
+            );
         }
 
         #[test]
@@ -970,28 +979,36 @@ mod inner {
             assert_eq!(<(i32, i64)>::empty_array().len(), 2);
         }
 
-        // #[test]
-        // fn test_from_array() {
-        //     assert_eq!(<()>::from_array([]), ());
-        //     assert_eq!(<(i32)>::from_array([1]), (1));
-        //     assert_eq!(<(i32, i32)>::from_array([1, 1]), (1, 1));
-        //     // This doesn't work
-        //     // assert_eq!(<(i32, i64, f32, f64)>::from_array([1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]), (1, 2, 3.1f32, 4.2f64));
-        // }
-
-        // #[test]
-        // fn test_into_array() {
-        //     assert_eq!(().into_array(), []);
-        //     assert_eq!((1).into_array(), [1]);
-        //     assert_eq!((1, 2).into_array(), [1, 2]);
-        //     assert_eq!((1, 2, 3).into_array(), [1, 2, 3]);
-        //     // This doesn't work
-        //     // assert_eq!(<(i32, i64, f32, f64)>::from_array([1, 2, (3.1f32).to_bits().into(), (4.2f64).to_bits().into()]), (1, 2, 3.1f32, 4.2f64));
-        // }
+        #[test]
+        fn test_from_c_struct() {
+            assert_eq!(<()>::from_c_struct(S0()), ());
+            assert_eq!(<i32>::from_c_struct(S1(1)), (1i32));
+            assert_eq!(<(i32, i64)>::from_c_struct(S2(1, 2)), (1i32, 2i64));
+            assert_eq!(
+                <(i32, i64, f32, f64)>::from_c_struct(S4(1, 2, 3.1, 4.2)),
+                (1i32, 2i64, 3.1f32, 4.2f64)
+            );
+        }
 
         #[test]
-        fn test_into_c_struct() {
-            // assert_eq!(<()>::into_c_struct(), &[]);
+        fn test_wasm_types_for_uni_values() {
+            assert_eq!(<i32>::wasm_types(), [Type::I32]);
+            assert_eq!(<i64>::wasm_types(), [Type::I64]);
+            assert_eq!(<f32>::wasm_types(), [Type::F32]);
+            assert_eq!(<f64>::wasm_types(), [Type::F64]);
+        }
+
+        #[test]
+        fn test_wasm_types_for_multi_values() {
+            assert_eq!(<(i32, i32)>::wasm_types(), [Type::I32, Type::I32]);
+            assert_eq!(<(i64, i64)>::wasm_types(), [Type::I64, Type::I64]);
+            assert_eq!(<(f32, f32)>::wasm_types(), [Type::F32, Type::F32]);
+            assert_eq!(<(f64, f64)>::wasm_types(), [Type::F64, Type::F64]);
+
+            assert_eq!(
+                <(i32, i64, f32, f64)>::wasm_types(),
+                [Type::I32, Type::I64, Type::F32, Type::F64]
+            );
         }
     }
 
