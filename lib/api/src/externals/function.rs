@@ -650,7 +650,9 @@ mod inner {
 
     impl HostFunctionKind for WithoutEnv {}
 
-    /// Represents a low-level Wasm host function.
+    /// Represents a low-level Wasm static host function. See
+    /// `super::Function::new` and `super::Function::new_env` to learn
+    /// more.
     #[derive(Clone, Debug, Hash, PartialEq, Eq)]
     pub struct Function<Args = (), Rets = ()> {
         address: *const VMFunctionBody,
@@ -677,16 +679,233 @@ mod inner {
             }
         }
 
-        /// Get the type of the Func
+        /// Get the function type of this `Function`.
         pub fn ty(&self) -> FunctionType {
             FunctionType::new(Args::wasm_types(), Rets::wasm_types())
         }
 
-        /// Get the address of the Func
+        /// Get the address of this `Function`.
         pub fn address(&self) -> *const VMFunctionBody {
             self.address
         }
     }
+
+    macro_rules! impl_host_function {
+        ( [$c_struct_representation:ident]
+           $c_struct_name:ident,
+           $( $x:ident ),* ) => {
+
+            /// A structure with a C-compatible representation that can hold a set of Wasm values.
+            /// This type is used by `WasmTypeList::CStruct`.
+            #[repr($c_struct_representation)]
+            pub struct $c_struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
+            where
+                $( $x: WasmExternType ),*;
+
+            // Implement `WasmTypeList` for a specific tuple.
+            #[allow(unused_parens, dead_code)]
+            impl< $( $x ),* >
+                WasmTypeList
+            for
+                ( $( $x ),* )
+            where
+                $( $x: WasmExternType ),*
+            {
+                type CStruct = $c_struct_name< $( $x ),* >;
+
+                type Array = [i128; count_idents!( $( $x ),* )];
+
+                fn from_array(array: Self::Array) -> Self {
+                    // Unpack items of the array.
+                    #[allow(non_snake_case)]
+                    let [ $( $x ),* ] = array;
+
+                    // Build the tuple.
+                    (
+                        $(
+                            WasmExternType::from_native(NativeWasmType::from_binary($x))
+                        ),*
+                    )
+                }
+
+                fn into_array(self) -> Self::Array {
+                    // Unpack items of the tuple.
+                    #[allow(non_snake_case)]
+                    let ( $( $x ),* ) = self;
+
+                    // Build the array.
+                    [
+                        $(
+                            WasmExternType::to_native($x).to_binary()
+                        ),*
+                    ]
+                }
+
+                fn empty_array() -> Self::Array {
+                    // Build an array initialized with `0`.
+                    [0; count_idents!( $( $x ),* )]
+                }
+
+                fn from_c_struct(c_struct: Self::CStruct) -> Self {
+                    // Unpack items of the C structure.
+                    #[allow(non_snake_case)]
+                    let $c_struct_name( $( $x ),* ) = c_struct;
+
+                    (
+                        $(
+                            WasmExternType::from_native($x)
+                        ),*
+                    )
+                }
+
+                #[allow(unused_parens, non_snake_case)]
+                fn into_c_struct(self) -> Self::CStruct {
+                    // Unpack items of the tuple.
+                    let ( $( $x ),* ) = self;
+
+                    // Build the C structure.
+                    $c_struct_name(
+                        $(
+                            WasmExternType::to_native($x)
+                        ),*
+                    )
+                }
+
+                fn wasm_types() -> &'static [Type] {
+                    &[
+                        $(
+                            $x::Native::WASM_TYPE
+                        ),*
+                    ]
+                }
+            }
+
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has no environment.
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Func >
+                HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()>
+            for
+                Func
+            where
+                $( $x: WasmExternType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Func: Fn($( $x , )*) -> RetsAsResult + 'static + Send,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                    where
+                        $( $x: WasmExternType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Func: Fn( $( $x ),* ) -> RetsAsResult + 'static
+                    {
+                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func( $( WasmExternType::from_native($x) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            Err(panic) => unsafe { resume_panic(panic) },
+                        }
+                    }
+
+                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Self> as *const VMFunctionBody
+                }
+            }
+
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Env, Func >
+                HostFunction<( $( $x ),* ), Rets, WithEnv, Env>
+            for
+                Func
+            where
+                $( $x: WasmExternType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Env: Sized,
+                Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    where
+                        $( $x: WasmExternType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Env: Sized,
+                        Func: Fn(&mut Env, $( $x ),* ) -> RetsAsResult + 'static
+                    {
+                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func(env, $( WasmExternType::from_native($x) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            Err(panic) => unsafe { resume_panic(panic) },
+                        }
+                    }
+
+                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Env, Self> as *const VMFunctionBody
+                }
+            }
+        };
+    }
+
+    // Black-magic to count the number of identifiers at compile-time.
+    macro_rules! count_idents {
+        ( $($idents:ident),* ) => {
+            {
+                #[allow(dead_code, non_camel_case_types)]
+                enum Idents { $( $idents, )* __CountIdentsLast }
+                const COUNT: usize = Idents::__CountIdentsLast as usize;
+                COUNT
+            }
+        };
+    }
+
+    // Here we go! Let's generate all the C struct, `WasmTypeList`
+    // implementations and `HostFunction` implementations.
+    impl_host_function!([C] S0,);
+    impl_host_function!([transparent] S1, A1);
+    impl_host_function!([C] S2, A1, A2);
+    impl_host_function!([C] S3, A1, A2, A3);
+    impl_host_function!([C] S4, A1, A2, A3, A4);
+    impl_host_function!([C] S5, A1, A2, A3, A4, A5);
+    impl_host_function!([C] S6, A1, A2, A3, A4, A5, A6);
+    impl_host_function!([C] S7, A1, A2, A3, A4, A5, A6, A7);
+    impl_host_function!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
+    impl_host_function!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
+    impl_host_function!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+    impl_host_function!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+    impl_host_function!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+    impl_host_function!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+    impl_host_function!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+    impl_host_function!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+    impl_host_function!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+    impl_host_function!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+    impl_host_function!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+    impl_host_function!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+    impl_host_function!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
+    impl_host_function!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
+    impl_host_function!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
+    impl_host_function!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
+    impl_host_function!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
+    impl_host_function!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
+    impl_host_function!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
 
     impl WasmTypeList for Infallible {
         type CStruct = Self;
@@ -716,167 +935,6 @@ mod inner {
             &[]
         }
     }
-
-    macro_rules! impl_traits {
-        ( [$repr:ident] $struct_name:ident, $( $x:ident ),* ) => {
-            /// Struct for typed funcs.
-            #[repr($repr)]
-            pub struct $struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
-            where
-                $( $x: WasmExternType ),*;
-
-            #[allow(unused_parens, dead_code)]
-            impl< $( $x ),* > WasmTypeList for ( $( $x ),* )
-            where
-                $( $x: WasmExternType ),*
-            {
-                type CStruct = $struct_name<$( $x ),*>;
-
-                type Array = [i128; count_idents!( $( $x ),* )];
-
-                fn from_array(array: Self::Array) -> Self {
-                    #[allow(non_snake_case)]
-                    let [ $( $x ),* ] = array;
-
-                    ( $( WasmExternType::from_native(NativeWasmType::from_binary($x)) ),* )
-                }
-
-                fn into_array(self) -> Self::Array {
-                    #[allow(non_snake_case)]
-                    let ( $( $x ),* ) = self;
-                    [ $( WasmExternType::to_native($x).to_binary() ),* ]
-                }
-
-                fn empty_array() -> Self::Array {
-                    [0; count_idents!( $( $x ),* )]
-                }
-
-                fn from_c_struct(c_struct: Self::CStruct) -> Self {
-                    #[allow(non_snake_case)]
-                    let $struct_name ( $( $x ),* ) = c_struct;
-
-                    ( $( WasmExternType::from_native($x) ),* )
-                }
-
-                #[allow(unused_parens, non_snake_case)]
-                fn into_c_struct(self) -> Self::CStruct {
-                    let ( $( $x ),* ) = self;
-
-                    $struct_name ( $( WasmExternType::to_native($x) ),* )
-                }
-
-                fn wasm_types() -> &'static [Type] {
-                    &[$( $x::Native::WASM_TYPE ),*]
-                }
-            }
-
-            #[allow(unused_parens)]
-            impl< $( $x, )* Rets, Trap, FN > HostFunction<( $( $x ),* ), Rets, WithoutEnv, ()> for FN
-            where
-                $( $x: WasmExternType, )*
-                Rets: WasmTypeList,
-                Trap: IntoResult<Rets>,
-                FN: Fn($( $x , )*) -> Trap + 'static + Send,
-            {
-                #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
-                    extern fn wrap<$( $x, )* Rets, Trap, FN>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
-                    where
-                        Rets: WasmTypeList,
-                        Trap: IntoResult<Rets>,
-                        $( $x: WasmExternType, )*
-                        FN: Fn( $( $x ),* ) -> Trap + 'static
-                    {
-                        let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            f( $( WasmExternType::from_native($x) ),* ).into_result()
-                        }));
-
-                        match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                            Err(panic) => unsafe { resume_panic(panic) },
-                        }
-                    }
-
-                    wrap::<$( $x, )* Rets, Trap, Self> as *const VMFunctionBody
-                }
-            }
-
-            #[allow(unused_parens)]
-            impl< $( $x, )* Rets, Trap, T, FN > HostFunction<( $( $x ),* ), Rets, WithEnv, T> for FN
-            where
-                $( $x: WasmExternType, )*
-                Rets: WasmTypeList,
-                Trap: IntoResult<Rets>,
-                T: Sized,
-                FN: Fn(&mut T, $( $x , )*) -> Trap + 'static + Send
-            {
-                #[allow(non_snake_case)]
-                fn function_body_ptr(self) -> *const VMFunctionBody {
-                    extern fn wrap<$( $x, )* Rets, Trap, T, FN>( ctx: &mut T, $($x: $x::Native, )* ) -> Rets::CStruct
-                    where
-                        Rets: WasmTypeList,
-                        Trap: IntoResult<Rets>,
-                        $( $x: WasmExternType, )*
-                        T: Sized,
-                        FN: Fn(&mut T, $( $x ),* ) -> Trap + 'static
-                    {
-                        let f: &FN = unsafe { &*(&() as *const () as *const FN) };
-
-                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            f(ctx, $( WasmExternType::from_native($x) ),* ).into_result()
-                        }));
-
-                        match result {
-                            Ok(Ok(result)) => return result.into_c_struct(),
-                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
-                            Err(panic) => unsafe { resume_panic(panic) },
-                        }
-                    }
-
-                    wrap::<$( $x, )* Rets, Trap, T, Self> as *const VMFunctionBody
-                }
-            }
-        };
-    }
-
-    macro_rules! count_idents {
-        ( $($idents:ident),* ) => {{
-            #[allow(dead_code, non_camel_case_types)]
-            enum Idents { $($idents,)* __CountIdentsLast }
-            const COUNT: usize = Idents::__CountIdentsLast as usize;
-            COUNT
-        }};
-    }
-
-    impl_traits!([C] S0,);
-    impl_traits!([transparent] S1, A1);
-    impl_traits!([C] S2, A1, A2);
-    impl_traits!([C] S3, A1, A2, A3);
-    impl_traits!([C] S4, A1, A2, A3, A4);
-    impl_traits!([C] S5, A1, A2, A3, A4, A5);
-    impl_traits!([C] S6, A1, A2, A3, A4, A5, A6);
-    impl_traits!([C] S7, A1, A2, A3, A4, A5, A6, A7);
-    impl_traits!([C] S8, A1, A2, A3, A4, A5, A6, A7, A8);
-    impl_traits!([C] S9, A1, A2, A3, A4, A5, A6, A7, A8, A9);
-    impl_traits!([C] S10, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
-    impl_traits!([C] S11, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
-    impl_traits!([C] S12, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
-    impl_traits!([C] S13, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
-    impl_traits!([C] S14, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
-    impl_traits!([C] S15, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
-    impl_traits!([C] S16, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
-    impl_traits!([C] S17, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
-    impl_traits!([C] S18, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
-    impl_traits!([C] S19, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
-    impl_traits!([C] S20, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20);
-    impl_traits!([C] S21, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21);
-    impl_traits!([C] S22, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22);
-    impl_traits!([C] S23, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23);
-    impl_traits!([C] S24, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24);
-    impl_traits!([C] S25, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25);
-    impl_traits!([C] S26, A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20, A21, A22, A23, A24, A25, A26);
 
     #[cfg(test)]
     mod test_wasm_type_list {
