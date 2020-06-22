@@ -920,9 +920,7 @@ mod inner {
     #[cfg(test)]
     mod test_func {
         use super::*;
-        use std::ptr;
         use wasm_common::Type;
-        // WasmTypeList
 
         fn func() {}
         fn func__i32() -> i32 {
@@ -974,9 +972,7 @@ mod inner {
         #[test]
         fn test_function_pointer() {
             let f = Function::new(func_i32__i32);
-            let function = unsafe {
-                std::mem::transmute::<*const FunctionBody, fn(usize, i32) -> i32>(f.address)
-            };
+            let function = unsafe { std::mem::transmute::<_, fn(usize, i32) -> i32>(f.address) };
             assert_eq!(function(0, 3), 6);
         }
 
