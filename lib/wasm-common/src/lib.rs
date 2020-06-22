@@ -43,7 +43,7 @@ pub use crate::indexes::{
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
-pub use crate::native::{NativeWasmType, ValueType, WasmExternType};
+pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::r#ref::{ExternRef, HostInfo, HostRef};
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 pub use crate::values::Value;

@@ -6,10 +6,9 @@
 //! Therefore, you should use this abstraction whenever possible to avoid memory
 //! related bugs when implementing an ABI.
 
-use crate::externals::Memory;
-use wasm_common::{ValueType, WasmExternType};
-
+use crate::{externals::Memory, WasmExternType};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
+use wasm_common::ValueType;
 
 /// The `Array` marker type. This type can be used like `WasmPtr<T, Array>`
 /// to get access to methods

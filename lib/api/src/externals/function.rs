@@ -5,7 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
-pub use inner::{HostFunction, WasmTypeList};
+pub use inner::{HostFunction, WasmExternType, WasmTypeList};
 use inner::{WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
@@ -454,8 +454,53 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
-    use wasm_common::{FunctionType, NativeWasmType, Type, WasmExternType};
+    use wasm_common::{FunctionType, NativeWasmType, Type};
     use wasmer_runtime::{raise_user_trap, resume_panic};
+
+    /// A trait to represent a wasm extern type.
+    pub unsafe trait WasmExternType: Copy
+    where
+        Self: Sized,
+    {
+        /// Native wasm type for this `WasmExternType`.
+        type Native: NativeWasmType;
+
+        /// Convert from given `Native` type to self.
+        fn from_native(native: Self::Native) -> Self;
+
+        /// Convert self to `Native` type.
+        fn to_native(self) -> Self::Native;
+    }
+
+    macro_rules! wasm_extern_type {
+        ($type:ty => $native_type:ty) => {
+            #[allow(clippy::use_self)]
+            unsafe impl WasmExternType for $type {
+                type Native = $native_type;
+
+                #[inline]
+                fn from_native(native: Self::Native) -> Self {
+                    native as _
+                }
+
+                #[inline]
+                fn to_native(self) -> Self::Native {
+                    self as _
+                }
+            }
+        };
+    }
+
+    wasm_extern_type!(i8 => i32);
+    wasm_extern_type!(u8 => i32);
+    wasm_extern_type!(i16 => i32);
+    wasm_extern_type!(u16 => i32);
+    wasm_extern_type!(i32 => i32);
+    wasm_extern_type!(u32 => i32);
+    wasm_extern_type!(i64 => i64);
+    wasm_extern_type!(u64 => i64);
+    wasm_extern_type!(f32 => f32);
+    wasm_extern_type!(f64 => f64);
 
     /// Represents a list of WebAssembly values.
     pub trait WasmTypeList {
@@ -759,8 +804,8 @@ mod inner {
         }};
     }
 
-    //impl_traits!([C] S0,);
-    //impl_traits!([transparent] S1, A1);
+    impl_traits!([C] S0,);
+    impl_traits!([transparent] S1, A1);
     impl_traits!([C] S2, A1, A2);
     impl_traits!([C] S3, A1, A2, A3);
     impl_traits!([C] S4, A1, A2, A3, A4);

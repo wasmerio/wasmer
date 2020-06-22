@@ -18,7 +18,9 @@ mod types;
 mod utils;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
-pub use crate::externals::{Extern, Function, Global, HostFunction, Memory, Table, WasmTypeList};
+pub use crate::externals::{
+    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,
+};
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
 pub use crate::memory_view::{Atomically, MemoryView};
@@ -34,11 +36,10 @@ pub use crate::types::{
 };
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
-
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use wasm_common::{
-    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WasmExternType, WASM_MAX_PAGES,
-    WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;

@@ -152,53 +152,6 @@ mod test_native_type {
     }
 }
 
-/// A trait to represent a wasm extern type.
-pub unsafe trait WasmExternType: Copy
-where
-    Self: Sized,
-{
-    /// Native wasm type for this `WasmExternType`.
-    type Native: NativeWasmType;
-
-    /// Convert from given `Native` type to self.
-    fn from_native(native: Self::Native) -> Self;
-
-    /// Convert self to `Native` type.
-    fn to_native(self) -> Self::Native;
-}
-
-macro_rules! wasm_extern_type {
-    ($type:ty => $native_type:ty) => {
-        #[allow(clippy::use_self)]
-        unsafe impl WasmExternType for $type {
-            type Native = $native_type;
-
-            #[inline]
-            fn from_native(native: Self::Native) -> Self {
-                native as _
-            }
-
-            #[inline]
-            fn to_native(self) -> Self::Native {
-                self as _
-            }
-        }
-    };
-}
-
-wasm_extern_type!(i8 => i32);
-wasm_extern_type!(u8 => i32);
-wasm_extern_type!(i16 => i32);
-wasm_extern_type!(u16 => i32);
-wasm_extern_type!(i32 => i32);
-wasm_extern_type!(u32 => i32);
-wasm_extern_type!(i64 => i64);
-wasm_extern_type!(u64 => i64);
-wasm_extern_type!(f32 => f32);
-wasm_extern_type!(f64 => f64);
-// wasm_extern_type!(u128 => i128);
-// wasm_extern_type!(i128 => i128);
-
 // pub trait IntegerAtomic
 // where
 //     Self: Sized
