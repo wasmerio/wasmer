@@ -91,24 +91,6 @@ build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi
 
-###################
-# Test Generation #
-###################
-
-generate-wasitests:
-	WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
-	&& echo "formatting" \
-	&& cargo fmt
-
-generate-wasitests-all:
-	WASI_TEST_GENERATE_ALL=1 WASM_WASI_GENERATE_WASITESTS=1 cargo build --release -vv \
-	&& echo "formatting" \
-	&& cargo fmt
-
-wasitests-setup-toolchain: wasitests-setup
-	WASM_WASI_SET_UP_TOOLCHAIN=1 cargo build --release -vv
-
-generate: generate-wasitests
 
 ###########
 # Testing #
