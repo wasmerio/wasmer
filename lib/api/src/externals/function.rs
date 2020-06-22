@@ -975,22 +975,5 @@ mod inner {
             let function = unsafe { std::mem::transmute::<_, fn(usize, i32) -> i32>(f.address) };
             assert_eq!(function(0, 3), 6);
         }
-
-        #[test]
-        fn test_function_call() {
-            let f = Function::new(func_i32__i32);
-            let x = |args: <(i32, i32) as WasmTypeList>::Array,
-                     rets: &mut <(i32, i32) as WasmTypeList>::Array| {
-                let result = func_i32_i32__i32_i32(args[0] as _, args[1] as _);
-                rets[0] = result.0 as _;
-                rets[1] = result.1 as _;
-            };
-            let mut rets = <(i64, i64)>::empty_array();
-            x([20, 10], &mut rets);
-            // panic!("Rets: {:?}",rets);
-            let mut rets = <(i64)>::empty_array();
-            // let result = f.call([1], &mut rets);
-            // assert_eq!(result.is_err(), true);
-        }
     }
 }
