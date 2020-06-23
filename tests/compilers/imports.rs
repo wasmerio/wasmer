@@ -235,3 +235,35 @@ fn static_function_with_env() -> Result<()> {
     assert_eq!(env.load(SeqCst), 4);
     Ok(())
 }
+
+#[test]
+fn static_function_that_fails() -> Result<()> {
+    use std::{error, fmt};
+
+    let store = get_store();
+    let wat = r#"
+        (import "host" "0" (func))
+
+        (func $foo
+            call 0
+        )
+        (start $foo)
+    "#;
+
+    let module = Module::new(&store, &wat)?;
+
+    let result = Instance::new(
+        &module,
+        &imports! {
+            "host" => {
+                "0" => Function::new(&store, || -> Result<Infallible, RuntimeError> {
+                    Err(RuntimeError::new("oops"))
+                }),
+            },
+        },
+    );
+
+    assert!(result.is_err());
+
+    Ok(())
+}
