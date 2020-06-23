@@ -54,28 +54,25 @@ fn native_function_works_for_wasm() -> Result<()> {
 fn static_host_function_without_env() -> anyhow::Result<()> {
     let store = get_store();
 
-    {
-        fn reverse_duplicate_host(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-            (d * 4.0, c * 3.0, b * 2, a * 1)
-        }
+    fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
 
-        let f = Function::new(&store, reverse_duplicate_host);
+    fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
+        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+    }
+
+    // Native static host function that returns a tuple.
+    {
+        let f = Function::new(&store, f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
     }
 
+    // Native static host function that returns a result of a tuple.
     {
-        fn reverse_duplicate_host(
-            a: i32,
-            b: i64,
-            c: f32,
-            d: f64,
-        ) -> Result<(f64, f32, i64, i32), Infallible> {
-            Ok((d * 4.0, c * 3.0, b * 2, a * 1))
-        }
-
-        let f = Function::new(&store, reverse_duplicate_host);
+        let f = Function::new(&store, f_ok);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
@@ -88,26 +85,34 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 fn static_host_function_with_env() -> anyhow::Result<()> {
     let store = get_store();
 
+    fn f(env: &mut Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+        assert_eq!(*env.0.borrow(), 100);
+        env.0.replace(101);
+
+        (d * 4.0, c * 3.0, b * 2, a * 1)
+    }
+
+    fn f_ok(
+        env: &mut Env,
+        a: i32,
+        b: i64,
+        c: f32,
+        d: f64,
+    ) -> Result<(f64, f32, i64, i32), Infallible> {
+        assert_eq!(*env.0.borrow(), 100);
+        env.0.replace(101);
+
+        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+    }
+
     #[derive(Clone)]
     struct Env(Rc<RefCell<i32>>);
 
+    // Native static host function that returns a tuple.
     {
         let env = Env(Rc::new(RefCell::new(100)));
 
-        fn reverse_duplicate_host(
-            env: &mut Env,
-            a: i32,
-            b: i64,
-            c: f32,
-            d: f64,
-        ) -> (f64, f32, i64, i32) {
-            assert_eq!(*env.0.borrow(), 100);
-            env.0.replace(101);
-
-            (d * 4.0, c * 3.0, b * 2, a * 1)
-        }
-
-        let f = Function::new_env(&store, env.clone(), reverse_duplicate_host);
+        let f = Function::new_env(&store, env.clone(), f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
         assert_eq!(*env.0.borrow(), 100);
@@ -118,23 +123,11 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
         assert_eq!(*env.0.borrow(), 101);
     }
 
+    // Native static host function that returns a result of a tuple.
     {
         let env = Env(Rc::new(RefCell::new(100)));
 
-        fn reverse_duplicate_host(
-            env: &mut Env,
-            a: i32,
-            b: i64,
-            c: f32,
-            d: f64,
-        ) -> Result<(f64, f32, i64, i32), Infallible> {
-            assert_eq!(*env.0.borrow(), 100);
-            env.0.replace(101);
-
-            Ok((d * 4.0, c * 3.0, b * 2, a * 1))
-        }
-
-        let f = Function::new_env(&store, env.clone(), reverse_duplicate_host);
+        let f = Function::new_env(&store, env.clone(), f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
         assert_eq!(*env.0.borrow(), 100);
