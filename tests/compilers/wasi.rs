@@ -25,9 +25,8 @@ pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Resu
         "Running wasi wast `{}` with the {} compiler",
         wast_path, compiler
     );
-    let features = Features::default();
     let compiler_config = get_compiler(true);
-    let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
+    let store = Store::new(&JIT::new(&compiler_config).engine());
 
     let source = {
         let mut out = String::new();

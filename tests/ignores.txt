@@ -46,4 +46,5 @@ wasitests_unstable::fd_read
 
 # failing because we're operating on stdout which is now overridden.
 # TODO: check WasiFile implementation
-wasitests_unstable::fd_polloneoff
+# Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
+wasitests_unstable::poll_oneoff

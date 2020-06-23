@@ -224,7 +224,7 @@ impl<'a> Parse<'a> for Envs<'a> {
             let mut strs = res.split('=');
             let first = strs.next().unwrap();
             let second = strs.next().unwrap();
-            debug_assert!(strs.next().is_none());
+            //debug_assert!(strs.next().is_none());
             envs.push((first, second));
         }
         Ok(Self { envs })
