@@ -84,7 +84,7 @@ pub trait Compiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        module: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,

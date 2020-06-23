@@ -13,6 +13,16 @@ pub struct ModuleMetadata {
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
 }
 
+impl ModuleMetadata {
+    pub fn split(&mut self) -> (&mut CompileModuleInfo, &dyn SymbolRegistry) {
+        let compile_info = &self.compile_info;
+        let symbol_registry = self as &dyn SymbolRegistry;
+        #[allow(mutable_transmutes)]
+        let compile_info = unsafe { std::mem::transmute::<&_, &mut _>(compile_info) };
+        (compile_info, symbol_registry)
+    }
+}
+
 impl SymbolRegistry for ModuleMetadata {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {

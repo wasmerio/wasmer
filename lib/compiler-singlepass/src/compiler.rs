@@ -47,7 +47,7 @@ impl Compiler for SinglepassCompiler {
     fn compile_module(
         &self,
         _target: &Target,
-        compile_info: &CompileModuleInfo,
+        compile_info: &mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -57,6 +57,9 @@ impl Compiler for SinglepassCompiler {
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)

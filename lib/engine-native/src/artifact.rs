@@ -176,7 +176,7 @@ impl NativeArtifact {
             .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
-        let metadata = ModuleMetadata {
+        let mut metadata = ModuleMetadata {
             compile_info,
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
@@ -190,12 +190,13 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
+        let (compile_info, symbol_registry) = metadata.split();
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            &metadata.compile_info,
+            compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
-            &metadata,
+            symbol_registry,
             &metadata_binary,
         );
 
@@ -216,7 +217,7 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &metadata.compile_info,
+                    &mut metadata.compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;

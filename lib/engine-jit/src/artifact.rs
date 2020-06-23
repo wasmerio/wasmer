@@ -70,7 +70,7 @@ impl JITArtifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let compile_info = CompileModuleInfo {
+        let mut compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
             memory_styles,
@@ -82,7 +82,7 @@ impl JITArtifact {
         // Compile the Module
         let compilation = compiler.compile_module(
             &jit.target(),
-            &compile_info,
+            &mut compile_info,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
