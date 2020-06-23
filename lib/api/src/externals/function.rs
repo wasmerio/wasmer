@@ -993,7 +993,8 @@ mod inner {
 
     // Implement `WasmTypeList` on `Infallible`, which means that
     // `Infallible` can be used as a returned type of a host function
-    // to express that it doesn't return.
+    // to express that it doesn't return, or to express that it cannot
+    // fail (with `Result<_, Infallible>`).
     impl WasmTypeList for Infallible {
         type CStruct = Self;
         type Array = [i128; 0];
