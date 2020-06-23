@@ -15,14 +15,14 @@ use test_generator::{
 
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=tests/ignores.txt");
-    println!("cargo:rerun-if-changed=tests/wasi/wasi/unstable/*");
-    println!("cargo:rerun-if-changed=tests/wasi/wasi/snapshot1/*");
+    println!("cargo:rerun-if-changed=tests/wasi-wast/wasi/unstable/*");
+    println!("cargo:rerun-if-changed=tests/wasi-wast/wasi/snapshot1/*");
 
     let out_dir = PathBuf::from(
         env::var_os("OUT_DIR").expect("The OUT_DIR environment variable must be set"),
     );
     let ignores = build_ignores_from_textfile("tests/ignores.txt".into())?;
-    let backends = vec!["singlepass", "cranelift", "llvm"];
+    let compilers = ["singlepass", "cranelift", "llvm"];
 
     // Spectests test generation
     {
@@ -32,7 +32,7 @@ fn main() -> anyhow::Result<()> {
             ignores: ignores.clone(),
         };
 
-        with_features(&mut spectests, &backends, |mut spectests| {
+        with_features(&mut spectests, &compilers, |mut spectests| {
             with_test_module(&mut spectests, "spec", |spectests| {
                 let _spec_tests = test_directory(spectests, "tests/wast/spec", wast_processor)?;
                 test_directory_module(
@@ -68,21 +68,20 @@ fn main() -> anyhow::Result<()> {
             ignores,
         };
         let wasi_versions = ["unstable", "snapshot1"];
-        with_features(&mut wasitests, &backends, |mut wasitests| {
-            for wasi_version in &wasi_versions {
-                with_test_module(
-                    &mut wasitests,
-                    &format!("wasitests_{}", wasi_version),
-                    |wasitests| {
+        with_features(&mut wasitests, &compilers, |mut wasitests| {
+            with_test_module(&mut wasitests, "wasitests", |wasitests| {
+                for wasi_version in &wasi_versions {
+                    with_test_module(wasitests, wasi_version, |wasitests| {
                         let _wasi_tests = test_directory(
                             wasitests,
-                            format!("tests/wasi/wasi/{}", wasi_version),
+                            format!("tests/wasi-wast/wasi/{}", wasi_version),
                             wasi_processor,
                         )?;
                         Ok(())
-                    },
-                )?;
-            }
+                    })?;
+                }
+                Ok(())
+            })?;
             Ok(())
         })?;
 

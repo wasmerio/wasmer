@@ -9,28 +9,28 @@ singlepass on windows # Singlepass is not yet supported on Windows
 
 ### due to hard-coded direct calls into WASI for wasi unstable
 
-wasitests_snapshot1::fd_read
-wasitests_snapshot1::poll_oneoff
-wasitests_snapshot1::fd_pread
-wasitests_snapshot1::fd_close
-wasitests_snapshot1::fd_allocate
-wasitests_snapshot1::close_preopen_fd
-wasitests_snapshot1::envvar
+wasitests::snapshot1::fd_read
+wasitests::snapshot1::poll_oneoff
+wasitests::snapshot1::fd_pread
+wasitests::snapshot1::fd_close
+wasitests::snapshot1::fd_allocate
+wasitests::snapshot1::close_preopen_fd
+wasitests::snapshot1::envvar
 
 ### TODO: resolve the disabled tests below. These are newly disabled tests from the migration:
 
 ### due to git clone not preserving symlinks:
-wasitests_snapshot1::readlink
-wasitests_unstable::readlink
+wasitests::snapshot1::readlink
+wasitests::unstable::readlink
 
 ### failing due to `remove_dir_all`. this test is also bad for parallelism
-wasitests_snapshot1::create_dir
-wasitests_unstable::create_dir
+wasitests::snapshot1::create_dir
+wasitests::unstable::create_dir
 
 ### failing because it closes `stdout` which breaks our testing system
-wasitests_unstable::fd_close
+wasitests::unstable::fd_close
 
 ### failing because we're operating on stdout which is now overridden.
 ### TODO: check WasiFile implementation
 ### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
-wasitests_unstable::poll_oneoff
+wasitests::unstable::poll_oneoff

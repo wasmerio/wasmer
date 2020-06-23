@@ -25,7 +25,7 @@ pub struct WasiTest<'a> {
 }
 
 // TODO: add `test_fs` here to sandbox better
-const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi/wasi/");
+const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
 
 fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<&str> {
     let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
