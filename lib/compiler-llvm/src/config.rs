@@ -7,7 +7,6 @@ use inkwell::OptimizationLevel;
 use itertools::Itertools;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasm_common::Features;
 use wasm_common::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
 
