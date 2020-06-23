@@ -44,8 +44,9 @@ impl RuntimeError {
                 // theory) we should only see user errors which were originally
                 // created from our own `Trap` type (see the trampoline module
                 // with functions).
-                // Self::new(format!("{}", error))
-                *error.downcast().expect("only `Trap` errors are supported")
+                *error
+                    .downcast()
+                    .expect("only `RuntimeError` errors are supported")
             }
             Trap::Runtime {
                 pc,
