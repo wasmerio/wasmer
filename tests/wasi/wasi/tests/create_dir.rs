@@ -1,5 +1,5 @@
 // WASI:
-// dir: .
+// dir: test_fs
 
 use std::fs;
 use std::io::{Read, Seek, SeekFrom, Write};

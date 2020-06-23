@@ -1,3 +1,6 @@
+// WASI:
+// dir: test_fs
+
 use std::fs;
 #[cfg(target_os = "wasi")]
 use std::os::wasi::prelude::AsRawFd;
@@ -41,10 +44,7 @@ fn pread(fd: u32, iovs: &[&mut [u8]], offset: u64) -> u32 {
 }
 
 fn main() {
-    #[cfg(not(target_os = "wasi"))]
     let mut base = PathBuf::from("test_fs/hamlet");
-    #[cfg(target_os = "wasi")]
-    let mut base = PathBuf::from(".");
 
     base.push("act3/scene4.txt");
     let mut file = fs::File::open(&base).expect("Could not open file");
@@ -69,7 +69,7 @@ fn main() {
     #[cfg(not(target_os = "wasi"))]
     {
         // eh, just print the output directly
-        print!(
+        println!(
             " POLONIUS
 
     He will come straight. Look you lay home to him:

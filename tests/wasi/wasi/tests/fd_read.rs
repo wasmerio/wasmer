@@ -67,7 +67,7 @@ fn main() {
     #[cfg(not(target_os = "wasi"))]
     {
         // eh, just print the output directly
-        print!(
+        println!(
             "SCENE IV. The Queen's closet.
 
     Enter QUEEN GERTRUDE and POLO"
