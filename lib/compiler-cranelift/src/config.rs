@@ -3,8 +3,7 @@ use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, Compiler, CompilerConfig, CpuFeature, Features, FunctionMiddlewareGenerator,
-    Target,
+    Architecture, Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target,
 };
 
 // Runtime Environment
