@@ -265,5 +265,12 @@ fn static_function_that_fails() -> Result<()> {
 
     assert!(result.is_err());
 
+    match result {
+        Err(InstantiationError::Start(runtime_error)) => {
+            assert_eq!(runtime_error.message(), "oops")
+        }
+        _ => assert!(false),
+    }
+
     Ok(())
 }
