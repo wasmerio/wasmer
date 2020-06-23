@@ -4,8 +4,11 @@
 
 use crate::utils::get_store;
 use anyhow::Result;
-use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
-use std::sync::Arc;
+use std::convert::Infallible;
+use std::sync::{
+    atomic::{AtomicUsize, Ordering::SeqCst},
+    Arc,
+};
 use wasmer::*;
 
 fn get_module(store: &Store) -> Result<Module> {
@@ -120,7 +123,7 @@ fn dynamic_function_with_env() -> Result<()> {
 }
 
 #[test]
-fn native_function() -> Result<()> {
+fn static_function() -> Result<()> {
     let store = get_store();
     let module = get_module(&store)?;
 
@@ -158,7 +161,45 @@ fn native_function() -> Result<()> {
 }
 
 #[test]
-fn native_function_with_env() -> Result<()> {
+fn static_function_with_results() -> Result<()> {
+    let store = get_store();
+    let module = get_module(&store)?;
+
+    static HITS: AtomicUsize = AtomicUsize::new(0);
+    Instance::new(
+        &module,
+        &imports! {
+            "host" => {
+                "0" => Function::new(&store, || {
+                    assert_eq!(HITS.fetch_add(1, SeqCst), 0);
+                }),
+                "1" => Function::new(&store, |x: i32| -> Result<i32, Infallible> {
+                    assert_eq!(x, 0);
+                    assert_eq!(HITS.fetch_add(1, SeqCst), 1);
+                    Ok(1)
+                }),
+                "2" => Function::new(&store, |x: i32, y: i64| {
+                    assert_eq!(x, 2);
+                    assert_eq!(y, 3);
+                    assert_eq!(HITS.fetch_add(1, SeqCst), 2);
+                }),
+                "3" => Function::new(&store, |a: i32, b: i64, c: i32, d: f32, e: f64| {
+                    assert_eq!(a, 100);
+                    assert_eq!(b, 200);
+                    assert_eq!(c, 300);
+                    assert_eq!(d, 400.0);
+                    assert_eq!(e, 500.0);
+                    assert_eq!(HITS.fetch_add(1, SeqCst), 3);
+                }),
+            },
+        },
+    )?;
+    assert_eq!(HITS.load(SeqCst), 4);
+    Ok(())
+}
+
+#[test]
+fn static_function_with_env() -> Result<()> {
     let store = get_store();
     let module = get_module(&store)?;
 
