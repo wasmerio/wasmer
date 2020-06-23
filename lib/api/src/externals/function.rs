@@ -692,6 +692,50 @@ mod inner {
         }
     }
 
+    #[cfg(test)]
+    mod test_into_result {
+        use super::*;
+        use std::convert::Infallible;
+
+        #[test]
+        fn test_into_result_over_t() {
+            let x: i32 = 42;
+            let result_of_x: Result<i32, Infallible> = x.into_result();
+
+            assert_eq!(result_of_x.unwrap(), x);
+        }
+
+        #[test]
+        fn test_into_result_over_result() {
+            {
+                let x: Result<i32, Infallible> = Ok(42);
+                let result_of_x: Result<i32, Infallible> = x.into_result();
+
+                assert_eq!(result_of_x, x);
+            }
+
+            {
+                use std::{error, fmt};
+
+                #[derive(Debug, PartialEq)]
+                struct E;
+
+                impl fmt::Display for E {
+                    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        write!(formatter, "E")
+                    }
+                }
+
+                impl error::Error for E {}
+
+                let x: Result<Infallible, E> = Err(E);
+                let result_of_x: Result<Infallible, E> = x.into_result();
+
+                assert_eq!(result_of_x.unwrap_err(), E);
+            }
+        }
+    }
+
     /// The `HostFunction` trait represents the set of functions that
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
