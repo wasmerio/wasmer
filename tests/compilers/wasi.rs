@@ -31,7 +31,7 @@ pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Resu
     let source = {
         let mut out = String::new();
         let mut f = File::open(wast_path)?;
-        f.read_to_string(&mut out);
+        f.read_to_string(&mut out)?;
         out
     };
     let tokens = WasiTest::lex_string(&source)?;

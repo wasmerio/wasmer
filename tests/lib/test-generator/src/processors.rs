@@ -69,8 +69,7 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
-    // TODO: fix this once we rename `out` to `wast`
-    if ext != "out" {
+    if ext != "wast" {
         return None;
     }
 

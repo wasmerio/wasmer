@@ -14,8 +14,9 @@ use test_generator::{
 };
 
 fn main() -> anyhow::Result<()> {
-    println!("cargo:rerun-if-changed=build.rs");
     println!("cargo:rerun-if-changed=tests/ignores.txt");
+    println!("cargo:rerun-if-changed=tests/wasi/wasi/unstable/*");
+    println!("cargo:rerun-if-changed=tests/wasi/wasi/snapshot1/*");
 
     let out_dir = PathBuf::from(
         env::var_os("OUT_DIR").expect("The OUT_DIR environment variable must be set"),

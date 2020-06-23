@@ -27,6 +27,24 @@ pub struct WasiTest<'a> {
 // TODO: add `test_fs` here to sandbox better
 const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi/wasi/");
 
+fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<&str> {
+    let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
+    let stdout = (&**stdout_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
+    let stdout_str = std::str::from_utf8(&stdout.output)?;
+    Ok(stdout_str)
+}
+
+fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<&str> {
+    let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
+    let stderr = (&**stderr_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
+    let stderr_str = std::str::from_utf8(&stderr.output)?;
+    Ok(stderr_str)
+}
+
 #[allow(dead_code)]
 impl<'a> WasiTest<'a> {
     /// Turn a WASI WAST string into a list of tokens.
@@ -58,30 +76,31 @@ impl<'a> WasiTest<'a> {
 
         let start = instance.exports.get_function("_start")?;
         // TODO: handle errors here when the error fix gets shipped
-        start
-            .call(&[])
-            .with_context(|| "failed to run WASI `_start` function")?;
-
-        let wasi_state = env.state();
-        {
-            let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
-            let stdout = (&**stdout_boxed)
-                .downcast_ref::<OutputCapturerer>()
-                .unwrap();
-            let stdout_str = std::str::from_utf8(&stdout.output)?;
-            if let Some(expected_stdout) = &self.assert_stdout {
-                assert_eq!(stdout_str, expected_stdout.expected);
+        match start.call(&[]) {
+            Ok(_) => {}
+            Err(e) => {
+                let wasi_state = env.state();
+                let stdout_str = get_stdout_output(&wasi_state)?;
+                let stderr_str = get_stderr_output(&wasi_state)?;
+                Err(e).with_context(|| {
+                    format!(
+                        "failed to run WASI `_start` function: failed with stdout: \"{}\"\nstderr: \"{}\"",
+                        stdout_str,
+                        stderr_str,
+                    )
+                })?;
             }
         }
-        {
-            let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
-            let stderr = (&**stderr_boxed)
-                .downcast_ref::<OutputCapturerer>()
-                .unwrap();
-            let stderr_str = std::str::from_utf8(&stderr.output)?;
-            if let Some(expected_stderr) = &self.assert_stderr {
-                assert_eq!(stderr_str, expected_stderr.expected);
-            }
+
+        let wasi_state = env.state();
+
+        if let Some(expected_stdout) = &self.assert_stdout {
+            let stdout_str = get_stdout_output(&wasi_state)?;
+            assert_eq!(stdout_str, expected_stdout.expected);
+        }
+        if let Some(expected_stderr) = &self.assert_stderr {
+            let stderr_str = get_stderr_output(&wasi_state)?;
+            assert_eq!(stderr_str, expected_stderr.expected);
         }
 
         Ok(true)
@@ -93,20 +112,23 @@ impl<'a> WasiTest<'a> {
         for (name, value) in &self.envs {
             builder.env(name, value);
         }
-        // TODO: check the order
         for (alias, real_dir) in &self.mapped_dirs {
             let mut dir = PathBuf::from(BASE_TEST_DIR);
             dir.push(real_dir);
             builder.map_dir(alias, dir)?;
         }
 
+        // due to the structure of our code, all preopen dirs must be mapped now
+        for dir in &self.dirs {
+            let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+            new_dir.push(dir);
+            builder.map_dir(dir, new_dir)?;
+        }
+
         let out = builder
             .args(&self.args)
-            .preopen_dirs(self.dirs.iter().map(|d| {
-                let mut dir = PathBuf::from(BASE_TEST_DIR);
-                dir.push(d);
-                dir
-            }))?
+            // adding this causes some tests to fail. TODO: investigate this
+            //.env("RUST_BACKTRACE", "1")
             .stdout(Box::new(OutputCapturerer::new()))
             .stderr(Box::new(OutputCapturerer::new()))
             .finalize()?;
