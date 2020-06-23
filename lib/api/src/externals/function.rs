@@ -925,7 +925,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -944,10 +944,12 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
 
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has an environment.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, Env, Func >
                 HostFunction<( $( $x ),* ), Rets, WithEnv, Env>
@@ -986,7 +988,7 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Env, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
                 }
             }
 
