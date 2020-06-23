@@ -206,7 +206,7 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
             }
             let wasm_out_name = {
                 let mut wasm_out_name = out_dir.join(rs_mod_name.clone());
-                wasm_out_name.set_extension("out");
+                wasm_out_name.set_extension("wast");
                 wasm_out_name
             };
             println!("Writing test output to {}", wasm_out_name.to_string_lossy());
@@ -233,7 +233,7 @@ pub fn build(wasi_versions: &[WasiVersion]) {
     println!("All modules generated.");
 }
 
-/// This is the structure of the `.out` file
+/// This is the structure of the `.wast` file
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct WasiTest {
     /// The name of the wasm module to run
