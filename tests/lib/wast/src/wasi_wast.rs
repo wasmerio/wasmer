@@ -1,11 +1,13 @@
 use anyhow::Context;
+use serde::{Deserialize, Serialize};
 use std::fs::File;
-use std::io::Read;
+use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
-use std::sync::Arc;
 use wasmer::{ImportObject, Instance, Memory, Module, Store};
+use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiState, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiFsError, WasiState,
+    WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -16,11 +18,14 @@ pub struct WasiTest<'a> {
     args: Vec<&'a str>,
     envs: Vec<(&'a str, &'a str)>,
     dirs: Vec<&'a str>,
-    mapped_dirs: Vec<&'a str>,
+    mapped_dirs: Vec<(&'a str, &'a str)>,
     assert_return: Option<AssertReturn>,
     assert_stdout: Option<AssertStdout<'a>>,
     assert_stderr: Option<AssertStderr<'a>>,
 }
+
+// TODO: add `test_fs` here to sandbox better
+const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi/wasi/");
 
 #[allow(dead_code)]
 impl<'a> WasiTest<'a> {
@@ -49,13 +54,36 @@ impl<'a> WasiTest<'a> {
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
         let memory: &Memory = instance.exports.get("memory")?;
-        // TODO:
-        env.set_memory(Arc::new(memory.clone()));
+        env.set_memory(memory.clone());
 
         let start = instance.exports.get_function("_start")?;
+        // TODO: handle errors here when the error fix gets shipped
         start
             .call(&[])
             .with_context(|| "failed to run WASI `_start` function")?;
+
+        let wasi_state = env.state();
+        {
+            let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
+            let stdout = (&**stdout_boxed)
+                .downcast_ref::<OutputCapturerer>()
+                .unwrap();
+            let stdout_str = std::str::from_utf8(&stdout.output)?;
+            if let Some(expected_stdout) = &self.assert_stdout {
+                assert_eq!(stdout_str, expected_stdout.expected);
+            }
+        }
+        {
+            let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
+            let stderr = (&**stderr_boxed)
+                .downcast_ref::<OutputCapturerer>()
+                .unwrap();
+            let stderr_str = std::str::from_utf8(&stderr.output)?;
+            if let Some(expected_stderr) = &self.assert_stderr {
+                assert_eq!(stderr_str, expected_stderr.expected);
+            }
+        }
+
         Ok(true)
     }
 
@@ -65,18 +93,22 @@ impl<'a> WasiTest<'a> {
         for (name, value) in &self.envs {
             builder.env(name, value);
         }
-        // TODO: implement map dirs
-        /*
         // TODO: check the order
         for (alias, real_dir) in &self.mapped_dirs {
-            builder.map_dir(alias, real_dir);
-        }*/
+            let mut dir = PathBuf::from(BASE_TEST_DIR);
+            dir.push(real_dir);
+            builder.map_dir(alias, dir)?;
+        }
 
         let out = builder
             .args(&self.args)
-            .preopen_dirs(&self.dirs)?
-            // TODO: capture stdout and stderr
-            // can be done with a custom file, inserted here
+            .preopen_dirs(self.dirs.iter().map(|d| {
+                let mut dir = PathBuf::from(BASE_TEST_DIR);
+                dir.push(d);
+                dir
+            }))?
+            .stdout(Box::new(OutputCapturerer::new()))
+            .stderr(Box::new(OutputCapturerer::new()))
             .finalize()?;
         Ok(out)
     }
@@ -237,7 +269,7 @@ impl<'a> Parse<'a> for Preopens<'a> {
 
 #[derive(Debug, Clone, Hash)]
 struct MapDirs<'a> {
-    map_dirs: Vec<&'a str>,
+    map_dirs: Vec<(&'a str, &'a str)>,
 }
 
 impl<'a> Parse<'a> for MapDirs<'a> {
@@ -247,7 +279,10 @@ impl<'a> Parse<'a> for MapDirs<'a> {
 
         while parser.peek::<&'a str>() {
             let res = parser.parse::<&'a str>()?;
-            map_dirs.push(res);
+            let mut iter = res.split(':');
+            let dir = iter.next().unwrap();
+            let alias = iter.next().unwrap();
+            map_dirs.push((dir, alias));
         }
         Ok(Self { map_dirs })
     }
@@ -328,5 +363,92 @@ mod test {
             "This is a \"string\" inside a string!"
         );
         assert_eq!(result.assert_stderr.unwrap().expected, "");
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct OutputCapturerer {
+    output: Vec<u8>,
+}
+
+impl OutputCapturerer {
+    fn new() -> Self {
+        Self { output: vec![] }
+    }
+}
+
+impl Read for OutputCapturerer {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+}
+impl Seek for OutputCapturerer {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek logging wrapper",
+        ))
+    }
+}
+impl Write for OutputCapturerer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.output.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.output.extend_from_slice(buf);
+        Ok(())
+    }
+    fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
+        self.output.write_fmt(fmt)
+    }
+}
+
+#[typetag::serde]
+impl WasiFile for OutputCapturerer {
+    fn last_accessed(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn last_modified(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn created_time(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn size(&self) -> u64 {
+        0
+    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        Ok(1024)
     }
 }

@@ -1,12 +1,11 @@
 #![cfg(all(feature = "compiler", feature = "engine"))]
 
+use crate::utils::get_compiler;
 use std::fs::File;
 use std::io::Read;
-use std::sync::Arc;
-use test_utils::get_compiler_config_from_str;
-use wasmer::{Features, Store, Tunables};
+use wasmer::{Features, Store};
 #[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 use wasmer_wast::WasiTest;
 
 // The generated tests (from build.rs) look like:
@@ -21,15 +20,14 @@ use wasmer_wast::WasiTest;
 // }
 include!(concat!(env!("OUT_DIR"), "/generated_wasitests.rs"));
 
-fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Result<()> {
+pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Result<()> {
     println!(
         "Running wasi wast `{}` with the {} compiler",
         wast_path, compiler
     );
     let features = Features::default();
-    let compiler_config = get_compiler_config_from_str(compiler, false, features);
-    let tunables = Tunables::for_target(compiler_config.target().triple());
-    let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+    let compiler_config = get_compiler(true);
+    let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
 
     let source = {
         let mut out = String::new();
