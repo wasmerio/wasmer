@@ -30,7 +30,7 @@ pub trait CompilerConfig {
     fn compiler(&self) -> Box<dyn Compiler + Send>;
 
     /// Gets the default features for this compiler in the given target
-    fn default_features_for_target(&self, target: &Target) -> Features {
+    fn default_features_for_target(&self, _target: &Target) -> Features {
         Features::default()
     }
 
