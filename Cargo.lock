@@ -2349,6 +2349,7 @@ version = "1.0.0-alpha.1"
 dependencies = [
  "anyhow",
  "serde",
+ "tempfile",
  "thiserror",
  "typetag",
  "wasmer",

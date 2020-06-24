@@ -16,6 +16,7 @@ wasmer = { path = "../../../lib/api", version = "1.0.0-alpha.1", default-feature
 wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.0-alpha.1" }
 wast = "17.0"
 serde = "1"
+tempfile = "3"
 thiserror = "1.0"
 typetag = "0.1"
 

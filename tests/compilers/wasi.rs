@@ -3,7 +3,7 @@
 use crate::utils::get_compiler;
 use std::fs::File;
 use std::io::Read;
-use wasmer::{Features, Store};
+use wasmer::Store;
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
 use wasmer_wast::WasiTest;

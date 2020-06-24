@@ -19,6 +19,7 @@ pub struct WasiTest<'a> {
     envs: Vec<(&'a str, &'a str)>,
     dirs: Vec<&'a str>,
     mapped_dirs: Vec<(&'a str, &'a str)>,
+    temp_dirs: Vec<&'a str>,
     assert_return: Option<AssertReturn>,
     assert_stdout: Option<AssertStdout<'a>>,
     assert_stderr: Option<AssertStderr<'a>>,
@@ -68,7 +69,7 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(&store, &wasm_bytes)?;
-        let mut env = self.create_wasi_env()?;
+        let (mut env, _tempdirs) = self.create_wasi_env()?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
         let memory: &Memory = instance.exports.get("memory")?;
@@ -107,7 +108,7 @@ impl<'a> WasiTest<'a> {
     }
 
     /// Create the wasi env with the given metadata.
-    fn create_wasi_env(&self) -> anyhow::Result<WasiEnv> {
+    fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
         let mut builder = WasiState::new(self.wasm_path);
         for (name, value) in &self.envs {
             builder.env(name, value);
@@ -124,6 +125,12 @@ impl<'a> WasiTest<'a> {
             new_dir.push(dir);
             builder.map_dir(dir, new_dir)?;
         }
+        let mut temp_dirs = vec![];
+        for alias in &self.temp_dirs {
+            let td = tempfile::tempdir()?;
+            builder.map_dir(alias, td.path())?;
+            temp_dirs.push(td);
+        }
 
         let out = builder
             .args(&self.args)
@@ -132,7 +139,7 @@ impl<'a> WasiTest<'a> {
             .stdout(Box::new(OutputCapturerer::new()))
             .stderr(Box::new(OutputCapturerer::new()))
             .finalize()?;
-        Ok(out)
+        Ok((out, temp_dirs))
     }
 
     /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
@@ -161,6 +168,7 @@ mod wasi_kw {
     wast::custom_keyword!(args);
     wast::custom_keyword!(preopens);
     wast::custom_keyword!(map_dirs);
+    wast::custom_keyword!(temp_dirs);
     wast::custom_keyword!(assert_return);
     wast::custom_keyword!(assert_stdout);
     wast::custom_keyword!(assert_stderr);
@@ -199,6 +207,12 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 vec![]
             };
 
+            let temp_dirs = if parser.peek2::<wasi_kw::temp_dirs>() {
+                parser.parens(|p| p.parse::<TempDirs>())?.temp_dirs
+            } else {
+                vec![]
+            };
+
             let assert_return = if parser.peek2::<wasi_kw::assert_return>() {
                 Some(parser.parens(|p| p.parse::<AssertReturn>())?)
             } else {
@@ -223,6 +237,7 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 envs,
                 dirs,
                 mapped_dirs,
+                temp_dirs,
                 assert_return,
                 assert_stdout,
                 assert_stderr,
@@ -307,6 +322,24 @@ impl<'a> Parse<'a> for MapDirs<'a> {
             map_dirs.push((dir, alias));
         }
         Ok(Self { map_dirs })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct TempDirs<'a> {
+    temp_dirs: Vec<&'a str>,
+}
+
+impl<'a> Parse<'a> for TempDirs<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut temp_dirs = vec![];
+        parser.parse::<wasi_kw::temp_dirs>()?;
+
+        while parser.peek::<&'a str>() {
+            let alias = parser.parse::<&'a str>()?;
+            temp_dirs.push(alias);
+        }
+        Ok(Self { temp_dirs })
     }
 }
 
