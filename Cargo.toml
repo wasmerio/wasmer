@@ -1,0 +1,16 @@
+[package]
+name = "wasi-test-generator"
+version = "0.17.0"
+description = "Tests for our WASI implementation"
+license = "MIT"
+authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+edition = "2018"
+publish = false
+
+[dependencies]
+glob = "0.3"
+gumdrop = "0.8"
+tempfile = "3"
+serde = { version = "1", features = ["derive"] }
+serde_json = "1"
+wast = "20"
