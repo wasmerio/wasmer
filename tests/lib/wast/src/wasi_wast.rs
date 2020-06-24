@@ -28,22 +28,33 @@ pub struct WasiTest<'a> {
 // TODO: add `test_fs` here to sandbox better
 const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
 
-fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<&str> {
+fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<String> {
     let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
     let stdout = (&**stdout_boxed)
         .downcast_ref::<OutputCapturerer>()
         .unwrap();
     let stdout_str = std::str::from_utf8(&stdout.output)?;
-    Ok(stdout_str)
+    #[cfg(target_os = "windows")]
+    // normalize line endings
+    return Ok(stdout_str.replace("\r\n", "\n"));
+
+    #[cfg(not(target_os = "windows"))]
+    return Ok(stdout_str.to_string());
 }
 
-fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<&str> {
+fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<String> {
     let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
     let stderr = (&**stderr_boxed)
         .downcast_ref::<OutputCapturerer>()
         .unwrap();
     let stderr_str = std::str::from_utf8(&stderr.output)?;
-    Ok(stderr_str)
+
+    #[cfg(target_os = "windows")]
+    // normalize line endings
+    return Ok(stderr_str.replace("\r\n", "\n"));
+
+    #[cfg(not(target_os = "windows"))]
+    return Ok(stderr_str.to_string());
 }
 
 #[allow(dead_code)]
