@@ -34,3 +34,17 @@ wasitests::unstable::fd_close
 ### TODO: check WasiFile implementation
 ### Alterative: split test into 2 parts, one printing to stderr, the other printing to stdout to test the real versions
 wasitests::unstable::poll_oneoff
+
+## Failing due to different line endings on Windows
+## we need a better solution to this problem:
+
+wasi::cranelift::wasitests::snapshot1::file_metadata on windows
+wasi::cranelift::wasitests::snapshot1::fseek on windows
+wasi::cranelift::wasitests::snapshot1::path_link on windows
+wasi::cranelift::wasitests::snapshot1::path_symlink on windows
+wasi::cranelift::wasitests::unstable::fd_pread on windows
+wasi::cranelift::wasitests::unstable::fd_read on windows
+wasi::cranelift::wasitests::unstable::file_metadata on windows
+wasi::cranelift::wasitests::unstable::fseek on windows
+wasi::cranelift::wasitests::unstable::path_link on windows
+wasi::cranelift::wasitests::unstable::path_symlink on windows
