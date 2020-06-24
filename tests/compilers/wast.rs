@@ -2,8 +2,7 @@
 
 use crate::utils::get_compiler;
 use std::path::Path;
-use std::sync::Arc;
-use wasmer::{Features, Store, Tunables};
+use wasmer::{Features, Store};
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]

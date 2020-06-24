@@ -20,7 +20,7 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
 ///
 /// Usage:
 /// ```no_run
-/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
 /// let mut state_builder = WasiState::new("wasi-prog-name");
 /// state_builder
@@ -196,7 +196,7 @@ impl WasiStateBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
     /// WasiState::new("program_name")
     ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?

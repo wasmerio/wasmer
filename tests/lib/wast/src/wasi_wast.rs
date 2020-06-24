@@ -1,0 +1,520 @@
+use anyhow::Context;
+use serde::{Deserialize, Serialize};
+use std::fs::File;
+use std::io::{self, Read, Seek, Write};
+use std::path::PathBuf;
+use wasmer::{ImportObject, Instance, Memory, Module, Store};
+use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
+use wasmer_wasi::{
+    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiFsError, WasiState,
+    WasiVersion,
+};
+use wast::parser::{self, Parse, ParseBuffer, Parser};
+
+/// Crate holding metadata parsed from the WASI WAST about the test to be run.
+#[derive(Debug, Clone, Hash)]
+pub struct WasiTest<'a> {
+    wasm_path: &'a str,
+    args: Vec<&'a str>,
+    envs: Vec<(&'a str, &'a str)>,
+    dirs: Vec<&'a str>,
+    mapped_dirs: Vec<(&'a str, &'a str)>,
+    temp_dirs: Vec<&'a str>,
+    assert_return: Option<AssertReturn>,
+    assert_stdout: Option<AssertStdout<'a>>,
+    assert_stderr: Option<AssertStderr<'a>>,
+}
+
+// TODO: add `test_fs` here to sandbox better
+const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-wast/wasi/");
+
+fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<String> {
+    let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
+    let stdout = (&**stdout_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
+    let stdout_str = std::str::from_utf8(&stdout.output)?;
+    #[cfg(target_os = "windows")]
+    // normalize line endings
+    return Ok(stdout_str.replace("\r\n", "\n"));
+
+    #[cfg(not(target_os = "windows"))]
+    return Ok(stdout_str.to_string());
+}
+
+fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<String> {
+    let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
+    let stderr = (&**stderr_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
+    let stderr_str = std::str::from_utf8(&stderr.output)?;
+
+    #[cfg(target_os = "windows")]
+    // normalize line endings
+    return Ok(stderr_str.replace("\r\n", "\n"));
+
+    #[cfg(not(target_os = "windows"))]
+    return Ok(stderr_str.to_string());
+}
+
+#[allow(dead_code)]
+impl<'a> WasiTest<'a> {
+    /// Turn a WASI WAST string into a list of tokens.
+    pub fn lex_string(wast: &'a str) -> parser::Result<ParseBuffer<'a>> {
+        ParseBuffer::new(wast)
+    }
+
+    /// Turn a WASI WAST list of tokens into a `WasiTest` struct.
+    pub fn parse_tokens(tokens: &'a ParseBuffer<'a>) -> parser::Result<Self> {
+        parser::parse(tokens)
+    }
+
+    /// Execute the WASI test and assert.
+    pub fn run(&self, store: &Store, base_path: &str) -> anyhow::Result<bool> {
+        let mut pb = PathBuf::from(base_path);
+        pb.push(self.wasm_path);
+        let wasm_bytes = {
+            let mut wasm_module = File::open(pb)?;
+            let mut out = vec![];
+            wasm_module.read_to_end(&mut out)?;
+            out
+        };
+        let module = Module::new(&store, &wasm_bytes)?;
+        let (mut env, _tempdirs) = self.create_wasi_env()?;
+        let imports = self.get_imports(store, &module, env.clone())?;
+        let instance = Instance::new(&module, &imports)?;
+        let memory: &Memory = instance.exports.get("memory")?;
+        env.set_memory(memory.clone());
+
+        let start = instance.exports.get_function("_start")?;
+        // TODO: handle errors here when the error fix gets shipped
+        match start.call(&[]) {
+            Ok(_) => {}
+            Err(e) => {
+                let wasi_state = env.state();
+                let stdout_str = get_stdout_output(&wasi_state)?;
+                let stderr_str = get_stderr_output(&wasi_state)?;
+                Err(e).with_context(|| {
+                    format!(
+                        "failed to run WASI `_start` function: failed with stdout: \"{}\"\nstderr: \"{}\"",
+                        stdout_str,
+                        stderr_str,
+                    )
+                })?;
+            }
+        }
+
+        let wasi_state = env.state();
+
+        if let Some(expected_stdout) = &self.assert_stdout {
+            let stdout_str = get_stdout_output(&wasi_state)?;
+            assert_eq!(stdout_str, expected_stdout.expected);
+        }
+        if let Some(expected_stderr) = &self.assert_stderr {
+            let stderr_str = get_stderr_output(&wasi_state)?;
+            assert_eq!(stderr_str, expected_stderr.expected);
+        }
+
+        Ok(true)
+    }
+
+    /// Create the wasi env with the given metadata.
+    fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
+        let mut builder = WasiState::new(self.wasm_path);
+        for (name, value) in &self.envs {
+            builder.env(name, value);
+        }
+        for (alias, real_dir) in &self.mapped_dirs {
+            let mut dir = PathBuf::from(BASE_TEST_DIR);
+            dir.push(real_dir);
+            builder.map_dir(alias, dir)?;
+        }
+
+        // due to the structure of our code, all preopen dirs must be mapped now
+        for dir in &self.dirs {
+            let mut new_dir = PathBuf::from(BASE_TEST_DIR);
+            new_dir.push(dir);
+            builder.map_dir(dir, new_dir)?;
+        }
+        let mut temp_dirs = vec![];
+        for alias in &self.temp_dirs {
+            let td = tempfile::tempdir()?;
+            builder.map_dir(alias, td.path())?;
+            temp_dirs.push(td);
+        }
+
+        let out = builder
+            .args(&self.args)
+            // adding this causes some tests to fail. TODO: investigate this
+            //.env("RUST_BACKTRACE", "1")
+            .stdout(Box::new(OutputCapturerer::new()))
+            .stderr(Box::new(OutputCapturerer::new()))
+            .finalize()?;
+        Ok((out, temp_dirs))
+    }
+
+    /// Get the correct [`WasiVersion`] from the Wasm [`Module`].
+    fn get_version(&self, module: &Module) -> anyhow::Result<WasiVersion> {
+        let version = get_wasi_version(module, true)
+            .with_context(|| "failed to detect a version of WASI from the module")?;
+        Ok(version)
+    }
+
+    /// Get the correct WASI import object for the given module and set it up with the
+    /// [`WasiEnv`].
+    fn get_imports(
+        &self,
+        store: &Store,
+        module: &Module,
+        env: WasiEnv,
+    ) -> anyhow::Result<ImportObject> {
+        let version = self.get_version(module)?;
+        Ok(generate_import_object_from_env(store, env, version))
+    }
+}
+
+mod wasi_kw {
+    wast::custom_keyword!(wasi_test);
+    wast::custom_keyword!(envs);
+    wast::custom_keyword!(args);
+    wast::custom_keyword!(preopens);
+    wast::custom_keyword!(map_dirs);
+    wast::custom_keyword!(temp_dirs);
+    wast::custom_keyword!(assert_return);
+    wast::custom_keyword!(assert_stdout);
+    wast::custom_keyword!(assert_stderr);
+    wast::custom_keyword!(fake_i64_const = "i64.const");
+}
+
+impl<'a> Parse<'a> for WasiTest<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        parser.parens(|parser| {
+            parser.parse::<wasi_kw::wasi_test>()?;
+            // TODO: improve error message here
+            let wasm_path = parser.parse::<&'a str>()?;
+
+            // TODO: allow these to come in any order
+            let envs = if parser.peek2::<wasi_kw::envs>() {
+                parser.parens(|p| p.parse::<Envs>())?.envs
+            } else {
+                vec![]
+            };
+
+            let args = if parser.peek2::<wasi_kw::args>() {
+                parser.parens(|p| p.parse::<Args>())?.args
+            } else {
+                vec![]
+            };
+
+            let dirs = if parser.peek2::<wasi_kw::preopens>() {
+                parser.parens(|p| p.parse::<Preopens>())?.preopens
+            } else {
+                vec![]
+            };
+
+            let mapped_dirs = if parser.peek2::<wasi_kw::map_dirs>() {
+                parser.parens(|p| p.parse::<MapDirs>())?.map_dirs
+            } else {
+                vec![]
+            };
+
+            let temp_dirs = if parser.peek2::<wasi_kw::temp_dirs>() {
+                parser.parens(|p| p.parse::<TempDirs>())?.temp_dirs
+            } else {
+                vec![]
+            };
+
+            let assert_return = if parser.peek2::<wasi_kw::assert_return>() {
+                Some(parser.parens(|p| p.parse::<AssertReturn>())?)
+            } else {
+                None
+            };
+
+            let assert_stdout = if parser.peek2::<wasi_kw::assert_stdout>() {
+                Some(parser.parens(|p| p.parse::<AssertStdout>())?)
+            } else {
+                None
+            };
+
+            let assert_stderr = if parser.peek2::<wasi_kw::assert_stderr>() {
+                Some(parser.parens(|p| p.parse::<AssertStderr>())?)
+            } else {
+                None
+            };
+
+            Ok(Self {
+                wasm_path,
+                args,
+                envs,
+                dirs,
+                mapped_dirs,
+                temp_dirs,
+                assert_return,
+                assert_stdout,
+                assert_stderr,
+            })
+        })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct Envs<'a> {
+    envs: Vec<(&'a str, &'a str)>,
+}
+
+impl<'a> Parse<'a> for Envs<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut envs = vec![];
+        parser.parse::<wasi_kw::envs>()?;
+
+        while parser.peek::<&'a str>() {
+            let res = parser.parse::<&'a str>()?;
+            let mut strs = res.split('=');
+            let first = strs.next().unwrap();
+            let second = strs.next().unwrap();
+            //debug_assert!(strs.next().is_none());
+            envs.push((first, second));
+        }
+        Ok(Self { envs })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct Args<'a> {
+    args: Vec<&'a str>,
+}
+
+impl<'a> Parse<'a> for Args<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut args = vec![];
+        parser.parse::<wasi_kw::args>()?;
+
+        while parser.peek::<&'a str>() {
+            let res = parser.parse::<&'a str>()?;
+            args.push(res);
+        }
+        Ok(Self { args })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct Preopens<'a> {
+    preopens: Vec<&'a str>,
+}
+
+impl<'a> Parse<'a> for Preopens<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut preopens = vec![];
+        parser.parse::<wasi_kw::preopens>()?;
+
+        while parser.peek::<&'a str>() {
+            let res = parser.parse::<&'a str>()?;
+            preopens.push(res);
+        }
+        Ok(Self { preopens })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct MapDirs<'a> {
+    map_dirs: Vec<(&'a str, &'a str)>,
+}
+
+impl<'a> Parse<'a> for MapDirs<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut map_dirs = vec![];
+        parser.parse::<wasi_kw::map_dirs>()?;
+
+        while parser.peek::<&'a str>() {
+            let res = parser.parse::<&'a str>()?;
+            let mut iter = res.split(':');
+            let dir = iter.next().unwrap();
+            let alias = iter.next().unwrap();
+            map_dirs.push((dir, alias));
+        }
+        Ok(Self { map_dirs })
+    }
+}
+
+#[derive(Debug, Clone, Hash)]
+struct TempDirs<'a> {
+    temp_dirs: Vec<&'a str>,
+}
+
+impl<'a> Parse<'a> for TempDirs<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        let mut temp_dirs = vec![];
+        parser.parse::<wasi_kw::temp_dirs>()?;
+
+        while parser.peek::<&'a str>() {
+            let alias = parser.parse::<&'a str>()?;
+            temp_dirs.push(alias);
+        }
+        Ok(Self { temp_dirs })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AssertReturn {
+    return_value: i64,
+}
+
+impl<'a> Parse<'a> for AssertReturn {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        parser.parse::<wasi_kw::assert_return>()?;
+        let return_value = parser.parens(|p| {
+            p.parse::<wasi_kw::fake_i64_const>()?;
+            p.parse::<i64>()
+        })?;
+        Ok(Self { return_value })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AssertStdout<'a> {
+    expected: &'a str,
+}
+
+impl<'a> Parse<'a> for AssertStdout<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        parser.parse::<wasi_kw::assert_stdout>()?;
+        Ok(Self {
+            expected: parser.parse()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct AssertStderr<'a> {
+    expected: &'a str,
+}
+
+impl<'a> Parse<'a> for AssertStderr<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        parser.parse::<wasi_kw::assert_stderr>()?;
+        Ok(Self {
+            expected: parser.parse()?,
+        })
+    }
+}
+
+#[cfg(test)]
+mod test {
+    use super::*;
+
+    #[test]
+    fn test_parse() {
+        let pb = wast::parser::ParseBuffer::new(
+            r#"(wasi_test "my_wasm.wasm"
+                    (envs "HELLO=WORLD" "RUST_BACKTRACE=1")
+                    (args "hello" "world" "--help")
+                    (preopens "." "src/io")
+                    (assert_return (i64.const 0))
+                    (assert_stdout "This is a \"string\" inside a string!")
+                    (assert_stderr "")
+)"#,
+        )
+        .unwrap();
+        let result = wast::parser::parse::<WasiTest>(&pb).unwrap();
+
+        assert_eq!(result.args, vec!["hello", "world", "--help"]);
+        assert_eq!(
+            result.envs,
+            vec![("HELLO", "WORLD"), ("RUST_BACKTRACE", "1")]
+        );
+        assert_eq!(result.dirs, vec![".", "src/io"]);
+        assert_eq!(result.assert_return.unwrap().return_value, 0);
+        assert_eq!(
+            result.assert_stdout.unwrap().expected,
+            "This is a \"string\" inside a string!"
+        );
+        assert_eq!(result.assert_stderr.unwrap().expected, "");
+    }
+}
+
+#[derive(Debug, Serialize, Deserialize)]
+struct OutputCapturerer {
+    output: Vec<u8>,
+}
+
+impl OutputCapturerer {
+    fn new() -> Self {
+        Self { output: vec![] }
+    }
+}
+
+impl Read for OutputCapturerer {
+    fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+    fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
+    }
+}
+impl Seek for OutputCapturerer {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek logging wrapper",
+        ))
+    }
+}
+impl Write for OutputCapturerer {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.output.extend_from_slice(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+    fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
+        self.output.extend_from_slice(buf);
+        Ok(())
+    }
+    fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
+        self.output.write_fmt(fmt)
+    }
+}
+
+#[typetag::serde]
+impl WasiFile for OutputCapturerer {
+    fn last_accessed(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn last_modified(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn created_time(&self) -> __wasi_timestamp_t {
+        0
+    }
+    fn size(&self) -> u64 {
+        0
+    }
+    fn set_len(&mut self, _new_size: __wasi_filesize_t) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        Ok(1024)
+    }
+}

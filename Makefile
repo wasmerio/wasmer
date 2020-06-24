@@ -111,6 +111,7 @@ test-packages:
 	cargo test -p wasmer --release
 	cargo test -p wasmer-runtime --release
 	cargo test -p wasm-common --release
+	cargo test -p wasmer-wasi --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -125,6 +126,9 @@ test-capi-llvm: build-capi-llvm
 		--no-default-features --features jit,llvm,wasi -- --nocapture
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+
+test-wasi-unit:
+	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 #############
 # Packaging #

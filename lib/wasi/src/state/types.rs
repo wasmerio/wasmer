@@ -1,8 +1,10 @@
 /// types for use in the WASI filesystem
 use crate::syscalls::types::*;
 use serde::{de, Deserialize, Serialize};
+use std::any::Any;
 #[cfg(unix)]
 use std::convert::TryInto;
+use std::fmt;
 use std::{
     fs,
     io::{self, Read, Seek, Write},
@@ -148,7 +150,7 @@ impl WasiFsError {
 
 /// This trait relies on your file closing when it goes out of scope via `Drop`
 #[typetag::serde(tag = "type")]
-pub trait WasiFile: std::fmt::Debug + Send + Write + Read + Seek {
+pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastable {
     /// the last time the file was accessed in nanoseconds as a UNIX timestamp
     fn last_accessed(&self) -> __wasi_timestamp_t;
 
@@ -207,6 +209,40 @@ pub trait WasiFile: std::fmt::Debug + Send + Write + Read + Seek {
     /// Returns the underlying host fd
     fn get_raw_fd(&self) -> Option<i32> {
         None
+    }
+}
+
+// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
+/// Trait needed to get downcasting from `WasiFile` to work.
+pub trait Upcastable {
+    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any;
+    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any;
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T: Any + fmt::Debug + 'static> Upcastable for T {
+    #[inline]
+    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl dyn WasiFile + 'static {
+    #[inline]
+    pub fn downcast_ref<T: 'static>(self: &'_ Self) -> Option<&'_ T> {
+        self.upcast_any_ref().downcast_ref::<T>()
+    }
+    #[inline]
+    pub fn downcast_mut<T: 'static>(self: &'_ mut Self) -> Option<&'_ mut T> {
+        self.upcast_any_mut().downcast_mut::<T>()
     }
 }
 
