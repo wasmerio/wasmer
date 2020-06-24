@@ -746,7 +746,7 @@ checksum = "8f5f3913fa0bfe7ee1fd8248b6b9f42a5af4b9d65ec2dd2c3c26132b950ecfc2"
 
 [[package]]
 name = "generate-emscripten-tests"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "glob 0.3.0",
  "tempfile",
@@ -754,7 +754,7 @@ dependencies = [
 
 [[package]]
 name = "generate-wasi-tests"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "glob 0.3.0",
  "serde",
@@ -2709,7 +2709,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "serde",
  "wasmer-clif-backend",
@@ -2720,7 +2720,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-bin"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -2758,7 +2758,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-clif-backend"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "byteorder",
  "cranelift-codegen",
@@ -2809,7 +2809,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "byteorder",
  "getrandom",
@@ -2830,7 +2830,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-llvm-backend"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -2851,14 +2851,14 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middleware-common"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "wasmer-runtime-core",
 ]
 
 [[package]]
 name = "wasmer-runtime"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "criterion",
  "lazy_static",
@@ -2875,7 +2875,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-c-api"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "cbindgen",
  "libc",
@@ -2887,7 +2887,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-runtime-core"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "bincode",
  "blake3",
@@ -2915,7 +2915,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-singlepass-backend"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2932,7 +2932,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2950,7 +2950,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "log",
  "minifb",
@@ -2963,7 +2963,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "anyhow",
  "thiserror",
@@ -2973,7 +2973,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-win-exception-handler"
-version = "0.17.0"
+version = "0.17.1"
 dependencies = [
  "cc",
  "libc",

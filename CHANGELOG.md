@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+## 0.17.1 - 2020-06-24
+
 - [#1439](https://github.com/wasmerio/wasmer/pull/1439) Move `wasmer-interface-types` into its own repository
 
 ## 0.17.0 - 2020-05-11
