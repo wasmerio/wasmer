@@ -1,8 +1,8 @@
 use wasmer_runtime_deprecated as wasmer_runtime;
 
-use crate::wasmer_runtime::{compile, /*error, error::RuntimeError,*/ imports, Ctx, Func, Value,};
-
-use wabt::wat2wasm;
+use crate::wasmer_runtime::{
+    compile, /*error, error::RuntimeError,*/ imports, wat2wasm, Ctx, Func, Value,
+};
 
 static WAT: &'static str = r#"
 
@@ -20,11 +20,10 @@ static WAT: &'static str = r#"
 "#;
 
 fn get_wasm() -> Vec<u8> {
-    wat2wasm(WAT).unwrap()
+    wat2wasm(WAT.as_bytes()).unwrap().to_vec()
 }
 
 fn sum(ctx: &mut Ctx, x: i32, y: i32) -> i32 {
-    dbg!(ctx as *const _);
     dbg!(ctx);
 
     x + y
