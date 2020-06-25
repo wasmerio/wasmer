@@ -5,7 +5,6 @@ use crate::{
     types::{Type, Value},
     vm,
 };
-use std::ptr;
 
 pub struct Func {
     new_function: new::wasmer::Function,
@@ -14,19 +13,21 @@ pub struct Func {
 impl Func {
     pub fn new<F, Args, Rets>(func: F) -> Self
     where
-        F: new::wasm_common::HostFunction<Args, Rets, new::wasm_common::WithEnv, vm::Ctx>,
-        Args: new::wasm_common::WasmTypeList,
-        Rets: new::wasm_common::WasmTypeList,
+        F: new::wasmer::HostFunction<Args, Rets, new::wasmer::WithEnv, vm::Ctx>,
+        Args: new::wasmer::WasmTypeList,
+        Rets: new::wasmer::WasmTypeList,
     {
-        // Create a fake `vm::Ctx`, that is going to be overwritten by `Instance::new`.
-        let ctx: &mut vm::Ctx = unsafe { &mut *ptr::null_mut() };
+        // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
+        let ctx = vm::Ctx::new();
 
         // TODO: check this, is incorrect. We should have a global store as we have in the
         // wasmer C API.
         let store = Default::default();
 
         Self {
-            new_function: new::wasmer::Function::new_env(&store, ctx, func),
+            new_function: new::wasmer::Function::new_env::<F, Args, Rets, vm::Ctx>(
+                &store, ctx, func,
+            ),
         }
     }
 

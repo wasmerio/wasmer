@@ -3,12 +3,13 @@ use crate::{
     error::InstantiationError,
     import::{ImportObject, Namespace},
     instance::{Instance, PreInstance},
-    new,
+    new, vm,
 };
 use new::wasmer_runtime::Export;
 use std::{
     collections::HashMap,
     convert::{AsRef, Infallible},
+    ptr,
 };
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
@@ -49,8 +50,29 @@ impl Module {
                 .into_iter()
                 .map(|((namespace, name), export)| match export {
                     Export::Function(mut function) => {
-                        if function.vmctx.is_null() {
-                            // That's an ugly hack. Go your way :-].
+                        // That's an ugly hack. Go your way :-].
+                        {
+                            // An empty `vm::Ctx` was created in
+                            // `Func` as a host function
+                            // environment. The internals of
+                            // `new::wasmer::externals::Function`
+                            // passes the environment inside the
+                            // `VMContext` pointer. That's another
+                            // hack.  This empty `vm::Ctx` must be
+                            // replaced by another `vm::Ctx` value
+                            // owned by `Instance`, because that's the
+                            // only way to update this structure
+                            // correctly for compatibility
+                            // purposes. Before doing this operation,
+                            // we must drop the empty `vm::Ctx` first.
+                            unsafe {
+                                ptr::drop_in_place::<vm::Ctx>(function.vmctx as _);
+                            }
+
+                            // And now we can update the pointer to
+                            // `VMContext`, which is actually a
+                            // `vm::Ctx` pointer, to fallback on the
+                            // environment hack.
                             function.vmctx = pre_instance.vmctx_ptr() as _;
                         }
 

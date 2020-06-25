@@ -26,9 +26,8 @@ pub use new::wasm_common::{
     TableType as TableDescriptor,
     Type,
     ValueType,
-    WasmExternType,
 };
-pub use new::wasmer::Val as Value;
+pub use new::wasmer::{Val as Value, WasmExternType};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GlobalDescriptor {

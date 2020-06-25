@@ -3,6 +3,7 @@ use std::error::Error;
 
 pub use new::wasmer::Exports;
 
+#[derive(Debug)]
 pub(crate) struct PreInstance {
     pub(crate) vmctx: vm::Ctx,
 }
