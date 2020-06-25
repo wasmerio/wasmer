@@ -1,21 +1,19 @@
+use crate::wasmer_runtime::{compile, imports, wat2wasm, Ctx, Func, RuntimeError};
+use std::{error, fmt};
 use wasmer_runtime_deprecated as wasmer_runtime;
 
-use crate::wasmer_runtime::{
-    compile, /*error, error::RuntimeError,*/ imports, wat2wasm, Ctx, Func, Value,
-};
-
 static WAT: &'static str = r#"
-
     (module
-      (type (;0;) (func (param i32 i32) (result i32)))
-      (import "env" "sum" (func $sum (type 0)))
-      (func $add_one (type 0)
-        local.get 0
-        local.get 1
-        call $sum
-        i32.const 1
-        i32.add)
-      (export "add_one" (func $add_one))
+      (type (;0;) (func (result i32)))
+      (import "env" "do_panic" (func $do_panic (type 0)))
+      (func $dbz (result i32)
+        call $do_panic
+        drop
+        i32.const 42
+        i32.const 0
+        i32.div_u
+      )
+      (export "dbz" (func $dbz))
     )
 "#;
 
@@ -23,22 +21,22 @@ fn get_wasm() -> Vec<u8> {
     wat2wasm(WAT.as_bytes()).unwrap().to_vec()
 }
 
-fn sum(ctx: &mut Ctx, x: i32, y: i32) -> i32 {
-    dbg!(ctx);
-
-    x + y
-}
-
-/*
 #[derive(Debug)]
 struct ExitCode {
     code: i32,
 }
 
-fn do_panic(_ctx: &mut Ctx) -> Result<i32, ExitCode> {
-    Err(ExitCode { code: 42 })
+impl error::Error for ExitCode {}
+
+impl fmt::Display for ExitCode {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        write!(f, "{:?}", self)
+    }
 }
-*/
+
+fn do_panic(_ctx: &mut Ctx) -> Result<i32, RuntimeError> {
+    Err(RuntimeError::new(ExitCode { code: 42 }.to_string()))
+}
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     let wasm = get_wasm();
@@ -48,25 +46,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     let instance = module.instantiate(&imports! {
         "env" => {
-            "sum" => Func::new(sum),
+            "do_panic" => Func::new(do_panic),
         },
     })?;
 
-    let add_one = instance.exports.get_function("add_one")?;
-    let result = add_one.call(&[Value::I32(1), Value::I32(2)]);
+    let add_one = instance.exports.get_function("dbz")?;
+    let result = add_one.call(&[]);
 
-    println!("result: {:?}", result);
-
-    /*
-    if let Err(e) = result {
-        if let RuntimeError::User(ue) = e {
-            let exit_code = ue.downcast_ref::<ExitCode>().unwrap();
-            println!("exit code: {:?}", exit_code);
-        } else {
-            panic!("Found error that wasn't a user error!: {}", e)
-        }
-    }
-    */
+    println!("result: {:?}", result.unwrap_err().message());
 
     Ok(())
 }
