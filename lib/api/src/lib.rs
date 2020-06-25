@@ -19,7 +19,8 @@ mod utils;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
 pub use crate::externals::{
-    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,
+    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList, WithEnv,
+    WithoutEnv,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
