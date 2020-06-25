@@ -2294,7 +2294,6 @@ dependencies = [
  "cfg-if",
  "leb128",
  "libloading 0.6.2",
- "object",
  "serde",
  "serde_bytes",
  "tempfile",
@@ -2302,7 +2301,18 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-object",
  "wasmer-runtime",
+]
+
+[[package]]
+name = "wasmer-object"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "object",
+ "thiserror",
+ "wasm-common",
+ "wasmer-compiler",
 ]
 
 [[package]]
