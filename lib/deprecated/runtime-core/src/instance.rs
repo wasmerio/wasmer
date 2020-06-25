@@ -101,11 +101,11 @@ impl Exports {
         }
     }
 
-    pub fn get<'a, T>(&'a self, name: &str) -> Result<&'a T, ExportError>
+    pub fn get<'a, T>(&'a self, name: &str) -> Result<T, ExportError>
     where
-        T: Exportable<'a>,
+        T: Exportable<'a> + Clone + 'a,
     {
-        self.new_exports.get(name)
+        Ok(self.new_exports.get::<T>(name)?.clone())
     }
 }
 
