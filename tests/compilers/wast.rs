@@ -1,11 +1,10 @@
 #![cfg(all(feature = "compiler", feature = "engine"))]
 
+use crate::utils::get_compiler;
 use std::path::Path;
-use std::sync::Arc;
-use test_utils::get_compiler_config_from_str;
-use wasmer::{Features, Store, Tunables};
+use wasmer::{Features, Store};
 #[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]
 use wasmer_engine_native::NativeEngine;
 use wasmer_wast::Wast;
@@ -29,7 +28,7 @@ fn native_prefixer(bytes: &[u8]) -> String {
     format!("{}", hash.to_hex())
 }
 
-fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
+pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     println!(
         "Running wast `{}` with the {} compiler",
         wast_path, compiler
@@ -39,13 +38,13 @@ fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if wast_path.contains("bulk-memory") {
         features.bulk_memory(true);
     }
-    let compiler_config =
-        get_compiler_config_from_str(compiler, try_nan_canonicalization, features);
-    let tunables = Tunables::for_target(compiler_config.target().triple());
-    let store = Store::new(Arc::new(JITEngine::new(compiler_config, tunables)));
+    #[cfg(feature = "test-singlepass")]
+    features.multi_value(false);
+    let compiler_config = get_compiler(true);
+    let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
-    // let store = Store::new(Arc::new(native));
+    // let store = Store::new(&native);
     let mut wast = Wast::new_with_spectest(store);
     if compiler == "singlepass" {
         // We don't support multivalue yet in singlepass

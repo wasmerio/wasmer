@@ -1290,12 +1290,12 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::I8x16ExtractLaneS { lane } | Operator::I16x8ExtractLaneS { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            let extracted = builder.ins().extractlane(vector, lane.clone());
+            let extracted = builder.ins().extractlane(vector, *lane);
             state.push1(builder.ins().sextend(I32, extracted))
         }
         Operator::I8x16ExtractLaneU { lane } | Operator::I16x8ExtractLaneU { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            let extracted = builder.ins().extractlane(vector, lane.clone());
+            let extracted = builder.ins().extractlane(vector, *lane);
             state.push1(builder.ins().uextend(I32, extracted));
             // On x86, PEXTRB zeroes the upper bits of the destination register of extractlane so
             // uextend could be elided; for now, uextend is needed for Cranelift's type checks to
@@ -1306,7 +1306,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::F32x4ExtractLane { lane }
         | Operator::F64x2ExtractLane { lane } => {
             let vector = pop1_with_bitcast(state, type_of(op), builder);
-            state.push1(builder.ins().extractlane(vector, lane.clone()))
+            state.push1(builder.ins().extractlane(vector, *lane))
         }
         Operator::I8x16ReplaceLane { lane } | Operator::I16x8ReplaceLane { lane } => {
             let (vector, replacement) = state.pop2();

@@ -161,6 +161,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "build-deps"
+version = "0.1.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "64f14468960818ce4f3e3553c32d524446687884f8e7af5d3e252331d8a87e43"
+dependencies = [
+ "glob",
+]
+
+[[package]]
 name = "bumpalo"
 version = "3.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1795,18 +1804,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "test-utils"
-version = "1.0.0-alpha.1"
-dependencies = [
- "wasmer",
- "wasmer-compiler",
- "wasmer-compiler-cranelift",
- "wasmer-compiler-llvm",
- "wasmer-compiler-singlepass",
- "wasmer-engine-jit",
-]
-
-[[package]]
 name = "textwrap"
 version = "0.11.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2088,6 +2085,7 @@ dependencies = [
  "anyhow",
  "atty",
  "blake3",
+ "build-deps",
  "bytesize",
  "cfg-if",
  "colored",
@@ -2098,7 +2096,6 @@ dependencies = [
  "rustc_version",
  "structopt",
  "test-generator",
- "test-utils",
  "wasm-common",
  "wasmer",
  "wasmer-cache",
@@ -2297,7 +2294,6 @@ dependencies = [
  "cfg-if",
  "leb128",
  "libloading 0.6.2",
- "object",
  "serde",
  "serde_bytes",
  "tempfile",
@@ -2305,7 +2301,18 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-object",
  "wasmer-runtime",
+]
+
+[[package]]
+name = "wasmer-object"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "object",
+ "thiserror",
+ "wasm-common",
+ "wasmer-compiler",
 ]
 
 [[package]]
@@ -2361,8 +2368,12 @@ name = "wasmer-wast"
 version = "1.0.0-alpha.1"
 dependencies = [
  "anyhow",
+ "serde",
+ "tempfile",
  "thiserror",
+ "typetag",
  "wasmer",
+ "wasmer-wasi",
  "wast",
 ]
 

@@ -702,12 +702,9 @@ impl Emitter for Assembler {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
         // fast path
-        match (src, dst) {
-            (Location::Imm32(0), Location::GPR(x)) => {
-                dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
-                return;
-            }
-            _ => {}
+        if let (Location::Imm32(0), Location::GPR(x)) = (src, dst) {
+            dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
+            return;
         }
 
         binop_all_nofp!(mov, self, sz, src, dst, {

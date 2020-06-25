@@ -4,7 +4,8 @@ use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
 use std::sync::Arc;
-use target_lexicon::{OperatingSystem, PointerWidth, Triple, HOST};
+use target_lexicon::{OperatingSystem, PointerWidth};
+use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle};
@@ -24,7 +25,8 @@ pub struct Tunables {
 
 impl Tunables {
     /// Get the `Tunables` for a specific Target
-    pub fn for_target(triple: &Triple) -> Self {
+    pub fn for_target(target: &Target) -> Self {
+        let triple = target.triple();
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
         let (mut static_memory_bound, mut static_memory_offset_guard_size): (Pages, u64) =
             match pointer_width {
@@ -100,11 +102,5 @@ impl BaseTunables for Tunables {
     /// Create a memory given a memory type
     fn create_table(&self, plan: TablePlan) -> Result<Arc<dyn Table>, String> {
         Ok(Arc::new(LinearTable::new(&plan)?))
-    }
-}
-
-impl Default for Tunables {
-    fn default() -> Self {
-        Self::for_target(&HOST)
     }
 }

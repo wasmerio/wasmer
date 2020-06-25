@@ -105,7 +105,7 @@ const STATIC_BUMP: u32 = 215_536;
 
 lazy_static! {
     static ref OLD_ABORT_ON_CANNOT_GROW_MEMORY_SIG: FunctionType =
-        { FunctionType::new(vec![], vec![ValType::I32]) };
+        FunctionType::new(vec![], vec![ValType::I32]);
 }
 
 // The address globals begin at. Very low in memory, for code size and optimization opportunities.
@@ -465,7 +465,7 @@ pub fn emscripten_call_main(
 }
 
 /// Top level function to execute emscripten
-pub fn run_emscripten_instance<'a>(
+pub fn run_emscripten_instance(
     instance: &mut Instance,
     env: &mut EmEnv,
     globals: &mut EmscriptenGlobals,
@@ -1105,7 +1105,7 @@ pub fn generate_emscripten_env(
     // Compatibility with newer versions of Emscripten
     let mut to_insert: Vec<(String, _)> = vec![];
     for (k, v) in env_ns.iter() {
-        if k.starts_with("_") {
+        if k.starts_with('_') {
             let k = &k[1..];
             if !env_ns.contains(k) {
                 to_insert.push((k.to_string(), v.clone()));

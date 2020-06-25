@@ -7,15 +7,13 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
-#[cfg(feature = "engine")]
-use wasmer::Tunables;
 use wasmer::{
     Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
     Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
     TableType, Val, ValType,
 };
 #[cfg(feature = "jit")]
-use wasmer_engine_jit::JITEngine;
+use wasmer_engine_jit::JIT;
 
 use crate::error::update_last_error;
 
@@ -58,11 +56,11 @@ cfg_if! {
         fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
             cfg_if! {
                 if #[cfg(feature = "cranelift")] {
-                    Box::new(wasmer_compiler_cranelift::CraneliftConfig::default())
+                    Box::new(wasmer_compiler_cranelift::Cranelift::default())
                 } else if #[cfg(feature = "llvm")] {
-                    Box::new(wasmer_compiler_llvm::LLVMConfig::default())
+                    Box::new(wasmer_compiler_llvm::LLVM::default())
                 } else if #[cfg(feature = "singlepass")] {
-                    Box::new(wasmer_compiler_singlepass::SinglepassConfig::default())
+                    Box::new(wasmer_compiler_singlepass::Singlepass::default())
                 } else {
                     compile_error!("Please enable one of the compiler backends")
                 }
@@ -72,8 +70,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let tunables = Tunables::default();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::new(compiler_config, tunables));
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -81,8 +78,7 @@ cfg_if! {
         // Headless JIT
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let tunables = Tunables::default();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JITEngine::headless(tunables));
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -299,7 +295,7 @@ pub unsafe extern "C" fn wasm_store_new(
 ) -> Option<NonNull<wasm_store_t>> {
     let wasm_engine_ptr = wasm_engine_ptr?;
     let wasm_engine = wasm_engine_ptr.as_ref();
-    let store = Store::new(wasm_engine.inner.clone());
+    let store = Store::new(&*wasm_engine.inner);
     Some(NonNull::new_unchecked(
         Box::into_raw(Box::new(store)) as *mut wasm_store_t
     ))

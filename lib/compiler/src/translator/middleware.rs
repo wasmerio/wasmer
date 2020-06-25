@@ -11,8 +11,7 @@ use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
 /// A shared builder for function middlewares.
 pub trait FunctionMiddlewareGenerator: Debug + Send + Sync {
     /// Generates a `FunctionMiddleware` for a given function.
-    fn generate<'a>(&self, local_function_index: LocalFunctionIndex)
-        -> Box<dyn FunctionMiddleware>;
+    fn generate(&self, local_function_index: LocalFunctionIndex) -> Box<dyn FunctionMiddleware>;
 }
 
 /// A function middleware specialized for a single function.

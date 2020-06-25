@@ -29,6 +29,8 @@ pub enum RelocationKind {
     Abs8,
     /// x86 PC-relative 4-byte
     X86PCRel4,
+    /// x86 PC-relative 8-byte
+    X86PCRel8,
     /// x86 PC-relative 4-byte offset to trailing rodata
     X86PCRelRodata4,
     /// x86 call to PC-relative 4-byte
@@ -62,6 +64,7 @@ impl fmt::Display for RelocationKind {
             Self::Abs4 => write!(f, "Abs4"),
             Self::Abs8 => write!(f, "Abs8"),
             Self::X86PCRel4 => write!(f, "PCRel4"),
+            Self::X86PCRel8 => write!(f, "PCRel8"),
             Self::X86PCRelRodata4 => write!(f, "PCRelRodata4"),
             Self::X86CallPCRel4 => write!(f, "CallPCRel4"),
             Self::X86CallPLTRel4 => write!(f, "CallPLTRel4"),
@@ -112,7 +115,7 @@ impl Relocation {
             RelocationKind::Abs8 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
-                let reloc_abs = (target_func_address)
+                let reloc_abs = target_func_address
                     .checked_add(reloc_addend as u64)
                     .unwrap();
                 (reloc_address, reloc_abs)
@@ -125,6 +128,15 @@ impl Relocation {
                     .checked_add(reloc_addend as u32)
                     .unwrap();
                 (reloc_address, reloc_delta_u32 as u64)
+            }
+            RelocationKind::X86PCRel8 => {
+                let reloc_address = start + self.offset as usize;
+                let reloc_addend = self.addend as isize;
+                let reloc_delta = target_func_address
+                    .wrapping_sub(reloc_address as u64)
+                    .checked_add(reloc_addend as u64)
+                    .unwrap();
+                (reloc_address, reloc_delta)
             }
             RelocationKind::X86CallPCRel4 | RelocationKind::X86CallPLTRel4 => {
                 let reloc_address = start + self.offset as usize;

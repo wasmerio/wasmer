@@ -12,7 +12,7 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     }
 
     // Ignore files starting with `.`, which could be editor temporary files
-    if p.file_stem()?.to_str()?.starts_with(".") {
+    if p.file_stem()?.to_str()?.starts_with('.') {
         return None;
     }
 
@@ -69,28 +69,23 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
 pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     let ext = p.extension()?;
     // Only look at wast files.
-    if ext != "wasm" {
+    if ext != "wast" {
         return None;
     }
 
-    let outfile = {
-        let mut out_ext = p.clone();
-        out_ext.set_extension("out");
-        if out_ext.exists() {
-            out_ext
-        } else {
-            return None;
-        }
+    let wasm_dir = {
+        let mut inner = p.clone();
+        inner.pop();
+        inner
     };
-
     let testname = extract_name(&p);
     let compiler = out.path.get(0).unwrap();
 
     // The implementation of `run_wasi` lives in /tests/wasitest.rs
     let body = format!(
-        "crate::wasi::run_wasi(r#\"{}\"#, r#\"{}\"#, \"{}\")",
+        "crate::run_wasi(r#\"{}\"#, \"{}\", \"{}\")",
         p.display(),
-        outfile.display(),
+        wasm_dir.display(),
         compiler
     );
 

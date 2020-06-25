@@ -24,7 +24,7 @@ impl CraneliftUnwindInfo {
     /// main users of this function)
     pub fn maybe_into_to_windows_unwind(self) -> Option<CompiledFunctionUnwindInfo> {
         match self {
-            CraneliftUnwindInfo::WindowsX64(unwind_info) => {
+            Self::WindowsX64(unwind_info) => {
                 Some(CompiledFunctionUnwindInfo::WindowsX64(unwind_info))
             }
             _ => None,

@@ -50,7 +50,7 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
     for line in reader.lines() {
         let line = line.unwrap();
         // If the line has a `#` we discard all the content that comes after
-        let line = if line.contains("#") {
+        let line = if line.contains('#') {
             let l: Vec<&str> = line.split('#').collect();
             l.get(0).unwrap().to_string()
         } else {

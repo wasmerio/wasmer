@@ -1,13 +1,13 @@
 use crate::externals::{Extern, Function, Global, Memory, Table};
 use crate::import_object::LikeNamespace;
 use crate::native::NativeFunc;
+use crate::WasmTypeList;
 use indexmap::IndexMap;
 use std::{
     iter::{ExactSizeIterator, FromIterator},
     sync::Arc,
 };
 use thiserror::Error;
-use wasm_common::WasmTypeList;
 use wasmer_runtime::Export;
 
 /// The `ExportError` can happen when trying to get a specific
@@ -127,7 +127,7 @@ impl Exports {
     {
         self.get_function(name)?
             .native()
-            .ok_or(ExportError::IncompatibleType)
+            .map_err(|_| ExportError::IncompatibleType)
     }
 
     /// Get an export as an `Extern`.

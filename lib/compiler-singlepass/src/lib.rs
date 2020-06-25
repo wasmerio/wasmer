@@ -21,4 +21,4 @@ mod machine;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;
-pub use crate::config::SinglepassConfig;
+pub use crate::config::Singlepass;

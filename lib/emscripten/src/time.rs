@@ -241,7 +241,7 @@ pub fn _localtime(ctx: &mut EmEnv, time_p: u32) -> c_int {
 
     let timespec = unsafe {
         let time_p_addr = emscripten_memory_pointer!(ctx.memory(0), time_p) as *mut i64;
-        let seconds = *time_p_addr.clone();
+        let seconds = *time_p_addr;
         time::Timespec::new(seconds, 0)
     };
     let result_tm = time::at(timespec);

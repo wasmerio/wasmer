@@ -31,7 +31,7 @@ pub fn get_emscripten_table_size(module: &Module) -> Result<(u32, Option<u32>), 
         let ty = import.ty();
         Ok((ty.minimum, ty.maximum))
     } else {
-        return Err("Emscripten requires at least one imported table".to_string());
+        Err("Emscripten requires at least one imported table".to_string())
     }
 }
 
@@ -40,7 +40,7 @@ pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Page
         let ty = import.ty();
         Ok((ty.minimum, ty.maximum, ty.shared))
     } else {
-        return Err("Emscripten requires at least one imported memory".to_string());
+        Err("Emscripten requires at least one imported memory".to_string())
     }
 }
 
