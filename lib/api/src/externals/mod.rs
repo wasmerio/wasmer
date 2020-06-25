@@ -3,7 +3,9 @@ mod global;
 mod memory;
 mod table;
 
-pub use self::function::{Function, HostFunction, WasmExternType, WasmTypeList};
+pub use self::function::{
+    Function, HostFunction, WasmExternType, WasmTypeList, WithEnv, WithoutEnv,
+};
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::table::Table;
