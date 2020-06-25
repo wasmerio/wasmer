@@ -1,15 +1,15 @@
-use crate::new;
+use crate::{instance::Exports, new};
 
 pub use new::wasmer::{namespace, ImportObject, ImportObjectIterator, LikeNamespace};
 
 pub struct Namespace {
-    exports: new::wasmer::Exports,
+    exports: Exports,
 }
 
 impl Namespace {
     pub fn new() -> Self {
         Self {
-            exports: new::wasmer::Exports::new(),
+            exports: Exports::new(),
         }
     }
 
@@ -18,24 +18,24 @@ impl Namespace {
         N: Into<String>,
         V: Into<new::wasmer::Extern> + 'static,
     {
-        self.exports.insert(name, value);
+        self.exports.new_exports.insert(name, value);
     }
 
     pub fn contains_key<N>(&mut self, name: N) -> bool
     where
         N: Into<String>,
     {
-        self.exports.contains(name)
+        self.exports.new_exports.contains(name)
     }
 }
 
 impl LikeNamespace for Namespace {
     fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_runtime::Export> {
-        self.exports.get_namespace_export(name)
+        self.exports.new_exports.get_namespace_export(name)
     }
 
     fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_runtime::Export)> {
-        self.exports.get_namespace_exports()
+        self.exports.new_exports.get_namespace_exports()
     }
 }
 
@@ -115,7 +115,7 @@ macro_rules! imports {
 macro_rules! import_namespace {
     ( { $( $import_name:expr => $import_item:expr ),* $(,)? } ) => {
         {
-            let mut namespace = $crate::instance::Exports::new();
+            let mut namespace = $crate::import::Namespace::new();
 
             $(
                 namespace.insert($import_name, $import_item);
