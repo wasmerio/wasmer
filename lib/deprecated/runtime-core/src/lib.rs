@@ -28,7 +28,7 @@ pub mod vm;
 
 pub use crate::cache::{Artifact, WasmHash};
 pub use crate::import::IsExport;
-pub use crate::instance::Instance;
+pub use crate::instance::{Exports, Instance};
 pub use crate::module::Module;
 pub use crate::new::wasmer_compiler::wasmparser;
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};

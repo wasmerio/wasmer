@@ -1,7 +1,8 @@
-use crate::{import::LikeNamespace, module::Module, new, structures::TypedIndex, types::Value, vm};
+use crate::{
+    error::ExportError, export::Exportable, import::LikeNamespace, module::Module, new,
+    structures::TypedIndex, types::Value, vm,
+};
 use std::error::Error;
-
-pub use new::wasmer::Exports;
 
 #[derive(Debug)]
 pub(crate) struct PreInstance {
@@ -31,7 +32,7 @@ impl Instance {
     pub(crate) fn new(pre_instance: Box<PreInstance>, new_instance: new::wasmer::Instance) -> Self {
         Self {
             pre_instance,
-            exports: new_instance.exports.clone(),
+            exports: new_instance.exports.clone().into(),
             new_instance,
         }
     }
@@ -81,10 +82,45 @@ impl Instance {
 
 impl LikeNamespace for Instance {
     fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_runtime::Export> {
-        self.exports.get_namespace_export(name)
+        self.exports.new_exports.get_namespace_export(name)
     }
 
     fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_runtime::Export)> {
-        self.exports.get_namespace_exports()
+        self.exports.new_exports.get_namespace_exports()
+    }
+}
+
+pub struct Exports {
+    pub(crate) new_exports: new::wasmer::Exports,
+}
+
+impl Exports {
+    pub fn new() -> Self {
+        Self {
+            new_exports: new::wasmer::Exports::new(),
+        }
+    }
+
+    pub fn get<'a, T>(&'a self, name: &str) -> Result<&'a T, ExportError>
+    where
+        T: Exportable<'a>,
+    {
+        self.new_exports.get(name)
+    }
+}
+
+impl LikeNamespace for Exports {
+    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_runtime::Export> {
+        self.new_exports.get_namespace_export(name)
+    }
+
+    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_runtime::Export)> {
+        self.new_exports.get_namespace_exports()
+    }
+}
+
+impl From<new::wasmer::Exports> for Exports {
+    fn from(new_exports: new::wasmer::Exports) -> Self {
+        Self { new_exports }
     }
 }
