@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         },
     })?;
 
-    let foo: Func<(), i32> = instance.exports.get("dbz")?;
+    let foo: Func<(), ()> = instance.exports.get("dbz")?;
     let result = foo.call();
 
     println!("result: {:?}", result.unwrap_err().message());
