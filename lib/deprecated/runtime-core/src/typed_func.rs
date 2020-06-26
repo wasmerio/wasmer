@@ -108,18 +108,24 @@ macro_rules! func_call {
                 let results: Vec<Value> = self.dyn_call(params)?.to_vec();
 
                 // Map the results into their binary form.
-                let results: Vec<i128> = results.into_iter().map(|value| match value {
-                    Value::I32(value) => <i32 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
-                    Value::I64(value) => <i64 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
-                    Value::F32(value) => <f32 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
-                    Value::F64(value) => <f64 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
+                let rets: Vec<i128> = results.iter().map(|value| match value {
+                    Value::I32(value) => <i32 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
+                    Value::I64(value) => <i64 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
+                    Value::F32(value) => <f32 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
+                    Value::F64(value) => <f64 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
                     value => panic!("Value `{:?}` is not supported as a returned value of a host function for the moment", value),
                 }).collect();
 
                 // Convert `Vec<i128>` into a `WasmTypeList`.
-                let results: Rets = Rets::from_slice(results.as_slice()).unwrap();
+                let rets: Rets = Rets::from_slice(rets.as_slice()).map_err(|_| {
+                    RuntimeError::new(format!(
+                        "returned values (`{:?}`) do not match the expected returned type (`{:?}`)",
+                        results,
+                        Rets::wasm_types()
+                    ))
+                })?;
 
-                Ok(results)
+                Ok(rets)
 
             }
         }
