@@ -4,6 +4,7 @@ use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
+use std::sync::Arc;
 use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
 /// The `Table` struct is an array-like structure representing a WebAssembly Table,
@@ -39,17 +40,18 @@ impl Table {
             .create_table(table_plan)
             .map_err(RuntimeError::new)?;
 
-        let definition = table.vmtable();
-        for i in 0..definition.current_elements {
+        let num_elements = table.size();
+        for i in 0..num_elements {
             set_table_item(table.as_ref(), i, item.clone())?;
         }
 
+        let definition = table.vmtable();
         Ok(Table {
             store: store.clone(),
             owned_by_store: true,
             exported: ExportTable {
                 from: table,
-                definition: Box::leak(Box::new(definition)),
+                definition,
             },
         })
     }

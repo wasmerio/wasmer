@@ -23,6 +23,7 @@ use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::TryFrom;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
 use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
@@ -178,20 +179,20 @@ impl Instance {
     /// Return the indexed `VMTableDefinition`.
     #[allow(dead_code)]
     fn table(&self, index: LocalTableIndex) -> VMTableDefinition {
-        unsafe { *self.table_ptr(index) }
+        unsafe { self.table_ptr(index).as_ref().clone() }
     }
 
     /// Updates the value for a defined table to `VMTableDefinition`.
-    fn set_table(&self, index: LocalTableIndex, table: VMTableDefinition) {
+    fn set_table(&self, index: LocalTableIndex, table: &VMTableDefinition) {
         unsafe {
-            *self.table_ptr(index) = table;
+            *self.table_ptr(index).as_ptr() = table.clone();
         }
     }
 
     /// Return the indexed `VMTableDefinition`.
-    fn table_ptr(&self, index: LocalTableIndex) -> *mut VMTableDefinition {
+    fn table_ptr(&self, index: LocalTableIndex) -> NonNull<VMTableDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { self.tables_ptr().add(index) }
+        NonNull::new(unsafe { self.tables_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMTableDefinition`s.
@@ -502,7 +503,9 @@ impl Instance {
             .grow(delta);
 
         // Keep current the VMContext pointers used by compiled wasm code.
-        self.set_table(table_index, self.tables[table_index].vmtable());
+        let table_ptr = self.tables[table_index].vmtable();
+        let vmtable = unsafe { table_ptr.as_ref() };
+        self.set_table(table_index, vmtable);
 
         result
     }
@@ -631,7 +634,8 @@ impl Instance {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
 
         let memory = self.memory(memory_index);
-        memory.memory_copy(dst, src, len)
+        // The following memory copy is not synchronized and is not atomic:
+        unsafe { memory.memory_copy(dst, src, len) }
     }
 
     /// Perform a `memory.copy` on an imported memory.
@@ -644,7 +648,8 @@ impl Instance {
     ) -> Result<(), Trap> {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { &*import.definition };
-        memory.memory_copy(dst, src, len)
+        // The following memory copy is not synchronized and is not atomic:
+        unsafe { memory.memory_copy(dst, src, len) }
     }
 
     /// Perform the `memory.fill` operation on a locally defined memory.
@@ -660,7 +665,8 @@ impl Instance {
         len: u32,
     ) -> Result<(), Trap> {
         let memory = self.memory(memory_index);
-        memory.memory_fill(dst, val, len)
+        // The following memory fill is not synchronized and is not atomic:
+        unsafe { memory.memory_fill(dst, val, len) }
     }
 
     /// Perform the `memory.fill` operation on an imported memory.
@@ -677,7 +683,8 @@ impl Instance {
     ) -> Result<(), Trap> {
         let import = self.imported_memory(memory_index);
         let memory = unsafe { &*import.definition };
-        memory.memory_fill(dst, val, len)
+        // The following memory fill is not synchronized and is not atomic:
+        unsafe { memory.memory_fill(dst, val, len) }
     }
 
     /// Performs the `memory.init` operation.
@@ -785,9 +792,15 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
+        // TODO: investigate `vmctx_tables` and `vmctx_memories`: both of these
+        // appear to be dropped in this function which may cause memory problems
+        // depending on the ownership of the types in the `PrimaryMap`.
         let vmctx_tables = finished_tables
             .values()
-            .map(|t| t.vmtable())
+            .map(|t| {
+                let vmtable_ptr = t.vmtable();
+                vmtable_ptr.as_ref().clone()
+            })
             .collect::<PrimaryMap<LocalTableIndex, _>>()
             .into_boxed_slice();
 

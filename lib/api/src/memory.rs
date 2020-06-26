@@ -1,13 +1,14 @@
 use crate::{Bytes, Pages};
 use more_asserts::{assert_ge, assert_le};
-use std::cell::RefCell;
+use std::borrow::{Borrow, BorrowMut};
+use std::sync::{Arc, Mutex};
 use wasmer_runtime::{Memory, MemoryError, MemoryPlan, MemoryStyle, Mmap, VMMemoryDefinition};
 
 /// A linear memory instance.
 #[derive(Debug)]
 pub struct LinearMemory {
     // The underlying allocation.
-    mmap: RefCell<WasmMmap>,
+    mmap: Arc<Mutex<WasmMmap>>,
 
     // The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
@@ -81,7 +82,7 @@ impl LinearMemory {
         };
 
         Ok(Self {
-            mmap: mmap.into(),
+            mmap: Arc::new(Mutex::new(mmap)),
             maximum: plan.memory.maximum,
             offset_guard_size: offset_guard_bytes,
             needs_signal_handlers,
@@ -98,7 +99,8 @@ impl Memory for LinearMemory {
 
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages {
-        self.mmap.borrow().size
+        let mmap_guard = self.mmap.lock().unwrap();
+        mmap_guard.borrow().size
     }
 
     /// Grow memory by the specified amount of wasm pages.
@@ -106,8 +108,9 @@ impl Memory for LinearMemory {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
+        let mut mmap_guard = self.mmap.lock().unwrap();
+        let mmap = mmap_guard.borrow_mut();
         // Optimization of memory.grow 0 calls.
-        let mut mmap = self.mmap.borrow_mut();
         if delta.0 == 0 {
             return Ok(mmap.size);
         }
@@ -178,7 +181,8 @@ impl Memory for LinearMemory {
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> VMMemoryDefinition {
-        let mut mmap = self.mmap.borrow_mut();
+        let mut mmap_guard = self.mmap.lock().unwrap();
+        let mmap = mmap_guard.borrow_mut();
         VMMemoryDefinition {
             base: mmap.alloc.as_mut_ptr(),
             current_length: mmap.size.bytes().0,
