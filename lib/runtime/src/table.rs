@@ -9,6 +9,7 @@ use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::ptr::NonNull;
 use wasm_common::{FunctionIndex, GlobalIndex, TableIndex, TableType};
 
 /// A WebAssembly table initializer.
@@ -42,7 +43,7 @@ pub struct TablePlan {
 }
 
 /// Trait for implementing the interface of a Wasm table.
-pub trait Table: fmt::Debug {
+pub trait Table: fmt::Debug + Send + Sync {
     /// Returns the table plan for this Table.
     fn plan(&self) -> &TablePlan;
 
@@ -68,7 +69,7 @@ pub trait Table: fmt::Debug {
     fn set(&self, index: u32, func: VMCallerCheckedAnyfunc) -> Result<(), Trap>;
 
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
-    fn vmtable(&self) -> VMTableDefinition;
+    fn vmtable(&self) -> NonNull<VMTableDefinition>;
 
     /// Copy `len` elements from `src_table[src_index..]` into `dst_table[dst_index..]`.
     ///

@@ -7,6 +7,7 @@ use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
     VMTableDefinition,
 };
+use std::ptr::NonNull;
 use std::sync::Arc;
 use wasm_common::{FunctionType, GlobalType};
 
@@ -49,7 +50,7 @@ impl From<ExportFunction> for Export {
 #[derive(Debug, Clone)]
 pub struct ExportTable {
     /// The address of the table descriptor.
-    pub definition: *mut VMTableDefinition,
+    pub definition: NonNull<VMTableDefinition>,
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 }
