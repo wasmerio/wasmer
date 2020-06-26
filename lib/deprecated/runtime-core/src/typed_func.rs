@@ -122,7 +122,7 @@ macro_rules! func_call {
                             ))),
                         })
                     })
-                    .collect::<Result<Vec<i128>, RuntimeError>>()?;
+                    .collect::<Result<_, _>>()?;
 
                 // Convert `Vec<i128>` into a `WasmTypeList`.
                 let rets: Rets = Rets::from_slice(rets.as_slice()).map_err(|_| {
