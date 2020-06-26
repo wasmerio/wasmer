@@ -1,6 +1,6 @@
 use crate::{
     error::{ExportError, RuntimeError},
-    new,
+    new::{self, wasm_common::NativeWasmType},
     types::{FuncDescriptor, Type, Value},
     vm,
 };
@@ -57,25 +57,98 @@ where
     }
 }
 
+pub unsafe trait WasmExternTypeInner: new::wasmer::WasmExternType
+where
+    Self: Sized,
+{
+}
+
+unsafe impl WasmExternTypeInner for i8 {}
+unsafe impl WasmExternTypeInner for u8 {}
+unsafe impl WasmExternTypeInner for i16 {}
+unsafe impl WasmExternTypeInner for u16 {}
+unsafe impl WasmExternTypeInner for i32 {}
+unsafe impl WasmExternTypeInner for u32 {}
+unsafe impl WasmExternTypeInner for i64 {}
+unsafe impl WasmExternTypeInner for u64 {}
+unsafe impl WasmExternTypeInner for f32 {}
+unsafe impl WasmExternTypeInner for f64 {}
+
 macro_rules! func_call {
     ( $( $x:ident ),* ) => {
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets > Func<( $( $x ),* ), Rets>
+        impl< $( $x, )* Rets: new::wasmer::WasmTypeList > Func<( $( $x ),* ), Rets>
         where
-            $( $x: new::wasmer::WasmExternType, )*
+            $( $x: new::wasmer::WasmExternType + WasmExternTypeInner, )*
             Rets: new::wasmer::WasmTypeList
         {
             #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
-                self.new_function.native::<( $( $x ),* ), Rets>().unwrap().call( $( $x ),* )
+                // Two implementation choices:
+                //   1. Either by using the `NativeFunc` API, but a
+                //      new native function must be created for each
+                //      call,
+                //    2. Pack the parameters into a slice, call
+                //       `dyn_call` with it, and unpack the results.
+                //
+                // The first implementation is the following:
+                //
+                // self.new_function.native::<( $( $x ),* ), Rets>().unwrap().call( $( $x ),* )
+                //
+                // The second implementation is the following active one:
+
+                // Pack the argument into a slice.
+                let params: &[Value] = &[
+                    $(
+                        $x.to_native().to_value()
+                    ),*
+                ];
+
+                // Call the function with `dyn_call`, and transform the results into a vector.
+                let results: Vec<Value> = self.dyn_call(params)?.to_vec();
+
+                // Map the results into their binary form.
+                let results: Vec<i128> = results.into_iter().map(|value| match value {
+                    Value::I32(value) => <i32 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
+                    Value::I64(value) => <i64 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
+                    Value::F32(value) => <f32 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
+                    Value::F64(value) => <f64 as new::wasmer::WasmExternType>::from_native(value).to_binary(),
+                    value => panic!("Value `{:?}` is not supported as a returned value of a host function for the moment", value),
+                }).collect();
+
+                // Convert `Vec<i128>` into a `WasmTypeList`.
+                let results: Rets = Rets::from_slice(results.as_slice()).unwrap();
+
+                Ok(results)
+
             }
         }
     }
 }
 
-//func_call!();
-//func_call!(A1);
-//func_call!(A1, A2);
+func_call!();
+func_call!(A1);
+func_call!(A1, A2);
+func_call!(A1, A2, A3);
+func_call!(A1, A2, A3, A4);
+func_call!(A1, A2, A3, A4, A5);
+func_call!(A1, A2, A3, A4, A5, A6);
+func_call!(A1, A2, A3, A4, A5, A6, A7);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18);
+func_call!(A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19);
+func_call!(
+    A1, A2, A3, A4, A5, A6, A7, A8, A9, A10, A11, A12, A13, A14, A15, A16, A17, A18, A19, A20
+);
 
 impl<Args, Rets> From<Func<Args, Rets>> for new::wasmer::Extern
 where
