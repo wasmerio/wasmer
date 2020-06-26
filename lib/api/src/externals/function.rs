@@ -497,7 +497,8 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
 /// This private inner module contains the low-level implementation
 /// for `Function` and its siblings.
 mod inner {
-    use std::convert::Infallible;
+    use std::array::TryFromSliceError;
+    use std::convert::{Infallible, TryInto};
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
@@ -556,7 +557,10 @@ mod inner {
     /// The `WasmTypeList` trait represents a tuple (list) of Wasm
     /// typed values. It is used to get low-level representation of
     /// such a tuple.
-    pub trait WasmTypeList {
+    pub trait WasmTypeList
+    where
+        Self: Sized,
+    {
         /// The C type (a struct) that can hold/represent all the
         /// represented values.
         type CStruct;
@@ -568,6 +572,14 @@ mod inner {
 
         /// Constructs `Self` based on an array of values.
         fn from_array(array: Self::Array) -> Self;
+
+        /// Constructs `Self` based on a slice of values.
+        ///
+        /// `from_slice` returns a `Result` because it is possible
+        /// that the slice doesn't have the same size than
+        /// `Self::Array`, in which circumstance an error of kind
+        /// `TryFromSliceError` will be returned.
+        fn from_slice(slice: &[i128]) -> Result<Self, TryFromSliceError>;
 
         /// Builds and returns an array of type `Array` from a tuple
         /// (list) of values.
@@ -745,6 +757,10 @@ mod inner {
                             WasmExternType::from_native(NativeWasmType::from_binary($x))
                         ),*
                     )
+                }
+
+                fn from_slice(slice: &[i128]) -> Result<Self, TryFromSliceError> {
+                    Ok(Self::from_array(slice.try_into()?))
                 }
 
                 fn into_array(self) -> Self::Array {
@@ -935,6 +951,10 @@ mod inner {
         type Array = [i128; 0];
 
         fn from_array(_: Self::Array) -> Self {
+            unreachable!()
+        }
+
+        fn from_slice(_: &[i128]) -> Result<Self, TryFromSliceError> {
             unreachable!()
         }
 
