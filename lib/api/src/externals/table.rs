@@ -4,7 +4,6 @@ use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
-use std::sync::Arc;
 use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
 /// The `Table` struct is an array-like structure representing a WebAssembly Table,
