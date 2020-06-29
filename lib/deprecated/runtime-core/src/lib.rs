@@ -38,7 +38,7 @@ pub use functional_api::{
 
 pub mod prelude {
     pub use crate::import::{namespace, ImportObject, Namespace};
-    pub use crate::typed_func::Func;
+    pub use crate::typed_func::{DynamicFunc, Func};
     pub use crate::types::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex, Type, Value};
 }
 

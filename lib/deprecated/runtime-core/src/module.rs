@@ -1,12 +1,15 @@
 use crate::{
     cache::Artifact,
-    error::InstantiationError,
+    error::{InstantiationError, RuntimeError},
     import::{ImportObject, Namespace},
     instance::{Instance, PreInstance},
-    new, vm,
+    new,
+    types::{FuncSig, Value},
+    vm,
 };
 use new::wasmer_runtime::Export;
 use std::{
+    cell::RefCell,
     collections::HashMap,
     convert::{AsRef, Infallible},
     ptr,
@@ -52,28 +55,74 @@ impl Module {
                     Export::Function(mut function) => {
                         // That's an ugly hack. Go your way :-].
                         {
-                            // An empty `vm::Ctx` was created in
-                            // `Func` as a host function
-                            // environment. The internals of
-                            // `new::wasmer::externals::Function`
-                            // passes the environment inside the
-                            // `VMContext` pointer. That's another
-                            // hack.  This empty `vm::Ctx` must be
-                            // replaced by another `vm::Ctx` value
-                            // owned by `Instance`, because that's the
-                            // only way to update this structure
-                            // correctly for compatibility
-                            // purposes. Before doing this operation,
-                            // we must drop the empty `vm::Ctx` first.
-                            unsafe {
-                                ptr::drop_in_place::<vm::Ctx>(function.vmctx as _);
-                            }
+                            // That's a static host function
+                            // constructed with
+                            // `new::wasmer::Function::new_env`.
+                            if !function.address.is_null() {
+                                // An empty `vm::Ctx` was created in
+                                // `Func` as a host function
+                                // environment. The internals of
+                                // `new::wasmer::externals::Function`
+                                // passes the environment inside the
+                                // `VMContext` pointer. That's another
+                                // hack.  This empty `vm::Ctx` must be
+                                // replaced by another `vm::Ctx` value
+                                // owned by `Instance`, because that's the
+                                // only way to update this structure
+                                // correctly for compatibility
+                                // purposes. Before doing this operation,
+                                // we must drop the empty `vm::Ctx` first.
+                                unsafe {
+                                    ptr::drop_in_place::<vm::Ctx>(function.vmctx as _);
+                                }
 
-                            // And now we can update the pointer to
-                            // `VMContext`, which is actually a
-                            // `vm::Ctx` pointer, to fallback on the
-                            // environment hack.
-                            function.vmctx = pre_instance.vmctx_ptr() as _;
+                                // And now we can update the pointer to
+                                // `VMContext`, which is actually a
+                                // `vm::Ctx` pointer, to fallback on the
+                                // environment hack.
+                                function.vmctx = pre_instance.vmctx_ptr() as _;
+                            }
+                            // That's a dynamic host function
+                            // constructed with
+                            // `new::wasmer::Function::new_dynamic_env`.
+                            else {
+                                // `new::wasmer::VMDynamicFunctionWithEnv`
+                                // is private to `new::wasmer`. Let's
+                                // replicate it, and hope the layout
+                                // is the same!
+                                struct VMDynamicFunctionWithEnv<Env>
+                                where
+                                    Env: Sized + 'static,
+                                {
+                                    #[allow(unused)]
+                                    function_type: FuncSig,
+                                    #[allow(unused)]
+                                    func: Box<
+                                        dyn Fn(
+                                                &mut Env,
+                                                &[Value],
+                                            )
+                                                -> Result<Vec<Value>, RuntimeError>
+                                            + 'static,
+                                    >,
+                                    env: RefCell<Env>,
+                                }
+
+                                // Get back the `vmctx` as it is
+                                // stored by
+                                // `new::wasmer::Function::new_dynamic_env`.
+                                let vmctx: Box<
+                                    new::wasmer_runtime::VMDynamicFunctionContext<
+                                        VMDynamicFunctionWithEnv<vm::Ctx>,
+                                    >,
+                                > = unsafe { Box::from_raw(function.vmctx as *mut _) };
+
+                                // Replace the environment by ours.
+                                vmctx.ctx.env.swap(&pre_instance.vmctx());
+
+                                // … without anyone noticing…
+                                function.vmctx = Box::into_raw(vmctx) as _;
+                            }
                         }
 
                         (

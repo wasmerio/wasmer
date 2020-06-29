@@ -8,7 +8,7 @@ pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
 pub use wasmer_runtime_core::memory::Memory;
 pub use wasmer_runtime_core::module::Module;
 pub use wasmer_runtime_core::table::Table;
-pub use wasmer_runtime_core::typed_func::Func;
+pub use wasmer_runtime_core::typed_func::{DynamicFunc, Func};
 pub use wasmer_runtime_core::types;
 pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::{

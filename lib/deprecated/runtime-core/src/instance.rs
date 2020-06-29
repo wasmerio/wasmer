@@ -2,22 +2,29 @@ use crate::{
     error::ExportError, export::Exportable, import::LikeNamespace, module::Module, new,
     structures::TypedIndex, types::Value, vm,
 };
-use std::error::Error;
+use std::{
+    cell::{Ref, RefCell},
+    error::Error,
+};
 
 #[derive(Debug)]
 pub(crate) struct PreInstance {
-    pub(crate) vmctx: vm::Ctx,
+    pub(crate) vmctx: RefCell<vm::Ctx>,
 }
 
 impl PreInstance {
     pub(crate) fn new() -> Self {
         Self {
-            vmctx: vm::Ctx::new(),
+            vmctx: RefCell::new(vm::Ctx::new()),
         }
     }
 
+    pub(crate) fn vmctx(&self) -> RefCell<vm::Ctx> {
+        self.vmctx.clone()
+    }
+
     pub(crate) fn vmctx_ptr(&self) -> *mut vm::Ctx {
-        &self.vmctx as *const _ as *mut _
+        self.vmctx.as_ptr()
     }
 }
 
@@ -71,12 +78,12 @@ impl Instance {
         Module::new(self.new_instance.module().clone())
     }
 
-    pub fn context(&self) -> &vm::Ctx {
-        &self.pre_instance.vmctx
+    pub fn context(&self) -> Ref<vm::Ctx> {
+        self.pre_instance.vmctx.borrow()
     }
 
     pub fn context_mut(&mut self) -> &mut vm::Ctx {
-        &mut self.pre_instance.vmctx
+        self.pre_instance.vmctx.get_mut()
     }
 }
 

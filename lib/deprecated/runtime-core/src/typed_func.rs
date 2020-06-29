@@ -2,7 +2,7 @@ use crate::{
     error::{ExportError, RuntimeError},
     get_global_store,
     new::{self, wasm_common::NativeWasmType},
-    types::{FuncDescriptor, Type, Value},
+    types::{FuncDescriptor, FuncSig, Type, Value},
     vm,
 };
 use std::marker::PhantomData;
@@ -199,6 +199,76 @@ where
             new::wasmer::Extern::Function(func) => Ok(
                 // It's not ideal to call `Box::leak` here, but it would introduce too much changes in the `new::wasmer` API to support `Cow` or similar.
                 Box::leak(Box::<Func<Args, Rets>>::new(func.into())),
+            ),
+            _ => Err(ExportError::IncompatibleType),
+        }
+    }
+}
+
+#[derive(Clone)]
+pub struct DynamicFunc {
+    new_function: new::wasmer::Function,
+}
+
+impl DynamicFunc {
+    pub fn new<F>(signature: &FuncSig, func: F) -> Self
+    where
+        F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static,
+    {
+        // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
+        let ctx = vm::Ctx::new();
+
+        Self {
+            new_function: new::wasmer::Function::new_dynamic_env(
+                get_global_store(),
+                signature,
+                ctx,
+                func,
+            ),
+        }
+    }
+
+    pub fn signature(&self) -> &FuncDescriptor {
+        self.new_function.ty()
+    }
+
+    pub fn params(&self) -> &[Type] {
+        self.signature().params()
+    }
+
+    pub fn returns(&self) -> &[Type] {
+        self.signature().results()
+    }
+
+    pub fn dyn_call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
+        self.new_function.call(params)
+    }
+}
+
+impl From<DynamicFunc> for new::wasmer::Extern {
+    fn from(dynamic_func: DynamicFunc) -> Self {
+        new::wasmer::Extern::Function(dynamic_func.new_function)
+    }
+}
+
+impl From<&new::wasmer::Function> for DynamicFunc {
+    fn from(new_function: &new::wasmer::Function) -> Self {
+        Self {
+            new_function: new_function.clone(),
+        }
+    }
+}
+
+impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
+    fn to_export(&self) -> new::wasmer_runtime::Export {
+        self.new_function.to_export()
+    }
+
+    fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
+        match r#extern {
+            new::wasmer::Extern::Function(dynamic_func) => Ok(
+                // It's not ideal to call `Box::leak` here, but it would introduce too much changes in the `new::wasmer` API to support `Cow` or similar.
+                Box::leak(Box::<DynamicFunc>::new(dynamic_func.into())),
             ),
             _ => Err(ExportError::IncompatibleType),
         }
