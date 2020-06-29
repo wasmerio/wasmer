@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::memory_view::MemoryView;
 use crate::store::Store;
 use crate::MemoryType;
+use std::ptr::NonNull;
 use std::slice;
 use wasm_common::{Pages, ValueType};
 use wasmer_runtime::{
@@ -30,12 +31,12 @@ impl Memory {
             owned_by_store: true,
             exported: ExportMemory {
                 from: memory,
-                definition: Box::leak(Box::new(definition)),
+                definition,
             },
         })
     }
 
-    fn definition(&self) -> VMMemoryDefinition {
+    fn definition(&self) -> NonNull<VMMemoryDefinition> {
         self.memory().vmmemory()
     }
 
@@ -65,15 +66,20 @@ impl Memory {
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.definition();
-        slice::from_raw_parts_mut(definition.base, definition.current_length)
+        let def = definition.as_ref();
+        slice::from_raw_parts_mut(def.base, def.current_length)
     }
 
     pub fn data_ptr(&self) -> *mut u8 {
-        self.definition().base
+        let definition = self.definition();
+        let def = unsafe { definition.as_ref() };
+        def.base
     }
 
     pub fn data_size(&self) -> usize {
-        self.definition().current_length
+        let definition = self.definition();
+        let def = unsafe { definition.as_ref() };
+        def.current_length
     }
 
     pub fn size(&self) -> Pages {
