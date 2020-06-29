@@ -8,6 +8,7 @@
 use crate::vmcontext::VMMemoryDefinition;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::ptr::NonNull;
 use thiserror::Error;
 use wasm_common::{MemoryType, Pages};
 
@@ -75,5 +76,5 @@ pub trait Memory: fmt::Debug + Send + Sync {
     /// Return a [`VMMemoryDefinition`] for exposing the memory to compiled wasm code.
     ///
     /// The pointer returned in [`VMMemoryDefinition`] must be valid for the lifetime of this memory.
-    fn vmmemory(&self) -> VMMemoryDefinition;
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 }

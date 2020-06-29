@@ -179,7 +179,7 @@ mod test_vmtable_import {
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
-    pub definition: *mut VMMemoryDefinition,
+    pub definition: NonNull<VMMemoryDefinition>,
 
     /// A pointer to the `Memory` that owns the memory description.
     pub from: Arc<dyn Memory>,

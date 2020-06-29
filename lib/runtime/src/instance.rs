@@ -206,26 +206,26 @@ impl Instance {
             self.memory(local_index)
         } else {
             let import = self.imported_memory(index);
-            *unsafe { import.definition.as_ref().unwrap() }
+            unsafe { import.definition.as_ref().clone() }
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
     fn memory(&self, index: LocalMemoryIndex) -> VMMemoryDefinition {
-        unsafe { *self.memory_ptr(index) }
+        unsafe { self.memory_ptr(index).as_ref().clone() }
     }
 
     /// Set the indexed memory to `VMMemoryDefinition`.
-    fn set_memory(&self, index: LocalMemoryIndex, mem: VMMemoryDefinition) {
+    fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
         unsafe {
-            *self.memory_ptr(index) = mem;
+            *self.memory_ptr(index).as_ptr() = mem.clone();
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
-    fn memory_ptr(&self, index: LocalMemoryIndex) -> *mut VMMemoryDefinition {
+    fn memory_ptr(&self, index: LocalMemoryIndex) -> NonNull<VMMemoryDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { self.memories_ptr().add(index) }
+        NonNull::new(unsafe { self.memories_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMMemoryDefinition`s.
@@ -446,7 +446,9 @@ impl Instance {
         let result = mem.grow(delta.into());
 
         // Keep current the VMContext pointers used by compiled wasm code.
-        self.set_memory(memory_index, self.memories[memory_index].vmmemory());
+        let memory_ptr = self.memories[memory_index].vmmemory();
+        let vmmemory = unsafe { memory_ptr.as_ref() };
+        self.set_memory(memory_index, vmmemory);
 
         result
     }
@@ -647,7 +649,7 @@ impl Instance {
         len: u32,
     ) -> Result<(), Trap> {
         let import = self.imported_memory(memory_index);
-        let memory = unsafe { &*import.definition };
+        let memory = unsafe { import.definition.as_ref() };
         // The following memory copy is not synchronized and is not atomic:
         unsafe { memory.memory_copy(dst, src, len) }
     }
@@ -682,7 +684,7 @@ impl Instance {
         len: u32,
     ) -> Result<(), Trap> {
         let import = self.imported_memory(memory_index);
-        let memory = unsafe { &*import.definition };
+        let memory = unsafe { import.definition.as_ref() };
         // The following memory fill is not synchronized and is not atomic:
         unsafe { memory.memory_fill(dst, val, len) }
     }
@@ -806,7 +808,10 @@ impl InstanceHandle {
 
         let vmctx_memories = finished_memories
             .values()
-            .map(|m| m.as_ref().vmmemory())
+            .map(|m| {
+                let vmmemory_ptr = m.as_ref().vmmemory();
+                vmmemory_ptr.as_ref().clone()
+            })
             .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
 
@@ -1129,7 +1134,7 @@ unsafe fn get_memory_slice<'instance>(
         instance.memory(local_memory_index)
     } else {
         let import = instance.imported_memory(init.location.memory_index);
-        *import.definition.as_ref().unwrap()
+        import.definition.as_ref().clone()
     };
     slice::from_raw_parts_mut(memory.base, memory.current_length)
 }

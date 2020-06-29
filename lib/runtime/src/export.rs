@@ -78,7 +78,7 @@ impl From<ExportTable> for Export {
 #[derive(Debug, Clone)]
 pub struct ExportMemory {
     /// The address of the memory descriptor.
-    pub definition: *mut VMMemoryDefinition,
+    pub definition: NonNull<VMMemoryDefinition>,
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
 }
