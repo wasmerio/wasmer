@@ -1,4 +1,4 @@
-use crate::{cache::Artifact, module::Module, new};
+use crate::{cache::Artifact, get_global_store, module::Module, new};
 use std::{convert::Infallible, error::Error};
 
 pub use new::wasmer::wat2wasm;
@@ -12,9 +12,10 @@ pub fn load_cache_with(cache: Artifact) -> Result<Module, Infallible> {
 }
 
 pub fn compile_with(bytes: &[u8], _compiler: ()) -> Result<Module, Box<dyn Error>> {
-    let store = Default::default();
-
-    Ok(Module::new(new::wasmer::Module::new(&store, bytes)?))
+    Ok(Module::new(new::wasmer::Module::new(
+        get_global_store(),
+        bytes,
+    )?))
 }
 
 pub fn compile_with_config(
@@ -22,15 +23,14 @@ pub fn compile_with_config(
     _compiler: (),
     _compiler_config: (),
 ) -> Result<Module, Box<dyn Error>> {
-    let store = Default::default();
-
-    Ok(Module::new(new::wasmer::Module::new(&store, bytes)?))
+    Ok(Module::new(new::wasmer::Module::new(
+        get_global_store(),
+        bytes,
+    )?))
 }
 
 pub fn validate(bytes: &[u8]) -> bool {
-    let store = Default::default();
-
-    new::wasmer::Module::validate(&store, bytes).is_ok()
+    new::wasmer::Module::validate(get_global_store(), bytes).is_ok()
 }
 
 #[macro_export]

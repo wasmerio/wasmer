@@ -43,3 +43,11 @@ pub mod prelude {
 }
 
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
+
+lazy_static::lazy_static! {
+    static ref GLOBAL_STORE: new::wasmer::Store = Default::default();
+}
+
+pub(crate) fn get_global_store() -> &'static new::wasmer::Store {
+    &*GLOBAL_STORE
+}

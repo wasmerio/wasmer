@@ -1242,6 +1242,7 @@ name = "wasmer-runtime-core"
 version = "1.0.0-alpha.1"
 dependencies = [
  "blake3",
+ "lazy_static",
  "wasm-common",
  "wasmer",
  "wasmer-cache",

@@ -1,4 +1,4 @@
-use crate::{error::MemoryError, new, types::ValueType, units::Pages};
+use crate::{error::MemoryError, get_global_store, new, types::ValueType, units::Pages};
 
 pub mod ptr {
     pub use crate::new::wasmer::{Array, Item, WasmPtr};
@@ -14,10 +14,8 @@ pub struct Memory {
 
 impl Memory {
     pub fn new(descriptor: MemoryDescriptor) -> Result<Self, MemoryError> {
-        let store = Default::default();
-
         Ok(Memory {
-            new_memory: new::wasmer::Memory::new(&store, descriptor)?,
+            new_memory: new::wasmer::Memory::new(get_global_store(), descriptor)?,
         })
     }
 

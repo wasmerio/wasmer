@@ -1,5 +1,6 @@
 use crate::{
     error::{ExportError, RuntimeError},
+    get_global_store,
     new::{self, wasm_common::NativeWasmType},
     types::{FuncDescriptor, Type, Value},
     vm,
@@ -28,13 +29,11 @@ where
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = vm::Ctx::new();
 
-        // TODO: check this, is incorrect. We should have a global store as we have in the
-        // wasmer C API.
-        let store = Default::default();
-
         Self {
             new_function: new::wasmer::Function::new_env::<F, Args, Rets, vm::Ctx>(
-                &store, ctx, func,
+                get_global_store(),
+                ctx,
+                func,
             ),
             _phantom: PhantomData,
         }

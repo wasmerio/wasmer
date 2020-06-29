@@ -1,4 +1,5 @@
 use crate::{
+    get_global_store,
     module::{Module, ModuleInfo},
     new,
 };
@@ -24,10 +25,9 @@ impl Artifact {
     }
 
     pub unsafe fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
-        let store = Default::default();
-
         Ok(Self::new(
-            new::wasmer::Module::deserialize(&store, bytes).map_err(Error::DeserializeError)?,
+            new::wasmer::Module::deserialize(get_global_store(), bytes)
+                .map_err(Error::DeserializeError)?,
         ))
     }
 

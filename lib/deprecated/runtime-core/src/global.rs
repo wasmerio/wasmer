@@ -1,5 +1,5 @@
 use crate::{
-    new,
+    get_global_store, new,
     types::{GlobalDescriptor, Value},
 };
 use std::fmt;
@@ -11,18 +11,14 @@ pub struct Global {
 
 impl Global {
     pub fn new(value: Value) -> Self {
-        let store = Default::default();
-
         Self {
-            new_global: new::wasmer::Global::new(&store, value),
+            new_global: new::wasmer::Global::new(get_global_store(), value),
         }
     }
 
     pub fn new_mutable(value: Value) -> Self {
-        let store = Default::default();
-
         Self {
-            new_global: new::wasmer::Global::new_mut(&store, value),
+            new_global: new::wasmer::Global::new_mut(get_global_store(), value),
         }
     }
 

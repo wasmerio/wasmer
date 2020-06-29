@@ -1,6 +1,6 @@
 use crate::{
     error::RuntimeError,
-    new,
+    get_global_store, new,
     types::{TableDescriptor, Value},
 };
 
@@ -10,10 +10,8 @@ pub struct Table {
 
 impl Table {
     pub fn new(descriptor: TableDescriptor, initial_value: Value) -> Result<Self, RuntimeError> {
-        let store = Default::default();
-
         Ok(Self {
-            new_table: new::wasmer::Table::new(&store, descriptor, initial_value)?,
+            new_table: new::wasmer::Table::new(get_global_store(), descriptor, initial_value)?,
         })
     }
 
