@@ -1,7 +1,7 @@
 use crate::ValType;
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
-use std::convert::{TryFrom, TryInto};
+use std::convert::TryFrom;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use wasmer_runtime::{
@@ -64,8 +64,10 @@ impl Table for LinearTable {
 
     /// Returns the number of allocated elements.
     fn size(&self) -> u32 {
-        let vec_guard = self.vec.lock().unwrap();
-        vec_guard.borrow().len().try_into().unwrap()
+        unsafe {
+            let ptr = self.vm_table_definition.get();
+            (*ptr).current_elements
+        }
     }
 
     /// Grow table by the specified amount of elements.
