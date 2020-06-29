@@ -88,8 +88,8 @@ macro_rules! func_call {
                 //   1. Either by using the `NativeFunc` API, but a
                 //      new native function must be created for each
                 //      call,
-                //    2. Pack the parameters into a slice, call
-                //       `dyn_call` with it, and unpack the results.
+                //   2. Pack the parameters into a slice, call
+                //      `dyn_call` with it, and unpack the results.
                 //
                 // The first implementation is the following:
                 //
@@ -134,7 +134,6 @@ macro_rules! func_call {
                 })?;
 
                 Ok(rets)
-
             }
         }
     }
