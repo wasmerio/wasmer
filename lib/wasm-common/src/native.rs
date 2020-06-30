@@ -61,10 +61,12 @@ impl NativeWasmType for i32 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
