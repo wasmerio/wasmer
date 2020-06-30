@@ -17,6 +17,15 @@ mod tunables;
 mod types;
 mod utils;
 
+pub mod internals {
+    //! We use the internals module for exporting types that are only
+    //! intended to use in internal crates such as the compatibility crate
+    //! `wasmer-runtime`. Please don't use any of this types directly, as
+    //! they might change frequently or be removed in the future.
+
+    pub use crate::externals::{WithEnv, WithoutEnv};
+}
+
 pub use crate::exports::{ExportError, Exportable, Exports};
 pub use crate::externals::{
     Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,

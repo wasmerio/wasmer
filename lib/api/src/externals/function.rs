@@ -5,8 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
-pub use inner::{HostFunction, WasmExternType, WasmTypeList};
-use inner::{WithEnv, WithoutEnv};
+pub use inner::{HostFunction, WasmExternType, WasmTypeList, WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
 use wasmer_runtime::{
