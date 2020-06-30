@@ -581,6 +581,24 @@ mod inner {
         f64 => f64
     );
 
+    #[cfg(test)]
+    mod test_from_to_native_wasm_type {
+        use super::*;
+
+        #[test]
+        fn test_to_native() {
+            assert_eq!(7i8.to_native(), 7i32);
+        }
+
+        #[test]
+        #[should_panic(expected = "cannot convert 4294967295u32 to i32")]
+        fn test_to_native_panics() {
+            use std::{i32, u32};
+
+            assert_eq!(u32::MAX.to_native(), i32::MAX);
+        }
+    }
+
     /// The `WasmTypeList` trait represents a tuple (list) of Wasm
     /// typed values. It is used to get low-level representation of
     /// such a tuple.
