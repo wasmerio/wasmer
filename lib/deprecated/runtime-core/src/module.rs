@@ -41,9 +41,23 @@ impl Module {
         let pre_instance = Box::new(PreInstance::new());
 
         let import_object = {
-            // Replace the fake `vm::Ctx` of host functions.
-            // Since `ImportObject` has a readonly API, we have no
-            // choice than rebuilding an entire `ImportObject`.
+            // The problem is the following:
+            //
+            // * In the old API, `Instance` owns the host functions'
+            //   environments of kind `vm::Ctx`, and mutably shares it
+            //   with all host functions.
+            // * In the new API, every host function owns its env of
+            //   any kind; `Instance` knows nothing about this
+            //   environment.
+            //
+            // To reproduce the old API with the new API, host
+            // functions create an empty environment of kind
+            // `vm::Ctx`. It is stored internally behind a `VMContext`
+            // pointer. The hack consists of rebuilding an
+            // `ImportObject` (that holds all the host functions), and
+            // updates the `VMContext` pointer to use a shared
+            // `vm::Ctx` value owned by `Instance` (actually,
+            // `PreInstance`).
 
             let mut new_import_object = ImportObject::new();
             let mut new_namespaces: HashMap<String, Namespace> = HashMap::new();
@@ -54,40 +68,31 @@ impl Module {
                 .into_iter()
                 .map(|((namespace, name), export)| match export {
                     Export::Function(mut function) => {
-                        // That's an ugly hack. Go your way :-].
                         {
-                            // That's a static host function
+                            // `function` is a static host function
                             // constructed with
                             // `new::wasmer::Function::new_env`.
                             if !function.address.is_null() {
-                                // An empty `vm::Ctx` was created in
-                                // `Func` as a host function
-                                // environment. The internals of
-                                // `new::wasmer::externals::Function`
-                                // passes the environment inside the
-                                // `VMContext` pointer. That's another
-                                // hack.  This empty `vm::Ctx` must be
-                                // replaced by another `vm::Ctx` value
-                                // owned by `Instance`, because that's the
-                                // only way to update this structure
-                                // correctly for compatibility
-                                // purposes. Before doing this operation,
-                                // we must drop the empty `vm::Ctx` first.
+                                // Properly drop the empty `vm::Ctx`
+                                // created by the host function.
                                 unsafe {
                                     ptr::drop_in_place::<vm::Ctx>(function.vmctx as _);
                                 }
 
-                                // And now we can update the pointer to
-                                // `VMContext`, which is actually a
-                                // `vm::Ctx` pointer, to fallback on the
+                                // Update the pointer to `VMContext`,
+                                // which is actually a `vm::Ctx`
+                                // pointer, to fallback on the
                                 // environment hack.
                                 function.vmctx = pre_instance.vmctx_ptr() as _;
                             }
-                            // That's a dynamic host function
+                            // `function` is a dynamic host function
                             // constructed with
                             // `new::wasmer::Function::new_dynamic_env`.
                             else {
-                                // `new::wasmer::VMDynamicFunctionWithEnv`
+                                // `VMContext` holds a complex type:
+                                // `Box<VMDynamicFunctionContext<VMDynamicFunctionWithEnv<DynamicCtx>>>`.
+                                //
+                                // The type `VMDynamicFunctionWithEnv`
                                 // is private to `new::wasmer`. Let's
                                 // replicate it, and hope the layout
                                 // is the same!
