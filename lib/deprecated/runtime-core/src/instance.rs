@@ -38,6 +38,13 @@ pub struct Instance {
 
 impl Instance {
     pub(crate) fn new(pre_instance: Box<PreInstance>, new_instance: new::wasmer::Instance) -> Self {
+        // Initialize the `vm::Ctx`
+        {
+            let mut vmctx = pre_instance.vmctx.borrow_mut();
+
+            vmctx.module_info = new_instance.module().info() as *const _;
+        }
+
         Self {
             pre_instance,
             exports: new_instance.exports.clone().into(),
