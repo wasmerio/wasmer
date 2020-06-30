@@ -36,7 +36,7 @@ impl Module {
 
     pub fn instantiate(
         &self,
-        import_object: &crate::import::ImportObject,
+        import_object: &ImportObject,
     ) -> Result<Instance, InstantiationError> {
         let pre_instance = Box::new(PreInstance::new());
 
@@ -181,7 +181,7 @@ impl Module {
         self.new_module.exports().collect()
     }
 
-    pub fn custom_sections<'a>(&self, name: impl AsRef<str>) -> Option<Vec<Vec<u8>>> {
+    pub fn custom_sections(&self, name: impl AsRef<str>) -> Option<Vec<Vec<u8>>> {
         let custom_sections: Vec<Vec<u8>> = self
             .new_module
             .custom_sections(name.as_ref())
