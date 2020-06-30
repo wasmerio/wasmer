@@ -1,4 +1,9 @@
-use crate::{error::MemoryError, get_global_store, new, types::ValueType, units::Pages};
+use crate::{
+    error::{ExportError, MemoryError},
+    get_global_store, new,
+    types::ValueType,
+    units::Pages,
+};
 
 pub mod ptr {
     pub use crate::new::wasmer::{Array, Item, WasmPtr};
@@ -8,6 +13,7 @@ pub use new::wasm_common::MemoryType as MemoryDescriptor;
 pub use new::wasmer::{Atomically, MemoryView};
 pub use new::wasmer_runtime::MemoryStyle as MemoryType;
 
+#[derive(Clone)]
 pub struct Memory {
     new_memory: new::wasmer::Memory,
 }
@@ -40,6 +46,24 @@ impl From<&new::wasmer::Memory> for Memory {
     fn from(new_memory: &new::wasmer::Memory) -> Self {
         Self {
             new_memory: new_memory.clone(),
+        }
+    }
+}
+
+impl<'a> new::wasmer::Exportable<'a> for Memory {
+    fn to_export(&self) -> new::wasmer_runtime::Export {
+        self.new_memory.to_export()
+    }
+
+    fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
+        match r#extern {
+            new::wasmer::Extern::Memory(memory) => Ok(
+                // It's not ideal to call `Box::leak` here, but it
+                // would introduce too much changes in the
+                // `new::wasmer` API to support `Cow` or similar.
+                Box::leak(Box::<Memory>::new(memory.into())),
+            ),
+            _ => Err(ExportError::IncompatibleType),
         }
     }
 }

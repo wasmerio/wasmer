@@ -1,9 +1,10 @@
 use crate::{
-    error::RuntimeError,
+    error::{ExportError, RuntimeError},
     get_global_store, new,
     types::{TableDescriptor, Value},
 };
 
+#[derive(Clone)]
 pub struct Table {
     new_table: new::wasmer::Table,
 }
@@ -33,5 +34,31 @@ impl Table {
 
     pub fn grow(&self, delta: u32, initial_value: Value) -> Result<u32, RuntimeError> {
         self.new_table.grow(delta, initial_value)
+    }
+}
+
+impl From<&new::wasmer::Table> for Table {
+    fn from(new_table: &new::wasmer::Table) -> Self {
+        Self {
+            new_table: new_table.clone(),
+        }
+    }
+}
+
+impl<'a> new::wasmer::Exportable<'a> for Table {
+    fn to_export(&self) -> new::wasmer_runtime::Export {
+        self.new_table.to_export()
+    }
+
+    fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
+        match r#extern {
+            new::wasmer::Extern::Table(table) => Ok(
+                // It's not ideal to call `Box::leak` here, but it
+                // would introduce too much changes in the
+                // `new::wasmer` API to support `Cow` or similar.
+                Box::leak(Box::<Table>::new(table.into())),
+            ),
+            _ => Err(ExportError::IncompatibleType),
+        }
     }
 }

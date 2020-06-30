@@ -1,4 +1,5 @@
 use crate::{
+    error::ExportError,
     get_global_store, new,
     types::{GlobalDescriptor, Value},
 };
@@ -45,6 +46,24 @@ impl From<&new::wasmer::Global> for Global {
     fn from(new_global: &new::wasmer::Global) -> Self {
         Self {
             new_global: new_global.clone(),
+        }
+    }
+}
+
+impl<'a> new::wasmer::Exportable<'a> for Global {
+    fn to_export(&self) -> new::wasmer_runtime::Export {
+        self.new_global.to_export()
+    }
+
+    fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
+        match r#extern {
+            new::wasmer::Extern::Global(global) => Ok(
+                // It's not ideal to call `Box::leak` here, but it
+                // would introduce too much changes in the
+                // `new::wasmer` API to support `Cow` or similar.
+                Box::leak(Box::<Global>::new(global.into())),
+            ),
+            _ => Err(ExportError::IncompatibleType),
         }
     }
 }
