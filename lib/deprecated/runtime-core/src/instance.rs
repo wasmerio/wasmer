@@ -3,23 +3,24 @@ use crate::{
     structures::TypedIndex, types::Value, vm,
 };
 use std::{
-    cell::{Ref, RefCell},
+    cell::{Ref, RefCell, RefMut},
     error::Error,
+    rc::Rc,
 };
 
 #[derive(Debug)]
 pub(crate) struct PreInstance {
-    pub(crate) vmctx: RefCell<vm::Ctx>,
+    pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
 }
 
 impl PreInstance {
     pub(crate) fn new() -> Self {
         Self {
-            vmctx: RefCell::new(vm::Ctx::new()),
+            vmctx: Rc::new(RefCell::new(vm::Ctx::new())),
         }
     }
 
-    pub(crate) fn vmctx(&self) -> RefCell<vm::Ctx> {
+    pub(crate) fn vmctx(&self) -> Rc<RefCell<vm::Ctx>> {
         self.vmctx.clone()
     }
 
@@ -82,8 +83,8 @@ impl Instance {
         self.pre_instance.vmctx.borrow()
     }
 
-    pub fn context_mut(&mut self) -> &mut vm::Ctx {
-        self.pre_instance.vmctx.get_mut()
+    pub fn context_mut(&mut self) -> RefMut<vm::Ctx> {
+        self.pre_instance.vmctx.borrow_mut()
     }
 }
 

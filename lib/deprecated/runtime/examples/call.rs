@@ -1,4 +1,6 @@
-use crate::wasmer_runtime::{compile, imports, wat2wasm, Ctx, Func, RuntimeError};
+use crate::wasmer_runtime::{
+    compile, imports, wat2wasm, Ctx, DynamicFunc, Func, FuncSig, RuntimeError, Type, Value,
+};
 use std::{error, fmt};
 use wasmer_runtime_deprecated as wasmer_runtime;
 

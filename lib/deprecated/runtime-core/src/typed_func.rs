@@ -210,20 +210,39 @@ pub struct DynamicFunc {
     new_function: new::wasmer::Function,
 }
 
+use std::{
+    cell::{RefCell, RefMut},
+    ops::DerefMut,
+    rc::Rc,
+};
+
+pub(crate) struct DynamicCtx {
+    pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
+}
+
 impl DynamicFunc {
     pub fn new<F>(signature: &FuncSig, func: F) -> Self
     where
         F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
-        let ctx = vm::Ctx::new();
+        let ctx = DynamicCtx {
+            vmctx: Rc::new(RefCell::new(vm::Ctx::new())),
+        };
 
         Self {
             new_function: new::wasmer::Function::new_dynamic_env(
                 get_global_store(),
                 signature,
                 ctx,
-                func,
+                move |dyn_ctx: &mut DynamicCtx,
+                      params: &[Value]|
+                      -> Result<Vec<Value>, RuntimeError> {
+                    let cell: Rc<RefCell<vm::Ctx>> = dyn_ctx.vmctx.clone();
+                    let mut vmctx: RefMut<vm::Ctx> = cell.borrow_mut();
+
+                    func(vmctx.deref_mut(), params)
+                },
             ),
         }
     }

@@ -4,6 +4,7 @@ use crate::{
     import::{ImportObject, Namespace},
     instance::{Instance, PreInstance},
     new,
+    typed_func::DynamicCtx,
     types::{FuncSig, Value},
     vm,
 };
@@ -113,12 +114,12 @@ impl Module {
                                 // `new::wasmer::Function::new_dynamic_env`.
                                 let vmctx: Box<
                                     new::wasmer_runtime::VMDynamicFunctionContext<
-                                        VMDynamicFunctionWithEnv<vm::Ctx>,
+                                        VMDynamicFunctionWithEnv<DynamicCtx>,
                                     >,
                                 > = unsafe { Box::from_raw(function.vmctx as *mut _) };
 
                                 // Replace the environment by ours.
-                                vmctx.ctx.env.swap(&pre_instance.vmctx());
+                                vmctx.ctx.env.borrow_mut().vmctx = pre_instance.vmctx();
 
                                 // … without anyone noticing…
                                 function.vmctx = Box::into_raw(vmctx) as _;
