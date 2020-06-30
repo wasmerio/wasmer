@@ -19,7 +19,7 @@ mod utils;
 
 pub use crate::exports::{ExportError, Exportable, Exports};
 pub use crate::externals::{
-    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;

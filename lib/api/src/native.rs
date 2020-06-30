@@ -13,7 +13,7 @@ use crate::externals::function::{
     FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
     VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
-use crate::{Function, FunctionType, RuntimeError, Store, WasmExternType, WasmTypeList};
+use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_common::NativeWasmType;
 use wasmer_runtime::{
@@ -97,7 +97,7 @@ macro_rules! impl_native_traits {
         #[allow(unused_parens, non_snake_case)]
         impl<'a $( , $x )*, Rets> NativeFunc<'a, ( $( $x ),* ), Rets>
         where
-            $( $x: WasmExternType, )*
+            $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.
