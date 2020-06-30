@@ -5,7 +5,7 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
-pub use inner::{HostFunction, WasmExternType, WasmTypeList};
+pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList};
 use inner::{WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
@@ -506,43 +506,69 @@ mod inner {
     use wasm_common::{FunctionType, NativeWasmType, Type};
     use wasmer_runtime::{raise_user_trap, resume_panic, VMFunctionBody};
 
-    /// A trait to represent a wasm extern type.
-    pub unsafe trait WasmExternType: Copy
+    /// A trait to convert a Rust value to a `WasmNativeType` value,
+    /// or to convert `WasmNativeType` value to a Rust value.
+    ///
+    /// This trait should ideally be splitted into two traits:
+    /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
+    /// non-negligeable complexity in the `WasmTypeList`
+    /// implementation.
+    pub unsafe trait FromToNativeWasmType: Copy
     where
         Self: Sized,
     {
-        /// Native wasm type for this `WasmExternType`.
+        /// Native Wasm type.
         type Native: NativeWasmType;
 
-        /// Convert from given `Native` type to self.
+        /// Convert a value of kind `Self::Native` to `Self`.
+        ///
+        /// # Panics
+        ///
+        /// This method panics if `native` cannot fit in the `Self`
+        /// type`.
         fn from_native(native: Self::Native) -> Self;
 
-        /// Convert self to `Native` type.
+        /// Convert self to `Self::Native`.
+        ///
+        /// # Panics
+        ///
+        /// This method panics if `self` cannot fit in the
+        /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
     }
 
-    macro_rules! wasm_extern_type {
+    macro_rules! from_to_native_wasm_type {
         ( $( $type:ty => $native_type:ty ),* ) => {
             $(
                 #[allow(clippy::use_self)]
-                unsafe impl WasmExternType for $type {
+                unsafe impl FromToNativeWasmType for $type {
                     type Native = $native_type;
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native as _
+                        native.try_into().expect(&format!(
+                            "cannot convert {}{} to {}",
+                            native,
+                            stringify!($native_type),
+                            stringify!($type),
+                        ))
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self as _
+                        self.try_into().expect(&format!(
+                            "cannot convert {}{} to {}",
+                            self,
+                            stringify!($type),
+                            stringify!($native_type),
+                        ))
                     }
                 }
             )*
         };
     }
 
-    wasm_extern_type!(
+    from_to_native_wasm_type!(
         i8 => i32,
         u8 => i32,
         i16 => i32,
@@ -730,9 +756,9 @@ mod inner {
             /// A structure with a C-compatible representation that can hold a set of Wasm values.
             /// This type is used by `WasmTypeList::CStruct`.
             #[repr($c_struct_representation)]
-            pub struct $c_struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
+            pub struct $c_struct_name< $( $x ),* > ( $( <$x as FromToNativeWasmType>::Native ),* )
             where
-                $( $x: WasmExternType ),*;
+                $( $x: FromToNativeWasmType ),*;
 
             // Implement `WasmTypeList` for a specific tuple.
             #[allow(unused_parens, dead_code)]
@@ -741,7 +767,7 @@ mod inner {
             for
                 ( $( $x ),* )
             where
-                $( $x: WasmExternType ),*
+                $( $x: FromToNativeWasmType ),*
             {
                 type CStruct = $c_struct_name< $( $x ),* >;
 
@@ -755,7 +781,7 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            WasmExternType::from_native(NativeWasmType::from_binary($x))
+                            FromToNativeWasmType::from_native(NativeWasmType::from_binary($x))
                         ),*
                     )
                 }
@@ -772,7 +798,7 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            WasmExternType::to_native($x).to_binary()
+                            FromToNativeWasmType::to_native($x).to_binary()
                         ),*
                     ]
                 }
@@ -789,7 +815,7 @@ mod inner {
 
                     (
                         $(
-                            WasmExternType::from_native($x)
+                            FromToNativeWasmType::from_native($x)
                         ),*
                     )
                 }
@@ -802,7 +828,7 @@ mod inner {
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            WasmExternType::to_native($x)
+                            FromToNativeWasmType::to_native($x)
                         ),*
                     )
                 }
@@ -824,7 +850,7 @@ mod inner {
             for
                 Func
             where
-                $( $x: WasmExternType, )*
+                $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static + Send,
@@ -836,14 +862,14 @@ mod inner {
                     /// runtime.
                     extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
                     where
-                        $( $x: WasmExternType, )*
+                        $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
                         Func: Fn( $( $x ),* ) -> RetsAsResult + 'static
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func( $( WasmExternType::from_native($x) ),* ).into_result()
+                            func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
@@ -863,7 +889,7 @@ mod inner {
             for
                 Func
             where
-                $( $x: WasmExternType, )*
+                $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Env: Sized,
@@ -876,7 +902,7 @@ mod inner {
                     /// runtime.
                     extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
-                        $( $x: WasmExternType, )*
+                        $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
                         Env: Sized,
@@ -885,7 +911,7 @@ mod inner {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(env, $( WasmExternType::from_native($x) ),* ).into_result()
+                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
