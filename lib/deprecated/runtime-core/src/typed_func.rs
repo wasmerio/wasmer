@@ -216,6 +216,11 @@ use std::{
     rc::Rc,
 };
 
+/// Specific context for `DynamicFunc`. It's a hack.
+///
+/// Initially, it holds an empty `vm::Ctx`, but it is replaced by the
+/// `vm::Ctx` from `instance::PreInstance` in
+/// `module::Module::instantiate`.
 pub(crate) struct DynamicCtx {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
 }
@@ -235,6 +240,8 @@ impl DynamicFunc {
                 get_global_store(),
                 signature,
                 ctx,
+                // Wrapper to safely extract a `&mut vm::Ctx` to pass
+                // to `func`.
                 move |dyn_ctx: &mut DynamicCtx,
                       params: &[Value]|
                       -> Result<Vec<Value>, RuntimeError> {
