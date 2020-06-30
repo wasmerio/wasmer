@@ -27,7 +27,7 @@ where
         F: new::wasmer::HostFunction<Args, Rets, new::wasmer::WithEnv, vm::Ctx>,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
-        let ctx = vm::Ctx::new();
+        let ctx = unsafe { vm::Ctx::new_uninit() };
 
         Self {
             new_function: new::wasmer::Function::new_env::<F, Args, Rets, vm::Ctx>(
@@ -197,7 +197,9 @@ where
     fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
         match r#extern {
             new::wasmer::Extern::Function(func) => Ok(
-                // It's not ideal to call `Box::leak` here, but it would introduce too much changes in the `new::wasmer` API to support `Cow` or similar.
+                // It's not ideal to call `Box::leak` here, but it
+                // would introduce too much changes in the
+                // `new::wasmer` API to support `Cow` or similar.
                 Box::leak(Box::<Func<Args, Rets>>::new(func.into())),
             ),
             _ => Err(ExportError::IncompatibleType),
@@ -232,7 +234,7 @@ impl DynamicFunc {
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = DynamicCtx {
-            vmctx: Rc::new(RefCell::new(vm::Ctx::new())),
+            vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
         };
 
         Self {

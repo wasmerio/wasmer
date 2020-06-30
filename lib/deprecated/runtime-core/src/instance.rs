@@ -16,7 +16,7 @@ pub(crate) struct PreInstance {
 impl PreInstance {
     pub(crate) fn new() -> Self {
         Self {
-            vmctx: Rc::new(RefCell::new(vm::Ctx::new())),
+            vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
         }
     }
 
@@ -98,6 +98,7 @@ impl LikeNamespace for Instance {
     }
 }
 
+#[derive(Clone)]
 pub struct Exports {
     pub(crate) new_exports: new::wasmer::Exports,
 }

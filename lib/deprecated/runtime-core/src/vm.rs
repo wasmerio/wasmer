@@ -8,7 +8,7 @@ pub struct Ctx {
 }
 
 impl Ctx {
-    pub(crate) fn new() -> Self {
+    pub(crate) unsafe fn new_uninit() -> Self {
         Self {
             data: ptr::null_mut(),
             data_finalizer: None,
