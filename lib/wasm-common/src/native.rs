@@ -156,6 +156,14 @@ mod test_native_type {
         assert_eq!(f32::WASM_TYPE, Type::F32);
         assert_eq!(f64::WASM_TYPE, Type::F64);
     }
+
+    #[test]
+    fn test_roundtrip() {
+        assert_eq!(i32::from_binary(42i32.to_binary()), 42i32);
+        assert_eq!(i64::from_binary(42i64.to_binary()), 42i64);
+        assert_eq!(f32::from_binary(42f32.to_binary()), 42f32);
+        assert_eq!(f64::from_binary(42f64.to_binary()), 42f64);
+    }
 }
 
 // pub trait IntegerAtomic
