@@ -1,6 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
+use crate::global::Global;
 use crate::memory::{Memory, MemoryPlan};
 use crate::table::{Table, TablePlan};
 use crate::vmcontext::{
@@ -9,7 +10,7 @@ use crate::vmcontext::{
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasm_common::{FunctionType, GlobalType};
+use wasm_common::FunctionType;
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -61,13 +62,15 @@ pub struct ExportTable {
     pub from: Arc<dyn Table>,
 }
 
-// This is correct because there is no non-threadsafe logic directly in this type;
-// correct use of the raw table from multiple threads via `definition` requires `unsafe`
-// and is the responsibilty of the user of this type.
+/// # Safety
+/// This is correct because there is no non-threadsafe logic directly in this type;
+/// correct use of the raw table from multiple threads via `definition` requires `unsafe`
+/// and is the responsibilty of the user of this type.
 unsafe impl Send for ExportTable {}
-// This is correct because the values directly in `definition` should be considered immutable
-// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
-// only makes this type easier to use)
+/// # Safety
+/// This is correct because the values directly in `definition` should be considered immutable
+/// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
+/// only makes this type easier to use)
 unsafe impl Sync for ExportTable {}
 
 impl ExportTable {
@@ -104,13 +107,15 @@ pub struct ExportMemory {
     pub from: Arc<dyn Memory>,
 }
 
-// This is correct because there is no non-threadsafe logic directly in this type;
-// correct use of the raw memory from multiple threads via `definition` requires `unsafe`
-// and is the responsibilty of the user of this type.
+/// # Safety
+/// This is correct because there is no non-threadsafe logic directly in this type;
+/// correct use of the raw memory from multiple threads via `definition` requires `unsafe`
+/// and is the responsibilty of the user of this type.
 unsafe impl Send for ExportMemory {}
-// This is correct because the values directly in `definition` should be considered immutable
-// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
-// only makes this type easier to use)
+/// # Safety
+/// This is correct because the values directly in `definition` should be considered immutable
+/// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
+/// only makes this type easier to use)
 unsafe impl Sync for ExportMemory {}
 
 impl ExportMemory {
@@ -136,15 +141,26 @@ impl From<ExportMemory> for Export {
 #[derive(Debug, Clone)]
 pub struct ExportGlobal {
     /// The address of the global storage.
-    pub definition: *mut VMGlobalDefinition,
+    pub definition: NonNull<VMGlobalDefinition>,
     /// The global declaration, used for compatibility checking.
-    pub global: GlobalType,
+    pub from: Arc<Global>,
 }
+
+/// # Safety
+/// This is correct because there is no non-threadsafe logic directly in this type;
+/// correct use of the raw global from multiple threads via `definition` requires `unsafe`
+/// and is the responsibilty of the user of this type.
+unsafe impl Send for ExportGlobal {}
+/// # Safety
+/// This is correct because the values directly in `definition` should be considered immutable
+/// from the perspective of users of this type and the type is both `Send` and `Clone` (thus
+/// marking it `Sync` adds no new behavior, it only makes this type easier to use)
+unsafe impl Sync for ExportGlobal {}
 
 impl ExportGlobal {
     /// Returns whether or not the two `ExportGlobal`s refer to the same Global.
     pub fn same(&self, other: &Self) -> bool {
-        self.definition == other.definition && self.global == other.global
+        self.definition == other.definition && Arc::ptr_eq(&self.from, &other.from)
     }
 }
 

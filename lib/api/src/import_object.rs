@@ -305,7 +305,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.global.ty == Type::I64
+            happy_dog_global.from.ty().ty == Type::I64
         } else {
             false
         });
@@ -331,7 +331,7 @@ mod test {
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.global.ty == Type::I32
+            happy_dog_global.from.ty().ty == Type::I32
         } else {
             false
         });
@@ -351,7 +351,7 @@ mod test {
         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
         assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.global.ty == Type::I32
+            happy_dog_global.from.ty().ty == Type::I32
         } else {
             false
         });

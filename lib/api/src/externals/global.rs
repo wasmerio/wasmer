@@ -1,51 +1,39 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::{Store, StoreObject};
-use crate::types::{Val, ValType};
+use crate::types::Val;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
-use wasmer_runtime::{Export, ExportGlobal, VMGlobalDefinition};
+use std::sync::Arc;
+use wasmer_runtime::{Export, ExportGlobal, Global as RuntimeGlobal};
 
 #[derive(Clone)]
 pub struct Global {
     store: Store,
     exported: ExportGlobal,
+    // This should not be here;
+    // it should be accessed through `exported`
+    // vm_global_definition: Arc<UnsafeCell<VMGlobalDefinition>>,
 }
 
 impl Global {
     pub fn new(store: &Store, val: Val) -> Global {
-        // Note: we unwrap because the provided type should always match
-        // the value type, so it's safe to unwrap.
-        Self::from_type(store, GlobalType::new(val.ty(), Mutability::Const), val).unwrap()
+        Self::from_type(store, Mutability::Const, val).unwrap()
     }
 
     pub fn new_mut(store: &Store, val: Val) -> Global {
-        // Note: we unwrap because the provided type should always match
-        // the value type, so it's safe to unwrap.
-        Self::from_type(store, GlobalType::new(val.ty(), Mutability::Var), val).unwrap()
+        Self::from_type(store, Mutability::Var, val).unwrap()
     }
 
-    fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
+    fn from_type(store: &Store, mutability: Mutability, val: Val) -> Result<Global, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
-        let mut definition = VMGlobalDefinition::new();
-        unsafe {
-            match val {
-                Val::I32(x) => *definition.as_i32_mut() = x,
-                Val::I64(x) => *definition.as_i64_mut() = x,
-                Val::F32(x) => *definition.as_f32_mut() = x,
-                Val::F64(x) => *definition.as_f64_mut() = x,
-                _ => return Err(RuntimeError::new(format!("create_global for {:?}", val))),
-                // Val::V128(x) => *definition.as_u128_bits_mut() = x,
-            }
-        };
-        let exported = ExportGlobal {
-            definition: Box::leak(Box::new(definition)),
-            global: ty,
-        };
+        let from = Arc::new(RuntimeGlobal::new_with_value(mutability, val));
+        let definition = from.vmglobal();
+        let exported = ExportGlobal { definition, from };
         Ok(Global {
             store: store.clone(),
             exported,
@@ -53,7 +41,7 @@ impl Global {
     }
 
     pub fn ty(&self) -> &GlobalType {
-        &self.exported.global
+        self.exported.from.ty()
     }
 
     pub fn store(&self) -> &Store {
@@ -61,44 +49,19 @@ impl Global {
     }
 
     pub fn get(&self) -> Val {
-        unsafe {
-            let definition = &mut *self.exported.definition;
-            match self.ty().ty {
-                ValType::I32 => Val::from(*definition.as_i32()),
-                ValType::I64 => Val::from(*definition.as_i64()),
-                ValType::F32 => Val::F32(*definition.as_f32()),
-                ValType::F64 => Val::F64(*definition.as_f64()),
-                _ => unimplemented!("Global::get for {:?}", self.ty().ty),
-            }
-        }
+        self.exported.from.get()
     }
 
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
-        if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(
-                "immutable global cannot be set".to_string(),
-            ));
-        }
-        if val.ty() != self.ty().ty {
-            return Err(RuntimeError::new(format!(
-                "global of type {:?} cannot be set to {:?}",
-                self.ty().ty,
-                val.ty()
-            )));
-        }
         if !val.comes_from_same_store(&self.store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            let definition = &mut *self.exported.definition;
-            match val {
-                Val::I32(i) => *definition.as_i32_mut() = i,
-                Val::I64(i) => *definition.as_i64_mut() = i,
-                Val::F32(f) => *definition.as_f32_mut() = f,
-                Val::F64(f) => *definition.as_f64_mut() = f,
-                _ => unimplemented!("Global::set for {:?}", val.ty()),
-            }
-        }
+            self.exported
+                .from
+                .set(val)
+                .map_err(|e| RuntimeError::new(e.to_string()))?
+        };
         Ok(())
     }
 

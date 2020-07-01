@@ -22,6 +22,7 @@
 )]
 
 mod export;
+mod global;
 mod imports;
 mod instance;
 mod memory;
@@ -37,6 +38,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
+pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::InstanceHandle;
 pub use crate::memory::{Memory, MemoryError, MemoryPlan, MemoryStyle};

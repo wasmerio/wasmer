@@ -209,7 +209,7 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `vmctx` field.
+    /// The offset of the `from` field.
     #[allow(clippy::identity_op)]
     pub const fn vmmemory_import_from(&self) -> u8 {
         1 * self.pointer_size
@@ -256,10 +256,16 @@ impl VMOffsets {
 ///
 /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
 impl VMOffsets {
-    /// The offset of the `from` field.
+    /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
     pub const fn vmglobal_import_definition(&self) -> u8 {
         0 * self.pointer_size
+    }
+
+    /// The offset of the `from` field.
+    #[allow(clippy::identity_op)]
+    pub const fn vmglobal_import_from(&self) -> u8 {
+        1 * self.pointer_size
     }
 
     /// Return the size of [`VMGlobalImport`].
@@ -267,7 +273,7 @@ impl VMOffsets {
     /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     #[allow(clippy::identity_op)]
     pub const fn size_of_vmglobal_import(&self) -> u8 {
-        1 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 

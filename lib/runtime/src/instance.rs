@@ -5,6 +5,7 @@
 //! wasm module (except its callstack and register state). An
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
+use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
@@ -73,11 +74,13 @@ pub(crate) struct Instance {
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    // TODO: maybe `*mut Arc`
     memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
 
     /// WebAssembly table data.
     tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
+
+    /// WebAssembly global data.
+    globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
@@ -235,21 +238,21 @@ impl Instance {
 
     /// Return the indexed `VMGlobalDefinition`.
     fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
-        unsafe { *self.global_ptr(index) }
+        unsafe { self.global_ptr(index).as_ref().clone() }
     }
 
     /// Set the indexed global to `VMGlobalDefinition`.
     #[allow(dead_code)]
-    fn set_global(&self, index: LocalGlobalIndex, global: VMGlobalDefinition) {
+    fn set_global(&self, index: LocalGlobalIndex, global: &VMGlobalDefinition) {
         unsafe {
-            *self.global_ptr(index) = global;
+            *self.global_ptr(index).as_ptr() = global.clone();
         }
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global_ptr(&self, index: LocalGlobalIndex) -> *mut VMGlobalDefinition {
+    fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { self.globals_ptr().add(index) }
+        NonNull::new(unsafe { self.globals_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
@@ -330,15 +333,17 @@ impl Instance {
                     };
                 ExportMemory { definition, from }.into()
             }
-            ExportIndex::Global(index) => ExportGlobal {
-                definition: if let Some(def_index) = self.module.local_global_index(*index) {
-                    self.global_ptr(def_index)
-                } else {
-                    self.imported_global(*index).definition
-                },
-                global: self.module.globals[*index],
+            ExportIndex::Global(index) => {
+                let (definition, from) = {
+                    if let Some(def_index) = self.module.local_global_index(*index) {
+                        (self.global_ptr(def_index), self.globals[def_index].clone())
+                    } else {
+                        let import = self.imported_global(*index);
+                        (import.definition, import.from.clone())
+                    }
+                };
+                ExportGlobal { definition, from }.into()
             }
-            .into(),
         }
     }
 
@@ -789,7 +794,7 @@ impl InstanceHandle {
         finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
-        finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
+        finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
@@ -815,7 +820,14 @@ impl InstanceHandle {
             .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
 
-        let vmctx_globals = finished_globals;
+        let vmctx_globals = finished_globals
+            .values()
+            .map(|m| {
+                let vmglobal_ptr = m.as_ref().vmglobal();
+                vmglobal_ptr.as_ref().clone()
+            })
+            .collect::<PrimaryMap<LocalGlobalIndex, _>>()
+            .into_boxed_slice();
 
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, &module);
 
@@ -827,6 +839,7 @@ impl InstanceHandle {
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
+                globals: finished_globals,
                 passive_elements: Default::default(),
                 passive_data,
                 finished_functions,
@@ -1112,7 +1125,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
             if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
-                *(*instance.imported_global(base).definition).as_u32()
+                *instance.imported_global(base).definition.as_ref().as_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1165,7 +1178,7 @@ fn get_table_init_start(init: &TableElements, instance: &Instance) -> usize {
             if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
-                *(*instance.imported_global(base).definition).as_u32()
+                *instance.imported_global(base).definition.as_ref().as_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1258,7 +1271,7 @@ fn initialize_globals(instance: &Instance) {
     let module = Arc::clone(&instance.module);
     for (index, initializer) in module.global_initializers.iter() {
         unsafe {
-            let to = instance.global_ptr(index);
+            let to = instance.global_ptr(index).as_ptr();
             match initializer {
                 GlobalInit::I32Const(x) => *(*to).as_i32_mut() = *x,
                 GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
@@ -1269,7 +1282,7 @@ fn initialize_globals(instance: &Instance) {
                     let from = if let Some(def_x) = module.local_global_index(*x) {
                         instance.global(def_x)
                     } else {
-                        *instance.imported_global(*x).definition
+                        instance.imported_global(*x).definition.as_ref().clone()
                     };
                     *to = from;
                 }

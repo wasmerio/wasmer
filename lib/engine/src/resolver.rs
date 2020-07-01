@@ -115,8 +115,8 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
             ExternType::Memory(memory)
         }
         Export::Global(ref g) => {
-            let global = g.global;
-            ExternType::Global(global)
+            let global = g.from.ty();
+            ExternType::Global(*global)
         }
     }
 }
@@ -221,6 +221,7 @@ pub fn resolve_imports(
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
                     definition: g.definition,
+                    from: g.from.clone(),
                 });
             }
         }
