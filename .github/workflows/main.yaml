@@ -15,7 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2019-12-19
+          toolchain: nightly-2020-06-09
           override: true
           components: rustfmt, clippy
       - run: make lint
@@ -29,7 +29,7 @@ jobs:
   #       uses: actions-rs/toolchain@v1
   #       with:
   #         profile: minimal
-  #         toolchain: nightly-2019-12-19
+  #         toolchain: nightly-2020-06-09
   #         override: true
   #         components: rustfmt, clippy
   #     - run: make doc-local
@@ -44,13 +44,13 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: nightly-2019-12-19
+            rust: nightly-2020-06-09
           - build: macos
             os: macos-latest
-            rust: nightly-2019-12-19
+            rust: nightly-2020-06-09
           - build: windows
             os: windows-latest
-            rust: nightly-2019-12-19
+            rust: nightly-2020-06-09
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
