@@ -546,9 +546,8 @@ mod inner {
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native.try_into().expect(&format!(
-                            "cannot convert {}{} to {}",
-                            native,
+                        native.try_into().expect(concat!(
+                            "out of range type conversion attempt (tried to convert `{}` to `{}`)",
                             stringify!($native_type),
                             stringify!($type),
                         ))
@@ -556,9 +555,8 @@ mod inner {
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self.try_into().expect(&format!(
-                            "cannot convert {}{} to {}",
-                            self,
+                        self.try_into().expect(concat!(
+                            "out of range type conversion attempt (tried to convert `{}` to `{}`)",
                             stringify!($type),
                             stringify!($native_type),
                         ))
