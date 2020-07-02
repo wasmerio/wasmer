@@ -1,6 +1,6 @@
 use crate::{
     error::ExportError, export::Exportable, import::LikeNamespace, module::Module, new,
-    structures::TypedIndex, types::Value, vm,
+    structures::TypedIndex, typed_func::Func, types::Value, vm,
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -56,6 +56,14 @@ impl Instance {
 
     pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
         Err(())
+    }
+
+    pub fn func<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>
+    where
+        Args: new::wasmer::WasmTypeList + Clone,
+        Rets: new::wasmer::WasmTypeList + Clone,
+    {
+        self.exports.get(name)
     }
 
     pub fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError> {
