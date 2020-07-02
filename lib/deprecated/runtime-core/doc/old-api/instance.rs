@@ -4,7 +4,7 @@ struct Instance {
 }
 
 impl Instance {
-    fn load<T: Loader>(&self, loader: T) -> Result<T::Instnace, T::Error>;
+    fn load<T: Loader>(&self, loader: T) -> Result<T::Instance, T::Error>;
     fn fun<Args, Rets>(&self, name: &str) -> ResolveResult<Args, Rets, Wasm>;
     fn resolve_func(&self, name: &str) -> ResolveError<usize>;
     fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc>;

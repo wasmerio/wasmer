@@ -6,5 +6,5 @@ impl Module {
     fn info(&self) -> &ModuleInfo;
     fn imports(&self) -> Vec<ImportDescriptor>;
     fn exports(&self) -> Vec<ExportDescriptor>;
-    fn custom_sections(&self, name: impl Asref<str>) -> Option<Vec<Vec<u8>>>;
+    fn custom_sections(&self, key: impl AsRef<str>) -> Option<Vec<Vec<u8>>>;
 }
