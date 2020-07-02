@@ -1,18 +1,22 @@
 use std::error::Error;
 
-pub use wasmer_runtime_core::export::Export;
-pub use wasmer_runtime_core::global::Global;
-pub use wasmer_runtime_core::import::{ImportObject, LikeNamespace};
-pub use wasmer_runtime_core::instance::Instance;
-pub use wasmer_runtime_core::memory::ptr::{Array, Item, WasmPtr};
-pub use wasmer_runtime_core::memory::Memory;
-pub use wasmer_runtime_core::module::Module;
-pub use wasmer_runtime_core::table::Table;
-pub use wasmer_runtime_core::typed_func::{DynamicFunc, Func};
-pub use wasmer_runtime_core::types;
-pub use wasmer_runtime_core::vm::Ctx;
 pub use wasmer_runtime_core::{
-    compile, compile_with, func, imports, load_cache_with, validate, wat2wasm,
+    compile, compile_with,
+    export::{Export, RuntimeExport},
+    func,
+    global::Global,
+    import::{ImportObject, LikeNamespace},
+    imports,
+    instance::Instance,
+    load_cache_with,
+    memory::ptr::{Array, Item, WasmPtr},
+    memory::Memory,
+    module::Module,
+    table::Table,
+    typed_func::{DynamicFunc, Func},
+    types, validate,
+    vm::Ctx,
+    wat2wasm,
 };
 
 pub mod memory {
