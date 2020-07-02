@@ -194,4 +194,15 @@ impl Module {
             Some(custom_sections)
         }
     }
+
+    #[doc(hidden)]
+    pub fn into_inner(&self) -> new::wasmer::Module {
+        self.new_module.clone()
+    }
+}
+
+impl Into<new::wasmer::Module> for Module {
+    fn into(self) -> new::wasmer::Module {
+        self.into_inner()
+    }
 }
