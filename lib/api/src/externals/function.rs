@@ -546,18 +546,22 @@ mod inner {
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
                         native.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `{}` to `{}`)",
+                            "out of range type conversion attempt (tried to convert `",
                             stringify!($native_type),
+                            "` to `",
                             stringify!($type),
+                            "`)",
                         ))
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
                         self.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `{}` to `{}`)",
+                            "out of range type conversion attempt (tried to convert `",
                             stringify!($type),
+                            "` to `",
                             stringify!($native_type),
+                            "`)",
                         ))
                     }
                 }
@@ -588,7 +592,9 @@ mod inner {
         }
 
         #[test]
-        #[should_panic(expected = "cannot convert 4294967295u32 to i32")]
+        #[should_panic(
+            expected = "out of range type conversion attempt (tried to convert `u32` to `i32`)"
+        )]
         fn test_to_native_panics() {
             use std::{i32, u32};
 
