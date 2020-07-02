@@ -22,8 +22,8 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateCreationError, ALL_RIGHTS,
-    VIRTUAL_ROOT_FD,
+    Fd, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder, WasiStateCreationError,
+    ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
