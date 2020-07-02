@@ -8,6 +8,8 @@ use std::{
     rc::Rc,
 };
 
+pub use crate::typed_func::DynamicFunc as DynFunc;
+
 #[derive(Debug)]
 pub(crate) struct PreInstance {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
@@ -54,6 +56,10 @@ impl Instance {
 
     pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
         Err(())
+    }
+
+    pub fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError> {
+        self.exports.get(name)
     }
 
     pub fn resolve_func(&self, name: &str) -> Result<usize, ()> {
