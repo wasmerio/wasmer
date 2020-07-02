@@ -6,7 +6,7 @@
 #![allow(dead_code)]
 
 use std::{cell::Cell, fmt};
-pub use wasmer::{Array, Memory, ValueType, WasmExternType};
+pub use wasmer::{Array, FromToNativeWasmType, Memory, ValueType};
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = wasmer::Item>(wasmer::WasmPtr<T, Ty>);
@@ -26,8 +26,8 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     }
 }
 
-unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
-    type Native = <wasmer::WasmPtr<T, Ty> as WasmExternType>::Native;
+unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
+    type Native = <wasmer::WasmPtr<T, Ty> as FromToNativeWasmType>::Native;
 
     fn to_native(self) -> Self::Native {
         self.0.to_native()

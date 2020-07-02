@@ -4,7 +4,7 @@ mod memory;
 mod table;
 
 pub use self::function::{
-    Function, HostFunction, WasmExternType, WasmTypeList, WithEnv, WithoutEnv,
+    FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
 };
 pub use self::global::Global;
 pub use self::memory::Memory;
