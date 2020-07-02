@@ -1,6 +1,13 @@
 use crate::{
-    error::ExportError, export::Exportable, import::LikeNamespace, module::Module, new,
-    structures::TypedIndex, typed_func::Func, types::Value, vm,
+    error::ExportError,
+    export::{Export, Exportable},
+    import::LikeNamespace,
+    module::Module,
+    new,
+    structures::TypedIndex,
+    typed_func::Func,
+    types::Value,
+    vm,
 };
 use std::{
     cell::{Ref, RefCell, RefMut},
@@ -106,6 +113,12 @@ impl Instance {
 
     pub fn context_mut(&mut self) -> RefMut<vm::Ctx> {
         self.pre_instance.vmctx.borrow_mut()
+    }
+
+    pub fn exports(
+        &self,
+    ) -> new::wasmer::ExportsIterator<impl Iterator<Item = (&String, &Export)>> {
+        self.new_instance.exports.iter()
     }
 }
 
