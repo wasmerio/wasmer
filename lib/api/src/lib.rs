@@ -17,7 +17,7 @@ mod tunables;
 mod types;
 mod utils;
 
-pub use crate::exports::{ExportError, Exportable, Exports};
+pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
     Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList, WithEnv,
     WithoutEnv,
