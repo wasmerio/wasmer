@@ -48,6 +48,7 @@ lazy_static::lazy_static! {
     static ref GLOBAL_STORE: new::wasmer::Store = Default::default();
 }
 
-pub(crate) fn get_global_store() -> &'static new::wasmer::Store {
+/// Useful if one needs to migrate to the new Wasmer's API gently.
+pub fn get_global_store() -> &'static new::wasmer::Store {
     &*GLOBAL_STORE
 }
