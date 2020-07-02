@@ -268,6 +268,10 @@ impl DynamicFunc {
         self.signature().results()
     }
 
+    pub fn call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
+        self.dyn_call(params)
+    }
+
     pub fn dyn_call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
         self.new_function.call(params)
     }
