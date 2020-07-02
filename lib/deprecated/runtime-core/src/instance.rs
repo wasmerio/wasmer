@@ -2,7 +2,7 @@ use crate::{
     error::ExportError,
     export::{Export, Exportable},
     import::LikeNamespace,
-    module::Module,
+    module::{ExportIndex, Module},
     new,
     structures::TypedIndex,
     typed_func::Func,
@@ -81,16 +81,18 @@ impl Instance {
         self.new_instance
             .module()
             .info()
-            .func_names
+            .exports
             .iter()
-            .find_map(|(function_index, function_name)| {
-                if function_name.as_str() == name {
-                    Some(function_index)
+            .find_map(|(export_name, export_index)| {
+                if name == export_name {
+                    match export_index {
+                        ExportIndex::Function(index) => Some(index.index()),
+                        _ => None,
+                    }
                 } else {
                     None
                 }
             })
-            .map(|function_index| function_index.index())
             .ok_or(())
     }
 
