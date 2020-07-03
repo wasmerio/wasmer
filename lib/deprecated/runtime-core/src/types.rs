@@ -27,7 +27,7 @@ pub use new::wasm_common::{
     Type,
     ValueType,
 };
-pub use new::wasmer::{Val as Value, WasmExternType};
+pub use new::wasmer::{FromToNativeWasmType as WasmExternType, Val as Value};
 
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GlobalDescriptor {
