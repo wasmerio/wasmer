@@ -49,22 +49,31 @@ Get started with Wasmer:
 
 #### 1. Install Wasmer
 
-With Shell:
+
+<details open="true">
+  <summary><b>With Shell</b></summary>
+  <p>
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-With Powershell:
+</p>
+</details>
+
+<details>
+  <summary><b>With PowerShell</b></summary>
+  <p>
 
 ```powershell
 iwr https://win.wasmer.io -useb | iex
 ```
 
-> *All Wasmer binares [are available on each Github release](https://github.com/wasmerio/wasmer/releases)*
+</p>
+</details>
 
 <details>
-  <summary><b>Alternative</b>: Wasmer is also available in Homebrew, Scoop and more.</summary>
+  <summary><b>Alternatives</b>: Wasmer is also available in Homebrew, Scoop and more.</summary>
   <p>
 
 Check all available installation methods here: https://github.com/wasmerio/wasmer-install/
