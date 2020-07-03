@@ -1,6 +1,10 @@
-for i in `\ls new-api`; do clear; echo "#######
-### ${i}
-#######
+#!/bin/bash
 
+for i in `\ls new-api | grep "${1-.}"`; do
+    clear
+    echo -e "#######\n### ${i}\n#######\n\n\n\n"
+    diff -u old-api/${i} new-api/${i} | diffr
 
-"; diff -u old-api/${i} new-api/${i} | diffr; read; done
+    echo -e "\n\n\n\nPress any key to diff the next file…"
+    read
+done
