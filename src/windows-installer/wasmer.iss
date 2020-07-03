@@ -16,9 +16,9 @@ DisableWelcomePage=no
 
 [Registry]
 Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_DIR"; \
-    ValueData: "{%USERPROFILE}\.wasmer"; Flags: preservestringtype
+    ValueData: "{app}"; Flags: preservestringtype
 Root: HKCU; Subkey: "Environment"; ValueType:string; ValueName: "WASMER_CACHE_DIR"; \
-    ValueData: "{%USERPROFILE}\.wasmer\cache"; Flags: preservestringtype
+    ValueData: "{app}\cache"; Flags: preservestringtype
 
 [Files]
 Source: "..\..\package\bin\*"; DestDir: "{app}\bin"
@@ -29,7 +29,7 @@ Source: "..\..\package\ATTRIBUTIONS"; DestDir: "{app}"
 Source: "wax.cmd"; DestDir: "{app}\bin"
 
 [Dirs]
-Name: "{%USERPROFILE}\.wasmer"
+Name: "{app}\cache"
 
 [Code]
 const EnvironmentKey = 'SYSTEM\CurrentControlSet\Control\Session Manager\Environment';
@@ -81,7 +81,7 @@ begin
     if CurStep = ssPostInstall 
      then begin 
      EnvAddPath(ExpandConstant('{app}') +'\bin');
-     EnvAddPath(ExpandConstant('{%USERPROFILE}') +'\globals\wapm_packages\.bin');
+     EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
      end
 end;
 
@@ -90,6 +90,6 @@ begin
     if CurUninstallStep = usPostUninstall
     then begin 
     EnvRemovePath(ExpandConstant('{app}') +'\bin');
-    EnvAddPath(ExpandConstant('{%USERPROFILE}') +'\globals\wapm_packages\.bin');
+    EnvAddPath(ExpandConstant('{app}') +'\globals\wapm_packages\.bin');
     end
 end;

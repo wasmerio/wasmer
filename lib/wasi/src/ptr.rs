@@ -3,7 +3,7 @@
 
 use crate::syscalls::types::{__wasi_errno_t, __WASI_EFAULT};
 use std::{cell::Cell, fmt};
-pub use wasmer::{Array, Item, Memory, ValueType, WasmExternType, WasmPtr as BaseWasmPtr};
+pub use wasmer::{Array, FromToNativeWasmType, Item, Memory, ValueType, WasmPtr as BaseWasmPtr};
 
 #[repr(transparent)]
 pub struct WasmPtr<T: Copy, Ty = Item>(BaseWasmPtr<T, Ty>);
@@ -24,8 +24,8 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     }
 }
 
-unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
-    type Native = <BaseWasmPtr<T, Ty> as WasmExternType>::Native;
+unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
+    type Native = <BaseWasmPtr<T, Ty> as FromToNativeWasmType>::Native;
 
     fn to_native(self) -> Self::Native {
         self.0.to_native()

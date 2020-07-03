@@ -6,7 +6,7 @@
 //! Therefore, you should use this abstraction whenever possible to avoid memory
 //! related bugs when implementing an ABI.
 
-use crate::{externals::Memory, WasmExternType};
+use crate::{externals::Memory, FromToNativeWasmType};
 use std::{cell::Cell, fmt, marker::PhantomData, mem};
 use wasm_common::ValueType;
 
@@ -218,7 +218,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     }
 }
 
-unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
+unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {
