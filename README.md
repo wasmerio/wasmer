@@ -49,17 +49,9 @@ Get started with Wasmer:
 
 #### 1. Install Wasmer
 
-
-<details open="true">
-  <summary>With Shell</summary>
-  <p>
-
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
-
-</p>
-</details>
 
 <details>
   <summary>With PowerShell</summary>
@@ -72,7 +64,7 @@ iwr https://win.wasmer.io -useb | iex
 </p>
 </details>
 
-> Check all available installation methods here: https://github.com/wasmerio/wasmer-install/
+> *Check all available installation methods here: https://github.com/wasmerio/wasmer-install*
 
 #### 2. Use Wasmer
 
