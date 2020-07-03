@@ -51,7 +51,7 @@ Get started with Wasmer:
 
 
 <details open="true">
-  <summary><b>With Shell</b></summary>
+  <summary>With Shell</summary>
   <p>
 
 ```sh
@@ -62,7 +62,7 @@ curl https://get.wasmer.io -sSfL | sh
 </details>
 
 <details>
-  <summary><b>With PowerShell</b></summary>
+  <summary>With PowerShell</summary>
   <p>
 
 ```powershell
@@ -73,7 +73,7 @@ iwr https://win.wasmer.io -useb | iex
 </details>
 
 <details>
-  <summary><b>Alternatives</b>: Wasmer is also available in Homebrew, Scoop and more.</summary>
+  <summary><b>Alternative methods</b>: Wasmer is also available in Homebrew, Scoop and more</summary>
   <p>
 
 Check all available installation methods here: https://github.com/wasmerio/wasmer-install/
