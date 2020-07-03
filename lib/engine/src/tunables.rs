@@ -6,7 +6,7 @@ use wasm_common::{
     MemoryType, Mutability, TableIndex, TableType,
 };
 use wasmer_runtime::MemoryError;
-use wasmer_runtime::{Global, Memory, ModuleInfo, Table};
+use wasmer_runtime::{Global, Imports, Memory, ModuleInfo, Table};
 use wasmer_runtime::{MemoryPlan, TablePlan};
 
 /// Tunables for an engine
@@ -26,10 +26,12 @@ pub trait Tunables {
     /// Create a global with the given value.
     fn create_initialized_global(
         &self,
+        module: &ModuleInfo,
+        imports: &Imports,
         mutability: Mutability,
         init: GlobalInit,
     ) -> Result<Arc<Global>, String> {
-        Ok(Arc::new(Global::new_with_init(mutability, init)))
+        Ok(Global::new_with_init(module, imports, mutability, init).map_err(|e| e.to_string())?)
     }
 
     /// Create a global with a default value.
@@ -77,17 +79,23 @@ pub trait Tunables {
     fn create_globals(
         &self,
         module: &ModuleInfo,
+        imports: &Imports,
     ) -> Result<PrimaryMap<LocalGlobalIndex, Arc<Global>>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
         for (idx, &global_type) in module.globals.iter().skip(num_imports) {
-            let idx = LocalGlobalIndex::new(idx.index());
+            let idx = module.local_global_index(idx).unwrap();
 
             vmctx_globals.push(
                 if let Some(&initializer) = module.global_initializers.get(idx) {
-                    self.create_initialized_global(global_type.mutability, initializer)
-                        .map_err(LinkError::Resource)?
+                    self.create_initialized_global(
+                        module,
+                        imports,
+                        global_type.mutability,
+                        initializer,
+                    )
+                    .map_err(LinkError::Resource)?
                 } else {
                     self.create_global(global_type)
                         .map_err(LinkError::Resource)?

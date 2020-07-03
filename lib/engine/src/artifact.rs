@@ -109,7 +109,7 @@ pub trait Artifact {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(&module)
+            .create_globals(&module, &imports)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 

@@ -277,16 +277,17 @@ impl VMOffsets {
     }
 }
 
-/// Offsets for [`VMGlobalDefinition`].
+/// Offsets for a non-null pointer to a [`VMGlobalDefinition`] used as a local global.
 ///
 /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
 impl VMOffsets {
-    /// Return the size of [`VMGlobalDefinition`]; this is the size of the largest value type (i.e. a
-    /// V128).
+    /// Return the size of a pointer to a [`VMGlobalDefinition`];
     ///
+    /// The underlying global itself is the size of the largest value type (i.e. a V128),
+    /// however the size of this type is just the size of a pointer.
     /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
-    pub const fn size_of_vmglobal_definition(&self) -> u8 {
-        16
+    pub const fn size_of_vmglobal_local(&self) -> u8 {
+        self.pointer_size
     }
 }
 
@@ -426,7 +427,7 @@ impl VMOffsets {
         self.vmctx_globals_begin()
             .checked_add(
                 self.num_local_globals
-                    .checked_mul(u32::from(self.size_of_vmglobal_definition()))
+                    .checked_mul(u32::from(self.size_of_vmglobal_local()))
                     .unwrap(),
             )
             .unwrap()
@@ -559,7 +560,7 @@ impl VMOffsets {
             .checked_add(
                 index
                     .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmglobal_definition()))
+                    .checked_mul(u32::from(self.size_of_vmglobal_local()))
                     .unwrap(),
             )
             .unwrap()

@@ -1,6 +1,9 @@
+use crate::imports::Imports;
+use crate::module::ModuleInfo;
 use crate::vmcontext::VMGlobalDefinition;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
+use std::sync::Arc;
 use std::sync::Mutex;
 use thiserror::Error;
 use wasm_common::{GlobalInit, GlobalType, Mutability, Type, Value};
@@ -52,51 +55,90 @@ impl Global {
     }
 
     /// Create a new, zero bit-pattern initialized global from a [`GlobalType`].
-    pub fn new_with_init(mutability: Mutability, value: GlobalInit) -> Self {
+    pub fn new_with_init(
+        module: &ModuleInfo,
+        imports: &Imports,
+        mutability: Mutability,
+        value: GlobalInit,
+    ) -> Result<Arc<Self>, GlobalError> {
         let mut vm_global_definition = VMGlobalDefinition::new();
-        let global_type = unsafe {
+        let ty = unsafe {
             match value {
                 GlobalInit::I32Const(v) => {
                     *vm_global_definition.as_i32_mut() = v;
-                    GlobalType {
-                        ty: Type::I32,
-                        mutability,
-                    }
+                    Type::I32
                 }
                 GlobalInit::I64Const(v) => {
                     *vm_global_definition.as_i64_mut() = v;
-                    GlobalType {
-                        ty: Type::I64,
-                        mutability,
-                    }
+                    Type::I64
                 }
                 GlobalInit::F32Const(v) => {
                     *vm_global_definition.as_f32_mut() = v;
-                    GlobalType {
-                        ty: Type::F32,
-                        mutability,
-                    }
+                    Type::F32
                 }
                 GlobalInit::F64Const(v) => {
                     *vm_global_definition.as_f64_mut() = v;
-                    GlobalType {
-                        ty: Type::F64,
-                        mutability,
+                    Type::F64
+                }
+                GlobalInit::GetGlobal(global_index) => {
+                    /*let other_type = module.globals.get(global_index).map_err(|e| "global does not exist")?;
+                     */
+                    if let Some(global_value) = imports.globals.get(global_index) {
+                        return Ok(global_value.from.clone());
+                    } else {
+                        let idx = module.local_global_index(global_index).unwrap();
+                        if let Some(&init) = module.global_initializers.get(idx) {
+                            // TODO: test for cycles/infinite loops here
+                            return Self::new_with_init(module, imports, mutability, init);
+                        }
+                        // global may not exist here.
+                        // TODO: tests should test if initializing with local global with no initializer and
+                        // initializing with an invalid global index
+                        todo!("check for initializer?, otherwise 0")
                     }
                 }
-                _ => unimplemented!("Global is not implemented for initializer {:?}", value),
+                _ => unimplemented!(
+                    "Global `new_with_init` is not implemented for initializer {:?}",
+                    value
+                ),
+            }
+        };
+        Ok(Arc::new(Self {
+            ty: GlobalType { ty, mutability },
+            vm_global_definition: Box::new(UnsafeCell::new(vm_global_definition)),
+            lock: Mutex::new(()),
+        }))
+    }
+
+    /// Create a new global initialized with the given value.
+    pub fn new_with_value<T>(mutability: Mutability, value: Value<T>) -> Self {
+        let mut vm_global_definition = VMGlobalDefinition::new();
+        let ty = unsafe {
+            match value {
+                Value::I32(v) => {
+                    *vm_global_definition.as_i32_mut() = v;
+                    Type::I32
+                }
+                Value::I64(v) => {
+                    *vm_global_definition.as_i64_mut() = v;
+                    Type::I64
+                }
+                Value::F32(v) => {
+                    *vm_global_definition.as_f32_mut() = v;
+                    Type::F32
+                }
+                Value::F64(v) => {
+                    *vm_global_definition.as_f64_mut() = v;
+                    Type::F64
+                }
+                _ => unimplemented!("Global `new_with_value` is not implemented for {:?}", value),
             }
         };
         Self {
-            ty: global_type,
+            ty: GlobalType { ty, mutability },
             vm_global_definition: Box::new(UnsafeCell::new(vm_global_definition)),
             lock: Mutex::new(()),
         }
-    }
-
-    /// Create a new, zero bit-pattern initialized global from a [`GlobalType`].
-    pub fn new_with_value<T>(mutability: Mutability, value: Value<T>) -> Self {
-        Self::new_with_init(mutability, GlobalInit::from_value(value))
     }
 
     /// Get the type of the global.

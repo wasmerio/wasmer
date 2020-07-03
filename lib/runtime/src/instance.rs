@@ -252,11 +252,12 @@ impl Instance {
     /// Return the indexed `VMGlobalDefinition`.
     fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        NonNull::new(unsafe { self.globals_ptr().add(index) }).unwrap()
+        // TODO:
+        NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
-    fn globals_ptr(&self) -> *mut VMGlobalDefinition {
+    fn globals_ptr(&self) -> *mut *mut VMGlobalDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_globals_begin()) }
     }
 
@@ -822,10 +823,7 @@ impl InstanceHandle {
 
         let vmctx_globals = finished_globals
             .values()
-            .map(|m| {
-                let vmglobal_ptr = m.as_ref().vmglobal();
-                vmglobal_ptr.as_ref().clone()
-            })
+            .map(|m| m.vmglobal())
             .collect::<PrimaryMap<LocalGlobalIndex, _>>()
             .into_boxed_slice();
 
@@ -897,7 +895,7 @@ impl InstanceHandle {
         );
         ptr::copy(
             vmctx_globals.values().as_slice().as_ptr(),
-            instance.globals_ptr() as *mut VMGlobalDefinition,
+            instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
             vmctx_globals.len(),
         );
         ptr::write(
@@ -1279,11 +1277,12 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
                 GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
-                    let from = if let Some(def_x) = module.local_global_index(*x) {
-                        instance.global(def_x)
-                    } else {
-                        instance.imported_global(*x).definition.as_ref().clone()
-                    };
+                    let from: VMGlobalDefinition =
+                        if let Some(def_x) = module.local_global_index(*x) {
+                            instance.global(def_x)
+                        } else {
+                            instance.imported_global(*x).definition.as_ref().clone()
+                        };
                     *to = from;
                 }
                 GlobalInit::RefNullConst | GlobalInit::RefFunc(_) => unimplemented!(),

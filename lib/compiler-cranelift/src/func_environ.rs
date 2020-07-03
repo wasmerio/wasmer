@@ -699,20 +699,19 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (ptr, offset) = {
             let vmctx = self.vmctx(func);
-            if let Some(def_index) = self.module.local_global_index(index) {
-                let offset =
-                    i32::try_from(self.offsets.vmctx_vmglobal_definition(def_index)).unwrap();
-                (vmctx, offset)
+            let from_offset = if let Some(def_index) = self.module.local_global_index(index) {
+                self.offsets.vmctx_vmglobal_definition(def_index)
             } else {
-                let from_offset = self.offsets.vmctx_vmglobal_import_definition(index);
-                let global = func.create_global_value(ir::GlobalValueData::Load {
-                    base: vmctx,
-                    offset: Offset32::new(i32::try_from(from_offset).unwrap()),
-                    global_type: pointer_type,
-                    readonly: true,
-                });
-                (global, 0)
-            }
+                self.offsets.vmctx_vmglobal_import_definition(index)
+            };
+            let global = func.create_global_value(ir::GlobalValueData::Load {
+                base: vmctx,
+                offset: Offset32::new(i32::try_from(from_offset).unwrap()),
+                global_type: pointer_type,
+                readonly: true,
+            });
+
+            (global, 0)
         };
 
         Ok(GlobalVariable::Memory {
