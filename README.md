@@ -72,14 +72,7 @@ iwr https://win.wasmer.io -useb | iex
 </p>
 </details>
 
-<details>
-  <summary><b>Alternative methods</b>: Wasmer is also available in Homebrew, Scoop and more</summary>
-  <p>
-
-Check all available installation methods here: https://github.com/wasmerio/wasmer-install/
-
-</p>
-</details>
+> Check all available installation methods here: https://github.com/wasmerio/wasmer-install/
 
 #### 2. Use Wasmer
 
