@@ -1,17 +1,18 @@
 use crate::{
     error::{ExportError, RuntimeError},
-    get_global_store,
-    new::{self, wasm_common::NativeWasmType},
-    types::{FuncDescriptor, FuncSig, Type, Value},
+    get_global_store, new,
+    types::{FuncDescriptor, FuncSig, NativeWasmType, Type, Value},
     vm,
 };
 use std::marker::PhantomData;
 
+pub use new::wasmer::{HostFunction, WasmTypeList};
+
 #[derive(Clone)]
 pub struct Func<Args, Rets>
 where
-    Args: new::wasmer::WasmTypeList,
-    Rets: new::wasmer::WasmTypeList,
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
     new_function: new::wasmer::Function,
     _phantom: PhantomData<(Args, Rets)>,
@@ -19,12 +20,12 @@ where
 
 impl<Args, Rets> Func<Args, Rets>
 where
-    Args: new::wasmer::WasmTypeList,
-    Rets: new::wasmer::WasmTypeList,
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
     pub fn new<F>(func: F) -> Self
     where
-        F: new::wasmer::HostFunction<Args, Rets, new::wasmer::WithEnv, vm::Ctx>,
+        F: HostFunction<Args, Rets, new::wasmer::internals::WithEnv, vm::Ctx>,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = unsafe { vm::Ctx::new_uninit() };
@@ -76,10 +77,10 @@ unsafe impl WasmExternTypeInner for f64 {}
 macro_rules! func_call {
     ( $( $x:ident ),* ) => {
         #[allow(unused_parens)]
-        impl< $( $x, )* Rets: new::wasmer::WasmTypeList > Func<( $( $x ),* ), Rets>
+        impl< $( $x, )* Rets: WasmTypeList > Func<( $( $x ),* ), Rets>
         where
             $( $x: new::wasmer::WasmExternType + WasmExternTypeInner, )*
-            Rets: new::wasmer::WasmTypeList
+            Rets: WasmTypeList
         {
             #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
@@ -164,8 +165,8 @@ func_call!(
 
 impl<Args, Rets> From<Func<Args, Rets>> for new::wasmer::Extern
 where
-    Args: new::wasmer::WasmTypeList,
-    Rets: new::wasmer::WasmTypeList,
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
     fn from(func: Func<Args, Rets>) -> Self {
         new::wasmer::Extern::Function(func.new_function)
@@ -174,8 +175,8 @@ where
 
 impl<Args, Rets> From<&new::wasmer::Function> for Func<Args, Rets>
 where
-    Args: new::wasmer::WasmTypeList,
-    Rets: new::wasmer::WasmTypeList,
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
     fn from(new_function: &new::wasmer::Function) -> Self {
         Self {
@@ -187,8 +188,8 @@ where
 
 impl<'a, Args, Rets> new::wasmer::Exportable<'a> for Func<Args, Rets>
 where
-    Args: new::wasmer::WasmTypeList,
-    Rets: new::wasmer::WasmTypeList,
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
 {
     fn to_export(&self) -> new::wasmer_runtime::Export {
         self.new_function.to_export()
