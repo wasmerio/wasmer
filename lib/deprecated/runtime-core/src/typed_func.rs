@@ -1,7 +1,7 @@
 use crate::{
     error::{ExportError, RuntimeError},
     get_global_store, new,
-    types::{FuncDescriptor, FuncSig, NativeWasmType, Type, Value},
+    types::{FuncDescriptor, FuncSig, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
 use std::marker::PhantomData;
@@ -57,7 +57,7 @@ where
     }
 }
 
-pub unsafe trait WasmExternTypeInner: new::wasmer::WasmExternType
+pub unsafe trait WasmExternTypeInner: WasmExternType
 where
     Self: Sized,
 {
@@ -79,7 +79,7 @@ macro_rules! func_call {
         #[allow(unused_parens)]
         impl< $( $x, )* Rets: WasmTypeList > Func<( $( $x ),* ), Rets>
         where
-            $( $x: new::wasmer::WasmExternType + WasmExternTypeInner, )*
+            $( $x: WasmExternType + WasmExternTypeInner, )*
             Rets: WasmTypeList
         {
             #[allow(non_snake_case, clippy::too_many_arguments)]
@@ -112,10 +112,10 @@ macro_rules! func_call {
                     .iter()
                     .map(|value| {
                         Ok(match value {
-                            Value::I32(value) => <i32 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
-                            Value::I64(value) => <i64 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
-                            Value::F32(value) => <f32 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
-                            Value::F64(value) => <f64 as new::wasmer::WasmExternType>::from_native(*value).to_binary(),
+                            Value::I32(value) => <i32 as WasmExternType>::from_native(*value).to_binary(),
+                            Value::I64(value) => <i64 as WasmExternType>::from_native(*value).to_binary(),
+                            Value::F32(value) => <f32 as WasmExternType>::from_native(*value).to_binary(),
+                            Value::F64(value) => <f64 as WasmExternType>::from_native(*value).to_binary(),
                             value => return Err(RuntimeError::new(format!(
                                 "value `{:?}` is not supported as a returned value of a host function for the moment; please use `dyn_call` or the new API",
                                 value
