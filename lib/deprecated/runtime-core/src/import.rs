@@ -50,7 +50,7 @@ pub trait IsExport {}
 /// # Usage
 ///
 /// ```
-/// # use wasmer_runtime_core::{imports, func};
+/// # use wasmer_runtime_core::{imports, func, vm::Ctx};
 ///
 /// let import_object = imports! {
 ///     "env" => {
@@ -58,7 +58,7 @@ pub trait IsExport {}
 ///     },
 /// };
 ///
-/// fn foo(n: i32) -> i32 {
+/// fn foo(_: &mut Ctx, n: i32) -> i32 {
 ///     n
 /// }
 /// ```
@@ -66,7 +66,7 @@ pub trait IsExport {}
 /// or by passing a state creator for the import object:
 ///
 /// ```
-/// # use wasmer_runtime_core::{imports, func};
+/// # use wasmer_runtime_core::{imports, func, vm::Ctx};
 ///
 /// let import_object = imports! {
 ///     || (0 as _, |_a| {}),
@@ -75,7 +75,7 @@ pub trait IsExport {}
 ///     },
 /// };
 ///
-/// # fn foo(n: i32) -> i32 {
+/// # fn foo(_: &mut Ctx, n: i32) -> i32 {
 /// #     n
 /// # }
 /// ```
