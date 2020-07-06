@@ -458,7 +458,7 @@ impl MemoryType {
     {
         Self {
             minimum: minimum.into(),
-            maximum: maximum.map(|m| m.into()),
+            maximum: maximum.map(Into::into),
             shared,
         }
     }
