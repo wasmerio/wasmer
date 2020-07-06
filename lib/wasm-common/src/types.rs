@@ -248,16 +248,6 @@ impl FunctionType {
     pub fn results(&self) -> &[Type] {
         &self.results
     }
-
-    // /// Returns true if parameter types match the function signature.
-    // pub fn check_params(&self, params: &[Value<T>]) -> bool {
-    //     self.params.len() == params.len()
-    //         && self
-    //             .params
-    //             .iter()
-    //             .zip(params.iter().map(|val| val.ty()))
-    //             .all(|(t0, ref t1)| t0 == t1)
-    // }
 }
 
 impl std::fmt::Display for FunctionType {
