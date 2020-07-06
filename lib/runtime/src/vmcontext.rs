@@ -10,8 +10,9 @@ use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use std::any::Any;
 use std::convert::TryFrom;
+use std::ptr::{self, NonNull};
 use std::sync::Arc;
-use std::{ptr, u32};
+use std::u32;
 
 /// An imported function.
 #[derive(Debug, Copy, Clone)]
@@ -140,7 +141,7 @@ pub enum VMFunctionKind {
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
-    pub definition: *mut VMTableDefinition,
+    pub definition: NonNull<VMTableDefinition>,
 
     /// A pointer to the `Table` that owns the table description.
     pub from: Arc<dyn Table>,
@@ -178,7 +179,7 @@ mod test_vmtable_import {
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
-    pub definition: *mut VMMemoryDefinition,
+    pub definition: NonNull<VMMemoryDefinition>,
 
     /// A pointer to the `Memory` that owns the memory description.
     pub from: Arc<dyn Memory>,
@@ -247,21 +248,36 @@ mod test_vmglobal_import {
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub struct VMMemoryDefinition {
-    /// The start address.
+    /// The start address which is always valid, even if the memory grows.
     pub base: *mut u8,
 
     /// The current logical size of this linear memory in bytes.
     pub current_length: usize,
 }
 
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize.
+unsafe impl Send for VMMemoryDefinition {}
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And it's `Copy` so there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+unsafe impl Sync for VMMemoryDefinition {}
+
 impl VMMemoryDefinition {
-    /// Do a `memory.copy` for the memory.
+    /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
     ///
     /// # Errors
     ///
     /// Returns a `Trap` error when the source or destination ranges are out of
     /// bounds.
-    pub(crate) fn memory_copy(&self, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
+    ///
+    /// # Safety
+    /// The memory is not copied atomically and is not synchronized: it's the
+    /// caller's responsibility to synchronize.
+    pub(crate) unsafe fn memory_copy(&self, dst: u32, src: u32, len: u32) -> Result<(), Trap> {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
         if src
             .checked_add(len)
@@ -278,21 +294,24 @@ impl VMMemoryDefinition {
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        unsafe {
-            let dst = self.base.add(dst);
-            let src = self.base.add(src);
-            ptr::copy(src, dst, len as usize);
-        }
+        let dst = self.base.add(dst);
+        let src = self.base.add(src);
+        ptr::copy(src, dst, len as usize);
 
         Ok(())
     }
 
-    /// Perform the `memory.fill` operation for the memory.
+    /// Perform the `memory.fill` operation for the memory in an unsynchronized,
+    /// non-atomic way.
     ///
     /// # Errors
     ///
     /// Returns a `Trap` error if the memory range is out of bounds.
-    pub(crate) fn memory_fill(&self, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
+    ///
+    /// # Safety
+    /// The memory is not filled atomically and is not synchronized: it's the
+    /// caller's responsibility to synchronize.
+    pub(crate) unsafe fn memory_fill(&self, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
         if dst
             .checked_add(len)
             .map_or(true, |m| m as usize > self.current_length)
@@ -305,10 +324,8 @@ impl VMMemoryDefinition {
 
         // Bounds and casts are checked above, by this point we know that
         // everything is safe.
-        unsafe {
-            let dst = self.base.offset(dst);
-            ptr::write_bytes(dst, val, len as usize);
-        }
+        let dst = self.base.offset(dst);
+        ptr::write_bytes(dst, val, len as usize);
 
         Ok(())
     }
@@ -348,7 +365,7 @@ mod test_vmmemory_definition {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// defined within the instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct VMTableDefinition {
     /// Pointer to the table data.

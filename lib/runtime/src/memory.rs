@@ -8,6 +8,7 @@
 use crate::vmcontext::VMMemoryDefinition;
 use serde::{Deserialize, Serialize};
 use std::fmt;
+use std::ptr::NonNull;
 use thiserror::Error;
 use wasm_common::{MemoryType, Pages};
 
@@ -62,7 +63,7 @@ pub struct MemoryPlan {
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
-pub trait Memory: fmt::Debug {
+pub trait Memory: fmt::Debug + Send + Sync {
     /// Returns the memory plan for this memory.
     fn plan(&self) -> &MemoryPlan;
 
@@ -72,6 +73,8 @@ pub trait Memory: fmt::Debug {
     /// Grow memory by the specified amount of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError>;
 
-    /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> VMMemoryDefinition;
+    /// Return a [`VMMemoryDefinition`] for exposing the memory to compiled wasm code.
+    ///
+    /// The pointer returned in [`VMMemoryDefinition`] must be valid for the lifetime of this memory.
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
 }

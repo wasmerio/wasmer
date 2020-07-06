@@ -7,6 +7,7 @@ use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
     VMTableDefinition,
 };
+use std::ptr::NonNull;
 use std::sync::Arc;
 use wasm_common::{FunctionType, GlobalType};
 
@@ -49,10 +50,25 @@ impl From<ExportFunction> for Export {
 #[derive(Debug, Clone)]
 pub struct ExportTable {
     /// The address of the table descriptor.
-    pub definition: *mut VMTableDefinition,
+    ///
+    /// The `VMTableDefinition` this points to should be considered immutable from
+    /// this pointer.  The data may be updated though.
+    /// TODO: better define this behavior and document it
+    // TODO: consider a special wrapper pointer type for this kind of logic
+    // (so we don't need to `unsafe impl Send` in the places that use it)
+    pub definition: NonNull<VMTableDefinition>,
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 }
+
+// This is correct because there is no non-threadsafe logic directly in this type;
+// correct use of the raw table from multiple threads via `definition` requires `unsafe`
+// and is the responsibilty of the user of this type.
+unsafe impl Send for ExportTable {}
+// This is correct because the values directly in `definition` should be considered immutable
+// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
+// only makes this type easier to use)
+unsafe impl Sync for ExportTable {}
 
 impl ExportTable {
     /// Get the plan for this exported memory
@@ -77,10 +93,25 @@ impl From<ExportTable> for Export {
 #[derive(Debug, Clone)]
 pub struct ExportMemory {
     /// The address of the memory descriptor.
-    pub definition: *mut VMMemoryDefinition,
+    ///
+    /// The `VMMemoryDefinition` this points to should be considered immutable from
+    /// this pointer.  The data may be updated though.
+    /// TODO: better define this behavior and document it
+    // TODO: consider a special wrapper pointer type for this kind of logic
+    // (so we don't need to `unsafe impl Send` in the places that use it)
+    pub definition: NonNull<VMMemoryDefinition>,
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
 }
+
+// This is correct because there is no non-threadsafe logic directly in this type;
+// correct use of the raw memory from multiple threads via `definition` requires `unsafe`
+// and is the responsibilty of the user of this type.
+unsafe impl Send for ExportMemory {}
+// This is correct because the values directly in `definition` should be considered immutable
+// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
+// only makes this type easier to use)
+unsafe impl Sync for ExportMemory {}
 
 impl ExportMemory {
     /// Get the plan for this exported memory

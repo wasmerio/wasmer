@@ -1,6 +1,9 @@
 use crate::ValType;
-use std::cell::RefCell;
-use std::convert::{TryFrom, TryInto};
+use std::borrow::{Borrow, BorrowMut};
+use std::cell::UnsafeCell;
+use std::convert::TryFrom;
+use std::ptr::NonNull;
+use std::sync::Mutex;
 use wasmer_runtime::{
     Table, TablePlan, TableStyle, Trap, TrapCode, VMCallerCheckedAnyfunc, VMTableDefinition,
 };
@@ -8,10 +11,17 @@ use wasmer_runtime::{
 /// A table instance.
 #[derive(Debug)]
 pub struct LinearTable {
-    vec: RefCell<Vec<VMCallerCheckedAnyfunc>>,
+    // TODO: we can remove the mutex by using atomic swaps and preallocating the max table size
+    vec: Mutex<Vec<VMCallerCheckedAnyfunc>>,
     maximum: Option<u32>,
     plan: TablePlan,
+    vm_table_definition: Box<UnsafeCell<VMTableDefinition>>,
 }
+
+/// This is correct because there is no thread-specific data tied to this type.
+unsafe impl Send for LinearTable {}
+/// This is correct because all internal mutability is protected by a mutex.
+unsafe impl Sync for LinearTable {}
 
 impl LinearTable {
     /// Create a new table instance with specified minimum and maximum number of elements.
@@ -28,16 +38,19 @@ impl LinearTable {
                 ));
             }
         }
+        let table_minimum = usize::try_from(plan.table.minimum)
+            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
+        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_minimum];
+        let base = vec.as_mut_ptr();
         match plan.style {
             TableStyle::CallerChecksSignature => Ok(Self {
-                vec: RefCell::new(vec![
-                    VMCallerCheckedAnyfunc::default();
-                    usize::try_from(plan.table.minimum).map_err(|_| {
-                        "Table minimum is bigger than usize".to_string()
-                    })?
-                ]),
+                vec: Mutex::new(vec),
                 maximum: plan.table.maximum,
                 plan: plan.clone(),
+                vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
+                    base: base as _,
+                    current_elements: table_minimum as _,
+                })),
             }),
         }
     }
@@ -51,7 +64,10 @@ impl Table for LinearTable {
 
     /// Returns the number of allocated elements.
     fn size(&self) -> u32 {
-        self.vec.borrow().len().try_into().unwrap()
+        unsafe {
+            let ptr = self.vm_table_definition.get();
+            (*ptr).current_elements
+        }
     }
 
     /// Grow table by the specified amount of elements.
@@ -59,15 +75,23 @@ impl Table for LinearTable {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
     fn grow(&self, delta: u32) -> Option<u32> {
+        let mut vec_guard = self.vec.lock().unwrap();
+        let vec = vec_guard.borrow_mut();
         let size = self.size();
         let new_len = size.checked_add(delta)?;
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
-        self.vec.borrow_mut().resize(
+        vec.resize(
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
+        // update table definition
+        unsafe {
+            let td = &mut *self.vm_table_definition.get();
+            td.current_elements = new_len;
+            td.base = vec.as_mut_ptr() as _;
+        }
         Some(size)
     }
 
@@ -75,7 +99,8 @@ impl Table for LinearTable {
     ///
     /// Returns `None` if the index is out of bounds.
     fn get(&self, index: u32) -> Option<VMCallerCheckedAnyfunc> {
-        self.vec.borrow().get(index as usize).cloned()
+        let vec_guard = self.vec.lock().unwrap();
+        vec_guard.borrow().get(index as usize).cloned()
     }
 
     /// Set reference to the specified element.
@@ -84,7 +109,9 @@ impl Table for LinearTable {
     ///
     /// Returns an error if the index is out of bounds.
     fn set(&self, index: u32, func: VMCallerCheckedAnyfunc) -> Result<(), Trap> {
-        match self.vec.borrow_mut().get_mut(index as usize) {
+        let mut vec_guard = self.vec.lock().unwrap();
+        let vec = vec_guard.borrow_mut();
+        match vec.get_mut(index as usize) {
             Some(slot) => {
                 *slot = func;
                 Ok(())
@@ -94,11 +121,10 @@ impl Table for LinearTable {
     }
 
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
-    fn vmtable(&self) -> VMTableDefinition {
-        let mut vec = self.vec.borrow_mut();
-        VMTableDefinition {
-            base: vec.as_mut_ptr() as *mut u8,
-            current_elements: vec.len().try_into().unwrap(),
-        }
+    fn vmtable(&self) -> NonNull<VMTableDefinition> {
+        let _vec_guard = self.vec.lock().unwrap();
+        let ptr = self.vm_table_definition.as_ref() as *const UnsafeCell<VMTableDefinition>
+            as *const VMTableDefinition as *mut VMTableDefinition;
+        unsafe { NonNull::new_unchecked(ptr) }
     }
 }

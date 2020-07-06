@@ -1,13 +1,16 @@
 use crate::{Bytes, Pages};
 use more_asserts::{assert_ge, assert_le};
-use std::cell::RefCell;
+use std::borrow::BorrowMut;
+use std::cell::UnsafeCell;
+use std::ptr::NonNull;
+use std::sync::Mutex;
 use wasmer_runtime::{Memory, MemoryError, MemoryPlan, MemoryStyle, Mmap, VMMemoryDefinition};
 
 /// A linear memory instance.
 #[derive(Debug)]
 pub struct LinearMemory {
     // The underlying allocation.
-    mmap: RefCell<WasmMmap>,
+    mmap: Mutex<WasmMmap>,
 
     // The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
@@ -19,10 +22,16 @@ pub struct LinearMemory {
     // The memory plan for this memory
     plan: MemoryPlan,
 
+    /// The owned memory definition used by the generated code
+    vm_memory_definition: Box<UnsafeCell<VMMemoryDefinition>>,
+
     // Records whether we're using a bounds-checking strategy which requires
     // handlers to catch trapping accesses.
     pub(crate) needs_signal_handlers: bool,
 }
+
+/// This is correct because all internal mutability is protected by a mutex.
+unsafe impl Sync for LinearMemory {}
 
 #[derive(Debug)]
 struct WasmMmap {
@@ -74,17 +83,22 @@ impl LinearMemory {
         let mapped_pages = plan.memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
-        let mmap = WasmMmap {
+        let mut mmap = WasmMmap {
             alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
                 .map_err(MemoryError::Region)?,
             size: plan.memory.minimum,
         };
 
+        let base_ptr = mmap.alloc.as_mut_ptr();
         Ok(Self {
-            mmap: mmap.into(),
+            mmap: Mutex::new(mmap),
             maximum: plan.memory.maximum,
             offset_guard_size: offset_guard_bytes,
             needs_signal_handlers,
+            vm_memory_definition: Box::new(UnsafeCell::new(VMMemoryDefinition {
+                base: base_ptr,
+                current_length: plan.memory.minimum.bytes().0,
+            })),
             plan: plan.clone(),
         })
     }
@@ -98,7 +112,10 @@ impl Memory for LinearMemory {
 
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages {
-        self.mmap.borrow().size
+        unsafe {
+            let ptr = self.vm_memory_definition.get();
+            Bytes((*ptr).current_length as _).into()
+        }
     }
 
     /// Grow memory by the specified amount of wasm pages.
@@ -106,8 +123,9 @@ impl Memory for LinearMemory {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
+        let mut mmap_guard = self.mmap.lock().unwrap();
+        let mmap = mmap_guard.borrow_mut();
         // Optimization of memory.grow 0 calls.
-        let mut mmap = self.mmap.borrow_mut();
         if delta.0 == 0 {
             return Ok(mmap.size);
         }
@@ -172,16 +190,21 @@ impl Memory for LinearMemory {
         }
 
         mmap.size = new_pages;
+        // update memory definition
+        unsafe {
+            let md = &mut *self.vm_memory_definition.get();
+            md.current_length = new_pages.bytes().0;
+            md.base = mmap.alloc.as_mut_ptr() as _;
+        }
 
         Ok(prev_pages)
     }
 
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
-    fn vmmemory(&self) -> VMMemoryDefinition {
-        let mut mmap = self.mmap.borrow_mut();
-        VMMemoryDefinition {
-            base: mmap.alloc.as_mut_ptr(),
-            current_length: mmap.size.bytes().0,
-        }
+    fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
+        let _mmap_guard = self.mmap.lock().unwrap();
+        let ptr = self.vm_memory_definition.as_ref() as *const UnsafeCell<VMMemoryDefinition>
+            as *const VMMemoryDefinition as *mut VMMemoryDefinition;
+        unsafe { NonNull::new_unchecked(ptr) }
     }
 }
