@@ -323,3 +323,87 @@ impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    macro_rules! test_func_arity_n {
+        ($test_name:ident, $($x:ident),*) => {
+            #[test]
+            fn $test_name() {
+                use crate::vm;
+
+                fn with_vmctx(_: &mut vm::Ctx, $($x: i32),*) -> i32 {
+                    vec![$($x),*].iter().sum()
+                }
+
+                let _ = Func::new(with_vmctx);
+                let _ = Func::new(|_: &mut vm::Ctx, $($x: i32),*| -> i32 {
+                    vec![$($x),*].iter().sum()
+                });
+            }
+        }
+    }
+
+    #[test]
+    fn test_func_arity_0() {
+        fn foo(_: &mut vm::Ctx) -> i32 {
+            0
+        }
+
+        let _ = Func::new(foo);
+        let _ = Func::new(|_: &mut vm::Ctx| -> i32 { 0 });
+    }
+
+    test_func_arity_n!(test_func_arity_1, a);
+    test_func_arity_n!(test_func_arity_2, a, b);
+    test_func_arity_n!(test_func_arity_3, a, b, c);
+    test_func_arity_n!(test_func_arity_4, a, b, c, d);
+    test_func_arity_n!(test_func_arity_5, a, b, c, d, e);
+    test_func_arity_n!(test_func_arity_6, a, b, c, d, e, f);
+    test_func_arity_n!(test_func_arity_7, a, b, c, d, e, f, g);
+    test_func_arity_n!(test_func_arity_8, a, b, c, d, e, f, g, h);
+    test_func_arity_n!(test_func_arity_9, a, b, c, d, e, f, g, h, i);
+    test_func_arity_n!(test_func_arity_10, a, b, c, d, e, f, g, h, i, j);
+    test_func_arity_n!(test_func_arity_11, a, b, c, d, e, f, g, h, i, j, k);
+    test_func_arity_n!(test_func_arity_12, a, b, c, d, e, f, g, h, i, j, k, l);
+    test_func_arity_n!(test_func_arity_13, a, b, c, d, e, f, g, h, i, j, k, l, m);
+    test_func_arity_n!(test_func_arity_14, a, b, c, d, e, f, g, h, i, j, k, l, m, n);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_15, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_16, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_17, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_18, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_19, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_20, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_21, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_22, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_23, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_24, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_25, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y);
+    #[rustfmt::skip] test_func_arity_n!(test_func_arity_26, a, b, c, d, e, f, g, h, i, j, k, l, m, n, o, p, q, r, s, t, u, v, w, x, y, z);
+
+    #[test]
+    fn test_call() {
+        fn foo(_ctx: &mut vm::Ctx, a: i32, b: i32) -> (i32, i32) {
+            (a, b)
+        }
+
+        let _f = Func::new(foo);
+    }
+
+    #[test]
+    fn test_imports() {
+        use crate::{func, imports};
+
+        fn foo(_ctx: &mut vm::Ctx, a: i32) -> i32 {
+            a
+        }
+
+        let _import_object = imports! {
+            "env" => {
+                "foo" => func!(foo),
+            },
+        };
+    }
+}
