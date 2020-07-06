@@ -43,6 +43,7 @@ pub mod prelude {
     pub use crate::types::{FuncIndex, GlobalIndex, MemoryIndex, TableIndex, Type, Value};
 }
 
+/// The current version of this crate
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
 lazy_static::lazy_static! {
