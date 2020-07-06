@@ -13,30 +13,87 @@ pub use new::wasm_common::MemoryType as MemoryDescriptor;
 pub use new::wasmer::{Atomically, MemoryView};
 pub use new::wasmer_runtime::MemoryStyle as MemoryType;
 
+/// A Wasm linear memory.
+///
+/// A `Memory` represents the memory used by a Wasm instance.
 #[derive(Clone)]
 pub struct Memory {
     new_memory: new::wasmer::Memory,
 }
 
 impl Memory {
+    /// Create a new `Memory` from a [`MemoryDescriptor`]
+    ///
+    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
+    ///
+    /// Usage:
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{types::MemoryDescriptor, error::MemoryError, memory::Memory, units::Pages};
+    /// fn create_memory() -> Result<(), MemoryError> {
+    ///     let descriptor = MemoryDescriptor::new(Pages(10), None, false);
+    ///
+    ///     let memory = Memory::new(descriptor)?;
+    ///     Ok(())
+    /// }
+    /// ```
     pub fn new(descriptor: MemoryDescriptor) -> Result<Self, MemoryError> {
         Ok(Memory {
             new_memory: new::wasmer::Memory::new(get_global_store(), descriptor)?,
         })
     }
 
+    /// Return the [`MemoryDescriptor`] that this memory
+    /// was created with.
+    ///
+    /// [`MemoryDescriptor`]: struct.MemoryDescriptor.html
     pub fn descriptor(&self) -> MemoryDescriptor {
         self.new_memory.ty().clone()
     }
 
+    /// Grow this memory by the specified number of pages.
     pub fn grow(&self, delta: Pages) -> Result<Pages, MemoryError> {
         self.new_memory.grow(delta)
     }
 
+    /// The size, in wasm pages, of this memory.
     pub fn size(&self) -> Pages {
         self.new_memory.size()
     }
 
+    /// Return a "view" of the currently accessible memory. By
+    /// default, the view is unsynchronized, using regular memory
+    /// accesses. You can force a memory view to use atomic accesses
+    /// by calling the [`atomically`] method.
+    ///
+    /// [`atomically`]: struct.MemoryView.html#method.atomically
+    ///
+    /// # Notes
+    ///
+    /// This method is safe (as in, it won't cause the host to crash or have UB),
+    /// but it doesn't obey rust's rules involving data races, especially concurrent ones.
+    /// Therefore, if this memory is shared between multiple threads, a single memory
+    /// location can be mutated concurrently without synchronization.
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::memory::{Memory, MemoryView};
+    /// # use std::{cell::Cell, sync::atomic::Ordering};
+    /// # fn view_memory(memory: Memory) {
+    /// // Without synchronization.
+    /// let view: MemoryView<u8> = memory.view();
+    /// for byte in view[0x1000 .. 0x1010].iter().map(Cell::get) {
+    ///     println!("byte: {}", byte);
+    /// }
+    ///
+    /// // With synchronization.
+    /// let atomic_view = view.atomically();
+    /// for byte in atomic_view[0x1000 .. 0x1010].iter().map(|atom| atom.load(Ordering::SeqCst)) {
+    ///     println!("byte: {}", byte);
+    /// }
+    /// # }
+    /// ```
     pub fn view<T: ValueType>(&self) -> MemoryView<T> {
         self.new_memory.view()
     }
