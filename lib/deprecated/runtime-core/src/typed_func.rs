@@ -8,6 +8,7 @@ use std::marker::PhantomData;
 
 pub use new::wasmer::{HostFunction, WasmTypeList};
 
+/// Represents a function that can be used by WebAssembly.
 #[derive(Clone)]
 pub struct Func<Args = (), Rets = ()>
 where
@@ -23,6 +24,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
+    /// Creates a new `Func`.
     pub fn new<F>(func: F) -> Self
     where
         F: HostFunction<Args, Rets, new::wasmer::internals::WithEnv, vm::Ctx>,
@@ -40,18 +42,22 @@ where
         }
     }
 
+    /// Returns the full function signature.
     pub fn signature(&self) -> &FuncDescriptor {
         self.new_function.ty()
     }
 
+    /// Returns the types of the function inputs.
     pub fn params(&self) -> &[Type] {
         self.signature().params()
     }
 
+    /// Returns the types of the function outputs.
     pub fn returns(&self) -> &[Type] {
         self.signature().results()
     }
 
+    /// Call the function by passing all arguments in a slice of `Value`.
     pub fn dyn_call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
         self.new_function.call(params)
     }
@@ -82,6 +88,7 @@ macro_rules! func_call {
             $( $x: WasmExternType + WasmExternTypeInner, )*
             Rets: WasmTypeList
         {
+            /// Call the function.
             #[allow(non_snake_case, clippy::too_many_arguments)]
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 // Two implementation choices:
@@ -208,6 +215,7 @@ where
     }
 }
 
+/// Represents a type-erased function provided by either the host or the WebAssembly program.
 #[derive(Clone)]
 pub struct DynamicFunc {
     new_function: new::wasmer::Function,
@@ -229,6 +237,7 @@ pub(crate) struct DynamicCtx {
 }
 
 impl DynamicFunc {
+    /// Create a new `DynamicFunc`.
     pub fn new<F>(signature: &FuncSig, func: F) -> Self
     where
         F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static,
@@ -257,22 +266,27 @@ impl DynamicFunc {
         }
     }
 
+    /// Returns the full function signature.
     pub fn signature(&self) -> &FuncDescriptor {
         self.new_function.ty()
     }
 
+    /// Returns the types of the function inputs.
     pub fn params(&self) -> &[Type] {
         self.signature().params()
     }
 
+    /// Returns the types of the function outputs.
     pub fn returns(&self) -> &[Type] {
         self.signature().results()
     }
 
+    /// Call the function. In this case, it's an alias to `dyn_call`.
     pub fn call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
         self.dyn_call(params)
     }
 
+    /// Call the function.
     pub fn dyn_call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError> {
         self.new_function.call(params)
     }
@@ -300,7 +314,9 @@ impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
     fn get_self_from_extern(r#extern: &'a new::wasmer::Extern) -> Result<&'a Self, ExportError> {
         match r#extern {
             new::wasmer::Extern::Function(dynamic_func) => Ok(
-                // It's not ideal to call `Box::leak` here, but it would introduce too much changes in the `new::wasmer` API to support `Cow` or similar.
+                // It's not ideal to call `Box::leak` here, but it
+                // would introduce too much changes in the
+                // `new::wasmer` API to support `Cow` or similar.
                 Box::leak(Box::<DynamicFunc>::new(dynamic_func.into())),
             ),
             _ => Err(ExportError::IncompatibleType),
