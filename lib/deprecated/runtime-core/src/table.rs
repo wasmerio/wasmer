@@ -4,22 +4,44 @@ use crate::{
     types::{TableDescriptor, Value},
 };
 
+/// Container with a descriptor and a reference to a table storage.
 #[derive(Clone)]
 pub struct Table {
     new_table: new::wasmer::Table,
 }
 
 impl Table {
+    /// Create a new `Table` from a [`TableDescriptor`]
+    ///
+    /// [`TableDescriptor`]: struct.TableDescriptor.html
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{types::{TableDescriptor, Type, Value}, table::Table, error::RuntimeError};
+    /// # fn create_table() -> Result<(), RuntimeError> {
+    /// let descriptor = TableDescriptor {
+    ///     ty: Type::I32,
+    ///     minimum: 10,
+    ///     maximum: None,
+    /// };
+    ///
+    /// let table = Table::new(descriptor, Value::I32(0))?;
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn new(descriptor: TableDescriptor, initial_value: Value) -> Result<Self, RuntimeError> {
         Ok(Self {
             new_table: new::wasmer::Table::new(get_global_store(), descriptor, initial_value)?,
         })
     }
 
+    /// Get the `TableDescriptor` used to create this `Table`.
     pub fn descriptor(&self) -> TableDescriptor {
         self.new_table.ty().clone()
     }
 
+    /// Set the element at index.
     pub fn set(&self, index: u32, value: Value) -> Result<(), RuntimeError> {
         self.new_table.set(index, value)
     }
@@ -28,10 +50,12 @@ impl Table {
         self.new_table.get(index)
     }
 
+    /// The current size of this table.
     pub fn size(&self) -> u32 {
         self.new_table.size()
     }
 
+    /// Grow this table by `delta`.
     pub fn grow(&self, delta: u32, initial_value: Value) -> Result<u32, RuntimeError> {
         self.new_table.grow(delta, initial_value)
     }
