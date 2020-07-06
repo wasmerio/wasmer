@@ -61,10 +61,6 @@ impl Instance {
         }
     }
 
-    pub fn load<T>(&self, _loader: T) -> Result<Self, ()> {
-        Err(())
-    }
-
     pub fn func<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>
     where
         Args: new::wasmer::WasmTypeList + Clone,

@@ -3,7 +3,6 @@ struct Instance {
 }
 
 impl Instance {
-    fn load<T>(&self, _loader: T) -> Result<Self, ()>;
     fn fun<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
     fn resolve_func(&self, name: &str) -> Result<usize, ()>;
     fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError>;
