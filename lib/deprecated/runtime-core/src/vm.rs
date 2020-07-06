@@ -55,3 +55,27 @@ impl Drop for Ctx {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::mem::forget;
+
+    #[test]
+    fn test_callback_on_drop() {
+        let foo = String::from("foo");
+        let mut ctx = unsafe { Ctx::new_uninit() };
+
+        ctx.data = foo.as_ptr() as *const _ as *mut _;
+        ctx.data_finalizer = Some(|data| {
+            let foo = unsafe { String::from_raw_parts(data as *mut _, 3, 3) };
+
+            assert_eq!(String::from("foo"), foo);
+
+            drop(foo);
+        });
+
+        drop(ctx);
+        forget(foo);
+    }
+}
