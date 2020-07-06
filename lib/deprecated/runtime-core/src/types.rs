@@ -29,6 +29,7 @@ pub use new::wasm_common::{
 };
 pub use new::wasmer::{FromToNativeWasmType as WasmExternType, Val as Value};
 
+/// Describes the mutability and type of a Global
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]
 pub struct GlobalDescriptor {
     pub mutable: bool,

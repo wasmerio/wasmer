@@ -1,11 +1,40 @@
 use crate::module::ModuleInfo;
 use std::{ffi::c_void, ptr};
 
+/// The context of the currently running WebAssembly instance.
+///
+/// This is implicitly passed to every WebAssembly function.
+/// Since this is per-instance, each field has a statically
+/// (as in after compiling the wasm) known size, so no
+/// runtime checks are necessary.
+///
+/// While the runtime currently just passes this around
+/// as the first, implicit parameter of every function,
+/// it may someday be pinned to a register (especially
+/// on arm, which has a ton of registers) to reduce
+/// register shuffling.
 #[derive(Debug, Clone)]
 #[repr(C)]
 pub struct Ctx {
+    /// A pointer to the `ModuleInfo` of this instance.
     pub module_info: *const ModuleInfo,
+
+    /// This is intended to be user-supplied, per-instance
+    /// contextual data. There are currently some issue with it,
+    /// notably that it cannot be set before running the `start`
+    /// function in a WebAssembly module. Additionally, the `data`
+    /// field may be taken by another ABI implementation that the user
+    /// wishes to use in addition to their own, such as WASI.  This issue is
+    /// being discussed at [#1111](https://github.com/wasmerio/wasmer/pull/1111).
+    ///
+    /// Alternatively, per-function data can be used if the function in the
+    /// [`ImportObject`] is a closure.  This cannot duplicate data though,
+    /// so if data may be shared if the [`ImportObject`] is reused.
     pub data: *mut c_void,
+
+    /// If there's a function set in this field, it gets called
+    /// when the context is destructed, e.g. when an `Instance`
+    /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
 
