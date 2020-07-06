@@ -28,9 +28,10 @@ pub mod vm;
 
 pub use crate::cache::{Artifact, WasmHash};
 pub use crate::import::IsExport;
-pub use crate::instance::{Exports, Instance};
+pub use crate::instance::{DynFunc, Exports, Instance};
 pub use crate::module::Module;
 pub use crate::new::wasmer_compiler::wasmparser;
+pub use crate::typed_func::{DynamicFunc, Func};
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 pub use functional_api::{
     compile, compile_with, compile_with_config, load_cache_with, validate, wat2wasm,
