@@ -24,6 +24,11 @@ pub use new::wasmer_runtime::{
     TableElements as TableInitializer,
 };
 
+/// A compiled WebAssembly module.
+///
+/// `Module` is returned by the [`compile`] function.
+///
+/// [`compile`]: crate::compile
 #[derive(Clone)]
 pub struct Module {
     pub(crate) new_module: new::wasmer::Module,
@@ -34,6 +39,28 @@ impl Module {
         Self { new_module }
     }
 
+    /// Instantiate a WebAssembly module with the provided [`ImportObject`].
+    ///
+    /// [`ImportObject`]: struct.ImportObject.html
+    ///
+    /// # Note
+    ///
+    /// Instantiating a `Module` will also call the function designated as `start`
+    /// in the WebAssembly module, if there is one.
+    ///
+    /// # Usage
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{Module, imports, error::InstantiationError};
+    /// # fn instantiate(module: &Module) -> Result<(), InstantiationError> {
+    /// let import_object = imports! {
+    ///     // ...
+    /// };
+    /// let instance = module.instantiate(&import_object)?;
+    /// // ...
+    /// # Ok(())
+    /// # }
+    /// ```
     pub fn instantiate(
         &self,
         import_object: &ImportObject,
@@ -165,22 +192,28 @@ impl Module {
         ))
     }
 
+    /// Create a cache artifact from this module.
     pub fn cache(&self) -> Result<Artifact, Infallible> {
         Ok(Artifact::new(self.new_module.clone()))
     }
 
+    /// Get the module data for this module.
     pub fn info(&self) -> &ModuleInfo {
         &self.new_module.info()
     }
 
+    /// Get the [`ImportDescriptor`]s describing the imports this [`Module`]
+    /// requires to be instantiated.
     pub fn imports(&self) -> Vec<crate::types::ImportDescriptor> {
         self.new_module.imports().collect()
     }
 
+    /// Get the [`ExportDescriptor`]s of the exports this [`Module`] provides.
     pub fn exports(&self) -> Vec<crate::types::ExportDescriptor> {
         self.new_module.exports().collect()
     }
 
+    /// Get the custom sections matching the given name.
     pub fn custom_sections(&self, name: impl AsRef<str>) -> Option<Vec<Vec<u8>>> {
         let custom_sections: Vec<Vec<u8>> = self
             .new_module
