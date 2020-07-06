@@ -474,7 +474,7 @@ extern "C" fn sigint_handler(
                 call_signal_handler(SIGINT, _siginfo, _ucontext, &prev_handler);
             }
             None => {
-                if INTERRUPT_SIGNAL_DELIVERED.swap(true, Ordering::SeqCst) {
+                if !INTERRUPT_SIGNAL_DELIVERED.swap(true, Ordering::SeqCst) {
                     eprintln!(
                     "Got another SIGINTTT before trap is triggered on WebAssembly side, aborting"
                 );
