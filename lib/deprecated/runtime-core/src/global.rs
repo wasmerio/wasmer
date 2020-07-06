@@ -5,32 +5,68 @@ use crate::{
 };
 use std::fmt;
 
+/// A handle to a Wasm Global
 #[derive(Clone)]
 pub struct Global {
     new_global: new::wasmer::Global,
 }
 
 impl Global {
+    /// Create a new `Global` value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{global::Global, types::Value};
+    /// let global = Global::new(Value::I32(42));
+    /// ```
     pub fn new(value: Value) -> Self {
         Self {
             new_global: new::wasmer::Global::new(get_global_store(), value),
         }
     }
 
+    /// Create a new, mutable `Global` value.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{global::Global, types::Value};
+    /// let global = Global::new_mutable(Value::I32(42));
+    /// ```
     pub fn new_mutable(value: Value) -> Self {
         Self {
             new_global: new::wasmer::Global::new_mut(get_global_store(), value),
         }
     }
 
+    /// Get the [`GlobalDescriptor`] generated for this global.
+    ///
+    /// [`GlobalDescriptor`]: struct.GlobalDescriptor.html
     pub fn descriptor(&self) -> GlobalDescriptor {
         self.new_global.ty().into()
     }
 
+    /// Set the value help by this global.
+    ///
+    /// This method will panic if the value is
+    /// the wrong type.
     pub fn set(&self, value: Value) {
         self.new_global.set(value).unwrap()
     }
 
+    /// Get the value held by this global.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer_runtime_core::{global::Global, types::Value};
+    /// let global = Global::new_mutable(Value::I32(42));
+    /// assert_eq!(global.get(), Value::I32(42));
+    ///
+    /// global.set(Value::I32(7));
+    /// assert_eq!(global.get(), Value::I32(7));
+    /// ```
     pub fn get(&self) -> Value {
         self.new_global.get()
     }
