@@ -124,3 +124,16 @@ impl<'a> new::wasmer::Exportable<'a> for Memory {
         }
     }
 }
+
+#[cfg(test)]
+mod memory_tests {
+    use super::{Memory, MemoryDescriptor, Pages};
+
+    #[test]
+    fn test_initial_memory_size() {
+        let memory_desc = MemoryDescriptor::new(Pages(10), Some(Pages(20)), false);
+        let unshared_memory = Memory::new(memory_desc).unwrap();
+
+        assert_eq!(unshared_memory.size(), Pages(10));
+    }
+}
