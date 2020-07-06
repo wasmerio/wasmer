@@ -273,7 +273,6 @@ unsafe fn call_signal_handler(
 ) {
     match sig_action.handler() {
         SigHandler::SigDfl => {
-            eprintln!("Calling previous SIGINT handler");
             sigaction(sig, sig_action).unwrap();
             return;
         }
@@ -476,7 +475,7 @@ extern "C" fn sigint_handler(
             None => {
                 if !INTERRUPT_SIGNAL_DELIVERED.swap(true, Ordering::SeqCst) {
                     eprintln!(
-                    "Got another SIGINTTT before trap is triggered on WebAssembly side, aborting"
+                    "Got another SIGINT before trap is triggered on WebAssembly side, aborting"
                 );
                     process::abort();
                 }
