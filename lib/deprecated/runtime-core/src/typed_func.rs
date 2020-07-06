@@ -9,7 +9,7 @@ use std::marker::PhantomData;
 pub use new::wasmer::{HostFunction, WasmTypeList};
 
 #[derive(Clone)]
-pub struct Func<Args, Rets>
+pub struct Func<Args = (), Rets = ()>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
