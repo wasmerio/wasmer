@@ -21,12 +21,12 @@ impl Table {
     /// # use wasmer_runtime_core::{types::{TableDescriptor, Type, Value}, table::Table, error::RuntimeError};
     /// # fn create_table() -> Result<(), RuntimeError> {
     /// let descriptor = TableDescriptor {
-    ///     ty: Type::I32,
+    ///     ty: Type::ExternRef,
     ///     minimum: 10,
     ///     maximum: None,
     /// };
     ///
-    /// let table = Table::new(descriptor, Value::I32(0))?;
+    /// let table = Table::new(descriptor, Value::null())?;
     /// # Ok(())
     /// # }
     /// ```
@@ -84,5 +84,25 @@ impl<'a> new::wasmer::Exportable<'a> for Table {
             ),
             _ => Err(ExportError::IncompatibleType),
         }
+    }
+}
+
+#[cfg(test)]
+mod table_tests {
+    use super::{Table, TableDescriptor};
+    use crate::types::{Type, Value};
+
+    #[test]
+    fn test_initial_table_size() {
+        let table = Table::new(
+            TableDescriptor {
+                ty: Type::FuncRef,
+                minimum: 10,
+                maximum: Some(20),
+            },
+            Value::null(),
+        )
+        .unwrap();
+        assert_eq!(table.size(), 10);
     }
 }
