@@ -129,3 +129,87 @@ macro_rules! import_namespace {
         $namespace
     };
 }
+
+#[cfg(test)]
+mod test {
+    use crate::{func, vm};
+
+    fn func(_: &mut vm::Ctx, arg: i32) -> i32 {
+        arg + 1
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none() {
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func),
+            },
+            "abc" => {
+                "def" => func!(func),
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func)
+            },
+        };
+        let _ = imports! {
+            "env" => {
+                "func" => func!(func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func)
+            }
+        };
+        let _ = imports! {
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            }
+        };
+    }
+
+    #[test]
+    fn imports_macro_allows_trailing_comma_and_none_with_state() {
+        use std::{ffi, ptr};
+
+        fn dtor(_arg: *mut ffi::c_void) {}
+        fn state_creator() -> (*mut ffi::c_void, fn(*mut ffi::c_void)) {
+            (ptr::null_mut() as *mut ffi::c_void, dtor)
+        }
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            }
+        };
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func)
+            },
+        };
+        let _ = imports! {
+            state_creator,
+            "env" => {
+                "func1" => func!(func),
+                "func2" => func!(func),
+            },
+        };
+    }
+}
