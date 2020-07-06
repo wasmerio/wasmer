@@ -3,8 +3,11 @@
 
 use crate::types::Type;
 use crate::values::Value;
+use std::fmt;
 
-/// `NativeWasmType` represents a native Wasm type.
+/// `NativeWasmType` represents a Wasm type that has a direct
+/// representation on the host (hence the “native” term).
+///
 /// It uses the Rust Type system to automatically detect the
 /// Wasm type associated with a native Rust type.
 ///
@@ -19,7 +22,7 @@ use crate::values::Value;
 /// > automatically detect the signature of a Rust function.
 pub trait NativeWasmType: Sized {
     /// The ABI for this type (i32, i64, f32, f64)
-    type Abi: Copy + std::fmt::Debug;
+    type Abi: Copy + fmt::Debug;
 
     /// Type for this `NativeWasmType`.
     const WASM_TYPE: Type;
@@ -33,9 +36,10 @@ pub trait NativeWasmType: Sized {
     /// Convert self to i128 binary representation.
     fn to_binary(self) -> i128;
 
-    /// Convert self to a `Value`
+    /// Convert self to a `Value`.
     fn to_value<T>(self) -> Value<T> {
         let binary = self.to_binary();
+
         unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
     }
 
@@ -57,10 +61,12 @@ impl NativeWasmType for i32 {
         self
     }
 
+    #[inline]
     fn to_binary(self) -> i128 {
         self as _
     }
 
+    #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
     }
@@ -149,6 +155,14 @@ mod test_native_type {
         assert_eq!(i64::WASM_TYPE, Type::I64);
         assert_eq!(f32::WASM_TYPE, Type::F32);
         assert_eq!(f64::WASM_TYPE, Type::F64);
+    }
+
+    #[test]
+    fn test_roundtrip() {
+        assert_eq!(i32::from_binary(42i32.to_binary()), 42i32);
+        assert_eq!(i64::from_binary(42i64.to_binary()), 42i64);
+        assert_eq!(f32::from_binary(42f32.to_binary()), 42f32);
+        assert_eq!(f64::from_binary(42f64.to_binary()), 42f64);
     }
 }
 

@@ -1,6 +1,6 @@
 use crate::EmEnv;
 use std::mem;
-use wasmer::WasmExternType;
+use wasmer::FromToNativeWasmType;
 // use std::ffi::CStr;
 use std::os::raw::c_char;
 
@@ -26,7 +26,7 @@ impl VarArgs {
     }
 }
 
-unsafe impl WasmExternType for VarArgs {
+unsafe impl FromToNativeWasmType for VarArgs {
     type Native = i32;
 
     fn to_native(self) -> Self::Native {

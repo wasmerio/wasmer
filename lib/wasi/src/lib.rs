@@ -175,8 +175,9 @@ impl WasiEnv {
     }
 }
 
-/// Create an [`ImportObject`] with an existing [`WasiState`]. [`WasiState`]
-/// can be constructed from a [`WasiStateBuilder`](state::WasiStateBuilder).
+/// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`
+/// needs a [`WasiState`], that can be constructed from a
+/// [`WasiStateBuilder`](state::WasiStateBuilder).
 pub fn generate_import_object_from_env(
     store: &Store,
     wasi_env: WasiEnv,

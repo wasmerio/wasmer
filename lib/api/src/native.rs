@@ -13,7 +13,7 @@ use crate::externals::function::{
     FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
     VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
-use crate::{Function, FunctionType, RuntimeError, Store, WasmExternType, WasmTypeList};
+use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasm_common::NativeWasmType;
 use wasmer_runtime::{
@@ -92,32 +92,12 @@ where
     }
 }
 
-/// Marker trait to make Rust happy: required to allow `NativeFunc<i32>` work.
-/// without this trait, the singleton case looks like a generic impl in the macro
-/// expansion and Rust will not compile this code because it's a potential duplicate
-/// with all the existing tuples for which this is also being implemented.
-pub unsafe trait WasmExternTypeInner: Copy + WasmExternType
-where
-    Self: Sized,
-{
-}
-unsafe impl WasmExternTypeInner for i8 {}
-unsafe impl WasmExternTypeInner for u8 {}
-unsafe impl WasmExternTypeInner for i16 {}
-unsafe impl WasmExternTypeInner for u16 {}
-unsafe impl WasmExternTypeInner for i32 {}
-unsafe impl WasmExternTypeInner for u32 {}
-unsafe impl WasmExternTypeInner for i64 {}
-unsafe impl WasmExternTypeInner for u64 {}
-unsafe impl WasmExternTypeInner for f32 {}
-unsafe impl WasmExternTypeInner for f64 {}
-
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
         impl<'a $( , $x )*, Rets> NativeFunc<'a, ( $( $x ),* ), Rets>
         where
-            $( $x: WasmExternType + WasmExternTypeInner, )*
+            $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
             /// Call the typed func and return results.

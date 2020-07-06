@@ -385,7 +385,7 @@ mod test_vmmemory_definition {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// defined within the instance.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, Copy)]
 #[repr(C)]
 pub struct VMTableDefinition {
     /// Pointer to the table data.

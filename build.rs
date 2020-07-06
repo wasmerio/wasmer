@@ -15,8 +15,12 @@ use test_generator::{
 
 fn main() -> anyhow::Result<()> {
     println!("cargo:rerun-if-changed=tests/ignores.txt");
-    println!("cargo:rerun-if-changed=tests/wasi-wast/wasi/unstable/*");
-    println!("cargo:rerun-if-changed=tests/wasi-wast/wasi/snapshot1/*");
+    // As rerun-if-changed doesn't support globs, we use another crate
+    // to check changes in directories.
+    build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/unstable/*")
+        .expect("Can't get directory");
+    build_deps::rerun_if_changed_paths("tests/wasi-wast/wasi/snapshot1/*")
+        .expect("Can't get directory");
 
     let out_dir = PathBuf::from(
         env::var_os("OUT_DIR").expect("The OUT_DIR environment variable must be set"),
