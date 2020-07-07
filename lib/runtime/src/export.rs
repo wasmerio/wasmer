@@ -1,7 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
-use crate::memory::{Memory, MemoryPlan};
+use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
@@ -9,7 +9,7 @@ use crate::vmcontext::{
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasm_common::{FunctionType, GlobalType, TableType};
+use wasm_common::{FunctionType, GlobalType, TableType, MemoryType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -119,9 +119,14 @@ unsafe impl Send for ExportMemory {}
 unsafe impl Sync for ExportMemory {}
 
 impl ExportMemory {
-    /// Get the plan for this exported memory
-    pub fn plan(&self) -> &MemoryPlan {
-        self.from.plan()
+    /// Get the type for this exported memory
+    pub fn ty(&self) -> &MemoryType {
+        self.from.ty()
+    }
+
+    /// Get the style for this exported memory
+    pub fn style(&self) -> &MemoryStyle {
+        self.from.style()
     }
 
     /// Returns whether or not the two `ExportMemory`s refer to the same Memory.

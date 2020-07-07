@@ -107,14 +107,8 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.signature.clone()),
         Export::Table(ref t) => ExternType::Table(t.ty().clone()),
-        Export::Memory(ref m) => {
-            let memory = m.plan().memory;
-            ExternType::Memory(memory)
-        }
-        Export::Global(ref g) => {
-            let global = g.global;
-            ExternType::Global(global)
-        }
+        Export::Memory(ref m) => ExternType::Memory(m.ty().clone()),
+        Export::Global(ref g) => ExternType::Global(g.global),
     }
 }
 
@@ -186,7 +180,7 @@ pub fn resolve_imports(
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
-                        let export_memory_plan = m.plan();
+                        let export_memory_style = m.style();
                         let import_memory_plan = &memory_plans[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
@@ -194,12 +188,12 @@ pub fn resolve_imports(
                                 bound: import_bound,
                                 ..
                             },
-                        ) = (export_memory_plan.style.clone(), &import_memory_plan.style)
+                        ) = (export_memory_style.clone(), &import_memory_plan.style)
                         {
                             assert_ge!(bound, *import_bound);
                         }
                         assert_ge!(
-                            export_memory_plan.style.offset_guard_size(),
+                            export_memory_style.offset_guard_size(),
                             import_memory_plan.style.offset_guard_size()
                         );
                     }

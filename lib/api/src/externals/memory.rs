@@ -41,7 +41,7 @@ impl Memory {
     }
 
     pub fn ty(&self) -> &MemoryType {
-        &self.exported.plan().memory
+        self.exported.ty()
     }
 
     pub fn store(&self) -> &Store {

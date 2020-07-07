@@ -94,7 +94,7 @@ impl BaseTunables for Tunables {
 
     /// Create a memory given a [`MemoryType`] and a [`MemoryStyle`].
     fn create_memory(&self, plan: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(&plan)?))
+        Ok(Arc::new(LinearMemory::new(&plan.memory, &plan.style)?))
     }
 
     /// Create a table given a [`TableType`] and a [`TableStyle`].
