@@ -6,5 +6,5 @@ impl<Args, Rets> Func<Args, Rets> {
     fn returns(&self) -> &[Type];
     fn call(...) -> Result<Rets, RuntimeError>;
     fn dyn_call(&self, params: &[Value]) -> Result<Box<[Value]>, RuntimeError>;
-    fn signature(&self) -> &FuncDescriptor;
+    fn signature(&self) -> &FuncSig;
 }
