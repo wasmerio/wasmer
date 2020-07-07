@@ -22,7 +22,7 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
+use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
@@ -55,11 +55,11 @@ impl JITArtifact {
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
-        let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
             .memories
             .values()
-            .map(|memory_type| tunables.memory_plan(*memory_type))
+            .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
         let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
@@ -71,7 +71,7 @@ impl JITArtifact {
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
-            memory_plans,
+            memory_styles,
             table_styles,
         };
 
@@ -271,8 +271,8 @@ impl Artifact for JITArtifact {
         &*self.serializable.data_initializers
     }
 
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.serializable.compile_info.memory_plans
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.serializable.compile_info.memory_styles
     }
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {

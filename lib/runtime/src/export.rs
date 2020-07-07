@@ -9,7 +9,7 @@ use crate::vmcontext::{
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasm_common::{FunctionType, GlobalType, TableType, MemoryType};
+use wasm_common::{FunctionType, GlobalType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]

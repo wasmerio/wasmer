@@ -6,12 +6,9 @@ use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
-    VMMemoryImport, VMTableImport,
+    Export, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMFunctionImport,
+    VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
-
-use wasmer_runtime::{MemoryPlan, TableStyle};
-use wasmer_runtime::{MemoryStyle, ModuleInfo};
 
 /// Import resolver connects imports with available exported values.
 pub trait Resolver {
@@ -120,7 +117,7 @@ pub fn resolve_imports(
     module: &ModuleInfo,
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
-    memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
+    memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_funcs);
@@ -181,20 +178,20 @@ pub fn resolve_imports(
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
                         let export_memory_style = m.style();
-                        let import_memory_plan = &memory_plans[*index];
+                        let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
                             MemoryStyle::Static {
                                 bound: import_bound,
                                 ..
                             },
-                        ) = (export_memory_style.clone(), &import_memory_plan.style)
+                        ) = (export_memory_style.clone(), &import_memory_style)
                         {
                             assert_ge!(bound, *import_bound);
                         }
                         assert_ge!(
                             export_memory_style.offset_guard_size(),
-                            import_memory_plan.style.offset_guard_size()
+                            import_memory_style.offset_guard_size()
                         );
                     }
                     _ => {

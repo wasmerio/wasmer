@@ -7,18 +7,22 @@ use wasm_common::{
 };
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
-use wasmer_runtime::{MemoryPlan, TableStyle};
+use wasmer_runtime::{MemoryStyle, TableStyle};
 
 /// Tunables for an engine
 pub trait Tunables {
-    /// Construct a `MemoryPlan` for the provided `MemoryType`
-    fn memory_plan(&self, memory: MemoryType) -> MemoryPlan;
+    /// Construct a `MemoryStyle` for the provided `MemoryType`
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;
 
     /// Construct a `TableStyle` for the provided `TableType`
     fn table_style(&self, table: &TableType) -> TableStyle;
 
     /// Create a memory given a memory type
-    fn create_memory(&self, memory_type: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError>;
+    fn create_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a memory given a memory type
     fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String>;
@@ -27,15 +31,17 @@ pub trait Tunables {
     fn create_memories(
         &self,
         module: &ModuleInfo,
-        memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     ) -> Result<PrimaryMap<LocalMemoryIndex, Arc<dyn Memory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
         for index in num_imports..module.memories.len() {
-            let plan = memory_plans[MemoryIndex::new(index)].clone();
+            let mi = MemoryIndex::new(index);
+            let ty = &module.memories[mi];
+            let style = &memory_styles[mi];
             memories.push(
-                self.create_memory(plan)
+                self.create_memory(ty, style)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }

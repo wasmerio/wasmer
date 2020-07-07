@@ -33,9 +33,9 @@ pub enum MemoryError {
         attempted_delta: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("The memory plan is invalid because {}", reason)]
-    InvalidMemoryPlan {
-        /// The reason why the memory plan is invalid.
+    #[error("The memory is invalid because {}", reason)]
+    InvalidMemory {
+        /// The reason why the memory style is invalid.
         reason: String,
     },
     /// A user defined error value, used for error cases not listed above.
@@ -65,19 +65,11 @@ impl MemoryStyle {
     pub fn offset_guard_size(&self) -> u64 {
         match self {
             Self::Dynamic { offset_guard_size } => *offset_guard_size,
-            Self::Static { offset_guard_size, .. } => *offset_guard_size,
+            Self::Static {
+                offset_guard_size, ..
+            } => *offset_guard_size,
         }
     }
-}
-
-/// A WebAssembly linear memory description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct MemoryPlan {
-    /// The WebAssembly linear memory description.
-    pub memory: MemoryType,
-    /// Our chosen implementation style.
-    pub style: MemoryStyle,
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
@@ -143,12 +135,10 @@ impl LinearMemory {
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
         // `maximum` cannot be set to more than `65536` pages.
         assert_le!(memory.minimum, Pages::max_value());
-        assert!(
-            memory.maximum.is_none() || memory.maximum.unwrap() <= Pages::max_value()
-        );
+        assert!(memory.maximum.is_none() || memory.maximum.unwrap() <= Pages::max_value());
 
         if memory.maximum.is_some() && memory.maximum.unwrap() < memory.minimum {
-            return Err(MemoryError::InvalidMemoryPlan {
+            return Err(MemoryError::InvalidMemory {
                 reason: format!(
                     "the maximum ({} pages) is less than the minimum ({} pages)",
                     memory.maximum.unwrap().0,
@@ -203,12 +193,12 @@ impl LinearMemory {
 }
 
 impl Memory for LinearMemory {
-    /// Returns the memory plan for this memory.
+    /// Returns the type for this memory.
     fn ty(&self) -> &MemoryType {
         &self.memory
     }
 
-    /// Returns the memory plan for this memory.
+    /// Returns the memory style for this memory.
     fn style(&self) -> &MemoryStyle {
         &self.style
     }

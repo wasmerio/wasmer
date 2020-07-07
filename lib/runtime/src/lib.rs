@@ -39,7 +39,7 @@ pub mod libcalls;
 pub use crate::export::*;
 pub use crate::imports::Imports;
 pub use crate::instance::InstanceHandle;
-pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryPlan, MemoryStyle};
+pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::probestack::PROBESTACK;

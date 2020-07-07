@@ -32,7 +32,7 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, CompilationNamer};
-use wasmer_runtime::{MemoryPlan, TableStyle};
+use wasmer_runtime::{MemoryStyle, TableStyle};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
@@ -101,11 +101,11 @@ impl NativeArtifact {
     ) -> Result<(CompileModuleInfo, Compilation, Vec<DataInitializer<'data>>), CompileError> {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
             .memories
             .values()
-            .map(|memory_type| tunables.memory_plan(*memory_type))
+            .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
         let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
@@ -117,7 +117,7 @@ impl NativeArtifact {
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
-            memory_plans,
+            memory_styles,
             table_styles,
         };
 
@@ -522,8 +522,8 @@ impl Artifact for NativeArtifact {
         &*self.metadata.data_initializers
     }
 
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.metadata.compile_info.memory_plans
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.metadata.compile_info.memory_styles
     }
 
     fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {

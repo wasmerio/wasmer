@@ -20,7 +20,7 @@ use wasmer_compiler::{
     TrapInformation,
 };
 use wasmer_runtime::{
-    MemoryPlan, MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryStyle, MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
@@ -36,7 +36,7 @@ pub struct FuncGen<'a> {
     vmoffsets: &'a VMOffsets,
 
     // // Memory plans.
-    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+    memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
     // // Table plans.
     // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
@@ -1226,7 +1226,7 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_plans[MemoryIndex::new(0)].style {
+        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
             MemoryStyle::Dynamic => true,
         };
@@ -1778,7 +1778,7 @@ impl<'a> FuncGen<'a> {
         module: &'a ModuleInfo,
         config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
-        memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+        memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
@@ -1816,7 +1816,7 @@ impl<'a> FuncGen<'a> {
             module,
             config,
             vmoffsets,
-            memory_plans,
+            memory_styles,
             // table_styles,
             signature,
             assembler,

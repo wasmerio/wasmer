@@ -44,7 +44,7 @@ impl Compiler for LLVMCompiler {
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let mut func_names = SecondaryMap::new();
-        let memory_plans = &compile_info.memory_plans;
+        let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
@@ -78,7 +78,7 @@ impl Compiler for LLVMCompiler {
                         i,
                         input,
                         self.config(),
-                        &memory_plans,
+                        memory_styles,
                         &table_styles,
                         &func_names,
                     )

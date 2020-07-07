@@ -21,9 +21,8 @@ pub struct Memory {
 impl Memory {
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.tunables();
-        let memory_plan = tunables.memory_plan(ty);
-        let memory = tunables.create_memory(memory_plan)?;
-
+        let style = tunables.memory_style(&ty);
+        let memory = tunables.create_memory(&ty, &style)?;
         let definition = memory.vmmemory();
 
         Ok(Memory {

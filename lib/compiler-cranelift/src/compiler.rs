@@ -60,7 +60,7 @@ impl Compiler for CraneliftCompiler {
     ) -> Result<Compilation, CompileError> {
         let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
-        let memory_plans = &compile_info.memory_plans;
+        let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let signatures = module
@@ -100,7 +100,7 @@ impl Compiler for CraneliftCompiler {
                     isa.frontend_config(),
                     module,
                     &signatures,
-                    &memory_plans,
+                    &memory_styles,
                     &table_styles,
                 );
                 context.func.name = get_func_name(func_index);

@@ -55,7 +55,7 @@ impl Compiler for SinglepassCompiler {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
-        let memory_plans = &compile_info.memory_plans;
+        let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
@@ -95,7 +95,7 @@ impl Compiler for SinglepassCompiler {
                     module,
                     &self.config,
                     &vmoffsets,
-                    &memory_plans,
+                    &memory_styles,
                     &table_styles,
                     *i,
                     &locals,
