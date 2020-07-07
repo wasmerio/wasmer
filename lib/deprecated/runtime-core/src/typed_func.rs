@@ -1,7 +1,7 @@
 use crate::{
     error::{ExportError, RuntimeError},
     get_global_store, new,
-    types::{FuncDescriptor, FuncSig, NativeWasmType, Type, Value, WasmExternType},
+    types::{FuncSig, NativeWasmType, Type, Value, WasmExternType},
     vm,
 };
 use std::marker::PhantomData;
@@ -43,7 +43,7 @@ where
     }
 
     /// Returns the full function signature.
-    pub fn signature(&self) -> &FuncDescriptor {
+    pub fn signature(&self) -> &FuncSig {
         self.new_function.ty()
     }
 
@@ -267,7 +267,7 @@ impl DynamicFunc {
     }
 
     /// Returns the full function signature.
-    pub fn signature(&self) -> &FuncDescriptor {
+    pub fn signature(&self) -> &FuncSig {
         self.new_function.ty()
     }
 
