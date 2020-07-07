@@ -80,7 +80,7 @@ impl BaseTunables for Tunables {
     }
 
     /// Get a [`TableStyle`] for the provided [`TableType`].
-    fn table_style(&self, table: &TableType) -> TableStyle {
+    fn table_style(&self, _table: &TableType) -> TableStyle {
         TableStyle::CallerChecksSignature
     }
 
