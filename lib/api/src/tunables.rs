@@ -1,5 +1,3 @@
-use crate::memory::LinearMemory;
-use crate::table::LinearTable;
 use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
@@ -8,7 +6,9 @@ use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;
-use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle};
+use wasmer_runtime::{
+    LinearMemory, LinearTable, Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle,
+};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
