@@ -249,6 +249,10 @@ impl Exports {
     {
         Ok(self.new_exports.get::<T>(name)?.clone())
     }
+
+    pub fn iter(&self) -> new::wasmer::ExportsIterator<impl Iterator<Item = (&String, &Export)>> {
+        self.new_exports.iter()
+    }
 }
 
 impl LikeNamespace for Exports {
