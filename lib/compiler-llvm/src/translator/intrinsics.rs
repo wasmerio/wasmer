@@ -622,7 +622,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 )
                 .unwrap();
-            if memory_plan.style == MemoryStyle::Dynamic {
+            if matches!(memory_plan.style, MemoryStyle::Dynamic { .. }) {
                 let current_length_ptr = cache_builder
                     .build_struct_gep(
                         memory_definition_ptr,

@@ -74,29 +74,30 @@ impl BaseTunables for Tunables {
                 memory,
                 style: MemoryStyle::Static {
                     bound: self.static_memory_bound,
+                    offset_guard_size: self.static_memory_offset_guard_size,
                 },
-                offset_guard_size: self.static_memory_offset_guard_size,
             }
         } else {
             MemoryPlan {
                 memory,
-                style: MemoryStyle::Dynamic,
-                offset_guard_size: self.dynamic_memory_offset_guard_size,
+                style: MemoryStyle::Dynamic {
+                    offset_guard_size: self.dynamic_memory_offset_guard_size,
+                },
             }
         }
     }
 
-    /// Get a `TableStyle` for the provided `TableType`
+    /// Get a [`TableStyle`] for the provided [`TableType`].
     fn table_style(&self, table: &TableType) -> TableStyle {
         TableStyle::CallerChecksSignature
     }
 
-    /// Create a memory given a memory type
+    /// Create a memory given a [`MemoryType`] and a [`MemoryStyle`].
     fn create_memory(&self, plan: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError> {
         Ok(Arc::new(LinearMemory::new(&plan)?))
     }
 
-    /// Create a memory given a memory type
+    /// Create a table given a [`TableType`] and a [`TableStyle`].
     fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
         Ok(Arc::new(LinearTable::new(&ty, &style)?))
     }

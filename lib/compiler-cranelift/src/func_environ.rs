@@ -644,8 +644,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         // allocated up front and never moved.
         let (offset_guard_size, heap_style, readonly_base) = match self.memory_plans[index] {
             MemoryPlan {
-                style: MemoryStyle::Dynamic,
-                offset_guard_size,
+                style: MemoryStyle::Dynamic {
+                    offset_guard_size
+                },
                 memory: _,
             } => {
                 let heap_bound = func.create_global_value(ir::GlobalValueData::Load {
@@ -663,8 +664,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 )
             }
             MemoryPlan {
-                style: MemoryStyle::Static { bound },
-                offset_guard_size,
+                style: MemoryStyle::Static { bound, offset_guard_size },
                 memory: _,
             } => (
                 Uimm64::new(offset_guard_size),

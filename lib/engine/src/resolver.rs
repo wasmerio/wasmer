@@ -189,17 +189,18 @@ pub fn resolve_imports(
                         let export_memory_plan = m.plan();
                         let import_memory_plan = &memory_plans[*index];
                         if let (
-                            MemoryStyle::Static { bound },
+                            MemoryStyle::Static { bound, .. },
                             MemoryStyle::Static {
                                 bound: import_bound,
+                                ..
                             },
                         ) = (export_memory_plan.style.clone(), &import_memory_plan.style)
                         {
                             assert_ge!(bound, *import_bound);
                         }
                         assert_ge!(
-                            export_memory_plan.offset_guard_size,
-                            import_memory_plan.offset_guard_size
+                            export_memory_plan.style.offset_guard_size(),
+                            import_memory_plan.style.offset_guard_size()
                         );
                     }
                     _ => {

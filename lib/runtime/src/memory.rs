@@ -47,12 +47,27 @@ pub enum MemoryError {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
-    Dynamic,
+    Dynamic {
+        /// Our chosen offset-guard size.
+        offset_guard_size: u64,
+    },
     /// Address space is allocated up front.
     Static {
         /// The number of mapped and unmapped pages.
         bound: Pages,
+        /// Our chosen offset-guard size.
+        offset_guard_size: u64,
     },
+}
+
+impl MemoryStyle {
+    /// Returns the offset-guard size
+    pub fn offset_guard_size(&self) -> u64 {
+        match self {
+            Self::Dynamic { offset_guard_size } => *offset_guard_size,
+            Self::Static { offset_guard_size, .. } => *offset_guard_size,
+        }
+    }
 }
 
 /// A WebAssembly linear memory description along with our chosen style for
@@ -63,8 +78,6 @@ pub struct MemoryPlan {
     pub memory: MemoryType,
     /// Our chosen implementation style.
     pub style: MemoryStyle,
-    /// Our chosen offset-guard size.
-    pub offset_guard_size: u64,
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
@@ -138,20 +151,20 @@ impl LinearMemory {
             });
         }
 
-        let offset_guard_bytes = plan.offset_guard_size as usize;
+        let offset_guard_bytes = plan.style.offset_guard_size() as usize;
 
         // If we have an offset guard, or if we're doing the static memory
         // allocation strategy, we need signal handlers to catch out of bounds
         // acceses.
         let needs_signal_handlers = offset_guard_bytes > 0
             || match plan.style {
-                MemoryStyle::Dynamic => false,
+                MemoryStyle::Dynamic { .. } => false,
                 MemoryStyle::Static { .. } => true,
             };
 
         let minimum_pages = match plan.style {
-            MemoryStyle::Dynamic => plan.memory.minimum,
-            MemoryStyle::Static { bound } => {
+            MemoryStyle::Dynamic { .. } => plan.memory.minimum,
+            MemoryStyle::Static { bound, .. } => {
                 assert_ge!(bound, plan.memory.minimum);
                 bound
             }
