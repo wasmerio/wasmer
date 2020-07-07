@@ -51,6 +51,12 @@ pub trait Table: fmt::Debug + Send + Sync {
     /// Returns the table plan for this Table.
     fn plan(&self) -> &TablePlan;
 
+    /// Returns the style for this Table.
+    fn style(&self) -> &TableStyle;
+
+    /// Returns the type for this Table.
+    fn ty(&self) -> &TableType;
+
     /// Returns the number of allocated elements.
     fn size(&self) -> u32;
 
@@ -139,28 +145,31 @@ unsafe impl Sync for LinearTable {}
 
 impl LinearTable {
     /// Create a new table instance with specified minimum and maximum number of elements.
-    pub fn new(plan: &TablePlan) -> Result<Self, String> {
-        match plan.table.ty {
+    pub fn new(table: &TableType, style: &TableStyle) -> Result<Self, String> {
+        match table.ty {
             ValType::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
-        if let Some(max) = plan.table.maximum {
-            if max < plan.table.minimum {
+        if let Some(max) = table.maximum {
+            if max < table.minimum {
                 return Err(format!(
                     "Table minimum ({}) is larger than maximum ({})!",
-                    plan.table.minimum, max
+                    table.minimum, max
                 ));
             }
         }
-        let table_minimum = usize::try_from(plan.table.minimum)
+        let table_minimum = usize::try_from(table.minimum)
             .map_err(|_| "Table minimum is bigger than usize".to_string())?;
         let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_minimum];
         let base = vec.as_mut_ptr();
-        match plan.style {
+        match style {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: Mutex::new(vec),
-                maximum: plan.table.maximum,
-                plan: plan.clone(),
+                maximum: table.maximum,
+                plan: TablePlan {
+                    table: table.clone(),
+                    style: style.clone(),
+                },
                 vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
                     base: base as _,
                     current_elements: table_minimum as _,
@@ -174,6 +183,16 @@ impl Table for LinearTable {
     /// Returns the table plan for this Table.
     fn plan(&self) -> &TablePlan {
         &self.plan
+    }
+
+    /// Returns the style for this Table.
+    fn style(&self) -> &TableStyle {
+        &self.plan.style
+    }
+
+    /// Returns the style for this Table.
+    fn ty(&self) -> &TableType {
+        &self.plan.table
     }
 
     /// Returns the number of allocated elements.

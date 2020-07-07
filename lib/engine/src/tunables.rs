@@ -7,7 +7,7 @@ use wasm_common::{
 };
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{MemoryPlan, TablePlan, TableStyle};
 
 /// Tunables for an engine
 pub trait Tunables {
@@ -21,7 +21,7 @@ pub trait Tunables {
     fn create_memory(&self, memory_type: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a memory given a memory type
-    fn create_table(&self, table_type: TablePlan) -> Result<Arc<dyn Table>, String>;
+    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String>;
 
     /// Allocate memory for just the memories of the current module.
     fn create_memories(
@@ -53,7 +53,7 @@ pub trait Tunables {
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
         for index in num_imports..module.tables.len() {
             let plan = table_plans[TableIndex::new(index)].clone();
-            tables.push(self.create_table(plan).map_err(LinkError::Resource)?);
+            tables.push(self.create_table(&plan.table, &plan.style).map_err(LinkError::Resource)?);
         }
         Ok(tables)
     }

@@ -2,14 +2,14 @@
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
 use crate::memory::{Memory, MemoryPlan};
-use crate::table::{Table, TablePlan};
+use crate::table::{Table, TablePlan, TableStyle};
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
     VMTableDefinition,
 };
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasm_common::{FunctionType, GlobalType};
+use wasm_common::{FunctionType, GlobalType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -71,9 +71,19 @@ unsafe impl Send for ExportTable {}
 unsafe impl Sync for ExportTable {}
 
 impl ExportTable {
-    /// Get the plan for this exported memory
+    /// Get the plan for this exported table
     pub fn plan(&self) -> &TablePlan {
         self.from.plan()
+    }
+
+    /// Get the table type for this exported table
+    pub fn ty(&self) -> &TableType {
+        self.from.ty()
+    }
+
+    /// Get the style for this exported table
+    pub fn style(&self) -> &TableStyle {
+        self.from.style()
     }
 
     /// Returns whether or not the two `ExportTable`s refer to the same Memory.

@@ -100,7 +100,7 @@ impl BaseTunables for Tunables {
     }
 
     /// Create a memory given a memory type
-    fn create_table(&self, plan: TablePlan) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(&plan)?))
+    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::new(&ty, &style)?))
     }
 }

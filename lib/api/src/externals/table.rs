@@ -36,7 +36,7 @@ impl Table {
         let tunables = store.tunables();
         let table_plan = tunables.table_plan(ty);
         let table = tunables
-            .create_table(table_plan)
+            .create_table(&table_plan.table, &table_plan.style)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
@@ -61,7 +61,7 @@ impl Table {
 
     /// Gets the underlying [`TableType`].
     pub fn ty(&self) -> &TableType {
-        &self.exported.plan().table
+        self.exported.ty()
     }
 
     pub fn store(&self) -> &Store {
