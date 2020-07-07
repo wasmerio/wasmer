@@ -237,7 +237,7 @@ pub struct Exports {
 }
 
 impl Exports {
-    pub fn new() -> Self {
+    pub(crate) fn new() -> Self {
         Self {
             new_exports: new::wasmer::Exports::new(),
         }
