@@ -128,6 +128,11 @@ impl<'a> MiddlewareBinaryReader<'a> {
 
     /// Reads the next available `Operator`.
     pub fn read_operator(&mut self) -> WpResult<Operator<'a>> {
+        if self.chain.is_empty() {
+            // We short-circuit in case no chain is used
+            return self.state.inner.read_operator();
+        }
+
         // Try to fill the `self.pending_operations` buffer, until it is non-empty.
         while self.state.pending_operations.is_empty() {
             let raw_op = self.state.inner.read_operator()?;
