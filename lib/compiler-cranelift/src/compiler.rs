@@ -61,7 +61,7 @@ impl Compiler for CraneliftCompiler {
         let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
         let memory_plans = &compile_info.memory_plans;
-        let table_plans = &compile_info.table_plans;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -101,7 +101,7 @@ impl Compiler for CraneliftCompiler {
                     module,
                     &signatures,
                     &memory_plans,
-                    &table_plans,
+                    &table_styles,
                 );
                 context.func.name = get_func_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();

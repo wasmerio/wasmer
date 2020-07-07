@@ -56,7 +56,7 @@ impl Compiler for SinglepassCompiler {
         }
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let memory_plans = &compile_info.memory_plans;
-        let table_plans = &compile_info.table_plans;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
@@ -96,7 +96,7 @@ impl Compiler for SinglepassCompiler {
                     &self.config,
                     &vmoffsets,
                     &memory_plans,
-                    &table_plans,
+                    &table_styles,
                     *i,
                     &locals,
                 )

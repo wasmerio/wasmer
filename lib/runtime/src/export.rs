@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
 use crate::memory::{Memory, MemoryPlan};
-use crate::table::{Table, TablePlan, TableStyle};
+use crate::table::{Table, TableStyle};
 use crate::vmcontext::{
     VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
     VMTableDefinition,
@@ -71,11 +71,6 @@ unsafe impl Send for ExportTable {}
 unsafe impl Sync for ExportTable {}
 
 impl ExportTable {
-    /// Get the plan for this exported table
-    pub fn plan(&self) -> &TablePlan {
-        self.from.plan()
-    }
-
     /// Get the table type for this exported table
     pub fn ty(&self) -> &TableType {
         self.from.ty()

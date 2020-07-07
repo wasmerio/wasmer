@@ -18,7 +18,7 @@ use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, Table
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TableStyle};
+use wasmer_runtime::{MemoryPlan, MemoryStyle, ModuleInfo, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -88,7 +88,7 @@ pub struct FuncEnvironment<'module_environment> {
     memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
 
     /// The table plans
-    table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,
+    table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
 }
 
 impl<'module_environment> FuncEnvironment<'module_environment> {
@@ -97,7 +97,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
         memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,
+        table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
         Self {
             target_config,
@@ -115,7 +115,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             data_drop_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_plans,
-            table_plans,
+            table_styles,
         }
     }
 
@@ -521,7 +521,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             readonly: false,
         });
 
-        let element_size = match self.table_plans[index].style {
+        let element_size = match self.table_styles[index] {
             TableStyle::CallerChecksSignature => {
                 u64::from(self.offsets.size_of_vmcaller_checked_anyfunc())
             }
@@ -774,7 +774,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         pos.ins().trapz(func_addr, ir::TrapCode::IndirectCallToNull);
 
         // If necessary, check the signature.
-        match self.table_plans[table_index].style {
+        match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_id_size = self.offsets.size_of_vmshared_signature_index();
                 let sig_id_type = Type::int(u16::from(sig_id_size) * 8).unwrap();

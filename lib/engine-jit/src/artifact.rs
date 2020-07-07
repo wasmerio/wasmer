@@ -22,7 +22,7 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
@@ -61,18 +61,18 @@ impl JITArtifact {
             .values()
             .map(|memory_type| tunables.memory_plan(*memory_type))
             .collect();
-        let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
             .tables
             .values()
-            .map(|table_type| tunables.table_plan(*table_type))
+            .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
             memory_plans,
-            table_plans,
+            table_styles,
         };
 
         let compiler = inner_jit.compiler()?;
@@ -275,8 +275,8 @@ impl Artifact for JITArtifact {
         &self.serializable.compile_info.memory_plans
     }
 
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.serializable.compile_info.table_plans
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.serializable.compile_info.table_styles
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {

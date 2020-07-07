@@ -34,9 +34,9 @@ impl Table {
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
-        let table_plan = tunables.table_plan(ty);
+        let style = tunables.table_style(&ty);
         let table = tunables
-            .create_table(&table_plan.table, &table_plan.style)
+            .create_table(&ty, &style)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();

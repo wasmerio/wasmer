@@ -36,21 +36,8 @@ pub enum TableStyle {
     CallerChecksSignature,
 }
 
-/// A WebAssembly table description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct TablePlan {
-    /// The WebAssembly table description.
-    pub table: TableType,
-    /// Our chosen implementation style.
-    pub style: TableStyle,
-}
-
 /// Trait for implementing the interface of a Wasm table.
 pub trait Table: fmt::Debug + Send + Sync {
-    /// Returns the table plan for this Table.
-    fn plan(&self) -> &TablePlan;
-
     /// Returns the style for this Table.
     fn style(&self) -> &TableStyle;
 
@@ -134,7 +121,10 @@ pub struct LinearTable {
     // TODO: we can remove the mutex by using atomic swaps and preallocating the max table size
     vec: Mutex<Vec<VMCallerCheckedAnyfunc>>,
     maximum: Option<u32>,
-    plan: TablePlan,
+    /// The WebAssembly table description.
+    table: TableType,
+    /// Our chosen implementation style.
+    style: TableStyle,
     vm_table_definition: Box<UnsafeCell<VMTableDefinition>>,
 }
 
@@ -166,10 +156,8 @@ impl LinearTable {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: Mutex::new(vec),
                 maximum: table.maximum,
-                plan: TablePlan {
-                    table: table.clone(),
-                    style: style.clone(),
-                },
+                table: table.clone(),
+                style: style.clone(),
                 vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
                     base: base as _,
                     current_elements: table_minimum as _,
@@ -180,19 +168,14 @@ impl LinearTable {
 }
 
 impl Table for LinearTable {
-    /// Returns the table plan for this Table.
-    fn plan(&self) -> &TablePlan {
-        &self.plan
-    }
-
     /// Returns the style for this Table.
     fn style(&self) -> &TableStyle {
-        &self.plan.style
+        &self.style
     }
 
-    /// Returns the style for this Table.
+    /// Returns the type for this Table.
     fn ty(&self) -> &TableType {
-        &self.plan.table
+        &self.table
     }
 
     /// Returns the number of allocated elements.

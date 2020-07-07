@@ -10,7 +10,7 @@ use wasmer_runtime::{
     VMMemoryImport, VMTableImport,
 };
 
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{MemoryPlan, TableStyle};
 use wasmer_runtime::{MemoryStyle, ModuleInfo};
 
 /// Import resolver connects imports with available exported values.
@@ -106,9 +106,7 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.signature.clone()),
-        Export::Table(ref t) => {
-            ExternType::Table(t.ty().clone())
-        }
+        Export::Table(ref t) => ExternType::Table(t.ty().clone()),
         Export::Memory(ref m) => {
             let memory = m.plan().memory;
             ExternType::Memory(memory)
@@ -129,7 +127,7 @@ pub fn resolve_imports(
     resolver: &dyn Resolver,
     finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-    _table_plans: &PrimaryMap<TableIndex, TablePlan>,
+    _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_funcs);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);

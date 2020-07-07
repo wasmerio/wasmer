@@ -34,7 +34,7 @@ use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
     MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TableStyle};
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
@@ -73,7 +73,7 @@ impl FuncTranslator {
         function_body: &FunctionBodyData,
         config: &LLVM,
         memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: &PrimaryMap<TableIndex, TablePlan>,
+        _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
@@ -199,7 +199,7 @@ impl FuncTranslator {
             ctx: CtxType::new(wasm_module, &func, &cache_builder),
             unreachable_depth: 0,
             memory_plans,
-            _table_plans,
+            _table_styles,
             module: &module,
             module_translation,
             wasm_module,
@@ -1265,7 +1265,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     ctx: CtxType<'ctx, 'a>,
     unreachable_depth: usize,
     memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-    _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+    _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
 
     // This is support for stackmaps:
     /*

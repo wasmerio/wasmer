@@ -12,7 +12,7 @@ use wasm_common::{
 };
 use wasmer_compiler::Features;
 use wasmer_runtime::{
-    InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex,
+    InstanceHandle, MemoryPlan, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -45,7 +45,7 @@ pub trait Artifact {
     fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan>;
 
     /// Returns the table plans associated with this `Artifact`.
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan>;
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle>;
 
     /// Returns data initializers to pass to `InstanceHandle::initialize`
     fn data_initializers(&self) -> &[OwnedDataInitializer];
@@ -97,7 +97,7 @@ pub trait Artifact {
             resolver,
             &self.finished_dynamic_function_trampolines(),
             self.memory_plans(),
-            self.table_plans(),
+            self.table_styles(),
         )
         .map_err(InstantiationError::Link)?;
         let finished_memories = tunables
@@ -105,7 +105,7 @@ pub trait Artifact {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
-            .create_tables(&module, self.table_plans())
+            .create_tables(&module, self.table_styles())
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables

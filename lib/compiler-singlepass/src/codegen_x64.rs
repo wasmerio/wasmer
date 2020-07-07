@@ -20,7 +20,7 @@ use wasmer_compiler::{
     TrapInformation,
 };
 use wasmer_runtime::{
-    MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryPlan, MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
@@ -39,7 +39,7 @@ pub struct FuncGen<'a> {
     memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
 
     // // Table plans.
-    // table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     /// Function signature.
     signature: FunctionType,
 
@@ -1779,7 +1779,7 @@ impl<'a> FuncGen<'a> {
         config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
         memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+        _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
     ) -> Result<FuncGen<'a>, CodegenError> {
@@ -1817,7 +1817,7 @@ impl<'a> FuncGen<'a> {
             config,
             vmoffsets,
             memory_plans,
-            // table_plans,
+            // table_styles,
             signature,
             assembler,
             locals: vec![], // initialization deferred to emit_head

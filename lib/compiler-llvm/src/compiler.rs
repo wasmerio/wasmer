@@ -45,7 +45,7 @@ impl Compiler for LLVMCompiler {
         //let data = Arc::new(Mutex::new(0));
         let mut func_names = SecondaryMap::new();
         let memory_plans = &compile_info.memory_plans;
-        let table_plans = &compile_info.table_plans;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
@@ -79,7 +79,7 @@ impl Compiler for LLVMCompiler {
                         input,
                         self.config(),
                         &memory_plans,
-                        &table_plans,
+                        &table_styles,
                         &func_names,
                     )
                 },

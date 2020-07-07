@@ -7,7 +7,7 @@ use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{
-    LinearMemory, LinearTable, Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle,
+    LinearMemory, LinearTable, Memory, MemoryPlan, MemoryStyle, Table, TableStyle,
 };
 
 /// Tunable parameters for WebAssembly compilation.
@@ -86,12 +86,9 @@ impl BaseTunables for Tunables {
         }
     }
 
-    /// Get a `TablePlan` for the provided `TableType`
-    fn table_plan(&self, table: TableType) -> TablePlan {
-        TablePlan {
-            table,
-            style: TableStyle::CallerChecksSignature,
-        }
+    /// Get a `TableStyle` for the provided `TableType`
+    fn table_style(&self, table: &TableType) -> TableStyle {
+        TableStyle::CallerChecksSignature
     }
 
     /// Create a memory given a memory type

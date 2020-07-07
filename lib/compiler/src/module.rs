@@ -3,13 +3,13 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{Features, MemoryIndex, TableIndex};
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
+use wasmer_runtime::{MemoryPlan, ModuleInfo, TableStyle};
 
 /// The required info for compiling a module.
 ///
 /// This differs from [`ModuleInfo`] because it have extra info only
 /// possible after translation (such as the features used for compiling,
-/// or the `MemoryPlan` and `TablePlan`).
+/// or the `MemoryPlan` and `TableStyle`).
 #[derive(Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 pub struct CompileModuleInfo {
@@ -23,5 +23,5 @@ pub struct CompileModuleInfo {
     /// on the memory style (static or dynamic) chosen.
     pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
     /// The table plans used for compiling.
-    pub table_plans: PrimaryMap<TableIndex, TablePlan>,
+    pub table_styles: PrimaryMap<TableIndex, TableStyle>,
 }

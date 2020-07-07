@@ -7,15 +7,15 @@ use wasm_common::{
 };
 use wasmer_runtime::MemoryError;
 use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
-use wasmer_runtime::{MemoryPlan, TablePlan, TableStyle};
+use wasmer_runtime::{MemoryPlan, TableStyle};
 
 /// Tunables for an engine
 pub trait Tunables {
     /// Construct a `MemoryPlan` for the provided `MemoryType`
     fn memory_plan(&self, memory: MemoryType) -> MemoryPlan;
 
-    /// Construct a `TablePlan` for the provided `TableType`
-    fn table_plan(&self, table: TableType) -> TablePlan;
+    /// Construct a `TableStyle` for the provided `TableType`
+    fn table_style(&self, table: &TableType) -> TableStyle;
 
     /// Create a memory given a memory type
     fn create_memory(&self, memory_type: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError>;
@@ -46,14 +46,16 @@ pub trait Tunables {
     fn create_tables(
         &self,
         module: &ModuleInfo,
-        table_plans: &PrimaryMap<TableIndex, TablePlan>,
+        table_styles: &PrimaryMap<TableIndex, TableStyle>,
     ) -> Result<PrimaryMap<LocalTableIndex, Arc<dyn Table>>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
         for index in num_imports..module.tables.len() {
-            let plan = table_plans[TableIndex::new(index)].clone();
-            tables.push(self.create_table(&plan.table, &plan.style).map_err(LinkError::Resource)?);
+            let ti = TableIndex::new(index);
+            let ty = &module.tables[ti];
+            let style = &table_styles[ti];
+            tables.push(self.create_table(ty, style).map_err(LinkError::Resource)?);
         }
         Ok(tables)
     }

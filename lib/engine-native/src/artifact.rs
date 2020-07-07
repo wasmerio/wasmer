@@ -32,7 +32,7 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, CompilationNamer};
-use wasmer_runtime::{MemoryPlan, TablePlan};
+use wasmer_runtime::{MemoryPlan, TableStyle};
 use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
@@ -107,18 +107,18 @@ impl NativeArtifact {
             .values()
             .map(|memory_type| tunables.memory_plan(*memory_type))
             .collect();
-        let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
             .tables
             .values()
-            .map(|table_type| tunables.table_plan(*table_type))
+            .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
             memory_plans,
-            table_plans,
+            table_styles,
         };
 
         // Compile the Module
@@ -526,8 +526,8 @@ impl Artifact for NativeArtifact {
         &self.metadata.compile_info.memory_plans
     }
 
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.metadata.compile_info.table_plans
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.metadata.compile_info.table_styles
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
