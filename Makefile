@@ -125,7 +125,7 @@ test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi -- --nocapture
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release

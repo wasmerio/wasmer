@@ -7,7 +7,6 @@ mod import_object;
 mod instance;
 mod module;
 mod native;
-mod ordered_resolver;
 mod ptr;
 mod store;
 mod tunables;
@@ -31,7 +30,6 @@ pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace
 pub use crate::instance::Instance;
 pub use crate::module::Module;
 pub use crate::native::NativeFunc;
-pub use crate::ordered_resolver::OrderedResolver;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
@@ -56,7 +54,7 @@ pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
-pub use wasmer_vm::{raise_user_trap, MemoryError};
+pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 
