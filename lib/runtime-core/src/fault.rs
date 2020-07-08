@@ -475,8 +475,8 @@ extern "C" fn sigint_handler(
             None => {
                 if !INTERRUPT_SIGNAL_DELIVERED.swap(true, Ordering::SeqCst) {
                     eprintln!(
-                    "Got another SIGINT before trap is triggered on WebAssembly side, aborting"
-                );
+                        "Got another SIGINT before trap is triggered on WebAssembly side, aborting"
+                    );
                     process::abort();
                 }
 

@@ -1,6 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1496](https://github.com/wasmerio/wasmer/pull/1496) Propagate interrupt signal(SIGINT) to previous signal handler
 
 ## 0.17.1 - 2020-06-24
 
