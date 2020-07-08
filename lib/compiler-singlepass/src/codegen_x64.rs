@@ -20,7 +20,7 @@ use wasmer_compiler::{
     TrapInformation,
 };
 use wasmer_runtime::{
-    MemoryStyle, MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
@@ -1228,7 +1228,7 @@ impl<'a> FuncGen<'a> {
     ) -> Result<(), CodegenError> {
         let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic => true,
+            MemoryStyle::Dynamic { .. } => true,
         };
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
 
