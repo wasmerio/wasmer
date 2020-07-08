@@ -42,8 +42,6 @@ pub enum FunctionDefinition {
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
-    // If the Function is owned by the Store, not the instance
-    pub(crate) owned_by_store: bool,
     pub(crate) exported: ExportFunction,
 }
 
@@ -69,7 +67,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -108,7 +105,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -144,7 +140,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -182,7 +177,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -309,7 +303,6 @@ impl Function {
             .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
-            owned_by_store: false,
             definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }

@@ -81,7 +81,6 @@ where
         Self {
             store: other.store,
             definition: other.definition,
-            owned_by_store: true, // todo
             exported: ExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
