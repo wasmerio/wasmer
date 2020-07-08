@@ -1,8 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
-use crate::memory_view::MemoryView;
 use crate::store::Store;
-use crate::MemoryType;
+use crate::{MemoryType, MemoryView};
 use std::slice;
 use std::sync::Arc;
 use wasm_common::{Pages, ValueType};

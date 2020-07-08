@@ -1,5 +1,4 @@
-use wasm_common::ValueType;
-
+use crate::native::ValueType;
 use std::sync::atomic::{
     AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
 };
@@ -54,7 +53,8 @@ impl<'a, T> MemoryView<'a, T, NonAtomically>
 where
     T: ValueType,
 {
-    pub(super) unsafe fn new(ptr: *mut T, length: u32) -> Self {
+    /// Creates a new MemoryView given a `pointer` and `length`.
+    pub unsafe fn new(ptr: *mut T, length: u32) -> Self {
         Self {
             ptr,
             length: length as usize,

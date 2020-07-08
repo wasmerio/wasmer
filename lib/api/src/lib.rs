@@ -5,7 +5,6 @@ mod exports;
 mod externals;
 mod import_object;
 mod instance;
-mod memory_view;
 mod module;
 mod native;
 mod ordered_resolver;
@@ -30,7 +29,6 @@ pub use crate::externals::{
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
-pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::Module;
 pub use crate::native::NativeFunc;
 pub use crate::ordered_resolver::OrderedResolver;
@@ -45,8 +43,8 @@ pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use wasm_common::{
-    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE,
+    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
