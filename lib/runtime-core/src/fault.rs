@@ -512,7 +512,7 @@ unsafe fn install_sighandler() {
         SaFlags::SA_ONSTACK,
         SigSet::empty(),
     );
-    SIGINT_SYS_HANDLER = sigaction(SIGINT, &sa_interrupt).ok();
+    SIGINT_SYS_HANDLER = Some(sigaction(SIGINT, &sa_interrupt).unwrap());
 }
 
 #[derive(Debug, Clone)]
