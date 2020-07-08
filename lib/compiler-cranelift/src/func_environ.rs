@@ -18,7 +18,7 @@ use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, Table
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_runtime::VMBuiltinFunctionIndex;
 use wasmer_runtime::VMOffsets;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TableStyle};
+use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
@@ -84,11 +84,11 @@ pub struct FuncEnvironment<'module_environment> {
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
-    /// The memory plans
-    memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
+    /// The memory styles
+    memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
 
-    /// The table plans
-    table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,
+    /// The table styles
+    table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
 }
 
 impl<'module_environment> FuncEnvironment<'module_environment> {
@@ -96,8 +96,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         target_config: TargetFrontendConfig,
         module: &'module_environment ModuleInfo,
         signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
-        memory_plans: &'module_environment PrimaryMap<MemoryIndex, MemoryPlan>,
-        table_plans: &'module_environment PrimaryMap<TableIndex, TablePlan>,
+        memory_styles: &'module_environment PrimaryMap<MemoryIndex, MemoryStyle>,
+        table_styles: &'module_environment PrimaryMap<TableIndex, TableStyle>,
     ) -> Self {
         Self {
             target_config,
@@ -114,8 +114,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory_init_sig: None,
             data_drop_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
-            memory_plans,
-            table_plans,
+            memory_styles,
+            table_styles,
         }
     }
 
@@ -521,7 +521,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             readonly: false,
         });
 
-        let element_size = match self.table_plans[index].style {
+        let element_size = match self.table_styles[index] {
             TableStyle::CallerChecksSignature => {
                 u64::from(self.offsets.size_of_vmcaller_checked_anyfunc())
             }
@@ -642,12 +642,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         // If we have a declared maximum, we can make this a "static" heap, which is
         // allocated up front and never moved.
-        let (offset_guard_size, heap_style, readonly_base) = match self.memory_plans[index] {
-            MemoryPlan {
-                style: MemoryStyle::Dynamic,
-                offset_guard_size,
-                memory: _,
-            } => {
+        let (offset_guard_size, heap_style, readonly_base) = match self.memory_styles[index] {
+            MemoryStyle::Dynamic { offset_guard_size } => {
                 let heap_bound = func.create_global_value(ir::GlobalValueData::Load {
                     base: ptr,
                     offset: Offset32::new(current_length_offset),
@@ -662,10 +658,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                     false,
                 )
             }
-            MemoryPlan {
-                style: MemoryStyle::Static { bound },
+            MemoryStyle::Static {
+                bound,
                 offset_guard_size,
-                memory: _,
             } => (
                 Uimm64::new(offset_guard_size),
                 ir::HeapStyle::Static {
@@ -774,7 +769,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         pos.ins().trapz(func_addr, ir::TrapCode::IndirectCallToNull);
 
         // If necessary, check the signature.
-        match self.table_plans[table_index].style {
+        match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_id_size = self.offsets.size_of_vmshared_signature_index();
                 let sig_id_type = Type::int(u16::from(sig_id_size) * 8).unwrap();

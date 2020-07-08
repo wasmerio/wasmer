@@ -20,7 +20,7 @@ use wasmer_compiler::{
     TrapInformation,
 };
 use wasmer_runtime::{
-    MemoryPlan, MemoryStyle, ModuleInfo, TablePlan, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
+    MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
 };
 
 /// The singlepass per-function code generator.
@@ -36,10 +36,10 @@ pub struct FuncGen<'a> {
     vmoffsets: &'a VMOffsets,
 
     // // Memory plans.
-    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
+    memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
 
     // // Table plans.
-    // table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+    // table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
     /// Function signature.
     signature: FunctionType,
 
@@ -1226,9 +1226,9 @@ impl<'a> FuncGen<'a> {
         value_size: usize,
         cb: F,
     ) -> Result<(), CodegenError> {
-        let need_check = match self.memory_plans[MemoryIndex::new(0)].style {
+        let need_check = match self.memory_styles[MemoryIndex::new(0)] {
             MemoryStyle::Static { .. } => false,
-            MemoryStyle::Dynamic => true,
+            MemoryStyle::Dynamic { .. } => true,
         };
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
 
@@ -1778,8 +1778,8 @@ impl<'a> FuncGen<'a> {
         module: &'a ModuleInfo,
         config: &'a Singlepass,
         vmoffsets: &'a VMOffsets,
-        memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+        memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
+        _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
         local_func_index: LocalFunctionIndex,
         local_types_excluding_arguments: &[WpType],
     ) -> Result<FuncGen<'a>, CodegenError> {
@@ -1816,8 +1816,8 @@ impl<'a> FuncGen<'a> {
             module,
             config,
             vmoffsets,
-            memory_plans,
-            // table_plans,
+            memory_styles,
+            // table_styles,
             signature,
             assembler,
             locals: vec![], // initialization deferred to emit_head

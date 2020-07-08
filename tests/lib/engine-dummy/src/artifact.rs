@@ -15,7 +15,7 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
 use wasmer_runtime::{
-    MemoryPlan, ModuleInfo, TablePlan, VMContext, VMFunctionBody, VMSharedSignatureIndex,
+    MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody, VMSharedSignatureIndex,
 };
 
 /// Serializable struct for the artifact
@@ -25,8 +25,8 @@ pub struct DummyArtifactMetadata {
     pub features: Features,
     pub data_initializers: Box<[OwnedDataInitializer]>,
     // Plans for that module
-    pub memory_plans: PrimaryMap<MemoryIndex, MemoryPlan>,
-    pub table_plans: PrimaryMap<TableIndex, TablePlan>,
+    pub memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
+    pub table_styles: PrimaryMap<TableIndex, TableStyle>,
 }
 
 /// A Dummy artifact.
@@ -64,17 +64,17 @@ impl DummyArtifact {
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
-        let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
             .memories
             .values()
-            .map(|memory_type| tunables.memory_plan(*memory_type))
+            .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
             .tables
             .values()
-            .map(|table_type| tunables.table_plan(*table_type))
+            .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let data_initializers = translation
@@ -88,8 +88,8 @@ impl DummyArtifact {
             module: Arc::new(translation.module),
             features: Features::default(),
             data_initializers,
-            memory_plans,
-            table_plans,
+            memory_styles,
+            table_styles,
         };
         Self::from_parts(&engine, metadata)
     }
@@ -199,12 +199,12 @@ impl Artifact for DummyArtifact {
         &*self.metadata.data_initializers
     }
 
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.metadata.memory_plans
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.metadata.memory_styles
     }
 
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.metadata.table_plans
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.metadata.table_styles
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {

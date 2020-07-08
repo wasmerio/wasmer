@@ -33,9 +33,9 @@ pub enum MemoryError {
         attempted_delta: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("The memory plan is invalid because {}", reason)]
-    InvalidMemoryPlan {
-        /// The reason why the memory plan is invalid.
+    #[error("The memory is invalid because {}", reason)]
+    InvalidMemory {
+        /// The reason why the provided memory is invalid.
         reason: String,
     },
     /// A user defined error value, used for error cases not listed above.
@@ -47,30 +47,44 @@ pub enum MemoryError {
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
-    Dynamic,
+    Dynamic {
+        /// Our chosen offset-guard size.
+        ///
+        /// It represents the size in bytes of extra guard pages after the end
+        /// to optimize loads and stores with constant offsets.
+        offset_guard_size: u64,
+    },
     /// Address space is allocated up front.
     Static {
         /// The number of mapped and unmapped pages.
         bound: Pages,
+        /// Our chosen offset-guard size.
+        ///
+        /// It represents the size in bytes of extra guard pages after the end
+        /// to optimize loads and stores with constant offsets.
+        offset_guard_size: u64,
     },
 }
 
-/// A WebAssembly linear memory description along with our chosen style for
-/// implementing it.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
-pub struct MemoryPlan {
-    /// The WebAssembly linear memory description.
-    pub memory: MemoryType,
-    /// Our chosen implementation style.
-    pub style: MemoryStyle,
-    /// Our chosen offset-guard size.
-    pub offset_guard_size: u64,
+impl MemoryStyle {
+    /// Returns the offset-guard size
+    pub fn offset_guard_size(&self) -> u64 {
+        match self {
+            Self::Dynamic { offset_guard_size } => *offset_guard_size,
+            Self::Static {
+                offset_guard_size, ..
+            } => *offset_guard_size,
+        }
+    }
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
 pub trait Memory: fmt::Debug + Send + Sync {
-    /// Returns the memory plan for this memory.
-    fn plan(&self) -> &MemoryPlan;
+    /// Returns the memory type for this memory.
+    fn ty(&self) -> &MemoryType;
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> &MemoryStyle;
 
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages;
@@ -93,12 +107,15 @@ pub struct LinearMemory {
     // The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
 
+    /// The WebAssembly linear memory description.
+    memory: MemoryType,
+
+    /// Our chosen implementation style.
+    style: MemoryStyle,
+
     // Size in bytes of extra guard pages after the end to optimize loads and stores with
     // constant offsets.
     offset_guard_size: usize,
-
-    // The memory plan for this memory
-    plan: MemoryPlan,
 
     /// The owned memory definition used by the generated code
     vm_memory_definition: Box<UnsafeCell<VMMemoryDefinition>>,
@@ -121,71 +138,75 @@ struct WasmMmap {
 
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    pub fn new(plan: &MemoryPlan) -> Result<Self, MemoryError> {
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
         // `maximum` cannot be set to more than `65536` pages.
-        assert_le!(plan.memory.minimum, Pages::max_value());
-        assert!(
-            plan.memory.maximum.is_none() || plan.memory.maximum.unwrap() <= Pages::max_value()
-        );
+        assert_le!(memory.minimum, Pages::max_value());
+        assert!(memory.maximum.is_none() || memory.maximum.unwrap() <= Pages::max_value());
 
-        if plan.memory.maximum.is_some() && plan.memory.maximum.unwrap() < plan.memory.minimum {
-            return Err(MemoryError::InvalidMemoryPlan {
+        if memory.maximum.is_some() && memory.maximum.unwrap() < memory.minimum {
+            return Err(MemoryError::InvalidMemory {
                 reason: format!(
                     "the maximum ({} pages) is less than the minimum ({} pages)",
-                    plan.memory.maximum.unwrap().0,
-                    plan.memory.minimum.0
+                    memory.maximum.unwrap().0,
+                    memory.minimum.0
                 ),
             });
         }
 
-        let offset_guard_bytes = plan.offset_guard_size as usize;
+        let offset_guard_bytes = style.offset_guard_size() as usize;
 
         // If we have an offset guard, or if we're doing the static memory
         // allocation strategy, we need signal handlers to catch out of bounds
         // acceses.
         let needs_signal_handlers = offset_guard_bytes > 0
-            || match plan.style {
-                MemoryStyle::Dynamic => false,
+            || match style {
+                MemoryStyle::Dynamic { .. } => false,
                 MemoryStyle::Static { .. } => true,
             };
 
-        let minimum_pages = match plan.style {
-            MemoryStyle::Dynamic => plan.memory.minimum,
-            MemoryStyle::Static { bound } => {
-                assert_ge!(bound, plan.memory.minimum);
-                bound
+        let minimum_pages = match style {
+            MemoryStyle::Dynamic { .. } => memory.minimum,
+            MemoryStyle::Static { bound, .. } => {
+                assert_ge!(*bound, memory.minimum);
+                *bound
             }
         };
         let minimum_bytes = minimum_pages.bytes().0;
         let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
-        let mapped_pages = plan.memory.minimum;
+        let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
         let mut mmap = WasmMmap {
             alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
                 .map_err(MemoryError::Region)?,
-            size: plan.memory.minimum,
+            size: memory.minimum,
         };
 
         let base_ptr = mmap.alloc.as_mut_ptr();
         Ok(Self {
             mmap: Mutex::new(mmap),
-            maximum: plan.memory.maximum,
+            maximum: memory.maximum,
             offset_guard_size: offset_guard_bytes,
             needs_signal_handlers,
             vm_memory_definition: Box::new(UnsafeCell::new(VMMemoryDefinition {
                 base: base_ptr,
-                current_length: plan.memory.minimum.bytes().0,
+                current_length: memory.minimum.bytes().0,
             })),
-            plan: plan.clone(),
+            memory: memory.clone(),
+            style: style.clone(),
         })
     }
 }
 
 impl Memory for LinearMemory {
-    /// Returns the memory plan for this memory.
-    fn plan(&self) -> &MemoryPlan {
-        &self.plan
+    /// Returns the type for this memory.
+    fn ty(&self) -> &MemoryType {
+        &self.memory
+    }
+
+    /// Returns the memory style for this memory.
+    fn style(&self) -> &MemoryStyle {
+        &self.style
     }
 
     /// Returns the number of allocated wasm pages.
