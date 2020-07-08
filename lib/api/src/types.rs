@@ -33,23 +33,23 @@ pub trait ValFuncRef {
     fn into_checked_anyfunc(
         &self,
         store: &Store,
-    ) -> Result<wasmer_runtime::VMCallerCheckedAnyfunc, RuntimeError>;
+    ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError>;
 
-    fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Self;
+    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self;
 }
 
 impl ValFuncRef for Val {
     fn into_checked_anyfunc(
         &self,
         store: &Store,
-    ) -> Result<wasmer_runtime::VMCallerCheckedAnyfunc, RuntimeError> {
+    ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Val::ExternRef(ExternRef::Null) => wasmer_runtime::VMCallerCheckedAnyfunc {
+            Val::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
-                type_index: wasmer_runtime::VMSharedSignatureIndex::default(),
+                type_index: wasmer_vm::VMSharedSignatureIndex::default(),
                 vmctx: ptr::null_mut(),
             },
             Val::FuncRef(f) => f.checked_anyfunc(),
@@ -57,20 +57,20 @@ impl ValFuncRef for Val {
         })
     }
 
-    fn from_checked_anyfunc(item: wasmer_runtime::VMCallerCheckedAnyfunc, store: &Store) -> Val {
-        if item.type_index == wasmer_runtime::VMSharedSignatureIndex::default() {
+    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Val {
+        if item.type_index == wasmer_vm::VMSharedSignatureIndex::default() {
             return Val::ExternRef(ExternRef::Null);
         }
         let signature = store
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
-        let export = wasmer_runtime::ExportFunction {
+        let export = wasmer_vm::ExportFunction {
             address: item.func_ptr,
             signature,
             // All functions in tables are already Static (as dynamic functions
             // are converted to use the trampolines with static signatures).
-            kind: wasmer_runtime::VMFunctionKind::Static,
+            kind: wasmer_vm::VMFunctionKind::Static,
             vmctx: item.vmctx,
         };
         let f = Function::from_export(store, export);

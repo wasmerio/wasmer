@@ -19,9 +19,7 @@ use wasmer_compiler::{
     FunctionBody, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
     TrapInformation,
 };
-use wasmer_runtime::{
-    MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets,
-};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {

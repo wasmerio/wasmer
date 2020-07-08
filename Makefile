@@ -109,7 +109,7 @@ test-llvm:
 
 test-packages:
 	cargo test -p wasmer --release
-	cargo test -p wasmer-runtime --release
+	cargo test -p wasmer-vm --release
 	cargo test -p wasm-common --release
 	cargo test -p wasmer-wasi --release
 
@@ -181,8 +181,8 @@ package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
 	cp LICENSE package/LICENSE

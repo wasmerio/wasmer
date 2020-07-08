@@ -16,9 +16,9 @@ use wasm_common::entity::EntityRef;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::{WasmError, WasmResult};
-use wasmer_runtime::VMBuiltinFunctionIndex;
-use wasmer_runtime::VMOffsets;
-use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle};
+use wasmer_vm::VMBuiltinFunctionIndex;
+use wasmer_vm::VMOffsets;
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
 pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {

@@ -5,7 +5,7 @@ use crate::{MemoryType, MemoryView};
 use std::slice;
 use std::sync::Arc;
 use wasm_common::{Pages, ValueType};
-use wasmer_runtime::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
+use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
 #[derive(Clone)]
 pub struct Memory {

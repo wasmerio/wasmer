@@ -26,8 +26,8 @@ use wasm_common::{
     TableIndex, Type,
 };
 use wasmer_compiler::CompileError;
-use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
-use wasmer_runtime::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::ModuleInfo as WasmerCompilerModule;
+use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(
     intrinsics: &Intrinsics<'ctx>,

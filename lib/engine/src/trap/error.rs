@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::RwLockReadGuard;
-use wasmer_runtime::{raise_user_trap, Trap, TrapCode};
+use wasmer_vm::{raise_user_trap, Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.

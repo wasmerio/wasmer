@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{Features, MemoryIndex, TableIndex};
-use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 /// The required info for compiling a module.
 ///

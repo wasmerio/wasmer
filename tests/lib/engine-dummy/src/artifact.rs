@@ -14,7 +14,7 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
-use wasmer_runtime::{
+use wasmer_vm::{
     MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody, VMSharedSignatureIndex,
 };
 

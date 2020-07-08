@@ -5,8 +5,8 @@ use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
-use wasmer_runtime::MemoryError;
-use wasmer_runtime::{LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle};
+use wasmer_vm::MemoryError;
+use wasmer_vm::{LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]

@@ -32,8 +32,8 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target, CompilationNamer};
-use wasmer_runtime::{MemoryStyle, TableStyle};
-use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{MemoryStyle, TableStyle};
+use wasmer_vm::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {

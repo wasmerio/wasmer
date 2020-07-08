@@ -17,7 +17,7 @@ use crate::{Addend, CodeOffset, JumpTable};
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::PrimaryMap;
 use wasm_common::LocalFunctionIndex;
-use wasmer_runtime::libcalls::LibCall;
+use wasmer_vm::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

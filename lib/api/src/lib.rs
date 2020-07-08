@@ -17,7 +17,7 @@ mod utils;
 pub mod internals {
     //! We use the internals module for exporting types that are only
     //! intended to use in internal crates such as the compatibility crate
-    //! `wasmer-runtime`. Please don't use any of this types directly, as
+    //! `wasmer-vm`. Please don't use any of this types directly, as
     //! they might change frequently or be removed in the future.
 
     pub use crate::externals::{WithEnv, WithoutEnv};
@@ -56,7 +56,7 @@ pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
-pub use wasmer_runtime::{raise_user_trap, MemoryError};
+pub use wasmer_vm::{raise_user_trap, MemoryError};
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 

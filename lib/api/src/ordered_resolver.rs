@@ -9,7 +9,7 @@ use wasmer_engine::Resolver;
 
 use crate::exports::Exportable;
 use crate::Extern;
-use wasmer_runtime::Export;
+use wasmer_vm::Export;
 
 /// An `OrderedResolver` stores all the `externs` provided to an Instance
 /// in a Vec, so we can retrieve them later based on index.

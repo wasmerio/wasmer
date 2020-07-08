@@ -5,7 +5,7 @@ use crate::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
-use wasmer_runtime::{
+use wasmer_vm::{
     Export, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMFunctionImport,
     VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };

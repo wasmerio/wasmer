@@ -19,7 +19,7 @@ use wasmer_compiler::{
     ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
-use wasmer_runtime::{ModuleInfo, TrapCode, VMOffsets};
+use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass

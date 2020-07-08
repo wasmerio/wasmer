@@ -22,7 +22,7 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
-use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {

@@ -11,7 +11,7 @@ use wasm_common::{
     SignatureIndex, TableIndex,
 };
 use wasmer_compiler::Features;
-use wasmer_runtime::{
+use wasmer_vm::{
     InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
 };
 

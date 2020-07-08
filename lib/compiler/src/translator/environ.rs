@@ -16,7 +16,7 @@ use wasm_common::{
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
     LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
-use wasmer_runtime::{ModuleInfo, TableElements};
+use wasmer_vm::{ModuleInfo, TableElements};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]

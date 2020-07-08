@@ -2073,7 +2073,7 @@ dependencies = [
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
- "wasmer-runtime",
+ "wasmer-vm",
  "wat",
  "winapi",
 ]
@@ -2161,7 +2161,7 @@ dependencies = [
  "target-lexicon",
  "thiserror",
  "wasm-common",
- "wasmer-runtime",
+ "wasmer-vm",
  "wasmparser",
 ]
 
@@ -2181,7 +2181,7 @@ dependencies = [
  "tracing",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2203,7 +2203,7 @@ dependencies = [
  "target-lexicon",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2221,7 +2221,7 @@ dependencies = [
  "smallvec",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2253,7 +2253,7 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -2267,7 +2267,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2282,7 +2282,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -2302,7 +2302,7 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2316,7 +2316,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-runtime"
+name = "wasmer-vm"
 version = "1.0.0-alpha.1"
 dependencies = [
  "backtrace",

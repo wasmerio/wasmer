@@ -34,7 +34,7 @@ use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
     MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
-use wasmer_runtime::{MemoryStyle, ModuleInfo, TableStyle};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))

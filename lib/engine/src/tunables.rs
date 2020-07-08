@@ -5,9 +5,9 @@ use wasm_common::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
     TableType,
 };
-use wasmer_runtime::MemoryError;
-use wasmer_runtime::{Memory, ModuleInfo, Table, VMGlobalDefinition};
-use wasmer_runtime::{MemoryStyle, TableStyle};
+use wasmer_vm::MemoryError;
+use wasmer_vm::{Memory, ModuleInfo, Table, VMGlobalDefinition};
+use wasmer_vm::{MemoryStyle, TableStyle};
 
 /// Tunables for an engine
 pub trait Tunables {

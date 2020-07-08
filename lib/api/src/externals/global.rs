@@ -6,7 +6,7 @@ use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
-use wasmer_runtime::{Export, ExportGlobal, VMGlobalDefinition};
+use wasmer_vm::{Export, ExportGlobal, VMGlobalDefinition};
 
 #[derive(Clone)]
 pub struct Global {
