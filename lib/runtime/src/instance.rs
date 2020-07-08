@@ -16,7 +16,7 @@ use crate::vmcontext::{
     VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{ModuleInfo, TableElements, VMOffsets};
+use crate::{FunctionBodyPtr, ModuleInfo, TableElements, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -92,7 +92,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -294,7 +294,7 @@ impl Instance {
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
                     (
-                        self.finished_functions[def_index] as *const _,
+                        self.finished_functions[def_index].0 as *const _,
                         self.vmctx_ptr(),
                     )
                 } else {
@@ -372,10 +372,11 @@ impl Instance {
 
         let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
-                let body = *self
+                let body = self
                     .finished_functions
                     .get(local_index)
-                    .expect("function index is out of bounds");
+                    .expect("function index is out of bounds")
+                    .0;
                 (body as *const _, self.vmctx_ptr())
             }
             None => {
@@ -561,7 +562,7 @@ impl Instance {
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
             (
-                self.finished_functions[def_index] as *const _,
+                self.finished_functions[def_index].0 as *const _,
                 self.vmctx_ptr(),
             )
         } else {
@@ -773,6 +774,11 @@ pub struct InstanceHandle {
     instance: *mut Instance,
 }
 
+/// # Safety
+/// This is safe because there is no thread-specific logic in `InstanceHandle`.
+/// TODO: this needs extra review
+unsafe impl Send for InstanceHandle {}
+
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
@@ -792,7 +798,7 @@ impl InstanceHandle {
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
-        finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+        finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,

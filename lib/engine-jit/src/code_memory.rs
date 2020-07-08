@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::{cmp, mem};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
-use wasmer_runtime::{Mmap, VMFunctionBody};
+use wasmer_runtime::{FunctionBodyPtr, Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
 ///
@@ -75,7 +75,7 @@ impl CodeMemory {
         &mut self,
         registry: &mut UnwindRegistry,
         compilation: &PrimaryMap<K, FunctionBody>,
-    ) -> Result<PrimaryMap<K, *mut [VMFunctionBody]>, String>
+    ) -> Result<PrimaryMap<K, FunctionBodyPtr>, String>
     where
         K: EntityRef,
     {
@@ -99,7 +99,7 @@ impl CodeMemory {
             );
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
 
-            result.push(vmfunc as *mut [VMFunctionBody]);
+            result.push(FunctionBodyPtr(vmfunc as *mut [VMFunctionBody]));
 
             padding = get_align_padding_size(next_start as usize, ARCH_FUNCTION_ALIGNMENT);
             start = next_start;

@@ -41,6 +41,13 @@ pub struct ExportFunction {
     pub kind: VMFunctionKind,
 }
 
+/// # Safety
+/// TODO:
+unsafe impl Send for ExportFunction {}
+/// # Safety
+/// TODO:
+unsafe impl Sync for ExportFunction {}
+
 impl From<ExportFunction> for Export {
     fn from(func: ExportFunction) -> Self {
         Self::Function(func)

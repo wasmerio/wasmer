@@ -6,8 +6,8 @@ use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 use wasmer_runtime::{
-    Export, Imports, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
-    VMMemoryImport, VMTableImport,
+    Export, FunctionBodyPtr, Imports, VMFunctionBody, VMFunctionImport, VMFunctionKind,
+    VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
 use wasmer_runtime::{MemoryPlan, TablePlan};
@@ -128,7 +128,7 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
 pub fn resolve_imports(
     module: &ModuleInfo,
     resolver: &dyn Resolver,
-    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
+    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
     _table_plans: &PrimaryMap<TableIndex, TablePlan>,
 ) -> Result<Imports, LinkError> {
@@ -166,7 +166,7 @@ pub fn resolve_imports(
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index] as *mut VMFunctionBody as _
+                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`

@@ -12,7 +12,7 @@ use wasm_common::{
 };
 use wasmer_compiler::Features;
 use wasmer_runtime::{
-    InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMFunctionBody, VMSharedSignatureIndex,
+    FunctionBodyPtr, InstanceHandle, MemoryPlan, ModuleInfo, TablePlan, VMSharedSignatureIndex,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -21,7 +21,7 @@ use wasmer_runtime::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact {
+pub trait Artifact: Send + Sync {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 
@@ -52,13 +52,11 @@ pub trait Artifact {
 
     /// Returns the functions allocated in memory or this `Artifact`
     /// ready to be run.
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>;
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>;
 
     /// Returns the dynamic function trampolines allocated in memory
     /// for this `Artifact`, ready to be run.
-    fn finished_dynamic_function_trampolines(
-        &self,
-    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>;
+    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr>;
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
