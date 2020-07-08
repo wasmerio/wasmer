@@ -168,14 +168,14 @@ impl LinearTable {
 }
 
 impl Table for LinearTable {
-    /// Returns the style for this Table.
-    fn style(&self) -> &TableStyle {
-        &self.style
-    }
-
     /// Returns the type for this Table.
     fn ty(&self) -> &TableType {
         &self.table
+    }
+
+    /// Returns the style for this Table.
+    fn style(&self) -> &TableStyle {
+        &self.style
     }
 
     /// Returns the number of allocated elements.

@@ -35,7 +35,7 @@ pub enum MemoryError {
     /// The operation would cause the size of the memory size exceed the maximum.
     #[error("The memory is invalid because {}", reason)]
     InvalidMemory {
-        /// The reason why the memory style is invalid.
+        /// The reason why the provided memory is invalid.
         reason: String,
     },
     /// A user defined error value, used for error cases not listed above.
@@ -49,6 +49,9 @@ pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {
         /// Our chosen offset-guard size.
+        ///
+        /// It represents the size in bytes of extra guard pages after the end
+        /// to optimize loads and stores with constant offsets.
         offset_guard_size: u64,
     },
     /// Address space is allocated up front.
@@ -56,6 +59,9 @@ pub enum MemoryStyle {
         /// The number of mapped and unmapped pages.
         bound: Pages,
         /// Our chosen offset-guard size.
+        ///
+        /// It represents the size in bytes of extra guard pages after the end
+        /// to optimize loads and stores with constant offsets.
         offset_guard_size: u64,
     },
 }
@@ -101,15 +107,15 @@ pub struct LinearMemory {
     // The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
 
-    // Size in bytes of extra guard pages after the end to optimize loads and stores with
-    // constant offsets.
-    offset_guard_size: usize,
-
     /// The WebAssembly linear memory description.
     memory: MemoryType,
 
     /// Our chosen implementation style.
     style: MemoryStyle,
+
+    // Size in bytes of extra guard pages after the end to optimize loads and stores with
+    // constant offsets.
+    offset_guard_size: usize,
 
     /// The owned memory definition used by the generated code
     vm_memory_definition: Box<UnsafeCell<VMMemoryDefinition>>,
