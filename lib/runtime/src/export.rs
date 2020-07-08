@@ -3,11 +3,7 @@
 
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
-use crate::vmcontext::{
-    VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
-    VMTableDefinition,
-};
-use std::ptr::NonNull;
+use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition};
 use std::sync::Arc;
 use wasm_common::{FunctionType, GlobalType, MemoryType, TableType};
 
@@ -49,14 +45,6 @@ impl From<ExportFunction> for Export {
 /// A table export value.
 #[derive(Debug, Clone)]
 pub struct ExportTable {
-    /// The address of the table descriptor.
-    ///
-    /// The `VMTableDefinition` this points to should be considered immutable from
-    /// this pointer.  The data may be updated though.
-    /// TODO: better define this behavior and document it
-    // TODO: consider a special wrapper pointer type for this kind of logic
-    // (so we don't need to `unsafe impl Send` in the places that use it)
-    pub definition: NonNull<VMTableDefinition>,
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 }
@@ -83,8 +71,7 @@ impl ExportTable {
 
     /// Returns whether or not the two `ExportTable`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        // TODO: comparing
-        self.definition == other.definition //&& self.from == other.from
+        Arc::ptr_eq(&self.from, &other.from)
     }
 }
 
@@ -97,14 +84,6 @@ impl From<ExportTable> for Export {
 /// A memory export value.
 #[derive(Debug, Clone)]
 pub struct ExportMemory {
-    /// The address of the memory descriptor.
-    ///
-    /// The `VMMemoryDefinition` this points to should be considered immutable from
-    /// this pointer.  The data may be updated though.
-    /// TODO: better define this behavior and document it
-    // TODO: consider a special wrapper pointer type for this kind of logic
-    // (so we don't need to `unsafe impl Send` in the places that use it)
-    pub definition: NonNull<VMMemoryDefinition>,
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
 }
@@ -131,8 +110,7 @@ impl ExportMemory {
 
     /// Returns whether or not the two `ExportMemory`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        // TODO: implement comparison
-        self.definition == other.definition //&& self.from == other.from
+        Arc::ptr_eq(&self.from, &other.from)
     }
 }
 

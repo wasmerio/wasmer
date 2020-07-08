@@ -168,7 +168,7 @@ pub fn resolve_imports(
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
-                    definition: t.definition,
+                    definition: t.from.vmtable(),
                     from: t.from.clone(),
                 });
             }
@@ -202,7 +202,7 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.definition,
+                    definition: m.from.vmmemory(),
                     from: m.from.clone(),
                 });
             }
