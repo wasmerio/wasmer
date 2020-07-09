@@ -8,7 +8,7 @@ use std::{
     sync::Arc,
 };
 use thiserror::Error;
-use wasmer_runtime::Export;
+use wasmer_vm::Export;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.

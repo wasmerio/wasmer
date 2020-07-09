@@ -8,7 +8,7 @@ use std::sync::Arc;
 use std::{cmp, mem};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
-use wasmer_runtime::{FunctionBodyPtr, Mmap, VMFunctionBody};
+use wasmer_vm::{FunctionBodyPtr, Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
 ///

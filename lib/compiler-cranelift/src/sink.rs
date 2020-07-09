@@ -6,7 +6,7 @@ use cranelift_codegen::ir::{self, ExternalName};
 use wasm_common::entity::EntityRef;
 use wasm_common::{FunctionIndex, LocalFunctionIndex};
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, SourceLoc, TrapInformation};
-use wasmer_runtime::{ModuleInfo, TrapCode};
+use wasmer_vm::{ModuleInfo, TrapCode};
 
 /// Implementation of a relocation sink that just saves all the information for later
 pub(crate) struct RelocSink<'a> {

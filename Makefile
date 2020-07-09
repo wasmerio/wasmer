@@ -109,7 +109,7 @@ test-llvm:
 
 test-packages:
 	cargo test -p wasmer --release
-	cargo test -p wasmer-runtime --release
+	cargo test -p wasmer-vm --release
 	cargo test -p wasm-common --release
 	cargo test -p wasmer-wasi --release
 
@@ -125,7 +125,7 @@ test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi -- --nocapture
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -181,8 +181,8 @@ package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
 	cp LICENSE package/LICENSE

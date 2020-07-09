@@ -7,7 +7,7 @@ use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_runtime::{Export, ExportGlobal, Global as RuntimeGlobal};
+use wasmer_vm::{Export, ExportGlobal, Global as RuntimeGlobal};
 
 #[derive(Clone)]
 pub struct Global {

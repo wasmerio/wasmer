@@ -9,7 +9,7 @@ use std::{
     sync::{Arc, Mutex},
 };
 use wasmer_engine::NamedResolver;
-use wasmer_runtime::Export;
+use wasmer_vm::Export;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be
@@ -62,7 +62,7 @@ impl ImportObject {
     ///
     /// # Usage
     /// ```ignore
-    /// # use wasmer_runtime::{ImportObject, Instance, Namespace};
+    /// # use wasmer_vm::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
@@ -103,7 +103,7 @@ impl ImportObject {
     ///
     /// # Usage:
     /// ```ignore
-    /// # use wasmer_runtime::{ImportObject, Instance, Namespace};
+    /// # use wasmer_vm::{ImportObject, Instance, Namespace};
     /// let mut import_object = ImportObject::new();
     ///
     /// import_object.register("namespace0", instance);
@@ -250,7 +250,7 @@ mod test {
     use crate::{Global, Store, Val};
     use wasm_common::Type;
     use wasmer_engine::ChainableNamedResolver;
-    use wasmer_runtime::Export;
+    use wasmer_vm::Export;
 
     #[test]
     fn chaining_works() {

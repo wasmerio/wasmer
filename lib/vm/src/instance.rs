@@ -315,24 +315,22 @@ impl Instance {
                 .into()
             }
             ExportIndex::Table(index) => {
-                let (definition, from) =
-                    if let Some(def_index) = self.module.local_table_index(*index) {
-                        (self.table_ptr(def_index), self.tables[def_index].clone())
-                    } else {
-                        let import = self.imported_table(*index);
-                        (import.definition, import.from.clone())
-                    };
-                ExportTable { definition, from }.into()
+                let from = if let Some(def_index) = self.module.local_table_index(*index) {
+                    self.tables[def_index].clone()
+                } else {
+                    let import = self.imported_table(*index);
+                    import.from.clone()
+                };
+                ExportTable { from }.into()
             }
             ExportIndex::Memory(index) => {
-                let (definition, from) =
-                    if let Some(def_index) = self.module.local_memory_index(*index) {
-                        (self.memory_ptr(def_index), self.memories[def_index].clone())
-                    } else {
-                        let import = self.imported_memory(*index);
-                        (import.definition, import.from.clone())
-                    };
-                ExportMemory { definition, from }.into()
+                let from = if let Some(def_index) = self.module.local_memory_index(*index) {
+                    self.memories[def_index].clone()
+                } else {
+                    let import = self.imported_memory(*index);
+                    import.from.clone()
+                };
+                ExportMemory { from }.into()
             }
             ExportIndex::Global(index) => {
                 let (definition, from) = {

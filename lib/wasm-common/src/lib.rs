@@ -25,6 +25,7 @@
 mod data_initializer;
 mod features;
 mod indexes;
+mod memory_view;
 mod native;
 mod r#ref;
 mod types;
@@ -43,6 +44,7 @@ pub use crate::indexes::{
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };
+pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::r#ref::{ExternRef, HostInfo, HostRef};
 pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};

@@ -7,8 +7,8 @@ use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionIndex,
 };
-use wasmer_runtime::ModuleInfo;
-use wasmer_runtime::{FunctionBodyPtr, VMFunctionBody};
+use wasmer_vm::ModuleInfo;
+use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
 
 fn apply_relocation(
     body: usize,

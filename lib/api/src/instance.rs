@@ -4,7 +4,7 @@ use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
 use wasmer_engine::Resolver;
-use wasmer_runtime::InstanceHandle;
+use wasmer_vm::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].

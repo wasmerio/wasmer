@@ -13,7 +13,7 @@ use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
-use wasmer_runtime::{
+use wasmer_vm::{
     FunctionBodyPtr, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
 };

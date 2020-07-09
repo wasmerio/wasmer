@@ -1,5 +1,3 @@
-use crate::memory::LinearMemory;
-use crate::table::LinearTable;
 use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
@@ -7,8 +5,8 @@ use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
-use wasmer_runtime::MemoryError;
-use wasmer_runtime::{Memory, MemoryPlan, MemoryStyle, Table, TablePlan, TableStyle};
+use wasmer_vm::MemoryError;
+use wasmer_vm::{LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -61,8 +59,8 @@ impl Tunables {
 }
 
 impl BaseTunables for Tunables {
-    /// Get a `MemoryPlan` for the provided `MemoryType`
-    fn memory_plan(&self, memory: MemoryType) -> MemoryPlan {
+    /// Get a `MemoryStyle` for the provided `MemoryType`
+    fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
         // tunables make it static.
         //
@@ -70,37 +68,33 @@ impl BaseTunables for Tunables {
         let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
         if maximum <= self.static_memory_bound {
             assert_ge!(self.static_memory_bound, memory.minimum);
-            MemoryPlan {
-                memory,
-                style: MemoryStyle::Static {
-                    bound: self.static_memory_bound,
-                },
+            MemoryStyle::Static {
+                bound: self.static_memory_bound,
                 offset_guard_size: self.static_memory_offset_guard_size,
             }
         } else {
-            MemoryPlan {
-                memory,
-                style: MemoryStyle::Dynamic,
+            MemoryStyle::Dynamic {
                 offset_guard_size: self.dynamic_memory_offset_guard_size,
             }
         }
     }
 
-    /// Get a `TablePlan` for the provided `TableType`
-    fn table_plan(&self, table: TableType) -> TablePlan {
-        TablePlan {
-            table,
-            style: TableStyle::CallerChecksSignature,
-        }
+    /// Get a [`TableStyle`] for the provided [`TableType`].
+    fn table_style(&self, _table: &TableType) -> TableStyle {
+        TableStyle::CallerChecksSignature
     }
 
-    /// Create a memory given a memory type
-    fn create_memory(&self, plan: MemoryPlan) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(&plan)?))
+    /// Create a memory given a [`MemoryType`] and a [`MemoryStyle`].
+    fn create_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+    ) -> Result<Arc<dyn Memory>, MemoryError> {
+        Ok(Arc::new(LinearMemory::new(&ty, &style)?))
     }
 
-    /// Create a memory given a memory type
-    fn create_table(&self, plan: TablePlan) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(&plan)?))
+    /// Create a table given a [`TableType`] and a [`TableStyle`].
+    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::new(&ty, &style)?))
     }
 }

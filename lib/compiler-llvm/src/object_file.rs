@@ -7,7 +7,7 @@ use wasmer_compiler::{
     CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
-use wasmer_runtime::libcalls::LibCall;
+use wasmer_vm::libcalls::LibCall;
 
 use wasm_common::entity::entity_impl;
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]

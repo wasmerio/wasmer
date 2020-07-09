@@ -243,9 +243,9 @@ typedef struct {
 } wasmer_export_t;
 
 /**
- * Opaque pointer to a `wasmer_runtime::Memory` value in Rust.
+ * Opaque pointer to a `wasmer_vm::Memory` value in Rust.
  *
- * A `wasmer_runtime::Memory` represents a WebAssembly memory. It is
+ * A `wasmer_vm::Memory` represents a WebAssembly memory. It is
  * possible to create one with `wasmer_memory_new()` and pass it as
  * imports of an instance, or to read it from exports of an instance
  * with `wasmer_export_to_memory()`.
@@ -312,7 +312,7 @@ typedef struct {
 } wasmer_import_object_iter_t;
 
 /**
- * Opaque pointer to a `wasmer_runtime::Ctx` value in Rust.
+ * Opaque pointer to a `wasmer_vm::Ctx` value in Rust.
  *
  * An instance context is passed to any host function (aka imported
  * function) as the first argument. It is necessary to read the

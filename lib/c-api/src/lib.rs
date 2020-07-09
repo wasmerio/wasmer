@@ -112,6 +112,7 @@ pub mod import;
 pub mod instance;
 pub mod memory;
 pub mod module;
+mod ordered_resolver;
 pub mod table;
 // `not(target_family = "windows")` is simpler than `unix`.  See build.rs
 // if you want to change the meaning of these `cfg`s in the header file.

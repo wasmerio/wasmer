@@ -7,10 +7,11 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
+use crate::ordered_resolver::OrderedResolver;
 use wasmer::{
     Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
-    Memory, MemoryType, Module, Mutability, OrderedResolver, Pages, RuntimeError, Store, Table,
-    TableType, Val, ValType,
+    Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType, Val,
+    ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;

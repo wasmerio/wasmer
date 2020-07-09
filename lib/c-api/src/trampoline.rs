@@ -2,7 +2,7 @@
 
 use std::ffi::c_void;
 use std::mem;
-use wasmer_runtime_core::trampoline::*;
+use wasmer_vm_core::trampoline::*;
 
 #[repr(C)]
 pub struct wasmer_trampoline_buffer_builder_t;

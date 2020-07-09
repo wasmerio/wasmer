@@ -19,7 +19,7 @@ jobs:
           override: true
           components: rustfmt, clippy
       - run: make lint
-  
+
   # Uncomment this once LLVM toolchain is added to the CI
   # docs:
   #   name: Docs
@@ -75,9 +75,8 @@ jobs:
             .cargo_home
             target/*/.*
             target/*/build
-            target/*/deps 
-          key:
-            ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
+            target/*/deps
+          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ matrix.os }}-
       - name: Install LLVM (Windows)
@@ -123,3 +122,20 @@ jobs:
           # TODO: build wapm
           # make build-wapm
           make package
+
+  audit:
+    name: Audit
+    env:
+      CARGO_AUDIT_VERSION: 0.12.0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@master
+        with:
+          path: ${{ runner.tool_cache }}/cargo-audit
+          key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
+      - run: |
+          echo "::add-path::${{ runner.tool_cache }}/cargo-audit/bin"
+      - run: |
+          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
+          cargo audit

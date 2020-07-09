@@ -2,7 +2,7 @@ use crate::sourceloc::SourceLoc;
 use crate::CodeOffset;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasmer_runtime::TrapCode;
+use wasmer_vm::TrapCode;
 
 /// Information about trap.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]

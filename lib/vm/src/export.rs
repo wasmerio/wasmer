@@ -2,15 +2,12 @@
 // Attributions: https://github.com/wasmerio/wasmer-reborn/blob/master/ATTRIBUTIONS.md
 
 use crate::global::Global;
-use crate::memory::{Memory, MemoryPlan};
-use crate::table::{Table, TablePlan};
-use crate::vmcontext::{
-    VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition, VMMemoryDefinition,
-    VMTableDefinition,
-};
+use crate::memory::{Memory, MemoryStyle};
+use crate::table::{Table, TableStyle};
+use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition};
 use std::ptr::NonNull;
 use std::sync::Arc;
-use wasm_common::FunctionType;
+use wasm_common::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -57,14 +54,6 @@ impl From<ExportFunction> for Export {
 /// A table export value.
 #[derive(Debug, Clone)]
 pub struct ExportTable {
-    /// The address of the table descriptor.
-    ///
-    /// The `VMTableDefinition` this points to should be considered immutable from
-    /// this pointer.  The data may be updated though.
-    /// TODO: better define this behavior and document it
-    // TODO: consider a special wrapper pointer type for this kind of logic
-    // (so we don't need to `unsafe impl Send` in the places that use it)
-    pub definition: NonNull<VMTableDefinition>,
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
 }
@@ -81,15 +70,19 @@ unsafe impl Send for ExportTable {}
 unsafe impl Sync for ExportTable {}
 
 impl ExportTable {
-    /// Get the plan for this exported memory
-    pub fn plan(&self) -> &TablePlan {
-        self.from.plan()
+    /// Get the table type for this exported table
+    pub fn ty(&self) -> &TableType {
+        self.from.ty()
+    }
+
+    /// Get the style for this exported table
+    pub fn style(&self) -> &TableStyle {
+        self.from.style()
     }
 
     /// Returns whether or not the two `ExportTable`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        // TODO: comparing
-        self.definition == other.definition //&& self.from == other.from
+        Arc::ptr_eq(&self.from, &other.from)
     }
 }
 
@@ -102,14 +95,6 @@ impl From<ExportTable> for Export {
 /// A memory export value.
 #[derive(Debug, Clone)]
 pub struct ExportMemory {
-    /// The address of the memory descriptor.
-    ///
-    /// The `VMMemoryDefinition` this points to should be considered immutable from
-    /// this pointer.  The data may be updated though.
-    /// TODO: better define this behavior and document it
-    // TODO: consider a special wrapper pointer type for this kind of logic
-    // (so we don't need to `unsafe impl Send` in the places that use it)
-    pub definition: NonNull<VMMemoryDefinition>,
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
 }
@@ -126,15 +111,19 @@ unsafe impl Send for ExportMemory {}
 unsafe impl Sync for ExportMemory {}
 
 impl ExportMemory {
-    /// Get the plan for this exported memory
-    pub fn plan(&self) -> &MemoryPlan {
-        self.from.plan()
+    /// Get the type for this exported memory
+    pub fn ty(&self) -> &MemoryType {
+        self.from.ty()
+    }
+
+    /// Get the style for this exported memory
+    pub fn style(&self) -> &MemoryStyle {
+        self.from.style()
     }
 
     /// Returns whether or not the two `ExportMemory`s refer to the same Memory.
     pub fn same(&self, other: &Self) -> bool {
-        // TODO: implement comparison
-        self.definition == other.definition //&& self.from == other.from
+        Arc::ptr_eq(&self.from, &other.from)
     }
 }
 

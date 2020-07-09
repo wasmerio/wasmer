@@ -91,7 +91,7 @@ pub struct ModuleInfo {
     /// WebAssembly tables (imported and local).
     pub tables: PrimaryMap<TableIndex, TableType>,
 
-    /// WebAssembly linear memory plans (imported and local).
+    /// WebAssembly linear memories (imported and local).
     pub memories: PrimaryMap<MemoryIndex, MemoryType>,
 
     /// WebAssembly global variables (imported and local).

@@ -26,8 +26,8 @@ use wasm_common::{
     TableIndex, Type,
 };
 use wasmer_compiler::CompileError;
-use wasmer_runtime::ModuleInfo as WasmerCompilerModule;
-use wasmer_runtime::{MemoryPlan, MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::ModuleInfo as WasmerCompilerModule;
+use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(
     intrinsics: &Intrinsics<'ctx>,
@@ -569,7 +569,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
-        memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     ) -> MemoryCache<'ctx> {
         let (cached_memories, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
             &mut self.cached_memories,
@@ -578,7 +578,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             &self.cache_builder,
             &self.offsets,
         );
-        let memory_plan = &memory_plans[index];
+        let memory_style = &memory_styles[index];
         *cached_memories.entry(index).or_insert_with(|| {
             let memory_definition_ptr =
                 if let Some(local_memory_index) = wasm_module.local_memory_index(index) {
@@ -622,7 +622,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                     "",
                 )
                 .unwrap();
-            if memory_plan.style == MemoryStyle::Dynamic {
+            if let MemoryStyle::Dynamic { .. } = memory_style {
                 let current_length_ptr = cache_builder
                     .build_struct_gep(
                         memory_definition_ptr,

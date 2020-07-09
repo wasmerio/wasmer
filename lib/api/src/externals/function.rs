@@ -8,7 +8,7 @@ use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
-use wasmer_runtime::{
+use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
     VMTrampoline,
@@ -42,8 +42,6 @@ pub enum FunctionDefinition {
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
-    // If the Function is owned by the Store, not the instance
-    pub(crate) owned_by_store: bool,
     pub(crate) exported: ExportFunction,
 }
 
@@ -69,7 +67,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -108,7 +105,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -144,7 +140,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -182,7 +177,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -309,7 +303,6 @@ impl Function {
             .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
-            owned_by_store: false,
             definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
@@ -503,7 +496,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
     use wasm_common::{FunctionType, NativeWasmType, Type};
-    use wasmer_runtime::{raise_user_trap, resume_panic, VMFunctionBody};
+    use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -689,6 +682,50 @@ mod inner {
 
         fn into_result(self) -> Self {
             self
+        }
+    }
+
+    #[cfg(test)]
+    mod test_into_result {
+        use super::*;
+        use std::convert::Infallible;
+
+        #[test]
+        fn test_into_result_over_t() {
+            let x: i32 = 42;
+            let result_of_x: Result<i32, Infallible> = x.into_result();
+
+            assert_eq!(result_of_x.unwrap(), x);
+        }
+
+        #[test]
+        fn test_into_result_over_result() {
+            {
+                let x: Result<i32, Infallible> = Ok(42);
+                let result_of_x: Result<i32, Infallible> = x.into_result();
+
+                assert_eq!(result_of_x, x);
+            }
+
+            {
+                use std::{error, fmt};
+
+                #[derive(Debug, PartialEq)]
+                struct E;
+
+                impl fmt::Display for E {
+                    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        write!(formatter, "E")
+                    }
+                }
+
+                impl error::Error for E {}
+
+                let x: Result<Infallible, E> = Err(E);
+                let result_of_x: Result<Infallible, E> = x.into_result();
+
+                assert_eq!(result_of_x.unwrap_err(), E);
+            }
         }
     }
 
@@ -881,7 +918,7 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
@@ -900,10 +937,12 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
 
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has an environment.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, Env, Func >
                 HostFunction<( $( $x ),* ), Rets, WithEnv, Env>
@@ -942,7 +981,7 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Env, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
                 }
             }
 
@@ -993,7 +1032,8 @@ mod inner {
 
     // Implement `WasmTypeList` on `Infallible`, which means that
     // `Infallible` can be used as a returned type of a host function
-    // to express that it doesn't return.
+    // to express that it doesn't return, or to express that it cannot
+    // fail (with `Result<_, Infallible>`).
     impl WasmTypeList for Infallible {
         type CStruct = Self;
         type Array = [i128; 0];

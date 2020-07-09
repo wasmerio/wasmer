@@ -10,7 +10,7 @@ use wasm_common::{Features, FunctionType};
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{CompileError, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
-use wasmer_runtime::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
 
 /// A WebAssembly `Native` Engine.
 #[derive(Clone)]
