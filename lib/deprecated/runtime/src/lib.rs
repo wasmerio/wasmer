@@ -1,4 +1,63 @@
-use std::error::Error;
+//! Wasmer-runtime is a library that makes embedding WebAssembly
+//! in your application easy, efficient, and safe.
+//!
+//! # How to use Wasmer-Runtime
+//!
+//! The easiest way is to use the [`instantiate`] function to create an [`Instance`].
+//! Then you can use [`call`] or [`func`] and then [`call`][func.call] to call an exported function safely.
+//!
+//! [`instantiate`]: fn.instantiate.html
+//! [`Instance`]: struct.Instance.html
+//! [`call`]: struct.Instance.html#method.call
+//! [`func`]: struct.Instance.html#method.func
+//! [func.call]: struct.Function.html#method.call
+//!
+//! ## Example
+//!
+//! Given this WebAssembly:
+//!
+//! ```wat
+//! (module
+//!   (type $t0 (func (param i32) (result i32)))
+//!   (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!     get_local $p0
+//!     i32.const 1
+//!     i32.add))
+//! ```
+//!
+//! compiled into wasm bytecode, we can call the exported `add_one` function:
+//!
+//! ```rust
+//! static WASM: &'static [u8] = &[
+//!    0x00, 0x61, 0x73, 0x6d, 0x01, 0x00, 0x00, 0x00, 0x01, 0x06, 0x01, 0x60,
+//!    0x01, 0x7f, 0x01, 0x7f, 0x03, 0x02, 0x01, 0x00, 0x07, 0x0b, 0x01, 0x07,
+//!    0x61, 0x64, 0x64, 0x5f, 0x6f, 0x6e, 0x65, 0x00, 0x00, 0x0a, 0x09, 0x01,
+//!    0x07, 0x00, 0x20, 0x00, 0x41, 0x01, 0x6a, 0x0b, 0x00, 0x1a, 0x04, 0x6e,
+//!    0x61, 0x6d, 0x65, 0x01, 0x0a, 0x01, 0x00, 0x07, 0x61, 0x64, 0x64, 0x5f,
+//!    0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
+//! ];
+//!
+//! use wasmer_runtime::{
+//!     instantiate,
+//!     Value,
+//!     imports,
+//!     Func,
+//! };
+//!
+//! fn main() -> Result<(), Box<dyn std::error::Error>> {
+//!     let import_object = imports! {};
+//!     let mut instance = instantiate(WASM, &import_object)?;
+//!
+//!     let add_one: Func<i32, i32> = instance.exports.get("add_one")?;
+//!
+//!     let value = add_one.call(42)?;
+//!     assert_eq!(value, 43);
+//!
+//!     Ok(())
+//! }
+//! ```
+
+use std::{error::Error, fmt};
 
 pub use wasmer_runtime_core::{
     compile, compile_with,
@@ -138,9 +197,28 @@ impl std::str::FromStr for Backend {
     }
 }
 
+#[derive(Debug)]
 pub enum InstantiateError {
     CompileError(Box<dyn Error>),
     InstantiationError(wasmer_runtime_core::error::InstantiationError),
+}
+
+impl Error for InstantiateError {
+    fn source(&self) -> Option<&(dyn Error + 'static)> {
+        match self {
+            Self::CompileError(e) => e.source(),
+            Self::InstantiationError(e) => e.source(),
+        }
+    }
+}
+
+impl fmt::Display for InstantiateError {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        match self {
+            Self::CompileError(e) => e.fmt(f),
+            Self::InstantiationError(e) => e.fmt(f),
+        }
+    }
 }
 
 pub fn instantiate(
