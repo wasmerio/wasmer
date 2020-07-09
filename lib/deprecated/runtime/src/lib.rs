@@ -113,6 +113,10 @@ pub mod types {
 }
 
 pub mod cache {
+    //! The cache module provides the common data structures used by
+    //! compiler backends to allow serializing compiled wasm code to a
+    //! binary format. The binary format can be persisted, and loaded
+    //! to allow skipping compilation and fast startup.
     pub use wasmer_runtime_core::cache::*;
 }
 
