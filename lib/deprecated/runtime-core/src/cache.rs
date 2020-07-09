@@ -9,6 +9,8 @@ use crate::{
 };
 use std::str::FromStr;
 
+pub use new::wasmer_cache::FileSystemCache;
+
 /// Kinds of caching errors
 #[derive(Debug)]
 pub enum Error {
