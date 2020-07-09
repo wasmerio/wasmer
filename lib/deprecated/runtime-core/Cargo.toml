@@ -8,6 +8,8 @@ repository = "https://github.com/wasmerio/wasmer"
 keywords = ["wasm", "webassembly", "runtime"]
 categories = ["wasm"]
 edition = "2018"
+
+[badges]
 maintenance = { status = "deprecated" }
 
 [dependencies]

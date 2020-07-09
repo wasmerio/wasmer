@@ -9,6 +9,8 @@ keywords = ["wasm", "webassembly", "runtime", "sandbox", "secure"]
 categories = ["wasm", "api-bindings"]
 edition = "2018"
 readme = "README.md"
+
+[badges]
 maintenance = { status = "deprecated" }
 
 [dependencies]
