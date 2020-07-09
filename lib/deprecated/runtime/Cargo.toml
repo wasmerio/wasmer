@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime-deprecated"
+name = "wasmer-runtime"
 version = "1.0.0-alpha.1"
 description = "Wasmer runtime library"
 license = "MIT"

@@ -1067,7 +1067,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
- "wasmer-runtime",
+ "wasmer-vm",
  "wat",
  "winapi",
 ]
@@ -1095,7 +1095,7 @@ dependencies = [
  "target-lexicon",
  "thiserror",
  "wasm-common",
- "wasmer-runtime",
+ "wasmer-vm",
  "wasmparser",
 ]
 
@@ -1112,7 +1112,7 @@ dependencies = [
  "tracing",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1134,7 +1134,7 @@ dependencies = [
  "target-lexicon",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1151,7 +1151,7 @@ dependencies = [
  "smallvec",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1162,7 +1162,6 @@ dependencies = [
  "bincode",
  "lazy_static",
  "more-asserts",
- "region",
  "rustc-demangle",
  "serde",
  "serde_bytes",
@@ -1170,7 +1169,7 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -1186,7 +1185,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -1206,7 +1205,7 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1223,18 +1222,7 @@ dependencies = [
 name = "wasmer-runtime"
 version = "1.0.0-alpha.1"
 dependencies = [
- "backtrace",
- "cc",
- "cfg-if",
- "indexmap",
- "libc",
- "memoffset",
- "more-asserts",
- "region",
- "serde",
- "thiserror",
- "wasm-common",
- "winapi",
+ "wasmer-runtime-core",
 ]
 
 [[package]]
@@ -1248,14 +1236,25 @@ dependencies = [
  "wasmer-cache",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
-name = "wasmer-runtime-deprecated"
+name = "wasmer-vm"
 version = "1.0.0-alpha.1"
 dependencies = [
- "wasmer-runtime-core",
+ "backtrace",
+ "cc",
+ "cfg-if",
+ "indexmap",
+ "libc",
+ "memoffset",
+ "more-asserts",
+ "region",
+ "serde",
+ "thiserror",
+ "wasm-common",
+ "winapi",
 ]
 
 [[package]]
