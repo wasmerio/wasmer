@@ -45,7 +45,7 @@ pub(crate) mod new {
     pub use wasmer_cache;
     pub use wasmer_compiler;
     pub use wasmer_engine;
-    pub use wasmer_runtime;
+    pub use wasmer_vm;
 }
 
 pub mod backend;

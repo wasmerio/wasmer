@@ -15,7 +15,7 @@ wasmer = { path = "../../api", version = "1.0.0-alpha.1" }
 wasmer-cache = { path = "../../cache", version = "1.0.0-alpha.1" }
 wasmer-compiler = { path = "../../compiler", version = "1.0.0-alpha.1", features = ["translator"] }
 wasmer-engine = { path = "../../engine", version = "1.0.0-alpha.1" }
-wasmer-runtime = { path = "../../runtime", version = "1.0.0-alpha.1" }
+wasmer-vm = { path = "../../vm", version = "1.0.0-alpha.1" }
 lazy_static = "1.4"
 
 [build-dependencies]

@@ -87,7 +87,7 @@ impl From<&new::wasmer::Global> for Global {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for Global {
-    fn to_export(&self) -> new::wasmer_runtime::Export {
+    fn to_export(&self) -> new::wasmer_vm::Export {
         self.new_global.to_export()
     }
 

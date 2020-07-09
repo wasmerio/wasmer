@@ -8,7 +8,7 @@ use crate::{
     types::{FuncSig, Value},
     vm,
 };
-use new::wasmer_runtime::Export;
+use new::wasmer_vm::Export;
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -17,7 +17,7 @@ use std::{
 };
 
 pub use new::wasm_common::{DataInitializer, ExportIndex};
-pub use new::wasmer_runtime::{
+pub use new::wasmer_vm::{
     //
     MemoryStyle as MemoryType,
     ModuleInfo,
@@ -145,7 +145,7 @@ impl Module {
                                 // stored by
                                 // `new::wasmer::Function::new_dynamic_env`.
                                 let vmctx: Box<
-                                    new::wasmer_runtime::VMDynamicFunctionContext<
+                                    new::wasmer_vm::VMDynamicFunctionContext<
                                         VMDynamicFunctionWithEnv<DynamicCtx>,
                                     >,
                                 > = unsafe { Box::from_raw(function.vmctx as *mut _) };

@@ -30,11 +30,11 @@ impl Namespace {
 }
 
 impl LikeNamespace for Namespace {
-    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_runtime::Export> {
+    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_vm::Export> {
         self.exports.new_exports.get_namespace_export(name)
     }
 
-    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_runtime::Export)> {
+    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_vm::Export)> {
         self.exports.new_exports.get_namespace_exports()
     }
 }

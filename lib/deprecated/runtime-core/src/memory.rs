@@ -11,7 +11,7 @@ pub mod ptr {
 
 pub use new::wasm_common::MemoryType as MemoryDescriptor;
 pub use new::wasmer::{Atomically, MemoryView};
-pub use new::wasmer_runtime::MemoryStyle as MemoryType;
+pub use new::wasmer_vm::MemoryStyle as MemoryType;
 
 /// A Wasm linear memory.
 ///
@@ -108,7 +108,7 @@ impl From<&new::wasmer::Memory> for Memory {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for Memory {
-    fn to_export(&self) -> new::wasmer_runtime::Export {
+    fn to_export(&self) -> new::wasmer_vm::Export {
         self.new_memory.to_export()
     }
 

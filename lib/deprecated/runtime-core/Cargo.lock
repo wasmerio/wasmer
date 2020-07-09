@@ -51,9 +51,9 @@ dependencies = [
 
 [[package]]
 name = "bincode"
-version = "1.2.1"
+version = "1.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "5753e2a71534719bf3f4e57006c3a4f0d2c672a4b676eec84161f763eca87dbf"
+checksum = "f30d3a39baa26f9651f17b375061f3233dde33424a8b72b0dbe93a68a0bc896d"
 dependencies = [
  "byteorder",
  "serde",
@@ -1043,7 +1043,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
- "wasmer-runtime",
+ "wasmer-vm",
  "wat",
  "winapi",
 ]
@@ -1071,7 +1071,7 @@ dependencies = [
  "target-lexicon",
  "thiserror",
  "wasm-common",
- "wasmer-runtime",
+ "wasmer-vm",
  "wasmparser",
 ]
 
@@ -1088,7 +1088,7 @@ dependencies = [
  "tracing",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1110,7 +1110,7 @@ dependencies = [
  "target-lexicon",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1127,7 +1127,7 @@ dependencies = [
  "smallvec",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1138,7 +1138,6 @@ dependencies = [
  "bincode",
  "lazy_static",
  "more-asserts",
- "region",
  "rustc-demangle",
  "serde",
  "serde_bytes",
@@ -1146,7 +1145,7 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -1162,7 +1161,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -1182,7 +1181,7 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -1196,7 +1195,21 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-runtime"
+name = "wasmer-runtime-core"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "blake3",
+ "lazy_static",
+ "wasm-common",
+ "wasmer",
+ "wasmer-cache",
+ "wasmer-compiler",
+ "wasmer-engine",
+ "wasmer-vm",
+]
+
+[[package]]
+name = "wasmer-vm"
 version = "1.0.0-alpha.1"
 dependencies = [
  "backtrace",
@@ -1211,20 +1224,6 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "winapi",
-]
-
-[[package]]
-name = "wasmer-runtime-core"
-version = "1.0.0-alpha.1"
-dependencies = [
- "blake3",
- "lazy_static",
- "wasm-common",
- "wasmer",
- "wasmer-cache",
- "wasmer-compiler",
- "wasmer-engine",
- "wasmer-runtime",
 ]
 
 [[package]]
