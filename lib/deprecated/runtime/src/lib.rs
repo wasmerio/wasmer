@@ -53,6 +53,10 @@ pub mod types {
     pub use wasmer_runtime_core::types::*;
 }
 
+pub mod cache {
+    pub use wasmer_runtime_core::cache::*;
+}
+
 /// Enum used to select which compiler should be used to generate code.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum Backend {
@@ -136,7 +140,7 @@ impl std::str::FromStr for Backend {
 
 pub enum InstantiateError {
     CompileError(Box<dyn Error>),
-    InstantiationError(InstantiationError),
+    InstantiationError(wasmer_runtime_core::error::InstantiationError),
 }
 
 pub fn instantiate(
