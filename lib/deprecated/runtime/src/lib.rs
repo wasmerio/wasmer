@@ -7,23 +7,28 @@ pub use wasmer_runtime_core::{
     global::Global,
     import::{ImportObject, LikeNamespace},
     imports,
-    instance::Instance,
+    instance::{DynFunc, Instance},
     load_cache_with,
     memory::ptr::{Array, Item, WasmPtr},
     memory::Memory,
     module::Module,
     table::Table,
     typed_func::{DynamicFunc, Func},
-    types, validate,
+    types::Value,
+    validate,
     vm::Ctx,
     wat2wasm,
 };
 
 pub mod memory {
+    //! The memory module contains the implementation data structures
+    //! and helper functions used to manipulate and access wasm
+    //! memory.
     pub use wasmer_runtime_core::memory::{Atomically, Memory, MemoryView};
 }
 
 pub mod wasm {
+    //! Various types exposed by the Wasmer Runtime.
     pub use wasmer_runtime_core::{
         global::Global,
         table::Table,
@@ -31,13 +36,22 @@ pub mod wasm {
     };
 }
 
-pub use wasmer_runtime_core::error::*;
+pub mod error {
+    //! The error module contains the data structures and helper
+    //! functions used to implement errors that are produced and
+    //! returned from the wasmer runtime.
+    pub use wasmer_runtime_core::error::*;
+}
 
 pub mod units {
+    //! Various unit types.
     pub use wasmer_runtime_core::units::{Bytes, Pages};
 }
 
-pub use wasmer_runtime_core::types::*;
+pub mod types {
+    //! Types used in the Wasm runtime and conversion functions.
+    pub use wasmer_runtime_core::types::*;
+}
 
 /// Enum used to select which compiler should be used to generate code.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
