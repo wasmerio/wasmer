@@ -104,18 +104,6 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.signature.clone()),
-        /*        Export::Table(ref t) => {
-            let table = t.plan().table;
-            ExternType::Table(table)
-        }
-        Export::Memory(ref m) => {
-            let memory = m.plan().memory;
-            ExternType::Memory(memory)
-        }
-        Export::Global(ref g) => {
-            let global = g.from.ty();
-            ExternType::Global(*global)
-        }*/
         Export::Table(ref t) => ExternType::Table(t.ty().clone()),
         Export::Memory(ref m) => ExternType::Memory(m.ty().clone()),
         Export::Global(ref g) => {
