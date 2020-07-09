@@ -1,6 +1,6 @@
-# Wasmer Runtime
+# Wasmer VM
 
-This is the `wasmer-runtime` crate, which contains wasm runtime library
+This is the `wasmer-vm` crate, which contains wasm VM runtime library
 support, supporting the wasm ABI used by any [`wasmer-engine`] implementation.
 
 [`wasmer-engine`]: https://crates.io/crates/wasmer-engine

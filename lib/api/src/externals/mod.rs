@@ -13,7 +13,7 @@ pub use self::table::Table;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
-use wasmer_runtime::Export;
+use wasmer_vm::Export;
 
 #[derive(Clone)]
 pub enum Extern {

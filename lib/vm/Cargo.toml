@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-runtime"
+name = "wasmer-vm"
 version = "1.0.0-alpha.1"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Runtime library support for Wasmer"
@@ -12,10 +12,10 @@ edition = "2018"
 
 [dependencies]
 wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1", features = ["enable-serde"] }
-region = "2.1"
+region = "2.2"
 libc = { version = "0.2", default-features = false }
 memoffset = "0.5"
-indexmap = { version = "1.3", features = ["serde-1"] }
+indexmap = { version = "1.4", features = ["serde-1"] }
 thiserror = "1.0"
 more-asserts = "0.2"
 cfg-if = "0.1"

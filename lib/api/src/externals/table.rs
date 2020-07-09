@@ -4,7 +4,8 @@ use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
-use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
+use std::sync::Arc;
+use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
 /// The `Table` struct is an array-like structure representing a WebAssembly Table,
 /// which stores function references.
@@ -14,9 +15,7 @@ use wasmer_runtime::{Export, ExportTable, Table as RuntimeTable, VMCallerChecked
 #[derive(Clone)]
 pub struct Table {
     store: Store,
-    // If the Table is owned by the Store, not the instance
-    owned_by_store: bool,
-    exported: ExportTable,
+    table: Arc<dyn RuntimeTable>,
 }
 
 fn set_table_item(
@@ -34,33 +33,25 @@ impl Table {
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
-        let table_plan = tunables.table_plan(ty);
+        let style = tunables.table_style(&ty);
         let table = tunables
-            .create_table(table_plan)
+            .create_table(&ty, &style)
             .map_err(RuntimeError::new)?;
 
-        let definition = table.vmtable();
-        for i in 0..definition.current_elements {
+        let num_elements = table.size();
+        for i in 0..num_elements {
             set_table_item(table.as_ref(), i, item.clone())?;
         }
 
         Ok(Table {
             store: store.clone(),
-            owned_by_store: true,
-            exported: ExportTable {
-                from: table,
-                definition: Box::leak(Box::new(definition)),
-            },
+            table,
         })
-    }
-
-    fn table(&self) -> &dyn RuntimeTable {
-        &*self.exported.from
     }
 
     /// Gets the underlying [`TableType`].
     pub fn ty(&self) -> &TableType {
-        &self.exported.plan().table
+        self.table.ty()
     }
 
     pub fn store(&self) -> &Store {
@@ -69,19 +60,19 @@ impl Table {
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.table().get(index)?;
+        let item = self.table.get(index)?;
         Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
         let item = val.into_checked_anyfunc(&self.store)?;
-        set_table_item(self.table(), index, item)
+        set_table_item(self.table.as_ref(), index, item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self) -> u32 {
-        self.table().size()
+        self.table.size()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -95,11 +86,10 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_checked_anyfunc(&self.store)?;
-        let table = self.table();
-        match table.grow(delta) {
+        match self.table.grow(delta) {
             Some(len) => {
                 for i in 0..delta {
-                    set_table_item(table, len + i, item.clone())?;
+                    set_table_item(self.table.as_ref(), len + i, item.clone())?;
                 }
                 Ok(len)
             }
@@ -130,8 +120,8 @@ impl Table {
             ));
         }
         RuntimeTable::copy(
-            dst_table.table(),
-            src_table.table(),
+            dst_table.table.as_ref(),
+            src_table.table.as_ref(),
             dst_index,
             src_index,
             len,
@@ -143,21 +133,24 @@ impl Table {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Table {
         Table {
             store: store.clone(),
-            owned_by_store: false,
-            exported: wasmer_export,
+            table: wasmer_export.from,
         }
     }
 
     /// Returns whether or not these two tables refer to the same data.
     pub fn same(&self, other: &Self) -> bool {
-        self.exported.same(&other.exported)
+        Arc::ptr_eq(&self.table, &other.table)
     }
 }
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        self.exported.clone().into()
+        ExportTable {
+            from: self.table.clone(),
+        }
+        .into()
     }
+
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Table(table) => Ok(table),

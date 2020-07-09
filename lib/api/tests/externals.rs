@@ -175,16 +175,14 @@ fn memory_grow() -> Result<()> {
     // due to stack overflow with a modern nightly, we can't update CI to use a version of nightly which will make this work
     /*assert!(matches!(
         bad_result,
-        Err(MemoryError::InvalidMemoryPlan { .. })
+        Err(MemoryError::InvalidMemory { .. })
     ));*/
 
-    assert!(
-        if let Err(MemoryError::InvalidMemoryPlan { .. }) = bad_result {
-            true
-        } else {
-            false
-        }
-    );
+    assert!(if let Err(MemoryError::InvalidMemory { .. }) = bad_result {
+        true
+    } else {
+        false
+    });
 
     Ok(())
 }

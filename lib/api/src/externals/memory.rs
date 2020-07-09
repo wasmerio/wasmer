@@ -1,46 +1,32 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
-use crate::memory_view::MemoryView;
 use crate::store::Store;
-use crate::MemoryType;
+use crate::{MemoryType, MemoryView};
 use std::slice;
+use std::sync::Arc;
 use wasm_common::{Pages, ValueType};
-use wasmer_runtime::{
-    Export, ExportMemory, Memory as MemoryTrait, MemoryError, VMMemoryDefinition,
-};
+use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
 #[derive(Clone)]
 pub struct Memory {
     store: Store,
-    // If the Memory is owned by the Store, not the instance
-    owned_by_store: bool,
-    exported: ExportMemory,
+    memory: Arc<dyn RuntimeMemory>,
 }
 
 impl Memory {
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.tunables();
-        let memory_plan = tunables.memory_plan(ty);
-        let memory = tunables.create_memory(memory_plan)?;
-
-        let definition = memory.vmmemory();
+        let style = tunables.memory_style(&ty);
+        let memory = tunables.create_memory(&ty, &style)?;
 
         Ok(Memory {
             store: store.clone(),
-            owned_by_store: true,
-            exported: ExportMemory {
-                from: memory,
-                definition: Box::leak(Box::new(definition)),
-            },
+            memory,
         })
     }
 
-    fn definition(&self) -> VMMemoryDefinition {
-        self.memory().vmmemory()
-    }
-
     pub fn ty(&self) -> &MemoryType {
-        &self.exported.plan().memory
+        self.memory.ty()
     }
 
     pub fn store(&self) -> &Store {
@@ -64,31 +50,32 @@ impl Memory {
     /// To be defined (TODO).
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        let definition = self.definition();
-        slice::from_raw_parts_mut(definition.base, definition.current_length)
+        let definition = self.memory.vmmemory();
+        let def = definition.as_ref();
+        slice::from_raw_parts_mut(def.base, def.current_length)
     }
 
     pub fn data_ptr(&self) -> *mut u8 {
-        self.definition().base
+        let definition = self.memory.vmmemory();
+        let def = unsafe { definition.as_ref() };
+        def.base
     }
 
     pub fn data_size(&self) -> usize {
-        self.definition().current_length
+        let definition = self.memory.vmmemory();
+        let def = unsafe { definition.as_ref() };
+        def.current_length
     }
 
     pub fn size(&self) -> Pages {
-        self.memory().size()
-    }
-
-    fn memory(&self) -> &dyn MemoryTrait {
-        &*self.exported.from
+        self.memory.size()
     }
 
     pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
     {
-        self.memory().grow(delta.into())
+        self.memory.grow(delta.into())
     }
 
     /// Return a "view" of the currently accessible memory. By
@@ -133,34 +120,28 @@ impl Memory {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Memory {
         Memory {
             store: store.clone(),
-            owned_by_store: false,
-            exported: wasmer_export,
+            memory: wasmer_export.from,
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
     pub fn same(&self, other: &Memory) -> bool {
-        self.exported.same(&other.exported)
+        Arc::ptr_eq(&self.memory, &other.memory)
     }
 }
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
-        self.exported.clone().into()
+        ExportMemory {
+            from: self.memory.clone(),
+        }
+        .into()
     }
+
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Memory(memory) => Ok(memory),
             _ => Err(ExportError::IncompatibleType),
-        }
-    }
-}
-
-impl Drop for Memory {
-    fn drop(&mut self) {
-        if self.owned_by_store {
-            // let r = unsafe { libc::munmap(self.ptr as *mut libc::c_void, self.len) };
-            // assert_eq!(r, 0, "munmap failed: {}", std::io::Error::last_os_error());
         }
     }
 }

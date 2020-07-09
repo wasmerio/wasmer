@@ -2,8 +2,8 @@
 
 use byteorder::{LittleEndian, ReadBytesExt};
 use std::io::{self, Cursor};
-use wasmer_runtime_core::vm::Ctx;
-use wasmer_runtime_core::{
+use wasmer_vm_core::vm::Ctx;
+use wasmer_vm_core::{
     module::Module,
     structures::TypedIndex,
     types::{GlobalIndex, LocalOrImport, TableIndex},
@@ -65,15 +65,15 @@ impl StackmapEntry {
         size_record: &StkSizeRecord,
         map_record: &StkMapRecord,
         end: Option<(&StackmapEntry, &StkMapRecord)>,
-        msm: &mut wasmer_runtime_core::state::ModuleStateMap,
+        msm: &mut wasmer_vm_core::state::ModuleStateMap,
     ) {
         use std::collections::{BTreeMap, HashMap};
-        use wasmer_runtime_core::state::{
+        use wasmer_vm_core::state::{
             x64::{new_machine_state, X64Register, GPR},
             FunctionStateMap, MachineStateDiff, MachineValue, OffsetInfo, RegisterIndex,
             SuspendOffset, WasmAbstractValue,
         };
-        use wasmer_runtime_core::vm;
+        use wasmer_vm_core::vm;
 
         let func_base_addr = (size_record.function_address as usize)
             .checked_sub(code_addr)

@@ -11,23 +11,33 @@ pub fn wasmer_should_print_color() -> bool {
         .unwrap_or_else(|| atty::is(atty::Stream::Stdout))
 }
 
+fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<(String, PathBuf)> {
+    let pb = PathBuf::from(&real_dir);
+    if let Ok(pb_metadata) = pb.metadata() {
+        if !pb_metadata.is_dir() {
+            bail!("\"{}\" exists, but it is not a directory", &real_dir);
+        }
+    } else {
+        bail!("Directory \"{}\" does not exist", &real_dir);
+    }
+    return Ok((alias.to_string(), pb));
+}
+
 /// Parses a mapdir from a string
 pub fn parse_mapdir(entry: &str) -> Result<(String, PathBuf)> {
-    if let [alias, real_dir] = entry.split(':').collect::<Vec<&str>>()[..] {
-        let pb = PathBuf::from(&real_dir);
-        if let Ok(pb_metadata) = pb.metadata() {
-            if !pb_metadata.is_dir() {
-                bail!("\"{}\" exists, but it is not a directory", &real_dir);
-            }
-        } else {
-            bail!("Directory \"{}\" does not exist", &real_dir);
-        }
-        return Ok((alias.to_string(), pb));
+    // We try first splitting by `::`
+    if let [alias, real_dir] = entry.split("::").collect::<Vec<&str>>()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
     }
-    bail!(
-        "Directory mappings must consist of two paths separate by a colon. Found {}",
-        &entry
-    )
+    // And then we try splitting by `:` (for compatibility with previous API)
+    else if let [alias, real_dir] = entry.split(':').collect::<Vec<&str>>()[..] {
+        retrieve_alias_pathbuf(alias, real_dir)
+    } else {
+        bail!(
+            "Directory mappings must consist of two paths separate by a `::` or `:`. Found {}",
+            &entry
+        )
+    }
 }
 
 /// Parses a mapdir from an env var

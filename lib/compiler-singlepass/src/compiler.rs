@@ -19,7 +19,7 @@ use wasmer_compiler::{
     ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
-use wasmer_runtime::{ModuleInfo, TrapCode, VMOffsets};
+use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
@@ -55,8 +55,8 @@ impl Compiler for SinglepassCompiler {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
-        let memory_plans = &compile_info.memory_plans;
-        let table_plans = &compile_info.table_plans;
+        let memory_styles = &compile_info.memory_styles;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
             .map(FunctionIndex::new)
@@ -95,8 +95,8 @@ impl Compiler for SinglepassCompiler {
                     module,
                     &self.config,
                     &vmoffsets,
-                    &memory_plans,
-                    &table_plans,
+                    &memory_styles,
+                    &table_styles,
                     *i,
                     &locals,
                 )
