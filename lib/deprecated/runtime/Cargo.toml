@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-runtime"
-version = "1.0.0-alpha.1"
+version = "0.18.0"
 description = "Wasmer runtime library"
 license = "MIT"
 authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -12,7 +12,7 @@ readme = "README.md"
 maintenance = { status = "deprecated" }
 
 [dependencies]
-wasmer-runtime-core = { path = "../runtime-core/", version = "1.0.0-alpha.1" }
+wasmer-runtime-core = { path = "../runtime-core/", version = "0.18.0" }
 
 [features]
 default = ["cranelift", "wasmer-runtime-core/default"]
