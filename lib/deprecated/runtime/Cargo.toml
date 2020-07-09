@@ -9,6 +9,7 @@ keywords = ["wasm", "webassembly", "runtime", "sandbox", "secure"]
 categories = ["wasm", "api-bindings"]
 edition = "2018"
 readme = "README.md"
+maintenance = { status = "deprecated" }
 
 [dependencies]
 wasmer-runtime-core = { path = "../runtime-core/", version = "1.0.0-alpha.1" }

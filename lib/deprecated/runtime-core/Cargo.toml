@@ -8,6 +8,7 @@ repository = "https://github.com/wasmerio/wasmer"
 keywords = ["wasm", "webassembly", "runtime"]
 categories = ["wasm"]
 edition = "2018"
+maintenance = { status = "deprecated" }
 
 [dependencies]
 wasm-common = { path = "../../wasm-common", version = "1.0.0-alpha.1" }
