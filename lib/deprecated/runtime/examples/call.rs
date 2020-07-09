@@ -1,5 +1,5 @@
 use std::{error, fmt};
-use wasmer_runtime::{compile, imports, wat2wasm, Ctx, Func, RuntimeError};
+use wasmer_runtime::{compile, error::RuntimeError, imports, wat2wasm, Ctx, Func};
 
 static WAT: &'static str = r#"
     (module
