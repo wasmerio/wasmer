@@ -110,37 +110,6 @@ impl Global {
         }))
     }
 
-    /// Create a new global initialized with the given value.
-    pub fn new_with_value<T>(mutability: Mutability, value: Value<T>) -> Self {
-        let mut vm_global_definition = VMGlobalDefinition::new();
-        let ty = unsafe {
-            match value {
-                Value::I32(v) => {
-                    *vm_global_definition.as_i32_mut() = v;
-                    Type::I32
-                }
-                Value::I64(v) => {
-                    *vm_global_definition.as_i64_mut() = v;
-                    Type::I64
-                }
-                Value::F32(v) => {
-                    *vm_global_definition.as_f32_mut() = v;
-                    Type::F32
-                }
-                Value::F64(v) => {
-                    *vm_global_definition.as_f64_mut() = v;
-                    Type::F64
-                }
-                _ => unimplemented!("Global `new_with_value` is not implemented for {:?}", value),
-            }
-        };
-        Self {
-            ty: GlobalType { ty, mutability },
-            vm_global_definition: Box::new(UnsafeCell::new(vm_global_definition)),
-            lock: Mutex::new(()),
-        }
-    }
-
     /// Get the type of the global.
     pub fn ty(&self) -> &GlobalType {
         &self.ty
@@ -168,7 +137,7 @@ impl Global {
         }
     }
 
-    /// Get a value from the global.
+    /// Set a value for the global.
     ///
     /// # Safety
     /// The caller should check that the `val` comes from the same store as this global.
@@ -184,6 +153,14 @@ impl Global {
             });
         }
         // TODO: checking which store values are in is not done in this function
+        self.set_unchecked(val)
+    }
+
+    /// Set a value from the global (unchecked)
+    ///
+    /// # Safety
+    /// The caller should check that the `val` comes from the same store as this global.
+    pub unsafe fn set_unchecked<T>(&self, val: Value<T>) -> Result<(), GlobalError> {
 
         // ideally we'd use atomics here
         let definition = &mut *self.vm_global_definition.get();
@@ -196,4 +173,5 @@ impl Global {
         }
         Ok(())
     }
+
 }

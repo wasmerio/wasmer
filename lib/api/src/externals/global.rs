@@ -31,7 +31,8 @@ impl Global {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
-        let from = Arc::new(RuntimeGlobal::new_with_value(mutability, val));
+        let from = Arc::new(RuntimeGlobal::new(GlobalType { mutability, ty: val.ty() }));
+        unsafe { from.set_unchecked(val).unwrap() };
         let definition = from.vmglobal();
         let exported = ExportGlobal { definition, from };
         Ok(Global {
