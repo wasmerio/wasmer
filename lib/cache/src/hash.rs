@@ -2,26 +2,21 @@ use crate::DeserializeError;
 use std::str::FromStr;
 use std::string::ToString;
 
-/// The hash of a wasm module.
-///
-/// Used as a key when loading and storing modules in a [`Cache`].
+/// A hash used as a key when loading and storing modules in a
+/// [`Cache`].
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
-// WasmHash is made up of a 32 byte array
-pub struct WasmHash([u8; 32]);
+// Hash is made up of a 32 byte array
+pub struct Hash([u8; 32]);
 
-impl WasmHash {
-    /// Creates a new hash. Has to be encodable as a Hex format.
+impl Hash {
+    /// Creates a new hash. Has to be encodable as a hex format.
     pub fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
 
-    /// Hash a wasm module.
-    ///
-    /// # Note:
-    /// This does no verification that the supplied data
-    /// is, in fact, a wasm module.
-    pub fn generate(wasm: &[u8]) -> Self {
-        let hash = blake3::hash(wasm);
+    /// Creates a new hash from a slice of bytes.
+    pub fn generate(bytes: &[u8]) -> Self {
+        let hash = blake3::hash(bytes);
         Self::new(hash.into())
     }
 
@@ -32,7 +27,7 @@ impl WasmHash {
     }
 }
 
-impl ToString for WasmHash {
+impl ToString for Hash {
     /// Create the hexadecimal representation of the
     /// stored hash.
     fn to_string(&self) -> String {
@@ -40,7 +35,7 @@ impl ToString for WasmHash {
     }
 }
 
-impl FromStr for WasmHash {
+impl FromStr for Hash {
     type Err = DeserializeError;
     /// Create hash from hexadecimal representation
     fn from_str(s: &str) -> Result<Self, Self::Err> {
