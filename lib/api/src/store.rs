@@ -6,6 +6,11 @@ use wasmer_engine::Tunables as BaseTunables;
 use std::sync::Arc;
 use wasmer_engine::Engine;
 
+/// The store is what holds the directives to the `wasmer` crate, and
+/// siblings, to act as expected. It holds the engine (that is
+/// —amongst many things— used to compile the Wasm bytes into a valid
+/// module artifact), in addition to the tunables (that is used to
+/// create the memories, tables and globals).
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
@@ -13,6 +18,7 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates a new `Store` with a specific `Engine`.
     pub fn new<E>(engine: &E) -> Self
     where
         E: Engine + ?Sized,
@@ -23,6 +29,8 @@ impl Store {
         }
     }
 
+    /// Creates a new `Store` with a specific `Engine` and a specific
+    /// `Tunables`.
     pub fn new_with_tunables<E>(
         engine: &E,
         tunables: impl BaseTunables + Send + Sync + 'static,
@@ -36,14 +44,19 @@ impl Store {
         }
     }
 
+    /// Returns the tunables.
     pub fn tunables(&self) -> &dyn BaseTunables {
         self.tunables.as_ref()
     }
 
+    /// Returns the engine.
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
         &self.engine
     }
 
+    /// Checks whether two stores are identical. A store is considered
+    /// equal to another store if both have the same engine. The
+    /// tunables are excluded from the logic.
     pub fn same(a: &Self, b: &Self) -> bool {
         a.engine.id() == b.engine.id()
     }
