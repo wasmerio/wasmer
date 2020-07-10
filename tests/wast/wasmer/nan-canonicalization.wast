@@ -192,3 +192,19 @@
 (assert_return (invoke "nan-canonicalization-f64-func-call-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
 (assert_return (invoke "nan-canonicalization-f64-func-call-indirect" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000001))
 (assert_return (invoke "nan-canonicalization-f64-func-call-indirect-cncl" (i64.const 0x7ff8000000000001)) (i64.const 0x7ff8000000000000))
+
+;; Test canonicalization is done before `else` operator.
+(module
+  (func (;0;)
+    (local f64)
+    i32.const 1
+    if (result f64)
+      local.get 0
+      f64.const 0x1p+0 (;=1;)
+      f64.add
+    else
+      f64.const 0x0p+0 (;=0;)
+    end
+    return
+  )
+)
