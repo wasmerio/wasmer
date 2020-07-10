@@ -153,8 +153,7 @@ impl StoreOptions {
     }
 
     /// Get the Target architecture
-    pub fn get_features(&self) -> Result<Features> {
-        let mut features = Features::default();
+    pub fn get_features(&self, mut features: Features) -> Result<Features> {
         if self.features.threads || self.features.all {
             features.threads(true);
         }
@@ -310,7 +309,7 @@ impl StoreOptions {
         mut compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
-        let features = self.get_features()?;
+        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineType::JIT => Box::new(
