@@ -1,5 +1,5 @@
 use crate::cache::Cache;
-use crate::hash::WasmHash;
+use crate::hash::Hash;
 use std::fs::{create_dir_all, File};
 use std::io::{self, Write};
 use std::path::PathBuf;
@@ -10,23 +10,24 @@ use wasmer::{DeserializeError, Module, SerializeError, Store};
 /// The `FileSystemCache` type implements the [`Cache`] trait, which allows it to be used
 /// generically when some sort of cache is required.
 ///
+/// # Usage
 ///
-/// # Usage:
-///
-/// ## Store
 /// ```
 /// use wasmer::{DeserializeError, SerializeError};
-/// use wasmer_cache::{Cache, FileSystemCache, WasmHash};
+/// use wasmer_cache::{Cache, FileSystemCache, Hash};
 ///
 /// # use wasmer::{Module};
-/// fn store_module(module: Module) -> Result<Module, SerializeError> {
+/// fn store_module(module: &Module, key: &[u8]) -> Result<(), SerializeError> {
 ///     // Create a new file system cache.
 ///     let mut fs_cache = FileSystemCache::new("some/directory/goes/here")?;
+///
 ///     // Compute a key for a given WebAssembly binary
-///     let key = WasmHash::generate(&[]);
+///     let hash = Hash::generate(key);
+///
 ///     // Store a module into the cache given a key
 ///     fs_cache.store(key, module.clone())?;
-///     Ok(module)
+///
+///     Ok(())
 /// }
 /// ```
 pub struct FileSystemCache {
@@ -80,7 +81,7 @@ impl Cache for FileSystemCache {
     type DeserializeError = DeserializeError;
     type SerializeError = SerializeError;
 
-    unsafe fn load(&self, store: &Store, key: WasmHash) -> Result<Module, Self::DeserializeError> {
+    unsafe fn load(&self, store: &Store, key: Hash) -> Result<Module, Self::DeserializeError> {
         let filename = if let Some(ref ext) = self.ext {
             format!("{}.{}", key.to_string(), ext)
         } else {
@@ -90,7 +91,7 @@ impl Cache for FileSystemCache {
         Module::deserialize_from_file(&store, path)
     }
 
-    fn store(&mut self, key: WasmHash, module: &Module) -> Result<(), Self::SerializeError> {
+    fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError> {
         let filename = if let Some(ref ext) = self.ext {
             format!("{}.{}", key.to_string(), ext)
         } else {

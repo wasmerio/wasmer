@@ -26,7 +26,7 @@ mod hash;
 
 pub use crate::cache::Cache;
 pub use crate::filesystem::FileSystemCache;
-pub use crate::hash::WasmHash;
+pub use crate::hash::Hash;
 
 // We re-export those for convinience of users
 pub use wasmer::{DeserializeError, SerializeError};
