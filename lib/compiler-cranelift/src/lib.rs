@@ -3,10 +3,9 @@
 //! Cranelift is a fast IR generator created by Mozilla for usage in
 //! Firefox as a next JS compiler generator.
 //!
-//! Compared to LLVM, Cranelit is a bit faster and made enterely in Rust.
+//! Compared to LLVM, Cranelit is a bit faster and made entirely in Rust.
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
 #![cfg_attr(
     feature = "cargo-clippy",
     allow(clippy::new_without_default, clippy::new_without_default)
