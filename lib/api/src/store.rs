@@ -6,6 +6,11 @@ use wasmer_engine::Tunables as BaseTunables;
 use std::sync::Arc;
 use wasmer_engine::Engine;
 
+/// The store is what holds the directives to the `wasmer` crate, and
+/// siblings, to act as expected. It holds the engine (that is
+/// —amongst many things— used to compile the Wasm bytes into a valid
+/// module artifact), in addition to the tunables (that is used to
+/// create the memories, tables and globals).
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
