@@ -13,6 +13,7 @@ pub struct Store {
 }
 
 impl Store {
+    /// Creates a new `Store` with a specific `Engine`.
     pub fn new<E>(engine: &E) -> Store
     where
         E: Engine + ?Sized,
@@ -23,6 +24,8 @@ impl Store {
         }
     }
 
+    /// Creates a new `Store` with a specific `Engine` and a specific
+    /// `Tunables`.
     pub fn new_with_tunables<E>(
         engine: &E,
         tunables: impl BaseTunables + Send + Sync + 'static,
@@ -36,14 +39,19 @@ impl Store {
         }
     }
 
+    /// Returns the tunables.
     pub fn tunables(&self) -> &dyn BaseTunables {
         self.tunables.as_ref()
     }
 
+    /// Returns the engine.
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
         &self.engine
     }
 
+    /// Checks whether two stores are identical. A store is considered
+    /// equal to another store if both have the same engine. The
+    /// tunables are excluded from the logic.
     pub fn same(a: &Store, b: &Store) -> bool {
         a.engine.id() == b.engine.id()
     }
