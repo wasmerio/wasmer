@@ -19,11 +19,11 @@ pub struct Store {
 
 impl Store {
     /// Creates a new `Store` with a specific `Engine`.
-    pub fn new<E>(engine: &E) -> Store
+    pub fn new<E>(engine: &E) -> Self
     where
         E: Engine + ?Sized,
     {
-        Store {
+        Self {
             engine: engine.cloned(),
             tunables: Arc::new(Tunables::for_target(engine.target())),
         }
@@ -34,11 +34,11 @@ impl Store {
     pub fn new_with_tunables<E>(
         engine: &E,
         tunables: impl BaseTunables + Send + Sync + 'static,
-    ) -> Store
+    ) -> Self
     where
         E: Engine + ?Sized,
     {
-        Store {
+        Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
         }
@@ -57,21 +57,21 @@ impl Store {
     /// Checks whether two stores are identical. A store is considered
     /// equal to another store if both have the same engine. The
     /// tunables are excluded from the logic.
-    pub fn same(a: &Store, b: &Store) -> bool {
+    pub fn same(a: &Self, b: &Self) -> bool {
         a.engine.id() == b.engine.id()
     }
 }
 
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
-        Store::same(self, other)
+        Self::same(self, other)
     }
 }
 
 // We only implement default if we have assigned a default compiler and engine
 #[cfg(all(feature = "default-compiler", feature = "default-engine"))]
 impl Default for Store {
-    fn default() -> Store {
+    fn default() -> Self {
         // We store them on a function that returns to make
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
