@@ -1630,13 +1630,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let current_block = self.builder.get_insert_block().ok_or_else(|| {
                         CompileError::Codegen("not currently in a block".to_string())
                     })?;
-                    self.builder.build_unconditional_branch(*frame.code_after());
 
                     for phi in frame.phis().to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
                         phi.add_incoming(&[(&value, current_block)])
                     }
+
+                    let frame = self.state.frame_at_depth(0)?;
+                    self.builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1721,12 +1723,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
-                self.builder.build_unconditional_branch(*frame.br_dest());
                 for phi in frame.phis().to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
                 }
+                let frame = self.state.outermost_frame()?;
+                self.builder.build_unconditional_branch(*frame.br_dest());
 
                 self.state.reachable = false;
             }
