@@ -154,7 +154,7 @@ impl NativeArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let target_triple = target.triple().clone();
+        let target_triple = target.triple();
 
         // We construct the function body lengths
         let function_body_lengths = compilation
@@ -212,7 +212,7 @@ impl NativeArtifact {
         };
 
         let host_target = Triple::host();
-        let is_cross_compiling = target_triple != host_target;
+        let is_cross_compiling = target_triple != &host_target;
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
