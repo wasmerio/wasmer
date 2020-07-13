@@ -5,7 +5,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
-use wasm_common::{Features, FunctionType};
+#[cfg(feature = "compiler")]
+use wasm_common::Features;
+use wasm_common::FunctionType;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{CompileError, Target};
@@ -56,10 +58,11 @@ impl NativeEngine {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
+                #[cfg(feature = "compiler")]
+                features: Features::default(),
                 trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
-                features: Features::default(),
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -122,12 +125,26 @@ impl Engine for NativeEngine {
     }
 
     /// Compile a WebAssembly binary
+    #[cfg(feature = "compiler")]
     fn compile(
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Ok(Arc::new(NativeArtifact::new(&self, binary, tunables)?))
+    }
+
+    /// Compile a WebAssembly binary (it will fail because the `compiler` flag is disabled).
+    #[cfg(not(feature = "compiler"))]
+    fn compile(
+        &self,
+        _binary: &[u8],
+        _tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Err(CompileError::Codegen(
+            "The NativeEngine is operating in headless mode, so it cannot compile a module."
+                .to_string(),
+        ))
     }
 
     /// Deserializes a WebAssembly module (binary content of a Shared Object file)
@@ -161,6 +178,7 @@ pub struct NativeEngineInner {
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler + Send>>,
     /// The WebAssembly features to use
+    #[cfg(feature = "compiler")]
     features: Features,
     /// Pointers to trampoline functions used to enter particular signatures
     trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
@@ -186,6 +204,7 @@ impl NativeEngineInner {
             .expect("Can't get compiler reference"))
     }
 
+    #[cfg(feature = "compiler")]
     pub(crate) fn get_prefix(&self, bytes: &[u8]) -> String {
         if let Some(prefixer) = &self.prefixer {
             prefixer(&bytes)
@@ -194,6 +213,7 @@ impl NativeEngineInner {
         }
     }
 
+    #[cfg(feature = "compiler")]
     pub(crate) fn features(&self) -> &Features {
         &self.features
     }

@@ -9,9 +9,11 @@ pub struct Native<'a> {
 }
 
 impl<'a> Native<'a> {
+    #[cfg(feature = "compiler")]
     /// Create a new Native
     pub fn new(compiler_config: &'a mut dyn CompilerConfig) -> Self {
         compiler_config.enable_pic();
+
         Self {
             compiler_config: Some(compiler_config),
             target: None,
@@ -42,13 +44,22 @@ impl<'a> Native<'a> {
 
     /// Build the `NativeEngine` for this configuration
     pub fn engine(self) -> NativeEngine {
-        let target = self.target.unwrap_or_default();
-        if let Some(compiler_config) = self.compiler_config {
-            let features = self
-                .features
-                .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
-            let compiler = compiler_config.compiler();
-            NativeEngine::new(compiler, target, features)
+        if let Some(_compiler_config) = self.compiler_config {
+            #[cfg(feature = "compiler")]
+            {
+                let compiler_config = _compiler_config;
+                let target = self.target.unwrap_or_default();
+                let features = self
+                    .features
+                    .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
+                let compiler = compiler_config.compiler();
+                NativeEngine::new(compiler, target, features)
+            }
+
+            #[cfg(not(feature = "compiler"))]
+            {
+                unreachable!("Cannot call `NativeEngine::new` without the `compiler` feature")
+            }
         } else {
             NativeEngine::headless()
         }
