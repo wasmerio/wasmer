@@ -14,7 +14,6 @@ use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
