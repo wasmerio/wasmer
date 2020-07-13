@@ -13,14 +13,17 @@ pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
         } else if #[cfg(feature = "test-cranelift")] {
             let mut compiler = wasmer_compiler_cranelift::Cranelift::new();
             compiler.canonicalize_nans(canonicalize_nans);
+            compiler.enable_verifier();
             compiler
         } else if #[cfg(feature = "test-llvm")] {
             let mut compiler = wasmer_compiler_llvm::LLVM::new();
             compiler.canonicalize_nans(canonicalize_nans);
+            compiler.enable_verifier();
             compiler
         } else if #[cfg(feature = "test-singlepass")] {
             let mut compiler = wasmer_compiler_singlepass::Singlepass::new();
             compiler.canonicalize_nans(canonicalize_nans);
+            compiler.enable_verifier();
             compiler
         } else {
             compile_error!("No compiler chosen for the tests")

@@ -63,14 +63,6 @@ impl LLVM {
         }
     }
 
-    /// Should the LLVM verifier be enabled.
-    ///
-    /// The verifier assures that the generated LLVM IR is valid.
-    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
-        self.enable_verifier = enable;
-        self
-    }
-
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
