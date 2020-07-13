@@ -171,9 +171,13 @@ pub fn emit_compilation(
         .pointer_width()
         .map(|pointer_width| pointer_width.bits())
         .unwrap_or(32);
-    let relocation_encoding = match triple.architecture {
-        Architecture::X86_64 => RelocationEncoding::X86Branch,
-        _ => RelocationEncoding::Generic,
+    let (relocation_kind, relocation_encoding) = match triple.architecture {
+        Architecture::X86_64 => (RelocationKind::PltRelative, RelocationEncoding::X86Branch),
+        architecture => {
+            return Err(ObjectError::UnsupportedArchitecture(
+                architecture.to_string(),
+            ))
+        }
     };
 
     let mut all_relocations = Vec::new();
@@ -206,9 +210,8 @@ pub fn emit_compilation(
                         Relocation {
                             offset: relocation_address,
                             size: relocation_pointer_width,
-                            kind: RelocationKind::PltRelative,
+                            kind: relocation_kind,
                             encoding: relocation_encoding,
-                            // kind: RelocationKind::Absolute,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -235,9 +238,8 @@ pub fn emit_compilation(
                         Relocation {
                             offset: relocation_address,
                             size: relocation_pointer_width,
-                            kind: RelocationKind::PltRelative,
+                            kind: relocation_kind,
                             encoding: relocation_encoding,
-                            // kind: RelocationKind::Absolute,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -252,9 +254,8 @@ pub fn emit_compilation(
                         Relocation {
                             offset: relocation_address,
                             size: relocation_pointer_width,
-                            kind: RelocationKind::PltRelative,
+                            kind: relocation_kind,
                             encoding: relocation_encoding,
-                            // kind: RelocationKind::Absolute,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
