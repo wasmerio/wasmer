@@ -184,6 +184,11 @@ impl CompilerConfig for LLVM {
         self.is_pic = true;
     }
 
+    /// Whether to verify compiler IR.
+    fn enable_verifier(&mut self) {
+        self.enable_verifier = true;
+    }
+
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
