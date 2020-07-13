@@ -15,23 +15,23 @@ use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "compiler")]
+use wasm_common::DataInitializer;
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{
-    Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, OperatingSystem, Target, Triple,
-};
-use wasmer_compiler::{CompileError, Features};
-#[cfg(feature = "compiler")]
-use wasmer_engine::Engine;
+use wasmer_compiler::{Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, Target};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
-    Tunables,
 };
 #[cfg(feature = "compiler")]
-use wasmer_object::{emit_compilation, emit_data, get_object_for_target, CompilationNamer};
+use wasmer_engine::{Engine, Tunables};
+use wasmer_object::CompilationNamer;
+#[cfg(feature = "compiler")]
+use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
 use wasmer_vm::{MemoryStyle, TableStyle};
 use wasmer_vm::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
@@ -91,6 +91,7 @@ impl NativeArtifact {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Generate a compilation
     pub fn generate_compilation<'data>(
         data: &'data [u8],
