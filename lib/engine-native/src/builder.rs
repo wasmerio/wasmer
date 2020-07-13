@@ -65,3 +65,49 @@ impl<'a> Native<'a> {
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(feature = "compiler")]
+    use std::sync::Arc;
+    #[cfg(feature = "compiler")]
+    use wasmer_compiler::{Compiler, FunctionMiddlewareGenerator};
+
+    #[cfg(feature = "compiler")]
+    #[derive(Default)]
+    pub struct TestCompilerConfig {
+        pub enabled_pic: bool,
+        pub middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+    }
+
+    #[cfg(feature = "compiler")]
+    impl CompilerConfig for TestCompilerConfig {
+        fn enable_pic(&mut self) {
+            self.enabled_pic = true;
+        }
+
+        fn compiler(&self) -> Box<dyn Compiler + Send> {
+            unimplemented!("compiler not implemented");
+        }
+
+        fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+            self.middlewares.push(middleware);
+        }
+    }
+
+    #[cfg(feature = "compiler")]
+    #[test]
+    #[should_panic(expected = "compiler not implemented")]
+    fn build_engine() {
+        let mut compiler_config = TestCompilerConfig::default();
+        let native = Native::new(&mut compiler_config);
+        let _engine = native.engine();
+    }
+
+    #[test]
+    fn build_headless_engine() {
+        let native = Native::headless();
+        let _engine = native.engine();
+    }
+}
