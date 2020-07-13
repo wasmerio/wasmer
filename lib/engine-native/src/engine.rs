@@ -142,7 +142,7 @@ impl Engine for NativeEngine {
         _tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Err(CompileError::Codegen(
-            "The NativeEngine is operating in headless mode, so it cannot compile a module."
+            "The `NativeEngine` is operating in headless mode, so it cannot compile a module."
                 .to_string(),
         ))
     }
@@ -196,7 +196,7 @@ impl NativeEngineInner {
     #[cfg(feature = "compiler")]
     pub fn compiler(&self) -> Result<&dyn Compiler, CompileError> {
         if self.compiler.is_none() {
-            return Err(CompileError::Codegen("The NativeEngine is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
+            return Err(CompileError::Codegen("The `NativeEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
         Ok(&**self
             .compiler
@@ -228,7 +228,7 @@ impl NativeEngineInner {
     #[cfg(not(feature = "compiler"))]
     pub fn validate<'data>(&self, _data: &'data [u8]) -> Result<(), CompileError> {
         Err(CompileError::Validate(
-            "The NativeEngine is not compiled with compiler support, which is required for validating".to_string(),
+            "The `NativeEngine` is not compiled with compiler support, which is required for validating".to_string(),
         ))
     }
 
