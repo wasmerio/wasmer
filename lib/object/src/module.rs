@@ -170,7 +170,7 @@ pub fn emit_compilation(
     let relocation_pointer_width = triple
         .pointer_width()
         .map(|pointer_width| pointer_width.bits())
-        .unwrap_or(32);
+        .map_err(|_| ObjectError::UnsupportedArchitecture(triple.architecture.to_string()))?;
     let (relocation_kind, relocation_encoding) = match triple.architecture {
         Architecture::X86_64 => (RelocationKind::PltRelative, RelocationEncoding::X86Branch),
         architecture => {
@@ -179,7 +179,6 @@ pub fn emit_compilation(
             ))
         }
     };
-
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
