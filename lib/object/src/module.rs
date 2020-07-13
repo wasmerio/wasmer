@@ -45,13 +45,14 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
             )));
         }
     };
-    let obj_endianness = match triple.endianness() {
-        Ok(Endianness::Little) => object::Endianness::Little,
-        Ok(Endianness::Big) => object::Endianness::Big,
-        Err(_) => {
-            return Err(ObjectError::UnknownEndianness);
-        }
+    let obj_endianness = match triple
+        .endianness()
+        .map_err(|_| ObjectError::UnknownEndianness)?
+    {
+        Endianness::Little => object::Endianness::Little,
+        Endianness::Big => object::Endianness::Big,
     };
+
     Ok(Object::new(
         obj_binary_format,
         obj_architecture,
@@ -73,6 +74,7 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
     });
     let section_id = obj.section_id(StandardSection::Data);
     obj.add_symbol_data(symbol_id, section_id, &data, 1);
+
     Ok(())
 }
 
