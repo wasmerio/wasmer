@@ -81,6 +81,7 @@ pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
     namer: &impl CompilationNamer,
+    triple: &Triple,
 ) -> Result<(), ObjectError> {
     let function_bodies = compilation.get_function_bodies();
     let function_relocations = compilation.get_relocations();
@@ -88,6 +89,10 @@ pub fn emit_compilation(
     let custom_section_relocations = compilation.get_custom_section_relocations();
     let function_call_trampolines = compilation.get_function_call_trampolines();
     let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
+    let target_pointer_width = triple
+        .pointer_width()
+        .map(|pointer_width| pointer_width.bits())
+        .unwrap_or(32);
 
     // Add sections
     for (section_index, custom_section) in custom_sections.iter() {
@@ -190,10 +195,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
+                            size: target_pointer_width,
                             kind: RelocationKind::PltRelative,
                             encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
                             // kind: RelocationKind::Absolute,
                             // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,
@@ -221,10 +225,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
+                            size: target_pointer_width,
                             kind: RelocationKind::PltRelative,
                             encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
                             // kind: RelocationKind::Absolute,
                             // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,
@@ -240,10 +243,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
+                            size: target_pointer_width,
                             kind: RelocationKind::PltRelative,
                             encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
                             // kind: RelocationKind::Absolute,
                             // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,

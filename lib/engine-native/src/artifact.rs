@@ -180,7 +180,8 @@ impl NativeArtifact {
         metadata_binary.extend(serialized_data);
 
         emit_data(&mut obj, b"WASMER_METADATA", &metadata_binary).map_err(to_compile_error)?;
-        emit_compilation(&mut obj, compilation, &metadata).map_err(to_compile_error)?;
+        emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+            .map_err(to_compile_error)?;
 
         let filepath = {
             let file = tempfile::Builder::new()
