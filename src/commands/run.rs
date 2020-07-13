@@ -7,7 +7,7 @@ use std::path::PathBuf;
 use std::str::FromStr;
 use wasmer::*;
 #[cfg(feature = "cache")]
-use wasmer_cache::{Cache, FileSystemCache, WasmHash};
+use wasmer_cache::{Cache, FileSystemCache, Hash};
 
 use structopt::StructOpt;
 
@@ -228,8 +228,8 @@ impl Run {
         let hash = self
             .cache_key
             .as_ref()
-            .and_then(|key| WasmHash::from_str(&key).ok())
-            .unwrap_or_else(|| WasmHash::generate(&contents));
+            .and_then(|key| Hash::from_str(&key).ok())
+            .unwrap_or_else(|| Hash::generate(&contents));
         match unsafe { cache.load(&store, hash) } {
             Ok(module) => Ok(module),
             Err(e) => {
