@@ -167,7 +167,7 @@ pub fn emit_compilation(
     }
 
     // Add relocations (function and sections)
-    let relocation_pointer_width = triple
+    let relocation_size = triple
         .pointer_width()
         .map(|pointer_width| pointer_width.bits())
         .map_err(|_| ObjectError::UnsupportedArchitecture(triple.architecture.to_string()))?;
@@ -208,7 +208,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_pointer_width,
+                            size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
                             symbol: target_symbol,
@@ -236,7 +236,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_pointer_width,
+                            size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
                             symbol: target_symbol,
@@ -252,7 +252,7 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: relocation_pointer_width,
+                            size: relocation_size,
                             kind: relocation_kind,
                             encoding: relocation_encoding,
                             symbol: target_symbol,
