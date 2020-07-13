@@ -9,9 +9,11 @@ pub struct Native<'a> {
 }
 
 impl<'a> Native<'a> {
+    #[cfg(feature = "compiler")]
     /// Create a new Native
     pub fn new(compiler_config: &'a mut dyn CompilerConfig) -> Self {
         compiler_config.enable_pic();
+
         Self {
             compiler_config: Some(compiler_config),
             target: None,
@@ -42,15 +44,70 @@ impl<'a> Native<'a> {
 
     /// Build the `NativeEngine` for this configuration
     pub fn engine(self) -> NativeEngine {
-        let target = self.target.unwrap_or_default();
-        if let Some(compiler_config) = self.compiler_config {
-            let features = self
-                .features
-                .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
-            let compiler = compiler_config.compiler();
-            NativeEngine::new(compiler, target, features)
+        if let Some(_compiler_config) = self.compiler_config {
+            #[cfg(feature = "compiler")]
+            {
+                let compiler_config = _compiler_config;
+                let target = self.target.unwrap_or_default();
+                let features = self
+                    .features
+                    .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
+                let compiler = compiler_config.compiler();
+                NativeEngine::new(compiler, target, features)
+            }
+
+            #[cfg(not(feature = "compiler"))]
+            {
+                unreachable!("Cannot call `NativeEngine::new` without the `compiler` feature")
+            }
         } else {
             NativeEngine::headless()
         }
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    #[cfg(feature = "compiler")]
+    use std::sync::Arc;
+    #[cfg(feature = "compiler")]
+    use wasmer_compiler::{Compiler, FunctionMiddlewareGenerator};
+
+    #[cfg(feature = "compiler")]
+    #[derive(Default)]
+    pub struct TestCompilerConfig {
+        pub enabled_pic: bool,
+        pub middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+    }
+
+    #[cfg(feature = "compiler")]
+    impl CompilerConfig for TestCompilerConfig {
+        fn enable_pic(&mut self) {
+            self.enabled_pic = true;
+        }
+
+        fn compiler(&self) -> Box<dyn Compiler + Send> {
+            unimplemented!("compiler not implemented");
+        }
+
+        fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+            self.middlewares.push(middleware);
+        }
+    }
+
+    #[cfg(feature = "compiler")]
+    #[test]
+    #[should_panic(expected = "compiler not implemented")]
+    fn build_engine() {
+        let mut compiler_config = TestCompilerConfig::default();
+        let native = Native::new(&mut compiler_config);
+        let _engine = native.engine();
+    }
+
+    #[test]
+    fn build_headless_engine() {
+        let native = Native::headless();
+        let _engine = native.engine();
     }
 }

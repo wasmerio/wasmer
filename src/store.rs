@@ -16,27 +16,31 @@ use wasmer_compiler::CompilerConfig;
 #[derive(Debug, Clone, StructOpt)]
 /// The compiler options
 pub struct StoreOptions {
-    /// Use Singlepass compiler
+    /// Use Singlepass compiler.
     #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
 
-    /// Use Cranelift compiler
+    /// Use Cranelift compiler.
     #[structopt(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
     cranelift: bool,
 
-    /// Use LLVM compiler
+    /// Use LLVM compiler.
     #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
+
+    /// Enable compiler internal verification.
+    #[structopt(long)]
+    enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[structopt(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    /// Use JIT Engine
+    /// Use JIT Engine.
     #[structopt(long, conflicts_with_all = &["native"])]
     jit: bool,
 
-    /// Use Native Engine
+    /// Use Native Engine.
     #[structopt(long, conflicts_with_all = &["jit"])]
     native: bool,
 
@@ -46,8 +50,6 @@ pub struct StoreOptions {
 
     #[structopt(flatten)]
     features: WasmFeatures,
-    // #[structopt(flatten)]
-    // llvm_options: LLVMCLIOptions,
 }
 
 /// The compiler used for the store
@@ -153,8 +155,7 @@ impl StoreOptions {
     }
 
     /// Get the Target architecture
-    pub fn get_features(&self) -> Result<Features> {
-        let mut features = Features::default();
+    pub fn get_features(&self, mut features: Features) -> Result<Features> {
         if self.features.threads || self.features.all {
             features.threads(true);
         }
@@ -181,12 +182,18 @@ impl StoreOptions {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::Singlepass::new();
+                let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::Cranelift::new();
+                let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -276,6 +283,9 @@ impl StoreOptions {
                 if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
                     config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
                 }
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
@@ -310,7 +320,7 @@ impl StoreOptions {
         mut compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
-        let features = self.get_features()?;
+        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineType::JIT => Box::new(
@@ -378,7 +388,7 @@ impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         let (engine, engine_type) = self.get_engine_headless()?;
-        let store = Store::new(&engine);
+        let store = Store::new(&*engine);
         Ok((store, engine_type, CompilerType::Headless))
     }
 

@@ -109,10 +109,11 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     }
 }
 
-/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
-/// a `Resolver`.
+/// This function allows to match all imports of a `ModuleInfo` with
+/// concrete definitions provided by a `Resolver`.
 ///
-/// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
+/// If all imports are satisfied, it returns an `Imports` instance
+/// required for a module instantiation.
 pub fn resolve_imports(
     module: &ModuleInfo,
     resolver: &dyn Resolver,

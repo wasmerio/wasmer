@@ -216,12 +216,12 @@ pub fn emit_compilation(
     }
 
     // Add relocations (function and sections)
-    let relocation_size = triple
-        .pointer_width()
-        .map(|pointer_width| pointer_width.bits())
-        .map_err(|_| ObjectError::UnsupportedArchitecture(triple.architecture.to_string()))?;
-    let (relocation_kind, relocation_encoding) = match triple.architecture {
-        Architecture::X86_64 => (RelocationKind::PltRelative, RelocationEncoding::X86Branch),
+    let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
+        Architecture::X86_64 => (
+            32,
+            RelocationKind::PltRelative,
+            RelocationEncoding::X86Branch,
+        ),
         architecture => {
             return Err(ObjectError::UnsupportedArchitecture(
                 architecture.to_string(),
