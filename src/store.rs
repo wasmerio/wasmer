@@ -388,7 +388,7 @@ impl StoreOptions {
     /// Get the store (headless engine)
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         let (engine, engine_type) = self.get_engine_headless()?;
-        let store = Store::new(&engine);
+        let store = Store::new(&*engine);
         Ok((store, engine_type, CompilerType::Headless))
     }
 
