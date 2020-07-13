@@ -22,7 +22,21 @@ pub trait CompilationNamer {
     fn get_dynamic_function_trampoline_name(&self, index: &FunctionIndex) -> String;
 }
 
-/// Create an object for a given target [`Triple`]
+/// Create an object for a given target `Triple`.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::get_object_for_target;
+///
+/// # fn generate_object_for_target(triple: &Triple) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+///
+/// # Ok(())
+/// # }
+/// ```
 pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
     let obj_binary_format = match triple.binary_format {
         BinaryFormat::Elf => object::BinaryFormat::Elf,
@@ -60,7 +74,22 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
     ))
 }
 
-/// Emit data in into an object
+/// Write data into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::{get_object_for_target, emit_data};
+///
+/// # fn emit_data_into_object(triple: &Triple) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+/// emit_data(&mut object, b"WASMER_METADATA", &b"Hello, World!"[..])?;
+///
+/// # Ok(())
+/// # }
+/// ```
 pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), ObjectError> {
     let symbol_id = obj.add_symbol(Symbol {
         name: name.to_vec(),
@@ -78,7 +107,25 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
     Ok(())
 }
 
-/// Emit the compilation into an object
+/// Emit the compilation result into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::{Compilation, Triple};
+/// # use wasmer_object::{CompilationNamer, ObjectError};
+/// use wasmer_object::{get_object_for_target, emit_compilation};
+///
+/// # fn emit_compilation_into_object(
+/// #     triple: &Triple,
+/// #     compilation: Compilation,
+/// #     compilation_namer: impl CompilationNamer,
+/// # ) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+/// emit_compilation(&mut object, compilation, &compilation_namer, &triple)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
@@ -269,5 +316,6 @@ pub fn emit_compilation(
             };
         }
     }
+
     Ok(())
 }
