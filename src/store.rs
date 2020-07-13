@@ -16,27 +16,31 @@ use wasmer_compiler::CompilerConfig;
 #[derive(Debug, Clone, StructOpt)]
 /// The compiler options
 pub struct StoreOptions {
-    /// Use Singlepass compiler
+    /// Use Singlepass compiler.
     #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
 
-    /// Use Cranelift compiler
+    /// Use Cranelift compiler.
     #[structopt(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
     cranelift: bool,
 
-    /// Use LLVM compiler
+    /// Use LLVM compiler.
     #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
+
+    /// Enable compiler internal verification.
+    #[structopt(long)]
+    enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
     #[structopt(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    /// Use JIT Engine
+    /// Use JIT Engine.
     #[structopt(long, conflicts_with_all = &["native"])]
     jit: bool,
 
-    /// Use Native Engine
+    /// Use Native Engine.
     #[structopt(long, conflicts_with_all = &["jit"])]
     native: bool,
 
@@ -46,8 +50,6 @@ pub struct StoreOptions {
 
     #[structopt(flatten)]
     features: WasmFeatures,
-    // #[structopt(flatten)]
-    // llvm_options: LLVMCLIOptions,
 }
 
 /// The compiler used for the store
@@ -180,12 +182,18 @@ impl StoreOptions {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),
             #[cfg(feature = "singlepass")]
             CompilerType::Singlepass => {
-                let config = wasmer_compiler_singlepass::Singlepass::new();
+                let mut config = wasmer_compiler_singlepass::Singlepass::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
                 Box::new(config)
             }
             #[cfg(feature = "cranelift")]
             CompilerType::Cranelift => {
-                let config = wasmer_compiler_cranelift::Cranelift::new();
+                let mut config = wasmer_compiler_cranelift::Cranelift::new();
+                if self.enable_verifier {
+                    config.enable_verifier();
+                }
                 Box::new(config)
             }
             #[cfg(feature = "llvm")]
@@ -274,6 +282,9 @@ impl StoreOptions {
                 }
                 if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
                     config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
+                }
+                if self.enable_verifier {
+                    config.enable_verifier();
                 }
                 Box::new(config)
             }
