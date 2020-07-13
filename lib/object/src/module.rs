@@ -89,10 +89,6 @@ pub fn emit_compilation(
     let custom_section_relocations = compilation.get_custom_section_relocations();
     let function_call_trampolines = compilation.get_function_call_trampolines();
     let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();
-    let target_pointer_width = triple
-        .pointer_width()
-        .map(|pointer_width| pointer_width.bits())
-        .unwrap_or(32);
 
     // Add sections
     for (section_index, custom_section) in custom_sections.iter() {
@@ -171,22 +167,36 @@ pub fn emit_compilation(
     }
 
     // Add relocations (function and sections)
+    let relocation_pointer_width = triple
+        .pointer_width()
+        .map(|pointer_width| pointer_width.bits())
+        .unwrap_or(32);
+    let relocation_encoding = match triple.architecture {
+        Architecture::X86_64 => RelocationEncoding::X86Branch,
+        _ => RelocationEncoding::Generic,
+    };
+
     let mut all_relocations = Vec::new();
+
     for (function_local_index, relocations) in function_relocations.into_iter() {
         let function_name = namer.get_function_name(&function_local_index);
         let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (section_index, relocations) in custom_section_relocations.into_iter() {
         let section_name = namer.get_section_name(&section_index);
         let symbol_id = obj.symbol_id(section_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (symbol_id, relocations) in all_relocations.into_iter() {
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
         let section_id = obj.section_id(StandardSection::Text);
+
         for r in relocations {
             let relocation_address = section_offset + r.offset as u64;
+
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
                     let target_name = namer.get_function_name(&index);
@@ -195,11 +205,10 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: target_pointer_width,
+                            size: relocation_pointer_width,
                             kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
+                            encoding: relocation_encoding,
                             // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -225,11 +234,10 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: target_pointer_width,
+                            size: relocation_pointer_width,
                             kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
+                            encoding: relocation_encoding,
                             // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -243,11 +251,10 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: target_pointer_width,
+                            size: relocation_pointer_width,
                             kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
+                            encoding: relocation_encoding,
                             // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
