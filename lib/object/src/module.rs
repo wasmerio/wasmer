@@ -81,6 +81,7 @@ pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
     namer: &impl CompilationNamer,
+    triple: &Triple,
 ) -> Result<(), ObjectError> {
     let function_bodies = compilation.get_function_bodies();
     let function_relocations = compilation.get_relocations();
@@ -166,22 +167,39 @@ pub fn emit_compilation(
     }
 
     // Add relocations (function and sections)
+    let relocation_size = triple
+        .pointer_width()
+        .map(|pointer_width| pointer_width.bits())
+        .map_err(|_| ObjectError::UnsupportedArchitecture(triple.architecture.to_string()))?;
+    let (relocation_kind, relocation_encoding) = match triple.architecture {
+        Architecture::X86_64 => (RelocationKind::PltRelative, RelocationEncoding::X86Branch),
+        architecture => {
+            return Err(ObjectError::UnsupportedArchitecture(
+                architecture.to_string(),
+            ))
+        }
+    };
     let mut all_relocations = Vec::new();
+
     for (function_local_index, relocations) in function_relocations.into_iter() {
         let function_name = namer.get_function_name(&function_local_index);
         let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (section_index, relocations) in custom_section_relocations.into_iter() {
         let section_name = namer.get_section_name(&section_index);
         let symbol_id = obj.symbol_id(section_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (symbol_id, relocations) in all_relocations.into_iter() {
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
         let section_id = obj.section_id(StandardSection::Text);
+
         for r in relocations {
             let relocation_address = section_offset + r.offset as u64;
+
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
                     let target_name = namer.get_function_name(&index);
@@ -190,12 +208,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -221,12 +236,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -240,12 +252,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
