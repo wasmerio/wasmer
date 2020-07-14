@@ -132,6 +132,9 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
+test-examples:
+	cargo test --release --features "test-cranelift" --examples
+
 #############
 # Packaging #
 #############
