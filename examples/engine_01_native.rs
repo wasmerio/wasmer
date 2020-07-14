@@ -1,9 +1,20 @@
+//! Defining an engine in Wasmer is one of the fundamental step.
+//!
+//! This example illustrates how to use the `wasmer_engine_native`,
+//! aka the native engine. An engine applies roughly 2 steps:
+//!
+//!   1. It compiles the Wasm module bytes to executable code, through
+//!      the intervention of a compiler,
+//!   2. It stores the executable code somewhere.
+//!
+//! In the particular context of the native engine, the executable
+//! code is stored in a native object, more precisely in a dynamic
+//! library.
+//!
+//! Ready?
+
 use std::sync::Arc;
-use wasmer::imports;
-use wasmer::wat2wasm;
-use wasmer::Instance;
-use wasmer::Module;
-use wasmer::Store;
+use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_native::Native;
 
@@ -38,14 +49,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Create a store, that holds the engine.
     let store = Store::new(&*engine);
 
-    // Here we go. Let's compile the Wasm module. It is at this step
-    // that the Wasm text is transformed into Wasm bytes (if
-    // necessary), and then compiled to executable code by the
-    // compiler, which is then stored into a native object by the
-    // engine.
+    // Here we go.
+    //
+    // Let's compile the Wasm module. It is at this step that the Wasm
+    // text is transformed into Wasm bytes (if necessary), and then
+    // compiled to executable code by the compiler, which is then
+    // stored into a native object by the engine.
     let module = Module::new(&store, wasm_bytes)?;
 
-    // Congrats, the Wasm module is compiled! Now let's execute it.
+    // Congrats, the Wasm module is compiled! Now let's execute it for
+    // the sake of having a complete example.
 
     // Create an import object. Since our Wasm module didn't declare
     // any imports, it's an empty object.
@@ -54,15 +67,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // And here we go again. Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object)?;
 
-    // The Wasm module exports a function called `sum`. Bonus: It's
-    // funnier to transform it into a Rust native function.
-    let sum = instance
-        .exports
-        .get_function("sum")?
-        .native::<(i32, i32), i32>()?;
-    let result = sum.call(1, 2)?;
+    // The Wasm module exports a function called `sum`.
+    let sum = instance.exports.get_function("sum")?;
+    let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
 
-    assert_eq!(result, 3);
+    assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     Ok(())
 }
