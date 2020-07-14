@@ -1,4 +1,7 @@
-use crate::{cache::Artifact, get_global_store, module::Module, new};
+use crate::{
+    backend::Backend, cache::Artifact, get_global_store, module::Module, new,
+    renew_global_store_with,
+};
 use std::{convert::Infallible, error::Error};
 
 pub use new::wasmer::wat2wasm;
@@ -23,7 +26,7 @@ pub use new::wasmer::wat2wasm;
 /// This function only exists if one of `default-backend-llvm`, `default-backend-cranelift`,
 /// or `default-backend-singlepass` is set.
 pub fn compile(bytes: &[u8]) -> Result<Module, Box<dyn Error>> {
-    compile_with(bytes, ())
+    compile_with(bytes, Backend::Auto)
 }
 
 /// Creates a new module from the given cache [`Artifact`]
@@ -40,9 +43,11 @@ pub fn load_cache_with(cache: Artifact) -> Result<Module, Infallible> {
 ///
 /// This second parameter aren't used any more in the deprecated
 /// version of `wasmer-runtime-core`.
-pub fn compile_with(bytes: &[u8], _compiler: ()) -> Result<Module, Box<dyn Error>> {
+pub fn compile_with(bytes: &[u8], compiler: Backend) -> Result<Module, Box<dyn Error>> {
+    renew_global_store_with(compiler);
+
     Ok(Module::new(new::wasmer::Module::new(
-        get_global_store(),
+        &get_global_store(),
         bytes,
     )?))
 }
@@ -60,7 +65,7 @@ pub fn compile_with_config(
     _compiler_config: (),
 ) -> Result<Module, Box<dyn Error>> {
     Ok(Module::new(new::wasmer::Module::new(
-        get_global_store(),
+        &get_global_store(),
         bytes,
     )?))
 }
@@ -69,7 +74,7 @@ pub fn compile_with_config(
 /// WebAssembly specification. Returns `true` if validation
 /// succeeded, `false` if validation failed.
 pub fn validate(bytes: &[u8]) -> bool {
-    new::wasmer::Module::validate(get_global_store(), bytes).is_ok()
+    new::wasmer::Module::validate(&get_global_store(), bytes).is_ok()
 }
 
 /// Helper macro to create a new `Func` object using the provided function pointer.

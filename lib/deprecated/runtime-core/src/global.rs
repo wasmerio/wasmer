@@ -22,7 +22,7 @@ impl Global {
     /// ```
     pub fn new(value: Value) -> Self {
         Self {
-            new_global: new::wasmer::Global::new(get_global_store(), value),
+            new_global: new::wasmer::Global::new(&get_global_store(), value),
         }
     }
 
@@ -36,7 +36,7 @@ impl Global {
     /// ```
     pub fn new_mutable(value: Value) -> Self {
         Self {
-            new_global: new::wasmer::Global::new_mut(get_global_store(), value),
+            new_global: new::wasmer::Global::new_mut(&get_global_store(), value),
         }
     }
 

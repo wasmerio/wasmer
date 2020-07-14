@@ -1241,7 +1241,11 @@ dependencies = [
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
  "wasmer-engine",
+ "wasmer-engine-jit",
  "wasmer-vm",
 ]
 

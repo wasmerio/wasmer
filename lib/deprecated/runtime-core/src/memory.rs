@@ -39,7 +39,7 @@ impl Memory {
     /// ```
     pub fn new(descriptor: MemoryDescriptor) -> Result<Self, MemoryError> {
         Ok(Memory {
-            new_memory: new::wasmer::Memory::new(get_global_store(), descriptor)?,
+            new_memory: new::wasmer::Memory::new(&get_global_store(), descriptor)?,
         })
     }
 

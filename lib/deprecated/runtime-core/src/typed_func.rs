@@ -34,7 +34,7 @@ where
 
         Self {
             new_function: new::wasmer::Function::new_env::<F, Args, Rets, vm::Ctx>(
-                get_global_store(),
+                &get_global_store(),
                 ctx,
                 func,
             ),
@@ -249,7 +249,7 @@ impl DynamicFunc {
 
         Self {
             new_function: new::wasmer::Function::new_dynamic_env(
-                get_global_store(),
+                &get_global_store(),
                 signature,
                 ctx,
                 // Wrapper to safely extract a `&mut vm::Ctx` to pass

@@ -32,7 +32,7 @@ impl Table {
     /// ```
     pub fn new(descriptor: TableDescriptor, initial_value: Value) -> Result<Self, RuntimeError> {
         Ok(Self {
-            new_table: new::wasmer::Table::new(get_global_store(), descriptor, initial_value)?,
+            new_table: new::wasmer::Table::new(&get_global_store(), descriptor, initial_value)?,
         })
     }
 

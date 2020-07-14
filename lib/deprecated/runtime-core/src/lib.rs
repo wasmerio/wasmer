@@ -44,7 +44,14 @@ pub(crate) mod new {
     pub use wasmer;
     pub use wasmer_cache;
     pub use wasmer_compiler;
+    #[cfg(feature = "cranelift")]
+    pub use wasmer_compiler_cranelift;
+    #[cfg(feature = "llvm")]
+    pub use wasmer_compiler_llvm;
+    #[cfg(feature = "singlepass")]
+    pub use wasmer_compiler_singlepass;
     pub use wasmer_engine;
+    pub use wasmer_engine_jit;
     pub use wasmer_vm;
 }
 
@@ -86,11 +93,65 @@ pub mod prelude {
 /// The current version of this crate
 pub const VERSION: &'static str = env!("CARGO_PKG_VERSION");
 
+use backend::Backend;
+use std::sync::{Arc, Mutex};
+
+struct GlobalStore {
+    store: Mutex<Arc<new::wasmer::Store>>,
+    backend: Backend,
+}
+
+impl GlobalStore {
+    fn new() -> Self {
+        Self {
+            store: Mutex::new(Arc::new(Default::default())),
+            backend: Backend::Auto,
+        }
+    }
+
+    fn renew_with(&self, compiler: backend::Backend) {
+        if compiler == self.backend {
+            return;
+        }
+
+        let compiler_config = match compiler {
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass => new::wasmer_compiler_singlepass::Singlepass::default(),
+
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => new::wasmer_compiler_cranelift::Cranelift::default(),
+
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => new::wasmer_compiler_llvm::LLVM::default(),
+
+            Backend::Auto => {
+                *self.store.lock().unwrap() = Arc::new(Default::default());
+
+                return;
+            }
+        };
+
+        #[allow(unreachable_code)]
+        let engine = Arc::new(new::wasmer_engine_jit::JIT::new(&compiler_config).engine());
+
+        *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&*engine));
+    }
+
+    fn inner_store(&self) -> Arc<new::wasmer::Store> {
+        (*self.store.lock().unwrap()).clone()
+    }
+}
+
 lazy_static::lazy_static! {
-    static ref GLOBAL_STORE: new::wasmer::Store = Default::default();
+    static ref GLOBAL_STORE: GlobalStore = GlobalStore::new();
+}
+
+/// Useful if one needs to update the global store.
+pub(crate) fn renew_global_store_with(backend: Backend) {
+    GLOBAL_STORE.renew_with(backend);
 }
 
 /// Useful if one needs to migrate to the new Wasmer's API gently.
-pub fn get_global_store() -> &'static new::wasmer::Store {
-    &*GLOBAL_STORE
+pub fn get_global_store() -> Arc<new::wasmer::Store> {
+    GLOBAL_STORE.inner_store()
 }

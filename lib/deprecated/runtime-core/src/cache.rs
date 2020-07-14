@@ -40,7 +40,7 @@ impl Artifact {
     /// Deserializes an `Artifact` from the given byte slice.
     pub unsafe fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         Ok(Self::new(
-            new::wasmer::Module::deserialize(get_global_store(), bytes)
+            new::wasmer::Module::deserialize(&get_global_store(), bytes)
                 .map_err(Error::DeserializeError)?,
         ))
     }
