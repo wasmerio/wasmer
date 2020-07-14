@@ -4,8 +4,6 @@
 //! it generates a shared object file (`.so` or `.dylib` depending on
 //! the target), saves it temporarily to disk and uses it natively
 //! via `dlopen` and `dlsym` (using the `libloading` library).
-//!
-//! Note: `.dll` generation for Windows is not yet supported
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
