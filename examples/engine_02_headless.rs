@@ -10,14 +10,14 @@
 //! Once a Wasm module is compiled into executable code and stored
 //! somewhere (e.g. in memory with the JIT engine, or in a native
 //! object with the native engine), the module can be instantiated and
-//! executed. But imagine for a second the following scenarii:
+//! executed. But imagine for a second the following scenario:
 //!
 //!   * Modules are compiled ahead of time, to be instantiated later
 //!     on.
 //!   * Modules are cross-compiled on a machine ahead of time
 //!     to be run on another machine later one.
 //!
-//! In both scenarii, the environment where the compiled Wasm module
+//! In both scenarios, the environment where the compiled Wasm module
 //! will be executed can be very constrained. For such particular
 //! contexts, Wasmer can be compiled _without_ the compilers, so that
 //! the `wasmer` binary is as small as possible. Indeed, there is no
@@ -81,7 +81,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // are going to store it in a file with the `.so` extension
         // for example (or `.dylib`, or `.dll` depending of the
         // platform).
-        let engine = Arc::new(Native::new(&mut compiler_config).engine());
+        let engine = Native::new(&mut compiler_config).engine();
 
         // Create a store, that holds the engine.
         let store = Store::new(&*engine);

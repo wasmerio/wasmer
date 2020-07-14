@@ -44,7 +44,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // In this case, the engine is `wasmer_engine_native` which means
     // that a native object is going to be generated.
-    let engine = Arc::new(Native::new(&mut compiler_config).engine());
+    let engine = Native::new(&mut compiler_config).engine();
 
     // Create a store, that holds the engine.
     let store = Store::new(&*engine);

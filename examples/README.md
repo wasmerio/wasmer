@@ -65,7 +65,7 @@ example.
 
 4. [**Cross-compilation**][cross-compilation], illustrates the power
    of the abstraction over the engines and the compilers, such as it
-   is possible to cross-compile a Wasm module.
+   is possible to cross-compile a Wasm module for a custom target.
    
    _Keywords_: engine, compiler, cross-compilation.
 

@@ -35,7 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let mut compiler_config = Cranelift::default();
 
     // Define the engine that will drive everything.
-    let engine = Arc::new(JIT::new(&mut compiler_config).engine());
+    let engine = JIT::new(&mut compiler_config).engine();
 
     // Create a store, that holds the engine.
     let store = Store::new(&*engine);

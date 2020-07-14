@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // In this case, the engine is `wasmer_engine_jit` which roughly
     // means that the executable code will live in memory.
-    let engine = Arc::new(JIT::new(&mut compiler_config).engine());
+    let engine = JIT::new(&mut compiler_config).engine();
 
     // Create a store, that holds the engine.
     let store = Store::new(&*engine);

@@ -66,16 +66,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // that a native object is going to be generated.
     //
     // That's where we specify the target for the compiler.
-    let engine = Arc::new(
-        // Use the native engine.
-        Native::new(&mut compiler_config)
-            // Here we go.
-            //
-            // Pass the target to the engine! The engine will share
-            // this information with the compiler.
-            .target(target)
-            // Get the engine.
-            .engine(),
+    // Use the native engine.
+    let engine = Native::new(&mut compiler_config)
+        // Here we go.
+        // Pass the target to the engine! The engine will share
+        // this information with the compiler.
+        .target(target)
+        // Get the engine.
+        .engine(),
     );
 
     // Create a store, that holds the engine.
