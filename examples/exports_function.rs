@@ -9,9 +9,14 @@
 //!   2. Native function, where parameters and results are statically
 //!      typed Rust values.
 //!
+//! You can run the example directly by executing in Wasmer root:
+//!
+//! ```bash
+//! cargo run --example exported-function --release --features "cranelift"
+//! ```
+//!
 //! Ready?
 
-use std::sync::Arc;
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
@@ -31,21 +36,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .as_bytes(),
     )?;
 
-    // Define a compiler configuration.
-    let mut compiler_config = Cranelift::default();
+    // Create a Store.
+    // Note that we don't need to specify the engine/compiler if we want to use
+    // the default provided by Wasmer.
+    // You can use `Store::default()` for that.
+    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
 
-    // Define the engine that will drive everything.
-    let engine = JIT::new(&mut compiler_config).engine();
-
-    // Create a store, that holds the engine.
-    let store = Store::new(&*engine);
-
+    println!("Compiling module...");
     // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
     // Create an empty import object.
     let import_object = imports! {};
 
+    println!("Instantiating module...");
     // Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object)?;
 
@@ -65,10 +69,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //     ```
     let sum = instance.exports.get_function("sum")?;
 
+    println!("Calling `sum` function...");
     // Let's call the `sum` exported function. The parameters are a
     // slice of `Value`s. The results are a boxed slice of `Value`s.
     let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
 
+    println!("Results: {:?}", results);
     assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     // That was fun. But what if we can get rid of the `Value`s? Well,
@@ -81,11 +87,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // error will be raised.
     let sum = sum.native::<(i32, i32), i32>()?;
 
+    println!("Calling `sum` function (natively)...");
     // Let's call the `sum` exported function. The parameters are
     // statically typed Rust values of type `i32` and `i32`. The
     // result, in this case particular case, in a unit of type `i32`.
     let result = sum.call(1, 2)?;
 
+    println!("Results: {:?}", result);
     assert_eq!(result, 3);
 
     // Much nicer, isn't it?

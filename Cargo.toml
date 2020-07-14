@@ -137,25 +137,45 @@ harness = false
 
 [[example]]
 name = "engine-jit"
-path = "examples/engine_00_jit.rs"
+path = "examples/engine_jit.rs"
 required-features = ["cranelift"]
 
 [[example]]
 name = "engine-native"
-path = "examples/engine_01_native.rs"
+path = "examples/engine_native.rs"
 required-features = ["cranelift"]
 
 [[example]]
 name = "engine-headless"
-path = "examples/engine_02_headless.rs"
+path = "examples/engine_headless.rs"
 required-features = ["cranelift"]
 
 [[example]]
 name = "cross-compilation"
-path = "examples/engine_03_cross_compilation.rs"
+path = "examples/engine_cross_compilation.rs"
 required-features = ["cranelift"]
 
 [[example]]
-name = "exported-function"
-path = "examples/exports_00_function.rs"
+name = "compiler-singlepass"
+path = "examples/compiler_singlepass.rs"
+required-features = ["singlepass"]
+
+[[example]]
+name = "compiler-cranelift"
+path = "examples/compiler_cranelift.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "compiler-llvm"
+path = "examples/compiler_llvm.rs"
+required-features = ["llvm"]
+
+[[example]]
+name = "exported-function"
+path = "examples/exports_function.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "wasi"
+path = "examples/wasi.rs"
+required-features = ["cranelift", "wasi"]

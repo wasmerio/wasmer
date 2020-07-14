@@ -77,10 +77,54 @@ example.
    ```
 
    </details>
+
+### Compilers
+
+5. [**Singlepass Compiler**][compiler-singlepass], explains how to use
+   the [Singlepass compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass).
    
+   _Keywords_: engine, compiler, singlepass.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example compiler-singlepass --release --features "singlepass"
+   ```
+
+   </details>
+
+6. [**Cranelift Compiler**][compiler-cranelift], explains how to use
+   the [Cranelift compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift).
+   
+   _Keywords_: engine, compiler, cranelift.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example compiler-cranelift --release --features "cranelift"
+   ```
+
+   </details>
+
+7. [**LLVM Compiler**][compiler-llvm], explains how to use
+   the [LLVM compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm).
+   
+   _Keywords_: engine, compiler, llvm.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example compiler-llvm --release --features "llvm"
+   ```
+
+   </details>
+
 ### Exports
    
-5. [**Exported function**][exported-function], explains how to get and
+8. [**Exported function**][exported-function], explains how to get and
    how to call an exported function. They come in 2 flavors: dynamic,
    and “static”/native. The pros and cons are discussed briefly.
    
@@ -95,9 +139,29 @@ example.
 
    </details>
 
+### Integrations
 
-[engine-jit]: ./engine_00_jit.rs
-[engine-native]: ./engine_01_native.rs
-[engine-headless]: ./engine_02_headless.rs
-[cross-compilation]: ./engine_03_cross_compilation.rs
-[exported-function]: ./exports_00_function.rs
+9. [**WASI integration**][wasi], explains how to get and
+   how to call an exported function. They come in 2 flavors: dynamic,
+   and “static”/native. The pros and cons are discussed briefly.
+   
+   _Keywords_: export, function, dynamic, static, native.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example wasi --release --features "cranelift,wasi"
+   ```
+
+   </details>
+
+[engine-jit]: ./engine_jit.rs
+[engine-native]: ./engine_native.rs
+[engine-headless]: ./engine_headless.rs
+[compiler-singlepass]: ./compiler_singlepass.rs
+[compiler-cranelift]: ./compiler_cranelift.rs
+[compiler-llvm]: ./compiler_llvm.rs
+[cross-compilation]: ./engine_cross_compilation.rs
+[exported-function]: ./exports_function.rs
+[integration-wasi]: ./wasi.rs

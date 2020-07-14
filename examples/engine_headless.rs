@@ -36,9 +36,14 @@
 //! workflow, but keep in mind the compiler isn't required after the
 //! compilation step.
 //!
+//! You can run the example directly by executing in Wasmer root:
+//!
+//! ```bash
+//! cargo run --example engine-headless --release --features "cranelift"
+//! ```
+//!
 //! Ready?
 
-use std::sync::Arc;
 use tempfile::NamedTempFile;
 use wasmer::imports;
 use wasmer::wat2wasm;
@@ -51,6 +56,7 @@ use wasmer_engine_native::Native;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.
+    // Note: we need a compiler here.
     let serialized_module_file = {
         // Let's declare the Wasm module with the text representation.
         let wasm_bytes = wat2wasm(
@@ -73,6 +79,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // compile the Wasm module into executable code.
         let mut compiler_config = Cranelift::default();
 
+        println!("Creating Native engine...");
         // Define the engine that will drive everything.
         //
         // In this case, the engine is `wasmer_engine_native` which
@@ -84,11 +91,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         let engine = Native::new(&mut compiler_config).engine();
 
         // Create a store, that holds the engine.
-        let store = Store::new(&*engine);
+        let store = Store::new(&engine);
 
+        println!("Compiling module...");
         // Let's compile the Wasm module.
         let module = Module::new(&store, wasm_bytes)?;
 
+        println!("Serializing module...");
         // Here we go. Let's serialize the compiled Wasm module in a
         // file.
         let serialized_module_file = NamedTempFile::new()?;
@@ -100,11 +109,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Second step, deserialize the compiled Wasm module, and execute
     // it, for example with Wasmer without a compiler.
     {
-        // Define a new store, with the same engine.
-        let mut compiler_config = Cranelift::default();
-        let engine = Arc::new(Native::new(&mut compiler_config).engine());
-        let store = Store::new(&*engine);
+        println!("Creating headless Native engine...");
+        // We create a headless Native engine.
+        let engine = Native::headless().engine();
+        let store = Store::new(&engine);
 
+        println!("Deserializing module...");
         // Here we go.
         //
         // Deserialize the compiled Wasm module. This code is unsafe
@@ -120,13 +130,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // any imports, it's an empty object.
         let import_object = imports! {};
 
+        println!("Instantiating module...");
         // Let's instantiate the Wasm module.
         let instance = Instance::new(&module, &import_object)?;
 
+        println!("Calling `sum` function...");
         // The Wasm module exports a function called `sum`.
         let sum = instance.exports.get_function("sum")?;
         let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
 
+        println!("Results: {:?}", results);
         assert_eq!(results.to_vec(), vec![Value::I32(3)]);
     }
 

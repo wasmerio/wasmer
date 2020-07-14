@@ -1,22 +1,26 @@
 //! Defining an engine in Wasmer is one of the fundamental steps.
 //!
-//! This example illustrates how to use the `wasmer_engine_native`,
-//! aka the native engine. An engine applies roughly 2 steps:
+//! This example illustrates how to use the `wasmer_engine_jit`, aka
+//! the JIT engine. An engine applies roughly 2 steps:
 //!
 //!   1. It compiles the Wasm module bytes to executable code, through
 //!      the intervention of a compiler,
 //!   2. It stores the executable code somewhere.
 //!
-//! In the particular context of the native engine, the executable
-//! code is stored in a native object, more precisely in a dynamic
-//! library.
+//! In the particular context of the JIT engine, the executable code
+//! is stored in memory.
+//!
+//! You can run the example directly by executing in Wasmer root:
+//!
+//! ```bash
+//! cargo run --example engine-jit --release --features "cranelift"
+//! ```
 //!
 //! Ready?
 
-use std::sync::Arc;
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_native::Native;
+use wasmer_engine_jit::JIT;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -40,21 +44,23 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // compile the Wasm module into executable code.
     let mut compiler_config = Cranelift::default();
 
+    println!("Creating JIT engine...");
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_native` which means
-    // that a native object is going to be generated.
-    let engine = Native::new(&mut compiler_config).engine();
+    // In this case, the engine is `wasmer_engine_jit` which roughly
+    // means that the executable code will live in memory.
+    let engine = JIT::new(&mut compiler_config).engine();
 
     // Create a store, that holds the engine.
-    let store = Store::new(&*engine);
+    let store = Store::new(&engine);
 
+    println!("Compiling module...");
     // Here we go.
     //
     // Let's compile the Wasm module. It is at this step that the Wasm
     // text is transformed into Wasm bytes (if necessary), and then
     // compiled to executable code by the compiler, which is then
-    // stored into a native object by the engine.
+    // stored in memory by the engine.
     let module = Module::new(&store, wasm_bytes)?;
 
     // Congrats, the Wasm module is compiled! Now let's execute it for
@@ -64,19 +70,22 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // any imports, it's an empty object.
     let import_object = imports! {};
 
+    println!("Instantiating module...");
     // And here we go again. Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object)?;
 
+    println!("Calling `sum` function...");
     // The Wasm module exports a function called `sum`.
     let sum = instance.exports.get_function("sum")?;
     let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
 
+    println!("Results: {:?}", results);
     assert_eq!(results.to_vec(), vec![Value::I32(3)]);
 
     Ok(())
 }
 
 #[test]
-fn test_engine_native() -> Result<(), Box<dyn std::error::Error>> {
+fn test_engine_jit() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

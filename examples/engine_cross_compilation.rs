@@ -10,10 +10,15 @@
 //! illustrates how the abstraction over the compiler is so powerful
 //! that it is possible to cross-compile a Wasm module.
 //!
+//! You can run the example directly by executing in Wasmer root:
+//!
+//! ```bash
+//! cargo run --example cross-compilation --release --features "cranelift"
+//! ```
+//!
 //! Ready?
 
 use std::str::FromStr;
-use std::sync::Arc;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
@@ -59,6 +64,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // Let's build the target.
     let target = Target::new(triple, cpu_feature);
+    println!("Chosen target: {:?}", target);
 
     // Define the engine that will drive everything.
     //
@@ -73,14 +79,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // this information with the compiler.
         .target(target)
         // Get the engine.
-        .engine(),
-    );
+        .engine();
 
     // Create a store, that holds the engine.
-    let store = Store::new(&*engine);
+    let store = Store::new(&engine);
 
+    println!("Compiling module...");
     // Let's compile the Wasm module.
     let _module = Module::new(&store, wasm_bytes)?;
+
+    println!("Module compiled successfully.");
 
     // Congrats, the Wasm module is cross-compiled!
     //

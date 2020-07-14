@@ -6,6 +6,8 @@ After the compiler process the result, the JIT pushes it into
 memory and links it's contents so it can be usable by the
 `wasmer` api.
 
+*Note: you can find a [full working example using the JIT engine here](https://github.com/wasmerio/wasmer-reborn/blob/test-examples/examples/engine-jit.rs).*
+
 ### Acknowledgments
 
 This project borrowed some of the code of the code memory and unwind tables from the [wasmtime-jit](https://crates.io/crates/wasmtime-jit), the code since then has evolved significantly.
