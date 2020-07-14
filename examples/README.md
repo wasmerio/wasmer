@@ -23,7 +23,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --features "cranelift" --example engine-jit
+   $ cargo run --example engine-jit --release --features "cranelift"
    ```
 
    </details>
@@ -40,7 +40,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --features "cranelift" --example engine-native
+   $ cargo run --example engine-native --release --features "cranelift"
    ```
 
    </details>
@@ -58,7 +58,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --features "cranelift" --example engine-headless
+   $ cargo run --example engine-headless --release --features "cranelift"
    ```
 
    </details>
@@ -73,7 +73,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --features "cranelift" --example cross-compilation
+   $ cargo run --example cross-compilation --release --features "cranelift"
    ```
 
    </details>
@@ -90,7 +90,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --features "cranelift" --example exported-function
+   $ cargo run --example exported-function --release --features "cranelift"
    ```
 
    </details>
