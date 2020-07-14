@@ -133,3 +133,8 @@ test-llvm = [
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
+
+[[example]]
+name = "engine-native"
+path = "examples/engine_native.rs"
+required-features = ["cranelift"]
