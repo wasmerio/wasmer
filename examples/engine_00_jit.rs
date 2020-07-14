@@ -1,4 +1,4 @@
-//! Defining an engine in Wasmer is one of the fundamental step.
+//! Defining an engine in Wasmer is one of the fundamental steps.
 //!
 //! This example illustrates how to use the `wasmer_engine_jit`, aka
 //! the JIT engine. An engine applies roughly 2 steps:

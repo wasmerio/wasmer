@@ -1,4 +1,4 @@
-//! Defining an engine in Wasmer is one of the fundamental step.
+//! Defining an engine in Wasmer is one of the fundamental steps.
 //!
 //! As a reminder, an engine applies roughly 2 steps:
 //!

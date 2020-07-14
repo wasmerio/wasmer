@@ -1,4 +1,4 @@
-//! Defining an engine in Wasmer is one of the fundamental step.
+//! Defining an engine in Wasmer is one of the fundamental steps.
 //!
 //! This example illustrates a neat feature of engines: their ability
 //! to run in a headless mode. At the time of writing, all engines
