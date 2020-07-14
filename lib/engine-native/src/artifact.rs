@@ -236,7 +236,7 @@ impl NativeArtifact {
         );
 
         let linker = if is_cross_compiling {
-            "clang-10"
+            "clang" // clang-10
         } else {
             "gcc"
         };
