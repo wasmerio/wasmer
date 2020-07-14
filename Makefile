@@ -96,7 +96,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
