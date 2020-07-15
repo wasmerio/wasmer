@@ -9,7 +9,6 @@
 //! ```
 //!
 //! Ready?
-#![cfg(feature = "cranelift")]
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_cranelift::Cranelift;
@@ -61,6 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_exported_function() -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(feature = "cranelift")]
+fn test_compiler_cranelift() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

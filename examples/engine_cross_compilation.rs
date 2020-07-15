@@ -17,7 +17,6 @@
 //! ```
 //!
 //! Ready?
-#![cfg(not(windows))]
 
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
@@ -101,6 +100,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(not(windows))]
 fn test_cross_compilation() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

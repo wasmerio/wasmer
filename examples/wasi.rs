@@ -14,7 +14,6 @@
 //! ```
 //!
 //! Ready?
-#![cfg(feature = "wasi")]
 
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
@@ -64,6 +63,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(feature = "wasi")]
 fn test_wasi() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

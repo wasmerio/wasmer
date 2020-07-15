@@ -9,7 +9,6 @@
 //! ```
 //!
 //! Ready?
-#![cfg(feature = "singlepass")]
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_singlepass::Singlepass;
@@ -61,6 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-fn test_exported_function() -> Result<(), Box<dyn std::error::Error>> {
+#[cfg(feature = "singlepass")]
+fn test_compiler_singlepass() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
