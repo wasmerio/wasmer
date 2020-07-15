@@ -17,6 +17,7 @@
 //! ```
 //!
 //! Ready?
+#![cfg(not(windows))]
 
 use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};

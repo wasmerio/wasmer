@@ -9,6 +9,7 @@
 //! ```
 //!
 //! Ready?
+#![cfg(feature = "llvm")]
 
 use wasmer::{imports, wat2wasm, Instance, Module, Store, Value};
 use wasmer_compiler_llvm::LLVM;

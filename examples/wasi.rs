@@ -14,6 +14,7 @@
 //! ```
 //!
 //! Ready?
+#![cfg(feature = "wasi")]
 
 use wasmer::{Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;

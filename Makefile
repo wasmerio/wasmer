@@ -133,7 +133,7 @@ test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
 
 test-examples:
-	cargo test --release --features "test-cranelift" --examples
+	cargo test --release $(compiler_features) --features wasi --examples
 
 #############
 # Packaging #
