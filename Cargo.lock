@@ -2149,6 +2149,7 @@ dependencies = [
  "lazy_static",
  "rustc_version",
  "structopt",
+ "tempfile",
  "test-generator",
  "wasm-common",
  "wasmer",

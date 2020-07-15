@@ -96,7 +96,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -131,6 +131,9 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+test-examples:
+	cargo test --release $(compiler_features) --features wasi --examples
 
 #############
 # Packaging #

@@ -294,6 +294,8 @@ impl StoreOptions {
                 compiler.to_string()
             ),
         };
+
+        #[allow(unreachable_code)]
         Ok((compiler_config, compiler))
     }
 
