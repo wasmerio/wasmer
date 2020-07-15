@@ -141,7 +141,7 @@ example.
 
 ### Integrations
 
-9. [**WASI integration**][wasi], explains how to get and
+9. [**WASI integration**][integration-wasi], explains how to get and
    how to call an exported function. They come in 2 flavors: dynamic,
    and “static”/native. The pros and cons are discussed briefly.
    
