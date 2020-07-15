@@ -50,7 +50,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
 
-const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA\0";
+const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl NativeArtifact {
     // Mach-O header in Mac
