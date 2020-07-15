@@ -22,7 +22,7 @@ let compiler = Singlepass::new();
 let store = Store::new(&JIT::new(&compiler).engine());
 ```
 
-*Note: you can find a [full working example using Singlepass compiler here](https://github.com/wasmerio/wasmer-reborn/blob/test-examples/examples/compiler-singlepass.rs).*
+*Note: you can find a [full working example using Singlepass compiler here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler-singlepass.rs).*
 
 ## When to use Singlepass
 
