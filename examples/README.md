@@ -80,24 +80,24 @@ example.
 
 ### Compilers
 
-5. [**Singlepass Compiler**][compiler-singlepass], explains how to use
-   the [Singlepass compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass).
+5. [**Singlepass compiler**][compiler-singlepass], explains how to use
+   the [`wasmer-compiler-singlepass`] compiler.
    
-   _Keywords_: engine, compiler, singlepass.
+   _Keywords_: compiler, singlepass.
 
    <details>
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example compiler-singlepass --release --features "singlepass"
+   $ cargo +nightly run --example compiler-singlepass --release --features "singlepass"
    ```
 
    </details>
 
-6. [**Cranelift Compiler**][compiler-cranelift], explains how to use
-   the [Cranelift compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift).
+6. [**Cranelift compiler**][compiler-cranelift], explains how to use
+   the [`wasmer-compiler-cranelift`] compiler.
    
-   _Keywords_: engine, compiler, cranelift.
+   _Keywords_: compiler, cranelift.
 
    <details>
    <summary><em>Execute the example</em></summary>
@@ -108,10 +108,10 @@ example.
 
    </details>
 
-7. [**LLVM Compiler**][compiler-llvm], explains how to use
-   the [LLVM compiler](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm).
+7. [**LLVM compiler**][compiler-llvm], explains how to use the
+   [`wasmer-compiler-llvm`] compiler.
    
-   _Keywords_: engine, compiler, llvm.
+   _Keywords_: compiler, llvm.
 
    <details>
    <summary><em>Execute the example</em></summary>
@@ -141,11 +141,10 @@ example.
 
 ### Integrations
 
-9. [**WASI integration**][integration-wasi], explains how to get and
-   how to call an exported function. They come in 2 flavors: dynamic,
-   and “static”/native. The pros and cons are discussed briefly.
+9. [**WASI**][wasi], explains how to use the [WebAssembly System
+   Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
-   _Keywords_: export, function, dynamic, static, native.
+   _Keywords_: wasi, system, interface
 
    <details>
    <summary><em>Execute the example</em></summary>
@@ -164,4 +163,9 @@ example.
 [compiler-llvm]: ./compiler_llvm.rs
 [cross-compilation]: ./engine_cross_compilation.rs
 [exported-function]: ./exports_function.rs
-[integration-wasi]: ./wasi.rs
+[wasi]: ./wasi.rs
+[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass
+[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm
+[`wasmer-wasi`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/wasi
+[WASI]: https://github.com/WebAssembly/WASI
