@@ -15,19 +15,19 @@ use crate::store::{Store, StoreObject};
 use crate::ExternType;
 use wasmer_vm::Export;
 
-/// An external value is the runtime representation of an entity that
+/// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#external-values
 #[derive(Clone)]
 pub enum Extern {
-    /// A external [`Function`]
+    /// A external [`Function`].
     Function(Function),
-    /// A external [`Global`]
+    /// A external [`Global`].
     Global(Global),
-    /// A external [`Table`]
+    /// A external [`Table`].
     Table(Table),
-    /// A external [`Memory`]
+    /// A external [`Memory`].
     Memory(Memory),
 }
 

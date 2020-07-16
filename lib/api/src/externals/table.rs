@@ -55,7 +55,7 @@ impl Table {
         })
     }
 
-    /// Gets the underlying [`TableType`].
+    /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self) -> &TableType {
         self.table.ty()
     }

@@ -10,7 +10,7 @@ use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 /// A WebAssembly `memory` instance.
 ///
 /// A memory instance is the runtime representation of a linear memory.
-/// It holds a vector of bytes and an optional maximum size.
+/// It consists of a vector of bytes and an optional maximum size.
 ///
 /// The length of the vector always is a multiple of the WebAssembly
 /// page size, which is defined to be the constant 65536 – abbreviated 64Ki.
@@ -42,7 +42,7 @@ impl Memory {
         })
     }
 
-    /// Returns the underlying [`MemoryType`] corresponding to this runtime `Memory`.
+    /// Returns the [`MemoryType`] of the `Memory`.
     pub fn ty(&self) -> &MemoryType {
         self.memory.ty()
     }
@@ -74,7 +74,7 @@ impl Memory {
         slice::from_raw_parts_mut(def.base, def.current_length)
     }
 
-    /// Returns the pointer to the `Memory`.
+    /// Returns the pointer to the raw bytes of the `Memory`.
     pub fn data_ptr(&self) -> *mut u8 {
         let definition = self.memory.vmmemory();
         let def = unsafe { definition.as_ref() };

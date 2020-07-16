@@ -60,7 +60,7 @@ impl Global {
         })
     }
 
-    /// Returns the underlying [`GlobalType`] corresponding to this runtime `Global`.
+    /// Returns the [`GlobalType`] of the `Global`.
     pub fn ty(&self) -> &GlobalType {
         &self.exported.global
     }

@@ -40,10 +40,12 @@ pub enum FunctionDefinition {
 /// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
-/// It effectively is a closure of the original function over the runtime
-/// `Instance` of its originating `Module`. The module instance is used
-/// to resolve references to other definitions during execution of the
-/// function.
+/// It effectively is a closure of the original function (defined in either
+/// the host or the WebAssembly module) over the runtime `Instance` of its
+/// originating `Module`.
+/// 
+/// The module instance is used to resolve references to other definitions
+/// during execution of the function.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
 #[derive(Clone, PartialEq)]
@@ -195,7 +197,7 @@ impl Function {
         }
     }
 
-    /// Returns the underlying [`FunctionType`] corresponding to this runtime `Function`.
+    /// Returns the [`FunctionType`] of the `Function`.
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature
     }
