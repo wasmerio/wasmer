@@ -109,20 +109,21 @@ impl GlobalStore {
         }
     }
 
+    #[allow(unreachable_code, unused_variables)]
     fn renew_with(&self, compiler: backend::Backend) {
         if compiler == self.backend {
             return;
         }
 
-        let compiler_config = match compiler {
+        let compiler_config: &dyn new::wasmer_compiler::CompilerConfig = match compiler {
             #[cfg(feature = "singlepass")]
-            Backend::Singlepass => new::wasmer_compiler_singlepass::Singlepass::default(),
+            Backend::Singlepass => &new::wasmer_compiler_singlepass::Singlepass::default(),
 
             #[cfg(feature = "cranelift")]
-            Backend::Cranelift => new::wasmer_compiler_cranelift::Cranelift::default(),
+            Backend::Cranelift => &new::wasmer_compiler_cranelift::Cranelift::default(),
 
             #[cfg(feature = "llvm")]
-            Backend::LLVM => new::wasmer_compiler_llvm::LLVM::default(),
+            Backend::LLVM => &new::wasmer_compiler_llvm::LLVM::default(),
 
             Backend::Auto => {
                 *self.store.lock().unwrap() = Arc::new(Default::default());
@@ -131,10 +132,9 @@ impl GlobalStore {
             }
         };
 
-        #[allow(unreachable_code)]
-        let engine = Arc::new(new::wasmer_engine_jit::JIT::new(&compiler_config).engine());
+        let engine = new::wasmer_engine_jit::JIT::new(compiler_config).engine();
 
-        *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&*engine));
+        *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
     }
 
     fn inner_store(&self) -> Arc<new::wasmer::Store> {
