@@ -6,7 +6,6 @@ API (the port), i.e. API that didn't change are absent.
 ## Overall
 
 * Host function must always take a `vm::Ctx` as first parameter
-* …
 
 ## All changes
 
@@ -540,7 +539,7 @@ trait NativeWasmType {
 }
 ```
 
-THe `TYPE` constant has been renamed `WASM_TYPE`.
+The `TYPE` constant has been renamed `WASM_TYPE`.
 
 The `into_abi`, `from_abi` and `to_value` methods are new, in addition
 to the `Abi` type.
