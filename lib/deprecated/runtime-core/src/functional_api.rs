@@ -38,11 +38,6 @@ pub fn load_cache_with(cache: Artifact) -> Result<Module, Infallible> {
 /// WebAssembly binary code. This function is useful if it
 /// is necessary to a compile a module before it can be instantiated
 /// and must be used if you wish to use a different backend from the default.
-///
-/// # Note
-///
-/// This second parameter aren't used any more in the deprecated
-/// version of `wasmer-runtime-core`.
 pub fn compile_with(bytes: &[u8], compiler: Backend) -> Result<Module, Box<dyn Error>> {
     renew_global_store_with(compiler);
 
@@ -57,13 +52,15 @@ pub fn compile_with(bytes: &[u8], compiler: Backend) -> Result<Module, Box<dyn E
 ///
 /// # Note
 ///
-/// This second and third parameters aren't used any more in the
-/// deprecated version of `wasmer-runtime-core`.
+/// The third parameter isn't used any more in the deprecated version
+/// of `wasmer-runtime-core`.
 pub fn compile_with_config(
     bytes: &[u8],
-    _compiler: (),
+    compiler: Backend,
     _compiler_config: (),
 ) -> Result<Module, Box<dyn Error>> {
+    renew_global_store_with(compiler);
+
     Ok(Module::new(new::wasmer::Module::new(
         &get_global_store(),
         bytes,
