@@ -7,11 +7,15 @@ use crate::TableType;
 use std::sync::Arc;
 use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
+/// A WebAssembly `table` instance.
+///
 /// The `Table` struct is an array-like structure representing a WebAssembly Table,
 /// which stores function references.
 ///
 /// A table created by the host or in WebAssembly code will be accessible and
 /// mutable from both host and WebAssembly.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#table-instances
 #[derive(Clone)]
 pub struct Table {
     store: Store,
@@ -30,6 +34,8 @@ impl Table {
     /// Creates a new `Table` with the provided [`TableType`] definition.
     ///
     /// All the elements in the table will be set to the `init` value.
+    ///
+    /// This function will construct the `Table` using the store [`Tunables`].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
@@ -49,11 +55,12 @@ impl Table {
         })
     }
 
-    /// Gets the underlying [`TableType`].
+    /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self) -> &TableType {
         self.table.ty()
     }
 
+    /// Returns the [`Store`] where the `Table` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }

@@ -6,11 +6,16 @@ use wasmer_engine::Tunables as BaseTunables;
 use std::sync::Arc;
 use wasmer_engine::Engine;
 
-/// The store is what holds the directives to the `wasmer` crate, and
-/// siblings, to act as expected. It holds the engine (that is
-/// —amongst many things— used to compile the Wasm bytes into a valid
-/// module artifact), in addition to the tunables (that is used to
-/// create the memories, tables and globals).
+/// The store represents all global state that can be manipulated by
+/// WebAssembly programs. It consists of the runtime representation
+/// of all instances of functions, tables, memories, and globals that
+/// have been allocated during the lifetime of the abstract machine.
+///
+/// The `Store` holds the engine (that is —amongst many things— used to compile
+/// the Wasm bytes into a valid module artifact), in addition to the
+/// [`Tunables`] (that are used to create the memories, tables and globals).
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#store
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
@@ -18,7 +23,7 @@ pub struct Store {
 }
 
 impl Store {
-    /// Creates a new `Store` with a specific `Engine`.
+    /// Creates a new `Store` with a specific [`Engine`].
     pub fn new<E>(engine: &E) -> Self
     where
         E: Engine + ?Sized,
@@ -29,8 +34,7 @@ impl Store {
         }
     }
 
-    /// Creates a new `Store` with a specific `Engine` and a specific
-    /// `Tunables`.
+    /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
     pub fn new_with_tunables<E>(
         engine: &E,
         tunables: impl BaseTunables + Send + Sync + 'static,
@@ -44,12 +48,12 @@ impl Store {
         }
     }
 
-    /// Returns the tunables.
+    /// Returns the [`Tunables`].
     pub fn tunables(&self) -> &dyn BaseTunables {
         self.tunables.as_ref()
     }
 
-    /// Returns the engine.
+    /// Returns the [`Engine`].
     pub fn engine(&self) -> &Arc<dyn Engine + Send + Sync> {
         &self.engine
     }
@@ -115,6 +119,8 @@ impl Default for Store {
     }
 }
 
+/// A trait represinting any object that lives in the `Store`.
 pub trait StoreObject {
+    /// Return true if the object `Store` is the same as the provided `Store`.
     fn comes_from_same_store(&self, store: &Store) -> bool;
 }
