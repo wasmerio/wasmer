@@ -7,6 +7,17 @@ use std::sync::Arc;
 use wasm_common::{Pages, ValueType};
 use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
+/// A WebAssembly `memory`.
+///
+/// A memory instance is the runtime representation of a linear memory.
+/// It holds a vector of bytes and an optional maximum size.
+///
+/// The length of the vector always is a multiple of the WebAssembly
+/// page size, which is defined to be the constant 65536 – abbreviated 64Ki.
+/// Like in a memory type, the maximum size in a memory instance is
+/// given in units of this page size.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
 #[derive(Clone)]
 pub struct Memory {
     store: Store,
@@ -14,6 +25,9 @@ pub struct Memory {
 }
 
 impl Memory {
+    /// Creates a new host `Memory` from the provided [`MemoryType`].
+    ///
+    /// This function will construct the `Memory` using the store [`Tunables`].
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
@@ -25,10 +39,12 @@ impl Memory {
         })
     }
 
+    /// Returns the underlying [`MemoryType`] corresponding to this runtime `Memory`.
     pub fn ty(&self) -> &MemoryType {
         self.memory.ty()
     }
 
+    /// Returns the [`Store`] that owns this `Memory`.
     pub fn store(&self) -> &Store {
         &self.store
     }
@@ -55,22 +71,31 @@ impl Memory {
         slice::from_raw_parts_mut(def.base, def.current_length)
     }
 
+    /// Returns the pointer to the `Memory`.
     pub fn data_ptr(&self) -> *mut u8 {
         let definition = self.memory.vmmemory();
         let def = unsafe { definition.as_ref() };
         def.base
     }
 
+    /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> usize {
         let definition = self.memory.vmmemory();
         let def = unsafe { definition.as_ref() };
         def.current_length
     }
 
+    /// Returns the size (in [`Pages`]) of the `Memory`.
     pub fn size(&self) -> Pages {
         self.memory.size()
     }
 
+    /// Grow memory by the specified amount of WebAssembly [`Pages`].
+    ///
+    /// # Errors
+    ///
+    /// Returns an error if memory can't be grown by the specified amount
+    /// of pages.
     pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,

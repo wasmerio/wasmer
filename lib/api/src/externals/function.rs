@@ -38,6 +38,14 @@ pub enum FunctionDefinition {
 }
 
 /// A WebAssembly `function`.
+///
+/// A function instance is the runtime representation of a function.
+/// It effectively is a closure of the original function over the runtime
+/// `Instance` of its originating `Module`. The module instance is used
+/// to resolve references to other definitions during execution of the
+/// function.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
@@ -46,7 +54,7 @@ pub struct Function {
 }
 
 impl Function {
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
     ///    unique _statically declared type_. The outputs can be
@@ -77,7 +85,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
     ///    unique statically declared type. The outputs can be wrapped
@@ -115,7 +123,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
     ///    slice of `Val` (the set of all Wasm values), and all
@@ -150,7 +158,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
     ///    slice of `Val` (the set of all Wasm values), and all
@@ -187,11 +195,12 @@ impl Function {
         }
     }
 
-    /// Returns the underlying type of this function.
+    /// Returns the underlying [`FunctionType`] corresponding to this runtime `Function`.
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature
     }
 
+    /// Returns the [`Store`] that owns this `Function`.
     pub fn store(&self) -> &Store {
         &self.store
     }

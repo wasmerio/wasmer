@@ -20,6 +20,8 @@ use wasmer_vm::{
     ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
 };
 
+/// A WebAssembly function that can be called natively
+/// (using the Native ABI).
 pub struct NativeFunc<'a, Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,

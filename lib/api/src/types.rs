@@ -8,6 +8,11 @@ pub use wasm_common::{
     MemoryType, Mutability, TableType, Type as ValType,
 };
 
+/// WebAssembly computations manipulate values of basic value types:
+/// * Integers (32 or 64 bit width)
+/// * Floating-point (32 or 64 bit width)
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#values
 pub type Val = Value<Function>;
 
 impl StoreObject for Val {
