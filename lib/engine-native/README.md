@@ -1,28 +1,30 @@
-# Wasmer Native
+# Wasmer Engine - Native
 
-The Wasmer Native is usable with any compiler implementation
-based on `wasmer-compiler` that is able to emit Position Independent
-Code (PIC).
+The Wasmer Native engine is usable with any compiler implementation
+based on [`wasmer-compiler`] that is able to emit
+[Position-independent Code][PIC] (PIC).
 
 After the compiler generates the machine code for the functions, the
-Native Engine generates a shared object file and links it via `dlsym`
-so it can be usable by the `wasmer` API.
+Native engine generates a shared object file and links it via
+[`dlsym`] so it can be usable by the [`wasmer`] API.
 
 This allows Wasmer to achieve *blazing fast* native startup times.
 
-*Note: you can find a [full working example using the JIT engine here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/engine-jit.rs).*
+*Note: you can find a [full working example using the JIT engine
+here][example].*
 
 ## Requirements
 
 The `wasmer-engine-native` crate requires a linker available on your
 system to generate the shared object file.
 
-We recommend having `gcc` or `clang` installed.
+We recommend having [`gcc`] or [`clang`] installed.
 
-> Note: when cross-compiling to other targets, `clang` will be the
+> Note: when **cross-compiling** to other targets, `clang` will be the
 > default command used for compiling.
 
-You can install LLVM easily on your debian-like system via this command:
+You can install LLVM (that provides `clang`) easily on your
+Debian-like system via this command:
 
 ```bash
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
@@ -34,4 +36,15 @@ Or in macOS:
 brew install llvm
 ```
 
-Or via any of the [pre-built binaries that LLVM offers](https://releases.llvm.org/download.html).
+Or via any of the [pre-built binaries that LLVM
+offers][llvm-pre-built].
+
+
+[`wasmer-compiler`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler
+[PIC]: https://en.wikipedia.org/wiki/Position-independent_code
+[`dlsym`]: https://www.freebsd.org/cgi/man.cgi?query=dlsym
+[`wasmer`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/api
+[example]: https://github.com/wasmerio/wasmer-reborn/blob/master/examples/engine_native.rs
+[`gcc`]: https://gcc.gnu.org/
+[`clang`]: https://clang.llvm.org/
+[llvm-pre-built]: https://releases.llvm.org/download.html
