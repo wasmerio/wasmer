@@ -43,7 +43,7 @@ pub enum FunctionDefinition {
 /// It effectively is a closure of the original function (defined in either
 /// the host or the WebAssembly module) over the runtime `Instance` of its
 /// originating `Module`.
-/// 
+///
 /// The module instance is used to resolve references to other definitions
 /// during execution of the function.
 ///
