@@ -7,6 +7,8 @@ use crate::TableType;
 use std::sync::Arc;
 use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
+/// A WebAssembly `table` instance.
+///
 /// The `Table` struct is an array-like structure representing a WebAssembly Table,
 /// which stores function references.
 ///
@@ -58,7 +60,7 @@ impl Table {
         self.table.ty()
     }
 
-    /// Returns the [`Store`] that owns this `Table`.
+    /// Returns the [`Store`] where the `Table` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }

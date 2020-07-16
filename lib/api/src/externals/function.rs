@@ -37,7 +37,7 @@ pub enum FunctionDefinition {
     Host(HostFunctionDefinition),
 }
 
-/// A WebAssembly `function`.
+/// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
 /// It effectively is a closure of the original function over the runtime
@@ -200,7 +200,7 @@ impl Function {
         &self.exported.signature
     }
 
-    /// Returns the [`Store`] that owns this `Function`.
+    /// Returns the [`Store`] where the `Function` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }

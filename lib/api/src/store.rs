@@ -9,7 +9,7 @@ use wasmer_engine::Engine;
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
 /// of all instances of functions, tables, memories, and globals that
-/// have been allocated during the life time of the abstract machine.
+/// have been allocated during the lifetime of the abstract machine.
 ///
 /// The `Store` holds the engine (that is —amongst many things— used to compile
 /// the Wasm bytes into a valid module artifact), in addition to the

@@ -96,7 +96,7 @@ impl Instance {
         &self.module
     }
 
-    /// Returns the [`Store`] that owns this `Instance`.
+    /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
     }

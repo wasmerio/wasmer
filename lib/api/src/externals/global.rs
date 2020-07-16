@@ -8,10 +8,10 @@ use crate::RuntimeError;
 use std::fmt;
 use wasmer_vm::{Export, ExportGlobal, VMGlobalDefinition};
 
-/// A WebAssembly `global`.
+/// A WebAssembly `global` instance.
 ///
 /// A global instance is the runtime representation of a global variable.
-/// It holds an individual value and a flag indicating whether it is mutable.
+/// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#global-instances
 #[derive(Clone)]
@@ -65,7 +65,7 @@ impl Global {
         &self.exported.global
     }
 
-    /// Returns the [`Store`] that owns this `Global`.
+    /// Returns the [`Store`] where the `Global` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }

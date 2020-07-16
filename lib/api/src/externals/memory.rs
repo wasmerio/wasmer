@@ -7,7 +7,7 @@ use std::sync::Arc;
 use wasm_common::{Pages, ValueType};
 use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
-/// A WebAssembly `memory`.
+/// A WebAssembly `memory` instance.
 ///
 /// A memory instance is the runtime representation of a linear memory.
 /// It holds a vector of bytes and an optional maximum size.
@@ -16,6 +16,9 @@ use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 /// page size, which is defined to be the constant 65536 – abbreviated 64Ki.
 /// Like in a memory type, the maximum size in a memory instance is
 /// given in units of this page size.
+///
+/// A memory created by the host or in WebAssembly code will be accessible and
+/// mutable from both host and WebAssembly.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
 #[derive(Clone)]
@@ -44,7 +47,7 @@ impl Memory {
         self.memory.ty()
     }
 
-    /// Returns the [`Store`] that owns this `Memory`.
+    /// Returns the [`Store`] where the `Memory` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }

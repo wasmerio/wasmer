@@ -395,7 +395,7 @@ impl Module {
         self.artifact.module_ref().custom_sections(name)
     }
 
-    /// Returns the [`Store`] that owns this `Instance`.
+    /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }
