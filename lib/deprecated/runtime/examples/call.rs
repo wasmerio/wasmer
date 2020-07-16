@@ -56,3 +56,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     Ok(())
 }
+
+#[test]
+fn test_call() -> Result<(), Box<dyn std::error::Error>> {
+    main()
+}

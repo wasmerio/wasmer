@@ -96,7 +96,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -134,6 +134,11 @@ test-wasi-unit:
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
+
+test-deprecated:
+	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 #############
 # Packaging #
