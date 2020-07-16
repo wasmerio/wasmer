@@ -30,7 +30,7 @@ pub struct ExportFunction {
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: *mut VMContext,
-    /// The function type, used for compatibilty checking.
+    /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)
     pub kind: VMFunctionKind,
