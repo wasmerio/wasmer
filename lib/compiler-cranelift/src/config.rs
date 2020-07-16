@@ -52,14 +52,6 @@ impl Cranelift {
         }
     }
 
-    /// Should the Cranelift verifier be enabled.
-    ///
-    /// The verifier assures that the generated Cranelift IR is valid.
-    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
-        self.enable_verifier = enable;
-        self
-    }
-
     /// Enable NaN canonicalization.
     ///
     /// NaN canonicalization is useful when trying to run WebAssembly
@@ -195,6 +187,10 @@ impl Cranelift {
 impl CompilerConfig for Cranelift {
     fn enable_pic(&mut self) {
         self.enable_pic = true;
+    }
+
+    fn enable_verifier(&mut self) {
+        self.enable_verifier = true;
     }
 
     /// Transform it into the compiler

@@ -92,10 +92,12 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+          mkdir -p ${{ env.LLVM_DIR }}
+          tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
+          echo "::add-path::${{ env.LLVM_DIR }}/bin"
+          echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
+        env:
+          LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Install LLVM (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |

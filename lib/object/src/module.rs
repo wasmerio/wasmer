@@ -22,7 +22,21 @@ pub trait CompilationNamer {
     fn get_dynamic_function_trampoline_name(&self, index: &FunctionIndex) -> String;
 }
 
-/// Create an object for a given target [`Triple`]
+/// Create an object for a given target `Triple`.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::get_object_for_target;
+///
+/// # fn generate_object_for_target(triple: &Triple) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+///
+/// # Ok(())
+/// # }
+/// ```
 pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
     let obj_binary_format = match triple.binary_format {
         BinaryFormat::Elf => object::BinaryFormat::Elf,
@@ -45,13 +59,14 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
             )));
         }
     };
-    let obj_endianness = match triple.endianness() {
-        Ok(Endianness::Little) => object::Endianness::Little,
-        Ok(Endianness::Big) => object::Endianness::Big,
-        Err(_) => {
-            return Err(ObjectError::UnknownEndianness);
-        }
+    let obj_endianness = match triple
+        .endianness()
+        .map_err(|_| ObjectError::UnknownEndianness)?
+    {
+        Endianness::Little => object::Endianness::Little,
+        Endianness::Big => object::Endianness::Big,
     };
+
     Ok(Object::new(
         obj_binary_format,
         obj_architecture,
@@ -59,7 +74,22 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
     ))
 }
 
-/// Emit data in into an object
+/// Write data into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::Triple;
+/// # use wasmer_object::ObjectError;
+/// use wasmer_object::{get_object_for_target, emit_data};
+///
+/// # fn emit_data_into_object(triple: &Triple) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+/// emit_data(&mut object, b"WASMER_METADATA", &b"Hello, World!"[..])?;
+///
+/// # Ok(())
+/// # }
+/// ```
 pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), ObjectError> {
     let symbol_id = obj.add_symbol(Symbol {
         name: name.to_vec(),
@@ -73,14 +103,34 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
     });
     let section_id = obj.section_id(StandardSection::Data);
     obj.add_symbol_data(symbol_id, section_id, &data, 1);
+
     Ok(())
 }
 
-/// Emit the compilation into an object
+/// Emit the compilation result into an existing object.
+///
+/// # Usage
+///
+/// ```rust
+/// # use wasmer_compiler::{Compilation, Triple};
+/// # use wasmer_object::{CompilationNamer, ObjectError};
+/// use wasmer_object::{get_object_for_target, emit_compilation};
+///
+/// # fn emit_compilation_into_object(
+/// #     triple: &Triple,
+/// #     compilation: Compilation,
+/// #     compilation_namer: impl CompilationNamer,
+/// # ) -> Result<(), ObjectError> {
+/// let mut object = get_object_for_target(&triple)?;
+/// emit_compilation(&mut object, compilation, &compilation_namer, &triple)?;
+/// # Ok(())
+/// # }
+/// ```
 pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
     namer: &impl CompilationNamer,
+    triple: &Triple,
 ) -> Result<(), ObjectError> {
     let function_bodies = compilation.get_function_bodies();
     let function_relocations = compilation.get_relocations();
@@ -166,22 +216,39 @@ pub fn emit_compilation(
     }
 
     // Add relocations (function and sections)
+    let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
+        Architecture::X86_64 => (
+            32,
+            RelocationKind::PltRelative,
+            RelocationEncoding::X86Branch,
+        ),
+        architecture => {
+            return Err(ObjectError::UnsupportedArchitecture(
+                architecture.to_string(),
+            ))
+        }
+    };
     let mut all_relocations = Vec::new();
+
     for (function_local_index, relocations) in function_relocations.into_iter() {
         let function_name = namer.get_function_name(&function_local_index);
         let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (section_index, relocations) in custom_section_relocations.into_iter() {
         let section_name = namer.get_section_name(&section_index);
         let symbol_id = obj.symbol_id(section_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
+
     for (symbol_id, relocations) in all_relocations.into_iter() {
         let (_symbol_id, section_offset) = obj.symbol_section_and_offset(symbol_id).unwrap();
         let section_id = obj.section_id(StandardSection::Text);
+
         for r in relocations {
             let relocation_address = section_offset + r.offset as u64;
+
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
                     let target_name = namer.get_function_name(&index);
@@ -190,12 +257,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -221,12 +285,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -240,12 +301,9 @@ pub fn emit_compilation(
                         section_id,
                         Relocation {
                             offset: relocation_address,
-                            size: 32, // FIXME for all targets
-                            kind: RelocationKind::PltRelative,
-                            encoding: RelocationEncoding::X86Branch,
-                            // size: 64, // FIXME for all targets
-                            // kind: RelocationKind::Absolute,
-                            // encoding: RelocationEncoding::Generic,
+                            size: relocation_size,
+                            kind: relocation_kind,
+                            encoding: relocation_encoding,
                             symbol: target_symbol,
                             addend: r.addend,
                         },
@@ -258,5 +316,6 @@ pub fn emit_compilation(
             };
         }
     }
+
     Ok(())
 }

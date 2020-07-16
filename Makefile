@@ -96,7 +96,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -112,6 +112,8 @@ test-packages:
 	cargo test -p wasmer-vm --release
 	cargo test -p wasm-common --release
 	cargo test -p wasmer-wasi --release
+	cargo test -p wasmer-object --release
+	cargo test -p wasmer-engine-native --release --no-default-features
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -129,6 +131,9 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+test-examples:
+	cargo test --release $(compiler_features) --features wasi --examples
 
 #############
 # Packaging #

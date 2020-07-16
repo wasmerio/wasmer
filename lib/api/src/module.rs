@@ -108,6 +108,7 @@ impl Module {
         Module::from_binary(store, bytes.as_ref())
     }
 
+    /// Creates a new WebAssembly module from a file path.
     pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
@@ -120,7 +121,7 @@ impl Module {
         Ok(module)
     }
 
-    ///  Creates a new WebAssembly module from a binary.
+    /// Creates a new WebAssembly module from a binary.
     ///
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
@@ -394,6 +395,7 @@ impl Module {
         self.artifact.module_ref().custom_sections(name)
     }
 
+    /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }
