@@ -10,9 +10,6 @@ endif
 
 compilers :=
 
-# Singlepass is enabled
-RUST_VERSION := $(shell rustc -V)
-
 ifeq ($(ARCH), x86_64)
 	# In X64, Cranelift is enabled
 	compilers += cranelift

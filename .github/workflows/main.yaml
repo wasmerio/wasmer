@@ -15,7 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.45
+          toolchain: 1.45.0
           override: true
           components: rustfmt, clippy
       - run: make lint
@@ -29,7 +29,7 @@ jobs:
   #       uses: actions-rs/toolchain@v1
   #       with:
   #         profile: minimal
-  #         toolchain: 1.45
+  #         toolchain: 1.45.0
   #         override: true
   #         components: rustfmt, clippy
   #     - run: make doc-local
@@ -44,13 +44,13 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.45
+            rust: 1.45.0
           - build: macos
             os: macos-latest
-            rust: 1.45
+            rust: 1.45.0
           - build: windows
             os: windows-latest
-            rust: 1.45
+            rust: 1.45.0
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
