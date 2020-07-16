@@ -172,10 +172,7 @@ fn memory_grow() -> Result<()> {
     let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
     let bad_result = Memory::new(&store, bad_desc);
 
-    assert!(matches!(
-        bad_result,
-        Err(MemoryError::InvalidMemory { .. })
-    ));
+    assert!(matches!(bad_result, Err(MemoryError::InvalidMemory { .. })));
 
     Ok(())
 }
