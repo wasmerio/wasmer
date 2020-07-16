@@ -1,18 +1,37 @@
 //! Wasmer API
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(
+    missing_docs,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    intra_doc_link_resolution_failure
+)]
+#![warn(unused_import_braces)]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(clippy::new_without_default, vtable_address_comparisons)
+)]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    warn(
+        clippy::float_arithmetic,
+        clippy::mut_mut,
+        clippy::nonminimal_bool,
+        clippy::option_map_unwrap_or,
+        clippy::option_map_unwrap_or_else,
+        clippy::print_stdout,
+        clippy::unicode_not_nfc,
+        clippy::use_self
+    )
+)]
 
 mod exports;
 mod externals;
 mod import_object;
 mod instance;
-mod memory;
-mod memory_view;
 mod module;
 mod native;
-mod ordered_resolver;
 mod ptr;
 mod store;
-mod table;
 mod tunables;
 mod types;
 mod utils;
@@ -20,22 +39,20 @@ mod utils;
 pub mod internals {
     //! We use the internals module for exporting types that are only
     //! intended to use in internal crates such as the compatibility crate
-    //! `wasmer-runtime`. Please don't use any of this types directly, as
+    //! `wasmer-vm`. Please don't use any of this types directly, as
     //! they might change frequently or be removed in the future.
 
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 
-pub use crate::exports::{ExportError, Exportable, Exports};
+pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
-    Extern, Function, Global, HostFunction, Memory, Table, WasmExternType, WasmTypeList,
+    Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::Instance;
-pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::module::Module;
 pub use crate::native::NativeFunc;
-pub use crate::ordered_resolver::OrderedResolver;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::Tunables;
@@ -47,8 +64,8 @@ pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 pub use wasm_common::{
-    Bytes, GlobalInit, LocalFunctionIndex, Pages, ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES,
-    WASM_PAGE_SIZE,
+    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
@@ -60,7 +77,7 @@ pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
-pub use wasmer_runtime::{raise_user_trap, MemoryError};
+pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 

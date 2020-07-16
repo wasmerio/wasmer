@@ -26,6 +26,15 @@ pub trait CompilerConfig {
         // in case they do something special for emitting PIC code.
     }
 
+    /// Enable compiler IR verification.
+    ///
+    /// For compilers capable of doing so, this enables internal consistency
+    /// checking.
+    fn enable_verifier(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
     /// Gets the custom compiler config
     fn compiler(&self) -> Box<dyn Compiler + Send>;
 

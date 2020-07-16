@@ -15,11 +15,11 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.45.0-beta.3
+          toolchain: 1.45
           override: true
           components: rustfmt, clippy
       - run: make lint
-  
+
   # Uncomment this once LLVM toolchain is added to the CI
   # docs:
   #   name: Docs
@@ -29,7 +29,7 @@ jobs:
   #       uses: actions-rs/toolchain@v1
   #       with:
   #         profile: minimal
-  #         toolchain: 1.45.0-beta.3
+  #         toolchain: 1.45
   #         override: true
   #         components: rustfmt, clippy
   #     - run: make doc-local
@@ -44,13 +44,13 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.45.0-beta.3
+            rust: 1.45
           - build: macos
             os: macos-latest
-            rust: 1.45.0-beta.3
+            rust: 1.45
           - build: windows
             os: windows-latest
-            rust: 1.45.0-beta.3
+            rust: 1.45
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
@@ -75,9 +75,8 @@ jobs:
             .cargo_home
             target/*/.*
             target/*/build
-            target/*/deps 
-          key:
-            ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
+            target/*/deps
+          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ matrix.os }}-
       - name: Install LLVM (Windows)
@@ -93,10 +92,12 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+          mkdir -p ${{ env.LLVM_DIR }}
+          tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
+          echo "::add-path::${{ env.LLVM_DIR }}/bin"
+          echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
+        env:
+          LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Install LLVM (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
@@ -123,3 +124,20 @@ jobs:
           # TODO: build wapm
           # make build-wapm
           make package
+
+  audit:
+    name: Audit
+    env:
+      CARGO_AUDIT_VERSION: 0.12.0
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - uses: actions/cache@master
+        with:
+          path: ${{ runner.tool_cache }}/cargo-audit
+          key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
+      - run: |
+          echo "::add-path::${{ runner.tool_cache }}/cargo-audit/bin"
+      - run: |
+          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
+          cargo audit

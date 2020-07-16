@@ -34,7 +34,7 @@ use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
     MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
-use wasmer_runtime::{MemoryPlan, ModuleInfo, TablePlan};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
@@ -72,8 +72,8 @@ impl FuncTranslator {
         local_func_index: &LocalFunctionIndex,
         function_body: &FunctionBodyData,
         config: &LLVM,
-        memory_plans: &PrimaryMap<MemoryIndex, MemoryPlan>,
-        _table_plans: &PrimaryMap<TableIndex, TablePlan>,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+        _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         func_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
@@ -198,8 +198,8 @@ impl FuncTranslator {
             locals: params_locals,
             ctx: CtxType::new(wasm_module, &func, &cache_builder),
             unreachable_depth: 0,
-            memory_plans,
-            _table_plans,
+            memory_styles,
+            _table_styles,
             module: &module,
             module_translation,
             wasm_module,
@@ -908,7 +908,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             memory_index,
             self.intrinsics,
             self.module,
-            self.memory_plans,
+            self.memory_styles,
         ) {
             // The best we've got is `volatile`.
             // TODO: convert unwrap fail to CompileError
@@ -962,14 +962,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         let base_ptr =
             match self
                 .ctx
-                .memory(memory_index, intrinsics, self.module, self.memory_plans)
+                .memory(memory_index, intrinsics, self.module, self.memory_styles)
             {
                 MemoryCache::Dynamic {
                     ptr_to_base_ptr,
                     current_length_ptr,
                 } => {
                     // Bounds check it.
-                    let minimum = self.memory_plans[memory_index].memory.minimum;
+                    let minimum = self.wasm_module.memories[memory_index].minimum;
                     let value_size_v = intrinsics.i64_ty.const_int(value_size as u64, false);
                     let ptr_in_bounds = if offset.is_const() {
                         // When the offset is constant, if it's below the minimum
@@ -1264,8 +1264,8 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     locals: Vec<PointerValue<'ctx>>, // Contains params and locals
     ctx: CtxType<'ctx, 'a>,
     unreachable_depth: usize,
-    memory_plans: &'a PrimaryMap<MemoryIndex, MemoryPlan>,
-    _table_plans: &'a PrimaryMap<TableIndex, TablePlan>,
+    memory_styles: &'a PrimaryMap<MemoryIndex, MemoryStyle>,
+    _table_styles: &'a PrimaryMap<TableIndex, TableStyle>,
 
     // This is support for stackmaps:
     /*
@@ -1630,13 +1630,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     let current_block = self.builder.get_insert_block().ok_or_else(|| {
                         CompileError::Codegen("not currently in a block".to_string())
                     })?;
-                    self.builder.build_unconditional_branch(*frame.code_after());
 
                     for phi in frame.phis().to_vec().iter().rev() {
                         let (value, info) = self.state.pop1_extra()?;
                         let value = self.apply_pending_canonicalization(value, info);
                         phi.add_incoming(&[(&value, current_block)])
                     }
+
+                    let frame = self.state.frame_at_depth(0)?;
+                    self.builder.build_unconditional_branch(*frame.code_after());
                 }
 
                 let (if_else_block, if_else_state) = if let ControlFrame::IfElse {
@@ -1721,12 +1723,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
                 let frame = self.state.outermost_frame()?;
-                self.builder.build_unconditional_branch(*frame.br_dest());
                 for phi in frame.phis().to_vec().iter().rev() {
                     let (arg, info) = self.state.pop1_extra()?;
                     let arg = self.apply_pending_canonicalization(arg, info);
                     phi.add_incoming(&[(&arg, current_block)]);
                 }
+                let frame = self.state.outermost_frame()?;
+                self.builder.build_unconditional_branch(*frame.br_dest());
 
                 self.state.reachable = false;
             }

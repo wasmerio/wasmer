@@ -6,8 +6,14 @@ use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
-use wasmer_runtime::{Export, ExportGlobal, VMGlobalDefinition};
+use wasmer_vm::{Export, ExportGlobal, VMGlobalDefinition};
 
+/// A WebAssembly `global` instance.
+///
+/// A global instance is the runtime representation of a global variable.
+/// It consists of an individual value and a flag indicating whether it is mutable.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#global-instances
 #[derive(Clone)]
 pub struct Global {
     store: Store,
@@ -15,12 +21,14 @@ pub struct Global {
 }
 
 impl Global {
+    /// Create a new `Global` with the initial value [`Val`].
     pub fn new(store: &Store, val: Val) -> Global {
         // Note: we unwrap because the provided type should always match
         // the value type, so it's safe to unwrap.
         Self::from_type(store, GlobalType::new(val.ty(), Mutability::Const), val).unwrap()
     }
 
+    /// Create a mutable `Global` with the initial value [`Val`].
     pub fn new_mut(store: &Store, val: Val) -> Global {
         // Note: we unwrap because the provided type should always match
         // the value type, so it's safe to unwrap.
@@ -52,14 +60,17 @@ impl Global {
         })
     }
 
+    /// Returns the [`GlobalType`] of the `Global`.
     pub fn ty(&self) -> &GlobalType {
         &self.exported.global
     }
 
+    /// Returns the [`Store`] where the `Global` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }
 
+    /// Retrieves the current value [`Val`] that the Global has.
     pub fn get(&self) -> Val {
         unsafe {
             let definition = &mut *self.exported.definition;
@@ -73,6 +84,13 @@ impl Global {
         }
     }
 
+    /// Sets a custom value [`Val`] to the runtime Global.
+    ///
+    /// # Errors
+    ///
+    /// This function will error if:
+    /// * The global is not mutable
+    /// * The type of the `Val` doesn't matches the Global type.
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if self.ty().mutability != Mutability::Var {
             return Err(RuntimeError::new(

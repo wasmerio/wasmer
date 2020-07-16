@@ -4,10 +4,10 @@
 //! implementation, such as: singlepass, cranelift or llvm depending
 //! on what's available on the target.
 
-mod functions;
 mod imports;
 mod middlewares;
 mod multi_value_imports;
+mod native_functions;
 mod serialize;
 mod traps;
 mod utils;

@@ -22,7 +22,7 @@
   </a>
 </p>
 
-# Wasmer Runtime C API
+# Wasmer C API
 
 Wasmer is a standalone WebAssembly runtime, aiming to be fully
 compatible with WASI, Emscripten, Rust and Go. [Learn

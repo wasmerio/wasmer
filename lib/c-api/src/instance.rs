@@ -41,7 +41,7 @@ pub(crate) struct CAPIInstance {
     pub(crate) ctx_data: Option<NonNull<c_void>>,
 }
 
-/// Opaque pointer to a `wasmer_runtime::Ctx` value in Rust.
+/// Opaque pointer to a `wasmer_vm::Ctx` value in Rust.
 ///
 /// An instance context is passed to any host function (aka imported
 /// function) as the first argument. It is necessary to read the

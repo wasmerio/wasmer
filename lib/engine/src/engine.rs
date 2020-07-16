@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasm_common::FunctionType;
 use wasmer_compiler::{CompileError, Target};
-use wasmer_runtime::{VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.
 ///

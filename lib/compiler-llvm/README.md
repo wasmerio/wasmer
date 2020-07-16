@@ -22,6 +22,8 @@ let compiler = LLVM::new();
 let store = Store::new(&JIT::new(&compiler).engine());
 ```
 
+*Note: you can find a [full working example using LLVM compiler here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler-llvm.rs).*
+
 ## When to use LLVM
 
 We recommend using LLVM as the default compiler when running WebAssembly

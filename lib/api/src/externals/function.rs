@@ -5,10 +5,10 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
-pub use inner::{HostFunction, WasmExternType, WasmTypeList, WithEnv, WithoutEnv};
+pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
-use wasmer_runtime::{
+use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
     VMTrampoline,
@@ -37,18 +37,26 @@ pub enum FunctionDefinition {
     Host(HostFunctionDefinition),
 }
 
-/// A WebAssembly `function`.
+/// A WebAssembly `function` instance.
+///
+/// A function instance is the runtime representation of a function.
+/// It effectively is a closure of the original function (defined in either
+/// the host or the WebAssembly module) over the runtime `Instance` of its
+/// originating `Module`.
+///
+/// The module instance is used to resolve references to other definitions
+/// during execution of the function.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
-    // If the Function is owned by the Store, not the instance
-    pub(crate) owned_by_store: bool,
     pub(crate) exported: ExportFunction,
 }
 
 impl Function {
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
     ///    unique _statically declared type_. The outputs can be
@@ -69,7 +77,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -80,7 +87,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
     ///    unique statically declared type. The outputs can be wrapped
@@ -108,7 +115,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -119,7 +125,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
     ///    slice of `Val` (the set of all Wasm values), and all
@@ -144,7 +150,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 address,
@@ -155,7 +160,7 @@ impl Function {
         }
     }
 
-    /// Creates a new `Function` that is:
+    /// Creates a new host `Function` that is:
     ///
     /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
     ///    slice of `Val` (the set of all Wasm values), and all
@@ -182,7 +187,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            owned_by_store: true,
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 address,
@@ -193,11 +197,12 @@ impl Function {
         }
     }
 
-    /// Returns the underlying type of this function.
+    /// Returns the [`FunctionType`] of the `Function`.
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature
     }
 
+    /// Returns the [`Store`] where the `Function` belongs.
     pub fn store(&self) -> &Store {
         &self.store
     }
@@ -309,7 +314,6 @@ impl Function {
             .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
-            owned_by_store: false,
             definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
@@ -503,45 +507,73 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
     use wasm_common::{FunctionType, NativeWasmType, Type};
-    use wasmer_runtime::{raise_user_trap, resume_panic, VMFunctionBody};
+    use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
-    /// A trait to represent a wasm extern type.
-    pub unsafe trait WasmExternType: Copy
+    /// A trait to convert a Rust value to a `WasmNativeType` value,
+    /// or to convert `WasmNativeType` value to a Rust value.
+    ///
+    /// This trait should ideally be splitted into two traits:
+    /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
+    /// non-negligeable complexity in the `WasmTypeList`
+    /// implementation.
+    pub unsafe trait FromToNativeWasmType: Copy
     where
         Self: Sized,
     {
-        /// Native wasm type for this `WasmExternType`.
+        /// Native Wasm type.
         type Native: NativeWasmType;
 
-        /// Convert from given `Native` type to self.
+        /// Convert a value of kind `Self::Native` to `Self`.
+        ///
+        /// # Panics
+        ///
+        /// This method panics if `native` cannot fit in the `Self`
+        /// type`.
         fn from_native(native: Self::Native) -> Self;
 
-        /// Convert self to `Native` type.
+        /// Convert self to `Self::Native`.
+        ///
+        /// # Panics
+        ///
+        /// This method panics if `self` cannot fit in the
+        /// `Self::Native` type.
         fn to_native(self) -> Self::Native;
     }
 
-    macro_rules! wasm_extern_type {
+    macro_rules! from_to_native_wasm_type {
         ( $( $type:ty => $native_type:ty ),* ) => {
             $(
                 #[allow(clippy::use_self)]
-                unsafe impl WasmExternType for $type {
+                unsafe impl FromToNativeWasmType for $type {
                     type Native = $native_type;
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native as _
+                        native.try_into().expect(concat!(
+                            "out of range type conversion attempt (tried to convert `",
+                            stringify!($native_type),
+                            "` to `",
+                            stringify!($type),
+                            "`)",
+                        ))
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self as _
+                        self.try_into().expect(concat!(
+                            "out of range type conversion attempt (tried to convert `",
+                            stringify!($type),
+                            "` to `",
+                            stringify!($native_type),
+                            "`)",
+                        ))
                     }
                 }
             )*
         };
     }
 
-    wasm_extern_type!(
+    from_to_native_wasm_type!(
         i8 => i32,
         u8 => i32,
         i16 => i32,
@@ -553,6 +585,26 @@ mod inner {
         f32 => f32,
         f64 => f64
     );
+
+    #[cfg(test)]
+    mod test_from_to_native_wasm_type {
+        use super::*;
+
+        #[test]
+        fn test_to_native() {
+            assert_eq!(7i8.to_native(), 7i32);
+        }
+
+        #[test]
+        #[should_panic(
+            expected = "out of range type conversion attempt (tried to convert `u32` to `i32`)"
+        )]
+        fn test_to_native_panics() {
+            use std::{i32, u32};
+
+            assert_eq!(u32::MAX.to_native(), i32::MAX);
+        }
+    }
 
     /// The `WasmTypeList` trait represents a tuple (list) of Wasm
     /// typed values. It is used to get low-level representation of
@@ -644,6 +696,50 @@ mod inner {
         }
     }
 
+    #[cfg(test)]
+    mod test_into_result {
+        use super::*;
+        use std::convert::Infallible;
+
+        #[test]
+        fn test_into_result_over_t() {
+            let x: i32 = 42;
+            let result_of_x: Result<i32, Infallible> = x.into_result();
+
+            assert_eq!(result_of_x.unwrap(), x);
+        }
+
+        #[test]
+        fn test_into_result_over_result() {
+            {
+                let x: Result<i32, Infallible> = Ok(42);
+                let result_of_x: Result<i32, Infallible> = x.into_result();
+
+                assert_eq!(result_of_x, x);
+            }
+
+            {
+                use std::{error, fmt};
+
+                #[derive(Debug, PartialEq)]
+                struct E;
+
+                impl fmt::Display for E {
+                    fn fmt(&self, formatter: &mut fmt::Formatter<'_>) -> fmt::Result {
+                        write!(formatter, "E")
+                    }
+                }
+
+                impl error::Error for E {}
+
+                let x: Result<Infallible, E> = Err(E);
+                let result_of_x: Result<Infallible, E> = x.into_result();
+
+                assert_eq!(result_of_x.unwrap_err(), E);
+            }
+        }
+    }
+
     /// The `HostFunction` trait represents the set of functions that
     /// can be used as host function. To uphold this statement, it is
     /// necessary for a function to be transformed into a pointer to
@@ -729,9 +825,9 @@ mod inner {
             /// A structure with a C-compatible representation that can hold a set of Wasm values.
             /// This type is used by `WasmTypeList::CStruct`.
             #[repr($c_struct_representation)]
-            pub struct $c_struct_name< $( $x ),* > ( $( <$x as WasmExternType>::Native ),* )
+            pub struct $c_struct_name< $( $x ),* > ( $( <$x as FromToNativeWasmType>::Native ),* )
             where
-                $( $x: WasmExternType ),*;
+                $( $x: FromToNativeWasmType ),*;
 
             // Implement `WasmTypeList` for a specific tuple.
             #[allow(unused_parens, dead_code)]
@@ -740,7 +836,7 @@ mod inner {
             for
                 ( $( $x ),* )
             where
-                $( $x: WasmExternType ),*
+                $( $x: FromToNativeWasmType ),*
             {
                 type CStruct = $c_struct_name< $( $x ),* >;
 
@@ -754,7 +850,7 @@ mod inner {
                     // Build the tuple.
                     (
                         $(
-                            WasmExternType::from_native(NativeWasmType::from_binary($x))
+                            FromToNativeWasmType::from_native(NativeWasmType::from_binary($x))
                         ),*
                     )
                 }
@@ -771,7 +867,7 @@ mod inner {
                     // Build the array.
                     [
                         $(
-                            WasmExternType::to_native($x).to_binary()
+                            FromToNativeWasmType::to_native($x).to_binary()
                         ),*
                     ]
                 }
@@ -788,7 +884,7 @@ mod inner {
 
                     (
                         $(
-                            WasmExternType::from_native($x)
+                            FromToNativeWasmType::from_native($x)
                         ),*
                     )
                 }
@@ -801,7 +897,7 @@ mod inner {
                     // Build the C structure.
                     $c_struct_name(
                         $(
-                            WasmExternType::to_native($x)
+                            FromToNativeWasmType::to_native($x)
                         ),*
                     )
                 }
@@ -823,7 +919,7 @@ mod inner {
             for
                 Func
             where
-                $( $x: WasmExternType, )*
+                $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Func: Fn($( $x , )*) -> RetsAsResult + 'static + Send,
@@ -833,16 +929,16 @@ mod inner {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $($x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Func>( _: usize, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
-                        $( $x: WasmExternType, )*
+                        $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
                         Func: Fn( $( $x ),* ) -> RetsAsResult + 'static
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func( $( WasmExternType::from_native($x) ),* ).into_result()
+                            func( $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
@@ -852,17 +948,19 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Self > as *const VMFunctionBody
                 }
             }
 
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has an environment.
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, Env, Func >
                 HostFunction<( $( $x ),* ), Rets, WithEnv, Env>
             for
                 Func
             where
-                $( $x: WasmExternType, )*
+                $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Env: Sized,
@@ -875,7 +973,7 @@ mod inner {
                     /// runtime.
                     extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
-                        $( $x: WasmExternType, )*
+                        $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
                         Env: Sized,
@@ -884,7 +982,7 @@ mod inner {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 
                         let result = panic::catch_unwind(AssertUnwindSafe(|| {
-                            func(env, $( WasmExternType::from_native($x) ),* ).into_result()
+                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
                         }));
 
                         match result {
@@ -894,7 +992,7 @@ mod inner {
                         }
                     }
 
-                    func_wrapper::<$( $x, )* Rets, RetsAsResult, Env, Self> as *const VMFunctionBody
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
                 }
             }
 
@@ -945,7 +1043,8 @@ mod inner {
 
     // Implement `WasmTypeList` on `Infallible`, which means that
     // `Infallible` can be used as a returned type of a host function
-    // to express that it doesn't return.
+    // to express that it doesn't return, or to express that it cannot
+    // fail (with `Result<_, Infallible>`).
     impl WasmTypeList for Infallible {
         type CStruct = Self;
         type Array = [i128; 0];

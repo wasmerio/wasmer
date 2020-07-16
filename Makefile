@@ -91,7 +91,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -104,9 +104,11 @@ test-llvm:
 
 test-packages:
 	cargo test -p wasmer --release
-	cargo test -p wasmer-runtime --release
+	cargo test -p wasmer-vm --release
 	cargo test -p wasm-common --release
 	cargo test -p wasmer-wasi --release
+	cargo test -p wasmer-object --release
+	cargo test -p wasmer-engine-native --release --no-default-features
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -120,10 +122,18 @@ test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi -- --nocapture
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm test-capi-emscripten
+test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+test-examples:
+	cargo test --release $(compiler_features) --features wasi --examples
+
+test-deprecated:
+	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 #############
 # Packaging #
@@ -176,8 +186,8 @@ package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/html package/docs/c-api
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_runtime/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_runtime/index.html">' > package/docs/crates/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
 	cp LICENSE package/LICENSE

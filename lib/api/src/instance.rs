@@ -4,7 +4,7 @@ use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
 use wasmer_engine::Resolver;
-use wasmer_runtime::InstanceHandle;
+use wasmer_vm::InstanceHandle;
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -12,6 +12,8 @@ use wasmer_runtime::InstanceHandle;
 /// Instance objects contain all the exported WebAssembly
 /// functions, memories, tables and globals that allow
 /// interacting with WebAssembly.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
 #[derive(Clone)]
 pub struct Instance {
     handle: InstanceHandle,
@@ -19,6 +21,19 @@ pub struct Instance {
     /// The exports for an instance.
     pub exports: Exports,
 }
+/*
+#[cfg(test)]
+mod send_test {
+    use super::*;
+
+    fn is_send<T: Send>() -> bool {
+        true
+    }
+    #[test]
+    fn instance_is_send() {
+        assert!(is_send::<Instance>());
+    }
+}*/
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
@@ -81,6 +96,7 @@ impl Instance {
         &self.module
     }
 
+    /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
     }

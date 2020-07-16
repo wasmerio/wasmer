@@ -8,18 +8,18 @@ checksum = "955f37ac58af2416bac687c8ab66a4ccba282229bd7422a28d2281a5e66a6116"
 
 [[package]]
 name = "addr2line"
-version = "0.12.2"
+version = "0.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "602d785912f476e480434627e8732e6766b760c045bbf897d9dfaa9f4fbd399c"
+checksum = "1b6a2d3371669ab3ca9797670853d61402b03d0b4b9ebf33d677dfa720203072"
 dependencies = [
- "gimli",
+ "gimli 0.22.0",
 ]
 
 [[package]]
-name = "adler32"
-version = "1.1.0"
+name = "adler"
+version = "0.2.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "567b077b825e468cc974f0020d4082ee6e03132512f207ef1a02fd5d00d1f32d"
+checksum = "ccc9a9dd069569f212bc4330af9f17c4afb5e8ce185e83dbb14f1349dda18b10"
 
 [[package]]
 name = "ahash"
@@ -88,9 +88,9 @@ checksum = "f8aac770f1885fd7e387acedd76065302551364496e46b3dd00860b2f8359b9d"
 
 [[package]]
 name = "backtrace"
-version = "0.3.49"
+version = "0.3.50"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05100821de9e028f12ae3d189176b41ee198341eb8f369956407fea2f5cc666c"
+checksum = "46254cf2fdcdf1badb5934448c1bcbe046a56537b3987d96c51a7afc5d03f293"
 dependencies = [
  "addr2line",
  "cfg-if",
@@ -222,9 +222,9 @@ dependencies = [
 
 [[package]]
 name = "cc"
-version = "1.0.56"
+version = "1.0.57"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "77c1f1d60091c1b73e2b1f4560ab419204b178e625fa945ded7b660becd2bd46"
+checksum = "0fde55d2a2bfaa4c9668bbc63f531fbdeee3ffe188f4662511ce2c22b3eedebe"
 
 [[package]]
 name = "cexpr"
@@ -313,7 +313,7 @@ dependencies = [
  "cranelift-codegen-meta",
  "cranelift-codegen-shared",
  "cranelift-entity",
- "gimli",
+ "gimli 0.21.0",
  "hashbrown 0.7.2",
  "log",
  "regalloc",
@@ -708,6 +708,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "gimli"
+version = "0.22.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aaf91faf136cb47367fa430cd46e37a788775e7fa104f8b4bcb3861dc389b724"
+
+[[package]]
 name = "glob"
 version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -761,9 +767,9 @@ dependencies = [
 
 [[package]]
 name = "hermit-abi"
-version = "0.1.14"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b9586eedd4ce6b3c498bc3b4dd92fc9f11166aa908a914071953768066c67909"
+checksum = "3deed196b6e7f9e44a2ae8d94225d80302d81208b1bb673fd21fe634645c85a9"
 dependencies = [
  "libc",
 ]
@@ -889,9 +895,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "libc"
-version = "0.2.71"
+version = "0.2.72"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9457b06509d27052635f90d6466700c65095fdf75409b3fbdd903e988b886f49"
+checksum = "a9f8082297d534141b30c8d39e9b1773713ab50fdbe4ff30f750d063b3bfd701"
 
 [[package]]
 name = "libffi"
@@ -1035,11 +1041,11 @@ dependencies = [
 
 [[package]]
 name = "miniz_oxide"
-version = "0.3.7"
+version = "0.4.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "791daaae1ed6889560f8c4359194f56648355540573244a5448a83ba1ecc7435"
+checksum = "be0f75932c1f6cfae3c04000e40114adf955636e19040f9c0a2c380702aa1c7f"
 dependencies = [
- "adler32",
+ "adler",
 ]
 
 [[package]]
@@ -1732,9 +1738,9 @@ checksum = "7fdf1b9db47230893d76faad238fd6097fd6d6a9245cd7a4d90dbd639536bbd2"
 
 [[package]]
 name = "smallvec"
-version = "1.4.0"
+version = "1.4.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c7cb5678e1615754284ec264d9bb5b4c27d2018577fd90ac0ceb578591ed5ee4"
+checksum = "3757cb9d89161a2f24e1cf78efa0c1fcff485d18e3f55e0aa3480824ddaa0f3f"
 
 [[package]]
 name = "stable_deref_trait"
@@ -2113,7 +2119,7 @@ dependencies = [
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
- "wasmer-runtime",
+ "wasmer-vm",
  "wat",
  "winapi",
 ]
@@ -2135,6 +2141,7 @@ dependencies = [
  "lazy_static",
  "rustc_version",
  "structopt",
+ "tempfile",
  "test-generator",
  "wasm-common",
  "wasmer",
@@ -2201,7 +2208,7 @@ dependencies = [
  "target-lexicon",
  "thiserror",
  "wasm-common",
- "wasmer-runtime",
+ "wasmer-vm",
  "wasmparser",
 ]
 
@@ -2211,7 +2218,7 @@ version = "1.0.0-alpha.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
- "gimli",
+ "gimli 0.21.0",
  "hashbrown 0.8.0",
  "lazy_static",
  "more-asserts",
@@ -2221,7 +2228,7 @@ dependencies = [
  "tracing",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2243,7 +2250,7 @@ dependencies = [
  "target-lexicon",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2261,7 +2268,7 @@ dependencies = [
  "smallvec",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2285,7 +2292,6 @@ dependencies = [
  "bincode",
  "lazy_static",
  "more-asserts",
- "region",
  "rustc-demangle",
  "serde",
  "serde_bytes",
@@ -2293,7 +2299,7 @@ dependencies = [
  "thiserror",
  "wasm-common",
  "wasmer-compiler",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -2307,7 +2313,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2322,7 +2328,7 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
- "wasmer-runtime",
+ "wasmer-vm",
  "winapi",
 ]
 
@@ -2342,7 +2348,7 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
- "wasmer-runtime",
+ "wasmer-vm",
 ]
 
 [[package]]
@@ -2356,7 +2362,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-runtime"
+name = "wasmer-vm"
 version = "1.0.0-alpha.1"
 dependencies = [
  "backtrace",

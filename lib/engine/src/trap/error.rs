@@ -4,7 +4,7 @@ use std::error::Error;
 use std::fmt;
 use std::sync::Arc;
 use std::sync::RwLockReadGuard;
-use wasmer_runtime::{raise_user_trap, Trap, TrapCode};
+use wasmer_vm::{raise_user_trap, Trap, TrapCode};
 
 /// A struct representing an aborted instruction execution, with a message
 /// indicating the cause.
@@ -44,8 +44,9 @@ impl RuntimeError {
                 // theory) we should only see user errors which were originally
                 // created from our own `Trap` type (see the trampoline module
                 // with functions).
-                // Self::new(format!("{}", error))
-                *error.downcast().expect("only `Trap` errors are supported")
+                *error
+                    .downcast()
+                    .expect("only `RuntimeError` errors are supported")
             }
             Trap::Runtime {
                 pc,

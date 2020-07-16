@@ -11,7 +11,7 @@ keywords = ["webassembly", "wasm", "compiler"]
 edition = "2018"
 
 [dependencies]
-wasmer-runtime = { path = "../runtime", version = "1.0.0-alpha.1" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
 wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
 wasmparser = { version = "0.57", optional = true, default-features = false }
 target-lexicon = { version = "0.10", default-features = false }

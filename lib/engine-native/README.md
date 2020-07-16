@@ -10,6 +10,8 @@ so it can be usable by the `wasmer` API.
 
 This allows Wasmer to achieve *blazing fast* native startup times.
 
+*Note: you can find a [full working example using the JIT engine here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/engine-jit.rs).*
+
 ## Requirements
 
 The `wasmer-engine-native` crate requires a linker available on your

@@ -58,7 +58,7 @@ int main()
     char *error_str2 = malloc(error_len2);
     wasmer_last_error_message(error_str2, error_len2);
     printf("Error str 2: `%s`\n", error_str2);
-    assert(0 == strcmp(error_str2, "The memory plan is invalid because the maximum (10 pages) is less than the minimum (15 pages)"));
+    assert(0 == strcmp(error_str2, "The memory is invalid because the maximum (10 pages) is less than the minimum (15 pages)"));
     free(error_str2);
 
     printf("Destroy memory\n");

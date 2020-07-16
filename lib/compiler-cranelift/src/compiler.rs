@@ -60,8 +60,8 @@ impl Compiler for CraneliftCompiler {
     ) -> Result<Compilation, CompileError> {
         let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
-        let memory_plans = &compile_info.memory_plans;
-        let table_plans = &compile_info.table_plans;
+        let memory_styles = &compile_info.memory_styles;
+        let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -100,8 +100,8 @@ impl Compiler for CraneliftCompiler {
                     isa.frontend_config(),
                     module,
                     &signatures,
-                    &memory_plans,
-                    &table_plans,
+                    &memory_styles,
+                    &table_styles,
                 );
                 context.func.name = get_func_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();
@@ -219,7 +219,7 @@ impl Compiler for CraneliftCompiler {
             .into_iter()
             .collect::<PrimaryMap<SignatureIndex, FunctionBody>>();
 
-        use wasmer_runtime::VMOffsets;
+        use wasmer_vm::VMOffsets;
         let offsets = VMOffsets::new_for_trampolines(frontend_config.pointer_bytes());
         // dynamic function trampolines (only for imported functions)
         let dynamic_function_trampolines = module

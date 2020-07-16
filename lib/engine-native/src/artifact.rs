@@ -15,25 +15,25 @@ use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
 use wasm_common::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "compiler")]
+use wasm_common::DataInitializer;
 use wasm_common::{
-    DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{
-    Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, OperatingSystem, Target, Triple,
-};
-use wasmer_compiler::{CompileError, Features};
-#[cfg(feature = "compiler")]
-use wasmer_engine::Engine;
+use wasmer_compiler::{Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, Target};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
-    Tunables,
 };
 #[cfg(feature = "compiler")]
-use wasmer_object::{emit_compilation, emit_data, get_object_for_target, CompilationNamer};
-use wasmer_runtime::{MemoryPlan, TablePlan};
-use wasmer_runtime::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_engine::{Engine, Tunables};
+use wasmer_object::CompilationNamer;
+#[cfg(feature = "compiler")]
+use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
+use wasmer_vm::{MemoryStyle, TableStyle};
+use wasmer_vm::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
@@ -49,6 +49,8 @@ pub struct NativeArtifact {
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
+
+const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl NativeArtifact {
     // Mach-O header in Mac
@@ -91,6 +93,7 @@ impl NativeArtifact {
         }
     }
 
+    #[cfg(feature = "compiler")]
     /// Generate a compilation
     pub fn generate_compilation<'data>(
         data: &'data [u8],
@@ -101,24 +104,24 @@ impl NativeArtifact {
     ) -> Result<(CompileModuleInfo, Compilation, Vec<DataInitializer<'data>>), CompileError> {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let memory_plans: PrimaryMap<MemoryIndex, MemoryPlan> = translation
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
             .memories
             .values()
-            .map(|memory_type| tunables.memory_plan(*memory_type))
+            .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_plans: PrimaryMap<TableIndex, TablePlan> = translation
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
             .module
             .tables
             .values()
-            .map(|table_type| tunables.table_plan(*table_type))
+            .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
-            memory_plans,
-            table_plans,
+            memory_styles,
+            table_styles,
         };
 
         // Compile the Module
@@ -154,7 +157,7 @@ impl NativeArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let target_triple = target.triple().clone();
+        let target_triple = target.triple();
 
         // We construct the function body lengths
         let function_body_lengths = compilation
@@ -179,8 +182,9 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        emit_data(&mut obj, b"WASMER_METADATA", &metadata_binary).map_err(to_compile_error)?;
-        emit_compilation(&mut obj, compilation, &metadata).map_err(to_compile_error)?;
+        emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary).map_err(to_compile_error)?;
+        emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+            .map_err(to_compile_error)?;
 
         let filepath = {
             let file = tempfile::Builder::new()
@@ -211,7 +215,7 @@ impl NativeArtifact {
         };
 
         let host_target = Triple::host();
-        let is_cross_compiling = target_triple != host_target;
+        let is_cross_compiling = target_triple != &host_target;
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
@@ -472,7 +476,7 @@ impl NativeArtifact {
         // to take the first element of the data to construct the slice from
         // it.
         let symbol: LibrarySymbol<*mut [u8; 10 + 1]> =
-            lib.get(b"WASMER_METADATA").map_err(|e| {
+            lib.get(WASMER_METADATA_SYMBOL).map_err(|e| {
                 DeserializeError::CorruptedBinary(format!(
                     "The provided object file doesn't seem to be generated by Wasmer: {}",
                     e
@@ -522,12 +526,12 @@ impl Artifact for NativeArtifact {
         &*self.metadata.data_initializers
     }
 
-    fn memory_plans(&self) -> &PrimaryMap<MemoryIndex, MemoryPlan> {
-        &self.metadata.compile_info.memory_plans
+    fn memory_styles(&self) -> &PrimaryMap<MemoryIndex, MemoryStyle> {
+        &self.metadata.compile_info.memory_styles
     }
 
-    fn table_plans(&self) -> &PrimaryMap<TableIndex, TablePlan> {
-        &self.metadata.compile_info.table_plans
+    fn table_styles(&self) -> &PrimaryMap<TableIndex, TableStyle> {
+        &self.metadata.compile_info.table_styles
     }
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {

@@ -11,7 +11,7 @@ use thiserror::Error;
 /// [compiler-error]: https://developer.mozilla.org/en-US/docs/Web/JavaScript/Reference/Global_Objects/WebAssembly/CompileError
 #[derive(Error, Debug)]
 pub enum CompileError {
-    /// A wasm translation error occured.
+    /// A Wasm translation error occured.
     #[error("WebAssembly translation error: {0}")]
     Wasm(#[from] WasmError),
 

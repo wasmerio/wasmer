@@ -4,7 +4,7 @@ mod memory;
 mod table;
 
 pub use self::function::{
-    Function, HostFunction, WasmExternType, WasmTypeList, WithEnv, WithoutEnv,
+    FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
 };
 pub use self::global::Global;
 pub use self::memory::Memory;
@@ -13,17 +13,26 @@ pub use self::table::Table;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
-use wasmer_runtime::Export;
+use wasmer_vm::Export;
 
+/// An `Extern` is the runtime representation of an entity that
+/// can be imported or exported.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#external-values
 #[derive(Clone)]
 pub enum Extern {
+    /// A external [`Function`].
     Function(Function),
+    /// A external [`Global`].
     Global(Global),
+    /// A external [`Table`].
     Table(Table),
+    /// A external [`Memory`].
     Memory(Memory),
 }
 
 impl Extern {
+    /// Return the undelying type of the inner `Extern`.
     pub fn ty(&self) -> ExternType {
         match self {
             Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
@@ -33,7 +42,8 @@ impl Extern {
         }
     }
 
-    pub(crate) fn from_export(store: &Store, export: Export) -> Extern {
+    /// Create an `Extern` from an `Export`.
+    pub fn from_export(store: &Store, export: Export) -> Extern {
         match export {
             Export::Function(f) => Extern::Function(Function::from_export(store, f)),
             Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),

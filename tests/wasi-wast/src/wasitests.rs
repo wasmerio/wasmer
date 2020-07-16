@@ -360,9 +360,15 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
 
             match command_name.as_ref() {
                 "mapdir" => {
-                    if let [alias, real_dir] = &tokenized[1].split(':').collect::<Vec<&str>>()[..] {
+                    // We try first splitting by `::`
+                    if let [alias, real_dir] = &tokenized[1].split("::").collect::<Vec<&str>>()[..] {
                         args.mapdir.push((alias.to_string(), real_dir.to_string()));
-                    } else {
+                    }
+                    // And then we try splitting by `:` (for compatibility with previous API)
+                    else if let [alias, real_dir] = &tokenized[1].split(':').collect::<Vec<&str>>()[..] {
+                        args.mapdir.push((alias.to_string(), real_dir.to_string()));
+                    }
+                    else {
                         eprintln!(
                             "Parse error in mapdir {} not parsed correctly",
                             &tokenized[1]
@@ -372,7 +378,8 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                 "env" => {
                     if let [name, val] = &tokenized[1].split('=').collect::<Vec<&str>>()[..] {
                         args.env.push((name.to_string(), val.to_string()));
-                    } else {
+                    }
+                    else {
                         eprintln!("Parse error in env {} not parsed correctly", &tokenized[1]);
                     }
                 }

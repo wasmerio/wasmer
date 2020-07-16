@@ -1,15 +1,19 @@
 # Wasmer Engine
 
-The Wasmer Engine is the general abstraction for Engines in Wasmer.
+The `wasmer-engine` crate is the general abstraction for creating Engines in Wasmer.
+
+Wasmer Engines are mainly responsible for two things:
+* Transform the compilation code (from any Wasmer Compiler) to **create** an `Artifact`
+* **Load** an`Artifact` so it can be used by the user (normally, pushing the code into executable memory and so on)
+
 It currently has two implementations:
-* Wasmer JIT
-* Wasmer Native
+* [JIT](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/engine-jit)
+* [Native](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/engine-native)
 
 ## Example Implementation
 
 Please check [`wasmer-engine-dummy`](../../tests/lib/engine-dummy/) for an example
 implementation for an Engine.
-
 
 ### Acknowledgments
 
