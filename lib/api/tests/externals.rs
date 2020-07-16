@@ -174,7 +174,7 @@ fn memory_grow() -> Result<()> {
 
     assert!(matches!(
         bad_result,
-        Err(MemoryError::InvalidMemoryPlan { .. })
+        Err(MemoryError::InvalidMemory { .. })
     ));
 
     Ok(())
