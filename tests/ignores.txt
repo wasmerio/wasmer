@@ -3,6 +3,12 @@ singlepass::spec::multi_value
 
 singlepass on windows # Singlepass is not yet supported on Windows
 
+# TODO: We need to fix this. The issue happens only in Cranelift/LLVM and macOS,
+# is caused by libunwind overflowing the stack while creating the stacktrace.
+# https://github.com/rust-lang/backtrace-rs/issues/356
+cranelift::spec::skip_stack_guard_page on darwin
+llvm::spec::skip_stack_guard_page on darwin
+
 # Frontends
 
 ## WASI
