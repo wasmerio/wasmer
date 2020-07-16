@@ -109,32 +109,36 @@ impl GlobalStore {
         }
     }
 
-    #[allow(unreachable_code, unused_variables)]
     fn renew_with(&self, compiler: backend::Backend) {
         if compiler == self.backend {
             return;
         }
 
-        let compiler_config: &dyn new::wasmer_compiler::CompilerConfig = match compiler {
-            #[cfg(feature = "singlepass")]
-            Backend::Singlepass => &new::wasmer_compiler_singlepass::Singlepass::default(),
+        #[allow(unused_variables)]
+        let update = |compiler_config: &dyn new::wasmer_compiler::CompilerConfig,
+                      global_store: &GlobalStore| {
+            let engine = new::wasmer_engine_jit::JIT::new(compiler_config).engine();
 
-            #[cfg(feature = "cranelift")]
-            Backend::Cranelift => &new::wasmer_compiler_cranelift::Cranelift::default(),
-
-            #[cfg(feature = "llvm")]
-            Backend::LLVM => &new::wasmer_compiler_llvm::LLVM::default(),
-
-            Backend::Auto => {
-                *self.store.lock().unwrap() = Arc::new(Default::default());
-
-                return;
-            }
+            *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
         };
 
-        let engine = new::wasmer_engine_jit::JIT::new(compiler_config).engine();
+        match compiler {
+            #[cfg(feature = "singlepass")]
+            Backend::Singlepass => update(
+                &new::wasmer_compiler_singlepass::Singlepass::default(),
+                &self,
+            ),
 
-        *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
+            #[cfg(feature = "cranelift")]
+            Backend::Cranelift => {
+                update(&new::wasmer_compiler_cranelift::Cranelift::default(), &self)
+            }
+
+            #[cfg(feature = "llvm")]
+            Backend::LLVM => update(&new::wasmer_compiler_llvm::LLVM::default(), &self),
+
+            Backend::Auto => *self.store.lock().unwrap() = Arc::new(Default::default()),
+        };
     }
 
     fn inner_store(&self) -> Arc<new::wasmer::Store> {
