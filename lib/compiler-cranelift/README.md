@@ -22,7 +22,7 @@ let compiler = Cranelift::new();
 let store = Store::new(&JIT::new(&compiler).engine());
 ```
 
-*Note: you can find a [full working example using Cranelift compiler here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler-cranelift.rs).*
+*Note: you can find a [full working example using Cranelift compiler here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler_cranelift.rs).*
 
 ## When to use Cranelift
 
