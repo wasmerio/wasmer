@@ -41,3 +41,16 @@ pub trait Compiler {
     ) -> Result<Compilation, CompileError>;
 }
 ```
+
+## Acknowledgments
+
+This project borrowed some of the code strucutre from the
+[`cranelift-wasm`] crate, however it's been adapted to not depend on
+any specific IR and be abstract of any compiler.
+
+Please check [Wasmer `ATTRIBUTIONS`] to further see licenses and other
+attributions of the project.
+
+
+[`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
