@@ -4,8 +4,8 @@
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
-//! ```bash
-//! cargo +nightly run --example compiler-singlepass --release --features "singlepass"
+//! ```shell
+//! cargo run --example compiler-singlepass --release --features "singlepass"
 //! ```
 //!
 //! Ready?

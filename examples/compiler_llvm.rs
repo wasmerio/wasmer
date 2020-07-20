@@ -4,7 +4,7 @@
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
-//! ```bash
+//! ```shell
 //! cargo run --example compiler-llvm --release --features "llvm"
 //! ```
 //!

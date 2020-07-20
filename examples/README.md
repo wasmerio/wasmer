@@ -89,7 +89,7 @@ example.
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo +nightly run --example compiler-singlepass --release --features "singlepass"
+   $ cargo run --example compiler-singlepass --release --features "singlepass"
    ```
 
    </details>
