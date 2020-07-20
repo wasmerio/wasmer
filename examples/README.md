@@ -4,6 +4,33 @@ This directory contains a collection of examples. This isn't an
 exhaustive collection though, if one example is missing, please ask,
 we will be happy to fulfill your needs!
 
+## Handy Diagrams
+
+As a quick introduction to Wasmer's main workflows, here are three
+diagrams. We hope it provides an overview of how the crates assemble
+together.
+
+1. **Module compilation**, illustrates how WebAssembly bytes are
+   validated, parsed, and compiled, with the help of the
+   `wasmer::Module`, `wasmer_engine::Engine`, and
+   `wasmer_compiler::Compiler` API.
+
+   ![Module compilation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_compilation.svg?sanitize=true)
+
+2. **Module serialization**, illustrates how a module can be
+   serialized and deserialized, with the help of
+   `wasmer::Module::serialize` and `wasmer::Module::deserialize`. The
+   important part is that the engine can changed between those two
+   steps, and thus how a headless engine can be used for the
+   deserialization.
+
+   ![Module serialization](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_serialization.svg?sanitize=true)
+
+3. **Module instantiation**, illustrates what happens when
+   `wasmer::Instance::new` is called.
+
+   ![Module instantiation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_instantiation.svg?sanitize=true)
+
 ## Examples
 
 The examples are written in a difficulty/discovery order. Concepts that
