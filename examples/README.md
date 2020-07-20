@@ -15,7 +15,7 @@ together.
    `wasmer::Module`, `wasmer_engine::Engine`, and
    `wasmer_compiler::Compiler` API.
 
-   ![Module compilation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_compilation.svg?sanitize=true)
+   ![Module compilation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/master/docs/Diagram_module_compilation.svg?sanitize=true)
 
 2. **Module serialization**, illustrates how a module can be
    serialized and deserialized, with the help of
@@ -24,12 +24,12 @@ together.
    steps, and thus how a headless engine can be used for the
    deserialization.
 
-   ![Module serialization](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_serialization.svg?sanitize=true)
+   ![Module serialization](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/master/docs/Diagram_module_serialization.svg?sanitize=true)
 
 3. **Module instantiation**, illustrates what happens when
    `wasmer::Instance::new` is called.
 
-   ![Module instantiation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/doc-exmaple-svg/docs/Diagram_module_instantiation.svg?sanitize=true)
+   ![Module instantiation](https://raw.githubusercontent.com/wasmerio/wasmer-reborn/master/docs/Diagram_module_instantiation.svg?sanitize=true)
 
 ## Examples
 
