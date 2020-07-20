@@ -78,7 +78,7 @@ static WASM: &'static [u8] = &[
     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
 ];
 
-fn main() -> error::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We're not importing anything, so make an empty import object.
     let import_object = imports! {};
 
