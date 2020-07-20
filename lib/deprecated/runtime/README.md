@@ -17,7 +17,7 @@ possible. Indeed, it was not always possible to provide the exact same
 API, but changes are subtle.
 
 We have carefully documented most of the differences in [the
-`CHANGES.md` document](./CHANGES.md).
+`runtime-core/CHANGES.md` document](../runtme-core/CHANGES.md).
 
 It is important to understand the public of this port. We do not
 recommend to advanced users of Wasmer to use this port. Advanced API,
