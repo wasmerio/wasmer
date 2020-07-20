@@ -17,7 +17,7 @@ possible. Indeed, it was not always possible to provide the exact same
 API, but changes are subtle.
 
 We have carefully documented most of the differences in [the
-`CHANGES.md` document](./CHANGES.md).
+`runtime-core/CHANGES.md` document](../runtme-core/CHANGES.md).
 
 It is important to understand the public of this port. We do not
 recommend to advanced users of Wasmer to use this port. Advanced API,
@@ -78,7 +78,7 @@ static WASM: &'static [u8] = &[
     0x6f, 0x6e, 0x65, 0x02, 0x07, 0x01, 0x00, 0x01, 0x00, 0x02, 0x70, 0x30,
 ];
 
-fn main() -> error::Result<()> {
+fn main() -> Result<(), Box<dyn std::error::Error>> {
     // We're not importing anything, so make an empty import object.
     let import_object = imports! {};
 

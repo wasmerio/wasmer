@@ -22,16 +22,25 @@ let compiler = Cranelift::new();
 let store = Store::new(&JIT::new(&compiler).engine());
 ```
 
-*Note: you can find a [full working example using Cranelift compiler here](https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler_cranelift.rs).*
+*Note: you can find a [full working example using Cranelift compiler
+here][example].*
 
 ## When to use Cranelift
 
-We recommend using this compiler crate **only for development proposes**.
-For production we recommend using `wasmer-compiler-llvm` as it offers
-a much better runtime speed (50% faster on average).
+We recommend using this compiler crate **only for development
+proposes**. For production we recommend using [`wasmer-compiler-llvm`]
+as it offers a much better runtime speed (50% faster on average).
 
 ### Acknowledgments
 
-This project borrowed some of the function lowering from [cranelift-wasm](https://crates.io/crates/cranelift-wasm).
+This project borrowed some of the function lowering from
+[`cranelift-wasm`].
 
-Please check [Wasmer ATTRIBUTIONS](https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md) to further see licenses and other attributions of the project. 
+Please check [Wasmer `ATTRIBUTIONS`] to further see licenses and other
+attributions of the project.
+
+
+[example]: https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler_cranelift.rs
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm
+[`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

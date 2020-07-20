@@ -38,7 +38,7 @@
 //!
 //! You can run the example directly by executing in Wasmer root:
 //!
-//! ```bash
+//! ```shell
 //! cargo run --example engine-headless --release --features "cranelift"
 //! ```
 //!

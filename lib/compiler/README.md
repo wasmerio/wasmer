@@ -2,17 +2,22 @@
 
 This crate is the base for Compiler implementations.
 
-It performs the translation from a Wasm module into a basic ModuleInfo,
-but leaves the Wasm function bytecode translation to the compiler implementor.
+It performs the translation from a Wasm module into a basic
+`ModuleInfo`, but leaves the Wasm function bytecode translation to the
+compiler implementor.
 
 Here are some of the Compilers provided by Wasmer:
-* [Singlepass](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass)
-* [Cranelift](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift)
-* [LLVM](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm)
+
+* [Singlepass](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass),
+* [Cranelift](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift),
+* [LLVM](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm).
 
 ## How to create a compiler
 
-Creating a new compiler is quite easy, you just need to impement two traits: `CompilerConfig` and `Compiler`:
+To create a compiler, one needs to implement two traits:
+
+1. `CompilerConfig`, that configures and creates a new compiler,
+2. `Compiler`, the compiler itself that will compile a module.
 
 ```rust
 /// The compiler configuration options.
@@ -21,7 +26,7 @@ pub trait CompilerConfig {
     fn compiler(&self) -> Box<dyn Compiler + Send>;
 }
 
-/// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
+/// An implementation of a compiler from parsed WebAssembly module to compiled native code.
 pub trait Compiler {
     /// Compiles a parsed module.
     ///
@@ -37,9 +42,15 @@ pub trait Compiler {
 }
 ```
 
+## Acknowledgments
 
-### Acknowledgments
+This project borrowed some of the code strucutre from the
+[`cranelift-wasm`] crate, however it's been adapted to not depend on
+any specific IR and be abstract of any compiler.
 
-This project borrowed some of the code strucutre from the [cranelift-wasm](https://crates.io/crates/cranelift-wasm) crate, however it's been adapted to not depend on any specific IR and be abstract of any compiler.
+Please check [Wasmer `ATTRIBUTIONS`] to further see licenses and other
+attributions of the project.
 
-Please check [Wasmer ATTRIBUTIONS](https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md) to further see licenses and other attributions of the project. 
+
+[`cranelift-wasm`]: https://crates.io/crates/cranelift-wasm
+[Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
