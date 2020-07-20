@@ -6,7 +6,10 @@
     intra_doc_link_resolution_failure
 )]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(clippy::new_without_default, vtable_address_comparisons)
+)]
 #![cfg_attr(
     feature = "cargo-clippy",
     warn(

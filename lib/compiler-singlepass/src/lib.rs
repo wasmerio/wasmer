@@ -7,10 +7,6 @@
 //!
 //! Compared to Cranelift and LLVM, Singlepass compiles much faster but has worse
 //! runtime performance.
-//!
-//! > Note: Singlepass currently depends on Rust nightly features.
-
-#![feature(proc_macro_hygiene)]
 
 mod codegen_x64;
 mod common_decl;

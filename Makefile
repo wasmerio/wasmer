@@ -10,21 +10,13 @@ endif
 
 compilers :=
 
-# Singlepass is enabled
-RUST_VERSION := $(shell rustc -V)
-
-ifneq (, $(findstring nightly,$(RUST_VERSION)))
-	# Singlepass doesn't work yet on Windows
-	ifneq ($(OS), Windows_NT)
-		compilers += singlepass
-	endif
-endif
-
 ifeq ($(ARCH), x86_64)
 	# In X64, Cranelift is enabled
 	compilers += cranelift
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
+		# Singlepass doesn't work yet on Windows
+		compilers += singlepass
 		# Autodetect LLVM from llvm-config
 		ifneq (, $(shell which llvm-config))
 			LLVM_VERSION := $(shell llvm-config --version)
@@ -96,7 +88,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -134,6 +126,11 @@ test-wasi-unit:
 
 test-examples:
 	cargo test --release $(compiler_features) --features wasi --examples
+
+test-deprecated:
+	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 #############
 # Packaging #
