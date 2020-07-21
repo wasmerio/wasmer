@@ -2,7 +2,7 @@
 //! serializing compiled wasm code to a binary format.  The binary format can be persisted,
 //! and loaded to allow skipping compilation and fast startup.
 
-use crate::hash::WasmHash;
+use crate::hash::Hash;
 use std::error::Error;
 use wasmer::{Module, Store};
 
@@ -13,12 +13,12 @@ pub trait Cache {
     /// The deserialization error for the implementation
     type DeserializeError: Error + Send + Sync;
 
-    /// Loads a module using the provided [`Store`] and [`WasmHash`].
+    /// Loads a module using the provided [`Store`] and [`Hash`].
     ///
     /// # Safety
     /// This function is unsafe as the cache store could be tampered with.
-    unsafe fn load(&self, store: &Store, key: WasmHash) -> Result<Module, Self::DeserializeError>;
+    unsafe fn load(&self, store: &Store, key: Hash) -> Result<Module, Self::DeserializeError>;
 
-    /// Store a [`Module`] into the cache with the given [`WasmHash`].
-    fn store(&mut self, key: WasmHash, module: &Module) -> Result<(), Self::SerializeError>;
+    /// Store a [`Module`] into the cache with the given [`Hash`].
+    fn store(&mut self, key: Hash, module: &Module) -> Result<(), Self::SerializeError>;
 }
