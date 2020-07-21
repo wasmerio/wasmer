@@ -59,7 +59,7 @@ impl Artifact {
 /// The hash of a wasm module.
 #[derive(Debug, Copy, Clone, PartialEq, Eq, Hash)]
 pub struct WasmHash {
-    new_hash: new::wasmer_cache::WasmHash,
+    new_hash: new::wasmer_cache::Hash,
 }
 
 impl WasmHash {
@@ -71,7 +71,7 @@ impl WasmHash {
     /// is, in fact, a wasm module.
     pub fn generate(wasm_bytes: &[u8]) -> Self {
         Self {
-            new_hash: new::wasmer_cache::WasmHash::generate(wasm_bytes),
+            new_hash: new::wasmer_cache::Hash::generate(wasm_bytes),
         }
     }
 
@@ -84,7 +84,7 @@ impl WasmHash {
     /// Create hash from hexadecimal representation
     pub fn decode(hex_str: &str) -> Result<Self, new::wasmer_engine::DeserializeError> {
         Ok(Self {
-            new_hash: new::wasmer_cache::WasmHash::from_str(hex_str)?,
+            new_hash: new::wasmer_cache::Hash::from_str(hex_str)?,
         })
     }
 }
