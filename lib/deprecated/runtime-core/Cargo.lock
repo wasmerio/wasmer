@@ -299,9 +299,9 @@ dependencies = [
 
 [[package]]
 name = "dynasm"
-version = "0.7.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6a93688d3993e998336f7e31d1272bafc078f7665c8b883bd08f140e73d2e9cd"
+checksum = "62a59fbab09460c1569eeea9b5e4cf62f13f5198b1c2ba0e5196dd7fdd17cd42"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -314,9 +314,9 @@ dependencies = [
 
 [[package]]
 name = "dynasmrt"
-version = "0.7.1"
+version = "1.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "acae550ea0de09db4dcb18d4cd49f9f7963edd34783a4571429ba2c4e13e1e09"
+checksum = "85bec3edae2841d37b1c3dc7f3fd403c9061f26e9ffeeee97a3ea909b1bb2ef1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -694,9 +694,9 @@ dependencies = [
 
 [[package]]
 name = "proc-macro2"
-version = "1.0.18"
+version = "1.0.19"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "beae6331a816b1f65d04c45b078fd8e6c93e8071771f41b8163255bbd8d7c8fa"
+checksum = "04f5f085b5d71e2188cb8271e5da0161ad52c3f227a661a3c135fdf28e258b12"
 dependencies = [
  "unicode-xid",
 ]
