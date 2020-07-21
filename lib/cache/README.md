@@ -19,7 +19,7 @@ fn store_module(module: &Module, bytes: &[u8]) -> Result<(), SerializeError> {
     let mut fs_cache = FileSystemCache::new("some/directory/goes/here")?;
 
     // Compute a key for a given WebAssembly binary
-    let hash = Hash::generate(key);
+    let hash = Hash::generate(bytes);
 
     // Store a module into the cache given a key
     fs_cache.store(hash, module.clone())?;
