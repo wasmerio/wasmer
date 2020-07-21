@@ -91,7 +91,7 @@ impl Module {
             let store = self.new_module.store();
 
             import_object
-                .clone_ref()
+                .clone()
                 .into_iter()
                 .map(|((namespace, name), export)| match export {
                     Export::Function(mut function) => {

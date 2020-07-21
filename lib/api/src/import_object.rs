@@ -45,11 +45,6 @@ pub trait LikeNamespace {
 #[derive(Clone, Default)]
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
-    #[allow(clippy::type_complexity)]
-    pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + 'static>>,
-    /// Allow missing functions to be generated and instantiation to continue when required
-    /// functions are not provided.
-    pub allow_missing_functions: bool,
 }
 
 impl ImportObject {
@@ -81,24 +76,6 @@ impl ImportObject {
         self.map.lock().unwrap().borrow().contains_key(name)
     }
 
-    /// Create a new `ImportObject` which generates data from the provided state creator.
-    pub fn new_with_data<F>(state_creator: F) -> Self
-    where
-        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static,
-    {
-        Self {
-            map: Arc::new(Mutex::new(HashMap::new())),
-            state_creator: Some(Arc::new(state_creator)),
-            allow_missing_functions: false,
-        }
-    }
-
-    /// Calls the state creator
-    #[allow(clippy::type_complexity)]
-    pub fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
-        self.state_creator.as_ref().map(|state_gen| state_gen())
-    }
-
     /// Register anything that implements `LikeNamespace` as a namespace.
     ///
     /// # Usage:
@@ -124,15 +101,6 @@ impl ImportObject {
                 None
             }
             Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
-        }
-    }
-
-    /// Create a clone ref of this namespace.
-    pub fn clone_ref(&self) -> Self {
-        Self {
-            map: Arc::clone(&self.map),
-            state_creator: self.state_creator.clone(),
-            allow_missing_functions: false,
         }
     }
 

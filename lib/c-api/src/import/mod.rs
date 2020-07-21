@@ -228,7 +228,7 @@ pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
         return std::ptr::null_mut();
     }
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
-    let iter_inner = Box::new(import_object.clone_ref().into_iter().filter(|((_, _), e)| {
+    let iter_inner = Box::new(import_object.clone().into_iter().filter(|((_, _), e)| {
         if let Extern::Function(_) = e {
             true
         } else {
