@@ -5,7 +5,6 @@ use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::{
     borrow::{Borrow, BorrowMut},
-    ffi::c_void,
     sync::{Arc, Mutex},
 };
 use wasmer_engine::NamedResolver;
