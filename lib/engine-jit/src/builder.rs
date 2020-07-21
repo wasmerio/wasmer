@@ -40,6 +40,7 @@ impl<'a> JIT<'a> {
     }
 
     /// Build the `JITEngine` for this configuration
+    #[cfg(feature = "compiler")]
     pub fn engine(self) -> JITEngine {
         let target = self.target.unwrap_or_default();
         if let Some(compiler_config) = self.compiler_config {
@@ -51,5 +52,11 @@ impl<'a> JIT<'a> {
         } else {
             JITEngine::headless()
         }
+    }
+
+    /// Build the `JITEngine` for this configuration
+    #[cfg(not(feature = "compiler"))]
+    pub fn engine(self) -> JITEngine {
+        JITEngine::headless()
     }
 }
