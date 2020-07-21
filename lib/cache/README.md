@@ -14,7 +14,7 @@ compiled WebAssembly modules. The `FileSystemCache` type implements
 use wasmer::{DeserializeError, Module, SerializeError};
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 
-fn store_module(module: &Module, key: &[u8]) -> Result<(), SerializeError> {
+fn store_module(module: &Module, bytes: &[u8]) -> Result<(), SerializeError> {
     // Create a new file system cache.
     let mut fs_cache = FileSystemCache::new("some/directory/goes/here")?;
 
