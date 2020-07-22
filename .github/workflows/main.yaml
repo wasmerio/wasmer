@@ -51,6 +51,10 @@ jobs:
           - build: windows
             os: windows-latest
             rust: 1.45.0
+    env:
+      CARGO_SCCACHE_VERSION: 0.2.13
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
@@ -79,6 +83,18 @@ jobs:
           key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ matrix.os }}-
+      # Install sccache
+      - uses: actions/cache@master
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+      - name: Setup sccache
+        run: |
+          echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
+          cargo install cargo-sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
+          sccache --start-server
+          sscache -s
+          echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         run: choco install llvm
