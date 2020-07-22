@@ -434,8 +434,11 @@ impl<'a> Exportable<'a> for Function {
 }
 
 impl fmt::Debug for Function {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        write!(f, "{}", self.ty())
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter
+            .debug_struct("Function")
+            .field("ty", &self.ty())
+            .finish()
     }
 }
 
