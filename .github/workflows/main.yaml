@@ -88,10 +88,12 @@ jobs:
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
-      - name: Setup sccache
+      - name: Install sccache
         run: |
           echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
           cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
+      - name: Start sccache
+        run: |
           sccache --start-server
           sscache -s
           echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
