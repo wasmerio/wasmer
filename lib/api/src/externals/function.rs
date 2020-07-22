@@ -56,14 +56,115 @@ pub struct Function {
 }
 
 impl Function {
-    /// Creates a new host `Function` that is:
+    /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
-    /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
-    ///    unique _statically declared type_. The outputs can be
-    ///    wrapped in a `Result`.
-    /// 2. Independent, i.e. the function _does not_ receive an
-    ///    environment argument.
-    pub fn new<F, Args, Rets, Env>(store: &Store, func: F) -> Self
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # let store = Store::default();
+    ///
+    /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
+    ///
+    /// let f = Function::new(&store, &signature, |args| {
+    ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
+    ///     Ok(vec![Value::I32(sum)])
+    /// });
+    /// ```
+    #[allow(clippy::cast_ptr_alignment)]
+    pub fn new<F>(store: &Store, ty: &FunctionType, func: F) -> Self
+    where
+        F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+    {
+        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
+            func: Box::new(func),
+            function_type: ty.clone(),
+        });
+        // We don't yet have the address with the Wasm ABI signature.
+        // The engine linker will replace the address with one pointing to a
+        // generated dynamic trampoline.
+        let address = std::ptr::null() as *const VMFunctionBody;
+        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+
+        Self {
+            store: store.clone(),
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Dynamic,
+                vmctx,
+                signature: ty.clone(),
+            },
+        }
+    }
+
+    /// Creates a new host `Function` (dynamic) with the provided signature and environment.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # let store = Store::default();
+    ///
+    /// struct Env {
+    ///   multiplier: i32,
+    /// };
+    /// let env = Env { multiplier: 2 };
+    ///
+    /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
+    ///
+    /// let f = Function::new_with_env(&store, &signature, env, |env, args| {
+    ///     let result = env.multiplier * (args[0].unwrap_i32() + args[1].unwrap_i32());
+    ///     Ok(vec![Value::I32(result)])
+    /// });
+    /// ```
+    #[allow(clippy::cast_ptr_alignment)]
+    pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
+    where
+        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        Env: Sized + 'static,
+    {
+        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
+            env: RefCell::new(env),
+            func: Box::new(func),
+            function_type: ty.clone(),
+        });
+        // We don't yet have the address with the Wasm ABI signature.
+        // The engine linker will replace the address with one pointing to a
+        // generated dynamic trampoline.
+        let address = std::ptr::null() as *const VMFunctionBody;
+        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+
+        Self {
+            store: store.clone(),
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Dynamic,
+                vmctx,
+                signature: ty.clone(),
+            },
+        }
+    }
+
+    /// Creates a new host `Function` from a native function.
+    ///
+    /// The function signature is automatically retrieved using the
+    /// Rust typing system.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Store, Function};
+    /// # let store = Store::default();
+    ///
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    /// ```
+    pub fn new_native<F, Args, Rets, Env>(store: &Store, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithoutEnv, Env>,
         Args: WasmTypeList,
@@ -87,14 +188,29 @@ impl Function {
         }
     }
 
-    /// Creates a new host `Function` that is:
+    /// Creates a new host `Function` from a native function and a provided environment.
     ///
-    /// 1. Static/Monomorphic, i.e. all inputs and outputs have a
-    ///    unique statically declared type. The outputs can be wrapped
-    ///    in a `Result`.
-    /// 2. Dependent, i.e. the function _does_ receive an environment
-    ///    argument (given by `env`).
-    pub fn new_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
+    /// The function signature is automatically retrieved using the
+    /// Rust typing system.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Store, Function};
+    /// # let store = Store::default();
+    ///
+    /// struct Env {
+    ///   multiplier: i32,
+    /// };
+    /// let env = Env { multiplier: 2 };
+    ///
+    /// fn sum_and_multiply(env: &mut Env, a: i32, b: i32) -> i32 {
+    ///     (a + b) * env.multiplier
+    /// }
+    ///
+    /// let f = Function::new_native_with_env(&store, env, sum_and_multiply);
+    /// ```
+    pub fn new_native_with_env<F, Args, Rets, Env>(store: &Store, env: Env, func: F) -> Self
     where
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
@@ -124,79 +240,6 @@ impl Function {
             },
         }
     }
-
-    /// Creates a new host `Function` that is:
-    ///
-    /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
-    ///    slice of `Val` (the set of all Wasm values), and all
-    ///    outputs are stored in a vector of `Val`, wrapped in a
-    ///    `Result`.
-    /// 2. Independent, i.e. the function _does not_ receive an
-    ///    environment argument.
-    #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_dynamic<F>(store: &Store, ty: &FunctionType, func: F) -> Self
-    where
-        F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-    {
-        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
-            func: Box::new(func),
-            function_type: ty.clone(),
-        });
-        // We don't yet have the address with the Wasm ABI signature.
-        // The engine linker will replace the address with one pointing to a
-        // generated dynamic trampoline.
-        let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
-
-        Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
-                signature: ty.clone(),
-            },
-        }
-    }
-
-    /// Creates a new host `Function` that is:
-    ///
-    /// 1. Dynamic/Polymorphic, i.e. all inputs are received in a
-    ///    slice of `Val` (the set of all Wasm values), and all
-    ///    outputs are stored in a vector of `Val`, wrapped in a
-    ///    `Result`.
-    /// 2. Dependent, i.e. the function _does_ receive an environment
-    ///    argument (given by `env`).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_dynamic_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
-    where
-        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized + 'static,
-    {
-        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env: RefCell::new(env),
-            func: Box::new(func),
-            function_type: ty.clone(),
-        });
-        // We don't yet have the address with the Wasm ABI signature.
-        // The engine linker will replace the address with one pointing to a
-        // generated dynamic trampoline.
-        let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
-
-        Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
-                signature: ty.clone(),
-            },
-        }
-    }
-
     /// Returns the [`FunctionType`] of the `Function`.
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature

@@ -58,7 +58,7 @@ fn test_deserialize() -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "sum_part" => Function::new_dynamic(&store, &func_type, |params| {
+                "sum_part" => Function::new(&store, &func_type, |params| {
                     let param_0: i64 = params[0].unwrap_i32() as i64;
                     let param_1: i64 = params[1].unwrap_i64() as i64;
                     let param_2: i64 = params[2].unwrap_i32() as i64;

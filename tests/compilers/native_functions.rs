@@ -22,7 +22,7 @@ fn native_function_works_for_wasm() -> Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "multiply" => Function::new(&store, |a: i32, b: i32| a * b),
+            "multiply" => Function::new_native(&store, |a: i32, b: i32| a * b),
         },
     };
 
@@ -64,7 +64,7 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 
     // Native static host function that returns a tuple.
     {
-        let f = Function::new(&store, f);
+        let f = Function::new_native(&store, f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
@@ -72,7 +72,7 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 
     // Native static host function that returns a result of a tuple.
     {
-        let f = Function::new(&store, f_ok);
+        let f = Function::new_native(&store, f_ok);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
         let result = f_native.call(1, 3, 5.0, 7.0)?;
         assert_eq!(result, (28.0, 15.0, 6, 1));
@@ -112,7 +112,7 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
     {
         let env = Env(Rc::new(RefCell::new(100)));
 
-        let f = Function::new_env(&store, env.clone(), f);
+        let f = Function::new_native_with_env(&store, env.clone(), f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
         assert_eq!(*env.0.borrow(), 100);
@@ -127,7 +127,7 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
     {
         let env = Env(Rc::new(RefCell::new(100)));
 
-        let f = Function::new_env(&store, env.clone(), f);
+        let f = Function::new_native_with_env(&store, env.clone(), f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
         assert_eq!(*env.0.borrow(), 100);
@@ -145,7 +145,7 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
 fn dynamic_host_function_without_env() -> anyhow::Result<()> {
     let store = get_store();
 
-    let f = Function::new_dynamic(
+    let f = Function::new(
         &store,
         &FunctionType::new(
             vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
@@ -176,7 +176,7 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
     struct Env(Rc<RefCell<i32>>);
 
     let env = Env(Rc::new(RefCell::new(100)));
-    let f = Function::new_dynamic_env(
+    let f = Function::new_with_env(
         &store,
         &FunctionType::new(
             vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],

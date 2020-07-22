@@ -248,7 +248,7 @@ impl DynamicFunc {
         };
 
         Self {
-            new_function: new::wasmer::Function::new_dynamic_env(
+            new_function: new::wasmer::Function::new_with_env(
                 &get_global_store(),
                 signature,
                 ctx,

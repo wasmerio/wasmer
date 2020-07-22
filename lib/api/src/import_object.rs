@@ -34,7 +34,7 @@ pub trait LikeNamespace {
 /// let mut import_object = ImportObject::new();
 /// let mut env = Exports::new();
 ///
-/// env.insert("foo", Function::new(foo));
+/// env.insert("foo", Function::new_native(foo));
 /// import_object.register("env", env);
 ///
 /// fn foo(n: i32) -> i32 {
@@ -160,7 +160,7 @@ impl IntoIterator for ImportObject {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new(&store, foo)
+///         "foo" => Function::new_native(&store, foo)
 ///     },
 /// };
 ///
@@ -336,42 +336,42 @@ mod test {
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             },
             "abc" => {
-                "def" => Function::new(&store, func),
+                "def" => Function::new_native(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func)
+                "func" => Function::new_native(&store, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func)
+                "func" => Function::new_native(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new(&store, func),
-                "func2" => Function::new(&store, func)
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new(&store, func),
-                "func2" => Function::new(&store, func),
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func),
             }
         };
     }

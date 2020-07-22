@@ -130,7 +130,7 @@ pub struct Compilation {
     /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     /// let imports = imports!{
     ///     "namespace" => {
-    ///         "my_func" => Function::new_dynamic(&store, my_func_type, my_func),
+    ///         "my_func" => Function::new(&store, my_func_type, my_func),
     ///     }
     /// }
     /// ```

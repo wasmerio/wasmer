@@ -15,8 +15,7 @@ fn test_trap_return() -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let hello_type = FunctionType::new(vec![], vec![]);
-    let hello_func =
-        Function::new_dynamic(&store, &hello_type, |_| Err(RuntimeError::new("test 123")));
+    let hello_func = Function::new(&store, &hello_type, |_| Err(RuntimeError::new("test 123")));
 
     let instance = Instance::new(
         &module,
@@ -87,7 +86,7 @@ fn test_trap_trace_cb() -> Result<()> {
     "#;
 
     let fn_type = FunctionType::new(vec![], vec![]);
-    let fn_func = Function::new_dynamic(&store, &fn_type, |_| Err(RuntimeError::new("cb throw")));
+    let fn_func = Function::new(&store, &fn_type, |_| Err(RuntimeError::new("cb throw")));
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(
@@ -247,7 +246,7 @@ fn trap_start_function_import() -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new_dynamic(&store, &sig, |_| Err(RuntimeError::new("user trap")));
+    let func = Function::new(&store, &sig, |_| Err(RuntimeError::new("user trap")));
     let err = Instance::new(
         &module,
         &imports! {
@@ -282,13 +281,13 @@ fn rust_panic_import() -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new_dynamic(&store, &sig, |_| panic!("this is a panic"));
+    let func = Function::new(&store, &sig, |_| panic!("this is a panic"));
     let instance = Instance::new(
         &module,
         &imports! {
             "" => {
                 "foo" => func,
-                "bar" => Function::new(&store, || panic!("this is another panic"))
+                "bar" => Function::new_native(&store, || panic!("this is another panic"))
             }
         },
     )?;
@@ -325,7 +324,7 @@ fn rust_panic_start_function() -> Result<()> {
 
     let module = Module::new(&store, &binary)?;
     let sig = FunctionType::new(vec![], vec![]);
-    let func = Function::new_dynamic(&store, &sig, |_| panic!("this is a panic"));
+    let func = Function::new(&store, &sig, |_| panic!("this is a panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
             &module,
@@ -339,7 +338,7 @@ fn rust_panic_start_function() -> Result<()> {
     .unwrap_err();
     assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is a panic"));
 
-    let func = Function::new(&store, || panic!("this is another panic"));
+    let func = Function::new_native(&store, || panic!("this is another panic"));
     let err = panic::catch_unwind(AssertUnwindSafe(|| {
         drop(Instance::new(
             &module,

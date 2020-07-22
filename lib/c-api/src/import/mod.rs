@@ -691,7 +691,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
 
-    let func = Function::new_dynamic_env(store, &func_type, &mut *env_ptr, move |env, args| {
+    let func = Function::new_with_env(store, &func_type, &mut *env_ptr, move |env, args| {
         use libffi::high::call::{call, Arg};
         use libffi::low::CodePtr;
 
