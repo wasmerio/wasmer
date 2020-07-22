@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
+use std::fmt;
 use wasmer_engine::Resolver;
 use wasmer_vm::InstanceHandle;
 
@@ -21,6 +22,7 @@ pub struct Instance {
     /// The exports for an instance.
     pub exports: Exports,
 }
+
 /*
 #[cfg(test)]
 mod send_test {
@@ -99,5 +101,13 @@ impl Instance {
     /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
+    }
+}
+
+impl fmt::Debug for Instance {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Instance")
+            .field("exports", &self.exports)
+            .finish()
     }
 }

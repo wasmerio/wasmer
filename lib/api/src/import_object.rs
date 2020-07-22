@@ -1,12 +1,11 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
-use std::{
-    borrow::{Borrow, BorrowMut},
-    sync::{Arc, Mutex},
-};
+use std::fmt;
+use std::sync::{Arc, Mutex};
 use wasmer_engine::NamedResolver;
 use wasmer_vm::Export;
 
@@ -142,6 +141,55 @@ impl IntoIterator for ImportObject {
         ImportObjectIterator {
             elements: self.get_objects(),
         }
+    }
+}
+
+impl fmt::Debug for ImportObject {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        enum SecretOption {
+            None,
+            Some,
+        }
+
+        impl fmt::Debug for SecretOption {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    Self::None => write!(f, "None"),
+                    Self::Some => write!(f, "Some(...)"),
+                }
+            }
+        }
+
+        enum SecretMap {
+            Empty,
+            Some(usize),
+        }
+
+        impl SecretMap {
+            fn new(len: usize) -> Self {
+                if len == 0 {
+                    Self::Empty
+                } else {
+                    Self::Some(len)
+                }
+            }
+        }
+
+        impl fmt::Debug for SecretMap {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    Self::Empty => write!(f, "(empty)"),
+                    Self::Some(len) => write!(f, "(... {} item(s) ...)", len),
+                }
+            }
+        }
+
+        f.debug_struct("ImportObject")
+            .field(
+                "map",
+                &SecretMap::new(self.map.lock().unwrap().borrow().len()),
+            )
+            .finish()
     }
 }
 

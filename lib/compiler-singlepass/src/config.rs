@@ -6,7 +6,7 @@ use std::sync::Arc;
 use wasm_common::Features;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,

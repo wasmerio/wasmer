@@ -8,6 +8,7 @@ use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 use std::cell::RefCell;
 use std::cmp::max;
+use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
@@ -423,6 +424,7 @@ impl<'a> Exportable<'a> for Function {
     fn to_export(&self) -> Export {
         self.exported.clone().into()
     }
+
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
         match _extern {
             Extern::Function(func) => Ok(func),
@@ -431,9 +433,9 @@ impl<'a> Exportable<'a> for Function {
     }
 }
 
-impl std::fmt::Debug for Function {
-    fn fmt(&self, _f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        Ok(())
+impl fmt::Debug for Function {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(f, "{}", self.ty())
     }
 }
 

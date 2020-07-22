@@ -198,6 +198,7 @@ impl StoreOptions {
             }
             #[cfg(feature = "llvm")]
             CompilerType::LLVM => {
+                use std::fmt;
                 use std::fs::File;
                 use std::io::Write;
                 use wasm_common::entity::EntityRef;
@@ -280,6 +281,13 @@ impl StoreOptions {
                         }
                     }
                 }
+
+                impl fmt::Debug for Callbacks {
+                    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                        write!(f, "LLVMCallbacks")
+                    }
+                }
+
                 if let Some(ref llvm_debug_dir) = self.llvm_debug_dir {
                     config.callbacks(Some(Arc::new(Callbacks::new(llvm_debug_dir.clone())?)));
                 }

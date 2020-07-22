@@ -13,6 +13,7 @@ pub use self::table::Table;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
+use std::fmt;
 use wasmer_vm::Export;
 
 /// An `Extern` is the runtime representation of an entity that
@@ -78,6 +79,21 @@ impl StoreObject for Extern {
             Extern::Table(t) => t.store(),
         };
         Store::same(my_store, store)
+    }
+}
+
+impl fmt::Debug for Extern {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        write!(
+            f,
+            "{}",
+            match self {
+                Self::Function(_) => "Function(...)",
+                Self::Global(_) => "Global(...)",
+                Self::Memory(_) => "Memory(...)",
+                Self::Table(_) => "Table(...)",
+            }
+        )
     }
 }
 

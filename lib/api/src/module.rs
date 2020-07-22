@@ -1,6 +1,7 @@
 use crate::store::Store;
 use crate::types::{ExportType, ImportType};
 use crate::InstantiationError;
+use std::fmt;
 use std::io;
 use std::path::Path;
 use std::sync::Arc;
@@ -408,5 +409,13 @@ impl Module {
     #[doc(hidden)]
     pub fn info(&self) -> &ModuleInfo {
         &self.artifact.module_ref()
+    }
+}
+
+impl fmt::Debug for Module {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("Module")
+            .field("name", &self.name())
+            .finish()
     }
 }

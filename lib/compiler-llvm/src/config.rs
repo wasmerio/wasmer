@@ -5,6 +5,7 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
+use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
 use wasm_common::{FunctionType, LocalFunctionIndex};
@@ -28,7 +29,7 @@ pub enum CompiledFunctionKind {
 }
 
 /// Callbacks to the different LLVM compilation phases.
-pub trait LLVMCallbacks: Send + Sync {
+pub trait LLVMCallbacks: Debug + Send + Sync {
     fn preopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
     fn postopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
     fn obj_memory_buffer(
@@ -38,7 +39,7 @@ pub trait LLVMCallbacks: Send + Sync {
     );
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,

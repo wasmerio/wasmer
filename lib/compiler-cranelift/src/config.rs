@@ -27,7 +27,7 @@ pub enum OptLevel {
 ///
 /// This structure exposed a builder-like interface and is primarily consumed by
 /// [`Engine::new()`]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,

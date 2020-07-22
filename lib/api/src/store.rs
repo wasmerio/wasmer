@@ -1,10 +1,10 @@
 use crate::tunables::Tunables;
+use std::fmt;
+use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::Tunables as BaseTunables;
-
-use std::sync::Arc;
 use wasmer_engine::Engine;
+use wasmer_engine::Tunables as BaseTunables;
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -116,6 +116,12 @@ impl Default for Store {
             engine: Arc::new(engine),
             tunables: Arc::new(tunables),
         }
+    }
+}
+
+impl fmt::Debug for Store {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Store").finish()
     }
 }
 
