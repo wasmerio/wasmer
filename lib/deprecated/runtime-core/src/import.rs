@@ -62,23 +62,6 @@ pub trait IsExport {}
 ///     n
 /// }
 /// ```
-///
-/// or by passing a state creator for the import object:
-///
-/// ```
-/// # use wasmer_runtime_core::{imports, func, vm::Ctx};
-///
-/// let import_object = imports! {
-///     || (0 as _, |_a| {}),
-///     "env" => {
-///         "foo" => func!(foo)
-///     },
-/// };
-///
-/// # fn foo(_: &mut Ctx, n: i32) -> i32 {
-/// #     n
-/// # }
-/// ```
 #[macro_export]
 macro_rules! imports {
     ( $( $namespace_name:expr => $namespace:tt ),* $(,)? ) => {
@@ -97,15 +80,7 @@ macro_rules! imports {
 
     ($state_creator:expr, $( $namespace_name:expr => $namespace:tt ),* $(,)? ) => {
         {
-            let mut import_object = $crate::import::ImportObject::new_with_data($state_creator);
-
-            $({
-                let namespace = $crate::import_namespace!($namespace);
-
-                import_object.register($namespace_name, namespace);
-            })*
-
-            import_object
+            compile_error!("State creation in the ImportObject is no longer supported.\nYou can achieve something similar by using Function environments in the Wasmer 1.0 API.");
         }
     };
 }
@@ -179,37 +154,6 @@ mod test {
                 "func1" => func!(func),
                 "func2" => func!(func),
             }
-        };
-    }
-
-    #[test]
-    fn imports_macro_allows_trailing_comma_and_none_with_state() {
-        use std::{ffi, ptr};
-
-        fn dtor(_arg: *mut ffi::c_void) {}
-        fn state_creator() -> (*mut ffi::c_void, fn(*mut ffi::c_void)) {
-            (ptr::null_mut() as *mut ffi::c_void, dtor)
-        }
-        let _ = imports! {
-            state_creator,
-            "env" => {
-                "func1" => func!(func),
-                "func2" => func!(func),
-            }
-        };
-        let _ = imports! {
-            state_creator,
-            "env" => {
-                "func1" => func!(func),
-                "func2" => func!(func)
-            },
-        };
-        let _ = imports! {
-            state_creator,
-            "env" => {
-                "func1" => func!(func),
-                "func2" => func!(func),
-            },
         };
     }
 }
