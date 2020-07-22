@@ -15,7 +15,7 @@ together.
    `wasmer::Module`, `wasmer_engine::Engine`, and
    `wasmer_compiler::Compiler` API.
 
-   ![Module compilation](../docs/Diagram_module_compilation.png)
+   ![Module compilation](../assets/diagrams/Diagram_module_compilation.png)
 
 2. **Module serialization**, illustrates how a module can be
    serialized and deserialized, with the help of
@@ -24,12 +24,12 @@ together.
    steps, and thus how a headless engine can be used for the
    deserialization.
 
-   ![Module serialization](../docs/Diagram_module_serialization.png)
+   ![Module serialization](../assets/diagrams/Diagram_module_serialization.png)
 
 3. **Module instantiation**, illustrates what happens when
    `wasmer::Instance::new` is called.
 
-   ![Module instantiation](../docs/Diagram_module_instantiation.png)
+   ![Module instantiation](../assets/diagrams/Diagram_module_instantiation.png)
 
 ## Examples
 
