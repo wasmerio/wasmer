@@ -33,7 +33,7 @@ where
         let ctx = unsafe { vm::Ctx::new_uninit() };
 
         Self {
-            new_function: new::wasmer::Function::new_env::<F, Args, Rets, vm::Ctx>(
+            new_function: new::wasmer::Function::new_native_with_env::<F, Args, Rets, vm::Ctx>(
                 &get_global_store(),
                 ctx,
                 func,
