@@ -83,20 +83,20 @@ jobs:
           key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ matrix.os }}-
-      # Install sccache
-      - uses: actions/cache@master
-        with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
-          key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
-      - name: Install sccache
-        run: |
-          echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
-          cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
-      - name: Start sccache
-        run: |
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
-          echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
+      # # Install sccache
+      # - uses: actions/cache@master
+      #   with:
+      #     path: ${{ runner.tool_cache }}/cargo-sccache
+      #     key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+      # - name: Install sccache
+      #   run: |
+      #     echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
+      #     cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
+      # - name: Start sccache
+      #   run: |
+      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
+      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
+      #     echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         run: choco install llvm
