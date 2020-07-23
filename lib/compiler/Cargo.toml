@@ -12,7 +12,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
-wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
+wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1", deafault-features = false }
 wasmparser = { version = "0.57", optional = true, default-features = false }
 target-lexicon = { version = "0.10", default-features = false }
 enumset = "1.0"
@@ -31,9 +31,9 @@ default = ["std", "enable-serde"]
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
 translator = ["wasmparser"]
-std = []
-core = ["hashbrown"]
-enable-serde = ["serde", "serde_bytes"]
+std = ["wasm-common/std"]
+core = ["hashbrown", "wasm-common/core"]
+enable-serde = ["serde", "serde_bytes", "wasm-common/enable-serde"]
 
 [badges]
 maintenance = { status = "experimental" }
