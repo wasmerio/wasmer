@@ -1,9 +1,9 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
+use crate::lib::std::fmt;
 use crate::types::Type;
 use crate::values::Value;
-use std::fmt;
 
 /// `NativeWasmType` represents a Wasm type that has a direct
 /// representation on the host (hence the “native” term).

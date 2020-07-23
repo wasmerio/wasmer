@@ -1,9 +1,7 @@
+use crate::lib::std::fmt;
+use crate::lib::std::ops::{Add, Sub};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::{
-    fmt,
-    ops::{Add, Sub},
-};
 
 /// WebAssembly page sizes are fixed to be 64KiB.
 /// Note: large page support may be added in an opt-in manner in the [future].

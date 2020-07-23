@@ -1,8 +1,11 @@
-use crate::native::ValueType;
-use std::sync::atomic::{
+use crate::lib::std::cell::Cell;
+use crate::lib::std::marker::PhantomData;
+use crate::lib::std::ops::Deref;
+use crate::lib::std::slice;
+use crate::lib::std::sync::atomic::{
     AtomicI16, AtomicI32, AtomicI64, AtomicI8, AtomicU16, AtomicU32, AtomicU64, AtomicU8,
 };
-use std::{cell::Cell, marker::PhantomData, ops::Deref, slice};
+use crate::native::ValueType;
 
 pub trait Atomic {
     type Output;
