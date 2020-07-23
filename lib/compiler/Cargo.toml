@@ -12,7 +12,7 @@ edition = "2018"
 
 [dependencies]
 wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
-wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1", deafault-features = false }
+wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1", default-features = false }
 wasmparser = { version = "0.57", optional = true, default-features = false }
 target-lexicon = { version = "0.10", default-features = false }
 enumset = "1.0"
