@@ -15,7 +15,4 @@ wasmer = { path = "../api", version = "1.0.0-alpha.1", default-features = false 
 memmap = "0.7"
 hex = "0.4"
 thiserror = "1"
-blake3 = { version = "0.3", optional = true }
-
-[features]
-default = ["blake3"]
+blake3 = "0.3"
