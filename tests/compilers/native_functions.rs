@@ -127,7 +127,7 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
     {
         let env = Env(Rc::new(RefCell::new(100)));
 
-        let f = Function::new_native_with_env(&store, env.clone(), f);
+        let f = Function::new_native_with_env(&store, env.clone(), f_ok);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
         assert_eq!(*env.0.borrow(), 100);
