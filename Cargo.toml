@@ -1,12 +1,12 @@
 [package]
-name = "wasmer-bin"
+name = "wasmer-workspace"
 version = "1.0.0-alpha.1"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-description = "High-Performance WebAssembly Framework"
+description = "Wasmer workspace"
 license = "MIT"
 include = [
-    "src/**/*",
+    "tests/**/*",
     "Cargo.lock",
     "Cargo.toml",
     "LICENSE",
@@ -15,14 +15,8 @@ include = [
 ]
 readme = "README.md"
 edition = "2018"
-default-run = "wasmer"
 publish = false
 autoexamples = false
-
-[[bin]]
-name = "wasmer"
-path = "src/bin/wasmer.rs"
-doc = false
 
 [dependencies]
 wasmer = { version = "1.0.0-alpha.1", path = "lib/api", default-features = false }
@@ -30,28 +24,35 @@ wasmer-compiler = { version = "1.0.0-alpha.1", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "1.0.0-alpha.1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "1.0.0-alpha.1", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "1.0.0-alpha.1", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.0-alpha.1", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "1.0.0-alpha.1", path = "lib/engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha.1", path = "lib/engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha.1", path = "lib/engine-native", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha.1", path = "lib/wasi", optional = true }
-wasmer-wasi-experimental-io-devices = { version = "1.0.0-alpha.1", path = "lib/wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "1.0.0-alpha.1", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha.1", path = "lib/cache", optional = true }
 wasm-common = { version = "1.0.0-alpha.1", path = "lib/wasm-common" }
-atty = "0.2"
-colored = "1.9"
-anyhow = "1.0"
-structopt = { version = "0.3", features = ["suggestions"] }
-# For the function names autosuggestion
-distance = "0.4"
-# For the inspect subcommand
-bytesize = "1.0"
 cfg-if = "0.1"
 
 [workspace]
 members = [
+    "lib/api",
+    "lib/cache",
     "lib/c-api",
+    "lib/cli",
+    "lib/compiler",
+    "lib/compiler-cranelift",
+    "lib/compiler-singlepass",
+    "lib/compiler-llvm",
+    "lib/emscripten",
+    "lib/engine",
+    "lib/engine-jit",
+    "lib/engine-native",
+    "lib/object",
+    "lib/vm",
+    "lib/wasi",
+    "lib/wasi-experimental-io-devices",
+    "lib/wasm-common",
+    "tests/lib/wast",
 ]
 exclude = [
     "lib/deprecated",
@@ -82,7 +83,7 @@ default = [
     "native",
     "cache",
     "wasi",
-    "emscripten",
+    # "emscripten",
 ]
 engine = []
 jit = [
@@ -96,16 +97,12 @@ native = [
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
-emscripten = ["wasmer-emscripten"]
+# emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
     "wasmer-engine-native/compiler"
-]
-experimental-io-devices = [
-    "wasmer-wasi-experimental-io-devices",
-    "wasi"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -130,9 +127,6 @@ test-cranelift = [
 test-llvm = [
     "llvm",
 ]
-
-# [profile.release]
-# lto  = "fat"
 
 [[bench]]
 name = "static_and_dynamic_functions"

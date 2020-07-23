@@ -55,7 +55,7 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release $(compiler_features)
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
 WAPM_VERSION = v0.5.0
 build-wapm:
@@ -191,8 +191,8 @@ package: package-wapm package-wasmer package-capi
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(OS), Windows_NT)
-	iscc src/windows-installer/wasmer.iss
-	cp src/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
+	iscc scripts/windows-installer/wasmer.iss
+	cp scripts/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
