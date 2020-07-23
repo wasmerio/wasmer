@@ -14,7 +14,8 @@ use wasmer_compiler::{
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_vm::{
-    ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -235,9 +236,9 @@ impl JITEngineInner {
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
     ) -> Result<
         (
-            PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<SignatureIndex, *mut [VMFunctionBody]>,
-            PrimaryMap<FunctionIndex, *mut [VMFunctionBody]>,
+            PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
+            PrimaryMap<SignatureIndex, FunctionBodyPtr>,
+            PrimaryMap<FunctionIndex, FunctionBodyPtr>,
         ),
         CompileError,
     > {
@@ -253,10 +254,8 @@ impl JITEngineInner {
                 ))
             })?;
 
-        let mut alllocated_function_call_trampolines: PrimaryMap<
-            SignatureIndex,
-            *mut [VMFunctionBody],
-        > = PrimaryMap::new();
+        let mut alllocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
+            PrimaryMap::new();
         // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
         //     let func_type = module.signatures.get(sig_index).unwrap();
         //     let index = self.signatures.register(&func_type);
@@ -281,7 +280,7 @@ impl JITEngineInner {
                         message
                     ))
                 })?;
-            alllocated_function_call_trampolines.push(ptr);
+            alllocated_function_call_trampolines.push(FunctionBodyPtr(ptr));
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
             self.function_call_trampolines.insert(index, trampoline);
@@ -299,7 +298,7 @@ impl JITEngineInner {
                             message
                         ))
                     })?;
-                Ok(ptr as _)
+                Ok(FunctionBodyPtr(ptr as _))
             })
             .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
 

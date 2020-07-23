@@ -1896,7 +1896,13 @@ impl<'a> FuncGen<'a> {
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                        Location::GPR(tmp),
+                    );
+                    Location::Memory(tmp, 0)
                 } else {
                     // Imported globals require one level of indirection.
                     let offset = self
@@ -1922,7 +1928,13 @@ impl<'a> FuncGen<'a> {
                     self.module.local_global_index(global_index)
                 {
                     let offset = self.vmoffsets.vmctx_vmglobal_definition(local_global_index);
-                    Location::Memory(Machine::get_vmctx_reg(), offset as i32)
+                    self.emit_relaxed_binop(
+                        Assembler::emit_mov,
+                        Size::S64,
+                        Location::Memory(Machine::get_vmctx_reg(), offset as i32),
+                        Location::GPR(tmp),
+                    );
+                    Location::Memory(tmp, 0)
                 } else {
                     // Imported globals require one level of indirection.
                     let offset = self

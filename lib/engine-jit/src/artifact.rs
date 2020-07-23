@@ -21,14 +21,14 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
-use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
+use wasmer_vm::{FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
     _unwind_registry: Arc<UnwindRegistry>,
     serializable: SerializableModule,
-    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
@@ -278,14 +278,12 @@ impl Artifact for JITArtifact {
         &self.serializable.compile_info.table_styles
     }
 
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
 
     // TODO: return *const instead of *mut
-    fn finished_dynamic_function_trampolines(
-        &self,
-    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
+    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }
 

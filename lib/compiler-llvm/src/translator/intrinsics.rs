@@ -834,34 +834,34 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 let global_value_type = global_type.ty;
 
                 let global_mutability = global_type.mutability;
-                let global_ptr =
-                    if let Some(local_global_index) = wasm_module.local_global_index(index) {
-                        let offset = offsets.vmctx_vmglobal_definition(local_global_index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") }
-                    } else {
-                        let offset = offsets.vmctx_vmglobal_import(index);
-                        let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                        let global_ptr_ptr =
-                            unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
-                        let global_ptr_ptr = cache_builder
-                            .build_bitcast(
-                                global_ptr_ptr,
-                                intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
-                                "",
-                            )
-                            .into_pointer_value();
-                        let global_ptr = cache_builder
-                            .build_load(global_ptr_ptr, "")
-                            .into_pointer_value();
-                        tbaa_label(
-                            module,
-                            intrinsics,
-                            format!("global_ptr {}", index.as_u32()),
-                            global_ptr.as_instruction_value().unwrap(),
-                        );
-                        global_ptr
-                    };
+                let offset = if let Some(local_global_index) = wasm_module.local_global_index(index)
+                {
+                    offsets.vmctx_vmglobal_definition(local_global_index)
+                } else {
+                    offsets.vmctx_vmglobal_import(index)
+                };
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let global_ptr = {
+                    let global_ptr_ptr =
+                        unsafe { cache_builder.build_gep(ctx_ptr_value, &[offset], "") };
+                    let global_ptr_ptr = cache_builder
+                        .build_bitcast(
+                            global_ptr_ptr,
+                            intrinsics.i32_ptr_ty.ptr_type(AddressSpace::Generic),
+                            "",
+                        )
+                        .into_pointer_value();
+                    let global_ptr = cache_builder
+                        .build_load(global_ptr_ptr, "")
+                        .into_pointer_value();
+                    tbaa_label(
+                        module,
+                        intrinsics,
+                        format!("global_ptr {}", index.as_u32()),
+                        global_ptr.as_instruction_value().unwrap(),
+                    );
+                    global_ptr
+                };
                 let global_ptr = cache_builder
                     .build_bitcast(
                         global_ptr,

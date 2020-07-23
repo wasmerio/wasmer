@@ -32,8 +32,10 @@ use wasmer_engine::{Engine, Tunables};
 use wasmer_object::CompilationNamer;
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
-use wasmer_vm::{MemoryStyle, TableStyle};
-use wasmer_vm::{ModuleInfo, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
+};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
@@ -41,8 +43,8 @@ pub struct NativeArtifact {
     metadata: ModuleMetadata,
     #[allow(dead_code)]
     library: Option<Library>,
-    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
-    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -287,12 +289,9 @@ impl NativeArtifact {
         metadata: ModuleMetadata,
         sharedobject_path: PathBuf,
     ) -> Result<Self, CompileError> {
-        let finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
+        let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
+        let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        let finished_dynamic_function_trampolines: PrimaryMap<
-            FunctionIndex,
-            *mut [VMFunctionBody],
-        > = PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             sharedobject_path,
@@ -312,7 +311,7 @@ impl NativeArtifact {
         sharedobject_path: PathBuf,
         lib: Library,
     ) -> Result<Self, CompileError> {
-        let mut finished_functions: PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]> =
+        let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
             let function_name = metadata.get_function_name(&function_local_index);
@@ -329,7 +328,7 @@ impl NativeArtifact {
                 let func_pointer =
                     std::slice::from_raw_parts(raw as *const (), *function_len as usize);
                 let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_functions.push(func_pointer);
+                finished_functions.push(FunctionBodyPtr(func_pointer));
             }
         }
 
@@ -345,10 +344,8 @@ impl NativeArtifact {
         }
 
         // Retrieve dynamic function trampolines (only for imported functions)
-        let mut finished_dynamic_function_trampolines: PrimaryMap<
-            FunctionIndex,
-            *mut [VMFunctionBody],
-        > = PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_funcs);
+        let mut finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
+            PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_funcs);
         for func_index in metadata
             .compile_info
             .module
@@ -365,7 +362,7 @@ impl NativeArtifact {
                 let trampoline_pointer = std::slice::from_raw_parts(raw as *const (), 0);
                 let trampoline_pointer =
                     trampoline_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_dynamic_function_trampolines.push(trampoline_pointer);
+                finished_dynamic_function_trampolines.push(FunctionBodyPtr(trampoline_pointer));
             }
         }
 
@@ -534,13 +531,11 @@ impl Artifact for NativeArtifact {
         &self.metadata.compile_info.table_styles
     }
 
-    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]> {
+    fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
     }
 
-    fn finished_dynamic_function_trampolines(
-        &self,
-    ) -> &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]> {
+    fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }
 

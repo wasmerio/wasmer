@@ -17,7 +17,7 @@ use std::sync::{Arc, RwLock};
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
-use wasmer_vm::{ModuleInfo, VMFunctionBody};
+use wasmer_vm::{FunctionBodyPtr, ModuleInfo};
 
 lazy_static::lazy_static! {
     /// This is a global cache of backtrace frame information for all active
@@ -227,7 +227,7 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: Arc<ModuleInfo>,
-    finished_functions: &BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
@@ -235,8 +235,8 @@ pub fn register(
     let mut functions = BTreeMap::new();
     for (i, allocated) in finished_functions.iter() {
         let (start, end) = unsafe {
-            let ptr = (**allocated).as_ptr();
-            let len = (**allocated).len();
+            let ptr = (***allocated).as_ptr();
+            let len = (***allocated).len();
             (ptr as usize, ptr as usize + len)
         };
         min = cmp::min(min, start);

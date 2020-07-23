@@ -209,7 +209,7 @@ impl VMOffsets {
         0 * self.pointer_size
     }
 
-    /// The offset of the `vmctx` field.
+    /// The offset of the `from` field.
     #[allow(clippy::identity_op)]
     pub const fn vmmemory_import_from(&self) -> u8 {
         1 * self.pointer_size
@@ -256,10 +256,16 @@ impl VMOffsets {
 ///
 /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
 impl VMOffsets {
-    /// The offset of the `from` field.
+    /// The offset of the `definition` field.
     #[allow(clippy::erasing_op)]
     pub const fn vmglobal_import_definition(&self) -> u8 {
         0 * self.pointer_size
+    }
+
+    /// The offset of the `from` field.
+    #[allow(clippy::identity_op)]
+    pub const fn vmglobal_import_from(&self) -> u8 {
+        1 * self.pointer_size
     }
 
     /// Return the size of [`VMGlobalImport`].
@@ -267,20 +273,21 @@ impl VMOffsets {
     /// [`VMGlobalImport`]: crate::vmcontext::VMGlobalImport
     #[allow(clippy::identity_op)]
     pub const fn size_of_vmglobal_import(&self) -> u8 {
-        1 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 
-/// Offsets for [`VMGlobalDefinition`].
+/// Offsets for a non-null pointer to a [`VMGlobalDefinition`] used as a local global.
 ///
 /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
 impl VMOffsets {
-    /// Return the size of [`VMGlobalDefinition`]; this is the size of the largest value type (i.e. a
-    /// V128).
+    /// Return the size of a pointer to a [`VMGlobalDefinition`];
     ///
+    /// The underlying global itself is the size of the largest value type (i.e. a V128),
+    /// however the size of this type is just the size of a pointer.
     /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
-    pub const fn size_of_vmglobal_definition(&self) -> u8 {
-        16
+    pub const fn size_of_vmglobal_local(&self) -> u8 {
+        self.pointer_size
     }
 }
 
@@ -420,7 +427,7 @@ impl VMOffsets {
         self.vmctx_globals_begin()
             .checked_add(
                 self.num_local_globals
-                    .checked_mul(u32::from(self.size_of_vmglobal_definition()))
+                    .checked_mul(u32::from(self.size_of_vmglobal_local()))
                     .unwrap(),
             )
             .unwrap()
@@ -553,7 +560,7 @@ impl VMOffsets {
             .checked_add(
                 index
                     .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmglobal_definition()))
+                    .checked_mul(u32::from(self.size_of_vmglobal_local()))
                     .unwrap(),
             )
             .unwrap()

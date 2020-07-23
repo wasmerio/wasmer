@@ -21,6 +21,7 @@
 )]
 
 mod export;
+mod global;
 mod imports;
 mod instance;
 mod memory;
@@ -36,6 +37,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
+pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::InstanceHandle;
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
@@ -55,3 +57,23 @@ pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+/// A safe wrapper around `VMFunctionBody`
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct FunctionBodyPtr(pub *mut [VMFunctionBody]);
+
+impl std::ops::Deref for FunctionBodyPtr {
+    type Target = *mut [VMFunctionBody];
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+/// # Safety
+/// TODO:
+unsafe impl Send for FunctionBodyPtr {}
+/// # Safety
+/// TODO:
+unsafe impl Sync for FunctionBodyPtr {}

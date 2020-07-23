@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use wasmer::{Features, FunctionMiddlewareGenerator, Store, Triple, Tunables};
+use wasmer::{FunctionMiddlewareGenerator, Store};
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
 use wasmer_engine_jit::JIT;

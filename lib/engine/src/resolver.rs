@@ -5,9 +5,10 @@ use crate::{ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
+
 use wasmer_vm::{
-    Export, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMFunctionImport,
-    VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
+    Export, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -105,19 +106,21 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
         Export::Function(ref f) => ExternType::Function(f.signature.clone()),
         Export::Table(ref t) => ExternType::Table(t.ty().clone()),
         Export::Memory(ref m) => ExternType::Memory(m.ty().clone()),
-        Export::Global(ref g) => ExternType::Global(g.global),
+        Export::Global(ref g) => {
+            let global = g.from.ty();
+            ExternType::Global(*global)
+        }
     }
 }
 
-/// This function allows to match all imports of a `ModuleInfo` with
-/// concrete definitions provided by a `Resolver`.
+/// This function allows to match all imports of a `ModuleInfo` with concrete definitions provided by
+/// a `Resolver`.
 ///
-/// If all imports are satisfied, it returns an `Imports` instance
-/// required for a module instantiation.
+/// If all imports are satisfied returns an `Imports` instance required for a module instantiation.
 pub fn resolve_imports(
     module: &ModuleInfo,
     resolver: &dyn Resolver,
-    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, *mut [VMFunctionBody]>,
+    finished_dynamic_function_trampolines: &BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
@@ -155,7 +158,7 @@ pub fn resolve_imports(
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index] as *mut VMFunctionBody as _
+                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
@@ -210,7 +213,8 @@ pub fn resolve_imports(
 
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
-                    definition: g.definition,
+                    definition: g.from.vmglobal(),
+                    from: g.from.clone(),
                 });
             }
         }

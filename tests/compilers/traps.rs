@@ -417,8 +417,8 @@ RuntimeError: indirect call type mismatch
     Ok(())
 }
 
-#[ignore]
-#[cfg_attr(feature = "test-singlepass", ignore)]
+#[test]
+#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
 fn start_trap_pretty() -> Result<()> {
     let store = get_store();
     let wat = r#"

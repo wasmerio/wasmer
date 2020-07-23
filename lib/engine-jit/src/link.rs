@@ -8,18 +8,18 @@ use wasmer_compiler::{
     SectionIndex,
 };
 use wasmer_vm::ModuleInfo;
-use wasmer_vm::VMFunctionBody;
+use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
 
 fn apply_relocation(
     body: usize,
     r: &Relocation,
-    allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     allocated_sections: &PrimaryMap<SectionIndex, *const u8>,
 ) {
     let target_func_address: usize = match r.reloc_target {
         RelocationTarget::LocalFunc(index) => {
-            let fatptr: *const [VMFunctionBody] = allocated_functions[index];
+            let fatptr: *const [VMFunctionBody] = allocated_functions[index].0;
             fatptr as *const VMFunctionBody as usize
         }
         RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
@@ -31,7 +31,7 @@ fn apply_relocation(
                 .get(func_index)
                 .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
                 .expect("func jump table");
-            let fatptr: *const [VMFunctionBody] = allocated_functions[func_index];
+            let fatptr: *const [VMFunctionBody] = allocated_functions[func_index].0;
             fatptr as *const VMFunctionBody as usize + offset as usize
         }
     };
@@ -69,7 +69,7 @@ fn apply_relocation(
 /// required relocations and jump tables.
 pub fn link_module(
     _module: &ModuleInfo,
-    allocated_functions: &PrimaryMap<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     function_relocations: Relocations,
     allocated_sections: &PrimaryMap<SectionIndex, *const u8>,
@@ -82,7 +82,7 @@ pub fn link_module(
         }
     }
     for (i, function_relocs) in function_relocations.into_iter() {
-        let fatptr: *const [VMFunctionBody] = allocated_functions[i];
+        let fatptr: *const [VMFunctionBody] = allocated_functions[i].0;
         let body = fatptr as *const VMFunctionBody as usize;
         for r in function_relocs {
             apply_relocation(body, r, allocated_functions, jt_offsets, allocated_sections);

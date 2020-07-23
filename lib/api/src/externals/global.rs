@@ -6,7 +6,8 @@ use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
-use wasmer_vm::{Export, ExportGlobal, VMGlobalDefinition};
+use std::sync::Arc;
+use wasmer_vm::{Export, ExportGlobal, Global as RuntimeGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -17,52 +18,50 @@ use wasmer_vm::{Export, ExportGlobal, VMGlobalDefinition};
 #[derive(Clone)]
 pub struct Global {
     store: Store,
-    exported: ExportGlobal,
+    global: Arc<RuntimeGlobal>,
 }
 
 impl Global {
     /// Create a new `Global` with the initial value [`Val`].
     pub fn new(store: &Store, val: Val) -> Global {
-        // Note: we unwrap because the provided type should always match
-        // the value type, so it's safe to unwrap.
-        Self::from_type(store, GlobalType::new(val.ty(), Mutability::Const), val).unwrap()
+        Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Val`].
     pub fn new_mut(store: &Store, val: Val) -> Global {
-        // Note: we unwrap because the provided type should always match
-        // the value type, so it's safe to unwrap.
-        Self::from_type(store, GlobalType::new(val.ty(), Mutability::Var), val).unwrap()
+        Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
-    fn from_type(store: &Store, ty: GlobalType, val: Val) -> Result<Global, RuntimeError> {
+    /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
+    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Global, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
-        let mut definition = VMGlobalDefinition::new();
+        let global = RuntimeGlobal::new(GlobalType {
+            mutability,
+            ty: val.ty(),
+        });
         unsafe {
             match val {
-                Val::I32(x) => *definition.as_i32_mut() = x,
-                Val::I64(x) => *definition.as_i64_mut() = x,
-                Val::F32(x) => *definition.as_f32_mut() = x,
-                Val::F64(x) => *definition.as_f64_mut() = x,
+                Val::I32(x) => *global.get_mut().as_i32_mut() = x,
+                Val::I64(x) => *global.get_mut().as_i64_mut() = x,
+                Val::F32(x) => *global.get_mut().as_f32_mut() = x,
+                Val::F64(x) => *global.get_mut().as_f64_mut() = x,
                 _ => return Err(RuntimeError::new(format!("create_global for {:?}", val))),
                 // Val::V128(x) => *definition.as_u128_bits_mut() = x,
             }
         };
-        let exported = ExportGlobal {
-            definition: Box::leak(Box::new(definition)),
-            global: ty,
-        };
+
+        let definition = global.vmglobal();
         Ok(Global {
             store: store.clone(),
-            exported,
+            global: Arc::new(global),
         })
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
     pub fn ty(&self) -> &GlobalType {
-        &self.exported.global
+        self.global.ty()
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
@@ -73,7 +72,7 @@ impl Global {
     /// Retrieves the current value [`Val`] that the Global has.
     pub fn get(&self) -> Val {
         unsafe {
-            let definition = &mut *self.exported.definition;
+            let definition = self.global.get();
             match self.ty().ty {
                 ValType::I32 => Val::from(*definition.as_i32()),
                 ValType::I64 => Val::from(*definition.as_i64()),
@@ -108,7 +107,7 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            let definition = &mut *self.exported.definition;
+            let definition = self.global.get_mut();
             match val {
                 Val::I32(i) => *definition.as_i32_mut() = i,
                 Val::I64(i) => *definition.as_i64_mut() = i,
@@ -123,13 +122,13 @@ impl Global {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Global {
         Global {
             store: store.clone(),
-            exported: wasmer_export,
+            global: wasmer_export.from.clone(),
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
     pub fn same(&self, other: &Global) -> bool {
-        self.exported.same(&other.exported)
+        Arc::ptr_eq(&self.global, &other.global)
     }
 }
 
@@ -145,7 +144,10 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        self.exported.clone().into()
+        ExportGlobal {
+            from: self.global.clone(),
+        }
+        .into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

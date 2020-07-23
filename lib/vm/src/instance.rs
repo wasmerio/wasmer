@@ -5,6 +5,7 @@
 //! wasm module (except its callstack and register state). An
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
 use crate::export::Export;
+use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
@@ -15,7 +16,7 @@ use crate::vmcontext::{
     VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{ModuleInfo, TableElements, VMOffsets};
+use crate::{FunctionBodyPtr, ModuleInfo, TableElements, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -73,11 +74,13 @@ pub(crate) struct Instance {
     offsets: VMOffsets,
 
     /// WebAssembly linear memory data.
-    // TODO: maybe `*mut Arc`
     memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
 
     /// WebAssembly table data.
     tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
+
+    /// WebAssembly global data.
+    globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
@@ -89,7 +92,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -235,25 +238,26 @@ impl Instance {
 
     /// Return the indexed `VMGlobalDefinition`.
     fn global(&self, index: LocalGlobalIndex) -> VMGlobalDefinition {
-        unsafe { *self.global_ptr(index) }
+        unsafe { self.global_ptr(index).as_ref().clone() }
     }
 
     /// Set the indexed global to `VMGlobalDefinition`.
     #[allow(dead_code)]
-    fn set_global(&self, index: LocalGlobalIndex, global: VMGlobalDefinition) {
+    fn set_global(&self, index: LocalGlobalIndex, global: &VMGlobalDefinition) {
         unsafe {
-            *self.global_ptr(index) = global;
+            *self.global_ptr(index).as_ptr() = global.clone();
         }
     }
 
     /// Return the indexed `VMGlobalDefinition`.
-    fn global_ptr(&self, index: LocalGlobalIndex) -> *mut VMGlobalDefinition {
+    fn global_ptr(&self, index: LocalGlobalIndex) -> NonNull<VMGlobalDefinition> {
         let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { self.globals_ptr().add(index) }
+        // TODO:
+        NonNull::new(unsafe { *self.globals_ptr().add(index) }).unwrap()
     }
 
     /// Return a pointer to the `VMGlobalDefinition`s.
-    fn globals_ptr(&self) -> *mut VMGlobalDefinition {
+    fn globals_ptr(&self) -> *mut *mut VMGlobalDefinition {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_globals_begin()) }
     }
 
@@ -290,7 +294,7 @@ impl Instance {
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
                     (
-                        self.finished_functions[def_index] as *const _,
+                        self.finished_functions[def_index].0 as *const _,
                         self.vmctx_ptr(),
                     )
                 } else {
@@ -328,15 +332,17 @@ impl Instance {
                 };
                 ExportMemory { from }.into()
             }
-            ExportIndex::Global(index) => ExportGlobal {
-                definition: if let Some(def_index) = self.module.local_global_index(*index) {
-                    self.global_ptr(def_index)
-                } else {
-                    self.imported_global(*index).definition
-                },
-                global: self.module.globals[*index],
+            ExportIndex::Global(index) => {
+                let from = {
+                    if let Some(def_index) = self.module.local_global_index(*index) {
+                        self.globals[def_index].clone()
+                    } else {
+                        let import = self.imported_global(*index);
+                        import.from.clone()
+                    }
+                };
+                ExportGlobal { from }.into()
             }
-            .into(),
         }
     }
 
@@ -364,10 +370,11 @@ impl Instance {
 
         let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
-                let body = *self
+                let body = self
                     .finished_functions
                     .get(local_index)
-                    .expect("function index is out of bounds");
+                    .expect("function index is out of bounds")
+                    .0;
                 (body as *const _, self.vmctx_ptr())
             }
             None => {
@@ -553,7 +560,7 @@ impl Instance {
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
             (
-                self.finished_functions[def_index] as *const _,
+                self.finished_functions[def_index].0 as *const _,
                 self.vmctx_ptr(),
             )
         } else {
@@ -765,6 +772,11 @@ pub struct InstanceHandle {
     instance: *mut Instance,
 }
 
+/// # Safety
+/// This is safe because there is no thread-specific logic in `InstanceHandle`.
+/// TODO: this needs extra review
+unsafe impl Send for InstanceHandle {}
+
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
@@ -784,10 +796,10 @@ impl InstanceHandle {
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
-        finished_functions: BoxedSlice<LocalFunctionIndex, *mut [VMFunctionBody]>,
+        finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
-        finished_globals: BoxedSlice<LocalGlobalIndex, VMGlobalDefinition>,
+        finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
@@ -813,7 +825,11 @@ impl InstanceHandle {
             .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
 
-        let vmctx_globals = finished_globals;
+        let vmctx_globals = finished_globals
+            .values()
+            .map(|m| m.vmglobal())
+            .collect::<PrimaryMap<LocalGlobalIndex, _>>()
+            .into_boxed_slice();
 
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, &module);
 
@@ -825,6 +841,7 @@ impl InstanceHandle {
                 offsets,
                 memories: finished_memories,
                 tables: finished_tables,
+                globals: finished_globals,
                 passive_elements: Default::default(),
                 passive_data,
                 finished_functions,
@@ -882,7 +899,7 @@ impl InstanceHandle {
         );
         ptr::copy(
             vmctx_globals.values().as_slice().as_ptr(),
-            instance.globals_ptr() as *mut VMGlobalDefinition,
+            instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
             vmctx_globals.len(),
         );
         ptr::write(
@@ -1110,7 +1127,7 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
             if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
-                *(*instance.imported_global(base).definition).as_u32()
+                *instance.imported_global(base).definition.as_ref().as_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1163,7 +1180,7 @@ fn get_table_init_start(init: &TableElements, instance: &Instance) -> usize {
             if let Some(def_index) = instance.module.local_global_index(base) {
                 *instance.global(def_index).as_u32()
             } else {
-                *(*instance.imported_global(base).definition).as_u32()
+                *instance.imported_global(base).definition.as_ref().as_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1256,7 +1273,7 @@ fn initialize_globals(instance: &Instance) {
     let module = Arc::clone(&instance.module);
     for (index, initializer) in module.global_initializers.iter() {
         unsafe {
-            let to = instance.global_ptr(index);
+            let to = instance.global_ptr(index).as_ptr();
             match initializer {
                 GlobalInit::I32Const(x) => *(*to).as_i32_mut() = *x,
                 GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
@@ -1264,11 +1281,12 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
                 GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
-                    let from = if let Some(def_x) = module.local_global_index(*x) {
-                        instance.global(def_x)
-                    } else {
-                        *instance.imported_global(*x).definition
-                    };
+                    let from: VMGlobalDefinition =
+                        if let Some(def_x) = module.local_global_index(*x) {
+                            instance.global(def_x)
+                        } else {
+                            instance.imported_global(*x).definition.as_ref().clone()
+                        };
                     *to = from;
                 }
                 GlobalInit::RefNullConst | GlobalInit::RefFunc(_) => unimplemented!(),

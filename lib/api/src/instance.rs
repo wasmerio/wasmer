@@ -23,7 +23,6 @@ pub struct Instance {
     pub exports: Exports,
 }
 
-/*
 #[cfg(test)]
 mod send_test {
     use super::*;
@@ -35,7 +34,7 @@ mod send_test {
     fn instance_is_send() {
         assert!(is_send::<Instance>());
     }
-}*/
+}
 
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a

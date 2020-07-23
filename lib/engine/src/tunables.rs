@@ -2,11 +2,11 @@ use crate::error::LinkError;
 use std::sync::Arc;
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, TableIndex,
-    TableType,
+    GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
+    TableIndex, TableType,
 };
 use wasmer_vm::MemoryError;
-use wasmer_vm::{Memory, ModuleInfo, Table, VMGlobalDefinition};
+use wasmer_vm::{Global, Memory, ModuleInfo, Table};
 use wasmer_vm::{MemoryStyle, TableStyle};
 
 /// An engine delegates the creation of memories, tables, and globals
@@ -27,6 +27,11 @@ pub trait Tunables {
 
     /// Create a memory given a memory type
     fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String>;
+
+    /// Create a global with an unset value.
+    fn create_global(&self, ty: GlobalType) -> Result<Arc<Global>, String> {
+        Ok(Arc::new(Global::new(ty)))
+    }
 
     /// Allocate memory for just the memories of the current module.
     fn create_memories(
@@ -72,12 +77,15 @@ pub trait Tunables {
     fn create_globals(
         &self,
         module: &ModuleInfo,
-    ) -> Result<PrimaryMap<LocalGlobalIndex, VMGlobalDefinition>, LinkError> {
+    ) -> Result<PrimaryMap<LocalGlobalIndex, Arc<Global>>, LinkError> {
         let num_imports = module.num_imported_globals;
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
-        for _ in &module.globals.values().as_slice()[num_imports..] {
-            vmctx_globals.push(VMGlobalDefinition::new());
+        for &global_type in module.globals.values().skip(num_imports) {
+            vmctx_globals.push(
+                self.create_global(global_type)
+                    .map_err(LinkError::Resource)?,
+            );
         }
 
         Ok(vmctx_globals)

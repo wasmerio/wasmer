@@ -4,6 +4,7 @@
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
+use crate::global::Global;
 use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
@@ -213,12 +214,27 @@ mod test_vmmemory_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C)]
 pub struct VMGlobalImport {
     /// A pointer to the imported global variable description.
-    pub definition: *mut VMGlobalDefinition,
+    pub definition: NonNull<VMGlobalDefinition>,
+
+    /// A pointer to the `Global` that owns the global description.
+    pub from: Arc<Global>,
 }
+
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. Additionally, all operations
+/// on `from` are thread-safe through the use of a mutex in [`Global`].
+unsafe impl Send for VMGlobalImport {}
+/// # Safety
+/// This data is safe to share between threads because it's plain data that
+/// is the user's responsibility to synchronize. And because it's `Clone`, there's
+/// really no difference between passing it by reference or by value as far as
+/// correctness in a multi-threaded context is concerned.
+unsafe impl Sync for VMGlobalImport {}
 
 #[cfg(test)]
 mod test_vmglobal_import {
@@ -238,6 +254,10 @@ mod test_vmglobal_import {
         assert_eq!(
             offset_of!(VMGlobalImport, definition),
             usize::from(offsets.vmglobal_import_definition())
+        );
+        assert_eq!(
+            offset_of!(VMGlobalImport, from),
+            usize::from(offsets.vmglobal_import_from())
         );
     }
 }
@@ -405,10 +425,9 @@ mod test_vmtable_definition {
 ///
 /// TODO: Pack the globals more densely, rather than using the same size
 /// for every type.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
-    // TODO: use `UnsafeCell` here, make this not Copy; there's probably a ton of UB in this code right now
     storage: [u8; 16],
     // If more elements are added here, remember to add offset_of tests below!
 }
@@ -434,8 +453,8 @@ mod test_vmglobal_definition {
         let module = ModuleInfo::new();
         let offsets = VMOffsets::new(size_of::<*mut u8>() as u8, &module);
         assert_eq!(
-            size_of::<VMGlobalDefinition>(),
-            usize::from(offsets.size_of_vmglobal_definition())
+            size_of::<*const VMGlobalDefinition>(),
+            usize::from(offsets.size_of_vmglobal_local())
         );
     }
 
