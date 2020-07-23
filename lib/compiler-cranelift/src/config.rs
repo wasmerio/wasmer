@@ -27,7 +27,7 @@ pub enum OptLevel {
 ///
 /// This structure exposed a builder-like interface and is primarily consumed by
 /// [`Engine::new()`]
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
@@ -50,14 +50,6 @@ impl Cranelift {
             enable_simd: false,
             middlewares: vec![],
         }
-    }
-
-    /// Should the Cranelift verifier be enabled.
-    ///
-    /// The verifier assures that the generated Cranelift IR is valid.
-    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
-        self.enable_verifier = enable;
-        self
     }
 
     /// Enable NaN canonicalization.
@@ -195,6 +187,10 @@ impl Cranelift {
 impl CompilerConfig for Cranelift {
     fn enable_pic(&mut self) {
         self.enable_pic = true;
+    }
+
+    fn enable_verifier(&mut self) {
+        self.enable_verifier = true;
     }
 
     /// Transform it into the compiler

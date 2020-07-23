@@ -1,4 +1,9 @@
 use crate::indexes::{FunctionIndex, GlobalIndex};
+use crate::lib::std::borrow::ToOwned;
+use crate::lib::std::fmt;
+use crate::lib::std::format;
+use crate::lib::std::string::{String, ToString};
+use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::Value;
 
@@ -48,8 +53,8 @@ impl Type {
     }
 }
 
-impl std::fmt::Display for Type {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for Type {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         write!(f, "{:?}", self)
     }
 }
@@ -250,8 +255,8 @@ impl FunctionType {
     }
 }
 
-impl std::fmt::Display for FunctionType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for FunctionType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let params = self
             .params
             .iter()
@@ -337,8 +342,8 @@ impl GlobalType {
     }
 }
 
-impl std::fmt::Display for GlobalType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for GlobalType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let mutability = match self.mutability {
             Mutability::Const => "constant",
             Mutability::Var => "mutable",
@@ -422,8 +427,8 @@ impl TableType {
     }
 }
 
-impl std::fmt::Display for TableType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for TableType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         if let Some(maximum) = self.maximum {
             write!(f, "{} ({}..{})", self.ty, self.minimum, maximum)
         } else {
@@ -464,8 +469,8 @@ impl MemoryType {
     }
 }
 
-impl std::fmt::Display for MemoryType {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+impl fmt::Display for MemoryType {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
         let shared = if self.shared { "shared" } else { "not shared" };
         if let Some(maximum) = self.maximum {
             write!(f, "{} ({:?}..{:?})", shared, self.minimum, maximum)

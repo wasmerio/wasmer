@@ -9,7 +9,6 @@
 #![warn(unused_import_braces)]
 #![cfg_attr(feature = "std", deny(unstable_features))]
 #![cfg_attr(not(feature = "std"), no_std)]
-#![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -39,15 +38,14 @@ extern crate alloc;
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
-        #[macro_use]
-        pub use alloc::{borrow, boxed, string, vec, sync};
+        pub use alloc::{borrow, boxed, str, string, sync, vec};
         pub use core::fmt;
         pub use hashbrown as collections;
     }
 
     #[cfg(feature = "std")]
     pub mod std {
-        pub use std::{borrow, boxed, collections, fmt, string, sync, vec};
+        pub use std::{borrow, boxed, collections, fmt, str, string, sync, vec};
     }
 }
 
@@ -71,7 +69,7 @@ mod sourceloc;
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]
 pub use crate::compiler::{Compiler, CompilerConfig};
-pub use crate::error::{CompileError, WasmError, WasmResult};
+pub use crate::error::{CompileError, ParseCpuFeatureError, WasmError, WasmResult};
 pub use crate::function::{
     Compilation, CompiledFunction, CompiledFunctionFrameInfo, CustomSections, Dwarf, FunctionBody,
     Functions,
@@ -83,7 +81,7 @@ pub use crate::section::{CustomSection, CustomSectionProtection, SectionBody, Se
 pub use crate::sourceloc::SourceLoc;
 pub use crate::target::{
     Architecture, BinaryFormat, CallingConvention, CpuFeature, Endianness, OperatingSystem,
-    ParseCpuFeatureError, PointerWidth, Target, Triple,
+    PointerWidth, Target, Triple,
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{

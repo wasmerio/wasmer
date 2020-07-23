@@ -1,8 +1,8 @@
+use crate::lib::std::fmt;
+use crate::lib::std::ptr;
+use crate::lib::std::string::{String, ToString};
 use crate::r#ref::ExternRef;
 use crate::types::Type;
-// use crate::native::Func;
-use std::fmt;
-use std::ptr;
 
 /// Possible runtime values that a WebAssembly module can either consume or
 /// produce.

@@ -14,7 +14,6 @@ use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
@@ -131,7 +130,7 @@ pub struct Compilation {
     /// let my_func_type = FunctionType::new(vec![Type::I32], vec![Type::I32]);
     /// let imports = imports!{
     ///     "namespace" => {
-    ///         "my_func" => Function::new_dynamic(&store, my_func_type, my_func),
+    ///         "my_func" => Function::new(&store, my_func_type, my_func),
     ///     }
     /// }
     /// ```

@@ -10,21 +10,13 @@ endif
 
 compilers :=
 
-# Singlepass is enabled
-RUST_VERSION := $(shell rustc -V)
-
-ifneq (, $(findstring nightly,$(RUST_VERSION)))
-	# Singlepass doesn't work yet on Windows
-	ifneq ($(OS), Windows_NT)
-		compilers += singlepass
-	endif
-endif
-
 ifeq ($(ARCH), x86_64)
 	# In X64, Cranelift is enabled
 	compilers += cranelift
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
+		# Singlepass doesn't work yet on Windows
+		compilers += singlepass
 		# Autodetect LLVM from llvm-config
 		ifneq (, $(shell which llvm-config))
 			LLVM_VERSION := $(shell llvm-config --version)
@@ -63,7 +55,7 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release $(compiler_features)
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
 WAPM_VERSION = v0.5.0
 build-wapm:
@@ -96,7 +88,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass:
 	cargo test --release $(compiler_features) --features "test-singlepass"
@@ -112,6 +104,8 @@ test-packages:
 	cargo test -p wasmer-vm --release
 	cargo test -p wasm-common --release
 	cargo test -p wasmer-wasi --release
+	cargo test -p wasmer-object --release
+	cargo test -p wasmer-engine-native --release --no-default-features
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -129,6 +123,14 @@ test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
+
+test-examples:
+	cargo test --release $(compiler_features) --features wasi --examples
+
+test-deprecated:
+	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
+	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 #############
 # Packaging #
@@ -189,8 +191,8 @@ package: package-wapm package-wasmer package-capi
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(OS), Windows_NT)
-	iscc src/windows-installer/wasmer.iss
-	cp src/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
+	iscc scripts/windows-installer/wasmer.iss
+	cp scripts/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS

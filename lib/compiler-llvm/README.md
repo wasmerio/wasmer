@@ -1,7 +1,7 @@
 # Wasmer Compiler - LLVM
 
-This is the `wasmer-compiler-llvm` crate, which contains a
-compiler implementation based on LLVM.
+This is the `wasmer-compiler-llvm` crate, which contains a compiler
+implementation based on [the LLVM Compiler Infrastructure][LLVM].
 
 ## Usage
 
@@ -22,6 +22,8 @@ let compiler = LLVM::new();
 let store = Store::new(&JIT::new(&compiler).engine());
 ```
 
+*Note: you can find a [full working example using LLVM compiler here][example].*
+
 ## When to use LLVM
 
 We recommend using LLVM as the default compiler when running WebAssembly
@@ -30,11 +32,11 @@ to native speeds.
 
 ## Requirements
 
-The llvm compiler requires a valid installation of LLVM in your system.
+The LLVM compiler requires a valid installation of LLVM in your system.
 It currently requires **LLVM 10**.
 
 
-You can install LLVM easily on your debian-like system via this command:
+You can install LLVM easily on your Debian-like system via this command:
 
 ```bash
 bash -c "$(wget -O - https://apt.llvm.org/llvm.sh)"
@@ -46,4 +48,9 @@ Or in macOS:
 brew install llvm
 ```
 
-Or via any of the [pre-built binaries that LLVM offers](https://releases.llvm.org/download.html).
+Or via any of the [pre-built binaries that LLVM offers][llvm-pre-built].
+
+
+[LLVM]: https://llvm.org/
+[example]: https://github.com/wasmerio/wasmer-reborn/blob/master/examples/compiler_llvm.rs
+[llvm-pre-built]: https://releases.llvm.org/download.html

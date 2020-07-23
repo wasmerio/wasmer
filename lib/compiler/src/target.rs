@@ -1,12 +1,12 @@
 //! Target configuration
+use crate::error::ParseCpuFeatureError;
+use crate::lib::std::str::FromStr;
+use crate::lib::std::string::{String, ToString};
 use enumset::{EnumSet, EnumSetType};
-use std::str::FromStr;
-use std::string::ToString;
 pub use target_lexicon::{
     Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
     Triple,
 };
-use thiserror::Error;
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
@@ -110,15 +110,6 @@ impl CpuFeature {
         // We default to an empty hash set
         EnumSet::new()
     }
-}
-
-/// The error that can happen while parsing a `str`
-/// to retrieve a [`CpuFeature`].
-#[derive(Error, Debug)]
-pub enum ParseCpuFeatureError {
-    /// The provided string feature doesn't exist
-    #[error("CpuFeature {0} not recognized")]
-    Missing(String),
 }
 
 // This options should map exactly the GCC options indicated

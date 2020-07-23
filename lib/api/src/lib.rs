@@ -1,5 +1,28 @@
 //! Wasmer API
-#![deny(intra_doc_link_resolution_failure)]
+#![deny(
+    missing_docs,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    intra_doc_link_resolution_failure
+)]
+#![warn(unused_import_braces)]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    allow(clippy::new_without_default, vtable_address_comparisons)
+)]
+#![cfg_attr(
+    feature = "cargo-clippy",
+    warn(
+        clippy::float_arithmetic,
+        clippy::mut_mut,
+        clippy::nonminimal_bool,
+        clippy::option_map_unwrap_or,
+        clippy::option_map_unwrap_or_else,
+        clippy::print_stdout,
+        clippy::unicode_not_nfc,
+        clippy::use_self
+    )
+)]
 
 mod exports;
 mod externals;

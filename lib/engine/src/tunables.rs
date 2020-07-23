@@ -9,7 +9,8 @@ use wasmer_vm::MemoryError;
 use wasmer_vm::{Global, Imports, Memory, ModuleInfo, Table};
 use wasmer_vm::{MemoryStyle, TableStyle};
 
-/// Tunables for an engine
+/// An engine delegates the creation of memories, tables, and globals
+/// to a foreign implementor of this trait.
 pub trait Tunables {
     /// Construct a `MemoryStyle` for the provided `MemoryType`
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle;

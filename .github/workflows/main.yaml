@@ -15,7 +15,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: nightly-2019-12-19
+          toolchain: 1.45.0
           override: true
           components: rustfmt, clippy
       - run: make lint
@@ -29,7 +29,7 @@ jobs:
   #       uses: actions-rs/toolchain@v1
   #       with:
   #         profile: minimal
-  #         toolchain: nightly-2019-12-19
+  #         toolchain: 1.45.0
   #         override: true
   #         components: rustfmt, clippy
   #     - run: make doc-local
@@ -44,13 +44,17 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: nightly-2019-12-19
+            rust: 1.45.0
           - build: macos
             os: macos-latest
-            rust: nightly-2019-12-19
+            rust: 1.45.0
           - build: windows
             os: windows-latest
-            rust: nightly-2019-12-19
+            rust: 1.45.0
+    env:
+      CARGO_SCCACHE_VERSION: 0.2.13
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
       - name: Install Rust ${{ matrix.rust }}
@@ -79,6 +83,20 @@ jobs:
           key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
             ${{ matrix.os }}-
+      # # Install sccache
+      # - uses: actions/cache@master
+      #   with:
+      #     path: ${{ runner.tool_cache }}/cargo-sccache
+      #     key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+      # - name: Install sccache
+      #   run: |
+      #     echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
+      #     cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
+      # - name: Start sccache
+      #   run: |
+      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
+      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
+      #     echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         run: choco install llvm
@@ -92,10 +110,12 @@ jobs:
         if: matrix.os == 'macos-latest'
         run: |
           curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+          mkdir -p ${{ env.LLVM_DIR }}
+          tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
+          echo "::add-path::${{ env.LLVM_DIR }}/bin"
+          echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
+        env:
+          LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Install LLVM (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |

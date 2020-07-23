@@ -110,12 +110,26 @@ impl Engine for JITEngine {
     }
 
     /// Compile a WebAssembly binary
+    #[cfg(feature = "compiler")]
     fn compile(
         &self,
         binary: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Ok(Arc::new(JITArtifact::new(&self, binary, tunables)?))
+    }
+
+    /// Compile a WebAssembly binary
+    #[cfg(not(feature = "compiler"))]
+    fn compile(
+        &self,
+        _binary: &[u8],
+        _tunables: &dyn Tunables,
+    ) -> Result<Arc<dyn Artifact>, CompileError> {
+        Err(CompileError::Codegen(
+            "The JITEngine is operating in headless mode, so it can not compile Modules."
+                .to_string(),
+        ))
     }
 
     /// Deserializes a WebAssembly module

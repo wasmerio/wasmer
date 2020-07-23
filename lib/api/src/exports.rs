@@ -3,10 +3,9 @@ use crate::import_object::LikeNamespace;
 use crate::native::NativeFunc;
 use crate::WasmTypeList;
 use indexmap::IndexMap;
-use std::{
-    iter::{ExactSizeIterator, FromIterator},
-    sync::Arc,
-};
+use std::fmt;
+use std::iter::{ExactSizeIterator, FromIterator};
+use std::sync::Arc;
 use thiserror::Error;
 use wasmer_vm::Export;
 
@@ -148,6 +147,12 @@ impl Exports {
         ExportsIterator {
             iter: self.map.iter(),
         }
+    }
+}
+
+impl fmt::Debug for Exports {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_set().entries(self.iter()).finish()
     }
 }
 

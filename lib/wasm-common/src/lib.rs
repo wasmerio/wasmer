@@ -6,7 +6,8 @@
 
 #![deny(missing_docs, unused_extern_crates)]
 #![warn(unused_import_braces)]
-#![cfg_attr(feature = "clippy", plugin(clippy(conf_file = "../../clippy.toml")))]
+#![cfg_attr(feature = "std", deny(unstable_features))]
+#![cfg_attr(not(feature = "std"), no_std)]
 #![cfg_attr(feature = "cargo-clippy", allow(clippy::new_without_default))]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -21,6 +22,33 @@
         clippy::use_self
     )
 )]
+
+#[cfg(all(feature = "std", feature = "core"))]
+compile_error!(
+    "The `std` and `core` features are both enabled, which is an error. Please enable only once."
+);
+
+#[cfg(all(not(feature = "std"), not(feature = "core")))]
+compile_error!("Both the `std` and `core` features are disabled. Please enable one of them.");
+
+#[cfg(feature = "core")]
+extern crate alloc;
+
+mod lib {
+    #[cfg(feature = "core")]
+    pub mod std {
+        pub use alloc::{borrow, boxed, format, rc, slice, string, vec};
+        pub use core::{any, cell, fmt, hash, marker, ops, ptr, sync};
+    }
+
+    #[cfg(feature = "std")]
+    pub mod std {
+        pub use std::{
+            any, borrow, boxed, cell, fmt, format, hash, marker, ops, ptr, rc, slice, string, sync,
+            vec,
+        };
+    }
+}
 
 mod data_initializer;
 mod features;

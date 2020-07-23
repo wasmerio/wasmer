@@ -714,7 +714,7 @@ pub unsafe extern "C" fn wasm_func_new(
             .expect("Result conversion failed");
         Ok(processed_results)
     };
-    let f = Function::new_dynamic(store, &func_sig, inner_callback);
+    let f = Function::new(store, &func_sig, inner_callback);
     Some(Box::new(wasm_func_t {
         instance: None,
         inner: f,
@@ -760,7 +760,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
                 .expect("Result conversion failed");
             Ok(processed_results)
         };
-    let f = Function::new_dynamic_env(store, &func_sig, env, inner_callback);
+    let f = Function::new_with_env(store, &func_sig, env, inner_callback);
     Some(Box::new(wasm_func_t {
         instance: None,
         inner: f,

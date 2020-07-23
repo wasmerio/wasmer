@@ -45,7 +45,7 @@ macro_rules! mvr_test {
                     &module,
                     &wasmer::imports! {
                         "host" => {
-                            "callback_fn" => wasmer::Function::new(&store, callback_fn)
+                            "callback_fn" => wasmer::Function::new_native(&store, callback_fn)
                         }
                     }
                 )?;
@@ -67,7 +67,7 @@ macro_rules! mvr_test {
             fn dynamic() -> anyhow::Result<()> {
                 let store = get_store();
                 let module = get_module(&store)?;
-                let callback_fn = wasmer::Function::new_dynamic(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
+                let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
                 let instance = wasmer::Instance::new(
                     &module,
                     &wasmer::imports! {

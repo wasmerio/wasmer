@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
+use std::fmt;
 use wasmer_engine::Resolver;
 use wasmer_vm::InstanceHandle;
 
@@ -12,6 +13,8 @@ use wasmer_vm::InstanceHandle;
 /// Instance objects contain all the exported WebAssembly
 /// functions, memories, tables and globals that allow
 /// interacting with WebAssembly.
+///
+/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
 #[derive(Clone)]
 pub struct Instance {
     handle: InstanceHandle,
@@ -94,7 +97,16 @@ impl Instance {
         &self.module
     }
 
+    /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
+    }
+}
+
+impl fmt::Debug for Instance {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("Instance")
+            .field("exports", &self.exports)
+            .finish()
     }
 }

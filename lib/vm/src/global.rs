@@ -161,7 +161,6 @@ impl Global {
     /// # Safety
     /// The caller should check that the `val` comes from the same store as this global.
     pub unsafe fn set_unchecked<T>(&self, val: Value<T>) -> Result<(), GlobalError> {
-
         // ideally we'd use atomics here
         let definition = &mut *self.vm_global_definition.get();
         match val {
@@ -173,5 +172,4 @@ impl Global {
         }
         Ok(())
     }
-
 }

@@ -15,7 +15,7 @@ lazy_static = "1.4"
 libc = "0.2.72"
 log = "0.4"
 time = "0.1"
-wasmer = { path = "../api", version = "1.0.0-alpha.1" }
+wasmer = { path = "../api", version = "1.0.0-alpha.1", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.1"

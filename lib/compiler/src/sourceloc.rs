@@ -61,7 +61,7 @@ impl fmt::Display for SourceLoc {
 #[cfg(test)]
 mod tests {
     use super::SourceLoc;
-    use crate::std::string::ToString;
+    use crate::lib::std::string::ToString;
 
     #[test]
     fn display() {

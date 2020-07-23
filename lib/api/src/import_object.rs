@@ -1,13 +1,11 @@
 //! The import module contains the implementation data structures and helper functions used to
 //! manipulate and access a wasm module's imports including memories, tables, globals, and
 //! functions.
+use std::borrow::{Borrow, BorrowMut};
 use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
-use std::{
-    borrow::{Borrow, BorrowMut},
-    ffi::c_void,
-    sync::{Arc, Mutex},
-};
+use std::fmt;
+use std::sync::{Arc, Mutex};
 use wasmer_engine::NamedResolver;
 use wasmer_vm::Export;
 
@@ -35,7 +33,7 @@ pub trait LikeNamespace {
 /// let mut import_object = ImportObject::new();
 /// let mut env = Exports::new();
 ///
-/// env.insert("foo", Function::new(foo));
+/// env.insert("foo", Function::new_native(foo));
 /// import_object.register("env", env);
 ///
 /// fn foo(n: i32) -> i32 {
@@ -45,11 +43,6 @@ pub trait LikeNamespace {
 #[derive(Clone, Default)]
 pub struct ImportObject {
     map: Arc<Mutex<HashMap<String, Box<dyn LikeNamespace>>>>,
-    #[allow(clippy::type_complexity)]
-    pub(crate) state_creator: Option<Arc<dyn Fn() -> (*mut c_void, fn(*mut c_void)) + 'static>>,
-    /// Allow missing functions to be generated and instantiation to continue when required
-    /// functions are not provided.
-    pub allow_missing_functions: bool,
 }
 
 impl ImportObject {
@@ -81,24 +74,6 @@ impl ImportObject {
         self.map.lock().unwrap().borrow().contains_key(name)
     }
 
-    /// Create a new `ImportObject` which generates data from the provided state creator.
-    pub fn new_with_data<F>(state_creator: F) -> Self
-    where
-        F: Fn() -> (*mut c_void, fn(*mut c_void)) + 'static,
-    {
-        Self {
-            map: Arc::new(Mutex::new(HashMap::new())),
-            state_creator: Some(Arc::new(state_creator)),
-            allow_missing_functions: false,
-        }
-    }
-
-    /// Calls the state creator
-    #[allow(clippy::type_complexity)]
-    pub fn call_state_creator(&self) -> Option<(*mut c_void, fn(*mut c_void))> {
-        self.state_creator.as_ref().map(|state_gen| state_gen())
-    }
-
     /// Register anything that implements `LikeNamespace` as a namespace.
     ///
     /// # Usage:
@@ -124,15 +99,6 @@ impl ImportObject {
                 None
             }
             Entry::Occupied(mut occupied) => Some(occupied.insert(Box::new(namespace))),
-        }
-    }
-
-    /// Create a clone ref of this namespace.
-    pub fn clone_ref(&self) -> Self {
-        Self {
-            map: Arc::clone(&self.map),
-            state_creator: self.state_creator.clone(),
-            allow_missing_functions: false,
         }
     }
 
@@ -178,6 +144,55 @@ impl IntoIterator for ImportObject {
     }
 }
 
+impl fmt::Debug for ImportObject {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        enum SecretOption {
+            None,
+            Some,
+        }
+
+        impl fmt::Debug for SecretOption {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    Self::None => write!(f, "None"),
+                    Self::Some => write!(f, "Some(...)"),
+                }
+            }
+        }
+
+        enum SecretMap {
+            Empty,
+            Some(usize),
+        }
+
+        impl SecretMap {
+            fn new(len: usize) -> Self {
+                if len == 0 {
+                    Self::Empty
+                } else {
+                    Self::Some(len)
+                }
+            }
+        }
+
+        impl fmt::Debug for SecretMap {
+            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+                match self {
+                    Self::Empty => write!(f, "(empty)"),
+                    Self::Some(len) => write!(f, "(... {} item(s) ...)", len),
+                }
+            }
+        }
+
+        f.debug_struct("ImportObject")
+            .field(
+                "map",
+                &SecretMap::new(self.map.lock().unwrap().borrow().len()),
+            )
+            .finish()
+    }
+}
+
 // The import! macro for ImportObject
 
 /// Generate an [`ImportObject`] easily with the `imports!` macro.
@@ -193,7 +208,7 @@ impl IntoIterator for ImportObject {
 ///
 /// let import_object = imports! {
 ///     "env" => {
-///         "foo" => Function::new(&store, foo)
+///         "foo" => Function::new_native(&store, foo)
 ///     },
 /// };
 ///
@@ -369,42 +384,42 @@ mod test {
 
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func),
+                "func" => Function::new_native(&store, func),
             },
             "abc" => {
-                "def" => Function::new(&store, func),
+                "def" => Function::new_native(&store, func),
             }
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func)
+                "func" => Function::new_native(&store, func)
             },
         };
         let _ = imports! {
             "env" => {
-                "func" => Function::new(&store, func)
+                "func" => Function::new_native(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new(&store, func),
-                "func2" => Function::new(&store, func)
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func)
             }
         };
         let _ = imports! {
             "env" => {
-                "func1" => Function::new(&store, func),
-                "func2" => Function::new(&store, func),
+                "func1" => Function::new_native(&store, func),
+                "func2" => Function::new_native(&store, func),
             }
         };
     }

@@ -228,7 +228,7 @@ pub unsafe extern "C" fn wasmer_import_object_iterate_functions(
         return std::ptr::null_mut();
     }
     let import_object: &ImportObject = &*(import_object as *const ImportObject);
-    let iter_inner = Box::new(import_object.clone_ref().into_iter().filter(|((_, _), e)| {
+    let iter_inner = Box::new(import_object.clone().into_iter().filter(|((_, _), e)| {
         if let Extern::Function(_) = e {
             true
         } else {
@@ -691,7 +691,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
 
-    let func = Function::new_dynamic_env(store, &func_type, &mut *env_ptr, move |env, args| {
+    let func = Function::new_with_env(store, &func_type, &mut *env_ptr, move |env, args| {
         use libffi::high::call::{call, Arg};
         use libffi::low::CodePtr;
 

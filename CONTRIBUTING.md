@@ -14,7 +14,7 @@ We recommend trying the following commands before sending a pull request to ensu
 
 - `cargo fmt --all` Ensures all code is correctly formatted.
 - Run `cargo test` in the crates that you are modifying.
-- Run `cargo build --all` (nightly) or `cargo build --all --exclude wasmer-singlepass-backend`
+- Run `cargo build --all`.
 
 A comprehensive CI test suite will be run by a Wasmer team member after the PR has been created.
 
@@ -25,9 +25,3 @@ A comprehensive CI test suite will be run by a Wasmer team member after the PR h
 `Didn't find usable system-wide LLVM`
 
 Building Wasmer with the LLVM backend requires LLVM to be installed
-
-#### Singlepass Nightly Only
-
-`error[E0554]: #![feature] may not be used on the stable release channel`
-
-Building Wasmer with the singlepass backend requires the nightly version of Rust

@@ -5,6 +5,7 @@ use inkwell::targets::{
 };
 use inkwell::OptimizationLevel;
 use itertools::Itertools;
+use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
 use wasm_common::{FunctionType, LocalFunctionIndex};
@@ -28,7 +29,7 @@ pub enum CompiledFunctionKind {
 }
 
 /// Callbacks to the different LLVM compilation phases.
-pub trait LLVMCallbacks: Send + Sync {
+pub trait LLVMCallbacks: Debug + Send + Sync {
     fn preopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
     fn postopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
     fn obj_memory_buffer(
@@ -38,7 +39,7 @@ pub trait LLVMCallbacks: Send + Sync {
     );
 }
 
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,
@@ -61,14 +62,6 @@ impl LLVM {
             callbacks: None,
             middlewares: vec![],
         }
-    }
-
-    /// Should the LLVM verifier be enabled.
-    ///
-    /// The verifier assures that the generated LLVM IR is valid.
-    pub fn verify_ir(&mut self, enable: bool) -> &mut Self {
-        self.enable_verifier = enable;
-        self
     }
 
     /// Enable NaN canonicalization.
@@ -182,6 +175,11 @@ impl CompilerConfig for LLVM {
         // TODO: although we can emit PIC, the object file parser does not yet
         // support all the relocations.
         self.is_pic = true;
+    }
+
+    /// Whether to verify compiler IR.
+    fn enable_verifier(&mut self) {
+        self.enable_verifier = true;
     }
 
     /// Transform it into the compiler.
