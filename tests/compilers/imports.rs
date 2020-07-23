@@ -238,8 +238,6 @@ fn static_function_with_env() -> Result<()> {
 
 #[test]
 fn static_function_that_fails() -> Result<()> {
-    use std::{error, fmt};
-
     let store = get_store();
     let wat = r#"
         (import "host" "0" (func))

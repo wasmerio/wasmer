@@ -107,7 +107,7 @@ pub trait Artifact: Send + Sync {
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
-            .create_globals(&module, &imports)
+            .create_globals(&module)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
 

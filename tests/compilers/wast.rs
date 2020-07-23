@@ -5,8 +5,8 @@ use std::path::Path;
 use wasmer::{Features, Store};
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-#[cfg(feature = "native")]
-use wasmer_engine_native::NativeEngine;
+// #[cfg(feature = "native")]
+// use wasmer_engine_native::NativeEngine;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
