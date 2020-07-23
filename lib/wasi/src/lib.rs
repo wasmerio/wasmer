@@ -47,7 +47,6 @@ pub enum WasiError {
 }
 
 /// The environment provided to the WASI imports.
-/// It
 #[derive(Clone)]
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
