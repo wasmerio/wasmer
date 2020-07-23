@@ -15,12 +15,12 @@ use wasm_common::{
 };
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, Tunables};
+use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
 };
 #[cfg(feature = "compiler")]
-use wasmer_engine::{Engine, SerializableFunctionFrameInfo};
+use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.
