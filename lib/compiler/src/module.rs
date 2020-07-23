@@ -1,6 +1,6 @@
+use crate::lib::std::sync::Arc;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::sync::Arc;
 use wasm_common::entity::PrimaryMap;
 use wasm_common::{Features, MemoryIndex, TableIndex};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};

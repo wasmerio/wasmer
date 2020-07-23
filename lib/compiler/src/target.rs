@@ -1,8 +1,8 @@
 //! Target configuration
 use crate::error::ParseCpuFeatureError;
+use crate::lib::std::str::FromStr;
+use crate::lib::std::string::{String, ToString};
 use enumset::{EnumSet, EnumSetType};
-use std::str::FromStr;
-use std::string::ToString;
 pub use target_lexicon::{
     Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
     Triple,
