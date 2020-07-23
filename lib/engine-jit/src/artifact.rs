@@ -18,7 +18,6 @@ use wasmer_compiler::{CompileError, Features, Triple};
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
-    Tunables,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo};

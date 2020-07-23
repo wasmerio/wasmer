@@ -3,6 +3,7 @@ use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The JIT builder
 pub struct JIT<'a> {
+    #[allow(dead_code)]
     compiler_config: Option<&'a dyn CompilerConfig>,
     target: Option<Target>,
     features: Option<Features>,

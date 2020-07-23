@@ -10,8 +10,7 @@ include = [
     "Cargo.lock",
     "Cargo.toml",
     "LICENSE",
-    "Makefile",
-    "/README.md"
+    "README.md"
 ]
 readme = "README.md"
 edition = "2018"
@@ -38,7 +37,7 @@ wasmer-wast = { version = "1.0.0-alpha.1", path = "../../tests/lib/wast", option
 wasmer-cache = { version = "1.0.0-alpha.1", path = "../cache", optional = true }
 wasm-common = { version = "1.0.0-alpha.1", path = "../wasm-common" }
 atty = "0.2"
-colored = "1.9"
+colored = "2.0"
 anyhow = "1.0"
 structopt = { version = "0.3", features = ["suggestions"] }
 # For the function names autosuggestion

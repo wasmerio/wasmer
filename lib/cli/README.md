@@ -2,22 +2,22 @@
 
 This crate is the Wasmer CLI.
 
-The recommended way to install Wasmer is via your shell [following the instructions in our repo](https://github.com/wasmerio/wasmer-reborn#1-install-wasmer).
+The recommended way to install `wasmer` is via the [wasmer-installer](https://github.com/wasmerio/wasmer-install).
 
-You can install it also via Cargo:
-
-```bash
-cargo install wasmer-cli
-```
-
-Or by running it inside the codebase:
+However, you can also install `wasmer` via Cargo (you will need to specify the compilers to use):
 
 ```bash
-cargo build --release
+cargo install wasmer-cli --features "singlepass,cranelift"
 ```
 
-> Note: installing Wasmer via Cargo (or manual install) will not install
-> the WAPM cli. If you want to use them together, please use the default shell installer.
+Or by building it inside the codebase:
+
+```bash
+cargo build --release --features "singlepass,cranelift"
+```
+
+> Note: installing `wasmer` via Cargo (or manual install) will not install
+> the WAPM cli. If you want to use them together, please use the [wasmer installer](https://github.com/wasmerio/wasmer-install).
 
 
 ## Features
@@ -29,6 +29,7 @@ The Wasmer supports the following features:
 * `native` (default): support for the [Native engine].
 * `cache` (default): support or automatically caching compiled artifacts.
 * `wasi` (default): support for [WASI].
+* `experimental-io-devices`: support for experimental IO devices in WASI.
 * `emscripten` (default): support for [Emscripten].
 * `singlepass`: support for the [Singlepass compiler].
 * `cranelift`: support for the [Cranelift compiler].

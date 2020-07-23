@@ -122,8 +122,8 @@ impl Engine for JITEngine {
     #[cfg(not(feature = "compiler"))]
     fn compile(
         &self,
-        binary: &[u8],
-        tunables: &dyn Tunables,
+        _binary: &[u8],
+        _tunables: &dyn Tunables,
     ) -> Result<Arc<dyn Artifact>, CompileError> {
         Err(CompileError::Codegen(
             "The JITEngine is operating in headless mode, so it can not compile Modules."
