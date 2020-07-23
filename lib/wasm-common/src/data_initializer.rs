@@ -1,4 +1,5 @@
 use crate::indexes::{GlobalIndex, MemoryIndex};
+use crate::lib::std::boxed::Box;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

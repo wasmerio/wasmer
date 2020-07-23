@@ -1,9 +1,11 @@
 #![allow(missing_docs)]
 
-use std::any::Any;
-use std::cell::{self, RefCell};
-use std::fmt;
-use std::rc::{Rc, Weak};
+use crate::lib::std::any::Any;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::cell::{self, RefCell};
+use crate::lib::std::fmt;
+use crate::lib::std::hash;
+use crate::lib::std::rc::{Rc, Weak};
 
 pub trait HostInfo {
     fn finalize(&mut self) {}
@@ -59,8 +61,8 @@ pub enum ExternRef {
     Other(OtherRef),
 }
 
-impl std::hash::Hash for ExternRef {
-    fn hash<H: std::hash::Hasher>(&self, _state: &mut H) {}
+impl hash::Hash for ExternRef {
+    fn hash<H: hash::Hasher>(&self, _state: &mut H) {}
 }
 
 impl PartialEq for ExternRef {
