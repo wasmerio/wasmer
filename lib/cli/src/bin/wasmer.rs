@@ -1,8 +1,8 @@
 use anyhow::Result;
 #[cfg(feature = "wast")]
-use wasmer_bin::commands::Wast;
-use wasmer_bin::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
-use wasmer_bin::error::PrettyError;
+use wasmer_cli::commands::Wast;
+use wasmer_cli::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
+use wasmer_cli::error::PrettyError;
 
 use structopt::{clap::ErrorKind, StructOpt};
 

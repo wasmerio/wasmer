@@ -2127,42 +2127,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-bin"
-version = "1.0.0-alpha.1"
-dependencies = [
- "anyhow",
- "atty",
- "blake3",
- "build-deps",
- "bytesize",
- "cfg-if",
- "colored",
- "criterion",
- "distance",
- "glob",
- "lazy_static",
- "rustc_version",
- "structopt",
- "tempfile",
- "test-generator",
- "wasm-common",
- "wasmer",
- "wasmer-cache",
- "wasmer-compiler",
- "wasmer-compiler-cranelift",
- "wasmer-compiler-llvm",
- "wasmer-compiler-singlepass",
- "wasmer-emscripten",
- "wasmer-engine",
- "wasmer-engine-dummy",
- "wasmer-engine-jit",
- "wasmer-engine-native",
- "wasmer-wasi",
- "wasmer-wasi-experimental-io-devices",
- "wasmer-wast",
-]
-
-[[package]]
 name = "wasmer-c-api"
 version = "1.0.0-alpha.1"
 dependencies = [
@@ -2195,6 +2159,33 @@ dependencies = [
  "memmap",
  "thiserror",
  "wasmer",
+]
+
+[[package]]
+name = "wasmer-cli"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "anyhow",
+ "atty",
+ "bytesize",
+ "cfg-if",
+ "colored",
+ "distance",
+ "structopt",
+ "wasm-common",
+ "wasmer",
+ "wasmer-cache",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
+ "wasmer-emscripten",
+ "wasmer-engine",
+ "wasmer-engine-jit",
+ "wasmer-engine-native",
+ "wasmer-wasi",
+ "wasmer-wasi-experimental-io-devices",
+ "wasmer-wast",
 ]
 
 [[package]]
@@ -2423,6 +2414,35 @@ dependencies = [
  "wasmer",
  "wasmer-wasi",
  "wast 17.0.0",
+]
+
+[[package]]
+name = "wasmer-workspace"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "anyhow",
+ "blake3",
+ "build-deps",
+ "cfg-if",
+ "criterion",
+ "glob",
+ "lazy_static",
+ "rustc_version",
+ "tempfile",
+ "test-generator",
+ "wasm-common",
+ "wasmer",
+ "wasmer-cache",
+ "wasmer-compiler",
+ "wasmer-compiler-cranelift",
+ "wasmer-compiler-llvm",
+ "wasmer-compiler-singlepass",
+ "wasmer-engine",
+ "wasmer-engine-dummy",
+ "wasmer-engine-jit",
+ "wasmer-engine-native",
+ "wasmer-wasi",
+ "wasmer-wast",
 ]
 
 [[package]]
