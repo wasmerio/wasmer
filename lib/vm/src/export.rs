@@ -4,8 +4,7 @@
 use crate::global::Global;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
-use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind, VMGlobalDefinition};
-use std::ptr::NonNull;
+use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind};
 use std::sync::Arc;
 use wasm_common::{FunctionType, MemoryType, TableType};
 
@@ -136,8 +135,6 @@ impl From<ExportMemory> for Export {
 /// A global export value.
 #[derive(Debug, Clone)]
 pub struct ExportGlobal {
-    /// The address of the global storage.
-    pub definition: NonNull<VMGlobalDefinition>,
     /// The global declaration, used for compatibility checking.
     pub from: Arc<Global>,
 }
@@ -156,7 +153,7 @@ unsafe impl Sync for ExportGlobal {}
 impl ExportGlobal {
     /// Returns whether or not the two `ExportGlobal`s refer to the same Global.
     pub fn same(&self, other: &Self) -> bool {
-        self.definition == other.definition && Arc::ptr_eq(&self.from, &other.from)
+        Arc::ptr_eq(&self.from, &other.from)
     }
 }
 

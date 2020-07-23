@@ -18,10 +18,7 @@ use wasmer_vm::{Export, ExportGlobal, Global as RuntimeGlobal};
 #[derive(Clone)]
 pub struct Global {
     store: Store,
-    exported: ExportGlobal,
-    // This should not be here;
-    // it should be accessed through `exported`
-    // vm_global_definition: Arc<UnsafeCell<VMGlobalDefinition>>,
+    global: Arc<RuntimeGlobal>,
 }
 
 impl Global {
@@ -56,19 +53,15 @@ impl Global {
         };
 
         let definition = global.vmglobal();
-        let exported = ExportGlobal {
-            definition,
-            from: Arc::new(global),
-        };
         Ok(Global {
             store: store.clone(),
-            exported,
+            global: Arc::new(global),
         })
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
     pub fn ty(&self) -> &GlobalType {
-        self.exported.from.ty()
+        self.global.ty()
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
@@ -79,7 +72,7 @@ impl Global {
     /// Retrieves the current value [`Val`] that the Global has.
     pub fn get(&self) -> Val {
         unsafe {
-            let definition = self.exported.from.get();
+            let definition = self.global.get();
             match self.ty().ty {
                 ValType::I32 => Val::from(*definition.as_i32()),
                 ValType::I64 => Val::from(*definition.as_i64()),
@@ -114,7 +107,7 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            let definition = self.exported.from.get_mut();
+            let definition = self.global.get_mut();
             match val {
                 Val::I32(i) => *definition.as_i32_mut() = i,
                 Val::I64(i) => *definition.as_i64_mut() = i,
@@ -129,13 +122,13 @@ impl Global {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Global {
         Global {
             store: store.clone(),
-            exported: wasmer_export,
+            global: wasmer_export.from.clone(),
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
     pub fn same(&self, other: &Global) -> bool {
-        self.exported.same(&other.exported)
+        Arc::ptr_eq(&self.global, &other.global)
     }
 }
 
@@ -151,7 +144,10 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        self.exported.clone().into()
+        ExportGlobal {
+            from: self.global.clone(),
+        }
+        .into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

@@ -333,15 +333,15 @@ impl Instance {
                 ExportMemory { from }.into()
             }
             ExportIndex::Global(index) => {
-                let (definition, from) = {
+                let from = {
                     if let Some(def_index) = self.module.local_global_index(*index) {
-                        (self.global_ptr(def_index), self.globals[def_index].clone())
+                        self.globals[def_index].clone()
                     } else {
                         let import = self.imported_global(*index);
-                        (import.definition, import.from.clone())
+                        import.from.clone()
                     }
                 };
-                ExportGlobal { definition, from }.into()
+                ExportGlobal { from }.into()
             }
         }
     }
