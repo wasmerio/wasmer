@@ -7,8 +7,8 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 keywords = ["wasm", "webassembly", "runtime", "sandbox", "secure"]
 categories = ["wasm", "api-bindings"]
-edition = "2018"
 readme = "README.md"
+edition = "2018"
 
 [badges]
 maintenance = { status = "deprecated" }

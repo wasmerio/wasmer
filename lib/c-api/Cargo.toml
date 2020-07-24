@@ -8,8 +8,8 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 keywords = ["wasm", "webassembly", "runtime"]
 categories = ["wasm"]
-edition = "2018"
 readme = "README.md"
+edition = "2018"
 
 [lib]
 crate-type = ["cdylib", "staticlib"]

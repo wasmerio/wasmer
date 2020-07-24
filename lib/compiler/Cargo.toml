@@ -6,8 +6,8 @@ license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 categories = ["no-std", "wasm"]
-readme = "README.md"
 keywords = ["webassembly", "wasm", "compiler"]
+readme = "README.md"
 edition = "2018"
 
 [dependencies]

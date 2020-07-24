@@ -1,6 +1,6 @@
-# Wasmer Engine
+# `wasmer-engine` [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
-The `wasmer-engine` crate is the general abstraction for creating Engines in Wasmer.
+This crate is the general abstraction for creating Engines in Wasmer.
 
 Wasmer Engines are mainly responsible for two things:
 * Transform the compilation code (from any Wasmer Compiler) to

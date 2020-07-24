@@ -1,34 +1,12 @@
-<p align="center">
-  <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
-  </a>
-</p>
+# `wasmer-c-api` [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
-<p align="center">
-  <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
-    <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
-  </a>
-  <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-    <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
-  </a>
-  <a href="https://spectrum.chat/wasmer">
-    <img src="https://withspectrum.github.io/badge/badge.svg" alt="Join the Wasmer Community">
-  </a>
-  <a href="https://crates.io/crates/wasmer-c-api">
-    <img src="https://img.shields.io/crates/d/wasmer-c-api.svg?style=flat-square" alt="Number of downloads from crates.io">
-  </a>
-  <a href="https://wasmerio.github.io/wasmer/c-api/">
-    <img src="https://img.shields.io/badge/Docs-Wasmer%20C%20API-blue?style=flat-square" alt="Wasmer C API Documentation">
-  </a>
-</p>
+[`Wasmer`](https://wasmer.io/) is the most popular [WebAssembly](https://webassembly.org/)
+runtime for Rust (...and also [the fastest]()!). It supports JIT (Just in Time) and AOT (Ahead of time)
+compilation as well as pluggable compilers suited to your needs.
 
-# Wasmer C API
+It's designed to be safe and secure, and runnable in any kind of environment.
 
-Wasmer is a standalone WebAssembly runtime, aiming to be fully
-compatible with WASI, Emscripten, Rust and Go. [Learn
-more](https://github.com/wasmerio/wasmer).
-
-This crate exposes a C and a C++ API for the Wasmer runtime.
+This crate exposes a C and a C++ API for the Wasmer runtime. It also fully supports the [wasm-c-api common API](https://github.com/WebAssembly/wasm-c-api).
 
 # Usage
 

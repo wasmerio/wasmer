@@ -6,8 +6,8 @@ license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 categories = ["wasm"]
-readme = "README.md"
 keywords = ["webassembly", "wasm", "cache"]
+readme = "README.md"
 edition = "2018"
 
 [dependencies]

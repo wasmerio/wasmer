@@ -6,8 +6,8 @@ authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 keywords = ["webassembly", "wasm", "compiler", "llvm"]
 categories = ["wasm"]
-edition = "2018"
 readme = "README.md"
+edition = "2018"
 
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", features = ["translator"] }

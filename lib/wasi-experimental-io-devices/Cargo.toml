@@ -6,6 +6,7 @@ edition = "2018"
 repository = "https://github.com/wasmerio/wasmer"
 publish = true
 description = "An experimental non-standard WASI extension for graphics"
+readme = "README.md"
 license = "MIT"
 
 [badges]

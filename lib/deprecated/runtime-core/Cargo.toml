@@ -7,6 +7,7 @@ authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 keywords = ["wasm", "webassembly", "runtime"]
 categories = ["wasm"]
+readme = "README.md"
 edition = "2018"
 
 [badges]
