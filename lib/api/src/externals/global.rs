@@ -47,12 +47,11 @@ impl Global {
                 Val::I64(x) => *global.get_mut().as_i64_mut() = x,
                 Val::F32(x) => *global.get_mut().as_f32_mut() = x,
                 Val::F64(x) => *global.get_mut().as_f64_mut() = x,
+                Val::V128(x) => *definition.as_u128_bits_mut() = x,
                 _ => return Err(RuntimeError::new(format!("create_global for {:?}", val))),
-                // Val::V128(x) => *definition.as_u128_bits_mut() = x,
             }
         };
 
-        let definition = global.vmglobal();
         Ok(Global {
             store: store.clone(),
             global: Arc::new(global),
