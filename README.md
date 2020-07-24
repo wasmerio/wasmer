@@ -75,19 +75,20 @@ Here is what you can do next:
 
 📦 Wasmer runtime can be used as a library **embedded in different languages**, so you can use WebAssembly _anywhere_.
 
-- ![Rust logo] [**Rust**][Rust integration]: [`wasmer` Rust crate] • [Docs][rust docs]
-- ![C logo] [**C/C++**][C integration]: [`wasmer.h` headers] • [Docs][c docs]
-- ![C# logo] [**C#**][C# integration]: [`WasmerSharp` NuGet package] • [Docs][c# docs]
-- ![Python logo] [**Python**][Python integration]: [`wasmer` PyPI package] • [Docs][python docs]
-- ![JS logo] [**Javascript**][JS integration]: [`@wasmerio` NPM packages] • [Docs][js docs]
-- ![Go logo] [**Go**][Go integration]: [`wasmer` Go package] • [Docs][go docs]
-- ![PHP logo] [**PHP**][PHP integration]: [`wasm` PECL package] • [Docs][php docs]
-- ![Ruby logo] [**Ruby**][Ruby integration]: [`wasmer` Ruby Gem] • [Docs][ruby docs]
-- ![Java logo] [**Java**][Java integration]: [`wasmer/wasmer-jni` Bintray package] • [Docs][java docs]
-- ![Elixir logo] [*Elixir**][Elixir integration]: [Docs][elixir docs]
-- ![R logo][**R**] [R integration]: [Docs][r docs]
-- ![Postgres logo] [**Postgres**][Postgres integration]
-- 👋 [Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+| &nbsp; | Language | Package | Docs |
+| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
+| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
+| ![C# logo]  | [**C#**][C# integration] | [`WasmerSharp` NuGet package]  | [Docs][c# docs] |
+| ![Python logo]  | [**Python**][Python integration] | [`wasmer` PyPI package]  | [Docs][python docs] |
+| ![JS logo]  | [**Javascript**][JS integration] | [`@wasmerio` NPM packages]  | [Docs][js docs] |
+| ![Go logo]  | [**Go**][Go integration] | [`wasmer` Go package]  | [Docs][go docs] |
+| ![PHP logo]  | [**PHP**][PHP integration] | [`wasm` PECL package]  | [Docs][php docs] |
+| ![Ruby logo]  | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem]  | [Docs][ruby docs] |
+| ![Java logo]  | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package]  | [Docs][java docs] |
+| ![Elixir logo]  | [*Elixir**][Elixir integration] | [Docs][elixir docs] |
+| ![R logo]  | [**R**][R integration] | [Docs][r docs] |
+| ![Postgres logo]  | [**Postgres**][Postgres integration] |
+| 👋 [Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=) |
 
 [rust logo]: ./assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer-rust-example
@@ -99,7 +100,7 @@ Here is what you can do next:
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 [c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 
-[c# logo]: ./assets/languages/c.svg
+[c# logo]: ./assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
 [`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
@@ -134,7 +135,7 @@ Here is what you can do next:
 [`wasmer/wasmer-jni` bintray package]: https://bintray.com/wasmer/wasmer-jni/wasmer-jni
 [java docs]: https://github.com/wasmerio/java-ext-wasm/#api-of-the-wasmer-library
 
-[elixir logo]: ./assets/languages/elixir.png
+[elixir logo]: ./assets/languages/elixir.svg
 [elixir integration]: https://github.com/tessi/wasmex
 [elixir docs]: https://hexdocs.pm/wasmex/api-reference.html
 
