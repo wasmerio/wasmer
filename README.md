@@ -33,7 +33,7 @@
 
 * **Fast & Safe**. Wasmer runs WebAssembly at *near-native* speed in a fully sandboxed environment.
 
-* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift and Singlepass).
+* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift...).
 
 * **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows) and *chipset*.
 
@@ -42,7 +42,7 @@
 
 ## Quickstart
 
-Wasmer ships with no dependencies. You can install it using the installers below or download the binaries from the [releases page](https://github.com/wasmerio/wasmer/releases).
+Wasmer ships with no dependencies. You can install it using the installers below:
 
 Shell (macOS, Linux):
 
