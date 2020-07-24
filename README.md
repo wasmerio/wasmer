@@ -27,51 +27,55 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
+[Wasmer](https://wasmer.io/) is the fastest standalone [WebAssembly](https://webassembly.org/) runtime. It enables super lightweight containers that can run anywhere: from desktop computers to the Cloud and IoT devices.
 
-- **Universal**: Wasmer is available in _Linux, macOS and Windows_ (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
-- **Fast**: Wasmer aims to run WebAssembly at near-native speed
-- **Pluggable**: Wasmer can be used from almost **any programming language**
-- **Safe**: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
+* **Fast and Safe**. Wasmer aims to run WebAssembly at near-native speed,
+  while fully sandboxing it's execution.
 
-It is used to run software fast, universally and safely: standalone applications and universal libraries.
+* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs.
+  Wasmer can be used as a library from almost [*any programming language*](https://github.com/wasmerio/wasmer-reborn#language-integrations)
+
+* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux, and Windows)
+  and *chipset* (Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c)).
+
+* **Standards compliant**. The runtime passes [official WebAssembly test
+  suite](https://github.com/WebAssembly/testsuite), and supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 ## Quickstart
 
-#### 1. Install Wasmer (_more installation methods are also [available](https://github.com/wasmerio/wasmer-install)_)
+Installing Wasmer is super easy. You can install it using the installers below or download the binaries from the [releases page](https://github.com/wasmerio/wasmer/releases).
+
+Shell (macOS, Linux):
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-<details>
-  <summary>With PowerShell</summary>
-  <p>
+PowerShell (Windows):
 
 ```powershell
 iwr https://win.wasmer.io -useb | iex
 ```
 
-</p>
-</details>
+> See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
 
-#### 2. Use Wasmer
 
-Download a WASM file, and use it universally! You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+And now you should be ready to execute your first WebAssemby file!
+You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
-wasmer qjs.wasm
+$ wasmer qjs.wasm
+QuickJS - Type "\h" for help
+qjs >
 ```
 
-#### 3. Next steps
-
-Here is what you can do next:
+### Here is what you can do next:
 
 - [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
 - [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
 - [Read more about Wasmer](https://medium.com/wasmer/)
 
-### Language Integrations
+## Language Integrations
 
 📦 Wasmer runtime can be used as a library **embedded in different languages**, so you can use WebAssembly _anywhere_.
 
