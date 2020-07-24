@@ -36,18 +36,9 @@
 
 It is used to run software fast, universally and safely: standalone applications and universal libraries.
 
-## Contents
-
-- [Quickstart](#quickstart)
-- [Language Integrations](#language-integrations)
-- [Contribute](#contribute)
-- [Community](#community)
-
 ## Quickstart
 
-Get started with Wasmer:
-
-#### 1. Install Wasmer
+#### 1. Install Wasmer (*more installation methods are also [available](https://github.com/wasmerio/wasmer-install)*)
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -63,8 +54,6 @@ iwr https://win.wasmer.io -useb | iex
 
 </p>
 </details>
-
-> *Check all available installation methods here: https://github.com/wasmerio/wasmer-install*
 
 #### 2. Use Wasmer
 
