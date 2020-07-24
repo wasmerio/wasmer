@@ -27,21 +27,18 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: in Desktop to the Cloud and IoT devices.
+[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer-reborn#language-integrations).
 
 ## Features
 
-* **Fast and Safe**. Wasmer aims to run WebAssembly at *near-native* speed,
-  while fully sandboxing it's execution.
+* **Fast & Safe**. Wasmer runs WebAssembly at *near-native* speed in a fully sandboxed environment.
 
-* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs.
-  Wasmer can also be used as a library from almost [*any programming language*](https://github.com/wasmerio/wasmer-reborn#language-integrations).
+* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift and Singlepass).
 
-* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows)
-  and *chipset* (x86 and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c)).
+* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows) and *chipset*.
 
 * **Standards compliant**. The runtime passes [official WebAssembly test
-  suite](https://github.com/WebAssembly/testsuite) and supports [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
+  suite](https://github.com/WebAssembly/testsuite) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 ## Quickstart
 
@@ -72,7 +69,7 @@ QuickJS - Type "\h" for help
 qjs >
 ```
 
-### Here is what you can do next:
+#### Here is what you can do next:
 
 - [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
 - [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
