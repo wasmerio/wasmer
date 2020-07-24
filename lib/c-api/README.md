@@ -1,19 +1,10 @@
 # `wasmer-c-api` [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
-[`Wasmer`](https://wasmer.io/) is the most popular [WebAssembly](https://webassembly.org/)
-runtime for Rust (...and also [the fastest]()!). It supports JIT (Just in Time) and AOT (Ahead of time)
-compilation as well as pluggable compilers suited to your needs.
-
-It's designed to be safe and secure, and runnable in any kind of environment.
-
 This crate exposes a C and a C++ API for the Wasmer runtime. It also fully supports the [wasm-c-api common API](https://github.com/WebAssembly/wasm-c-api).
 
-# Usage
+##  Usage
 
-The shared object files and the headers will
-be automatically available **inside the Wasmer installed path**.
-
-> Please check the following docs to see how to [install Wasmer in your system](https://github.com/wasmerio/wasmer#1-install-wasmer).
+Once you [install Wasmer in your system](https://github.com/wasmerio/wasmer-install), the *shared object files* and the *headers* will be automatically available **inside the Wasmer installed path**.
 
 The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
 files can be found in the Wasmer `include` directory:

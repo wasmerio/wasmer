@@ -1,4 +1,4 @@
-# Wasmer [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer` [![Build Status](https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square)](https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 [`Wasmer`](https://wasmer.io/) is the most popular [WebAssembly](https://webassembly.org/)
 runtime for Rust (...and also [the fastest]()!). It supports JIT (Just in Time) and AOT (Ahead of time)
@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
 
 ## Features
 
-Wasmer is not only fast, but also designed to be highly customizable:
+Wasmer is not only fast, but also designed to be *highly customizable*:
 * **Pluggable Engines**: do you have a fancy `dlopen` implementation? This is for you!
 * **Pluggable Compilers**: you want to emit code with DynASM or other compiler? We got you!
 * **Headless mode**: that means that no compilers will be required
