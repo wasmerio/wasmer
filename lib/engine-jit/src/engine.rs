@@ -254,7 +254,7 @@ impl JITEngineInner {
                 ))
             })?;
 
-        let mut alllocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
+        let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
         //     let func_type = module.signatures.get(sig_index).unwrap();
@@ -280,7 +280,7 @@ impl JITEngineInner {
                         message
                     ))
                 })?;
-            alllocated_function_call_trampolines.push(FunctionBodyPtr(ptr));
+            allocated_function_call_trampolines.push(FunctionBodyPtr(ptr));
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
             self.function_call_trampolines.insert(index, trampoline);
@@ -304,7 +304,7 @@ impl JITEngineInner {
 
         Ok((
             allocated_functions,
-            alllocated_function_call_trampolines,
+            allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
         ))
     }
