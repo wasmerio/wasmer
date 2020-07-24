@@ -27,7 +27,9 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices.
+[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: in Desktop to the Cloud and IoT devices.
+
+## Features
 
 * **Fast and Safe**. Wasmer aims to run WebAssembly at *near-native* speed,
   while fully sandboxing it's execution.
@@ -43,7 +45,7 @@
 
 ## Quickstart
 
-Installing Wasmer is super easy. You can install it using the installers below or download the binaries from the [releases page](https://github.com/wasmerio/wasmer/releases).
+Wasmer ships with no dependencies. You can install it using the installers below or download the binaries from the [releases page](https://github.com/wasmerio/wasmer/releases).
 
 Shell (macOS, Linux):
 
@@ -60,7 +62,8 @@ iwr https://win.wasmer.io -useb | iex
 > See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
 
 
-And now you should be ready to execute your first WebAssemby file!
+And now you should be ready to execute your first WebAssemby file! 🎉
+
 You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
