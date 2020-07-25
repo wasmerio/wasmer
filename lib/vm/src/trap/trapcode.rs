@@ -6,11 +6,12 @@
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
+use thiserror::Error;
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error)]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.
@@ -100,23 +101,22 @@ impl TrapCode {
 
 impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
-        use self::TrapCode::*;
         let identifier = match *self {
-            StackOverflow => "stk_ovf",
-            HeapSetterOutOfBounds => "heap_set_oob",
-            HeapAccessOutOfBounds => "heap_get_oob",
-            TableSetterOutOfBounds => "table_set_oob",
-            TableAccessOutOfBounds => "table_get_oob",
-            OutOfBounds => "oob",
-            IndirectCallToNull => "icall_null",
-            BadSignature => "bad_sig",
-            IntegerOverflow => "int_ovf",
-            IntegerDivisionByZero => "int_divz",
-            BadConversionToInteger => "bad_toint",
-            UnreachableCodeReached => "unreachable",
-            Interrupt => "interrupt",
-            UnalignedAtomic => "unalign_atom",
-            VMOutOfMemory => "oom",
+            Self::StackOverflow => "stk_ovf",
+            Self::HeapSetterOutOfBounds => "heap_set_oob",
+            Self::HeapAccessOutOfBounds => "heap_get_oob",
+            Self::TableSetterOutOfBounds => "table_set_oob",
+            Self::TableAccessOutOfBounds => "table_get_oob",
+            Self::OutOfBounds => "oob",
+            Self::IndirectCallToNull => "icall_null",
+            Self::BadSignature => "bad_sig",
+            Self::IntegerOverflow => "int_ovf",
+            Self::IntegerDivisionByZero => "int_divz",
+            Self::BadConversionToInteger => "bad_toint",
+            Self::UnreachableCodeReached => "unreachable",
+            Self::Interrupt => "interrupt",
+            Self::UnalignedAtomic => "unalign_atom",
+            Self::VMOutOfMemory => "oom",
             // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
