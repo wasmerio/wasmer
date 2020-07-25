@@ -303,7 +303,7 @@ fn real_init() {
 ///
 /// This function performs as-if a wasm trap was just executed, only the trap
 /// has a dynamic payload associated with it which is user-provided. This trap
-/// payload is then returned from `wasmer_call` an `wasmer_call_trampoline`
+/// payload is then returned from `wasmer_call` and `wasmer_call_trampoline`
 /// below.
 ///
 /// # Safety
