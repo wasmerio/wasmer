@@ -70,7 +70,6 @@ pub enum TrapCode {
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
     VMOutOfMemory = 14,
-
     // /// A user-defined trap code.
     // User(u16),
 }

@@ -191,6 +191,29 @@ impl RuntimeError {
     pub fn trace(&self) -> &[FrameInfo] {
         &self.inner.wasm_trace
     }
+
+    /// Attempts to downcast the `RuntimeError` to a concrete type.
+    pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
+        match Arc::try_unwrap(self.inner) {
+            // We only try to downcast user errors
+            Ok(RuntimeErrorInner {
+                source: RuntimeSource::User(err),
+                ..
+            }) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            Ok(inner) => Err(Self {
+                inner: Arc::new(inner),
+            }),
+            Err(inner) => Err(Self { inner }),
+        }
+    }
+
+    /// Returns true if the `RuntimeError` is the same as T
+    pub fn is<T: Error + 'static>(&self) -> bool {
+        match &self.inner.source {
+            RuntimeSource::User(err) => err.is::<T>(),
+            _ => false,
+        }
+    }
 }
 
 impl fmt::Debug for RuntimeError {
