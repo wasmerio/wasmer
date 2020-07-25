@@ -15,13 +15,13 @@ pub struct RuntimeError {
 
 /// The source of the `RuntimeError`.
 #[derive(Debug)]
-enum RuntimeSource {
+enum RuntimeErrorSource {
     Generic(String),
     User(Box<dyn Error + Send + Sync>),
     Trap(TrapCode),
 }
 
-impl fmt::Display for RuntimeSource {
+impl fmt::Display for RuntimeErrorSource {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::Generic(s) => write!(f, "{}", s),
@@ -33,7 +33,7 @@ impl fmt::Display for RuntimeSource {
 
 struct RuntimeErrorInner {
     /// The source error (this can be a custom user `Error` or a [`TrapCode`])
-    source: RuntimeSource,
+    source: RuntimeErrorSource,
     /// The reconstructed Wasm trace (from the native trace and the `GlobalFrameInfo`).
     wasm_trace: Vec<FrameInfo>,
     /// The native backtrace
@@ -58,7 +58,7 @@ impl RuntimeError {
         Self::new_with_trace(
             info,
             None,
-            RuntimeSource::Generic(msg),
+            RuntimeErrorSource::Generic(msg),
             Backtrace::new_unresolved(),
         )
     }
@@ -74,7 +74,7 @@ impl RuntimeError {
                     Err(e) => Self::new_with_trace(
                         info,
                         None,
-                        RuntimeSource::User(e),
+                        RuntimeErrorSource::User(e),
                         Backtrace::new_unresolved(),
                     ),
                 }
@@ -99,13 +99,13 @@ impl RuntimeError {
                     .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
                         info.trap_code
                     });
-                Self::new_with_trace(info, Some(pc), RuntimeSource::Trap(code), backtrace)
+                Self::new_with_trace(info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
             // A trap triggered manually from the Wasmer runtime
             Trap::Runtime {
                 trap_code,
                 backtrace,
-            } => Self::new_with_trace(info, None, RuntimeSource::Trap(trap_code), backtrace),
+            } => Self::new_with_trace(info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
         }
     }
 
@@ -117,7 +117,7 @@ impl RuntimeError {
     fn new_with_trace(
         info: RwLockReadGuard<GlobalFrameInfo>,
         trap_pc: Option<usize>,
-        source: RuntimeSource,
+        source: RuntimeErrorSource,
         native_trace: Backtrace,
     ) -> Self {
         let frames: Vec<usize> = native_trace
@@ -197,7 +197,7 @@ impl RuntimeError {
         match Arc::try_unwrap(self.inner) {
             // We only try to downcast user errors
             Ok(RuntimeErrorInner {
-                source: RuntimeSource::User(err),
+                source: RuntimeErrorSource::User(err),
                 ..
             }) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
             Ok(inner) => Err(Self {
@@ -210,7 +210,7 @@ impl RuntimeError {
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match &self.inner.source {
-            RuntimeSource::User(err) => err.is::<T>(),
+            RuntimeErrorSource::User(err) => err.is::<T>(),
             _ => false,
         }
     }
@@ -260,8 +260,8 @@ impl fmt::Display for RuntimeError {
 impl std::error::Error for RuntimeError {
     fn source(&self) -> Option<&(dyn std::error::Error + 'static)> {
         match &self.inner.source {
-            RuntimeSource::User(err) => Some(&**err),
-            RuntimeSource::Trap(err) => Some(err),
+            RuntimeErrorSource::User(err) => Some(&**err),
+            RuntimeErrorSource::Trap(err) => Some(err),
             _ => None,
         }
     }
