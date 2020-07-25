@@ -62,7 +62,9 @@ iwr https://win.wasmer.io -useb | iex
 > See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
 
 
-And now you should be ready to execute your first WebAssemby file! 🎉
+#### Executing a WebAssembly file
+
+After installing Wasmer you should be ready to execute your first WebAssemby file! 🎉
 
 You can start by running QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
