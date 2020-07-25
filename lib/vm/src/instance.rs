@@ -82,6 +82,9 @@ pub(crate) struct Instance {
     /// WebAssembly global data.
     globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
 
+    /// Pointers to functions in executable memory.
+    functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
     /// empty slice.
@@ -90,9 +93,6 @@ pub(crate) struct Instance {
     /// Passive data segments from our module. As `data.drop`s happen, entries
     /// get removed. A missing entry is considered equivalent to an empty slice.
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
-
-    /// Pointers to functions in executable memory.
-    finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -293,10 +293,7 @@ impl Instance {
                 let sig_index = &self.module.functions[*index];
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
-                    (
-                        self.finished_functions[def_index].0 as *const _,
-                        self.vmctx_ptr(),
-                    )
+                    (self.functions[def_index].0 as *const _, self.vmctx_ptr())
                 } else {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
@@ -371,7 +368,7 @@ impl Instance {
         let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
                 let body = self
-                    .finished_functions
+                    .functions
                     .get(local_index)
                     .expect("function index is out of bounds")
                     .0;
@@ -559,10 +556,7 @@ impl Instance {
         let type_index = self.signature_id(sig);
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (
-                self.finished_functions[def_index].0 as *const _,
-                self.vmctx_ptr(),
-            )
+            (self.functions[def_index].0 as *const _, self.vmctx_ptr())
         } else {
             let import = self.imported_function(index);
             (import.body, import.vmctx)
@@ -842,9 +836,9 @@ impl InstanceHandle {
                 memories: finished_memories,
                 tables: finished_tables,
                 globals: finished_globals,
+                functions: finished_functions,
                 passive_elements: Default::default(),
                 passive_data,
-                finished_functions,
                 host_state,
                 signal_handler: Cell::new(None),
                 vmctx: VMContext {},
