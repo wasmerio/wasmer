@@ -44,24 +44,27 @@
 
 Wasmer ships with no dependencies. You can install it using the installers below:
 
-Shell (macOS, Linux):
-
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
-PowerShell (Windows):
+<details>
+  <summary>With PowerShell (Windows)</summary>
+  <p>
 
 ```powershell
 iwr https://win.wasmer.io -useb | iex
 ```
+
+</p>
+</details>
 
 > See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
 
 
 And now you should be ready to execute your first WebAssemby file! 🎉
 
-You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+You can start by running QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
 $ wasmer qjs.wasm
