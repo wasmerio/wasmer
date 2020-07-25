@@ -306,7 +306,7 @@ impl VMMemoryDefinition {
                 .checked_add(len)
                 .map_or(true, |m| m as usize > self.current_length)
         {
-            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds));
+            return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
 
         let dst = usize::try_from(dst).unwrap();
@@ -336,7 +336,7 @@ impl VMMemoryDefinition {
             .checked_add(len)
             .map_or(true, |m| m as usize > self.current_length)
         {
-            return Err(Trap::wasm(TrapCode::HeapAccessOutOfBounds));
+            return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
 
         let dst = isize::try_from(dst).unwrap();

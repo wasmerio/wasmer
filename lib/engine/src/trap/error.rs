@@ -48,7 +48,8 @@ impl RuntimeError {
                     .downcast()
                     .expect("only `RuntimeError` errors are supported")
             }
-            Trap::Runtime {
+            // A trap caused by an error on the generated machine code for a Wasm function
+            Trap::Wasm {
                 pc,
                 signal_trap,
                 backtrace,
@@ -69,7 +70,8 @@ impl RuntimeError {
                     });
                 Self::new_wasm(info, Some(pc), code, backtrace)
             }
-            Trap::Wasm {
+            // A trap triggered manually by Wasmer runtime
+            Trap::Runtime {
                 trap_code,
                 backtrace,
             } => Self::new_wasm(info, None, trap_code, backtrace),

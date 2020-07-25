@@ -388,7 +388,7 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
 /// To be defined (TODO)
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
-    let trap = Trap::wasm(trap_code);
+    let trap = Trap::new_from_runtime(trap_code);
     raise_lib_trap(trap)
 }
 

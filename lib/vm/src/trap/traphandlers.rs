@@ -361,9 +361,9 @@ pub enum Trap {
     /// A user-raised trap through `raise_user_trap`.
     User(Box<dyn Error + Send + Sync>),
 
-    /// A trap raised from jit code
-    Runtime {
-        /// The program counter in JIT code where this trap happened.
+    /// A trap raised from machine code generated from Wasm
+    Wasm {
+        /// The program counter in generated code where this trap happened.
         pc: usize,
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
@@ -371,8 +371,8 @@ pub enum Trap {
         signal_trap: Option<TrapCode>,
     },
 
-    /// A trap raised from a wasm libcall
-    Wasm {
+    /// A trap raised manually from the Wasmer VM
+    Runtime {
         /// Code of the trap.
         trap_code: TrapCode,
         /// Native stack backtrace at the time the trap occurred
@@ -387,21 +387,41 @@ pub enum Trap {
 }
 
 impl Trap {
-    /// Construct a new Wasm trap with the given source location and trap code.
+    /// Construct a new VM `Trap` with the given the program counter, backtrace and an optional
+    /// trap code associated with the signal received from the kernel.
+    /// Wasm traps are Traps that are triggered by the chip when running generated
+    /// code for a Wasm function.
+    pub fn new_from_wasm(pc: usize, backtrace: Backtrace, signal_trap: Option<TrapCode>) -> Self {
+        Self::Wasm {
+            pc,
+            backtrace,
+            signal_trap,
+        }
+    }
+
+    /// Construct a new runtime `Trap` with the given trap code.
+    /// Runtime traps are Traps that are triggered manually from the VM.
     ///
     /// Internally saves a backtrace when constructed.
-    pub fn wasm(trap_code: TrapCode) -> Self {
+    pub fn new_from_runtime(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Self::Wasm {
+        Self::Runtime {
             trap_code,
             backtrace,
         }
     }
 
-    /// Construct a new OOM trap with the given source location and trap code.
+    /// Construct a new Out of Memory (OOM) `Trap`.
     ///
     /// Internally saves a backtrace when constructed.
-    pub fn oom() -> Self {
+    pub fn new_from_user(error: Box<dyn Error + Send + Sync>) -> Self {
+        Self::User(error)
+    }
+
+    /// Construct a new Out of Memory (OOM) `Trap`.
+    ///
+    /// Internally saves a backtrace when constructed.
+    pub fn new_from_oom() -> Self {
         let backtrace = Backtrace::new_unresolved();
         Self::OOM { backtrace }
     }
@@ -534,7 +554,7 @@ impl CallThreadState {
                 }
                 UnwindReason::UserTrap(data) => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::User(data))
+                    Err(Trap::new_from_user(data))
                 }
                 UnwindReason::LibTrap(trap) => Err(trap),
                 UnwindReason::RuntimeTrap {
@@ -543,11 +563,7 @@ impl CallThreadState {
                     signal_trap,
                 } => {
                     debug_assert_eq!(ret, 0);
-                    Err(Trap::Runtime {
-                        pc,
-                        backtrace,
-                        signal_trap,
-                    })
+                    Err(Trap::new_from_wasm(pc, backtrace, signal_trap))
                 }
                 UnwindReason::Panic(panic) => {
                     debug_assert_eq!(ret, 0);
@@ -762,7 +778,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
             0,
         );
         if ptr == libc::MAP_FAILED {
-            return Err(Trap::oom());
+            return Err(Trap::new_from_oom());
         }
 
         // Prepare the stack with readable/writable memory and then register it
