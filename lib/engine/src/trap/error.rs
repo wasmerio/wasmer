@@ -70,14 +70,11 @@ impl RuntimeError {
                     });
                 Self::new_wasm(info, Some(pc), code, backtrace)
             }
-            // A trap triggered manually by Wasmer runtime
+            // A trap triggered manually from the Wasmer runtime
             Trap::Runtime {
                 trap_code,
                 backtrace,
             } => Self::new_wasm(info, None, trap_code, backtrace),
-            Trap::OOM { backtrace } => {
-                Self::new_with_trace(info, None, "out of memory".to_string(), backtrace)
-            }
         }
     }
 

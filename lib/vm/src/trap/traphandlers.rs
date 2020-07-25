@@ -378,12 +378,6 @@ pub enum Trap {
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
     },
-
-    /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    OOM {
-        /// Native stack backtrace at the time the OOM occurred
-        backtrace: Backtrace,
-    },
 }
 
 impl Trap {
@@ -416,14 +410,6 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn new_from_user(error: Box<dyn Error + Send + Sync>) -> Self {
         Self::User(error)
-    }
-
-    /// Construct a new Out of Memory (OOM) `Trap`.
-    ///
-    /// Internally saves a backtrace when constructed.
-    pub fn new_from_oom() -> Self {
-        let backtrace = Backtrace::new_unresolved();
-        Self::OOM { backtrace }
     }
 }
 
@@ -778,7 +764,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
             0,
         );
         if ptr == libc::MAP_FAILED {
-            return Err(Trap::new_from_oom());
+            return Err(Trap::new_from_runtime(TrapCode::VMOutOfMemory));
         }
 
         // Prepare the stack with readable/writable memory and then register it

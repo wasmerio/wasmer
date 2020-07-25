@@ -66,6 +66,10 @@ pub enum TrapCode {
 
     /// An atomic memory access was attempted with an unaligned pointer.
     UnalignedAtomic = 13,
+
+    /// A trap indicating that the runtime was unable to allocate sufficient memory.
+    VMOutOfMemory = 14,
+
     // /// A user-defined trap code.
     // User(u16),
 }
@@ -88,6 +92,7 @@ impl TrapCode {
             Self::UnreachableCodeReached => "unreachable",
             Self::Interrupt => "interrupt",
             Self::UnalignedAtomic => "unaligned atomic access",
+            Self::VMOutOfMemory => "out of memory",
             // Self::User(_) => unreachable!(),
         }
     }
@@ -111,6 +116,7 @@ impl Display for TrapCode {
             UnreachableCodeReached => "unreachable",
             Interrupt => "interrupt",
             UnalignedAtomic => "unalign_atom",
+            VMOutOfMemory => "oom",
             // User(x) => return write!(f, "user{}", x),
         };
         f.write_str(identifier)
@@ -137,6 +143,7 @@ impl FromStr for TrapCode {
             "unreachable" => Ok(UnreachableCodeReached),
             "interrupt" => Ok(Interrupt),
             "unalign_atom" => Ok(UnalignedAtomic),
+            "oom" => Ok(VMOutOfMemory),
             // _ if s.starts_with("user") => s[4..].parse().map(User).map_err(|_| ()),
             _ => Err(()),
         }
