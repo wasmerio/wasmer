@@ -4,7 +4,7 @@
 //! Data structure for representing WebAssembly modules
 //! in a [`Module`].
 
-use crate::table::TableElements;
+use crate::table::TableInitializer;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -68,7 +68,7 @@ pub struct ModuleInfo {
     pub start_func: Option<FunctionIndex>,
 
     /// WebAssembly table initializers.
-    pub table_elements: Vec<TableElements>,
+    pub table_initializers: Vec<TableInitializer>,
 
     /// WebAssembly passive elements.
     pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
@@ -125,7 +125,7 @@ impl ModuleInfo {
             imports: IndexMap::new(),
             exports: IndexMap::new(),
             start_func: None,
-            table_elements: Vec::new(),
+            table_initializers: Vec::new(),
             passive_elements: HashMap::new(),
             passive_data: HashMap::new(),
             global_initializers: PrimaryMap::new(),

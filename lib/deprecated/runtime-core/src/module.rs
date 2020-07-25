@@ -21,7 +21,7 @@ pub use new::wasmer_vm::{
     //
     MemoryStyle as MemoryType,
     ModuleInfo,
-    TableElements as TableInitializer,
+    TableInitializer,
 };
 
 /// A compiled WebAssembly module.

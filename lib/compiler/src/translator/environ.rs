@@ -16,7 +16,7 @@ use wasm_common::{
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
     LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
 };
-use wasmer_vm::{ModuleInfo, TableElements};
+use wasmer_vm::{ModuleInfo, TableInitializer};
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]
@@ -322,27 +322,30 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_table_elements(&mut self, num: u32) -> WasmResult<()> {
+    pub(crate) fn reserve_table_initializers(&mut self, num: u32) -> WasmResult<()> {
         self.result
             .module
-            .table_elements
+            .table_initializers
             .reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
-    pub(crate) fn declare_table_elements(
+    pub(crate) fn declare_table_initializers(
         &mut self,
         table_index: TableIndex,
         base: Option<GlobalIndex>,
         offset: usize,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.result.module.table_elements.push(TableElements {
-            table_index,
-            base,
-            offset,
-            elements,
-        });
+        self.result
+            .module
+            .table_initializers
+            .push(TableInitializer {
+                table_index,
+                base,
+                offset,
+                elements,
+            });
         Ok(())
     }
 

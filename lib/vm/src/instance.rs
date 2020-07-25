@@ -16,7 +16,7 @@ use crate::vmcontext::{
     VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{FunctionBodyPtr, ModuleInfo, TableElements, VMOffsets};
+use crate::{FunctionBodyPtr, ModuleInfo, TableInitializer, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -1099,7 +1099,7 @@ impl Clone for InstanceHandle {
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
-    for init in &module.table_elements {
+    for init in &module.table_initializers {
         let start = get_table_init_start(init, instance);
         let table = instance.get_table(init.table_index);
 
@@ -1166,7 +1166,7 @@ fn check_memory_init_bounds(
 }
 
 /// Compute the offset for a table element initializer.
-fn get_table_init_start(init: &TableElements, instance: &Instance) -> usize {
+fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
     let mut start = init.offset;
 
     if let Some(base) = init.base {
@@ -1186,7 +1186,7 @@ fn get_table_init_start(init: &TableElements, instance: &Instance) -> usize {
 /// Initialize the table memory from the provided initializers.
 fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
-    for init in &module.table_elements {
+    for init in &module.table_initializers {
         let start = get_table_init_start(init, instance);
         let table = instance.get_table(init.table_index);
 

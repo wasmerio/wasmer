@@ -18,7 +18,7 @@ use wasm_common::{FunctionIndex, GlobalIndex, TableIndex, TableType, Type as Val
 
 /// A WebAssembly table initializer.
 #[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct TableElements {
+pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
     /// Optionally, a global variable giving a base index.

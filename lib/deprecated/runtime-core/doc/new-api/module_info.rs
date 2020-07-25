@@ -18,6 +18,6 @@ struct ModuleInfo {
     passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
     signatures: PrimaryMap<SignatureIndex, FunctionType>,
     start_func: Option<FunctionIndex>,
-    table_elements: Vec<TableElements>,
+    table_initializers: Vec<TableInitializer>,
     tables: PrimaryMap<TableIndex, TableType>,
 }

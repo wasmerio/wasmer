@@ -312,7 +312,7 @@ pub fn parse_element_section<'data>(
     elements: ElementSectionReader<'data>,
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
-    environ.reserve_table_elements(elements.get_count())?;
+    environ.reserve_table_initializers(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry.map_err(to_wasm_error)?;
@@ -342,7 +342,7 @@ pub fn parse_element_section<'data>(
                             ));
                         }
                     };
-                environ.declare_table_elements(
+                environ.declare_table_initializers(
                     TableIndex::from_u32(table_index),
                     base,
                     offset,
