@@ -4,7 +4,6 @@
 //! Data structure for representing WebAssembly modules
 //! in a [`Module`].
 
-use crate::table::TableInitializer;
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
@@ -17,7 +16,7 @@ use wasm_common::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableType,
+    TableIndex, TableInitializer, TableType,
 };
 
 #[derive(Debug)]

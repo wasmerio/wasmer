@@ -16,12 +16,11 @@ use std::{
     ptr,
 };
 
-pub use new::wasm_common::{DataInitializer, ExportIndex};
+pub use new::wasm_common::{DataInitializer, ExportIndex, TableInitializer};
 pub use new::wasmer_vm::{
     //
     MemoryStyle as MemoryType,
     ModuleInfo,
-    TableInitializer,
 };
 
 /// A compiled WebAssembly module.

@@ -16,7 +16,7 @@ use crate::vmcontext::{
     VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
-use crate::{FunctionBodyPtr, ModuleInfo, TableInitializer, VMOffsets};
+use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -31,7 +31,7 @@ use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, P
 use wasm_common::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
-    SignatureIndex, TableIndex,
+    SignatureIndex, TableIndex, TableInitializer,
 };
 
 cfg_if::cfg_if! {

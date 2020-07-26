@@ -14,20 +14,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasm_common::{FunctionIndex, GlobalIndex, TableIndex, TableType, Type as ValType};
-
-/// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
-pub struct TableInitializer {
-    /// The index of a table to initialize.
-    pub table_index: TableIndex,
-    /// Optionally, a global variable giving a base index.
-    pub base: Option<GlobalIndex>,
-    /// The offset to add to the base.
-    pub offset: usize,
-    /// The values to write into the table elements.
-    pub elements: Box<[FunctionIndex]>,
-}
+use wasm_common::{TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]

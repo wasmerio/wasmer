@@ -50,9 +50,9 @@ mod lib {
     }
 }
 
-mod data_initializer;
 mod features;
 mod indexes;
+mod initializers;
 mod memory_view;
 mod native;
 mod r#ref;
@@ -65,12 +65,14 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::data_initializer::{DataInitializer, DataInitializerLocation, OwnedDataInitializer};
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
+};
+pub use crate::initializers::{
+    DataInitializer, DataInitializerLocation, OwnedDataInitializer, TableInitializer,
 };
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::native::{NativeWasmType, ValueType};

@@ -14,9 +14,10 @@ use wasm_common::FunctionType;
 use wasm_common::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
-    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableType,
+    LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableInitializer,
+    TableType,
 };
-use wasmer_vm::{ModuleInfo, TableInitializer};
+use wasmer_vm::ModuleInfo;
 
 /// Contains function data: bytecode and its offset in the module.
 #[derive(Hash)]

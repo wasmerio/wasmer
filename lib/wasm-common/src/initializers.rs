@@ -1,8 +1,21 @@
-use crate::indexes::{GlobalIndex, MemoryIndex};
+use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+
+/// A WebAssembly table initializer.
+#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+pub struct TableInitializer {
+    /// The index of a table to initialize.
+    pub table_index: TableIndex,
+    /// Optionally, a global variable giving a base index.
+    pub base: Option<GlobalIndex>,
+    /// The offset to add to the base.
+    pub offset: usize,
+    /// The values to write into the table elements.
+    pub elements: Box<[FunctionIndex]>,
+}
 
 /// A memory index and offset within that memory where a data initialization
 /// should be performed.
