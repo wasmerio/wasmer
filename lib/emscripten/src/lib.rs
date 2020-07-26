@@ -426,7 +426,7 @@ pub fn emscripten_call_main(
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
-    let (func_name, main_func) = match instance.exports.get::<Function>("_main") {
+    let (function_name, main_func) = match instance.exports.get::<Function>("_main") {
         Ok(func) => Ok(("_main", func)),
         Err(_e) => match instance.exports.get::<Function>("main") {
             Ok(func) => Ok(("main", func)),
@@ -442,14 +442,14 @@ pub fn emscripten_call_main(
             let (argc, argv) = store_module_arguments(env, new_args);
             let func: &Function = instance
                 .exports
-                .get(func_name)
+                .get(function_name)
                 .map_err(|e| RuntimeError::new(e.to_string()))?;
             func.call(&[Val::I32(argc as i32), Val::I32(argv as i32)])?;
         }
         0 => {
             let func: &Function = instance
                 .exports
-                .get(func_name)
+                .get(function_name)
                 .map_err(|e| RuntimeError::new(e.to_string()))?;
             func.call(&[])?;
         }
@@ -553,7 +553,7 @@ pub struct EmscriptenGlobals {
     pub table: Table,
     pub memory_min: Pages,
     pub memory_max: Option<Pages>,
-    pub null_func_names: Vec<String>,
+    pub null_function_names: Vec<String>,
 }
 
 impl EmscriptenGlobals {
@@ -624,10 +624,10 @@ impl EmscriptenGlobals {
 
         emscripten_set_up_memory(&memory, &data)?;
 
-        let mut null_func_names = vec![];
+        let mut null_function_names = vec![];
         for import in module.imports().functions() {
             if import.module() == "env" && import.name().starts_with("nullFunction_") {
-                null_func_names.push(import.name().to_string())
+                null_function_names.push(import.name().to_string())
             }
         }
 
@@ -637,7 +637,7 @@ impl EmscriptenGlobals {
             table,
             memory_min,
             memory_max,
-            null_func_names,
+            null_function_names,
         })
     }
 }
@@ -1117,9 +1117,9 @@ pub fn generate_emscripten_env(
         env_ns.insert(k, v);
     }
 
-    for null_func_name in globals.null_func_names.iter() {
+    for null_function_name in globals.null_function_names.iter() {
         env_ns.insert(
-            null_func_name.as_str(),
+            null_function_name.as_str(),
             Function::new_native_with_env(store, env.clone(), nullfunc),
         );
     }

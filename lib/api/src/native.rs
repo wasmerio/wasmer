@@ -4,7 +4,7 @@
 //! functions with the native ABI, that is:
 //!
 //! ```ignore
-//! let add_one = instance.exports.get_function("func_name")?;
+//! let add_one = instance.exports.get_function("function_name")?;
 //! let add_one_native: NativeFunc<i32, i32> = add_one.native().unwrap();
 //! ```
 use std::marker::PhantomData;

@@ -61,10 +61,10 @@ fn test_trap_trace() -> Result<()> {
     assert_eq!(trace.len(), 2);
     assert_eq!(trace[0].module_name(), "hello_mod");
     assert_eq!(trace[0].func_index(), 1);
-    assert_eq!(trace[0].func_name(), Some("hello"));
+    assert_eq!(trace[0].function_name(), Some("hello"));
     assert_eq!(trace[1].module_name(), "hello_mod");
     assert_eq!(trace[1].func_index(), 0);
-    assert_eq!(trace[1].func_name(), None);
+    assert_eq!(trace[1].function_name(), None);
     assert!(
         e.message().contains("unreachable"),
         "wrong message: {}",
@@ -141,7 +141,7 @@ fn test_trap_stack_overflow() -> Result<()> {
     for i in 0..trace.len() {
         assert_eq!(trace[i].module_name(), "rec_mod");
         assert_eq!(trace[i].func_index(), 0);
-        assert_eq!(trace[i].func_name(), Some("run"));
+        assert_eq!(trace[i].function_name(), Some("run"));
     }
     assert!(e.message().contains("call stack exhausted"));
 

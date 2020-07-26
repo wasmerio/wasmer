@@ -120,18 +120,18 @@ impl<'data> ModuleEnvironment<'data> {
     ) -> WasmResult<()> {
         debug_assert_eq!(
             self.result.module.functions.len(),
-            self.result.module.num_imported_funcs,
+            self.result.module.num_imported_functions,
             "Imported functions must be declared first"
         );
         self.declare_import(
             ImportIndex::Function(FunctionIndex::from_u32(
-                self.result.module.num_imported_funcs as _,
+                self.result.module.num_imported_functions as _,
             )),
             module,
             field,
         )?;
         self.result.module.functions.push(sig_index);
-        self.result.module.num_imported_funcs += 1;
+        self.result.module.num_imported_functions += 1;
         self.imports += 1;
         Ok(())
     }
@@ -317,9 +317,9 @@ impl<'data> ModuleEnvironment<'data> {
         self.declare_export(ExportIndex::Global(global_index), name)
     }
 
-    pub(crate) fn declare_start_func(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
-        debug_assert!(self.result.module.start_func.is_none());
-        self.result.module.start_func = Some(func_index);
+    pub(crate) fn declare_start_function(&mut self, func_index: FunctionIndex) -> WasmResult<()> {
+        debug_assert!(self.result.module.start_function.is_none());
+        self.result.module.start_function = Some(func_index);
         Ok(())
     }
 
@@ -433,14 +433,14 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn declare_func_name(
+    pub(crate) fn declare_function_name(
         &mut self,
         func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
         self.result
             .module
-            .func_names
+            .function_names
             .insert(func_index, name.to_string());
         Ok(())
     }

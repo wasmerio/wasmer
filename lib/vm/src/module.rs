@@ -64,7 +64,7 @@ pub struct ModuleInfo {
     pub exports: IndexMap<String, ExportIndex>,
 
     /// The module "start" function, if present.
-    pub start_func: Option<FunctionIndex>,
+    pub start_function: Option<FunctionIndex>,
 
     /// WebAssembly table initializers.
     pub table_initializers: Vec<TableInitializer>,
@@ -79,7 +79,7 @@ pub struct ModuleInfo {
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
 
     /// WebAssembly function names.
-    pub func_names: HashMap<FunctionIndex, String>,
+    pub function_names: HashMap<FunctionIndex, String>,
 
     /// WebAssembly function signatures.
     pub signatures: PrimaryMap<SignatureIndex, FunctionType>,
@@ -96,8 +96,14 @@ pub struct ModuleInfo {
     /// WebAssembly global variables (imported and local).
     pub globals: PrimaryMap<GlobalIndex, GlobalType>,
 
+    /// Custom sections in the module.
+    pub custom_sections: IndexMap<String, CustomSectionIndex>,
+
+    /// The data for each CustomSection in the module.
+    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+
     /// Number of imported functions in the module.
-    pub num_imported_funcs: usize,
+    pub num_imported_functions: usize,
 
     /// Number of imported tables in the module.
     pub num_imported_tables: usize,
@@ -107,12 +113,6 @@ pub struct ModuleInfo {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
-
-    /// Custom sections in the module.
-    pub custom_sections: IndexMap<String, CustomSectionIndex>,
-
-    /// The data for each CustomSection in the module.
-    pub custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
 }
 
 impl ModuleInfo {
@@ -123,18 +123,18 @@ impl ModuleInfo {
             name: None,
             imports: IndexMap::new(),
             exports: IndexMap::new(),
-            start_func: None,
+            start_function: None,
             table_initializers: Vec::new(),
             passive_elements: HashMap::new(),
             passive_data: HashMap::new(),
             global_initializers: PrimaryMap::new(),
-            func_names: HashMap::new(),
+            function_names: HashMap::new(),
             signatures: PrimaryMap::new(),
             functions: PrimaryMap::new(),
             tables: PrimaryMap::new(),
             memories: PrimaryMap::new(),
             globals: PrimaryMap::new(),
-            num_imported_funcs: 0,
+            num_imported_functions: 0,
             num_imported_tables: 0,
             num_imported_memories: 0,
             num_imported_globals: 0,
@@ -240,20 +240,20 @@ impl ModuleInfo {
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
     pub fn func_index(&self, local_func: LocalFunctionIndex) -> FunctionIndex {
-        FunctionIndex::new(self.num_imported_funcs + local_func.index())
+        FunctionIndex::new(self.num_imported_functions + local_func.index())
     }
 
     /// Convert a `FunctionIndex` into a `LocalFunctionIndex`. Returns None if the
     /// index is an imported function.
     pub fn local_func_index(&self, func: FunctionIndex) -> Option<LocalFunctionIndex> {
         func.index()
-            .checked_sub(self.num_imported_funcs)
+            .checked_sub(self.num_imported_functions)
             .map(LocalFunctionIndex::new)
     }
 
     /// Test whether the given function index is for an imported function.
     pub fn is_imported_function(&self, index: FunctionIndex) -> bool {
-        index.index() < self.num_imported_funcs
+        index.index() < self.num_imported_functions
     }
 
     /// Convert a `LocalTableIndex` into a `TableIndex`.
@@ -325,7 +325,7 @@ impl ModuleInfo {
     pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
         self.functions
             .values()
-            .take(self.num_imported_funcs)
+            .take(self.num_imported_functions)
             .map(move |sig_index| self.signatures[*sig_index].clone())
     }
 }

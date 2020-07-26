@@ -5154,11 +5154,11 @@ impl<'a> FuncGen<'a> {
                 let reloc_at =
                     self.assembler.get_offset().0 + self.assembler.arch_mov64_imm_offset();
                 // Imported functions are called through trampolines placed as custom sections.
-                let reloc_target = if function_index < self.module.num_imported_funcs {
+                let reloc_target = if function_index < self.module.num_imported_functions {
                     RelocationTarget::CustomSection(SectionIndex::new(function_index))
                 } else {
                     RelocationTarget::LocalFunc(LocalFunctionIndex::new(
-                        function_index - self.module.num_imported_funcs,
+                        function_index - self.module.num_imported_functions,
                     ))
                 };
                 self.relocations.push(Relocation {

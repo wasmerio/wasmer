@@ -333,13 +333,13 @@ pub unsafe extern "C" fn wasmer_instance_call(
     let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
     let params: Vec<Val> = params.iter().cloned().map(|x| x.into()).collect();
 
-    let func_name_c = CStr::from_ptr(name);
-    let func_name_r = func_name_c.to_str().unwrap();
+    let function_name_c = CStr::from_ptr(name);
+    let function_name_r = function_name_c.to_str().unwrap();
 
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
 
     let instance = &*(instance as *mut CAPIInstance);
-    let f: &Function = match instance.instance.exports.get(func_name_r) {
+    let f: &Function = match instance.instance.exports.get(function_name_r) {
         Ok(f) => f,
         Err(err) => {
             update_last_error(err);

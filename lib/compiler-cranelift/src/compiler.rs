@@ -4,7 +4,7 @@ use crate::address_map::get_function_address_map;
 use crate::config::Cranelift;
 #[cfg(feature = "unwind")]
 use crate::dwarf::WriterRelocate;
-use crate::func_environ::{get_func_name, FuncEnvironment};
+use crate::func_environ::{get_function_name, FuncEnvironment};
 use crate::sink::{RelocSink, TrapSink};
 use crate::trampoline::{
     make_trampoline_dynamic_function, make_trampoline_function_call, FunctionBuilderContext,
@@ -103,7 +103,7 @@ impl Compiler for CraneliftCompiler {
                     &memory_styles,
                     &table_styles,
                 );
-                context.func.name = get_func_name(func_index);
+                context.func.name = get_function_name(func_index);
                 context.func.signature = signatures[module.functions[func_index]].clone();
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();

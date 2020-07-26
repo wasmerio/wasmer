@@ -21,7 +21,7 @@ use wasmer_vm::VMOffsets;
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 /// Compute an `ir::ExternalName` for a given wasm function index.
-pub fn get_func_name(func_index: FunctionIndex) -> ir::ExternalName {
+pub fn get_function_name(func_index: FunctionIndex) -> ir::ExternalName {
     ir::ExternalName::user(0, func_index.as_u32())
 }
 
@@ -731,7 +731,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     ) -> WasmResult<ir::FuncRef> {
         let sigidx = self.module.functions[index];
         let signature = func.import_signature(self.signatures[sigidx].clone());
-        let name = get_func_name(index);
+        let name = get_function_name(index);
         Ok(func.import_function(ir::ExtFuncData {
             name,
             signature,

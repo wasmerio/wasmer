@@ -58,7 +58,7 @@ impl Compiler for SinglepassCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
-        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_funcs)
+        let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
             .into_par_iter()

@@ -130,7 +130,7 @@ impl DummyArtifact {
         metadata: DummyArtifactMetadata,
     ) -> Result<Self, CompileError> {
         let num_local_functions =
-            metadata.module.functions.len() - metadata.module.num_imported_funcs;
+            metadata.module.functions.len() - metadata.module.num_imported_functions;
         // We prepare the pointers for the finished functions
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = (0
             ..num_local_functions)
@@ -143,7 +143,7 @@ impl DummyArtifact {
 
         // We prepare the pointers for the finished dynamic function trampolines
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> = (0
-            ..metadata.module.num_imported_funcs)
+            ..metadata.module.num_imported_functions)
             .map(|_| {
                 FunctionBodyPtr(unsafe {
                     std::mem::transmute::<_, *mut [VMFunctionBody]>((

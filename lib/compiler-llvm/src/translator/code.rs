@@ -74,15 +74,15 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        func_names: &SecondaryMap<FunctionIndex, String>,
+        function_names: &SecondaryMap<FunctionIndex, String>,
     ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
-        let func_name = &func_names[func_index];
+        let function_name = &function_names[func_index];
         let module_name = match wasm_module.name.as_ref() {
-            None => format!("<anonymous module> function {}", func_name),
-            Some(module_name) => format!("module {} function {}", module_name, func_name),
+            None => format!("<anonymous module> function {}", function_name),
+            Some(module_name) => format!("module {} function {}", module_name, function_name),
         };
         let module = self.ctx.create_module(module_name.as_str());
 
@@ -98,7 +98,7 @@ impl FuncTranslator {
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
         let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
 
-        let func = module.add_function(&func_name, func_type, Some(Linkage::External));
+        let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in func_attrs {
             func.add_attribute(attr_loc, attr);
         }
@@ -203,7 +203,7 @@ impl FuncTranslator {
             module: &module,
             module_translation,
             wasm_module,
-            func_names,
+            function_names,
         };
 
         while fcg.state.has_control_frames() {
@@ -275,9 +275,9 @@ impl FuncTranslator {
             ".wasmer_function",
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
-                if let Some((index, _)) = func_names
+                if let Some((index, _)) = function_names
                     .iter()
-                    .find(|(_, func_name)| **func_name == *name)
+                    .find(|(_, function_name)| **function_name == *name)
                 {
                     let local_index = wasm_module
                         .local_func_index(index)
@@ -1277,7 +1277,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
-    func_names: &'a SecondaryMap<FunctionIndex, String>,
+    function_names: &'a SecondaryMap<FunctionIndex, String>,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2045,7 +2045,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
-                let func_name = &self.func_names[func_index];
+                let function_name = &self.function_names[func_index];
 
                 let FunctionCache {
                     func,
@@ -2056,7 +2056,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics,
                     self.module,
                     self.context,
-                    func_name,
+                    function_name,
                     func_type,
                 )?;
                 let func = *func;

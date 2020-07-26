@@ -895,7 +895,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
         context: &'ctx Context,
-        func_name: &str,
+        function_name: &str,
         func_type: &FuncType,
     ) -> Result<&FunctionCache<'ctx>, CompileError> {
         let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
@@ -913,9 +913,12 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 if wasm_module.local_func_index(function_index).is_some() {
                     // TODO: assuming names are unique, we don't need the
                     // get_function call.
-                    let func = module.get_function(func_name).unwrap_or_else(|| {
-                        let func =
-                            module.add_function(func_name, llvm_func_type, Some(Linkage::External));
+                    let func = module.get_function(function_name).unwrap_or_else(|| {
+                        let func = module.add_function(
+                            function_name,
+                            llvm_func_type,
+                            Some(Linkage::External),
+                        );
                         for (attr, attr_loc) in &llvm_func_attrs {
                             func.add_attribute(*attr_loc, *attr);
                         }

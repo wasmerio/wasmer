@@ -345,13 +345,13 @@ impl NativeArtifact {
 
         // Retrieve dynamic function trampolines (only for imported functions)
         let mut finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
-            PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_funcs);
+            PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_functions);
         for func_index in metadata
             .compile_info
             .module
             .functions
             .keys()
-            .take(metadata.compile_info.module.num_imported_funcs)
+            .take(metadata.compile_info.module.num_imported_functions)
         {
             let function_name = metadata.get_dynamic_function_trampoline_name(&func_index);
             unsafe {

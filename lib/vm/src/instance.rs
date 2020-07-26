@@ -360,7 +360,7 @@ impl Instance {
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
     fn invoke_start_function(&self) -> Result<(), Trap> {
-        let start_index = match self.module.start_func {
+        let start_index = match self.module.start_function {
             Some(idx) => idx,
             None => return Ok(()),
         };
@@ -375,7 +375,7 @@ impl Instance {
                 (body as *const _, self.vmctx_ptr())
             }
             None => {
-                assert_lt!(start_index.index(), self.module.num_imported_funcs);
+                assert_lt!(start_index.index(), self.module.num_imported_functions);
                 let import = self.imported_function(start_index);
                 (import.body, import.vmctx)
             }

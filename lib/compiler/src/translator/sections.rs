@@ -290,7 +290,7 @@ pub fn parse_export_section<'data>(
 
 /// Parses the Start section of the wasm module.
 pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmResult<()> {
-    environ.declare_start_func(FunctionIndex::from_u32(index))?;
+    environ.declare_start_function(FunctionIndex::from_u32(index))?;
     Ok(())
 }
 
@@ -437,7 +437,7 @@ pub fn parse_name_section<'data>(
                     .and_then(parse_function_name_subsection)
                 {
                     for (index, name) in function_names {
-                        environ.declare_func_name(index, name)?;
+                        environ.declare_function_name(index, name)?;
                     }
                 }
             }

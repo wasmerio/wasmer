@@ -60,7 +60,7 @@ impl VMOffsets {
         Self {
             pointer_size,
             num_signature_ids: cast_to_u32(module.signatures.len()),
-            num_imported_functions: cast_to_u32(module.num_imported_funcs),
+            num_imported_functions: cast_to_u32(module.num_imported_functions),
             num_imported_tables: cast_to_u32(module.num_imported_tables),
             num_imported_memories: cast_to_u32(module.num_imported_memories),
             num_imported_globals: cast_to_u32(module.num_imported_globals),

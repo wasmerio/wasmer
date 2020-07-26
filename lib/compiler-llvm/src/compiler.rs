@@ -43,7 +43,7 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
-        let mut func_names = SecondaryMap::new();
+        let mut function_names = SecondaryMap::new();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
@@ -51,8 +51,8 @@ impl Compiler for LLVMCompiler {
         // TODO: merge constants in sections.
 
         for (func_index, _) in &module.functions {
-            func_names[func_index] = module
-                .func_names
+            function_names[func_index] = module
+                .function_names
                 .get(&func_index)
                 .cloned()
                 .unwrap_or_else(|| format!("fn{}", func_index.index()));
@@ -80,7 +80,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &func_names,
+                        &function_names,
                     )
                 },
             )

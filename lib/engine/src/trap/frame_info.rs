@@ -158,7 +158,7 @@ impl GlobalFrameInfo {
         Some(FrameInfo {
             module_name: module.module.name(),
             func_index: func_index.index() as u32,
-            func_name: module.module.func_names.get(&func_index).cloned(),
+            function_name: module.module.function_names.get(&func_index).cloned(),
             instr,
             func_start: instr_map.start_srcloc,
         })
@@ -286,7 +286,7 @@ pub fn register(
 pub struct FrameInfo {
     module_name: String,
     func_index: u32,
-    func_name: Option<String>,
+    function_name: Option<String>,
     func_start: SourceLoc,
     instr: SourceLoc,
 }
@@ -327,8 +327,8 @@ impl FrameInfo {
     /// in debugging.
     ///
     /// This function returns `None` when no name could be inferred.
-    pub fn func_name(&self) -> Option<&str> {
-        self.func_name.as_deref()
+    pub fn function_name(&self) -> Option<&str> {
+        self.function_name.as_deref()
     }
 
     /// Returns the offset within the original wasm module this frame's program
