@@ -31,6 +31,8 @@ impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
     /// This function will construct the `Memory` using the store [`Tunables`].
+    ///
+    /// [`Tunables`]: crate::tunables::Tunables
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);

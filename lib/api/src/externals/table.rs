@@ -36,6 +36,8 @@ impl Table {
     /// All the elements in the table will be set to the `init` value.
     ///
     /// This function will construct the `Table` using the store [`Tunables`].
+    ///
+    /// [`Tunables`]: crate::tunables::Tunables
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();

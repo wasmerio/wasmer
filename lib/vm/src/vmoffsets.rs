@@ -285,6 +285,7 @@ impl VMOffsets {
     ///
     /// The underlying global itself is the size of the largest value type (i.e. a V128),
     /// however the size of this type is just the size of a pointer.
+    ///
     /// [`VMGlobalDefinition`]: crate::vmcontext::VMGlobalDefinition
     pub const fn size_of_vmglobal_local(&self) -> u8 {
         self.pointer_size
@@ -652,9 +653,7 @@ impl VMOffsets {
             .unwrap()
     }
 
-    /// Return the offset to builtin function in [`VMBuiltinFunctionsArray`] index `index`.
-    ///
-    /// [`VMBuiltinFunctionsArray`]: crate::vmcontext::VMBuiltinFunctionsArray
+    /// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.
     pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
         self.vmctx_builtin_functions_begin()
             .checked_add(
