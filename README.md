@@ -102,12 +102,12 @@ qjs >
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: ./assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer-rust-example
+[rust integration]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
 
 [c logo]: ./assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer-c-api
+[c integration]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 [c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 
