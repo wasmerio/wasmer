@@ -95,9 +95,9 @@ qjs >
 | ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Docs][php docs] |
 | ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Docs][ruby docs] |
 | ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Docs][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir integration] | *no package* | [Docs][elixir docs] |
-| ![R logo] | [**R**][R integration] | *no package* | [Docs][r docs] |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | *no package* | [Docs][postgres docs] |
+| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
+| ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -149,6 +149,7 @@ qjs >
 [elixir logo]: ./assets/languages/elixir.svg
 [elixir integration]: https://github.com/tessi/wasmex
 [elixir docs]: https://hexdocs.pm/wasmex/api-reference.html
+[`wasmex` hex package]: https://hex.pm/packages/wasmex
 
 [r logo]: ./assets/languages/r.svg
 [r integration]: https://github.com/dirkschumacher/wasmr
