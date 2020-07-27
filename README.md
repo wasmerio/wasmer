@@ -117,7 +117,7 @@ qjs >
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
 
 [python logo]: ./assets/languages/python.svg
-[python integration]: https://github.com/wasmerio/wasmer-c-api
+[python integration]: https://github.com/wasmerio/python-ext-wasm
 [`wasmer` pypi package]: https://pypi.org/project/wasmer/
 [python docs]: https://github.com/wasmerio/python-ext-wasm#api-of-the-wasmer-extensionmodule
 
