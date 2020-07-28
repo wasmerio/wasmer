@@ -1,0 +1,35 @@
+name: Benchmarks: run and upload results
+
+on:
+  push:
+    branches:
+    - test-benchmark-branch
+  pull_request:
+    branches:
+    - test-benchmark-branch
+
+jobs:
+  run_benchmark:
+    name: Run Benchmark
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: 1.45.0
+          override: true
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Python dependencies
+        run: pip install codespeed-client
+      - run: |
+          make bench
+          git clone https://github.com/wasmerio/wasmer-bench
+          cd wasmer-bench
+
+          python3 send_metrics.py
+
