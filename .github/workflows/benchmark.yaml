@@ -25,7 +25,9 @@ jobs:
         with:
           python-version: 3.8
       - name: Install Python dependencies
-        run: pip install codespeed-client
+        run: |
+          pip install codespeed-client
+          pip install toml
       - run: |
           make bench
           git clone https://github.com/wasmerio/wasmer-bench
