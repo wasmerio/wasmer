@@ -1,4 +1,4 @@
-name: Benchmarks: run and upload results
+name: Run Benchmarks and upload results
 
 on:
   push:
