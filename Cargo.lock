@@ -2293,7 +2293,6 @@ dependencies = [
  "wasm-common",
  "wasmer-compiler",
  "wasmer-vm",
- "winapi",
 ]
 
 [[package]]
