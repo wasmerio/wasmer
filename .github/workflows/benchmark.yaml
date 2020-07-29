@@ -31,7 +31,6 @@ jobs:
       - run: |
           make bench
           git clone https://github.com/wasmerio/wasmer-bench
-          cd wasmer-bench
 
-          python3 send_metrics.py
+          python3 wasmer-bench/send_metrics.py
 
