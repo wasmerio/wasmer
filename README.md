@@ -4,8 +4,8 @@
   </a>
   
   <p>
-    <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
-      <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
+    <a href="https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild">
+      <img src="https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
