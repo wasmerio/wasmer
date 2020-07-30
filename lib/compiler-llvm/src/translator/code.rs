@@ -2751,6 +2751,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_xor(v1, v2, "");
                 self.state.push1(res);
             }
+            Operator::V128AndNot => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1);
+                let v2 = self.apply_pending_canonicalization(v2, i2);
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v2 = self.builder.build_not(v2, "");
+                let res = self.builder.build_and(v1, v2, "");
+                self.state.push1(res);
+            }
             Operator::V128Bitselect => {
                 let ((v1, i1), (v2, i2), (cond, cond_info)) = self.state.pop3_extra()?;
                 let v1 = self.apply_pending_canonicalization(v1, i1);
