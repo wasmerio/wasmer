@@ -103,6 +103,16 @@ impl Wast {
             if val_matches(v, e)? {
                 continue;
             }
+            if let Val::V128(bits) = v {
+                if let wast::AssertExpression::V128(pattern) = e {
+                    bail!(
+                        "expected {:?}, got {:?} (v128 bits: {})",
+                        e,
+                        v128_format(*bits, pattern),
+                        bits
+                    );
+                }
+            }
             bail!("expected {:?}, got {:?}", e, v)
         }
         Ok(())
@@ -475,6 +485,71 @@ fn v128_matches(actual: u128, expected: &wast::V128Pattern) -> bool {
             let a = extract_lane_as_i64(actual, i) as u64;
             f64_matches(f64::from_bits(a), b)
         }),
+    }
+}
+
+fn v128_format(actual: u128, expected: &wast::V128Pattern) -> wast::V128Pattern {
+    match expected {
+        wast::V128Pattern::I8x16(_) => wast::V128Pattern::I8x16([
+            extract_lane_as_i8(actual, 0),
+            extract_lane_as_i8(actual, 1),
+            extract_lane_as_i8(actual, 2),
+            extract_lane_as_i8(actual, 3),
+            extract_lane_as_i8(actual, 4),
+            extract_lane_as_i8(actual, 5),
+            extract_lane_as_i8(actual, 6),
+            extract_lane_as_i8(actual, 7),
+            extract_lane_as_i8(actual, 8),
+            extract_lane_as_i8(actual, 9),
+            extract_lane_as_i8(actual, 10),
+            extract_lane_as_i8(actual, 11),
+            extract_lane_as_i8(actual, 12),
+            extract_lane_as_i8(actual, 13),
+            extract_lane_as_i8(actual, 14),
+            extract_lane_as_i8(actual, 15),
+        ]),
+        wast::V128Pattern::I16x8(_) => wast::V128Pattern::I16x8([
+            extract_lane_as_i16(actual, 0),
+            extract_lane_as_i16(actual, 1),
+            extract_lane_as_i16(actual, 2),
+            extract_lane_as_i16(actual, 3),
+            extract_lane_as_i16(actual, 4),
+            extract_lane_as_i16(actual, 5),
+            extract_lane_as_i16(actual, 6),
+            extract_lane_as_i16(actual, 7),
+        ]),
+        wast::V128Pattern::I32x4(_) => wast::V128Pattern::I32x4([
+            extract_lane_as_i32(actual, 0),
+            extract_lane_as_i32(actual, 1),
+            extract_lane_as_i32(actual, 2),
+            extract_lane_as_i32(actual, 3),
+        ]),
+        wast::V128Pattern::I64x2(_) => wast::V128Pattern::I64x2([
+            extract_lane_as_i64(actual, 0),
+            extract_lane_as_i64(actual, 1),
+        ]),
+        wast::V128Pattern::F32x4(_) => wast::V128Pattern::F32x4([
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, 0) as _,
+            }),
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, 1) as _,
+            }),
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, 2) as _,
+            }),
+            wast::NanPattern::Value(wast::Float32 {
+                bits: extract_lane_as_i32(actual, 3) as _,
+            }),
+        ]),
+        wast::V128Pattern::F64x2(_) => wast::V128Pattern::F64x2([
+            wast::NanPattern::Value(wast::Float64 {
+                bits: extract_lane_as_i64(actual, 0) as _,
+            }),
+            wast::NanPattern::Value(wast::Float64 {
+                bits: extract_lane_as_i64(actual, 1) as _,
+            }),
+        ]),
     }
 }
 
