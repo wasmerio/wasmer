@@ -225,6 +225,7 @@ impl StoreOptions {
                             Type::I64 => "I".to_string(),
                             Type::F32 => "f".to_string(),
                             Type::F64 => "F".to_string(),
+                            Type::V128 => "v".to_string(),
                             _ => {
                                 unimplemented!("Function type not yet supported for generated signatures in debugging");
                             }
