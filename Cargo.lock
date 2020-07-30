@@ -2333,7 +2333,6 @@ dependencies = [
  "leb128",
  "libloading 0.6.2",
  "serde",
- "serde_bytes",
  "tempfile",
  "tracing",
  "wasm-common",
