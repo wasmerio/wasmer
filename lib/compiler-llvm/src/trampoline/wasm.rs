@@ -17,7 +17,7 @@ use inkwell::{
 };
 use std::cmp;
 use std::convert::TryInto;
-use wasm_common::{FunctionType, LocalFunctionIndex, Type};
+use wasm_common::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{CompileError, FunctionBody, RelocationTarget};
 
 pub struct FuncTrampoline {
@@ -296,8 +296,7 @@ fn generate_trampoline<'ctx>(
 
     args_vec.push(callee_vmctx_ptr);
 
-    let mut i = 0;
-    for param_ty in func_sig.params().iter() {
+    for (i, param_ty) in func_sig.params().iter().enumerate() {
         let index = intrinsics.i32_ty.const_int(i as _, false);
         let item_pointer =
             unsafe { builder.build_in_bounds_gep(args_rets_ptr, &[index], "arg_ptr") };
@@ -309,10 +308,6 @@ fn generate_trampoline<'ctx>(
 
         let arg = builder.build_load(typed_item_pointer, "arg");
         args_vec.push(arg);
-        i += 1;
-        if *param_ty == Type::V128 {
-            i += 1;
-        }
     }
 
     let call_site = builder.build_call(func_ptr, &args_vec, "call");
