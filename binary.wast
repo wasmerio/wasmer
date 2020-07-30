@@ -736,28 +736,6 @@
   "\0b\0b\0b"                               ;; end
 )
 
-;; 2 br_table target declared, 1 given
-(assert_malformed
-  (module binary
-    "\00asm" "\01\00\00\00"
-    "\01\04\01"                             ;; type section
-    "\60\00\00"                             ;; type 0
-    "\03\02\01\00"                          ;; func section
-    "\0a\12\01"                             ;; code section
-    "\10\00"                                ;; func 0
-    "\02\40"                                ;; block 0
-    "\41\01"                                ;; condition of if 0
-    "\04\40"                                ;; if 0
-    "\41\01"                                ;; index of br_table element
-    "\0e\02"                                ;; br_table with inconsistent target count (2 declared, 1 given)
-    "\00"                                   ;; break depth 0
-    ;; "\01"                                ;; break depth 1 (missed)
-    "\02"                                   ;; break depth for default
-    "\0b\0b\0b"                             ;; end
-  )
-  "unexpected end of section or function"
-)
-
 ;; 1 br_table target declared, 2 given
 (assert_malformed
   (module binary

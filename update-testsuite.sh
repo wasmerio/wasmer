@@ -4,6 +4,8 @@ set -e
 set -u
 set -o pipefail
 
+ignore_dirs='document interpreter test/harness'
+
 repos='
   spec
   threads
@@ -18,6 +20,7 @@ repos='
   sign-extension-ops
   reference-types
   annotations
+  function-references
 '
 
 log_and_run() {
@@ -82,8 +85,8 @@ merge_with_spec() {
         if [ $? -ne 0 ]; then
             # Ignore merge conflicts in non-test directories.
             # We don't care about those changes.
-            try_log_and_run git checkout --ours document interpreter
-            try_log_and_run git add document interpreter
+            try_log_and_run git checkout --ours ${ignore_dirs}
+            try_log_and_run git add ${ignore_dirs}
             try_log_and_run git -c core.editor=true merge --continue
             if [ $? -ne 0 ]; then
                 git merge --abort
@@ -117,7 +120,7 @@ for repo in ${repos}; do
         wast_dir=proposals/${repo}
         mkdir -p ${wast_dir}
 
-        # Don't add tests from propsoal that are the same as spec.
+        # Don't add tests from proposal that are the same as spec.
         pushdir repos/${repo}
             for new in $(find test/core -name \*.wast); do
                 old=../../repos/spec/${new}
