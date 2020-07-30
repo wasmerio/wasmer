@@ -6207,6 +6207,102 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
+            Operator::I16x8Load8x8S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "").into_vector_value();
+                let res = self.builder.build_int_s_extend(v, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8Load8x8U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "").into_vector_value();
+                let res = self.builder.build_int_z_extend(v, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Load16x4S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "").into_vector_value();
+                let res = self.builder.build_int_s_extend(v, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Load16x4U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "").into_vector_value();
+                let res = self.builder.build_int_z_extend(v, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Load32x2S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "").into_vector_value();
+                let res = self.builder.build_int_s_extend(v, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Load32x2U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self.builder.build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "").into_vector_value();
+                let res = self.builder.build_int_z_extend(v, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
             Operator::V8x16LoadSplat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
                 let memory_index = MemoryIndex::from_u32(0);
