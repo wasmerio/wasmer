@@ -38,6 +38,9 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if wast_path.contains("bulk-memory") {
         features.bulk_memory(true);
     }
+    if wast_path.contains("simd") {
+        features.simd(true);
+    }
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
     let compiler_config = get_compiler(true);

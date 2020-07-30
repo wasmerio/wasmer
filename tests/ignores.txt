@@ -1,5 +1,6 @@
 # Compilers
 singlepass::spec::multi_value
+singlepass::spec::simd
 
 singlepass on windows # Singlepass is not yet supported on Windows
 
