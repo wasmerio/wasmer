@@ -33,7 +33,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
         "Running wast `{}` with the {} compiler",
         wast_path, compiler
     );
-    let _try_nan_canonicalization = wast_path.contains("nan-canonicalization");
+    let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     if wast_path.contains("bulk-memory") {
         features.bulk_memory(true);
@@ -43,7 +43,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     }
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
-    let compiler_config = get_compiler(true);
+    let compiler_config = get_compiler(try_nan_canonicalization);
     let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
