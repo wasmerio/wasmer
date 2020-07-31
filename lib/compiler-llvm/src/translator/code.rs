@@ -322,7 +322,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         &self,
         fvec_ty: T,
         ivec_ty: T::MathConvType,
-        lower_bound: u64, // Exclusive (lowest representable value)
+        lower_bound: u64, // Exclusive (least representable value)
         upper_bound: u64, // Exclusive (greatest representable value)
         int_min_value: u64,
         int_max_value: u64,
@@ -442,7 +442,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn trunc_sat_scalar(
         &self,
         int_ty: IntType<'ctx>,
-        lower_bound: u64, // Exclusive (lowest representable value)
+        lower_bound: u64, // Exclusive (least representable value)
         upper_bound: u64, // Exclusive (greatest representable value)
         int_min_value: u64,
         int_max_value: u64,
@@ -5384,8 +5384,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
-                    -2147480000i32 as u32 as u64,
-                    2147480000,
+                    LEF32_GEQ_I32_MIN,
+                    GEF32_LEQ_I32_MAX,
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
@@ -5399,8 +5399,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
-                    0,
-                    4294960000,
+                    LEF32_GEQ_U32_MIN,
+                    GEF32_LEQ_U32_MAX,
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
