@@ -20,39 +20,39 @@ jobs:
           - build: linux
             os: ubuntu-latest
             rust: 1.45.0
-    env:
-      CARGO_SCCACHE_VERSION: 0.2.13
-      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
-      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust ${{ matrix.rust }}
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: ${{ matrix.rust }}
-          override: true
-      - name: Configure cargo data directory
-        # After this point, all cargo registry and crate data is stored in
-        # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
-        # that are needed during the build process. Additionally, this works
-        # around a bug in the 'cache' action that causes directories outside of
-        # the workspace dir to be saved/restored incorrectly.
-        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
-      - name: Cache
-        uses: actions/cache@master
-        with:
-          # Note: crates from the git repo always get rebuilt
-          # so we cache only those subdirectories of target/{debug|release} that
-          # contain the build output for crates that come from the registry.
-          path: |-
-            .cargo_home
-            target/*/.*
-            target/*/build
-            target/*/deps
-          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.os }}-
+#    env:
+#      CARGO_SCCACHE_VERSION: 0.2.13
+#      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+#      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+#    steps:
+#      - uses: actions/checkout@v2
+#      - name: Install Rust ${{ matrix.rust }}
+#        uses: actions-rs/toolchain@v1
+#        with:
+#          profile: minimal
+#          toolchain: ${{ matrix.rust }}
+#          override: true
+#      - name: Configure cargo data directory
+#        # After this point, all cargo registry and crate data is stored in
+#        # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
+#        # that are needed during the build process. Additionally, this works
+#        # around a bug in the 'cache' action that causes directories outside of
+#        # the workspace dir to be saved/restored incorrectly.
+#        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
+#      - name: Cache
+#        uses: actions/cache@master
+#        with:
+#          # Note: crates from the git repo always get rebuilt
+#          # so we cache only those subdirectories of target/{debug|release} that
+#          # contain the build output for crates that come from the registry.
+#          path: |-
+#            .cargo_home
+#            target/*/.*
+#            target/*/build
+#            target/*/deps
+#          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
+#          restore-keys: |
+#            ${{ matrix.os }}-
       - name: Install Python
         uses: actions/setup-python@v2
         with:
