@@ -2621,14 +2621,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_int_mul(v1, v2, "");
                 self.state.push1(res);
             }
-            // Operator::I8x16Mul => {
-            //     let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-            //     let (v1, _) = self.v128_into_i8x16(v1, i1);
-            //     let (v2, _) = self.v128_into_i8x16(v2, i2);
-            //     let res = self.builder.build_int_mul(v1, v2, "");
-            //     let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-            //     self.state.push1(res);
-            // }
             Operator::I16x8Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1);
@@ -2641,6 +2633,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i32x4(v1, i1);
                 let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let res = self.builder.build_int_mul(v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Mul => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i64x2(v1, i1);
+                let (v2, _) = self.v128_into_i64x2(v2, i2);
                 let res = self.builder.build_int_mul(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
