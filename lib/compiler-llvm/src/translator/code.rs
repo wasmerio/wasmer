@@ -4947,6 +4947,182 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(v, self.intrinsics.i64_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
+            Operator::I16x8WidenLowI8x16S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenHighI8x16S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenLowI8x16U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenHighI8x16U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenLowI16x8S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenHighI16x8S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenLowI16x8U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenHighI16x8U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
             Operator::I8x16NarrowI16x8S => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1);
