@@ -35,7 +35,7 @@ jobs:
   #     - run: make doc-local
 
   test:
-    name: Test in ${{ matrix.build }}
+    name: Test on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
     strategy:
       fail-fast: false
