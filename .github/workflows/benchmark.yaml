@@ -9,7 +9,6 @@ on:
     - test-benchmark-branch
 
 jobs:
-
   run_benchmark:
     name: Benchmark on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
@@ -63,7 +62,7 @@ jobs:
           pip install codespeed-client
           pip install toml
       - name: Run Benchmark
-      - run: |
+        run: |
           make bench
           git clone https://github.com/wasmerio/wasmer-bench
 
