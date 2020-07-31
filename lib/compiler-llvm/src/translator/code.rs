@@ -4947,6 +4947,260 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(v, self.intrinsics.i64_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
+            Operator::I8x16NarrowI16x8S => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let min = self.intrinsics.i16_ty.const_int(0xff80, false);
+                let max = self.intrinsics.i16_ty.const_int(0x007f, false);
+                let min = VectorType::const_vector(&[min; 8]);
+                let max = VectorType::const_vector(&[max; 8]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_int_truncate(v1, self.intrinsics.i8_ty.vec_type(8), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty.vec_type(8), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16NarrowI16x8U => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let min = self.intrinsics.i16x8_ty.const_zero();
+                let max = self.intrinsics.i16_ty.const_int(0x00ff, false);
+                let max = VectorType::const_vector(&[max; 8]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_int_truncate(v1, self.intrinsics.i8_ty.vec_type(8), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty.vec_type(8), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8NarrowI32x4S => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let min = self.intrinsics.i32_ty.const_int(0xffff8000, false);
+                let max = self.intrinsics.i32_ty.const_int(0x00007fff, false);
+                let min = VectorType::const_vector(&[min; 4]);
+                let max = VectorType::const_vector(&[max; 4]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 =
+                    self.builder
+                        .build_int_truncate(v1, self.intrinsics.i16_ty.vec_type(4), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 =
+                    self.builder
+                        .build_int_truncate(v2, self.intrinsics.i16_ty.vec_type(4), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8NarrowI32x4U => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let min = self.intrinsics.i32x4_ty.const_zero();
+                let max = self.intrinsics.i32_ty.const_int(0xffff, false);
+                let max = VectorType::const_vector(&[max; 4]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 =
+                    self.builder
+                        .build_int_truncate(v1, self.intrinsics.i16_ty.vec_type(4), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 =
+                    self.builder
+                        .build_int_truncate(v2, self.intrinsics.i16_ty.vec_type(4), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
             Operator::I32x4TruncSatF32x4S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
