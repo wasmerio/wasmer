@@ -10,7 +10,7 @@ Native engine generates a shared object file and links it via
 
 This allows Wasmer to achieve *blazing fast* native startup times.
 
-*Note: you can find a [full working example using the JIT engine
+*Note: you can find a [full working example using the Native engine
 here][example].*
 
 ## Requirements
