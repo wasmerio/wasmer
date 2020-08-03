@@ -47,7 +47,7 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: OptLevel::Speed,
             enable_pic: false,
-            enable_simd: false,
+            enable_simd: true,
             middlewares: vec![],
         }
     }

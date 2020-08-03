@@ -322,7 +322,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         &self,
         fvec_ty: T,
         ivec_ty: T::MathConvType,
-        lower_bound: u64, // Exclusive (lowest representable value)
+        lower_bound: u64, // Exclusive (least representable value)
         upper_bound: u64, // Exclusive (greatest representable value)
         int_min_value: u64,
         int_max_value: u64,
@@ -442,7 +442,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     fn trunc_sat_scalar(
         &self,
         int_ty: IntType<'ctx>,
-        lower_bound: u64, // Exclusive (lowest representable value)
+        lower_bound: u64, // Exclusive (least representable value)
         upper_bound: u64, // Exclusive (greatest representable value)
         int_min_value: u64,
         int_max_value: u64,
@@ -2621,14 +2621,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_int_mul(v1, v2, "");
                 self.state.push1(res);
             }
-            // Operator::I8x16Mul => {
-            //     let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-            //     let (v1, _) = self.v128_into_i8x16(v1, i1);
-            //     let (v2, _) = self.v128_into_i8x16(v2, i2);
-            //     let res = self.builder.build_int_mul(v1, v2, "");
-            //     let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-            //     self.state.push1(res);
-            // }
             Operator::I16x8Mul => {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i16x8(v1, i1);
@@ -2641,6 +2633,14 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
                 let (v1, _) = self.v128_into_i32x4(v1, i1);
                 let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let res = self.builder.build_int_mul(v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Mul => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i64x2(v1, i1);
+                let (v2, _) = self.v128_into_i64x2(v2, i2);
                 let res = self.builder.build_int_mul(v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
@@ -2749,6 +2749,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
                 let res = self.builder.build_xor(v1, v2, "");
+                self.state.push1(res);
+            }
+            Operator::V128AndNot => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let v1 = self.apply_pending_canonicalization(v1, i1);
+                let v2 = self.apply_pending_canonicalization(v2, i2);
+                let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
+                let v2 = self.builder.build_not(v2, "");
+                let res = self.builder.build_and(v1, v2, "");
                 self.state.push1(res);
             }
             Operator::V128Bitselect => {
@@ -3133,6 +3142,236 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
+            Operator::I8x16Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+
+                let seven = self.intrinsics.i8_ty.const_int(7, false);
+                let seven = VectorType::const_vector(&[seven; 16]);
+                let all_sign_bits = self.builder.build_right_shift(v, seven, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+
+                let fifteen = self.intrinsics.i16_ty.const_int(15, false);
+                let fifteen = VectorType::const_vector(&[fifteen; 8]);
+                let all_sign_bits = self.builder.build_right_shift(v, fifteen, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i32x4(v, i);
+
+                let thirtyone = self.intrinsics.i32_ty.const_int(31, false);
+                let thirtyone = VectorType::const_vector(&[thirtyone; 4]);
+                let all_sign_bits = self.builder.build_right_shift(v, thirtyone, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16RoundingAverageU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+
+                // This approach is faster on x86-64 when the PAVG[BW]
+                // instructions are available. On other platforms, an alternative
+                // implementation appears likely to outperform, described here:
+                //   %a = or %v1, %v2
+                //   %b = and %a, 1
+                //   %v1 = lshr %v1, 1
+                //   %v2 = lshr %v2, 1
+                //   %sum = add %v1, %v2
+                //   %res = add %sum, %b
+
+                let ext_ty = self.intrinsics.i16_ty.vec_type(16);
+                let one = self.intrinsics.i16_ty.const_int(1, false);
+                let one = VectorType::const_vector(&[one; 16]);
+
+                let v1 = self.builder.build_int_z_extend(v1, ext_ty, "");
+                let v2 = self.builder.build_int_z_extend(v2, ext_ty, "");
+                let res =
+                    self.builder
+                        .build_int_add(self.builder.build_int_add(one, v1, ""), v2, "");
+                let res = self.builder.build_right_shift(res, one, false, "");
+                let res = self
+                    .builder
+                    .build_int_truncate(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8RoundingAverageU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+
+                // This approach is faster on x86-64 when the PAVG[BW]
+                // instructions are available. On other platforms, an alternative
+                // implementation appears likely to outperform, described here:
+                //   %a = or %v1, %v2
+                //   %b = and %a, 1
+                //   %v1 = lshr %v1, 1
+                //   %v2 = lshr %v2, 1
+                //   %sum = add %v1, %v2
+                //   %res = add %sum, %b
+
+                let ext_ty = self.intrinsics.i32_ty.vec_type(8);
+                let one = self.intrinsics.i32_ty.const_int(1, false);
+                let one = VectorType::const_vector(&[one; 8]);
+
+                let v1 = self.builder.build_int_z_extend(v1, ext_ty, "");
+                let v2 = self.builder.build_int_z_extend(v2, ext_ty, "");
+                let res =
+                    self.builder
+                        .build_int_add(self.builder.build_int_add(one, v1, ""), v2, "");
+                let res = self.builder.build_right_shift(res, one, false, "");
+                let res = self
+                    .builder
+                    .build_int_truncate(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
 
             /***************************
              * Floating-Point Arithmetic instructions.
@@ -3469,162 +3708,196 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::F32x4Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f32x4(v1, i1);
-                let (v2, _) = self.v128_into_f32x4(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 < v2 or
+                //       v2 is ±zero and v1 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1);
+                let (v2, i2) = self.v128_into_f32x4(v2, i2);
+                let v1 = if !i1.is_arithmetic_f32() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f32() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
 
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f32x4_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f32x4_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v2_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v2,
+                    self.intrinsics.f32x4_zero,
+                    "v2zero",
+                );
+
+                let v1_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f32x4,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f32_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        4],
+                                )
+                                .as_basic_value_enum(),
+                                v1.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f32x4_zero,
+                    "v1neg",
+                );
+
+                let v1_lt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = self.splat_vector(
-                    self.intrinsics
-                        .f32_ty
-                        .const_float(-0.0)
-                        .as_basic_value_enum(),
-                    self.intrinsics.f32x4_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_lt_v2,
+                            self.builder.build_and(v1_is_negative, v2_is_zero, ""),
                             "",
                         ),
-                        negative_zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
+                self.state.push1(res);
             }
             Operator::F64x2Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f64x2(v1, i1);
-                let (v2, _) = self.v128_into_f64x2(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 < v2 or
+                //       v2 is ±zero and v1 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1);
+                let (v2, i2) = self.v128_into_f64x2(v2, i2);
+                let v1 = if !i1.is_arithmetic_f64() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f64() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
 
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f64x2_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f64x2_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v2_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v2,
+                    self.intrinsics.f64x2_zero,
+                    "v2zero",
+                );
+
+                let v1_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f64x2,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f64_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        2],
+                                )
+                                .as_basic_value_enum(),
+                                v1.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f64x2_zero,
+                    "v1neg",
+                );
+
+                let v1_lt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = self.splat_vector(
-                    self.intrinsics
-                        .f64_ty
-                        .const_float(-0.0)
-                        .as_basic_value_enum(),
-                    self.intrinsics.f64x2_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_lt_v2,
+                            self.builder.build_and(v1_is_negative, v2_is_zero, ""),
                             "",
                         ),
-                        negative_zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
+                self.state.push1(res);
             }
             Operator::F32Max => {
                 // This implements the same logic as LLVM's @llvm.maximum
@@ -3759,154 +4032,196 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::F32x4Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f32x4(v1, i1);
-                let (v2, _) = self.v128_into_f32x4(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 > v2 or
+                //       v1 is ±zero and v2 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1);
+                let (v2, i2) = self.v128_into_f32x4(v2, i2);
+                let v1 = if !i1.is_arithmetic_f32() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f32() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
+
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f32x4_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f32x4_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v1_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v1,
+                    self.intrinsics.f32x4_zero,
+                    "v1zero",
+                );
+
+                let v2_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f32x4,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f32_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        4],
+                                )
+                                .as_basic_value_enum(),
+                                v2.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f32x4_zero,
+                    "v2neg",
+                );
+
+                let v1_gt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let zero = self.splat_vector(
-                    self.intrinsics.f32_zero.as_basic_value_enum(),
-                    self.intrinsics.f32x4_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_gt_v2,
+                            self.builder.build_and(v1_is_zero, v2_is_negative, ""),
                             "",
                         ),
-                        zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
+                self.state.push1(res);
             }
             Operator::F64x2Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f64x2(v1, i1);
-                let (v2, _) = self.v128_into_f64x2(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 > v2 or
+                //       v1 is ±zero and v2 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1);
+                let (v2, i2) = self.v128_into_f64x2(v2, i2);
+                let v1 = if !i1.is_arithmetic_f64() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f64() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
+
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f64x2_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f64x2_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v1_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v1,
+                    self.intrinsics.f64x2_zero,
+                    "v1zero",
+                );
+
+                let v2_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f64x2,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f64_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        2],
+                                )
+                                .as_basic_value_enum(),
+                                v2.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f64x2_zero,
+                    "v2neg",
+                );
+
+                let v1_gt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let zero = self.splat_vector(
-                    self.intrinsics.f64_zero.as_basic_value_enum(),
-                    self.intrinsics.f64x2_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_gt_v2,
+                            self.builder.build_and(v1_is_zero, v2_is_negative, ""),
                             "",
                         ),
-                        zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
+                self.state.push1(res);
             }
             Operator::F32Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
@@ -4938,6 +5253,436 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(v, self.intrinsics.i64_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
+            Operator::I16x8WidenLowI8x16S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenHighI8x16S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenLowI8x16U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8WidenHighI8x16U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenLowI16x8S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenHighI16x8S => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_s_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenLowI16x8U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4WidenHighI16x8U => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+                let low = self.builder.build_shuffle_vector(
+                    v,
+                    v.get_type().get_undef(),
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self
+                    .builder
+                    .build_int_z_extend(low, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16NarrowI16x8S => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let min = self.intrinsics.i16_ty.const_int(0xff80, false);
+                let max = self.intrinsics.i16_ty.const_int(0x007f, false);
+                let min = VectorType::const_vector(&[min; 8]);
+                let max = VectorType::const_vector(&[max; 8]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_int_truncate(v1, self.intrinsics.i8_ty.vec_type(8), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty.vec_type(8), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16NarrowI16x8U => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let min = self.intrinsics.i16x8_ty.const_zero();
+                let max = self.intrinsics.i16_ty.const_int(0x00ff, false);
+                let max = VectorType::const_vector(&[max; 8]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_int_truncate(v1, self.intrinsics.i8_ty.vec_type(8), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_int_truncate(v2, self.intrinsics.i8_ty.vec_type(8), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                        self.intrinsics.i32_ty.const_int(8, false),
+                        self.intrinsics.i32_ty.const_int(9, false),
+                        self.intrinsics.i32_ty.const_int(10, false),
+                        self.intrinsics.i32_ty.const_int(11, false),
+                        self.intrinsics.i32_ty.const_int(12, false),
+                        self.intrinsics.i32_ty.const_int(13, false),
+                        self.intrinsics.i32_ty.const_int(14, false),
+                        self.intrinsics.i32_ty.const_int(15, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8NarrowI32x4S => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let min = self.intrinsics.i32_ty.const_int(0xffff8000, false);
+                let max = self.intrinsics.i32_ty.const_int(0x00007fff, false);
+                let min = VectorType::const_vector(&[min; 4]);
+                let max = VectorType::const_vector(&[max; 4]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 =
+                    self.builder
+                        .build_int_truncate(v1, self.intrinsics.i16_ty.vec_type(4), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 =
+                    self.builder
+                        .build_int_truncate(v2, self.intrinsics.i16_ty.vec_type(4), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8NarrowI32x4U => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let min = self.intrinsics.i32x4_ty.const_zero();
+                let max = self.intrinsics.i32_ty.const_int(0xffff, false);
+                let max = VectorType::const_vector(&[max; 4]);
+                let apply_min_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v1, min, "");
+                let apply_max_clamp_v1 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v1, max, "");
+                let apply_min_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SLT, v2, min, "");
+                let apply_max_clamp_v2 =
+                    self.builder
+                        .build_int_compare(IntPredicate::SGT, v2, max, "");
+                let v1 = self
+                    .builder
+                    .build_select(apply_min_clamp_v1, min, v1, "")
+                    .into_vector_value();
+                let v1 = self
+                    .builder
+                    .build_select(apply_max_clamp_v1, max, v1, "")
+                    .into_vector_value();
+                let v1 =
+                    self.builder
+                        .build_int_truncate(v1, self.intrinsics.i16_ty.vec_type(4), "");
+                let v2 = self
+                    .builder
+                    .build_select(apply_min_clamp_v2, min, v2, "")
+                    .into_vector_value();
+                let v2 = self
+                    .builder
+                    .build_select(apply_max_clamp_v2, max, v2, "")
+                    .into_vector_value();
+                let v2 =
+                    self.builder
+                        .build_int_truncate(v2, self.intrinsics.i16_ty.vec_type(4), "");
+                let res = self.builder.build_shuffle_vector(
+                    v1,
+                    v2,
+                    VectorType::const_vector(&[
+                        self.intrinsics.i32_ty.const_int(0, false),
+                        self.intrinsics.i32_ty.const_int(1, false),
+                        self.intrinsics.i32_ty.const_int(2, false),
+                        self.intrinsics.i32_ty.const_int(3, false),
+                        self.intrinsics.i32_ty.const_int(4, false),
+                        self.intrinsics.i32_ty.const_int(5, false),
+                        self.intrinsics.i32_ty.const_int(6, false),
+                        self.intrinsics.i32_ty.const_int(7, false),
+                    ]),
+                    "",
+                );
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
             Operator::I32x4TruncSatF32x4S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let v = self.apply_pending_canonicalization(v, i);
@@ -4945,8 +5690,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
-                    -2147480000i32 as u32 as u64,
-                    2147480000,
+                    LEF32_GEQ_I32_MIN,
+                    GEF32_LEQ_I32_MAX,
                     std::i32::MIN as u64,
                     std::i32::MAX as u64,
                     v,
@@ -4960,8 +5705,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.trunc_sat(
                     self.intrinsics.f32x4_ty,
                     self.intrinsics.i32x4_ty,
-                    0,
-                    4294960000,
+                    LEF32_GEQ_U32_MIN,
+                    GEF32_LEQ_U32_MAX,
                     std::u32::MIN as u64,
                     std::u32::MAX as u64,
                     v,
@@ -6204,6 +6949,132 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         .as_slice(),
                 );
                 let res = self.builder.build_shuffle_vector(v1, v2, mask, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8Load8x8S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_s_extend(v, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8Load8x8U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i8_ty.vec_type(8), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_z_extend(v, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Load16x4S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_s_extend(v, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Load16x4U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i16_ty.vec_type(4), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_z_extend(v, self.intrinsics.i32x4_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Load32x2S { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_s_extend(v, self.intrinsics.i64x2_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I64x2Load32x2U { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let v = self.builder.build_load(effective_address, "");
+                let v = self
+                    .builder
+                    .build_bitcast(v, self.intrinsics.i32_ty.vec_type(2), "")
+                    .into_vector_value();
+                let res = self
+                    .builder
+                    .build_int_z_extend(v, self.intrinsics.i64x2_ty, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }

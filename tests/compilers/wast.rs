@@ -33,19 +33,32 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
         "Running wast `{}` with the {} compiler",
         wast_path, compiler
     );
-    let _try_nan_canonicalization = wast_path.contains("nan-canonicalization");
+    let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
-    if wast_path.contains("bulk-memory") {
+    let is_bulkmemory = wast_path.contains("bulk-memory");
+    let is_simd = wast_path.contains("simd");
+    if is_bulkmemory {
         features.bulk_memory(true);
+    }
+    if is_simd {
+        features.simd(true);
     }
     #[cfg(feature = "test-singlepass")]
     features.multi_value(false);
-    let compiler_config = get_compiler(true);
+    let compiler_config = get_compiler(try_nan_canonicalization);
     let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
     // let mut native = NativeEngine::new(compiler_config, tunables);
     // native.set_deterministic_prefixer(native_prefixer);
     // let store = Store::new(&native);
     let mut wast = Wast::new_with_spectest(store);
+    if is_simd {
+        // We allow this, so tests can be run properly for `simd_const` test.
+        wast.allow_instantiation_failures(&[
+            "Validation error: multiple tables: tables count must be at most 1",
+            "Validation error: unknown memory 0",
+            "Validation error: Invalid var_u32",
+        ]);
+    }
     if compiler == "singlepass" {
         // We don't support multivalue yet in singlepass
         wast.allow_instantiation_failures(&[
