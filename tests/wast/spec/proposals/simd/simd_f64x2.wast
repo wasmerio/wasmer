@@ -109,7 +109,7 @@
     (v128.const f64x2 nan 0)
     (v128.const f64x2 0 1)
   )
-  (v128.const f64x2 nan 0)
+  (v128.const f64x2 nan:canonical 0)
 )
 ;; f64x2.min
 (assert_return
@@ -117,7 +117,7 @@
     (v128.const f64x2 0 1)
     (v128.const f64x2 -nan 0)
   )
-  (v128.const f64x2 -nan 0)
+  (v128.const f64x2 nan:canonical 0)
 )
 ;; f64x2.min
 (assert_return
