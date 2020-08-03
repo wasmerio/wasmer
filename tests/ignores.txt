@@ -3,7 +3,6 @@ singlepass::spec::multi_value
 singlepass::spec::simd
 
 ## SIMD in Cranelift 0.65 is not fully supported
-cranelift::spec::simd::simd_const
 cranelift::spec::simd::simd_conversions
 cranelift::spec::simd::simd_f32x4
 cranelift::spec::simd::simd_f64x2
