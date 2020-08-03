@@ -3,10 +3,10 @@ name: Run Benchmarks and upload results
 on:
   push:
     branches:
-    - test-benchmark-branch
+    - master
   pull_request:
     branches:
-    - test-benchmark-branch
+    - master
 
 jobs:
   run_benchmark:
