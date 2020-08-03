@@ -3142,6 +3142,236 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(cond, self.intrinsics.i32_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
+            Operator::I8x16Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i8x16(v, i);
+
+                let seven = self.intrinsics.i8_ty.const_int(7, false);
+                let seven = VectorType::const_vector(&[seven; 16]);
+                let all_sign_bits = self.builder.build_right_shift(v, seven, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i16x8(v, i);
+
+                let fifteen = self.intrinsics.i16_ty.const_int(15, false);
+                let fifteen = VectorType::const_vector(&[fifteen; 8]);
+                let all_sign_bits = self.builder.build_right_shift(v, fifteen, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4Abs => {
+                let (v, i) = self.state.pop1_extra()?;
+                let (v, _) = self.v128_into_i32x4(v, i);
+
+                let thirtyone = self.intrinsics.i32_ty.const_int(31, false);
+                let thirtyone = VectorType::const_vector(&[thirtyone; 4]);
+                let all_sign_bits = self.builder.build_right_shift(v, thirtyone, true, "");
+                let xor = self.builder.build_xor(v, all_sign_bits, "");
+                let res = self.builder.build_int_sub(xor, all_sign_bits, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MinS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SLT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MinU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::ULT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MaxS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::SGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I32x4MaxU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i32x4(v1, i1);
+                let (v2, _) = self.v128_into_i32x4(v2, i2);
+                let cmp = self
+                    .builder
+                    .build_int_compare(IntPredicate::UGT, v1, v2, "");
+                let res = self.builder.build_select(cmp, v1, v2, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I8x16RoundingAverageU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i8x16(v1, i1);
+                let (v2, _) = self.v128_into_i8x16(v2, i2);
+
+                // This approach is faster on x86-64 when the PAVG[BW]
+                // instructions are available. On other platforms, an alternative
+                // implementation appears likely to outperform, described here:
+                //   %a = or %v1, %v2
+                //   %b = and %a, 1
+                //   %v1 = lshr %v1, 1
+                //   %v2 = lshr %v2, 1
+                //   %sum = add %v1, %v2
+                //   %res = add %sum, %b
+
+                let ext_ty = self.intrinsics.i16_ty.vec_type(16);
+                let one = self.intrinsics.i16_ty.const_int(1, false);
+                let one = VectorType::const_vector(&[one; 16]);
+
+                let v1 = self.builder.build_int_z_extend(v1, ext_ty, "");
+                let v2 = self.builder.build_int_z_extend(v2, ext_ty, "");
+                let res =
+                    self.builder
+                        .build_int_add(self.builder.build_int_add(one, v1, ""), v2, "");
+                let res = self.builder.build_right_shift(res, one, false, "");
+                let res = self
+                    .builder
+                    .build_int_truncate(res, self.intrinsics.i8x16_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
+            Operator::I16x8RoundingAverageU => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+
+                // This approach is faster on x86-64 when the PAVG[BW]
+                // instructions are available. On other platforms, an alternative
+                // implementation appears likely to outperform, described here:
+                //   %a = or %v1, %v2
+                //   %b = and %a, 1
+                //   %v1 = lshr %v1, 1
+                //   %v2 = lshr %v2, 1
+                //   %sum = add %v1, %v2
+                //   %res = add %sum, %b
+
+                let ext_ty = self.intrinsics.i32_ty.vec_type(8);
+                let one = self.intrinsics.i32_ty.const_int(1, false);
+                let one = VectorType::const_vector(&[one; 8]);
+
+                let v1 = self.builder.build_int_z_extend(v1, ext_ty, "");
+                let v2 = self.builder.build_int_z_extend(v2, ext_ty, "");
+                let res =
+                    self.builder
+                        .build_int_add(self.builder.build_int_add(one, v1, ""), v2, "");
+                let res = self.builder.build_right_shift(res, one, false, "");
+                let res = self
+                    .builder
+                    .build_int_truncate(res, self.intrinsics.i16x8_ty, "");
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
 
             /***************************
              * Floating-Point Arithmetic instructions.
