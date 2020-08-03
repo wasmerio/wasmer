@@ -98,6 +98,8 @@ pub struct Intrinsics<'ctx> {
 
     pub copysign_f32: FunctionValue<'ctx>,
     pub copysign_f64: FunctionValue<'ctx>,
+    pub copysign_f32x4: FunctionValue<'ctx>,
+    pub copysign_f64x2: FunctionValue<'ctx>,
 
     pub sadd_sat_i8x16: FunctionValue<'ctx>,
     pub sadd_sat_i16x8: FunctionValue<'ctx>,
@@ -267,6 +269,8 @@ impl<'ctx> Intrinsics<'ctx> {
 
         let ret_f32_take_f32_f32 = f32_ty.fn_type(&[f32_ty_basic, f32_ty_basic], false);
         let ret_f64_take_f64_f64 = f64_ty.fn_type(&[f64_ty_basic, f64_ty_basic], false);
+        let ret_f32x4_take_f32x4_f32x4 = f32x4_ty.fn_type(&[f32x4_ty_basic, f32x4_ty_basic], false);
+        let ret_f64x2_take_f64x2_f64x2 = f64x2_ty.fn_type(&[f64x2_ty_basic, f64x2_ty_basic], false);
 
         let ret_i1_take_i1_i1 = i1_ty.fn_type(&[i1_ty_basic, i1_ty_basic], false);
         let intrinsics = Self {
@@ -303,6 +307,16 @@ impl<'ctx> Intrinsics<'ctx> {
 
             copysign_f32: module.add_function("llvm.copysign.f32", ret_f32_take_f32_f32, None),
             copysign_f64: module.add_function("llvm.copysign.f64", ret_f64_take_f64_f64, None),
+            copysign_f32x4: module.add_function(
+                "llvm.copysign.v4f32",
+                ret_f32x4_take_f32x4_f32x4,
+                None,
+            ),
+            copysign_f64x2: module.add_function(
+                "llvm.copysign.v2f64",
+                ret_f64x2_take_f64x2_f64x2,
+                None,
+            ),
 
             sadd_sat_i8x16: module.add_function(
                 "llvm.sadd.sat.v16i8",

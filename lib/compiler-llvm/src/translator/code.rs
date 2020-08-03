@@ -3478,162 +3478,196 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::F32x4Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f32x4(v1, i1);
-                let (v2, _) = self.v128_into_f32x4(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 < v2 or
+                //       v2 is ±zero and v1 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1);
+                let (v2, i2) = self.v128_into_f32x4(v2, i2);
+                let v1 = if !i1.is_arithmetic_f32() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f32() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
 
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f32x4_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f32x4_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v2_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v2,
+                    self.intrinsics.f32x4_zero,
+                    "v2zero",
+                );
+
+                let v1_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f32x4,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f32_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        4],
+                                )
+                                .as_basic_value_enum(),
+                                v1.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f32x4_zero,
+                    "v1neg",
+                );
+
+                let v1_lt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = self.splat_vector(
-                    self.intrinsics
-                        .f32_ty
-                        .const_float(-0.0)
-                        .as_basic_value_enum(),
-                    self.intrinsics.f32x4_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_lt_v2,
+                            self.builder.build_and(v1_is_negative, v2_is_zero, ""),
                             "",
                         ),
-                        negative_zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
+                self.state.push1(res);
             }
             Operator::F64x2Min => {
-                // This implements the same logic as LLVM's @llvm.minimum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f64x2(v1, i1);
-                let (v2, _) = self.v128_into_f64x2(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 < v2 or
+                //       v2 is ±zero and v1 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1);
+                let (v2, i2) = self.v128_into_f64x2(v2, i2);
+                let v1 = if !i1.is_arithmetic_f64() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f64() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
 
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f64x2_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f64x2_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v2_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v2,
+                    self.intrinsics.f64x2_zero,
+                    "v2zero",
+                );
+
+                let v1_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f64x2,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f64_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        2],
+                                )
+                                .as_basic_value_enum(),
+                                v1.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f64x2_zero,
+                    "v1neg",
+                );
+
+                let v1_lt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OLT, v1, v2, "");
-                let negative_zero = self.splat_vector(
-                    self.intrinsics
-                        .f64_ty
-                        .const_float(-0.0)
-                        .as_basic_value_enum(),
-                    self.intrinsics.f64x2_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_lt_v2,
+                            self.builder.build_and(v1_is_negative, v2_is_zero, ""),
                             "",
                         ),
-                        negative_zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
+                self.state.push1(res);
             }
             Operator::F32Max => {
                 // This implements the same logic as LLVM's @llvm.maximum
@@ -3768,154 +3802,196 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
             Operator::F32x4Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f32x4(v1, i1);
-                let (v2, _) = self.v128_into_f32x4(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 > v2 or
+                //       v1 is ±zero and v2 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f32x4(v1, i1);
+                let (v2, i2) = self.v128_into_f32x4(v2, i2);
+                let v1 = if !i1.is_arithmetic_f32() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f32() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
+
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f32x4_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f32x4_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i32x4_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v1_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v1,
+                    self.intrinsics.f32x4_zero,
+                    "v1zero",
+                );
+
+                let v2_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f32x4,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f32_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        4],
+                                )
+                                .as_basic_value_enum(),
+                                v2.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f32x4_zero,
+                    "v2neg",
+                );
+
+                let v1_gt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let zero = self.splat_vector(
-                    self.intrinsics.f32_zero.as_basic_value_enum(),
-                    self.intrinsics.f32x4_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_gt_v2,
+                            self.builder.build_and(v1_is_zero, v2_is_negative, ""),
                             "",
                         ),
-                        zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f32());
+                self.state.push1(res);
             }
             Operator::F64x2Max => {
-                // This implements the same logic as LLVM's @llvm.maximum
-                // intrinsic would, but x86 lowering of that intrinsic
-                // encounters a fatal error in LLVM 8 and LLVM 9.
-                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
-                let (v1, _) = self.v128_into_f64x2(v1, i1);
-                let (v2, _) = self.v128_into_f64x2(v2, i2);
+                // a) check v1 and v2 for NaN
+                // b) check v2 for zero
+                // c) check v1 for sign
+                //
+                // We pick v1 iff
+                //   v1 is NaN or
+                //     v2 is not NaN and either
+                //       v1 > v2 or
+                //       v1 is ±zero and v2 is negative.
 
-                // To detect min(-0.0, 0.0), we check whether the integer
-                // representations are equal. There's one other case where that
-                // can happen: non-canonical NaNs. Here we unconditionally
-                // canonicalize the NaNs. Note that this is a different
-                // canonicalization from that which may be performed in the
-                // v128_into_f32x4 self.function. That may canonicalize as F64x2 if
-                // previous computations may have emitted F64x2 NaNs.
-                let v1 = self.canonicalize_nans(v1.as_basic_value_enum());
-                let v2 = self.canonicalize_nans(v2.as_basic_value_enum());
-                let (v1, v2) = (v1.into_vector_value(), v2.into_vector_value());
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, i1) = self.v128_into_f64x2(v1, i1);
+                let (v2, i2) = self.v128_into_f64x2(v2, i2);
+                let v1 = if !i1.is_arithmetic_f64() {
+                    self.canonicalize_nans(v1.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v1
+                };
+                let v2 = if !i2.is_arithmetic_f64() {
+                    self.canonicalize_nans(v2.as_basic_value_enum())
+                        .into_vector_value()
+                } else {
+                    v2
+                };
+
                 let v1_is_nan = self.builder.build_float_compare(
                     FloatPredicate::UNO,
                     v1,
                     self.intrinsics.f64x2_zero,
-                    "nan",
+                    "v1nan",
                 );
-                let v2_is_not_nan = self.builder.build_float_compare(
+                let v2_is_notnan = self.builder.build_float_compare(
                     FloatPredicate::ORD,
                     v2,
                     self.intrinsics.f64x2_zero,
-                    "notnan",
+                    "v2notnan",
                 );
-                let v1_repr = self
-                    .builder
-                    .build_bitcast(v1, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let v2_repr = self
-                    .builder
-                    .build_bitcast(v2, self.intrinsics.i64x2_ty, "")
-                    .into_vector_value();
-                let repr_ne =
+
+                let v1_is_zero = self.builder.build_float_compare(
+                    FloatPredicate::OEQ,
+                    v1,
+                    self.intrinsics.f64x2_zero,
+                    "v1zero",
+                );
+
+                let v2_is_negative = self.builder.build_float_compare(
+                    FloatPredicate::OLT,
                     self.builder
-                        .build_int_compare(IntPredicate::NE, v1_repr, v2_repr, "");
-                let float_eq = self
-                    .builder
-                    .build_float_compare(FloatPredicate::OEQ, v1, v2, "");
-                let min_cmp = self
+                        .build_call(
+                            self.intrinsics.copysign_f64x2,
+                            &[
+                                VectorType::const_vector(
+                                    &[self
+                                        .intrinsics
+                                        .f64_ty
+                                        .const_float(1.0)
+                                        .as_basic_value_enum();
+                                        2],
+                                )
+                                .as_basic_value_enum(),
+                                v2.as_basic_value_enum(),
+                            ],
+                            "",
+                        )
+                        .try_as_basic_value()
+                        .left()
+                        .unwrap()
+                        .into_vector_value(),
+                    self.intrinsics.f64x2_zero,
+                    "v2neg",
+                );
+
+                let v1_gt_v2 = self
                     .builder
                     .build_float_compare(FloatPredicate::OGT, v1, v2, "");
-                let zero = self.splat_vector(
-                    self.intrinsics.f64_zero.as_basic_value_enum(),
-                    self.intrinsics.f64x2_ty,
-                );
-                let v2 = self
-                    .builder
-                    .build_select(
-                        self.builder.build_and(
-                            self.builder.build_and(float_eq, repr_ne, ""),
-                            v2_is_not_nan,
+
+                let pick_v1 = self.builder.build_or(
+                    v1_is_nan,
+                    self.builder.build_and(
+                        v2_is_notnan,
+                        self.builder.build_or(
+                            v1_gt_v2,
+                            self.builder.build_and(v1_is_zero, v2_is_negative, ""),
                             "",
                         ),
-                        zero,
-                        v2,
                         "",
-                    )
-                    .into_vector_value();
-                let res = self.builder.build_select(
-                    self.builder.build_or(v1_is_nan, min_cmp, ""),
-                    v1,
-                    v2,
+                    ),
                     "",
                 );
+
+                let res = self.builder.build_select(pick_v1, v1, v2, "");
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
-                // Because inputs were canonicalized, we always produce
-                // canonical NaN outputs. No pending NaN cleanup.
-                self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
+                self.state.push1(res);
             }
             Operator::F32Ceil => {
                 let (input, info) = self.state.pop1_extra()?;
