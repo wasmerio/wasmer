@@ -24,7 +24,7 @@ use smallvec::SmallVec;
 
 use crate::config::{CompiledFunctionKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
-use wasm_common::entity::{PrimaryMap, SecondaryMap};
+use wasm_common::entity::PrimaryMap;
 use wasm_common::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
@@ -74,12 +74,12 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        function_names: &SecondaryMap<FunctionIndex, String>,
+        namer: &mut dyn crate::compiler::InvertibleCompilationNamer,
     ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
-        let function_name = &function_names[func_index];
+        let function_name = namer.get_function_name(local_func_index);
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", function_name),
             Some(module_name) => format!("module {} function {}", module_name, function_name),
@@ -99,9 +99,10 @@ impl FuncTranslator {
         let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
-        for (attr, attr_loc) in func_attrs {
-            func.add_attribute(attr_loc, attr);
+        for (attr, attr_loc) in &func_attrs {
+            func.add_attribute(*attr_loc, *attr);
         }
+
         // TODO: mark vmctx align 16
         // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
         // TODO: mark vmctx nofree
@@ -203,8 +204,14 @@ impl FuncTranslator {
             module: &module,
             module_translation,
             wasm_module,
-            function_names,
+            namer,
         };
+        fcg.ctx.add_func(
+            func_index,
+            func.as_global_value().as_pointer_value(),
+            fcg.ctx.basic(),
+            &func_attrs,
+        );
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
@@ -275,17 +282,15 @@ impl FuncTranslator {
             ".wasmer_function",
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
-                if let Some((index, _)) = function_names
-                    .iter()
-                    .find(|(_, function_name)| **function_name == *name)
-                {
-                    let local_index = wasm_module
-                        .local_func_index(index)
-                        .expect("relocation to non-local function");
-                    Ok(Some(RelocationTarget::LocalFunc(local_index)))
-                } else {
-                    Ok(None)
-                }
+                Ok(
+                    if let Some(crate::compiler::Symbol::LocalFunction(local_func_index)) =
+                        namer.get_symbol_from_name(name)
+                    {
+                        Some(RelocationTarget::LocalFunc(local_func_index))
+                    } else {
+                        None
+                    },
+                )
             },
         )
     }
@@ -1277,7 +1282,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
-    function_names: &'a SecondaryMap<FunctionIndex, String>,
+    namer: &'a mut dyn crate::compiler::InvertibleCompilationNamer,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2045,20 +2050,26 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let func_index = FunctionIndex::from_u32(function_index);
                 let sigindex = &self.wasm_module.functions[func_index];
                 let func_type = &self.wasm_module.signatures[*sigindex];
-                let function_name = &self.function_names[func_index];
 
                 let FunctionCache {
                     func,
                     vmctx: callee_vmctx,
                     attrs,
-                } = self.ctx.func(
-                    func_index,
-                    self.intrinsics,
-                    self.module,
-                    self.context,
-                    function_name,
-                    func_type,
-                )?;
+                } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
+                    let function_name = self.namer.get_function_name(&local_func_index);
+                    self.ctx.local_func(
+                        local_func_index,
+                        func_index,
+                        self.intrinsics,
+                        self.module,
+                        self.context,
+                        func_type,
+                        &function_name,
+                    )?
+                } else {
+                    self.ctx
+                        .func(func_index, self.intrinsics, self.context, func_type)?
+                };
                 let func = *func;
                 let callee_vmctx = *callee_vmctx;
                 let attrs = attrs.clone();
