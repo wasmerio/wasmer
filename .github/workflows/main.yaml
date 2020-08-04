@@ -80,9 +80,9 @@ jobs:
             target/*/.*
             target/*/build
             target/*/deps
-          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
+          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.os }}-
+            ${{ matrix.os }}-${{ matrix.rust }}-
       # # Install sccache
       # - uses: actions/cache@master
       #   with:
@@ -101,7 +101,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: choco install llvm
         # run: |
-        #   curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
+        #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
         #   7z x llvm-installer.exe -oC:/llvm-10
         #   echo ::add-path::C:/llvm-10/bin
         #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
@@ -109,7 +109,7 @@ jobs:
       - name: Install LLVM (macOS)
         if: matrix.os == 'macos-latest'
         run: |
-          curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "::add-path::${{ env.LLVM_DIR }}/bin"
@@ -119,7 +119,7 @@ jobs:
       - name: Install LLVM (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |
-          curl https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
           mkdir -p /opt/llvm-10
           tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
           echo ::add-path::/opt/llvm-10/bin
