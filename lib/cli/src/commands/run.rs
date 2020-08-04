@@ -1,4 +1,5 @@
 use crate::common::get_cache_dir;
+use crate::logging;
 use crate::store::{CompilerType, EngineType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
 use crate::warning;
@@ -70,6 +71,10 @@ pub struct Run {
 impl Run {
     /// Execute the run command
     pub fn execute(&self) -> Result<()> {
+        #[cfg(feature = "debug")]
+        if self.debug {
+            logging::set_up_logging().unwrap();
+        }
         self.inner_execute().with_context(|| {
             let compilers = CompilerType::enabled()
                 .iter()

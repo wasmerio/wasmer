@@ -1,3 +1,4 @@
+//! Logging functions for the debug feature.
 use crate::utils::wasmer_should_print_color;
 use fern::colors::{Color, ColoredLevelConfig};
 use std::time;
