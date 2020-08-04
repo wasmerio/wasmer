@@ -45,7 +45,9 @@ distance = "0.4"
 # For the inspect subcommand
 bytesize = "1.0"
 cfg-if = "0.1"
-
+# For debug feature
+fern = { version = "0.6", features = ["colored"], optional = true }
+log = { version = "0.4", optional = true }
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -94,3 +96,4 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+debug = ["fern", "log"]
