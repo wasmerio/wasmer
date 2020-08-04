@@ -2,13 +2,16 @@ use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
-use wasm_common::LocalFunctionIndex;
+use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
     Target,
 };
+use wasmer_object::CompilationNamer;
+
+use std::collections::HashMap;
 
 //use std::sync::{Arc, Mutex};
 
@@ -32,6 +35,118 @@ impl LLVMCompiler {
     }
 }
 
+struct ShortNames {}
+
+impl InvertibleCompilationNamer for ShortNames {
+    /// Gets the function name given a local function index
+    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String {
+        format!("f{}", index.index())
+    }
+
+    /// Gets the section name given a section index
+    fn get_section_name(&mut self, index: &SectionIndex) -> String {
+        format!("s{}", index.index())
+    }
+
+    /// Gets the function call trampoline name given a signature index
+    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String {
+        format!("t{}", index.index())
+    }
+
+    /// Gets the dynamic function trampoline name given a function index
+    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String {
+        format!("d{}", index.index())
+    }
+
+    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol> {
+        if name.len() < 2 {
+            return None;
+        }
+        let (ty, idx) = name.split_at(1);
+        let idx = match idx.parse::<u32>() {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        match ty.chars().nth(0).unwrap() {
+            'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
+            's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
+            't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
+                idx,
+            ))),
+            'd' => Some(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
+                idx,
+            ))),
+            _ => None,
+        }
+    }
+}
+
+/// Symbols we may have produced names for.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Symbol {
+    LocalFunction(LocalFunctionIndex),
+    Section(SectionIndex),
+    FunctionCallTrampoline(SignatureIndex),
+    DynamicFunctionTrampoline(FunctionIndex),
+}
+
+pub trait InvertibleCompilationNamer {
+    /// Gets the function name given a local function index.
+    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String;
+
+    /// Gets the section name given a section index.
+    fn get_section_name(&mut self, index: &SectionIndex) -> String;
+
+    /// Gets the function call trampoline name given a signature index.
+    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String;
+
+    /// Gets the dynamic function trampoline name given a function index.
+    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String;
+
+    /// Gets the type of symbol from a given name.
+    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol>;
+}
+
+pub struct CachingInvertibleCompilationNamer<'a> {
+    cache: HashMap<String, Symbol>,
+    namer: &'a dyn CompilationNamer,
+}
+
+impl<'a> InvertibleCompilationNamer for CachingInvertibleCompilationNamer<'a> {
+    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String {
+        let value = self.namer.get_function_name(index);
+        self.cache
+            .insert(value.clone(), Symbol::LocalFunction(*index));
+        value
+    }
+
+    fn get_section_name(&mut self, index: &SectionIndex) -> String {
+        let value = self.namer.get_section_name(index);
+        self.cache.insert(value.clone(), Symbol::Section(*index));
+        value
+    }
+
+    /// Gets the function call trampoline name given a signature index
+    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String {
+        let value = self.namer.get_function_call_trampoline_name(index);
+        self.cache
+            .insert(value.clone(), Symbol::FunctionCallTrampoline(*index));
+        value
+    }
+
+    /// Gets the dynamic function trampoline name given a function index
+    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String {
+        let value = self.namer.get_dynamic_function_trampoline_name(index);
+        self.cache
+            .insert(value.clone(), Symbol::DynamicFunctionTrampoline(*index));
+        value
+    }
+
+    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol> {
+        self.cache.get(name).cloned()
+    }
+}
+
 impl Compiler for LLVMCompiler {
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
@@ -43,20 +158,12 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
-        let mut function_names = SecondaryMap::new();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
 
-        for (func_index, _) in &module.functions {
-            function_names[func_index] = module
-                .function_names
-                .get(&func_index)
-                .cloned()
-                .unwrap_or_else(|| format!("fn{}", func_index.index()));
-        }
         let mut module_custom_sections = PrimaryMap::new();
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
@@ -71,7 +178,7 @@ impl Compiler for LLVMCompiler {
                 },
                 |func_translator, (i, input)| {
                     // TODO: remove (to serialize)
-                    //let mut data = data.lock().unwrap();
+                    //let _data = data.lock().unwrap();
                     func_translator.translate(
                         &module,
                         module_translation,
@@ -80,7 +187,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &function_names,
+                        &mut ShortNames {},
                     )
                 },
             )
