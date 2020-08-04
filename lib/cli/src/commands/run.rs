@@ -1,4 +1,5 @@
 use crate::common::get_cache_dir;
+#[cfg(feature = "debug")]
 use crate::logging;
 use crate::store::{CompilerType, EngineType, StoreOptions};
 use crate::suggestions::suggest_function_exports;
