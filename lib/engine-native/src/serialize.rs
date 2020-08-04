@@ -10,7 +10,7 @@ pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,
     pub data_initializers: Box<[OwnedDataInitializer]>,
-    // The function body lengths (used for reverse-locate traps in the function)
+    // The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
 }
 
