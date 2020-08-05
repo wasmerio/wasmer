@@ -62,11 +62,6 @@ impl WasmerCLIOptions {
 }
 
 fn main() {
-    let builder = std::thread::Builder::new().stack_size(1_024_000_000);
-    builder.spawn(real_main).unwrap().join().unwrap();
-}
-
-fn real_main() {
     // We allow windows to print properly colors
     #[cfg(windows)]
     colored::control::set_virtual_terminal(true).unwrap();
