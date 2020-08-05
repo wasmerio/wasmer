@@ -21,7 +21,7 @@ use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,
     memory: Arc<dyn RuntimeMemory>,

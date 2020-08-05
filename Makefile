@@ -57,6 +57,9 @@ bench:
 build-wasmer:
 	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
+build-wasmer-debug:
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+
 WAPM_VERSION = v0.5.0
 build-wapm:
 	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
