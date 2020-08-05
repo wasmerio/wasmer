@@ -65,8 +65,8 @@ impl FuncTranslator {
         }
     }
 
-    pub fn translate(
-        &mut self,
+    pub fn translate_to_module(
+        &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
@@ -75,7 +75,7 @@ impl FuncTranslator {
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
         namer: &mut dyn crate::compiler::InvertibleCompilationNamer,
-    ) -> Result<CompiledFunction, CompileError> {
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
@@ -267,7 +267,32 @@ impl FuncTranslator {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+        Ok(module)
+    }
 
+    pub fn translate(
+        &self,
+        wasm_module: &ModuleInfo,
+        module_translation: &ModuleTranslationState,
+        local_func_index: &LocalFunctionIndex,
+        function_body: &FunctionBodyData,
+        config: &LLVM,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+        table_styles: &PrimaryMap<TableIndex, TableStyle>,
+        namer: &mut dyn crate::compiler::InvertibleCompilationNamer,
+    ) -> Result<CompiledFunction, CompileError> {
+        let module = self.translate_to_module(
+            wasm_module,
+            module_translation,
+            local_func_index,
+            function_body,
+            config,
+            memory_styles,
+            table_styles,
+            namer,
+        )?;
+        let function = CompiledFunctionKind::Local(*local_func_index);
+        let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
