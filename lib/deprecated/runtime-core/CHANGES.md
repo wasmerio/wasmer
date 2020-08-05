@@ -708,3 +708,32 @@ impl WasmHash {
 
 The `Result`'s error has changed from `Error` to `DeserializeError`
 for the `decode` method.
+
+### imports!
+
+The imports macro does not support a callback as the first argument anymore.
+
+Before
+
+``````rust
+let import_obj = imports! {
+    || { setup_context::<MockStorage, MockQuerier>(GAS_LIMIT) },
+    "env" => {
+        "db_read" => Func::new(|_a: u32| -> u32 { 0 }),
+        "db_write" => Func::new(|_a: u32, _b: u32| {}),
+        "db_remove" => Func::new(|_a: u32| {}),
+    },
+};
+````
+
+After:
+
+```rust
+let import_obj = imports! {
+    "env" => {
+        "db_read" => Func::new(|_ctx: &mut Ctx, _a: u32| -> u32 { 0 }),
+        "db_write" => Func::new(|_ctx: &mut Ctx, _a: u32, _b: u32| {}),
+        "db_remove" => Func::new(|_ctx: &mut Ctx, _a: u32| {}),
+    },
+};
+```
