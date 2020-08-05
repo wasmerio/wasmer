@@ -291,15 +291,23 @@ removed.
 The `call_state_creator` method is new, along with `get_export` and
 `clone_ref`.
 
+The `Extend<(String, String, Export)>` implementation and `extend` method
+have been removed. Namespaces must now be final when `register`ed.
+
 ### `Instance`
 
 Before:
 
 ```rust
+struct Instance {
+    module: Arc<ModuleInner>,
+    exports: Exports,
+}
+
 impl Instance {
     fn load<T: Loader>(&self, loader: T) -> Result<T::Instance, T::Error>;
-    fn fun<Args, Rets>(&self, name: &str) -> ResolveResult<Args, Rets, Wasm>;
-    fn resolve_func(&self, name: &str) -> ResolveError<usize>;
+    fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>;
+    fn resolve_func(&self, name: &str) -> ResolveResult<usize>;
     fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc>;
     fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>>;
     fn context(&self) -> &Ctx;
@@ -313,8 +321,12 @@ impl Instance {
 After:
 
 ```rust
+struct Instance {
+    exports: Exports,
+}
+
 impl Instance {
-   fn fun<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
+   fn func<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
    fn resolve_func(&self, name: &str) -> Result<usize, ()>;
    fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError>;
    fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>>;
@@ -696,3 +708,32 @@ impl WasmHash {
 
 The `Result`'s error has changed from `Error` to `DeserializeError`
 for the `decode` method.
+
+### imports!
+
+The imports macro does not support a callback as the first argument anymore.
+
+Before
+
+``````rust
+let import_obj = imports! {
+    || { setup_context::<MockStorage, MockQuerier>(GAS_LIMIT) },
+    "env" => {
+        "db_read" => Func::new(|_a: u32| -> u32 { 0 }),
+        "db_write" => Func::new(|_a: u32, _b: u32| {}),
+        "db_remove" => Func::new(|_a: u32| {}),
+    },
+};
+````
+
+After:
+
+```rust
+let import_obj = imports! {
+    "env" => {
+        "db_read" => Func::new(|_ctx: &mut Ctx, _a: u32| -> u32 { 0 }),
+        "db_write" => Func::new(|_ctx: &mut Ctx, _a: u32, _b: u32| {}),
+        "db_remove" => Func::new(|_ctx: &mut Ctx, _a: u32| {}),
+    },
+};
+```
