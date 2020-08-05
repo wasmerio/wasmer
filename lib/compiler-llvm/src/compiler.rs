@@ -2,13 +2,14 @@ use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap, SecondaryMap};
-use wasm_common::LocalFunctionIndex;
+use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
     Target,
 };
+use wasmer_object::{Symbol, SymbolRegistry};
 
 //use std::sync::{Arc, Mutex};
 
@@ -32,6 +33,41 @@ impl LLVMCompiler {
     }
 }
 
+struct ShortNames {}
+
+impl SymbolRegistry for ShortNames {
+    fn symbol_to_name(&self, symbol: Symbol) -> String {
+        match symbol {
+            Symbol::LocalFunction(index) => format!("f{}", index.index()),
+            Symbol::Section(index) => format!("s{}", index.index()),
+            Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
+            Symbol::DynamicFunctionTrampoline(index) => format!("d{}", index.index()),
+        }
+    }
+
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        if name.len() < 2 {
+            return None;
+        }
+        let (ty, idx) = name.split_at(1);
+        let idx = match idx.parse::<u32>() {
+            Ok(v) => v,
+            Err(_) => return None,
+        };
+        match ty.chars().nth(0).unwrap() {
+            'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
+            's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
+            't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
+                idx,
+            ))),
+            'd' => Some(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
+                idx,
+            ))),
+            _ => None,
+        }
+    }
+}
+
 impl Compiler for LLVMCompiler {
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
@@ -43,20 +79,12 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
-        let mut function_names = SecondaryMap::new();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
 
-        for (func_index, _) in &module.functions {
-            function_names[func_index] = module
-                .function_names
-                .get(&func_index)
-                .cloned()
-                .unwrap_or_else(|| format!("fn{}", func_index.index()));
-        }
         let mut module_custom_sections = PrimaryMap::new();
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
@@ -71,7 +99,7 @@ impl Compiler for LLVMCompiler {
                 },
                 |func_translator, (i, input)| {
                     // TODO: remove (to serialize)
-                    //let mut data = data.lock().unwrap();
+                    //let _data = data.lock().unwrap();
                     func_translator.translate(
                         &module,
                         module_translation,
@@ -80,7 +108,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &function_names,
+                        &mut ShortNames {},
                     )
                 },
             )

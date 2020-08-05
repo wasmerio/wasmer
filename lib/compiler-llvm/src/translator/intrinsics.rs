@@ -22,8 +22,8 @@ use inkwell::{
 use std::collections::{hash_map::Entry, HashMap};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{
-    FunctionIndex, FunctionType as FuncType, GlobalIndex, MemoryIndex, Mutability, SignatureIndex,
-    TableIndex, Type,
+    FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
+    Mutability, SignatureIndex, TableIndex, Type,
 };
 use wasmer_compiler::CompileError;
 use wasmer_vm::ModuleInfo as WasmerCompilerModule;
@@ -903,13 +903,61 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         })
     }
 
-    pub fn func(
+    pub fn add_func(
         &mut self,
+        function_index: FunctionIndex,
+        func: PointerValue<'ctx>,
+        vmctx: BasicValueEnum<'ctx>,
+        attrs: &[(Attribute, AttributeLoc)],
+    ) {
+        match self.cached_functions.entry(function_index) {
+            Entry::Occupied(_) => unreachable!("duplicate function"),
+            Entry::Vacant(entry) => {
+                entry.insert(FunctionCache {
+                    func,
+                    vmctx,
+                    attrs: attrs.to_vec(),
+                });
+            }
+        }
+    }
+
+    pub fn local_func(
+        &mut self,
+        _local_function_index: LocalFunctionIndex,
         function_index: FunctionIndex,
         intrinsics: &Intrinsics<'ctx>,
         module: &Module<'ctx>,
         context: &'ctx Context,
+        func_type: &FuncType,
         function_name: &str,
+    ) -> Result<&FunctionCache<'ctx>, CompileError> {
+        let (cached_functions, ctx_ptr_value) = (&mut self.cached_functions, &self.ctx_ptr_value);
+        Ok(match cached_functions.entry(function_index) {
+            Entry::Occupied(entry) => entry.into_mut(),
+            Entry::Vacant(entry) => {
+                debug_assert!(module.get_function(function_name).is_none());
+                let (llvm_func_type, llvm_func_attrs) =
+                    abi::func_type_to_llvm(context, intrinsics, func_type)?;
+                let func =
+                    module.add_function(function_name, llvm_func_type, Some(Linkage::External));
+                for (attr, attr_loc) in &llvm_func_attrs {
+                    func.add_attribute(*attr_loc, *attr);
+                }
+                entry.insert(FunctionCache {
+                    func: func.as_global_value().as_pointer_value(),
+                    vmctx: ctx_ptr_value.as_basic_value_enum(),
+                    attrs: llvm_func_attrs,
+                })
+            }
+        })
+    }
+
+    pub fn func(
+        &mut self,
+        function_index: FunctionIndex,
+        intrinsics: &Intrinsics<'ctx>,
+        context: &'ctx Context,
         func_type: &FuncType,
     ) -> Result<&FunctionCache<'ctx>, CompileError> {
         let (cached_functions, wasm_module, ctx_ptr_value, cache_builder, offsets) = (
@@ -924,63 +972,43 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Vacant(entry) => {
                 let (llvm_func_type, llvm_func_attrs) =
                     abi::func_type_to_llvm(context, intrinsics, func_type)?;
-                if wasm_module.local_func_index(function_index).is_some() {
-                    // TODO: assuming names are unique, we don't need the
-                    // get_function call.
-                    let func = module.get_function(function_name).unwrap_or_else(|| {
-                        let func = module.add_function(
-                            function_name,
-                            llvm_func_type,
-                            Some(Linkage::External),
-                        );
-                        for (attr, attr_loc) in &llvm_func_attrs {
-                            func.add_attribute(*attr_loc, *attr);
-                        }
-                        func
-                    });
-                    entry.insert(FunctionCache {
-                        func: func.as_global_value().as_pointer_value(),
-                        vmctx: ctx_ptr_value.as_basic_value_enum(),
-                        attrs: llvm_func_attrs,
-                    })
-                } else {
-                    let offset = offsets.vmctx_vmfunction_import(function_index);
-                    let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-                    let vmfunction_import_ptr =
-                        unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
-                    let vmfunction_import_ptr = cache_builder
-                        .build_bitcast(
-                            vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_ptr_ty,
-                            "",
-                        )
-                        .into_pointer_value();
+                debug_assert!(wasm_module.local_func_index(function_index).is_none());
+                let offset = offsets.vmctx_vmfunction_import(function_index);
+                let offset = intrinsics.i32_ty.const_int(offset.into(), false);
+                let vmfunction_import_ptr =
+                    unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
+                let vmfunction_import_ptr = cache_builder
+                    .build_bitcast(
+                        vmfunction_import_ptr,
+                        intrinsics.vmfunction_import_ptr_ty,
+                        "",
+                    )
+                    .into_pointer_value();
 
-                    let body_ptr_ptr = cache_builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_body_element,
-                            "",
-                        )
-                        .unwrap();
-                    let body_ptr = cache_builder.build_load(body_ptr_ptr, "");
-                    let body_ptr = cache_builder
-                        .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
-                        .into_pointer_value();
-                    let vmctx_ptr_ptr = cache_builder
-                        .build_struct_gep(
-                            vmfunction_import_ptr,
-                            intrinsics.vmfunction_import_vmctx_element,
-                            "",
-                        )
-                        .unwrap();
-                    let vmctx_ptr = cache_builder.build_load(vmctx_ptr_ptr, "");
-                    entry.insert(FunctionCache {
-                        func: body_ptr,
-                        vmctx: vmctx_ptr,
-                        attrs: llvm_func_attrs,
-                    })
-                }
+                let body_ptr_ptr = cache_builder
+                    .build_struct_gep(
+                        vmfunction_import_ptr,
+                        intrinsics.vmfunction_import_body_element,
+                        "",
+                    )
+                    .unwrap();
+                let body_ptr = cache_builder.build_load(body_ptr_ptr, "");
+                let body_ptr = cache_builder
+                    .build_bitcast(body_ptr, llvm_func_type.ptr_type(AddressSpace::Generic), "")
+                    .into_pointer_value();
+                let vmctx_ptr_ptr = cache_builder
+                    .build_struct_gep(
+                        vmfunction_import_ptr,
+                        intrinsics.vmfunction_import_vmctx_element,
+                        "",
+                    )
+                    .unwrap();
+                let vmctx_ptr = cache_builder.build_load(vmctx_ptr_ptr, "");
+                entry.insert(FunctionCache {
+                    func: body_ptr,
+                    vmctx: vmctx_ptr,
+                    attrs: llvm_func_attrs,
+                })
             }
         })
     }

@@ -29,9 +29,9 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
-use wasmer_object::CompilationNamer;
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
+use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -314,7 +314,8 @@ impl NativeArtifact {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
-            let function_name = metadata.get_function_name(&function_local_index);
+            let function_name =
+                metadata.symbol_to_name(Symbol::LocalFunction(function_local_index));
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
@@ -334,7 +335,7 @@ impl NativeArtifact {
 
         // Retrieve function call trampolines (for all signatures in the module)
         for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
-            let function_name = metadata.get_function_call_trampoline_name(&sig_index);
+            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
@@ -353,7 +354,8 @@ impl NativeArtifact {
             .keys()
             .take(metadata.compile_info.module.num_imported_functions)
         {
-            let function_name = metadata.get_dynamic_function_trampoline_name(&func_index);
+            let function_name =
+                metadata.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
             unsafe {
                 let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
