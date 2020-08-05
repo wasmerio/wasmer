@@ -291,6 +291,9 @@ removed.
 The `call_state_creator` method is new, along with `get_export` and
 `clone_ref`.
 
+The `Extend<(String, String, Export)>` implementation and `extend` method
+have been removed. Namespaces must now be final when `register`ed.
+
 ### `Instance`
 
 Before:
