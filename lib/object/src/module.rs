@@ -8,7 +8,7 @@ use wasmer_compiler::{
 };
 
 /// Returns names for the compilation types (functions, sections and trampolines)
-pub trait CompilationNamer {
+pub trait CompilationNamer: Send + Sync {
     /// Gets the function name given a local function index
     fn get_function_name(&self, index: &LocalFunctionIndex) -> String;
 

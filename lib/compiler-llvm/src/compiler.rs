@@ -1,6 +1,10 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use inkwell::context::Context;
+use inkwell::memory_buffer::MemoryBuffer;
+use inkwell::module::Module;
+use inkwell::targets::FileType;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -144,6 +148,61 @@ impl<'a> InvertibleCompilationNamer for CachingInvertibleCompilationNamer<'a> {
 
     fn get_symbol_from_name(&self, name: &str) -> Option<Symbol> {
         self.cache.get(name).cloned()
+    }
+}
+
+impl LLVMCompiler {
+    fn _compile_native_object<'data, 'module>(
+        &self,
+        target: &Target,
+        compile_info: &'module CompileModuleInfo,
+        module_translation: &ModuleTranslationState,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        namer: &dyn CompilationNamer,
+    ) -> Result<Vec<u8>, CompileError> {
+        let target_machine = self.config().target_machine(target);
+        let ctx = Context::create();
+        let merged_module = ctx.create_module("");
+        function_body_inputs
+            .into_iter()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTranslator::new(target_machine)
+                },
+                |func_translator, (i, input)| {
+                    let mut namer = CachingInvertibleCompilationNamer {
+                        cache: HashMap::new(),
+                        namer,
+                    };
+                    let module = func_translator.translate_to_module(
+                        &compile_info.module,
+                        module_translation,
+                        i,
+                        input,
+                        self.config(),
+                        &compile_info.memory_styles,
+                        &compile_info.table_styles,
+                        &mut namer,
+                    )?;
+                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .for_each(|bc| {
+                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
+                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                merged_module.link_in_module(m).unwrap();
+            });
+
+        let memory_buffer = target_machine
+            .write_to_memory_buffer(&merged_module, FileType::Object)
+            .unwrap();
+
+        Ok(memory_buffer.as_slice().to_vec())
     }
 }
 
