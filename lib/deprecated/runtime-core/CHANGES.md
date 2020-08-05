@@ -299,10 +299,15 @@ have been removed. Namespaces must now be final when `register`ed.
 Before:
 
 ```rust
+struct Instance {
+    module: Arc<ModuleInner>,
+    exports: Exports,
+}
+
 impl Instance {
     fn load<T: Loader>(&self, loader: T) -> Result<T::Instance, T::Error>;
-    fn fun<Args, Rets>(&self, name: &str) -> ResolveResult<Args, Rets, Wasm>;
-    fn resolve_func(&self, name: &str) -> ResolveError<usize>;
+    fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>;
+    fn resolve_func(&self, name: &str) -> ResolveResult<usize>;
     fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc>;
     fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>>;
     fn context(&self) -> &Ctx;
@@ -316,8 +321,12 @@ impl Instance {
 After:
 
 ```rust
+struct Instance {
+    exports: Exports,
+}
+
 impl Instance {
-   fn fun<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
+   fn func<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
    fn resolve_func(&self, name: &str) -> Result<usize, ()>;
    fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError>;
    fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>>;
