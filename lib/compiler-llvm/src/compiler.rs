@@ -198,6 +198,10 @@ impl LLVMCompiler {
                 merged_module.link_in_module(m).unwrap();
             });
 
+        if self.config().enable_verifier {
+            merged_module.verify().unwrap();
+        }
+
         let memory_buffer = target_machine
             .write_to_memory_buffer(&merged_module, FileType::Object)
             .unwrap();
