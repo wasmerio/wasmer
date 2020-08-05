@@ -129,6 +129,7 @@ pub unsafe fn allocate_on_stack<'a, T: Copy>(ctx: &'a mut EmEnv, count: u32) -> 
         .unwrap()
         .call(count * (size_of::<T>() as u32))
         .unwrap();
+
     let addr = emscripten_memory_pointer!(ctx.memory(0), offset) as *mut T;
     let slice = slice::from_raw_parts_mut(addr, count as usize);
 

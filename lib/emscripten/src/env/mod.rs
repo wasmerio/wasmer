@@ -55,7 +55,7 @@ pub fn call_memset(ctx: &mut EmEnv, pointer: u32, value: u32, size: u32) -> u32 
 }
 
 pub(crate) fn get_emscripten_data<'a>(ctx: &'a mut EmEnv) -> &'a mut EmscriptenData<'static> {
-    unsafe { &mut *ctx.data }
+    unsafe { &mut **ctx.data }
 }
 
 pub fn _getpagesize(_ctx: &mut EmEnv) -> u32 {
