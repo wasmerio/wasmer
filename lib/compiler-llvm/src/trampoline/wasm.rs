@@ -8,7 +8,7 @@ use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
-    module::Linkage,
+    module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
     types::BasicType,
@@ -35,11 +35,11 @@ impl FuncTrampoline {
         }
     }
 
-    pub fn trampoline(
-        &mut self,
+    pub fn trampoline_to_module(
+        &self,
         ty: &FunctionType,
         config: &LLVM,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -84,6 +84,18 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+
+        Ok(module)
+    }
+
+    pub fn trampoline(
+        &self,
+        ty: &FunctionType,
+        config: &LLVM,
+    ) -> Result<FunctionBody, CompileError> {
+        let module = self.trampoline_to_module(ty, config)?;
+        let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
+        let target_machine = &self.target_machine;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
@@ -145,11 +157,11 @@ impl FuncTrampoline {
         })
     }
 
-    pub fn dynamic_trampoline(
-        &mut self,
+    pub fn dynamic_trampoline_to_module(
+        &self,
         ty: &FunctionType,
         config: &LLVM,
-    ) -> Result<FunctionBody, CompileError> {
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -186,6 +198,18 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+
+        Ok(module)
+    }
+    pub fn dynamic_trampoline(
+        &self,
+        ty: &FunctionType,
+        config: &LLVM,
+    ) -> Result<FunctionBody, CompileError> {
+        let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
+        let target_machine = &self.target_machine;
+
+        let module = self.dynamic_trampoline_to_module(ty, config)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)

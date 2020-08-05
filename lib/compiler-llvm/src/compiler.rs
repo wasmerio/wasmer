@@ -163,6 +163,10 @@ impl LLVMCompiler {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
         let merged_module = ctx.create_module("");
+
+        // TODO: make these steps run in parallel instead of in three phases
+        // with a serial step in between them.
+
         function_body_inputs
             .into_iter()
             .collect::<Vec<_>>()
@@ -189,6 +193,52 @@ impl LLVMCompiler {
                     )?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .for_each(|bc| {
+                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
+                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                merged_module.link_in_module(m).unwrap();
+            });
+
+        compile_info.module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTrampoline::new(target_machine)
+                },
+                |func_trampoline, sig| {
+                    let module = func_trampoline.trampoline_to_module(sig, self.config())?;
+                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                }
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?
+            .into_iter()
+            .for_each(|bc| {
+                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
+                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                merged_module.link_in_module(m).unwrap();
+            });
+
+        compile_info.module
+            .signatures
+            .values()
+            .collect::<Vec<_>>()
+            .par_iter()
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTrampoline::new(target_machine)
+                },
+                |func_trampoline, sig| {
+                    let module = func_trampoline.dynamic_trampoline_to_module(sig, self.config())?;
+                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                }
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
