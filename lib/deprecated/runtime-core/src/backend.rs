@@ -1,6 +1,6 @@
 use crate::new;
 
-pub use new::wasmer_compiler::{Architecture, CpuFeature as Features};
+pub use new::wasmer_compiler::{Architecture, Compiler, CpuFeature as Features};
 
 /// Enum used to select which compiler should be used to generate code.
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
