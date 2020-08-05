@@ -9,9 +9,7 @@ use wasmer_compiler::{
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
     Target,
 };
-use wasmer_object::CompilationNamer;
-
-use std::collections::HashMap;
+use wasmer_object::{Symbol, SymbolRegistry};
 
 //use std::sync::{Arc, Mutex};
 
@@ -37,28 +35,17 @@ impl LLVMCompiler {
 
 struct ShortNames {}
 
-impl InvertibleCompilationNamer for ShortNames {
-    /// Gets the function name given a local function index
-    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String {
-        format!("f{}", index.index())
+impl SymbolRegistry for ShortNames {
+    fn symbol_to_name(&self, symbol: Symbol) -> String {
+        match symbol {
+            Symbol::LocalFunction(index) => format!("f{}", index.index()),
+            Symbol::Section(index) => format!("s{}", index.index()),
+            Symbol::FunctionCallTrampoline(index) => format!("t{}", index.index()),
+            Symbol::DynamicFunctionTrampoline(index) => format!("d{}", index.index()),
+        }
     }
 
-    /// Gets the section name given a section index
-    fn get_section_name(&mut self, index: &SectionIndex) -> String {
-        format!("s{}", index.index())
-    }
-
-    /// Gets the function call trampoline name given a signature index
-    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String {
-        format!("t{}", index.index())
-    }
-
-    /// Gets the dynamic function trampoline name given a function index
-    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String {
-        format!("d{}", index.index())
-    }
-
-    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol> {
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
         if name.len() < 2 {
             return None;
         }
@@ -78,72 +65,6 @@ impl InvertibleCompilationNamer for ShortNames {
             ))),
             _ => None,
         }
-    }
-}
-
-/// Symbols we may have produced names for.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Symbol {
-    LocalFunction(LocalFunctionIndex),
-    Section(SectionIndex),
-    FunctionCallTrampoline(SignatureIndex),
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-pub trait InvertibleCompilationNamer {
-    /// Gets the function name given a local function index.
-    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String;
-
-    /// Gets the section name given a section index.
-    fn get_section_name(&mut self, index: &SectionIndex) -> String;
-
-    /// Gets the function call trampoline name given a signature index.
-    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String;
-
-    /// Gets the dynamic function trampoline name given a function index.
-    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String;
-
-    /// Gets the type of symbol from a given name.
-    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol>;
-}
-
-pub struct CachingInvertibleCompilationNamer<'a> {
-    cache: HashMap<String, Symbol>,
-    namer: &'a dyn CompilationNamer,
-}
-
-impl<'a> InvertibleCompilationNamer for CachingInvertibleCompilationNamer<'a> {
-    fn get_function_name(&mut self, index: &LocalFunctionIndex) -> String {
-        let value = self.namer.get_function_name(index);
-        self.cache
-            .insert(value.clone(), Symbol::LocalFunction(*index));
-        value
-    }
-
-    fn get_section_name(&mut self, index: &SectionIndex) -> String {
-        let value = self.namer.get_section_name(index);
-        self.cache.insert(value.clone(), Symbol::Section(*index));
-        value
-    }
-
-    /// Gets the function call trampoline name given a signature index
-    fn get_function_call_trampoline_name(&mut self, index: &SignatureIndex) -> String {
-        let value = self.namer.get_function_call_trampoline_name(index);
-        self.cache
-            .insert(value.clone(), Symbol::FunctionCallTrampoline(*index));
-        value
-    }
-
-    /// Gets the dynamic function trampoline name given a function index
-    fn get_dynamic_function_trampoline_name(&mut self, index: &FunctionIndex) -> String {
-        let value = self.namer.get_dynamic_function_trampoline_name(index);
-        self.cache
-            .insert(value.clone(), Symbol::DynamicFunctionTrampoline(*index));
-        value
-    }
-
-    fn get_symbol_from_name(&self, name: &str) -> Option<Symbol> {
-        self.cache.get(name).cloned()
     }
 }
 
