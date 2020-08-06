@@ -131,17 +131,17 @@ required-features = ["cranelift"]
 [[example]]
 name = "engine-native"
 path = "examples/engine_native.rs"
-required-features = ["cranelift"]
+required-features = ["llvm"]
 
 [[example]]
 name = "engine-headless"
 path = "examples/engine_headless.rs"
-required-features = ["cranelift"]
+required-features = ["llvm"]
 
 [[example]]
 name = "cross-compilation"
 path = "examples/engine_cross_compilation.rs"
-required-features = ["cranelift"]
+required-features = ["llvm"]
 
 [[example]]
 name = "compiler-singlepass"
