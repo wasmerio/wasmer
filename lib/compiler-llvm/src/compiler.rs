@@ -152,7 +152,7 @@ impl<'a> InvertibleCompilationNamer for CachingInvertibleCompilationNamer<'a> {
 }
 
 impl LLVMCompiler {
-    fn _compile_native_object<'data, 'module>(
+    fn compile_native_object<'data, 'module>(
         &self,
         target: &Target,
         compile_info: &'module CompileModuleInfo,
@@ -202,7 +202,8 @@ impl LLVMCompiler {
                 merged_module.link_in_module(m).unwrap();
             });
 
-        compile_info.module
+        compile_info
+            .module
             .signatures
             .values()
             .collect::<Vec<_>>()
@@ -215,7 +216,7 @@ impl LLVMCompiler {
                 |func_trampoline, sig| {
                     let module = func_trampoline.trampoline_to_module(sig, self.config())?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-                }
+                },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()
@@ -225,7 +226,8 @@ impl LLVMCompiler {
                 merged_module.link_in_module(m).unwrap();
             });
 
-        compile_info.module
+        compile_info
+            .module
             .signatures
             .values()
             .collect::<Vec<_>>()
@@ -236,9 +238,10 @@ impl LLVMCompiler {
                     FuncTrampoline::new(target_machine)
                 },
                 |func_trampoline, sig| {
-                    let module = func_trampoline.dynamic_trampoline_to_module(sig, self.config())?;
+                    let module =
+                        func_trampoline.dynamic_trampoline_to_module(sig, self.config())?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-                }
+                },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_iter()

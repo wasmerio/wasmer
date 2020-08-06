@@ -81,4 +81,22 @@ pub trait Compiler {
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError>;
+
+    /// Compiles a module into a native object file.
+    ///
+    /// It returns the bytes as a `&[u8]` or a [`CompileError`].
+    fn experimental_native_compile_module<'data, 'module>(
+        &self,
+        target: &Target,
+        module: &'module CompileModuleInfo,
+        module_translation: &ModuleTranslationState,
+        // The list of function bodies
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        // The metadata to inject into the wasmer_metadata section of the object file.
+        wasmer_metadata: &[u8],
+    ) -> Result<Vec<u8>, CompileError> {
+        Err(CompileError::UnsupportedFeature(
+            "native compilation not supported".into(),
+        ))
+    }
 }

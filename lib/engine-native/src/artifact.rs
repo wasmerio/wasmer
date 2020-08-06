@@ -22,7 +22,10 @@ use wasm_common::{
     TableIndex,
 };
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, Target};
+use wasmer_compiler::{
+    Compilation, CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment,
+    ModuleTranslationState, Target,
+};
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
@@ -97,13 +100,21 @@ impl NativeArtifact {
 
     #[cfg(feature = "compiler")]
     /// Generate a compilation
-    pub fn generate_compilation<'data>(
+    pub fn generate_metadata<'data>(
         data: &'data [u8],
         compiler: &dyn Compiler,
         target: &Target,
         features: &Features,
         tunables: &dyn Tunables,
-    ) -> Result<(CompileModuleInfo, Compilation, Vec<DataInitializer<'data>>), CompileError> {
+    ) -> Result<
+        (
+            CompileModuleInfo,
+            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+            Vec<DataInitializer<'data>>,
+            Option<ModuleTranslationState>,
+        ),
+        CompileError,
+    > {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
@@ -125,15 +136,12 @@ impl NativeArtifact {
             memory_styles,
             table_styles,
         };
-
-        // Compile the Module
-        let compilation = compiler.compile_module(
-            &target,
-            &compile_info,
-            translation.module_translation.as_ref().unwrap(),
+        Ok((
+            compile_info,
             translation.function_body_inputs,
-        )?;
-        Ok((compile_info, compilation, translation.data_initializers))
+            translation.data_initializers,
+            translation.module_translation,
+        ))
     }
 
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
@@ -145,13 +153,9 @@ impl NativeArtifact {
     ) -> Result<Self, CompileError> {
         let mut engine_inner = engine.inner_mut();
         let target = engine.target();
-        let (compile_info, compilation, data_initializers) = Self::generate_compilation(
-            data,
-            engine_inner.compiler()?,
-            target,
-            engine_inner.features(),
-            tunables,
-        )?;
+        let compiler = engine_inner.compiler()?;
+        let (compile_info, function_body_inputs, data_initializers, module_translation) =
+            Self::generate_metadata(data, compiler, target, engine_inner.features(), tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -161,11 +165,19 @@ impl NativeArtifact {
 
         let target_triple = target.triple();
 
+        /*
         // We construct the function body lengths
         let function_body_lengths = compilation
             .get_function_bodies()
             .values()
             .map(|function_body| function_body.body.len() as u64)
+            .map(|_function_body| 0u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+        */
+        // We construct the function body lengths
+        let function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
         let metadata = ModuleMetadata {
@@ -175,6 +187,30 @@ impl NativeArtifact {
             function_body_lengths,
         };
 
+        let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
+
+        let obj_bytes = compiler.experimental_native_compile_module(
+            &target,
+            &metadata.compile_info,
+            module_translation.as_ref().unwrap(),
+            function_body_inputs,
+            &serialized_data,
+        )?;
+
+        let filepath = {
+            let file = tempfile::Builder::new()
+                .prefix("wasmer_native")
+                .suffix(".o")
+                .tempfile()
+                .map_err(to_compile_error)?;
+
+            // Re-open it.
+            let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+            file.write(&obj_bytes).map_err(to_compile_error)?;
+            filepath
+        };
+
+        /*
         let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
 
@@ -202,6 +238,7 @@ impl NativeArtifact {
             file.write(&obj_bytes).map_err(to_compile_error)?;
             filepath
         };
+         */
 
         let shared_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));
