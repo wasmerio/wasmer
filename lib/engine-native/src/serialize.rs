@@ -2,7 +2,7 @@ use serde::{Deserialize, Serialize};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex};
-use wasmer_object::CompilationNamer;
+use wasmer_object::{Symbol, SymbolRegistry};
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Serialize, Deserialize, Debug)]
@@ -14,32 +14,54 @@ pub struct ModuleMetadata {
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
 }
 
-impl CompilationNamer for ModuleMetadata {
-    /// Gets the function name given a local function index
-    fn get_function_name(&self, index: &LocalFunctionIndex) -> String {
-        format!("wasmer_function_{}_{}", self.prefix, index.index())
+impl SymbolRegistry for ModuleMetadata {
+    fn symbol_to_name(&self, symbol: Symbol) -> String {
+        match symbol {
+            Symbol::LocalFunction(index) => {
+                format!("wasmer_function_{}_{}", self.prefix, index.index())
+            }
+            Symbol::Section(index) => format!("wasmer_section_{}_{}", self.prefix, index.index()),
+            Symbol::FunctionCallTrampoline(index) => format!(
+                "wasmer_trampoline_function_call_{}_{}",
+                self.prefix,
+                index.index()
+            ),
+            Symbol::DynamicFunctionTrampoline(index) => format!(
+                "wasmer_trampoline_dynamic_function_{}_{}",
+                self.prefix,
+                index.index()
+            ),
+        }
     }
 
-    /// Gets the section name given a section index
-    fn get_section_name(&self, index: &SectionIndex) -> String {
-        format!("wasmer_section_{}_{}", self.prefix, index.index())
-    }
-
-    /// Gets the function call trampoline name given a signature index
-    fn get_function_call_trampoline_name(&self, index: &SignatureIndex) -> String {
-        format!(
-            "wasmer_trampoline_function_call_{}_{}",
-            self.prefix,
-            index.index()
-        )
-    }
-
-    /// Gets the dynamic function trampoline name given a function index
-    fn get_dynamic_function_trampoline_name(&self, index: &FunctionIndex) -> String {
-        format!(
-            "wasmer_trampoline_dynamic_function_{}_{}",
-            self.prefix,
-            index.index()
-        )
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol> {
+        if let Some(index) = name.strip_prefix(&format!("wasmer_function_{}_", self.prefix)) {
+            index
+                .parse::<u32>()
+                .ok()
+                .map(|index| Symbol::LocalFunction(LocalFunctionIndex::from_u32(index)))
+        } else if let Some(index) = name.strip_prefix(&format!("wasmer_section_{}_", self.prefix)) {
+            index
+                .parse::<u32>()
+                .ok()
+                .map(|index| Symbol::Section(SectionIndex::from_u32(index)))
+        } else if let Some(index) =
+            name.strip_prefix(&format!("wasmer_trampoline_function_call_{}_", self.prefix))
+        {
+            index
+                .parse::<u32>()
+                .ok()
+                .map(|index| Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(index)))
+        } else if let Some(index) = name.strip_prefix(&format!(
+            "wasmer_trampoline_dynamic_function_{}_",
+            self.prefix
+        )) {
+            index
+                .parse::<u32>()
+                .ok()
+                .map(|index| Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(index)))
+        } else {
+            None
+        }
     }
 }

@@ -3,7 +3,7 @@ struct Instance {
 }
 
 impl Instance {
-    fn fun<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
+    fn func<Args, Rets>(&self, name: &str) -> Result<Func<Args, Rets>, ExportError>;
     fn resolve_func(&self, name: &str) -> Result<usize, ()>;
     fn dyn_func(&self, name: &str) -> Result<DynFunc, ExportError>;
     fn call(&self, name: &str, params: &[Value]) -> Result<Vec<Value>, Box<dyn Error>>;

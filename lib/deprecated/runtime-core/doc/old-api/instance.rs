@@ -5,8 +5,8 @@ struct Instance {
 
 impl Instance {
     fn load<T: Loader>(&self, loader: T) -> Result<T::Instance, T::Error>;
-    fn fun<Args, Rets>(&self, name: &str) -> ResolveResult<Args, Rets, Wasm>;
-    fn resolve_func(&self, name: &str) -> ResolveError<usize>;
+    fn func<Args, Rets>(&self, name: &str) -> ResolveResult<Func<Args, Rets, Wasm>>;
+    fn resolve_func(&self, name: &str) -> ResolveResult<usize>;
     fn dyn_func(&self, name: &str) -> ResolveResult<DynFunc>;
     fn call(&self, name: &str, params: &[Value]) -> CallResult<Vec<Value>>;
     fn context(&self) -> &Ctx;

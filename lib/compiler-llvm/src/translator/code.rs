@@ -34,6 +34,7 @@ use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
     MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
 };
+use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
@@ -74,12 +75,13 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        namer: &mut dyn crate::compiler::InvertibleCompilationNamer,
-    ) -> Result<Module, CompileError> {
+        symbol_registry: &mut dyn SymbolRegistry,
+    ) -> Result<CompiledFunction, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
-        let function_name = namer.get_function_name(local_func_index);
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
         let module_name = match wasm_module.name.as_ref() {
             None => format!("<anonymous module> function {}", function_name),
             Some(module_name) => format!("module {} function {}", module_name, function_name),
@@ -204,7 +206,7 @@ impl FuncTranslator {
             module: &module,
             module_translation,
             wasm_module,
-            namer,
+            symbol_registry,
         };
         fcg.ctx.add_func(
             func_index,
@@ -308,8 +310,8 @@ impl FuncTranslator {
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
                 Ok(
-                    if let Some(crate::compiler::Symbol::LocalFunction(local_func_index)) =
-                        namer.get_symbol_from_name(name)
+                    if let Some(Symbol::LocalFunction(local_func_index)) =
+                        symbol_registry.name_to_symbol(name)
                     {
                         Some(RelocationTarget::LocalFunc(local_func_index))
                     } else {
@@ -1307,7 +1309,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
-    namer: &'a mut dyn crate::compiler::InvertibleCompilationNamer,
+    symbol_registry: &'a mut dyn SymbolRegistry,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2081,7 +2083,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     vmctx: callee_vmctx,
                     attrs,
                 } = if let Some(local_func_index) = self.wasm_module.local_func_index(func_index) {
-                    let function_name = self.namer.get_function_name(&local_func_index);
+                    let function_name = self
+                        .symbol_registry
+                        .symbol_to_name(Symbol::LocalFunction(local_func_index));
                     self.ctx.local_func(
                         local_func_index,
                         func_index,

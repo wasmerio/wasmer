@@ -1,5 +1,5 @@
 use crate::error::ObjectError;
-use object::write::{Object, Relocation, StandardSection, Symbol, SymbolSection};
+use object::write::{Object, Relocation, StandardSection, Symbol as ObjSymbol, SymbolSection};
 use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
 use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
@@ -7,19 +7,31 @@ use wasmer_compiler::{
     SectionIndex, Triple,
 };
 
-/// Returns names for the compilation types (functions, sections and trampolines)
-pub trait CompilationNamer: Send + Sync {
-    /// Gets the function name given a local function index
-    fn get_function_name(&self, index: &LocalFunctionIndex) -> String;
+/// The kinds of wasm_common objects that might be found in a native object file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Symbol {
+    /// A function defined in the wasm.
+    LocalFunction(LocalFunctionIndex),
 
-    /// Gets the section name given a section index
-    fn get_section_name(&self, index: &SectionIndex) -> String;
+    /// A wasm section.
+    Section(SectionIndex),
 
-    /// Gets the function call trampoline name given a signature index
-    fn get_function_call_trampoline_name(&self, index: &SignatureIndex) -> String;
+    /// The function call trampoline for a given signature.
+    FunctionCallTrampoline(SignatureIndex),
 
-    /// Gets the dynamic function trampoline name given a function index
-    fn get_dynamic_function_trampoline_name(&self, index: &FunctionIndex) -> String;
+    /// The dynamic function trampoline for a given function.
+    DynamicFunctionTrampoline(FunctionIndex),
+}
+
+/// This trait facilitates symbol name lookups in a native object file.
+pub trait SymbolRegistry {
+    /// Given a `Symbol` it returns the name for that symbol in the object file
+    fn symbol_to_name(&self, symbol: Symbol) -> String;
+
+    /// Given a name it returns the `Symbol` for that name in the object file
+    ///
+    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
 }
 
 /// Create an object for a given target `Triple`.
@@ -91,7 +103,7 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 /// # }
 /// ```
 pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), ObjectError> {
-    let symbol_id = obj.add_symbol(Symbol {
+    let symbol_id = obj.add_symbol(ObjSymbol {
         name: name.to_vec(),
         value: 0,
         size: 0,
@@ -113,23 +125,23 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
 ///
 /// ```rust
 /// # use wasmer_compiler::{Compilation, Triple};
-/// # use wasmer_object::{CompilationNamer, ObjectError};
+/// # use wasmer_object::{ObjectError, SymbolRegistry};
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
 /// #     triple: &Triple,
 /// #     compilation: Compilation,
-/// #     compilation_namer: impl CompilationNamer,
+/// #     symbol_registry: impl SymbolRegistry,
 /// # ) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
-/// emit_compilation(&mut object, compilation, &compilation_namer, &triple)?;
+/// emit_compilation(&mut object, compilation, &symbol_registry, &triple)?;
 /// # Ok(())
 /// # }
 /// ```
 pub fn emit_compilation(
     obj: &mut Object,
     compilation: Compilation,
-    namer: &impl CompilationNamer,
+    symbol_registry: &impl SymbolRegistry,
     triple: &Triple,
 ) -> Result<(), ObjectError> {
     let function_bodies = compilation.get_function_bodies();
@@ -143,13 +155,13 @@ pub fn emit_compilation(
     for (section_index, custom_section) in custom_sections.iter() {
         // TODO: We need to rename the sections corresponding to the DWARF information
         // to the proper names (like `.eh_frame`)
-        let section_name = namer.get_section_name(&section_index);
+        let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
         let (section_kind, standard_section) = match custom_section.protection {
             CustomSectionProtection::ReadExecute => (SymbolKind::Text, StandardSection::Text),
             // TODO: Fix this to be StandardSection::Data
             CustomSectionProtection::Read => (SymbolKind::Data, StandardSection::Text),
         };
-        let symbol_id = obj.add_symbol(Symbol {
+        let symbol_id = obj.add_symbol(ObjSymbol {
             name: section_name.into_bytes(),
             value: 0,
             size: 0,
@@ -165,8 +177,9 @@ pub fn emit_compilation(
 
     // Add functions
     for (function_local_index, function) in function_bodies.into_iter() {
-        let function_name = namer.get_function_name(&function_local_index);
-        let symbol_id = obj.add_symbol(Symbol {
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
+        let symbol_id = obj.add_symbol(ObjSymbol {
             name: function_name.into_bytes(),
             value: 0,
             size: 0,
@@ -183,8 +196,9 @@ pub fn emit_compilation(
 
     // Add function call trampolines
     for (signature_index, function) in function_call_trampolines.into_iter() {
-        let function_name = namer.get_function_call_trampoline_name(&signature_index);
-        let symbol_id = obj.add_symbol(Symbol {
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(signature_index));
+        let symbol_id = obj.add_symbol(ObjSymbol {
             name: function_name.into_bytes(),
             value: 0,
             size: 0,
@@ -200,8 +214,9 @@ pub fn emit_compilation(
 
     // Add dynamic function trampolines
     for (func_index, function) in dynamic_function_trampolines.into_iter() {
-        let function_name = namer.get_dynamic_function_trampoline_name(&func_index);
-        let symbol_id = obj.add_symbol(Symbol {
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+        let symbol_id = obj.add_symbol(ObjSymbol {
             name: function_name.into_bytes(),
             value: 0,
             size: 0,
@@ -231,13 +246,14 @@ pub fn emit_compilation(
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {
-        let function_name = namer.get_function_name(&function_local_index);
+        let function_name =
+            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
         let symbol_id = obj.symbol_id(function_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
 
     for (section_index, relocations) in custom_section_relocations.into_iter() {
-        let section_name = namer.get_section_name(&section_index);
+        let section_name = symbol_registry.symbol_to_name(Symbol::Section(section_index));
         let symbol_id = obj.symbol_id(section_name.as_bytes()).unwrap();
         all_relocations.push((symbol_id, relocations))
     }
@@ -251,7 +267,7 @@ pub fn emit_compilation(
 
             match r.reloc_target {
                 RelocationTarget::LocalFunc(index) => {
-                    let target_name = namer.get_function_name(&index);
+                    let target_name = symbol_registry.symbol_to_name(Symbol::LocalFunction(index));
                     let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
                     obj.add_relocation(
                         section_id,
@@ -270,7 +286,7 @@ pub fn emit_compilation(
                     let libcall_fn_name = libcall.to_function_name().as_bytes();
                     // We add the symols lazily as we see them
                     let target_symbol = obj.symbol_id(libcall_fn_name).unwrap_or_else(|| {
-                        obj.add_symbol(Symbol {
+                        obj.add_symbol(ObjSymbol {
                             name: libcall_fn_name.to_vec(),
                             value: 0,
                             size: 0,
@@ -295,7 +311,8 @@ pub fn emit_compilation(
                     .map_err(ObjectError::Write)?;
                 }
                 RelocationTarget::CustomSection(section_index) => {
-                    let target_name = namer.get_section_name(&section_index);
+                    let target_name =
+                        symbol_registry.symbol_to_name(Symbol::Section(section_index));
                     let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
                     obj.add_relocation(
                         section_id,

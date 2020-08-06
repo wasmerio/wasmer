@@ -72,29 +72,33 @@ pub use self::utils::{
 #[derive(Clone)]
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
-    memory: Option<Arc<Memory>>,
-    data: *mut EmscriptenData<'static>,
+    memory: Arc<Option<Memory>>,
+    data: *mut *mut EmscriptenData<'static>,
 }
 
 impl EmEnv {
     pub fn new() -> Self {
         Self {
-            memory: None,
-            data: std::ptr::null_mut(),
+            memory: Arc::new(None),
+            // TODO: clean this up
+            data: Box::into_raw(Box::new(std::ptr::null_mut())),
         }
     }
 
-    pub fn set_memory(&mut self, memory: Arc<Memory>) {
-        self.memory = Some(memory)
+    pub fn set_memory(&mut self, memory: Memory) {
+        let ptr = Arc::as_ptr(&self.memory) as *mut _;
+        unsafe {
+            *ptr = Some(memory);
+        }
     }
 
     pub fn set_data(&mut self, data: *mut c_void) {
-        self.data = data as _;
+        unsafe { *self.data = data as _ };
     }
 
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> &Memory {
-        self.memory.as_ref().unwrap()
+        (*self.memory).as_ref().unwrap()
     }
 }
 
@@ -475,7 +479,7 @@ pub fn run_emscripten_instance(
     mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
     let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
-    env.set_memory(Arc::new(globals.memory.clone()));
+    env.set_memory(globals.memory.clone());
     env.set_data(&mut data as *mut _ as *mut c_void);
     set_up_emscripten(instance)?;
 
@@ -626,7 +630,10 @@ impl EmscriptenGlobals {
 
         let mut null_function_names = vec![];
         for import in module.imports().functions() {
-            if import.module() == "env" && import.name().starts_with("nullFunction_") {
+            if import.module() == "env"
+                && (import.name().starts_with("nullFunction_")
+                    || import.name().starts_with("nullFunc_"))
+            {
                 null_function_names.push(import.name().to_string())
             }
         }
