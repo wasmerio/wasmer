@@ -185,6 +185,11 @@ impl NativeArtifact {
         };
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
+        let mut metadata_binary = vec![0; 10];
+        let mut writable = &mut metadata_binary[..];
+        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
+            .expect("Should write number");
+        metadata_binary.extend(serialized_data);
 
         let obj_bytes = compiler.experimental_native_compile_module(
             &target,
@@ -192,7 +197,7 @@ impl NativeArtifact {
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             &metadata,
-            &serialized_data,
+            &metadata_binary
         )?;
 
         let filepath = {
