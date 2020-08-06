@@ -75,8 +75,8 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &mut dyn SymbolRegistry,
-    ) -> Result<CompiledFunction, CompileError> {
+        symbol_registry: &dyn SymbolRegistry,
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
@@ -269,6 +269,7 @@ impl FuncTranslator {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+
         Ok(module)
     }
 
@@ -281,7 +282,7 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        namer: &mut dyn crate::compiler::InvertibleCompilationNamer,
+        symbol_registry: &dyn SymbolRegistry,
     ) -> Result<CompiledFunction, CompileError> {
         let module = self.translate_to_module(
             wasm_module,
@@ -291,7 +292,7 @@ impl FuncTranslator {
             config,
             memory_styles,
             table_styles,
-            namer,
+            symbol_registry,
         )?;
         let function = CompiledFunctionKind::Local(*local_func_index);
         let target_machine = &self.target_machine;
@@ -1309,7 +1310,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
-    symbol_registry: &'a mut dyn SymbolRegistry,
+    symbol_registry: &'a dyn SymbolRegistry,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {

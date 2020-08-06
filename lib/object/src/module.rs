@@ -24,7 +24,7 @@ pub enum Symbol {
 }
 
 /// This trait facilitates symbol name lookups in a native object file.
-pub trait SymbolRegistry {
+pub trait SymbolRegistry: Send + Sync {
     /// Given a `Symbol` it returns the name for that symbol in the object file
     fn symbol_to_name(&self, symbol: Symbol) -> String;
 

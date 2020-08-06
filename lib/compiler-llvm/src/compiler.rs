@@ -73,13 +73,13 @@ impl SymbolRegistry for ShortNames {
 }
 
 impl LLVMCompiler {
-    fn compile_native_object<'data, 'module>(
+    fn _compile_native_object<'data, 'module>(
         &self,
         target: &Target,
         compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-        namer: &dyn CompilationNamer,
+        symbol_registry: &dyn SymbolRegistry,
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
@@ -98,10 +98,6 @@ impl LLVMCompiler {
                     FuncTranslator::new(target_machine)
                 },
                 |func_translator, (i, input)| {
-                    let mut namer = CachingInvertibleCompilationNamer {
-                        cache: HashMap::new(),
-                        namer,
-                    };
                     let module = func_translator.translate_to_module(
                         &compile_info.module,
                         module_translation,
@@ -110,7 +106,7 @@ impl LLVMCompiler {
                         self.config(),
                         &compile_info.memory_styles,
                         &compile_info.table_styles,
-                        &mut namer,
+                        symbol_registry,
                     )?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
