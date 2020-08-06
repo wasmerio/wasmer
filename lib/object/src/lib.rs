@@ -24,6 +24,4 @@ mod error;
 mod module;
 
 pub use crate::error::ObjectError;
-pub use crate::module::{
-    emit_compilation, emit_data, get_object_for_target, Symbol, SymbolRegistry,
-};
+pub use crate::module::{emit_compilation, emit_data, get_object_for_target};

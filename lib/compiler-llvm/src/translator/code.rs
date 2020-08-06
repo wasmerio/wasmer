@@ -32,9 +32,8 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
-    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
+    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
-use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {

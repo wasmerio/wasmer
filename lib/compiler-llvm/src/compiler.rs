@@ -11,9 +11,8 @@ use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
-    Target,
+    Symbol, SymbolRegistry, Target,
 };
-use wasmer_object::{Symbol, SymbolRegistry};
 
 //use std::sync::{Arc, Mutex};
 
@@ -73,13 +72,14 @@ impl SymbolRegistry for ShortNames {
 }
 
 impl LLVMCompiler {
-    fn _compile_native_object<'data, 'module>(
+    fn compile_native_object<'data, 'module>(
         &self,
         target: &Target,
         compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
+        wasmer_metadata: &[u8],
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
@@ -168,6 +168,18 @@ impl LLVMCompiler {
                 merged_module.link_in_module(m).unwrap();
             });
 
+        let i8_ty = ctx.i8_type();
+        let metadata_init = i8_ty.const_array(
+            wasmer_metadata
+                .iter()
+                .map(|v| i8_ty.const_int(*v as u64, false))
+                .collect::<Vec<_>>()
+                .as_slice(),
+        );
+        let metadata_gv =
+            merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
+        metadata_gv.set_initializer(&metadata_init);
+
         if self.config().enable_verifier {
             merged_module.verify().unwrap();
         }
@@ -181,6 +193,27 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    fn experimental_native_compile_module<'data, 'module>(
+        &self,
+        target: &Target,
+        module: &'module CompileModuleInfo,
+        module_translation: &ModuleTranslationState,
+        // The list of function bodies
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        symbol_registry: &dyn SymbolRegistry,
+        // The metadata to inject into the wasmer_metadata section of the object file.
+        wasmer_metadata: &[u8],
+    ) -> Result<Vec<u8>, CompileError> {
+        self.compile_native_object(
+            target,
+            module,
+            module_translation,
+            function_body_inputs,
+            symbol_registry,
+            wasmer_metadata,
+        )
+    }
+
     /// Compile the module using LLVM, producing a compilation result with
     /// associated relocations.
     fn compile_module<'data, 'module>(

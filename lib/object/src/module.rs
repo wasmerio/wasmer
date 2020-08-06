@@ -4,35 +4,8 @@ use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, Symbol
 use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, RelocationTarget,
-    SectionIndex, Triple,
+    SectionIndex, Symbol, SymbolRegistry, Triple,
 };
-
-/// The kinds of wasm_common objects that might be found in a native object file.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Symbol {
-    /// A function defined in the wasm.
-    LocalFunction(LocalFunctionIndex),
-
-    /// A wasm section.
-    Section(SectionIndex),
-
-    /// The function call trampoline for a given signature.
-    FunctionCallTrampoline(SignatureIndex),
-
-    /// The dynamic function trampoline for a given function.
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-/// This trait facilitates symbol name lookups in a native object file.
-pub trait SymbolRegistry: Send + Sync {
-    /// Given a `Symbol` it returns the name for that symbol in the object file
-    fn symbol_to_name(&self, symbol: Symbol) -> String;
-
-    /// Given a name it returns the `Symbol` for that name in the object file
-    ///
-    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
-}
 
 /// Create an object for a given target `Triple`.
 ///

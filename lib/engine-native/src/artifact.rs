@@ -26,7 +26,7 @@ use wasmer_compiler::{
     Compilation, CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment,
     ModuleTranslationState, Target,
 };
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
@@ -34,7 +34,6 @@ use wasmer_engine::{
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
-use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -194,6 +193,7 @@ impl NativeArtifact {
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
             function_body_inputs,
+            &metadata,
             &serialized_data,
         )?;
 

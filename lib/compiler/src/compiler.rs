@@ -10,8 +10,9 @@ use crate::target::Target;
 use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
+use crate::SectionIndex;
 use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, LocalFunctionIndex};
+use wasm_common::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
 /// The compiler configuration options.
@@ -87,16 +88,44 @@ pub trait Compiler {
     /// It returns the bytes as a `&[u8]` or a [`CompileError`].
     fn experimental_native_compile_module<'data, 'module>(
         &self,
-        target: &Target,
-        module: &'module CompileModuleInfo,
-        module_translation: &ModuleTranslationState,
+        _target: &Target,
+        _module: &'module CompileModuleInfo,
+        _module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
-        wasmer_metadata: &[u8],
+        _wasmer_metadata: &[u8],
     ) -> Result<Vec<u8>, CompileError> {
         Err(CompileError::UnsupportedFeature(
             "native compilation not supported".into(),
         ))
     }
+}
+
+/// The kinds of wasm_common objects that might be found in a native object file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Symbol {
+    /// A function defined in the wasm.
+    LocalFunction(LocalFunctionIndex),
+
+    /// A wasm section.
+    Section(SectionIndex),
+
+    /// The function call trampoline for a given signature.
+    FunctionCallTrampoline(SignatureIndex),
+
+    /// The dynamic function trampoline for a given function.
+    DynamicFunctionTrampoline(FunctionIndex),
+}
+
+/// This trait facilitates symbol name lookups in a native object file.
+pub trait SymbolRegistry: Send + Sync {
+    /// Given a `Symbol` it returns the name for that symbol in the object file
+    fn symbol_to_name(&self, symbol: Symbol) -> String;
+
+    /// Given a name it returns the `Symbol` for that name in the object file
+    ///
+    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
 }
