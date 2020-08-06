@@ -1,10 +1,9 @@
 use crate::error::ObjectError;
 use object::write::{Object, Relocation, StandardSection, Symbol as ObjSymbol, SymbolSection};
 use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
-use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, RelocationTarget,
-    SectionIndex, Symbol, SymbolRegistry, Triple,
+    Symbol, SymbolRegistry, Triple,
 };
 
 /// Create an object for a given target `Triple`.
