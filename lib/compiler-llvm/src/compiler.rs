@@ -122,7 +122,7 @@ impl LLVMCompiler {
         compile_info
             .module
             .signatures
-            .values()
+            .into_iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
@@ -130,8 +130,9 @@ impl LLVMCompiler {
                     let target_machine = self.config().target_machine(target);
                     FuncTrampoline::new(target_machine)
                 },
-                |func_trampoline, sig| {
-                    let module = func_trampoline.trampoline_to_module(sig, self.config())?;
+                |func_trampoline, (i, sig)| {
+                    let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(*i));
+                    let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             )
@@ -145,18 +146,24 @@ impl LLVMCompiler {
 
         compile_info
             .module
-            .signatures
-            .values()
+            .functions
+            .into_iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine)
+                    (
+                        FuncTrampoline::new(target_machine),
+                        &compile_info.module.signatures,
+                    )
                 },
-                |func_trampoline, sig| {
+                |(func_trampoline, signatures), (i, sig)| {
+                    let sig = &signatures[**sig];
+                    let name =
+                        symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(*i));
                     let module =
-                        func_trampoline.dynamic_trampoline_to_module(sig, self.config())?;
+                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             )
@@ -337,7 +344,7 @@ impl Compiler for LLVMCompiler {
                     let target_machine = self.config().target_machine(target);
                     FuncTrampoline::new(target_machine)
                 },
-                |func_trampoline, sig| func_trampoline.trampoline(sig, self.config()),
+                |func_trampoline, sig| func_trampoline.trampoline(sig, self.config(), ""),
             )
             .collect::<Vec<_>>()
             .into_iter()
@@ -353,7 +360,7 @@ impl Compiler for LLVMCompiler {
                     FuncTrampoline::new(target_machine)
                 },
                 |func_trampoline, func_type| {
-                    func_trampoline.dynamic_trampoline(&func_type, self.config())
+                    func_trampoline.dynamic_trampoline(&func_type, self.config(), "")
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?

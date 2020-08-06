@@ -39,6 +39,7 @@ impl FuncTrampoline {
         &self,
         ty: &FunctionType,
         config: &LLVM,
+        name: &str,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
@@ -61,7 +62,7 @@ impl FuncTrampoline {
             false,
         );
 
-        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
@@ -92,8 +93,9 @@ impl FuncTrampoline {
         &self,
         ty: &FunctionType,
         config: &LLVM,
+        name: &str,
     ) -> Result<FunctionBody, CompileError> {
-        let module = self.trampoline_to_module(ty, config)?;
+        let module = self.trampoline_to_module(ty, config, name)?;
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
@@ -161,6 +163,7 @@ impl FuncTrampoline {
         &self,
         ty: &FunctionType,
         config: &LLVM,
+        name: &str,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
@@ -172,7 +175,7 @@ impl FuncTrampoline {
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
         let (trampoline_ty, trampoline_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
-        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
@@ -205,11 +208,12 @@ impl FuncTrampoline {
         &self,
         ty: &FunctionType,
         config: &LLVM,
+        name: &str,
     ) -> Result<FunctionBody, CompileError> {
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
-        let module = self.dynamic_trampoline_to_module(ty, config)?;
+        let module = self.dynamic_trampoline_to_module(ty, config, name)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
