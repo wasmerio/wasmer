@@ -197,7 +197,7 @@ impl NativeArtifact {
             module_translation.as_ref().unwrap(),
             function_body_inputs,
             &metadata,
-            &metadata_binary
+            &metadata_binary,
         )?;
 
         let filepath = {
