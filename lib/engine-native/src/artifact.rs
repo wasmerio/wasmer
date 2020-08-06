@@ -21,19 +21,16 @@ use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    Compilation, CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment,
-    ModuleTranslationState, Target,
+    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
-#[cfg(feature = "compiler")]
-use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -99,10 +96,8 @@ impl NativeArtifact {
 
     #[cfg(feature = "compiler")]
     /// Generate a compilation
-    pub fn generate_metadata<'data>(
+    fn generate_metadata<'data>(
         data: &'data [u8],
-        compiler: &dyn Compiler,
-        target: &Target,
         features: &Features,
         tunables: &dyn Tunables,
     ) -> Result<
@@ -154,7 +149,7 @@ impl NativeArtifact {
         let target = engine.target();
         let compiler = engine_inner.compiler()?;
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, compiler, target, engine_inner.features(), tunables)?;
+            Self::generate_metadata(data, engine_inner.features(), tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -172,8 +167,11 @@ impl NativeArtifact {
             .map(|function_body| function_body.body.len() as u64)
             .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-        */
-        // We construct the function body lengths
+         */
+
+        // TODO: we currently supply all-zero function body lengths.
+        // We don't know the lengths until they're compiled, yet we have to
+        // supply the metadata as an input to the compile.
         let function_body_lengths = function_body_inputs
             .keys()
             .map(|_function_body| 0u64)
@@ -210,6 +208,8 @@ impl NativeArtifact {
             filepath
         };
 
+        // TODO: when `experimental_native_compile_module` is not supported, we
+        // should use the following code path instead.
         /*
         let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;

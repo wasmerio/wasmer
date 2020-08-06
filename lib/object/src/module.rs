@@ -96,8 +96,8 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::{Compilation, Triple};
-/// # use wasmer_object::{ObjectError, SymbolRegistry};
+/// # use wasmer_compiler::{Compilation, SymbolRegistry, Triple};
+/// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(
