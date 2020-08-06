@@ -55,10 +55,10 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	RUSTFLAGS="-C link-args=-Wl,-dynamic-list,$(pwd)/lib/engine-native/native.syms" cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	RUSTFLAGS="-C link-args=-Wl,-dynamic-list,$(pwd)/lib/engine-native/native.syms" cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
 WAPM_VERSION = v0.5.0
 build-wapm:

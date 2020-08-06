@@ -370,7 +370,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
-            stack_probe: context.create_string_attribute("probe-stack", "vm.probestack"),
+            stack_probe: context.create_string_attribute("probe-stack", "wasmer_probestack"),
 
             void_ty,
             i1_ty,
@@ -440,7 +440,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // VM intrinsics.
             throw_trap: module.add_function(
-                "vm.exception.trap",
+                "wasmer_raise_trap",
                 void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),

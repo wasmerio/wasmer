@@ -54,7 +54,7 @@ where
 {
     // TODO: use perfect hash function?
     let mut libcalls = HashMap::new();
-    libcalls.insert("vm.exception.trap".to_string(), LibCall::RaiseTrap);
+    libcalls.insert("wasmer_raise_trap".to_string(), LibCall::RaiseTrap);
     libcalls.insert("truncf".to_string(), LibCall::TruncF32);
     libcalls.insert("trunc".to_string(), LibCall::TruncF64);
     libcalls.insert("ceilf".to_string(), LibCall::CeilF32);
@@ -63,7 +63,7 @@ where
     libcalls.insert("floor".to_string(), LibCall::FloorF64);
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
-    libcalls.insert("vm.probestack".to_string(), LibCall::Probestack);
+    libcalls.insert("wasmer_probestack".to_string(), LibCall::Probestack);
 
     let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
     let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {
