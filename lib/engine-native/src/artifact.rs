@@ -197,7 +197,7 @@ impl NativeArtifact {
             &target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
-            function_body_inputs.clone(),
+            &function_body_inputs,
             &metadata,
             &metadata_binary,
         );

@@ -77,7 +77,7 @@ impl LLVMCompiler {
         target: &Target,
         compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
         wasmer_metadata: &[u8],
     ) -> Result<Vec<u8>, CompileError> {
@@ -206,7 +206,7 @@ impl Compiler for LLVMCompiler {
         module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],

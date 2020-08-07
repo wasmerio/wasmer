@@ -92,7 +92,7 @@ pub trait Compiler {
         _module: &'module CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
-        _function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         _wasmer_metadata: &[u8],
