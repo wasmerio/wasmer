@@ -102,16 +102,7 @@ impl LLVM {
         // Hack: we're using is_pic to determine whether this is a native
         // build or not.
         let binary_format = if self.is_pic {
-            match target.triple().operating_system {
-                wasmer_compiler::OperatingSystem::Darwin
-                | wasmer_compiler::OperatingSystem::MacOSX {
-                    major: _,
-                    minor: _,
-                    patch: _,
-                } => target_lexicon::BinaryFormat::Macho,
-                wasmer_compiler::OperatingSystem::Windows => target_lexicon::BinaryFormat::Coff,
-                _ => target_lexicon::BinaryFormat::Elf,
-            }
+            target.triple().binary_format
         } else {
             target_lexicon::BinaryFormat::Elf
         };
