@@ -96,8 +96,8 @@ pub trait Compiler {
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         _wasmer_metadata: &[u8],
-    ) -> Result<Option<Vec<u8>>, CompileError> {
-        Ok(None)
+    ) -> Option<Result<Vec<u8>, CompileError>> {
+        None
     }
 }
 

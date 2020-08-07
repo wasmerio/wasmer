@@ -200,10 +200,11 @@ impl NativeArtifact {
             function_body_inputs.clone(),
             &metadata,
             &metadata_binary,
-        )?;
+        );
 
         let filepath = match maybe_obj_bytes {
             Some(obj_bytes) => {
+                let obj_bytes = obj_bytes?;
                 let file = tempfile::Builder::new()
                     .prefix("wasmer_native")
                     .suffix(".o")
