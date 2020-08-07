@@ -99,6 +99,22 @@ impl LLVM {
     }
 
     fn target_triple(&self, target: &Target) -> TargetTriple {
+        // Hack: we're using is_pic to determine whether this is a native
+        // build or not.
+        let binary_format = if self.is_pic {
+            match target.triple().operating_system {
+                wasmer_compiler::OperatingSystem::Darwin
+                | wasmer_compiler::OperatingSystem::MacOSX {
+                    major: _,
+                    minor: _,
+                    patch: _,
+                } => target_lexicon::BinaryFormat::Macho,
+                wasmer_compiler::OperatingSystem::Windows => target_lexicon::BinaryFormat::Coff,
+                _ => target_lexicon::BinaryFormat::Elf,
+            }
+        } else {
+            target_lexicon::BinaryFormat::Elf
+        };
         let operating_system =
             if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
                 // LLVM detects static relocation + darwin + 64-bit and
@@ -116,7 +132,7 @@ impl LLVM {
             vendor: target.triple().vendor.clone(),
             operating_system,
             environment: target.triple().environment,
-            binary_format: target_lexicon::BinaryFormat::Elf,
+            binary_format,
         };
         TargetTriple::create(&triple.to_string())
     }
