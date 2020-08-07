@@ -36,6 +36,8 @@ use wasmer_compiler::{
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
+const FUNCTION_SECTION: &str = "__TEXT__,wasmer_function";
+
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
@@ -109,7 +111,7 @@ impl FuncTranslator {
         // TODO: mark vmctx nofree
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(".wasmer_function");
+        func.as_global_value().set_section(FUNCTION_SECTION);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -306,7 +308,7 @@ impl FuncTranslator {
         let mem_buf_slice = memory_buffer.as_slice();
         load_object_file(
             mem_buf_slice,
-            ".wasmer_function",
+            FUNCTION_SECTION,
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
                 Ok(

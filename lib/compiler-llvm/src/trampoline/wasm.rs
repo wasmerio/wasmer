@@ -25,7 +25,7 @@ pub struct FuncTrampoline {
     target_machine: TargetMachine,
 }
 
-const FUNCTION_SECTION: &str = ".wasmer_trampoline";
+const FUNCTION_SECTION: &str = "__TEXT__,wasmer_trampoline";
 
 impl FuncTrampoline {
     pub fn new(target_machine: TargetMachine) -> Self {
