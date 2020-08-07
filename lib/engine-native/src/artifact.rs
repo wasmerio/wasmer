@@ -31,6 +31,8 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
+#[cfg(feature = "compiler")]
+use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -191,59 +193,54 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        let obj_bytes = compiler.experimental_native_compile_module(
+        let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),
-            function_body_inputs,
+            function_body_inputs.clone(),
             &metadata,
             &metadata_binary,
         )?;
 
-        let filepath = {
-            let file = tempfile::Builder::new()
-                .prefix("wasmer_native")
-                .suffix(".o")
-                .tempfile()
-                .map_err(to_compile_error)?;
+        let filepath = match maybe_obj_bytes {
+            Some(obj_bytes) => {
+                let file = tempfile::Builder::new()
+                    .prefix("wasmer_native")
+                    .suffix(".o")
+                    .tempfile()
+                    .map_err(to_compile_error)?;
 
-            // Re-open it.
-            let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-            file.write(&obj_bytes).map_err(to_compile_error)?;
-            filepath
+                // Re-open it.
+                let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+                file.write(&obj_bytes).map_err(to_compile_error)?;
+                filepath
+            }
+            None => {
+                let compilation = compiler.compile_module(
+                    &target,
+                    &metadata.compile_info,
+                    module_translation.as_ref().unwrap(),
+                    function_body_inputs,
+                )?;
+                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
+                    .map_err(to_compile_error)?;
+                emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+                    .map_err(to_compile_error)?;
+                let file = tempfile::Builder::new()
+                    .prefix("wasmer_native")
+                    .suffix(".o")
+                    .tempfile()
+                    .map_err(to_compile_error)?;
+
+                // Re-open it.
+                let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+                let obj_bytes = obj.write().map_err(to_compile_error)?;
+
+                file.write(&obj_bytes).map_err(to_compile_error)?;
+                filepath
+            }
         };
-
-        // TODO: when `experimental_native_compile_module` is not supported, we
-        // should use the following code path instead.
-        /*
-        let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-        let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-
-        let mut metadata_binary = vec![0; 10];
-        let mut writable = &mut metadata_binary[..];
-        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
-            .expect("Should write number");
-        metadata_binary.extend(serialized_data);
-
-        emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary).map_err(to_compile_error)?;
-        emit_compilation(&mut obj, compilation, &metadata, &target_triple)
-            .map_err(to_compile_error)?;
-
-        let filepath = {
-            let file = tempfile::Builder::new()
-                .prefix("wasmer_native")
-                .suffix(".o")
-                .tempfile()
-                .map_err(to_compile_error)?;
-
-            // Re-open it.
-            let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-            let obj_bytes = obj.write().map_err(to_compile_error)?;
-
-            file.write(&obj_bytes).map_err(to_compile_error)?;
-            filepath
-        };
-         */
 
         let shared_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));

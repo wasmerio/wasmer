@@ -20,7 +20,7 @@ use wasm_common::{
 use wasmer_vm::ModuleInfo;
 
 /// Contains function data: bytecode and its offset in the module.
-#[derive(Hash)]
+#[derive(Hash, Clone)]
 pub struct FunctionBodyData<'a> {
     /// Function body bytecode.
     pub data: &'a [u8],

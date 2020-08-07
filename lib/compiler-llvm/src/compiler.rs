@@ -210,15 +210,15 @@ impl Compiler for LLVMCompiler {
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
-    ) -> Result<Vec<u8>, CompileError> {
-        self.compile_native_object(
+    ) -> Result<Option<Vec<u8>>, CompileError> {
+        Ok(Some(self.compile_native_object(
             target,
             module,
             module_translation,
             function_body_inputs,
             symbol_registry,
             wasmer_metadata,
-        )
+        )?))
     }
 
     /// Compile the module using LLVM, producing a compilation result with
