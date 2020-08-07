@@ -1,5 +1,4 @@
 [target.x86_64-unknown-linux-gnu]
 rustflags = [
-  "-C", "link-arg=-Wl,--export-dynamic-symbol,wasmer_raise_trap",
-  "-C", "link-arg=-Wl,--export-dynamic-symbol,wasmer_probestack",
+  "-C", "link-arg=-Wl,-E"
 ]
