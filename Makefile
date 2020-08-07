@@ -40,6 +40,7 @@ ifneq ($(OS), Windows_NT)
 	reset := $(shell tput sgr0)
 endif
 
+
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
