@@ -36,7 +36,7 @@ use wasmer_compiler::{
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 
-const FUNCTION_SECTION: &str = "__TEXT__,wasmer_function";
+const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))

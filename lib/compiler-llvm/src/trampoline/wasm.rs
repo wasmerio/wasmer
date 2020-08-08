@@ -25,7 +25,7 @@ pub struct FuncTrampoline {
     target_machine: TargetMachine,
 }
 
-const FUNCTION_SECTION: &str = "__TEXT__,wasmer_t"; // Needs to be between 1 and 16 chars
+const FUNCTION_SECTION: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
 impl FuncTrampoline {
     pub fn new(target_machine: TargetMachine) -> Self {
