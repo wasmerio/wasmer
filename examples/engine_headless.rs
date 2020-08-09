@@ -39,8 +39,7 @@
 //! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
-////! cargo run --example engine-headless --release --features "cranelift"
-//! cargo run --example engine-headless --release --features "llvm"
+//! cargo run --example engine-headless --release --features "cranelift"
 //! ```
 //!
 //! Ready?
@@ -52,8 +51,7 @@ use wasmer::Instance;
 use wasmer::Module;
 use wasmer::Store;
 use wasmer::Value;
-//use wasmer_compiler_cranelift::Cranelift;
-use wasmer_compiler_llvm::LLVM;
+use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_native::Native;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
@@ -77,10 +75,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // Define a compiler configuration.
         //
         // In this situation, the compiler is
-        //// `wasmer_compiler_cranelift`. The compiler is responsible to
-        // `wasmer_compiler_llvm`. The compiler is responsible to
+        // `wasmer_compiler_cranelift`. The compiler is responsible to
         // compile the Wasm module into executable code.
-        let mut compiler_config = LLVM::default();
+        let mut compiler_config = Cranelift::default();
 
         println!("Creating Native engine...");
         // Define the engine that will drive everything.
