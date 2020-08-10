@@ -95,6 +95,11 @@ impl LLVM {
     }
 
     fn code_model(&self) -> CodeModel {
+        // We normally use the large code model, but when targeting shared
+        // objects, we are required to use PIC. If we use PIC anyways, we lose
+        // any benefit from large code model and there's some cost on all
+        // platforms, plus some platforms (MachO) don't support PIC + large
+        // at all.
         if self.is_pic {
             CodeModel::Small
         } else {
