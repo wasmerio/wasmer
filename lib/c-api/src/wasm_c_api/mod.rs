@@ -7,6 +7,14 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
+pub(crate) mod utils;
+#[cfg(feature = "wasi")]
+pub mod wasi;
+
+// required due to really weird Rust resolution rules
+// https://github.com/rust-lang/rust/issues/57966
+use crate::c_try;
+
 use crate::ordered_resolver::OrderedResolver;
 use wasmer::{
     Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
@@ -15,25 +23,6 @@ use wasmer::{
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-
-use crate::error::update_last_error;
-
-macro_rules! c_try {
-    ($expr:expr) => {{
-        let res: Result<_, _> = $expr;
-        match res {
-            Ok(val) => val,
-            Err(err) => {
-                update_last_error(err);
-                return None;
-            }
-        }
-    }};
-    ($expr:expr, $e:expr) => {{
-        let opt: Option<_> = $expr;
-        c_try!(opt.ok_or_else(|| $e))
-    }};
-}
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]
@@ -200,7 +189,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
 #[repr(C)]
 pub struct wasm_module_t {
-    inner: Arc<Module>,
+    pub(crate) inner: Arc<Module>,
 }
 
 #[no_mangle]
@@ -864,7 +853,7 @@ pub unsafe extern "C" fn wasm_global_same(
 #[repr(C)]
 pub struct wasm_memory_t {
     // maybe needs to hold onto instance
-    inner: Memory,
+    pub(crate) inner: Memory,
 }
 
 #[no_mangle]
@@ -1184,8 +1173,8 @@ pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut
 #[repr(C)]
 pub struct wasm_extern_t {
     // this is how we ensure the instance stays alive
-    instance: Option<Arc<Instance>>,
-    inner: Extern,
+    pub(crate) instance: Option<Arc<Instance>>,
+    pub(crate) inner: Extern,
 }
 wasm_declare_boxed_vec!(extern);
 

@@ -2158,7 +2158,9 @@ dependencies = [
  "libc",
  "libffi",
  "paste",
+ "serde",
  "thiserror",
+ "typetag",
  "wasm-common",
  "wasmer",
  "wasmer-compiler",
@@ -2267,6 +2269,7 @@ dependencies = [
  "target-lexicon",
  "wasm-common",
  "wasmer-compiler",
+ "wasmer-object",
  "wasmer-vm",
 ]
 

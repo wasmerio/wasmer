@@ -32,6 +32,7 @@ use thiserror::Error;
 use wasmer::{imports, Function, ImportObject, Memory, Module, Store};
 
 use std::cell::UnsafeCell;
+use std::fmt;
 use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
@@ -47,7 +48,7 @@ pub enum WasiError {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Clone)]
+#[derive(Debug, Clone)]
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
     memory: Arc<WasiMemory>,
@@ -62,6 +63,14 @@ struct WasiMemory {
     initialized: AtomicBool,
     memory: UnsafeCell<MaybeUninit<Memory>>,
     mutate_lock: Mutex<()>,
+}
+
+impl fmt::Debug for WasiMemory {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("WasiMemory")
+            .field("initialized", &self.initialized)
+            .finish()
+    }
 }
 
 impl WasiMemory {
