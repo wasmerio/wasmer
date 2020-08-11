@@ -637,13 +637,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 )
                 .unwrap();
             if let MemoryStyle::Dynamic { .. } = memory_style {
-                let current_length_ptr = cache_builder
+                let current_length_ptr_ptr = cache_builder
                     .build_struct_gep(
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
                         "",
                     )
                     .unwrap();
+                let current_length_ptr = cache_builder
+                    .build_load(current_length_ptr_ptr, "")
+                    .into_pointer_value();
                 MemoryCache::Dynamic {
                     ptr_to_base_ptr: base_ptr,
                     current_length_ptr,
