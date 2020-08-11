@@ -153,7 +153,7 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
-            Architecture::Arm(_) => InkwellTarget::initialize_aarch64(&InitializationConfig {
+            Architecture::Aarch64(_) => InkwellTarget::initialize_aarch64(&InitializationConfig {
                 asm_parser: true,
                 asm_printer: true,
                 base: true,
@@ -161,7 +161,15 @@ impl LLVM {
                 info: true,
                 machine_code: true,
             }),
-            _ => unimplemented!("target {} not supported", triple),
+            // Architecture::Arm(_) => InkwellTarget::initialize_arm(&InitializationConfig {
+            //     asm_parser: true,
+            //     asm_printer: true,
+            //     base: true,
+            //     disassembler: true,
+            //     info: true,
+            //     machine_code: true,
+            // }),
+            _ => unimplemented!("target {} not yet supported in Wasmer", triple),
         }
 
         // The CPU features formatted as LLVM strings
