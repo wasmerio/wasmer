@@ -71,7 +71,7 @@ own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t* store,
 // Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
 void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
 
-// Get temporary access to `wasi_state_t` owned by the given `wasi_env_t`.
+// Get access to the `wasi_state_t` owned by the given `wasi_env_t`.
 wasi_state_t* wasi_env_borrow_state(const wasi_env_t*);
 
 // Get the version of WASI needed by the given Wasm module.
@@ -91,7 +91,7 @@ size_t wasi_output_capturing_file_read(wasi_file_handle_t* file,
                                        size_t buffer_len,
                                        size_t start_offset);
 
-// Get temporary access to the `stdout` WASI file.
+// Get access to the `stdout` WASI file.
 wasi_file_handle_t* wasi_state_get_stdout(wasi_state_t*);
 
 // TODO: figure out if we can do less duplication.
@@ -119,7 +119,7 @@ int wasmer_last_error_length();
  *  * The buffer is a null pointer,
  *  * The buffer is too small to hold the error message.
  *
- * Note: The error message always has a trailing null character.
+ * Note: The error message always has a trailing NUL character.
  *
  * Example:
  *
