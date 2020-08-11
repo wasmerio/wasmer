@@ -29,11 +29,12 @@ typedef struct wasi_env_t wasi_env_t;
 // The version of WASI to use.
 typedef uint32_t wasi_version_t;
 
-const uint32_t WASI_VERSION_LATEST = 0;
-const uint32_t WASI_VERSION_SNAPSHOT0 = 1;
-const uint32_t WASI_VERSION_SNAPSHOT1 = 2;
-const uint32_t WASI_VERSION_INVALID = ~0;
-
+enum {
+  WASI_VERSION_LATEST = 0,
+  WASI_VERSION_SNAPSHOT0 = 1,
+  WASI_VERSION_SNAPSHOT1 = 2,
+  WASI_VERSION_INVALID = ~0
+};
 
 // Create a `wasi_state_builder_t`.
 //
@@ -47,7 +48,7 @@ void wasi_state_builder_arg(wasi_state_builder_t*, const char* arg);
 // Add an environment variable to be passed to the Wasi program.
 void wasi_state_builder_env(wasi_state_builder_t*, const char* key, const char* value);
 
-// Override `sdtout` with the given `wasi_file_handle_t`.
+// Override `stdout` with the given `wasi_file_handle_t`.
 void wasi_state_builder_set_stdout(wasi_state_builder_t*, wasi_file_handle_t*);
 
 // Consume the `wasi_state_builder_t` and get a `wasi_state_t`.
@@ -60,7 +61,10 @@ own wasi_env_t* wasi_env_new(own wasi_state_t*);
 void wasi_env_delete(own wasi_env_t*);
 
 // Get an array of imports that can be used to instantiate the given module.
-own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t*, wasm_module_t*, wasi_env_t*, wasi_version_t);
+own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t* store,
+                                                     wasm_module_t* module,
+                                                     wasi_env_t* wasi_env,
+                                                     wasi_version_t version);
 
 // TODO: investigate removing this part of the API
 // TODO: investigate removing the wasi_version stuff from the API
@@ -81,7 +85,7 @@ own wasi_file_handle_t* wasi_output_capturing_file_new();
 // Delete an owned `wasi_file_handle_t`
 void wasi_output_capturing_file_delete(own wasi_file_handle_t*);
 
-// Read from a capturing file (created by `wasi_output_capturing_file_new`.
+// Read from a capturing file (created by `wasi_output_capturing_file_new`).
 size_t wasi_output_capturing_file_read(wasi_file_handle_t* file,
                                        char* buffer,
                                        size_t buffer_len,
@@ -113,7 +117,7 @@ int wasmer_last_error_length();
  * error occurs. Potential errors are:
  *
  *  * The buffer is a null pointer,
- *  * The buffer is too smal to hold the error message.
+ *  * The buffer is too small to hold the error message.
  *
  * Note: The error message always has a trailing null character.
  *
