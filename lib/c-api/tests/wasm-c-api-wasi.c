@@ -128,7 +128,7 @@ int main(int argc, const char* argv[]) {
   }
 
   const int BUF_SIZE = 128;
-  char buffer[BUF_SIZE] = { };
+  char buffer[BUF_SIZE] = { 0 };
   wasi_state_t* wasi_state_ref = wasi_env_borrow_state(wasi_env);
   wasi_file_handle_t* stdout_handle = wasi_state_get_stdout(wasi_state_ref);
   if (!stdout_handle) {
