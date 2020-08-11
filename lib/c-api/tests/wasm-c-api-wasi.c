@@ -6,7 +6,7 @@
 //#include "wasm.h"
 #include "wasmer_wasm.h"
 
-#define own
+#define BUF_SIZE 128
 
 // Use the last_error API to retrieve error messages
 void print_wasmer_error()
@@ -127,7 +127,6 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  const int BUF_SIZE = 128;
   char buffer[BUF_SIZE] = { 0 };
   wasi_state_t* wasi_state_ref = wasi_env_borrow_state(wasi_env);
   wasi_file_handle_t* stdout_handle = wasi_state_get_stdout(wasi_state_ref);

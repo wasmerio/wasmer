@@ -215,9 +215,11 @@ add_test(NAME wasm-c-api-reflect
 #)
 
 
+set_property(TARGET wasm-c-api-wasi PROPERTY C_STANDARD 11)
 target_link_libraries(wasm-c-api-wasi general ${WASMER_LIB})
 target_compile_options(wasm-c-api-wasi PRIVATE ${COMPILER_OPTIONS})
 add_test(NAME wasm-c-api-wasi
          COMMAND wasm-c-api-wasi
          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} #/wasm-c-api/example
 )
+
