@@ -1,38 +1,10 @@
 use crate::error::ObjectError;
 use object::write::{Object, Relocation, StandardSection, Symbol as ObjSymbol, SymbolSection};
 use object::{RelocationEncoding, RelocationKind, SymbolFlags, SymbolKind, SymbolScope};
-use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Architecture, BinaryFormat, Compilation, CustomSectionProtection, Endianness, RelocationTarget,
-    SectionIndex, Triple,
+    Symbol, SymbolRegistry, Triple,
 };
-
-/// The kinds of wasm_common objects that might be found in a native object file.
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub enum Symbol {
-    /// A function defined in the wasm.
-    LocalFunction(LocalFunctionIndex),
-
-    /// A wasm section.
-    Section(SectionIndex),
-
-    /// The function call trampoline for a given signature.
-    FunctionCallTrampoline(SignatureIndex),
-
-    /// The dynamic function trampoline for a given function.
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-/// This trait facilitates symbol name lookups in a native object file.
-pub trait SymbolRegistry {
-    /// Given a `Symbol` it returns the name for that symbol in the object file
-    fn symbol_to_name(&self, symbol: Symbol) -> String;
-
-    /// Given a name it returns the `Symbol` for that name in the object file
-    ///
-    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
-    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
-}
 
 /// Create an object for a given target `Triple`.
 ///
@@ -124,8 +96,8 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
 /// # Usage
 ///
 /// ```rust
-/// # use wasmer_compiler::{Compilation, Triple};
-/// # use wasmer_object::{ObjectError, SymbolRegistry};
+/// # use wasmer_compiler::{Compilation, SymbolRegistry, Triple};
+/// # use wasmer_object::ObjectError;
 /// use wasmer_object::{get_object_for_target, emit_compilation};
 ///
 /// # fn emit_compilation_into_object(

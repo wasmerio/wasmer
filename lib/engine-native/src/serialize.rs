@@ -1,8 +1,7 @@
 use serde::{Deserialize, Serialize};
 use wasm_common::entity::{EntityRef, PrimaryMap};
 use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
-use wasmer_compiler::{CompileModuleInfo, SectionIndex};
-use wasmer_object::{Symbol, SymbolRegistry};
+use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Serialize, Deserialize, Debug)]
@@ -10,7 +9,7 @@ pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,
     pub data_initializers: Box<[OwnedDataInitializer]>,
-    // The function body lengths (used for reverse-locate traps in the function)
+    // The function body lengths (used to find function by address)
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
 }
 

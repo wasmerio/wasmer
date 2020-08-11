@@ -32,10 +32,11 @@ use wasm_common::{
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
-    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget,
+    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
-use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
+
+const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
@@ -66,8 +67,8 @@ impl FuncTranslator {
         }
     }
 
-    pub fn translate(
-        &mut self,
+    pub fn translate_to_module(
+        &self,
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
@@ -75,8 +76,8 @@ impl FuncTranslator {
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
-        symbol_registry: &mut dyn SymbolRegistry,
-    ) -> Result<CompiledFunction, CompileError> {
+        symbol_registry: &dyn SymbolRegistry,
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
@@ -110,7 +111,7 @@ impl FuncTranslator {
         // TODO: mark vmctx nofree
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(".wasmer_function");
+        func.as_global_value().set_section(FUNCTION_SECTION);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -270,6 +271,32 @@ impl FuncTranslator {
             callbacks.postopt_ir(&function, &module);
         }
 
+        Ok(module)
+    }
+
+    pub fn translate(
+        &self,
+        wasm_module: &ModuleInfo,
+        module_translation: &ModuleTranslationState,
+        local_func_index: &LocalFunctionIndex,
+        function_body: &FunctionBodyData,
+        config: &LLVM,
+        memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+        table_styles: &PrimaryMap<TableIndex, TableStyle>,
+        symbol_registry: &dyn SymbolRegistry,
+    ) -> Result<CompiledFunction, CompileError> {
+        let module = self.translate_to_module(
+            wasm_module,
+            module_translation,
+            local_func_index,
+            function_body,
+            config,
+            memory_styles,
+            table_styles,
+            symbol_registry,
+        )?;
+        let function = CompiledFunctionKind::Local(*local_func_index);
+        let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
             .unwrap();
@@ -281,7 +308,7 @@ impl FuncTranslator {
         let mem_buf_slice = memory_buffer.as_slice();
         load_object_file(
             mem_buf_slice,
-            ".wasmer_function",
+            FUNCTION_SECTION,
             RelocationTarget::LocalFunc(*local_func_index),
             |name: &String| {
                 Ok(
@@ -1284,7 +1311,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module: &'a Module<'ctx>,
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
-    symbol_registry: &'a mut dyn SymbolRegistry,
+    symbol_registry: &'a dyn SymbolRegistry,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {

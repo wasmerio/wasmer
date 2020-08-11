@@ -8,7 +8,7 @@ use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     context::Context,
-    module::Linkage,
+    module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
     types::BasicType,
@@ -25,7 +25,7 @@ pub struct FuncTrampoline {
     target_machine: TargetMachine,
 }
 
-const FUNCTION_SECTION: &str = ".wasmer_trampoline";
+const FUNCTION_SECTION: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 and 16 chars
 
 impl FuncTrampoline {
     pub fn new(target_machine: TargetMachine) -> Self {
@@ -35,11 +35,12 @@ impl FuncTrampoline {
         }
     }
 
-    pub fn trampoline(
-        &mut self,
+    pub fn trampoline_to_module(
+        &self,
         ty: &FunctionType,
         config: &LLVM,
-    ) -> Result<FunctionBody, CompileError> {
+        name: &str,
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
         let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -61,7 +62,7 @@ impl FuncTrampoline {
             false,
         );
 
-        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
@@ -84,6 +85,19 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+
+        Ok(module)
+    }
+
+    pub fn trampoline(
+        &self,
+        ty: &FunctionType,
+        config: &LLVM,
+        name: &str,
+    ) -> Result<FunctionBody, CompileError> {
+        let module = self.trampoline_to_module(ty, config, name)?;
+        let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
+        let target_machine = &self.target_machine;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
@@ -145,11 +159,12 @@ impl FuncTrampoline {
         })
     }
 
-    pub fn dynamic_trampoline(
-        &mut self,
+    pub fn dynamic_trampoline_to_module(
+        &self,
         ty: &FunctionType,
         config: &LLVM,
-    ) -> Result<FunctionBody, CompileError> {
+        name: &str,
+    ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks
         let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
@@ -160,7 +175,7 @@ impl FuncTrampoline {
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
         let (trampoline_ty, trampoline_attrs) = func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
-        let trampoline_func = module.add_function("", trampoline_ty, Some(Linkage::External));
+        let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
@@ -186,6 +201,19 @@ impl FuncTrampoline {
         if let Some(ref callbacks) = config.callbacks {
             callbacks.postopt_ir(&function, &module);
         }
+
+        Ok(module)
+    }
+    pub fn dynamic_trampoline(
+        &self,
+        ty: &FunctionType,
+        config: &LLVM,
+        name: &str,
+    ) -> Result<FunctionBody, CompileError> {
+        let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
+        let target_machine = &self.target_machine;
+
+        let module = self.dynamic_trampoline_to_module(ty, config, name)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)

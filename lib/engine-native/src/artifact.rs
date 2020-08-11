@@ -21,9 +21,11 @@ use wasm_common::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compilation, CompileModuleInfo, Compiler, ModuleEnvironment, Target};
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
+use wasmer_compiler::{
+    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+};
 use wasmer_engine::{
     Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
 };
@@ -31,7 +33,6 @@ use wasmer_engine::{
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
-use wasmer_object::{Symbol, SymbolRegistry};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
@@ -97,13 +98,19 @@ impl NativeArtifact {
 
     #[cfg(feature = "compiler")]
     /// Generate a compilation
-    pub fn generate_compilation<'data>(
+    fn generate_metadata<'data>(
         data: &'data [u8],
-        compiler: &dyn Compiler,
-        target: &Target,
         features: &Features,
         tunables: &dyn Tunables,
-    ) -> Result<(CompileModuleInfo, Compilation, Vec<DataInitializer<'data>>), CompileError> {
+    ) -> Result<
+        (
+            CompileModuleInfo,
+            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+            Vec<DataInitializer<'data>>,
+            Option<ModuleTranslationState>,
+        ),
+        CompileError,
+    > {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
@@ -125,15 +132,12 @@ impl NativeArtifact {
             memory_styles,
             table_styles,
         };
-
-        // Compile the Module
-        let compilation = compiler.compile_module(
-            &target,
-            &compile_info,
-            translation.module_translation.as_ref().unwrap(),
+        Ok((
+            compile_info,
             translation.function_body_inputs,
-        )?;
-        Ok((compile_info, compilation, translation.data_initializers))
+            translation.data_initializers,
+            translation.module_translation,
+        ))
     }
 
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
@@ -145,13 +149,9 @@ impl NativeArtifact {
     ) -> Result<Self, CompileError> {
         let mut engine_inner = engine.inner_mut();
         let target = engine.target();
-        let (compile_info, compilation, data_initializers) = Self::generate_compilation(
-            data,
-            engine_inner.compiler()?,
-            target,
-            engine_inner.features(),
-            tunables,
-        )?;
+        let compiler = engine_inner.compiler()?;
+        let (compile_info, function_body_inputs, data_initializers, module_translation) =
+            Self::generate_metadata(data, engine_inner.features(), tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -161,11 +161,22 @@ impl NativeArtifact {
 
         let target_triple = target.triple();
 
+        /*
         // We construct the function body lengths
         let function_body_lengths = compilation
             .get_function_bodies()
             .values()
             .map(|function_body| function_body.body.len() as u64)
+            .map(|_function_body| 0u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+         */
+
+        // TODO: we currently supply all-zero function body lengths.
+        // We don't know the lengths until they're compiled, yet we have to
+        // supply the metadata as an input to the compile.
+        let function_body_lengths = function_body_inputs
+            .keys()
+            .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
         let metadata = ModuleMetadata {
@@ -175,32 +186,61 @@ impl NativeArtifact {
             function_body_lengths,
         };
 
-        let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-
         let mut metadata_binary = vec![0; 10];
         let mut writable = &mut metadata_binary[..];
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary).map_err(to_compile_error)?;
-        emit_compilation(&mut obj, compilation, &metadata, &target_triple)
-            .map_err(to_compile_error)?;
+        let maybe_obj_bytes = compiler.experimental_native_compile_module(
+            &target,
+            &metadata.compile_info,
+            module_translation.as_ref().unwrap(),
+            &function_body_inputs,
+            &metadata,
+            &metadata_binary,
+        );
 
-        let filepath = {
-            let file = tempfile::Builder::new()
-                .prefix("wasmer_native")
-                .suffix(".o")
-                .tempfile()
-                .map_err(to_compile_error)?;
+        let filepath = match maybe_obj_bytes {
+            Some(obj_bytes) => {
+                let obj_bytes = obj_bytes?;
+                let file = tempfile::Builder::new()
+                    .prefix("wasmer_native")
+                    .suffix(".o")
+                    .tempfile()
+                    .map_err(to_compile_error)?;
 
-            // Re-open it.
-            let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-            let obj_bytes = obj.write().map_err(to_compile_error)?;
+                // Re-open it.
+                let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+                file.write(&obj_bytes).map_err(to_compile_error)?;
+                filepath
+            }
+            None => {
+                let compilation = compiler.compile_module(
+                    &target,
+                    &metadata.compile_info,
+                    module_translation.as_ref().unwrap(),
+                    function_body_inputs,
+                )?;
+                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
+                    .map_err(to_compile_error)?;
+                emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+                    .map_err(to_compile_error)?;
+                let file = tempfile::Builder::new()
+                    .prefix("wasmer_native")
+                    .suffix(".o")
+                    .tempfile()
+                    .map_err(to_compile_error)?;
 
-            file.write(&obj_bytes).map_err(to_compile_error)?;
-            filepath
+                // Re-open it.
+                let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
+                let obj_bytes = obj.write().map_err(to_compile_error)?;
+
+                file.write(&obj_bytes).map_err(to_compile_error)?;
+                filepath
+            }
         };
 
         let shared_filepath = {

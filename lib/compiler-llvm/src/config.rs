@@ -95,28 +95,46 @@ impl LLVM {
     }
 
     fn code_model(&self) -> CodeModel {
-        CodeModel::Large
+        // We normally use the large code model, but when targeting shared
+        // objects, we are required to use PIC. If we use PIC anyways, we lose
+        // any benefit from large code model and there's some cost on all
+        // platforms, plus some platforms (MachO) don't support PIC + large
+        // at all.
+        if self.is_pic {
+            CodeModel::Small
+        } else {
+            CodeModel::Large
+        }
     }
 
     fn target_triple(&self, target: &Target) -> TargetTriple {
-        let operating_system =
-            if target.triple().operating_system == wasmer_compiler::OperatingSystem::Darwin {
-                // LLVM detects static relocation + darwin + 64-bit and
-                // force-enables PIC because MachO doesn't support that
-                // combination. They don't check whether they're targeting
-                // MachO, they check whether the OS is set to Darwin.
-                //
-                // Since both linux and darwin use SysV ABI, this should work.
-                wasmer_compiler::OperatingSystem::Linux
-            } else {
-                target.triple().operating_system
-            };
+        // Hack: we're using is_pic to determine whether this is a native
+        // build or not.
+        let binary_format = if self.is_pic {
+            target.triple().binary_format
+        } else {
+            target_lexicon::BinaryFormat::Elf
+        };
+        let operating_system = if target.triple().operating_system
+            == wasmer_compiler::OperatingSystem::Darwin
+            && !self.is_pic
+        {
+            // LLVM detects static relocation + darwin + 64-bit and
+            // force-enables PIC because MachO doesn't support that
+            // combination. They don't check whether they're targeting
+            // MachO, they check whether the OS is set to Darwin.
+            //
+            // Since both linux and darwin use SysV ABI, this should work.
+            wasmer_compiler::OperatingSystem::Linux
+        } else {
+            target.triple().operating_system
+        };
         let triple = Triple {
             architecture: target.triple().architecture,
             vendor: target.triple().vendor.clone(),
             operating_system,
             environment: target.triple().environment,
-            binary_format: target_lexicon::BinaryFormat::Elf,
+            binary_format,
         };
         TargetTriple::create(&triple.to_string())
     }
