@@ -63,7 +63,8 @@ pub unsafe extern "C" fn wasi_state_builder_arg(
     state_builder.arg(arg_bytes);
 }
 
-// must be transparent
+// NOTE: don't modify this type without updating all users of it. We rely on
+// this struct being `repr(transparent)` with `Box<dyn WasiFile>` in the API.
 #[repr(transparent)]
 pub struct wasi_file_handle_t {
     inner: Box<dyn WasiFile>,
@@ -100,7 +101,6 @@ pub unsafe extern "C" fn wasi_output_capturing_file_read(
     }
 }
 
-// TODO: figure out ownership here
 /// Override the Stdout that the WASI program will see.
 ///
 /// This function takes ownership of the `wasi_file_handle_t` passed in.
@@ -127,15 +127,11 @@ pub unsafe extern "C" fn wasi_state_builder_set_stderr(
     state_builder.stderr(stderr.inner);
 }
 
+// NOTE: don't modify this type without updating all users of it. We rely on
+// this struct being `repr(transparent)` with `WasiState` in the API.
 #[allow(non_camel_case_types)]
 #[repr(transparent)]
 pub struct wasi_state_t {
-    inner: Box<WasiState>,
-}
-
-#[allow(non_camel_case_types)]
-#[repr(transparent)]
-pub struct wasi_state_borrowed_t {
     inner: WasiState,
 }
 
@@ -144,26 +140,26 @@ pub struct wasi_state_borrowed_t {
 pub extern "C" fn wasi_state_builder_build(
     mut state_builder: Box<WasiStateBuilder>,
 ) -> Option<Box<wasi_state_t>> {
-    let inner = Box::new(c_try!(state_builder.build()));
+    let inner = c_try!(state_builder.build());
     Some(Box::new(wasi_state_t { inner }))
 }
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasi_env_t {
-    inner: Box<WasiEnv>,
+    inner: WasiEnv,
 }
 
 /// Takes ownership over the `wasi_state_t`.
 #[no_mangle]
 pub extern "C" fn wasi_env_new(state: Box<wasi_state_t>) -> Box<wasi_env_t> {
     Box::new(wasi_env_t {
-        inner: Box::new(WasiEnv::new(*state.inner)),
+        inner: WasiEnv::new(state.inner),
     })
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_state_t>>) {}
+pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
 #[no_mangle]
 pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
@@ -171,17 +167,19 @@ pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_env_borrow_state(env: &wasi_env_t) -> &wasi_state_borrowed_t {
+pub extern "C" fn wasi_env_borrow_state(env: &wasi_env_t) -> &wasi_state_t {
     let state: &WasiState = &*env.inner.state();
+    // This is correct because `wasi_state_t` is `repr(transparent)` to `WasiState`
     unsafe { mem::transmute(state) }
 }
 
 /// returns a non-owning reference to stdout
 #[no_mangle]
 pub extern "C" fn wasi_state_get_stdout(
-    state: &wasi_state_borrowed_t,
+    state: &wasi_state_t,
 ) -> Option<&Option<wasi_file_handle_t>> {
     let inner: &Option<Box<dyn WasiFile>> = c_try!(state.inner.fs.stdout());
+    // This is correct because `wasi_file_handle_t` is `repr(transparent)` to `Box<dyn WasiFile>`
     let temp = unsafe { mem::transmute::<_, &'static Option<wasi_file_handle_t>>(inner) };
     Some(temp)
 }
@@ -241,7 +239,7 @@ pub unsafe extern "C" fn wasi_get_imports(
     //let version = c_try!(WasiVersion::try_from(version));
     let version = WasiVersion::try_from(version).ok()?;
 
-    let import_object = generate_import_object_from_env(store, (&*wasi_env.inner).clone(), version);
+    let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
     // TODO: this is very inefficient due to all the allocation required
     let mut extern_vec = vec![];
@@ -257,11 +255,3 @@ pub unsafe extern "C" fn wasi_get_imports(
 
     Some(extern_vec.into_boxed_slice())
 }
-
-// get WASI import object
-
-// TASKS TODO:
-// - [x] clean up and simplify caputure code
-// - [ ] generate header file for this new WASI API
-// - [ ] get import objects working
-// - [ ] finish C example

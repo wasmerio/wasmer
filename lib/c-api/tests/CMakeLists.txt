@@ -44,6 +44,7 @@ if (DEFINED EMSCRIPTEN_TESTS)
 endif()
 
 include_directories(wasm-c-api/include)
+include_directories(..)
 
 
 find_library(

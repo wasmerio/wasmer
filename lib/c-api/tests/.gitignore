@@ -32,3 +32,6 @@ test-emscripten-import-object
 
 # ignore wasm-c-api binaries
 wasm-c-api-*
+
+# Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
+!*.c
