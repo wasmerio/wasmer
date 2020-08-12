@@ -8,7 +8,6 @@
 
 #define own
 
-// TODO: rewrite explanation
 // In order to use WASI, we need a `wasi_env_t`, but first we need to configure it with
 // a `wasi_config_t`.
 //
@@ -66,17 +65,21 @@ void wasi_env_delete(own wasi_env_t*);
 // Get an array of imports that can be used to instantiate the given module.
 own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t* store,
                                                      wasm_module_t* module,
-                                                     wasi_env_t* wasi_env,
-                                                     wasi_version_t version);
+                                                     wasi_env_t* wasi_env);
 
 // TODO: investigate removing this part of the API
-// TODO: investigate removing the wasi_version stuff from the API
 // Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
 void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
 
-// read from stdout:
-// TODO: document this
+// Read from WASI's buffered stdout if stdout has not been inherited with
+// `wasi_config_inherit_stdout`.
 size_t wasi_env_read_stdout(wasi_env_t* env,
+                            char* buffer,
+                            size_t buffer_len);
+
+// Read from WASI's buffered stderr if stdout has not been inherited with
+// `wasi_config_inherit_stderr`.
+size_t wasi_env_read_stderr(wasi_env_t* env,
                             char* buffer,
                             size_t buffer_len);
 

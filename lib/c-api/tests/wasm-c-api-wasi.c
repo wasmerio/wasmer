@@ -66,11 +66,10 @@ int main(int argc, const char* argv[]) {
     print_wasmer_error();
     return 1;
   }
-  wasi_version_t version = wasi_get_wasi_version(module);
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* const* imports = wasi_get_imports(store, module, wasi_env, version);
+  const wasm_extern_t* const* imports = wasi_get_imports(store, module, wasi_env);
   if (!imports) {
     printf("> Error getting WASI imports!\n");
     print_wasmer_error();

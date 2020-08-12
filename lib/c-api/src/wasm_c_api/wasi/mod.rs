@@ -8,6 +8,7 @@ use super::{wasm_extern_t, wasm_memory_t, wasm_module_t, wasm_store_t};
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
 use crate::c_try;
+use crate::error::{update_last_error, CApiError};
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -84,46 +85,6 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = true;
 }
 
-/*
-// NOTE: don't modify this type without updating all users of it. We rely on
-// this struct being `repr(transparent)` with `Box<dyn WasiFile>` in the API.
-#[repr(transparent)]
-pub struct wasi_file_handle_t {
-    inner: Box<dyn WasiFile>,
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasi_output_capturing_file_new() -> Box<wasi_file_handle_t> {
-    Box::new(wasi_file_handle_t {
-        inner: Box::new(capture_files::OutputCapturer::new()),
-    })
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasi_file_handle_delete(_file_handle: Option<Box<wasi_file_handle_t>>) {}
-
-/// returns the amount written to the buffer
-#[no_mangle]
-pub unsafe extern "C" fn wasi_output_capturing_file_read(
-    wasi_file: &mut wasi_file_handle_t,
-    buffer: *mut c_char,
-    buffer_len: usize,
-    start_offset: usize,
-) -> isize {
-    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    if let Some(oc) = wasi_file
-        .inner
-        .downcast_ref::<capture_files::OutputCapturer>()
-    {
-        (&oc.buffer[start_offset..])
-            .read(inner_buffer)
-            .unwrap_or_default() as isize
-    } else {
-        -1
-    }
-}
-*/
-
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasi_env_t {
@@ -166,13 +127,46 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
     let mut state = env.inner.state_mut();
+
     let stdout = if let Ok(stdout) = state.fs.stdout_mut() {
-        // TODO: actually do error handling here before shipping
-        stdout.as_mut().unwrap()
+        if let Some(stdout) = stdout.as_mut() {
+            stdout
+        } else {
+            update_last_error(CApiError {
+                msg: "could not find a file handle for `stdout`".to_string(),
+            });
+            return -1;
+        }
     } else {
         return -1;
     };
     read_inner(stdout, inner_buffer)
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_env_read_stderr(
+    env: &mut wasi_env_t,
+    buffer: *mut c_char,
+    buffer_len: usize,
+) -> isize {
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let mut state = env.inner.state_mut();
+    let stderr = if let Ok(stderr) = state.fs.stderr_mut() {
+        if let Some(stderr) = stderr.as_mut() {
+            stderr
+        } else {
+            update_last_error(CApiError {
+                msg: "could not find a file handle for `stderr`".to_string(),
+            });
+            return -1;
+        }
+    } else {
+        update_last_error(CApiError {
+            msg: "could not find a file handle for `stderr`".to_string(),
+        });
+        return -1;
+    };
+    read_inner(stderr, inner_buffer)
 }
 
 fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
@@ -187,18 +181,6 @@ fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isi
         -1
     }
 }
-
-/*
-/// returns a non-owning reference to stdout
-#[no_mangle]
-pub extern "C" fn wasi_state_get_stdout(
-    state: &wasi_state_t,
-) -> Option<&Option<wasi_file_handle_t>> {
-    let inner: &Option<Box<dyn WasiFile>> = c_try!(state.inner.fs.stdout());
-    // This is correct because `wasi_file_handle_t` is `repr(transparent)` to `Box<dyn WasiFile>`
-    let temp = unsafe { mem::transmute::<_, &'static Option<wasi_file_handle_t>>(inner) };
-    Some(temp)
-}*/
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
@@ -246,22 +228,29 @@ pub unsafe extern "C" fn wasi_get_imports(
     store: Option<NonNull<wasm_store_t>>,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
-    version: wasi_version_t,
 ) -> Option<Box<[Box<wasm_extern_t>]>> {
     let store_ptr = store?.cast::<Store>();
     let store = store_ptr.as_ref();
 
-    // TODO:
-    //let version = c_try!(WasiVersion::try_from(version));
-    let version = WasiVersion::try_from(version).ok()?;
+    let version = c_try!(
+        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
+            msg: "could not detect a WASI version on the given module".to_string(),
+        })
+    );
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
-    // TODO: this is very inefficient due to all the allocation required
     let mut extern_vec = vec![];
     for it in module.inner.imports() {
-        // TODO: return an error message here if it's not found
-        let export = import_object.resolve_by_name(it.module(), it.name())?;
+        let export = c_try!(import_object
+            .resolve_by_name(it.module(), it.name())
+            .ok_or_else(|| CApiError {
+                msg: format!(
+                    "Failed to resolve import \"{}\" \"{}\"",
+                    it.module(),
+                    it.name()
+                ),
+            }));
         let inner = Extern::from_export(store, export);
         extern_vec.push(Box::new(wasm_extern_t {
             instance: None,
