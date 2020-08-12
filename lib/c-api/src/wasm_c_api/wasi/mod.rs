@@ -10,7 +10,6 @@ use super::{wasm_extern_t, wasm_memory_t, wasm_module_t, wasm_store_t};
 use crate::c_try;
 use std::convert::TryFrom;
 use std::ffi::CStr;
-use std::io::Read;
 use std::os::raw::c_char;
 use std::ptr::NonNull;
 use std::slice;
@@ -164,28 +163,26 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     env: &mut wasi_env_t,
     buffer: *mut c_char,
     buffer_len: usize,
-    start_offset: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let state = env.inner.state();
-    let stdout = if let Ok(stdout) = state.fs.stdout() {
+    let mut state = env.inner.state_mut();
+    let stdout = if let Ok(stdout) = state.fs.stdout_mut() {
         // TODO: actually do error handling here before shipping
-        stdout.as_ref().unwrap()
+        stdout.as_mut().unwrap()
     } else {
         return -1;
     };
-    read_inner(stdout, inner_buffer, start_offset)
+    read_inner(stdout, inner_buffer)
 }
 
-fn read_inner(
-    wasi_file: &Box<dyn WasiFile>,
-    inner_buffer: &mut [u8],
-    start_offset: usize,
-) -> isize {
-    if let Some(oc) = wasi_file.downcast_ref::<capture_files::OutputCapturer>() {
-        (&oc.buffer[start_offset..])
-            .read(inner_buffer)
-            .unwrap_or_default() as isize
+fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
+    if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
+        let mut num_bytes_written = 0;
+        for (address, value) in inner_buffer.iter_mut().zip(oc.buffer.drain(..)) {
+            *address = value;
+            num_bytes_written += 1;
+        }
+        num_bytes_written
     } else {
         -1
     }

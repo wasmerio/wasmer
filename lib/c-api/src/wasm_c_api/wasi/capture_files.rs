@@ -1,18 +1,21 @@
 //! Default implementations for capturing the stdout/stderr output of a WASI program.
 
 use serde::{Deserialize, Serialize};
+use std::collections::VecDeque;
 use std::io::{self, Read, Seek, Write};
 use wasmer_wasi::{WasiFile, WasiFsError};
 
 /// For capturing stdout/stderr. Stores all output in a string.
 #[derive(Debug, Serialize, Deserialize)]
 pub struct OutputCapturer {
-    pub(crate) buffer: Vec<u8>,
+    pub(crate) buffer: VecDeque<u8>,
 }
 
 impl OutputCapturer {
     pub fn new() -> Self {
-        Self { buffer: vec![] }
+        Self {
+            buffer: VecDeque::new(),
+        }
     }
 }
 
@@ -79,15 +82,14 @@ impl Seek for OutputCapturer {
 }
 impl Write for OutputCapturer {
     fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.write(buf)
+        self.buffer.extend(buf);
+        Ok(buf.len())
     }
     fn flush(&mut self) -> io::Result<()> {
-        self.buffer.flush()
+        Ok(())
     }
     fn write_all(&mut self, buf: &[u8]) -> io::Result<()> {
-        self.buffer.write_all(buf)
-    }
-    fn write_fmt(&mut self, fmt: std::fmt::Arguments) -> io::Result<()> {
-        self.buffer.write_fmt(fmt)
+        self.buffer.extend(buf);
+        Ok(())
     }
 }

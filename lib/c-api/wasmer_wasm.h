@@ -78,8 +78,7 @@ void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
 // TODO: document this
 size_t wasi_env_read_stdout(wasi_env_t* env,
                             char* buffer,
-                            size_t buffer_len,
-                            size_t start_offset);
+                            size_t buffer_len);
 
 // Get the version of WASI needed by the given Wasm module.
 wasi_version_t wasi_get_wasi_version(wasm_module_t*);

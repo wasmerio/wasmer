@@ -124,7 +124,7 @@ int main(int argc, const char* argv[]) {
   for (size_t i = 0;
        // TODO: this code is too clever, make the control flow more obvious here
        result == BUF_SIZE &&
-               (result = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE, i * BUF_SIZE));
+               (result = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE));
        ++i) {
      printf("%.*s", BUF_SIZE, buffer);
   }
