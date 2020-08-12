@@ -54,21 +54,13 @@ int main(int argc, const char* argv[]) {
   wasm_byte_vec_delete(&binary);
 
   printf("Setting up WASI...\n");
-  wasi_file_handle_t* stdout_capturer = wasi_output_capturing_file_new();
-
-  wasi_state_builder_t* wsb = wasi_state_builder_new("example_program");
+  wasi_config_t* config = wasi_config_new("example_program");
   // TODO: error checking
   const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
-  wasi_state_builder_arg(wsb, "--eval");
-  wasi_state_builder_arg(wsb, js_string);
-  wasi_state_builder_set_stdout(wsb, stdout_capturer);
+  wasi_config_arg(config, "--eval");
+  wasi_config_arg(config, js_string);
 
-  wasi_state_t* wasi_state = wasi_state_builder_build(wsb);
-  if (!wasi_state) {
-    printf("> Error building WASI state!\n");
-    return 1;
-  }
-  wasi_env_t* wasi_env = wasi_env_new(wasi_state);
+  wasi_env_t* wasi_env = wasi_env_new(config);
   if (!wasi_env) {
     printf("> Error building WASI env!\n");
     print_wasmer_error();
@@ -128,18 +120,11 @@ int main(int argc, const char* argv[]) {
   }
 
   char buffer[BUF_SIZE] = { 0 };
-  wasi_state_t* wasi_state_ref = wasi_env_borrow_state(wasi_env);
-  wasi_file_handle_t* stdout_handle = wasi_state_get_stdout(wasi_state_ref);
-  if (!stdout_handle) {
-    printf("> Error getting stdout!\n");
-    print_wasmer_error();
-    return 1;
-  }
   size_t result = BUF_SIZE;
   for (size_t i = 0;
        // TODO: this code is too clever, make the control flow more obvious here
        result == BUF_SIZE &&
-               (result = wasi_output_capturing_file_read(stdout_handle, buffer, BUF_SIZE, i * BUF_SIZE));
+               (result = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE, i * BUF_SIZE));
        ++i) {
      printf("%.*s", BUF_SIZE, buffer);
   }

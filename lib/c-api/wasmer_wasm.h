@@ -8,22 +8,22 @@
 
 #define own
 
-// In order to use WASI, we need a `wasi_env_t`, but first we need a `wasi_state_t`.
+// TODO: rewrite explanation
+// In order to use WASI, we need a `wasi_env_t`, but first we need to configure it with
+// a `wasi_config_t`.
 //
-// We get a `wasi_state_t` by building it with the `wasi_state_builder_t`.
-// Once we have a `wasi_state_t`, we can use `wasi_env_new` to create a `wasi_env_t`.
+// We get a `wasi_config_t` by building it with the `wasi_config_new` function and
+// from there we can set arguments, environment variables, and standard file behavior.
+// Then we can call `wasi_env_new` with the `wasi_config_t` and get a `wasi_env_t`.
 //
 // Once we have a `wasi_env_t` we must:
 // - set it up with `wasi_env_set_memory` to expose a memory to the WASI host functions
 // - call `wasi_get_imports` to get an array of imports needed to instantiate the Wasm module.
 
-// Used to build a `wasi_state_t`.
-typedef struct wasi_state_builder_t wasi_state_builder_t;
-// An opaque file handle to a WASI file.
-typedef struct wasi_file_handle_t wasi_file_handle_t;
-// The core WASI data structure, used to create a `wasi_env_t`.
-typedef struct wasi_state_t wasi_state_t;
-// This type is passed to the WASI host functions and owns a `wasi_state_t`. 
+// Used to build a `wasi_env_t`.
+typedef struct wasi_config_t wasi_config_t;
+// This type is passed to the WASI host functions owns the data core to the
+// functioning of WASI.
 typedef struct wasi_env_t wasi_env_t;
 
 // The version of WASI to use.
@@ -36,26 +36,29 @@ enum {
   WASI_VERSION_INVALID = ~0
 };
 
-// Create a `wasi_state_builder_t`.
+// Create a `wasi_config_t`.
 //
 // Takes as an argument the name of the Wasm program to execute (will show up
 // as argv[0] to the Wasm program).
-own wasi_state_builder_t* wasi_state_builder_new(const char* program_name);
+own wasi_config_t* wasi_config_new(const char* program_name);
 
 // Add an argument to be passed to the Wasi program.
-void wasi_state_builder_arg(wasi_state_builder_t*, const char* arg);
+void wasi_config_arg(wasi_config_t*, const char* arg);
 
 // Add an environment variable to be passed to the Wasi program.
-void wasi_state_builder_env(wasi_state_builder_t*, const char* key, const char* value);
+void wasi_config_env(wasi_config_t*, const char* key, const char* value);
 
-// Override `stdout` with the given `wasi_file_handle_t`.
-void wasi_state_builder_set_stdout(wasi_state_builder_t*, wasi_file_handle_t*);
+// Have the WASI program print directly to stdout
+void wasi_config_inherit_stdout(wasi_config_t*);
 
-// Consume the `wasi_state_builder_t` and get a `wasi_state_t`.
-own wasi_state_t* wasi_state_builder_build(own wasi_state_builder_t*);
+// Have the WASI program print directly to stderr
+void wasi_config_inherit_stderr(wasi_config_t*);
+
+// Have the WASI program read directly to stdin
+//void wasi_config_inherit_stdin(wasi_config_t*);
 
 // Create a `wasi_env_t`.
-own wasi_env_t* wasi_env_new(own wasi_state_t*);
+own wasi_env_t* wasi_env_new(own wasi_config_t*);
 
 // Delete the `wasi_env_t`, used to clean up all the resources used by WASI.
 void wasi_env_delete(own wasi_env_t*);
@@ -71,28 +74,15 @@ own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t* store,
 // Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
 void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
 
-// Get access to the `wasi_state_t` owned by the given `wasi_env_t`.
-wasi_state_t* wasi_env_borrow_state(const wasi_env_t*);
+// read from stdout:
+// TODO: document this
+size_t wasi_env_read_stdout(wasi_env_t* env,
+                            char* buffer,
+                            size_t buffer_len,
+                            size_t start_offset);
 
 // Get the version of WASI needed by the given Wasm module.
 wasi_version_t wasi_get_wasi_version(wasm_module_t*);
-
-// TODO: consider using a circular buffer and making read a mutable operation to
-// avoid wasted memory.
-// Create a capturing WASI file. This file stores all data written to it.
-own wasi_file_handle_t* wasi_output_capturing_file_new();
-
-// Delete an owned `wasi_file_handle_t`
-void wasi_output_capturing_file_delete(own wasi_file_handle_t*);
-
-// Read from a capturing file (created by `wasi_output_capturing_file_new`).
-size_t wasi_output_capturing_file_read(wasi_file_handle_t* file,
-                                       char* buffer,
-                                       size_t buffer_len,
-                                       size_t start_offset);
-
-// Get access to the `stdout` WASI file.
-wasi_file_handle_t* wasi_state_get_stdout(wasi_state_t*);
 
 // TODO: figure out if we can do less duplication.
 /**

@@ -11,7 +11,6 @@ use crate::c_try;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::io::Read;
-use std::mem;
 use std::os::raw::c_char;
 use std::ptr::NonNull;
 use std::slice;
@@ -21,21 +20,34 @@ use wasmer_wasi::{
     WasiStateBuilder, WasiVersion,
 };
 
+#[derive(Debug, Default)]
+#[allow(non_camel_case_types)]
+#[repr(C)]
+pub struct wasi_config_t {
+    inherit_stdout: bool,
+    inherit_stderr: bool,
+    inherit_stdin: bool,
+    state_builder: WasiStateBuilder,
+}
+
 #[no_mangle]
-pub unsafe extern "C" fn wasi_state_builder_new(
+pub unsafe extern "C" fn wasi_config_new(
     program_name: *const c_char,
-) -> Option<Box<WasiStateBuilder>> {
+) -> Option<Box<wasi_config_t>> {
     debug_assert!(!program_name.is_null());
 
     let name_c_str = CStr::from_ptr(program_name);
     let prog_name = c_try!(name_c_str.to_str());
 
-    Some(Box::new(WasiState::new(prog_name)))
+    Some(Box::new(wasi_config_t {
+        state_builder: WasiState::new(prog_name),
+        ..wasi_config_t::default()
+    }))
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_state_builder_env(
-    state_builder: &mut WasiStateBuilder,
+pub unsafe extern "C" fn wasi_config_env(
+    config: &mut wasi_config_t,
     key: *const c_char,
     value: *const c_char,
 ) {
@@ -47,22 +59,33 @@ pub unsafe extern "C" fn wasi_state_builder_env(
     let value_cstr = CStr::from_ptr(value);
     let value_bytes = value_cstr.to_bytes();
 
-    state_builder.env(key_bytes, value_bytes);
+    config.state_builder.env(key_bytes, value_bytes);
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasi_state_builder_arg(
-    state_builder: &mut WasiStateBuilder,
-    arg: *const c_char,
-) {
+pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const c_char) {
     debug_assert!(!arg.is_null());
 
     let arg_cstr = CStr::from_ptr(arg);
     let arg_bytes = arg_cstr.to_bytes();
 
-    state_builder.arg(arg_bytes);
+    config.state_builder.arg(arg_bytes);
 }
 
+#[no_mangle]
+pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
+    config.inherit_stdout = true;
+}
+#[no_mangle]
+pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
+    config.inherit_stderr = true;
+}
+#[no_mangle]
+pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
+    config.inherit_stdin = true;
+}
+
+/*
 // NOTE: don't modify this type without updating all users of it. We rely on
 // this struct being `repr(transparent)` with `Box<dyn WasiFile>` in the API.
 #[repr(transparent)]
@@ -100,49 +123,7 @@ pub unsafe extern "C" fn wasi_output_capturing_file_read(
         -1
     }
 }
-
-/// Override the Stdout that the WASI program will see.
-///
-/// This function takes ownership of the `wasi_file_handle_t` passed in.
-///
-/// The `wasi_file_handle_t` cannot be used after calling this function.
-#[no_mangle]
-pub unsafe extern "C" fn wasi_state_builder_set_stdout(
-    state_builder: &mut WasiStateBuilder,
-    stdout: Box<wasi_file_handle_t>,
-) {
-    state_builder.stdout(stdout.inner);
-}
-
-/// Override the Stderr that the WASI program will see.
-///
-/// This function takes ownership of the `wasi_file_handle_t' passed in.
-///
-/// The `wasi_file_handle_t` cannot be used after calling this function.
-#[no_mangle]
-pub unsafe extern "C" fn wasi_state_builder_set_stderr(
-    state_builder: &mut WasiStateBuilder,
-    stderr: Box<wasi_file_handle_t>,
-) {
-    state_builder.stderr(stderr.inner);
-}
-
-// NOTE: don't modify this type without updating all users of it. We rely on
-// this struct being `repr(transparent)` with `WasiState` in the API.
-#[allow(non_camel_case_types)]
-#[repr(transparent)]
-pub struct wasi_state_t {
-    inner: WasiState,
-}
-
-/// This function takes ownership of the `wasi_state_builder`.
-#[no_mangle]
-pub extern "C" fn wasi_state_builder_build(
-    mut state_builder: Box<WasiStateBuilder>,
-) -> Option<Box<wasi_state_t>> {
-    let inner = c_try!(state_builder.build());
-    Some(Box::new(wasi_state_t { inner }))
-}
+*/
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
@@ -150,12 +131,24 @@ pub struct wasi_env_t {
     inner: WasiEnv,
 }
 
-/// Takes ownership over the `wasi_state_t`.
+/// Takes ownership over the `wasi_config_t`.
 #[no_mangle]
-pub extern "C" fn wasi_env_new(state: Box<wasi_state_t>) -> Box<wasi_env_t> {
-    Box::new(wasi_env_t {
-        inner: WasiEnv::new(state.inner),
-    })
+pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
+    if config.inherit_stdout {
+        config
+            .state_builder
+            .stdout(Box::new(capture_files::OutputCapturer::new()));
+    }
+    if config.inherit_stderr {
+        config
+            .state_builder
+            .stderr(Box::new(capture_files::OutputCapturer::new()));
+    }
+    // TODO: impl capturer for stdin
+    let wasi_state = c_try!(config.state_builder.build());
+    Some(Box::new(wasi_env_t {
+        inner: WasiEnv::new(wasi_state),
+    }))
 }
 
 #[no_mangle]
@@ -167,12 +160,38 @@ pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory
 }
 
 #[no_mangle]
-pub extern "C" fn wasi_env_borrow_state(env: &wasi_env_t) -> &wasi_state_t {
-    let state: &WasiState = &*env.inner.state();
-    // This is correct because `wasi_state_t` is `repr(transparent)` to `WasiState`
-    unsafe { mem::transmute(state) }
+pub unsafe extern "C" fn wasi_env_read_stdout(
+    env: &mut wasi_env_t,
+    buffer: *mut c_char,
+    buffer_len: usize,
+    start_offset: usize,
+) -> isize {
+    let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
+    let state = env.inner.state();
+    let stdout = if let Ok(stdout) = state.fs.stdout() {
+        // TODO: actually do error handling here before shipping
+        stdout.as_ref().unwrap()
+    } else {
+        return -1;
+    };
+    read_inner(stdout, inner_buffer, start_offset)
 }
 
+fn read_inner(
+    wasi_file: &Box<dyn WasiFile>,
+    inner_buffer: &mut [u8],
+    start_offset: usize,
+) -> isize {
+    if let Some(oc) = wasi_file.downcast_ref::<capture_files::OutputCapturer>() {
+        (&oc.buffer[start_offset..])
+            .read(inner_buffer)
+            .unwrap_or_default() as isize
+    } else {
+        -1
+    }
+}
+
+/*
 /// returns a non-owning reference to stdout
 #[no_mangle]
 pub extern "C" fn wasi_state_get_stdout(
@@ -182,7 +201,7 @@ pub extern "C" fn wasi_state_get_stdout(
     // This is correct because `wasi_file_handle_t` is `repr(transparent)` to `Box<dyn WasiFile>`
     let temp = unsafe { mem::transmute::<_, &'static Option<wasi_file_handle_t>>(inner) };
     Some(temp)
-}
+}*/
 
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
