@@ -1,0 +1,75 @@
+name: Run Benchmarks and upload results
+
+on:
+  push:
+    branches:
+    - master
+
+jobs:
+  run_benchmark:
+    name: Benchmark on ${{ matrix.build }}
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        build: [linux]
+        include:
+          - build: linux
+            os: ubuntu-latest
+            rust: 1.45.0
+    env:
+      CARGO_SCCACHE_VERSION: 0.2.13
+      SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
+      SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+    steps:
+      - uses: actions/checkout@v2
+      - name: Install Rust ${{ matrix.rust }}
+        uses: actions-rs/toolchain@v1
+        with:
+          profile: minimal
+          toolchain: ${{ matrix.rust }}
+          override: true
+      - name: Configure cargo data directory
+        # After this point, all cargo registry and crate data is stored in
+        # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
+        # that are needed during the build process. Additionally, this works
+        # around a bug in the 'cache' action that causes directories outside of
+        # the workspace dir to be saved/restored incorrectly.
+        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
+      - name: Cache
+        uses: actions/cache@master
+        with:
+          # Note: crates from the git repo always get rebuilt
+          # so we cache only those subdirectories of target/{debug|release} that
+          # contain the build output for crates that come from the registry.
+          path: |-
+            .cargo_home
+            target/*/.*
+            target/*/build
+            target/*/deps
+          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
+          restore-keys: |
+            ${{ matrix.os }}-${{ matrix.rust }}-
+      - name: Install LLVM (Linux)
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
+          mkdir -p /opt/llvm-10
+          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
+          echo ::add-path::/opt/llvm-10/bin
+          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+      - name: Install Python
+        uses: actions/setup-python@v2
+        with:
+          python-version: 3.8
+      - name: Install Python dependencies
+        run: |
+          pip install codespeed-client
+          pip install toml
+      - name: Run Benchmark
+        run: |
+          make bench
+          git clone https://github.com/wasmerio/wasmer-bench
+
+          python3 wasmer-bench/send_metrics.py
+

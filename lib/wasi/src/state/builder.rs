@@ -2,6 +2,7 @@
 
 use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
+use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
@@ -19,7 +20,7 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
 ///
 /// Usage:
 /// ```no_run
-/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
 /// let mut state_builder = WasiState::new("wasi-prog-name");
 /// state_builder
@@ -36,6 +37,7 @@ pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopens: Vec<PreopenedDir>,
+    #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
     stdout_override: Option<Box<dyn WasiFile>>,
     stderr_override: Option<Box<dyn WasiFile>>,
@@ -78,15 +80,10 @@ pub enum WasiStateCreationError {
 }
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
-    for byte in alias.bytes() {
-        match byte {
-            b'\0' => {
-                return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-                    format!("Alias \"{}\" contains a nul byte", alias),
-                ));
-            }
-            _ => (),
-        }
+    if !alias.bytes().all(|b| b != b'\0') {
+        return Err(WasiStateCreationError::MappedDirAliasFormattingError(
+            format!("Alias \"{}\" contains a nul byte", alias),
+        ));
     }
 
     Ok(())
@@ -199,7 +196,7 @@ impl WasiStateBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
     /// # fn main() -> Result<(), WasiStateCreationError> {
     /// WasiState::new("program_name")
     ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
@@ -391,6 +388,14 @@ impl WasiStateBuilder {
             args: self.args.clone(),
             envs: self.envs.clone(),
         })
+    }
+
+    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    ///
+    /// Returns the error from `WasiFs::new` if there's an error
+    pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
+        let state = self.build()?;
+        Ok(WasiEnv::new(state))
     }
 }
 

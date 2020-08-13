@@ -1,29 +1,24 @@
 # Wasmer Attributions
 
 Wasmer is a community effort and makes use of code from various other
-projects. Listed below are notable sections of code that are licensed
+projects ❤️.
+Listed below are notable sections of code that are licensed
 from other projects and the relevant license of those projects.
 
-These are the projects that were used as inspiration and/or that we are using code from:
+These are the projects that were used as inspiration and/or that we are using code from.
+Each of the subcrates we have have an `Aknowledgements` section with more details.
 
-- [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime
-- [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework
-- [greenwasm](https://github.com/Kimundi/greenwasm): for their [spectests framework](https://github.com/Kimundi/greenwasm/tree/master/greenwasm-spectest)
-- [wasmtime](https://github.com/CraneStation/wasmtime):
-  For their [mmap implementation](https://github.com/CraneStation/wasmtime/blob/3f24098edc81cd9bf0f877fb7fba018cad0f039e/lib/runtime/src/mmap.rs), the wast test implementation and the implementation of the `__jit_debug_register_code` function
-  in Rust, the structure of using Cranelift with the GDB JIT
-  interface including implementation details regarding the structure
-  of generating debug information for each function with Cranelift
-  (for example, the sorting of the extended basic blocks before
-  processing the instructions), and the API for transforming DWARF
-  see [wasm-debug's attribution file](https://github.com/wasmerio/wasm-debug/blob/master/ATTRIBUTIONS.md)
-  for more information
+Projects:
+
+- [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility - [LICENSE](#emscripten)
+- [Nebulet](https://github.com/nebulet/nebulet): as the base for creating a great Rust WebAssembly runtime - [LICENSE](#nebulet)
 - [stackoverflow](https://stackoverflow.com/a/45795699/1072990): to create an efficient HashMap with pair keys
-- [Emscripten](https://github.com/kripken/emscripten): for emtests test sources to ensure compatibility
-- [The WebAssembly spec](https://github.com/WebAssembly/spec/tree/master/test): for implementation details of WebAssembly and spectests
+- [WAVM](https://github.com/wavm/wavm): for their great integration and testing framework - [LICENSE](#wavm)
+- [wasmtime](https://github.com/CraneStation/wasmtime): for their API and internal documentation, as well as some internal implementations - [LICENSE](#wasmtime)
+- [WebAssembly spec](https://github.com/WebAssembly/spec/tree/master/test): for the spectests implementation
 
-Please let us know if you believe there is an error or omission in
-this list and we will do our best to correct it.
+🙏 Please let us know if you believe there is an error or omission in
+this list and we will correct.
 
 ## Licenses
 

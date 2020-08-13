@@ -1,3 +1,3 @@
 CHANGELOG.md merge=union
-/tests/emscripten_resources/emtests/* linguist-vendored
-/tests/wasi_test_resources/* linguist-vendored
+tests/wast/* linguist-vendored
+tests/wasi-wast/* linguist-vendored

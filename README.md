@@ -1,12 +1,11 @@
-
 <div align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
     <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmer logo">
   </a>
   
   <p>
-    <a href="https://dev.azure.com/wasmerio/wasmer/_build/latest?definitionId=3&branchName=master">
-      <img src="https://img.shields.io/azure-devops/build/wasmerio/wasmer/3.svg?style=flat-square" alt="Build Status">
+    <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
+      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
@@ -28,33 +27,29 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) is a standalone [WebAssembly](https://webassembly.org/) runtime:
-* **Universal**: Wasmer is available in *Linux, macOS and Windows* (for both Desktop and [ARM](https://medium.com/wasmer/running-webassembly-on-arm-7d365ed0e50c))
-* **Fast**: Wasmer aims to run WebAssembly at near-native speed
-* **Pluggable**: Wasmer can be used from almost **any programming language**
-* **Safe**: supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/)
+[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer#language-integrations).
 
-It is used to run software fast, universally and safely: standalone applications and universal libraries.
+## Features
 
-## Contents
+* **Fast & Safe**. Wasmer runs WebAssembly at *near-native* speed in a fully sandboxed environment.
 
-- [Quickstart](#quickstart)
-- [Language Integrations](#language-integrations)
-- [Contribute](#contribute)
-- [Community](#community)
+* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift...).
+
+* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows) and *chipset*.
+
+* **Standards compliant**. The runtime passes [official WebAssembly test
+  suite](https://github.com/WebAssembly/testsuite) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
 
 ## Quickstart
 
-Get started with Wasmer:
-
-#### 1. Install Wasmer
+Wasmer ships with no dependencies. You can install it using the installers below:
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
 <details>
-  <summary>With PowerShell</summary>
+  <summary>With PowerShell (Windows)</summary>
   <p>
 
 ```powershell
@@ -64,45 +59,105 @@ iwr https://win.wasmer.io -useb | iex
 </p>
 </details>
 
-> *Check all available installation methods here: https://github.com/wasmerio/wasmer-install*
+> See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
 
-#### 2. Use Wasmer
 
-Download a WASM file, and use it universally! You can start with QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+#### Executing a WebAssembly file
+
+After installing Wasmer you should be ready to execute your first WebAssemby file! 🎉
+
+You can start by running QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
-wasmer qjs.wasm
+$ wasmer qjs.wasm
+QuickJS - Type "\h" for help
+qjs >
 ```
 
-#### 3. Next steps
-
-Here is what you can do next:
+#### Here is what you can do next:
 
 - [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
 - [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
 - [Read more about Wasmer](https://medium.com/wasmer/)
 
+## Language Integrations
 
-### Language Integrations
+📦 Wasmer runtime can be used as a library **embedded in different languages**, so you can use WebAssembly _anywhere_.
 
-Wasmer runtime can be used as a library embedded in different languages, so you can **use WebAssembly anywhere** 🎉
+| &nbsp; | Language | Package | Docs |
+|-|-|-|-|
+| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
+| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
+| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Docs][c# docs] |
+| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Docs][python docs] |
+| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Docs][js docs] |
+| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Docs][go docs] |
+| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Docs][php docs] |
+| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Docs][ruby docs] |
+| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Docs][java docs] |
+| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
+| ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
 
-| &nbsp; | Language | Docs | Author(s) | Maintenance | Release | Stars |
-|-|-|-|-|-|-|-|
-| ![Rust logo](./assets/languages/rust.svg) | [**Rust**](https://github.com/wasmerio/wasmer-rust-example) | [Docs](https://wasmerio.github.io/wasmer/crates/wasmer_runtime/) | Wasmer | actively developed | <a href="https://crates.io/crates/wasmer-runtime/" target="_blank">![last release](https://img.shields.io/crates/v/wasmer-runtime?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
-| ![C logo](./assets/languages/c.svg) | [**C/C++**](https://github.com/wasmerio/wasmer-c-api) | [Docs](https://wasmerio.github.io/wasmer/c/runtime-c-api/) | Wasmer | actively developed | <a href="https://github.com/wasmerio/wasmer-c-api/" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer?style=flat-square) |
-| ![Python logo](./assets/languages/python.svg) | [**Python**](https://github.com/wasmerio/python-ext-wasm) | [Docs](https://github.com/wasmerio/python-ext-wasm#api-of-the-wasmer-extensionmodule) | Wasmer | actively developed | <a href="https://pypi.org/project/wasmer/" target="_blank">![last release](https://img.shields.io/pypi/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/python-ext-wasm?style=flat-square) |
-| ![Go logo](./assets/languages/go.svg) | [**Go**](https://github.com/wasmerio/go-ext-wasm) | [Docs](https://github.com/wasmerio/go-ext-wasm#basic-example-exported-function) | Wasmer | actively developed | <a href="https://github.com/wasmerio/go-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/go-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/go-ext-wasm?style=flat-square) |
-| ![PHP logo](./assets/languages/php.svg) | [**PHP**](https://github.com/wasmerio/php-ext-wasm) | [Docs](https://wasmerio.github.io/php-ext-wasm/wasm/) | Wasmer | actively developed | <a href="https://pecl.php.net/package/wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/php-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/php-ext-wasm?style=flat-square) |
-| ![Ruby logo](./assets/languages/ruby.svg) | [**Ruby**](https://github.com/wasmerio/ruby-ext-wasm) | [Docs](https://www.rubydoc.info/gems/wasmer/) | Wasmer | actively developed | <a href="https://rubygems.org/gems/wasmer" target="_blank">![last release](https://img.shields.io/gem/v/wasmer?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/ruby-ext-wasm?style=flat-square) |
-| ![Postgres logo](./assets/languages/postgres.svg) | [**Postgres**](https://github.com/wasmerio/postgres-ext-wasm) | |  Wasmer | actively developed | <a href="https://github.com/wasmerio/postgres-ext-wasm" target="_blank">![last release](https://img.shields.io/github/v/release/wasmerio/postgres-ext-wasm?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/postgres-ext-wasm?style=flat-square) |
-| ![JS logo](./assets/languages/js.svg) | [**JavaScript**](https://github.com/wasmerio/wasmer-js) | [Docs](https://docs.wasmer.io/wasmer-js/wasmer-js) | Wasmer | actively developed | <a href="https://www.npmjs.com/package/@wasmer/wasi" target="_blank">![last release](https://img.shields.io/npm/v/@wasmer/wasi?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/wasmer-js?style=flat-square) |
-| ![Java logo](./assets/languages/java.svg) | [**Java**](https://github.com/wasmerio/java-ext-wasm) | [Docs](https://github.com/wasmerio/java-ext-wasm/#api-of-the-wasmer-library) | Wasmer | actively developed | <a href="https://bintray.com/wasmer/wasmer-jni/wasmer-jni" target="_blank">![last release](https://img.shields.io/bintray/v/wasmer/wasmer-jni/wasmer-jni?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/wasmerio/java-ext-wasm?style=flat-square) |
-| ![C# logo](./assets/languages/csharp.svg) | [**C#/.Net**](https://github.com/migueldeicaza/WasmerSharp) | [Docs](https://migueldeicaza.github.io/WasmerSharp/) |[Miguel de Icaza](https://github.com/migueldeicaza) | actively developed | <a href="https://www.nuget.org/packages/WasmerSharp/" target="_blank">![last release](https://img.shields.io/nuget/v/WasmerSharp?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/migueldeicaza/WasmerSharp?style=flat-square) |
-| ![R logo](./assets/languages/r.svg) | [**R**](https://github.com/dirkschumacher/wasmr) | [Docs](https://github.com/dirkschumacher/wasmr#example) | [Dirk Schumacher](https://github.com/dirkschumacher) | actively developed | | ![number of Github stars](https://img.shields.io/github/stars/dirkschumacher/wasmr?style=flat-square) |
-| ![Elixir logo](./assets/languages/elixir.png) | [**Elixir**](https://github.com/tessi/wasmex) | [Docs](https://hexdocs.pm/wasmex/api-reference.html) | [Philipp Tessenow](https://github.com/tessi) | actively developed | <a href="https://hex.pm/packages/wasmex" target="_blank">![last release](https://img.shields.io/hexpm/v/wasmex?style=flat-square)</a> | ![number of Github stars](https://img.shields.io/github/stars/tessi/wasmex?style=flat-square) |
-| ❓ | [your language is missing?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=) | | | | |
+[👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
+[rust logo]: ./assets/languages/rust.svg
+[rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[`wasmer` rust crate]: https://crates.io/crates/wasmer/
+[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
+
+[c logo]: ./assets/languages/c.svg
+[c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
+[`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
+[c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
+
+[c# logo]: ./assets/languages/csharp.svg
+[c# integration]: https://github.com/migueldeicaza/WasmerSharp
+[`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
+[c# docs]: https://migueldeicaza.github.io/WasmerSharp/
+
+[python logo]: ./assets/languages/python.svg
+[python integration]: https://github.com/wasmerio/python-ext-wasm
+[`wasmer` pypi package]: https://pypi.org/project/wasmer/
+[python docs]: https://github.com/wasmerio/python-ext-wasm#api-of-the-wasmer-extensionmodule
+
+[go logo]: ./assets/languages/go.svg
+[go integration]: https://github.com/wasmerio/go-ext-wasm
+[`wasmer` go package]: https://pkg.go.dev/github.com/wasmerio/go-ext-wasm/wasmer
+[go docs]: https://pkg.go.dev/github.com/wasmerio/go-ext-wasm/wasmer?tab=doc
+
+[php logo]: ./assets/languages/php.svg
+[php integration]: https://github.com/wasmerio/php-ext-wasm
+[`wasm` pecl package]: https://pecl.php.net/package/wasm
+[php docs]: https://wasmerio.github.io/php-ext-wasm/wasm/
+
+[js logo]: ./assets/languages/js.svg
+[js integration]: https://github.com/wasmerio/wasmer-js
+[`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
+[js docs]: https://docs.wasmer.io/wasmer-js/wasmer-js
+
+[ruby logo]: ./assets/languages/ruby.svg
+[ruby integration]: https://github.com/wasmerio/ruby-ext-wasm
+[`wasmer` ruby gem]: https://rubygems.org/gems/wasmer
+[ruby docs]: https://www.rubydoc.info/gems/wasmer/
+
+[java logo]: ./assets/languages/java.svg
+[java integration]: https://github.com/wasmerio/java-ext-wasm
+[`wasmer/wasmer-jni` bintray package]: https://bintray.com/wasmer/wasmer-jni/wasmer-jni
+[java docs]: https://github.com/wasmerio/java-ext-wasm/#api-of-the-wasmer-library
+
+[elixir logo]: ./assets/languages/elixir.svg
+[elixir integration]: https://github.com/tessi/wasmex
+[elixir docs]: https://hexdocs.pm/wasmex/api-reference.html
+[`wasmex` hex package]: https://hex.pm/packages/wasmex
+
+[r logo]: ./assets/languages/r.svg
+[r integration]: https://github.com/dirkschumacher/wasmr
+[r docs]: https://github.com/dirkschumacher/wasmr#example
+
+[postgres logo]: ./assets/languages/postgres.svg
+[postgres integration]: https://github.com/wasmerio/postgres-ext-wasm
+[postgres docs]: https://github.com/wasmerio/postgres-ext-wasm#usage--documentation
 
 ## Contribute
 

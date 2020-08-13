@@ -1,0 +1,129 @@
+//! This module mainly outputs the `Compiler` trait that custom
+//! compilers will need to implement.
+
+use crate::error::CompileError;
+use crate::function::Compilation;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::sync::Arc;
+use crate::module::CompileModuleInfo;
+use crate::target::Target;
+use crate::translator::FunctionMiddlewareGenerator;
+use crate::FunctionBodyData;
+use crate::ModuleTranslationState;
+use crate::SectionIndex;
+use wasm_common::entity::PrimaryMap;
+use wasm_common::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
+
+/// The compiler configuration options.
+pub trait CompilerConfig {
+    /// Enable Position Independent Code (PIC).
+    ///
+    /// This is required for shared object generation (Native Engine),
+    /// but will make the JIT Engine to fail, since PIC is not yet
+    /// supported in the JIT linking phase.
+    fn enable_pic(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they do something special for emitting PIC code.
+    }
+
+    /// Enable compiler IR verification.
+    ///
+    /// For compilers capable of doing so, this enables internal consistency
+    /// checking.
+    fn enable_verifier(&mut self) {
+        // By default we do nothing, each backend will need to customize this
+        // in case they create an IR that they can verify.
+    }
+
+    /// Gets the custom compiler config
+    fn compiler(&self) -> Box<dyn Compiler + Send>;
+
+    /// Gets the default features for this compiler in the given target
+    fn default_features_for_target(&self, _target: &Target) -> Features {
+        Features::default()
+    }
+
+    /// Pushes a middleware onto the back of the middleware chain.
+    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
+}
+
+/// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
+pub trait Compiler {
+    /// Validates a module.
+    ///
+    /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
+    fn validate_module<'data>(
+        &self,
+        features: &Features,
+        data: &'data [u8],
+    ) -> Result<(), CompileError> {
+        let config = ValidatingParserConfig {
+            operator_config: OperatorValidatorConfig {
+                enable_threads: features.threads,
+                enable_reference_types: features.reference_types,
+                enable_bulk_memory: features.bulk_memory,
+                enable_tail_call: false,
+                enable_simd: features.simd,
+                enable_multi_value: features.multi_value,
+            },
+        };
+        validate(data, Some(config)).map_err(|e| CompileError::Validate(format!("{}", e)))
+    }
+
+    /// Compiles a parsed module.
+    ///
+    /// It returns the [`Compilation`] or a [`CompileError`].
+    fn compile_module<'data, 'module>(
+        &self,
+        target: &Target,
+        module: &'module CompileModuleInfo,
+        module_translation: &ModuleTranslationState,
+        // The list of function bodies
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+    ) -> Result<Compilation, CompileError>;
+
+    /// Compiles a module into a native object file.
+    ///
+    /// It returns the bytes as a `&[u8]` or a [`CompileError`].
+    fn experimental_native_compile_module<'data, 'module>(
+        &self,
+        _target: &Target,
+        _module: &'module CompileModuleInfo,
+        _module_translation: &ModuleTranslationState,
+        // The list of function bodies
+        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _symbol_registry: &dyn SymbolRegistry,
+        // The metadata to inject into the wasmer_metadata section of the object file.
+        _wasmer_metadata: &[u8],
+    ) -> Option<Result<Vec<u8>, CompileError>> {
+        None
+    }
+}
+
+/// The kinds of wasm_common objects that might be found in a native object file.
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum Symbol {
+    /// A function defined in the wasm.
+    LocalFunction(LocalFunctionIndex),
+
+    /// A wasm section.
+    Section(SectionIndex),
+
+    /// The function call trampoline for a given signature.
+    FunctionCallTrampoline(SignatureIndex),
+
+    /// The dynamic function trampoline for a given function.
+    DynamicFunctionTrampoline(FunctionIndex),
+}
+
+/// This trait facilitates symbol name lookups in a native object file.
+pub trait SymbolRegistry: Send + Sync {
+    /// Given a `Symbol` it returns the name for that symbol in the object file
+    fn symbol_to_name(&self, symbol: Symbol) -> String;
+
+    /// Given a name it returns the `Symbol` for that name in the object file
+    ///
+    /// This function is the inverse of [`SymbolRegistry::symbol_to_name`]
+    fn name_to_symbol(&self, name: &str) -> Option<Symbol>;
+}

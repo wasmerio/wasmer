@@ -10,36 +10,33 @@ $ cargo install cargo-fuzz
 
 `cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-## Running a fuzzer (simple_instantiate, validate_wasm, compile_wasm)
+## Running a fuzzer (validate, jit_llvm, native_cranelift, ...)
 
-Once `cargo-fuzz` is installed, you can run the `simple_instantiate` fuzzer with
+Once `cargo-fuzz` is installed, you can run the `validate` fuzzer with
 ```sh
-cargo fuzz run simple_instantiate
+cargo fuzz run validate
 ```
-or the `validate_wasm` fuzzer
+or the `jit_cranelift` fuzzer
 ```sh
-cargo fuzz run validate_wasm
+cargo fuzz run jit_cranelift
 ```
-or the `compile_wasm` fuzzer
-```sh
-cargo fuzz run compile_wasm
-```
+See the [fuzz/fuzz_targets](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/) directory for the full list of targets.
 
 You should see output that looks something like this:
 
 ```
-INFO: Seed: 3276026494
-INFO:        8 files found in wasmer/fuzz/corpus/simple_instantiate
-INFO: -max_len is not provided; libFuzzer will not generate inputs larger than 4096 bytes
-INFO: seed corpus: files: 8 min: 1b max: 1b total: 8b rss: 133Mb
-#9      INITED ft: 3 corp: 3/3b lim: 4 exec/s: 0 rss: 142Mb
-#23     NEW    ft: 4 corp: 4/5b lim: 4 exec/s: 0 rss: 142Mb L: 2/2 MS: 4 ChangeByte-InsertByte-ShuffleBytes-ChangeBit-
-#25     NEW    ft: 5 corp: 5/6b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 2 ChangeBinInt-ChangeBit-
-#27     NEW    ft: 6 corp: 6/9b lim: 4 exec/s: 0 rss: 142Mb L: 3/3 MS: 2 InsertByte-ChangeByte-
-#190    REDUCE ft: 6 corp: 6/7b lim: 4 exec/s: 0 rss: 142Mb L: 1/2 MS: 3 ChangeBit-EraseBytes-CrossOver-
-#205    REDUCE ft: 7 corp: 7/11b lim: 4 exec/s: 0 rss: 142Mb L: 4/4 MS: 5 ShuffleBytes-CrossOver-InsertByte-ChangeBinInt-CrossOver-
+#1408022        NEW    cov: 115073 ft: 503843 corp: 4659/1807Kb lim: 4096 exec/s: 889 rss: 857Mb L: 2588/4096 MS: 1 ChangeASCIIInt-
+#1408273        NEW    cov: 115073 ft: 503844 corp: 4660/1808Kb lim: 4096 exec/s: 888 rss: 857Mb L: 1197/4096 MS: 1 ShuffleBytes-
+#1408534        NEW    cov: 115073 ft: 503866 corp: 4661/1809Kb lim: 4096 exec/s: 886 rss: 857Mb L: 977/4096 MS: 1 ShuffleBytes-
+#1408540        NEW    cov: 115073 ft: 503869 corp: 4662/1811Kb lim: 4096 exec/s: 886 rss: 857Mb L: 2067/4096 MS: 1 ChangeBit-
+#1408831        NEW    cov: 115073 ft: 503945 corp: 4663/1811Kb lim: 4096 exec/s: 885 rss: 857Mb L: 460/4096 MS: 1 CMP- DE: "\x16\x00\x00\x00\x00\x00\x00\x00"-
+#1408977        NEW    cov: 115073 ft: 503946 corp: 4664/1813Kb lim: 4096 exec/s: 885 rss: 857Mb L: 1972/4096 MS: 1 ShuffleBytes-
+#1408999        NEW    cov: 115073 ft: 503949 corp: 4665/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 964/4096 MS: 2 ChangeBit-ShuffleBytes-
+#1409040        NEW    cov: 115073 ft: 503950 corp: 4666/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 90/4096 MS: 1 ChangeBit-
+#1409042        NEW    cov: 115073 ft: 503951 corp: 4667/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 174/4096 MS: 2 ChangeByte-ChangeASCIIInt-
 ```
-It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/simple_instantiate` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run simple_instantiate my_testcase.wasm`.
+
+It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/jit_cranelift` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run jit_cranelift my_testcase.wasm`.
 
 ## Seeding the corpus, optional
 
@@ -47,13 +44,9 @@ The fuzzer works best when it has examples of small Wasm files to start with. Us
 
 ```sh
 mkdir spec-test-corpus
-for i in lib/spectests/spectests/*.wast; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
-mv spec-test-corpus/*.wasm fuzz/corpus/simple_instantiate/
+for i in `find tests/ -name "*.wast"`; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
+mv spec-test-corpus/*.wasm fuzz/corpus/validate/
 rm -r spec-test-corpus
 ```
 
 The corpus directory is created on the first run of the fuzzer. If it doesn't exist, run it first and then seed the corpus. The fuzzer will pick up new files added to the corpus while it is running.
-
-## Trophy case
-
-- [x] https://github.com/wasmerio/wasmer/issues/558

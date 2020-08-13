@@ -1,3 +1,0 @@
-TestClass::Construction
-TestClass::Destruction
-Caught exception: test_exception

@@ -1,9 +1,0 @@
-[package]
-name = "pipe"
-version = "0.1.0"
-authors = ["Heyang Zhou <zhy20000919@hotmail.com>"]
-edition = "2018"
-
-[workspace]
-
-[dependencies]

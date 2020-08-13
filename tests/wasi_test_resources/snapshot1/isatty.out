@@ -1,9 +1,0 @@
-{
-  "output": "stdin: 1\nstdout: 1\nstderr: 1\n",
-  "options": {
-    "mapdir": [],
-    "env": [],
-    "args": [],
-    "dir": []
-  }
-}

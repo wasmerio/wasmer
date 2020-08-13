@@ -1,4 +1,5 @@
-#![allow(unused, clippy::too_many_arguments)]
+#![allow(unused, clippy::too_many_arguments, clippy::cognitive_complexity)]
+
 pub mod types;
 #[cfg(any(
     target_os = "freebsd",
@@ -20,13 +21,14 @@ use crate::{
         InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
         MAX_SYMLINKS,
     },
-    ExitCode,
+    WasiEnv, WasiError,
 };
 use std::borrow::Borrow;
 use std::cell::Cell;
 use std::convert::{Infallible, TryInto};
 use std::io::{self, Read, Seek, Write};
-use wasmer_runtime_core::{memory::Memory, vm::Ctx};
+use tracing::{debug, trace};
+use wasmer::{Memory, RuntimeError};
 
 #[cfg(any(
     target_os = "freebsd",
@@ -38,15 +40,6 @@ pub use unix::*;
 
 #[cfg(any(target_os = "windows"))]
 pub use windows::*;
-
-/// This function is not safe
-#[allow(clippy::mut_from_ref)]
-pub(crate) fn get_memory_and_wasi_state(
-    ctx: &mut Ctx,
-    mem_index: u32,
-) -> (&Memory, &mut WasiState) {
-    unsafe { ctx.memory_and_data_mut(mem_index) }
-}
 
 fn write_bytes_inner<T: Write>(
     mut write_loc: T,
@@ -142,12 +135,12 @@ fn get_current_time_in_nanos() -> Result<__wasi_timestamp_t, __wasi_errno_t> {
 ///     A pointer to a buffer to write the argument string data.
 ///
 pub fn args_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     argv: WasmPtr<WasmPtr<u8, Array>, Array>,
     argv_buf: WasmPtr<u8, Array>,
 ) -> __wasi_errno_t {
     debug!("wasi::args_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let result = write_buffer_array(memory, &*state.args, argv, argv_buf);
 
@@ -177,12 +170,12 @@ pub fn args_get(
 /// - `size_t *argv_buf_size`
 ///     The size of the argument string data.
 pub fn args_sizes_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     argc: WasmPtr<u32>,
     argv_buf_size: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::args_sizes_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let argc = wasi_try!(argc.deref(memory));
     let argv_buf_size = wasi_try!(argv_buf_size.deref(memory));
@@ -206,12 +199,12 @@ pub fn args_sizes_get(
 /// - `__wasi_timestamp_t *resolution`
 ///     The resolution of the clock in nanoseconds
 pub fn clock_res_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     clock_id: __wasi_clockid_t,
     resolution: WasmPtr<__wasi_timestamp_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::clock_res_get");
-    let memory = ctx.memory(0);
+    let memory = env.memory();
 
     let out_addr = wasi_try!(resolution.deref(memory));
     platform_clock_res_get(clock_id, out_addr)
@@ -228,7 +221,7 @@ pub fn clock_res_get(
 /// - `__wasi_timestamp_t *time`
 ///     The value of the clock in nanoseconds
 pub fn clock_time_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     clock_id: __wasi_clockid_t,
     precision: __wasi_timestamp_t,
     time: WasmPtr<__wasi_timestamp_t>,
@@ -237,7 +230,7 @@ pub fn clock_time_get(
         "wasi::clock_time_get clock_id: {}, precision: {}",
         clock_id, precision
     );
-    let memory = ctx.memory(0);
+    let memory = env.memory();
 
     let out_addr = wasi_try!(time.deref(memory));
     let result = platform_clock_time_get(clock_id, precision, out_addr);
@@ -258,12 +251,12 @@ pub fn clock_time_get(
 /// - `char *environ_buf`
 ///     A pointer to a buffer to write the environment variable string data.
 pub fn environ_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     environ: WasmPtr<WasmPtr<u8, Array>, Array>,
     environ_buf: WasmPtr<u8, Array>,
 ) -> __wasi_errno_t {
     debug!("wasi::environ_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     write_buffer_array(memory, &*state.envs, environ, environ_buf)
 }
@@ -276,12 +269,12 @@ pub fn environ_get(
 /// - `size_t *environ_buf_size`
 ///     The size of the environment variable string data.
 pub fn environ_sizes_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     environ_count: WasmPtr<u32>,
     environ_buf_size: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::environ_sizes_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let environ_count = wasi_try!(environ_count.deref(memory));
     let environ_buf_size = wasi_try!(environ_buf_size.deref(memory));
@@ -311,7 +304,7 @@ pub fn environ_sizes_get(
 /// - `__wasi_advice_t advice`
 ///     The advice to give
 pub fn fd_advise(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
@@ -334,13 +327,13 @@ pub fn fd_advise(
 /// - `__wasi_filesize_t len`
 ///     The length from the offset marking the end of the allocation
 pub fn fd_allocate(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     offset: __wasi_filesize_t,
     len: __wasi_filesize_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_allocate");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
@@ -379,9 +372,9 @@ pub fn fd_allocate(
 ///     If `fd` is a directory
 /// - `__WASI_EBADF`
 ///     If `fd` is invalid or not open
-pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_close(env: &mut WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_close: fd={}", fd);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
@@ -395,9 +388,9 @@ pub fn fd_close(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 /// Inputs:
 /// - `__wasi_fd_t fd`
 ///     The file descriptor to sync
-pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_datasync(env: &mut WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_datasync");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_DATASYNC) {
         return __WASI_EACCES;
@@ -419,7 +412,7 @@ pub fn fd_datasync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 /// - `__wasi_fdstat_t *buf`
 ///     The location where the metadata will be written
 pub fn fd_fdstat_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     buf_ptr: WasmPtr<__wasi_fdstat_t>,
 ) -> __wasi_errno_t {
@@ -428,7 +421,7 @@ pub fn fd_fdstat_get(
         fd,
         buf_ptr.offset()
     );
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
 
     let stat = wasi_try!(state.fs.fdstat(fd));
@@ -447,12 +440,12 @@ pub fn fd_fdstat_get(
 /// - `__wasi_fdflags_t flags`
 ///     The flags to apply to `fd`
 pub fn fd_fdstat_set_flags(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     flags: __wasi_fdflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_fdstat_set_flags");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FDSTAT_SET_FLAGS) {
@@ -473,13 +466,13 @@ pub fn fd_fdstat_set_flags(
 /// - `__wasi_rights_t fs_rights_inheriting`
 ///     The inheriting rights to apply to `fd`
 pub fn fd_fdstat_set_rights(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     fs_rights_base: __wasi_rights_t,
     fs_rights_inheriting: __wasi_rights_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_fdstat_set_rights");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
     // ensure new rights are a subset of current rights
@@ -504,12 +497,12 @@ pub fn fd_fdstat_set_rights(
 /// - `__wasi_filestat_t *buf`
 ///     Where the metadata from `fd` will be written
 pub fn fd_filestat_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_GET) {
         return __WASI_EACCES;
@@ -531,12 +524,12 @@ pub fn fd_filestat_get(
 /// - `__wasi_filesize_t st_size`
 ///     New size that `fd` will be set to
 pub fn fd_filestat_set_size(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     st_size: __wasi_filesize_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_size");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let inode = fd_entry.inode;
 
@@ -573,14 +566,14 @@ pub fn fd_filestat_set_size(
 /// - `__wasi_fstflags_t fst_flags`
 ///     Bit-vector for controlling which times get set
 pub fn fd_filestat_set_times(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     st_atim: __wasi_timestamp_t,
     st_mtim: __wasi_timestamp_t,
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_filestat_set_times");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
 
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_FILESTAT_SET_TIMES) {
@@ -594,7 +587,8 @@ pub fn fd_filestat_set_times(
         return __WASI_EINVAL;
     }
 
-    let inode = &mut state.fs.inodes[fd_entry.inode];
+    let inode_idx = fd_entry.inode;
+    let inode = &mut state.fs.inodes[inode_idx];
 
     if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 || fst_flags & __WASI_FILESTAT_SET_ATIM_NOW != 0 {
         let time_to_set = if fst_flags & __WASI_FILESTAT_SET_ATIM != 0 {
@@ -604,13 +598,10 @@ pub fn fd_filestat_set_times(
         };
         inode.stat.st_atim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_accessed(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_accessed(time_to_set);
             }
-            _ => {}
         }
     }
 
@@ -622,13 +613,10 @@ pub fn fd_filestat_set_times(
         };
         inode.stat.st_mtim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_modified(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_modified(time_to_set);
             }
-            _ => {}
         }
     }
 
@@ -651,7 +639,7 @@ pub fn fd_filestat_set_times(
 /// - `size_t nread`
 ///     The number of bytes read
 pub fn fd_pread(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t, Array>,
     iovs_len: u32,
@@ -659,7 +647,7 @@ pub fn fd_pread(
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_pread: fd={}, offset={}", fd, offset);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let iov_cells = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nread_cell = wasi_try!(nread.deref(memory));
@@ -696,8 +684,7 @@ pub fn fd_pread(
                             h.seek(std::io::SeekFrom::Start(offset as u64)).ok(),
                             __WASI_EIO
                         );
-                        let bytes_read = wasi_try!(read_bytes(h, memory, iov_cells));
-                        bytes_read
+                        wasi_try!(read_bytes(h, memory, iov_cells))
                     } else {
                         return __WASI_EINVAL;
                     }
@@ -725,12 +712,12 @@ pub fn fd_pread(
 /// - `__wasi_prestat *buf`
 ///     Where the metadata will be written
 pub fn fd_prestat_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     buf: WasmPtr<__wasi_prestat_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_prestat_get: fd={}", fd);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let prestat_ptr = wasi_try!(buf.deref(memory));
 
@@ -740,7 +727,7 @@ pub fn fd_prestat_get(
 }
 
 pub fn fd_prestat_dir_name(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
@@ -749,7 +736,7 @@ pub fn fd_prestat_dir_name(
         "wasi::fd_prestat_dir_name: fd={}, path_len={}",
         fd, path_len
     );
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let path_chars = wasi_try!(path.deref(memory, 0, path_len));
 
     let real_fd = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
@@ -800,7 +787,7 @@ pub fn fd_prestat_dir_name(
 /// - `u32 *nwritten`
 ///     Number of bytes written
 pub fn fd_pwrite(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t, Array>,
     iovs_len: u32,
@@ -809,7 +796,7 @@ pub fn fd_pwrite(
 ) -> __wasi_errno_t {
     debug!("wasi::fd_pwrite");
     // TODO: refactor, this is just copied from `fd_write`...
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
 
@@ -842,9 +829,10 @@ pub fn fd_pwrite(
                 return __WASI_EACCES;
             }
 
-            let inode = &mut state.fs.inodes[fd_entry.inode];
+            let inode_idx = fd_entry.inode;
+            let inode = &mut state.fs.inodes[inode_idx];
 
-            let bytes_written = match &mut inode.kind {
+            match &mut inode.kind {
                 Kind::File { handle, .. } => {
                     if let Some(handle) = handle {
                         handle.seek(std::io::SeekFrom::Start(offset as u64));
@@ -863,9 +851,7 @@ pub fn fd_pwrite(
                     memory,
                     iovs_arr_cell
                 )),
-            };
-
-            bytes_written
+            }
         }
     };
 
@@ -887,14 +873,14 @@ pub fn fd_pwrite(
 /// - `u32 *nread`
 ///     Number of bytes read
 pub fn fd_read(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_iovec_t, Array>,
     iovs_len: u32,
     nread: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_read: fd={}", fd);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nread_cell = wasi_try!(nread.deref(memory));
@@ -919,7 +905,8 @@ pub fn fd_read(
             }
 
             let offset = fd_entry.offset as usize;
-            let inode = &mut state.fs.inodes[fd_entry.inode];
+            let inode_idx = fd_entry.inode;
+            let inode = &mut state.fs.inodes[inode_idx];
 
             let bytes_read = match &mut inode.kind {
                 Kind::File { handle, .. } => {
@@ -940,6 +927,8 @@ pub fn fd_read(
                 }
             };
 
+            // reborrow
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
             fd_entry.offset += bytes_read as u64;
 
             bytes_read
@@ -967,7 +956,7 @@ pub fn fd_read(
 ///     The Number of bytes stored in `buf`; if less than `buf_len` then entire
 ///     directory has been read
 pub fn fd_readdir(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     buf: WasmPtr<u8, Array>,
     buf_len: u32,
@@ -975,7 +964,7 @@ pub fn fd_readdir(
     bufused: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_readdir");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     // TODO: figure out how this is supposed to work;
     // is it supposed to pack the buffer full every time until it can't? or do one at a time?
 
@@ -1009,7 +998,7 @@ pub fn fd_readdir(
                     .map(|(name, inode)| {
                         let entry = &state.fs.inodes[*inode];
                         (
-                            format!("{}", entry.name),
+                            entry.name.to_string(),
                             entry.stat.st_filetype,
                             entry.stat.st_ino,
                         )
@@ -1083,9 +1072,9 @@ pub fn fd_readdir(
 ///     File descriptor to copy
 /// - `__wasi_fd_t to`
 ///     Location to copy file descriptor to
-pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_renumber(env: &mut WasiEnv, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_renumber: from={}, to={}", from, to);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.fd_map.get(&from).ok_or(__WASI_EBADF));
     let new_fd_entry = Fd {
         // TODO: verify this is correct
@@ -1111,14 +1100,14 @@ pub fn fd_renumber(ctx: &mut Ctx, from: __wasi_fd_t, to: __wasi_fd_t) -> __wasi_
 /// - `__wasi_filesize_t *fd`
 ///     The new offset relative to the start of the file
 pub fn fd_seek(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     offset: __wasi_filedelta_t,
     whence: __wasi_whence_t,
     newoffset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_seek: fd={}, offset={}", fd, offset);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let new_offset_cell = wasi_try!(newoffset.deref(memory));
 
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
@@ -1132,11 +1121,15 @@ pub fn fd_seek(
         __WASI_WHENCE_CUR => fd_entry.offset = (fd_entry.offset as i64 + offset) as u64,
         __WASI_WHENCE_END => {
             use std::io::SeekFrom;
-            match state.fs.inodes[fd_entry.inode].kind {
+            let inode_idx = fd_entry.inode;
+            match state.fs.inodes[inode_idx].kind {
                 Kind::File { ref mut handle, .. } => {
                     if let Some(handle) = handle {
                         let end = wasi_try!(handle.seek(SeekFrom::End(0)).ok().ok_or(__WASI_EIO));
                         // TODO: handle case if fd_entry.offset uses 64 bits of a u64
+
+                        // reborrow
+                        let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
                         fd_entry.offset = (end as i64 + offset) as u64;
                     } else {
                         return __WASI_EINVAL;
@@ -1159,7 +1152,8 @@ pub fn fd_seek(
         __WASI_WHENCE_SET => fd_entry.offset = offset as u64,
         _ => return __WASI_EINVAL,
     }
-
+    // reborrow
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
     new_offset_cell.set(fd_entry.offset);
 
     __WASI_ESUCCESS
@@ -1174,10 +1168,10 @@ pub fn fd_seek(
 /// TODO: figure out which errors this should return
 /// - `__WASI_EPERM`
 /// - `__WASI_ENOTCAPABLE`
-pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
+pub fn fd_sync(env: &mut WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasi::fd_sync");
     debug!("=> fd={}", fd);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_SYNC) {
         return __WASI_EACCES;
@@ -1209,12 +1203,12 @@ pub fn fd_sync(ctx: &mut Ctx, fd: __wasi_fd_t) -> __wasi_errno_t {
 /// - `__wasi_filesize_t *offset`
 ///     The offset of `fd` relative to the start of the file
 pub fn fd_tell(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     offset: WasmPtr<__wasi_filesize_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::fd_tell");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let offset_cell = wasi_try!(offset.deref(memory));
 
     let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
@@ -1243,7 +1237,7 @@ pub fn fd_tell(
 /// Errors:
 ///
 pub fn fd_write(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     iovs: WasmPtr<__wasi_ciovec_t, Array>,
     iovs_len: u32,
@@ -1257,7 +1251,7 @@ pub fn fd_write(
     } else {
         trace!("wasi::fd_write: fd={}", fd);
     }
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
     let nwritten_cell = wasi_try!(nwritten.deref(memory));
 
@@ -1289,7 +1283,8 @@ pub fn fd_write(
             }
 
             let offset = fd_entry.offset as usize;
-            let inode = &mut state.fs.inodes[fd_entry.inode];
+            let inode_idx = fd_entry.inode;
+            let inode = &mut state.fs.inodes[inode_idx];
 
             let bytes_written = match &mut inode.kind {
                 Kind::File { handle, .. } => {
@@ -1310,6 +1305,8 @@ pub fn fd_write(
                 }
             };
 
+            // reborrow
+            let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
             fd_entry.offset += bytes_written as u64;
             wasi_try!(state.fs.filestat_resync_size(fd));
 
@@ -1336,13 +1333,13 @@ pub fn fd_write(
 /// - __WASI_RIGHT_PATH_CREATE_DIRECTORY
 ///     This right must be set on the directory that the file is created in (TODO: verify that this is true)
 pub fn path_create_directory(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_create_directory");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let working_dir = wasi_try!(state.fs.get_fd(fd));
     if let Kind::Root { .. } = &state.fs.inodes[working_dir.inode].kind {
@@ -1439,7 +1436,7 @@ pub fn path_create_directory(
 /// - `__wasi_file_stat_t *buf`
 ///     The location where the metadata will be stored
 pub fn path_filestat_get(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, Array>,
@@ -1447,7 +1444,7 @@ pub fn path_filestat_get(
     buf: WasmPtr<__wasi_filestat_t>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_get");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let root_dir = wasi_try!(state.fs.get_fd(fd));
 
@@ -1464,7 +1461,7 @@ pub fn path_filestat_get(
         flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0,
     ));
     let stat = if state.fs.inodes[file_inode].is_preopened {
-        state.fs.inodes[file_inode].stat.clone()
+        state.fs.inodes[file_inode].stat
     } else {
         wasi_try!(state
             .fs
@@ -1496,7 +1493,7 @@ pub fn path_filestat_get(
 /// - `__wasi_fstflags_t fst_flags`
 ///     A bitmask controlling which attributes are set
 pub fn path_filestat_set_times(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     flags: __wasi_lookupflags_t,
     path: WasmPtr<u8, Array>,
@@ -1506,7 +1503,7 @@ pub fn path_filestat_set_times(
     fst_flags: __wasi_fstflags_t,
 ) -> __wasi_errno_t {
     debug!("wasi::path_filestat_set_times");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let fd_entry = wasi_try!(state.fs.get_fd(fd));
     let fd_inode = fd_entry.inode;
     if !has_rights(fd_entry.rights, __WASI_RIGHT_PATH_FILESTAT_SET_TIMES) {
@@ -1542,13 +1539,10 @@ pub fn path_filestat_set_times(
         };
         inode.stat.st_atim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_accessed(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_accessed(time_to_set);
             }
-            _ => {}
         }
     }
     if fst_flags & __WASI_FILESTAT_SET_MTIM != 0 || fst_flags & __WASI_FILESTAT_SET_MTIM_NOW != 0 {
@@ -1559,13 +1553,10 @@ pub fn path_filestat_set_times(
         };
         inode.stat.st_mtim = time_to_set;
         // TODO: set it for more than just files
-        match &mut inode.kind {
-            Kind::File { handle, .. } => {
-                if let Some(handle) = handle {
-                    handle.set_last_modified(time_to_set);
-                }
+        if let Kind::File { handle, .. } = &mut inode.kind {
+            if let Some(handle) = handle {
+                handle.set_last_modified(time_to_set);
             }
-            _ => {}
         }
     }
 
@@ -1590,7 +1581,7 @@ pub fn path_filestat_set_times(
 /// - `u32 old_path_len`
 ///     Length of the `new_path` string
 pub fn path_link(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     old_fd: __wasi_fd_t,
     old_flags: __wasi_lookupflags_t,
     old_path: WasmPtr<u8, Array>,
@@ -1603,7 +1594,7 @@ pub fn path_link(
     if old_flags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         debug!("  - will follow symlinks when opening path");
     }
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let old_path_str = get_input_str!(memory, old_path, old_path_len);
     let new_path_str = get_input_str!(memory, new_path, new_path_len);
     let source_fd = wasi_try!(state.fs.get_fd(old_fd));
@@ -1673,7 +1664,7 @@ pub fn path_link(
 /// Possible Errors:
 /// - `__WASI_EACCES`, `__WASI_EBADF`, `__WASI_EFAULT`, `__WASI_EFBIG?`, `__WASI_EINVAL`, `__WASI_EIO`, `__WASI_ELOOP`, `__WASI_EMFILE`, `__WASI_ENAMETOOLONG?`, `__WASI_ENFILE`, `__WASI_ENOENT`, `__WASI_ENOTDIR`, `__WASI_EROFS`, and `__WASI_ENOTCAPABLE`
 pub fn path_open(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     dirfd: __wasi_fd_t,
     dirflags: __wasi_lookupflags_t,
     path: WasmPtr<u8, Array>,
@@ -1688,7 +1679,7 @@ pub fn path_open(
     if dirflags & __WASI_LOOKUP_SYMLINK_FOLLOW != 0 {
         debug!("  - will follow symlinks when opening path");
     }
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     /* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */
     if path_len > 1024 * 1024 {
         return __WASI_ENAMETOOLONG;
@@ -1742,10 +1733,8 @@ pub fn path_open(
                 if o_flags & __WASI_O_DIRECTORY != 0 {
                     return __WASI_ENOTDIR;
                 }
-                if o_flags & __WASI_O_EXCL != 0 {
-                    if path.exists() {
-                        return __WASI_EEXIST;
-                    }
+                if o_flags & __WASI_O_EXCL != 0 && path.exists() {
+                    return __WASI_EEXIST;
                 }
                 let mut open_options = std::fs::OpenOptions::new();
                 let write_permission = adjusted_rights & __WASI_RIGHT_FD_WRITE != 0;
@@ -1788,10 +1777,8 @@ pub fn path_open(
             Kind::Buffer { .. } => unimplemented!("wasi::path_open for Buffer type files"),
             Kind::Dir { .. } | Kind::Root { .. } => {
                 // TODO: adjust these to be correct
-                if o_flags & __WASI_O_EXCL != 0 {
-                    if path_arg.exists() {
-                        return __WASI_EEXIST;
-                    }
+                if o_flags & __WASI_O_EXCL != 0 && path_arg.exists() {
+                    return __WASI_EEXIST;
                 }
             }
             Kind::Symlink {
@@ -1914,7 +1901,7 @@ pub fn path_open(
 /// - `u32 buf_used`
 ///     The number of bytes written to `buf`
 pub fn path_readlink(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     dir_fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
@@ -1923,7 +1910,7 @@ pub fn path_readlink(
     buf_used: WasmPtr<u32>,
 ) -> __wasi_errno_t {
     debug!("wasi::path_readlink");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&dir_fd).ok_or(__WASI_EBADF));
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_READLINK) {
@@ -1959,14 +1946,14 @@ pub fn path_readlink(
 
 /// Returns __WASI_ENOTEMTPY if directory is not empty
 pub fn path_remove_directory(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
     // TODO check if fd is a dir, ensure it's within sandbox, etc.
     debug!("wasi::path_remove_directory");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
     let path_str = get_input_str!(memory, path, path_len);
@@ -2004,7 +1991,7 @@ pub fn path_remove_directory(
         ),
     }
 
-    if let Err(_) = std::fs::remove_dir(path_str) {
+    if std::fs::remove_dir(path_str).is_err() {
         // reinsert to prevent FS from being in bad state
         if let Kind::Dir {
             ref mut entries, ..
@@ -2035,7 +2022,7 @@ pub fn path_remove_directory(
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
 pub fn path_rename(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     old_fd: __wasi_fd_t,
     old_path: WasmPtr<u8, Array>,
     old_path_len: u32,
@@ -2044,7 +2031,7 @@ pub fn path_rename(
     new_path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_rename");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let source_str = get_input_str!(memory, old_path, old_path_len);
     let source_path = std::path::Path::new(source_str);
     let target_str = get_input_str!(memory, new_path, new_path_len);
@@ -2144,7 +2131,7 @@ pub fn path_rename(
 /// - `u32 new_path_len`
 ///     The number of bytes to read from `new_path`
 pub fn path_symlink(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     old_path: WasmPtr<u8, Array>,
     old_path_len: u32,
     fd: __wasi_fd_t,
@@ -2152,7 +2139,7 @@ pub fn path_symlink(
     new_path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_symlink");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let old_path_str = get_input_str!(memory, old_path, old_path_len);
     let new_path_str = get_input_str!(memory, new_path, new_path_len);
     let base_fd = wasi_try!(state.fs.get_fd(fd));
@@ -2223,13 +2210,13 @@ pub fn path_symlink(
 /// - `u32 path_len`
 ///     The number of bytes in the `path` array
 pub fn path_unlink_file(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     fd: __wasi_fd_t,
     path: WasmPtr<u8, Array>,
     path_len: u32,
 ) -> __wasi_errno_t {
     debug!("wasi::path_unlink_file");
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd).ok_or(__WASI_EBADF));
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_UNLINK_FILE) {
@@ -2317,7 +2304,7 @@ pub fn path_unlink_file(
 /// - `u32 nevents`
 ///     The number of events seen
 pub fn poll_oneoff(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     in_: WasmPtr<__wasi_subscription_t, Array>,
     out_: WasmPtr<__wasi_event_t, Array>,
     nsubscriptions: u32,
@@ -2325,7 +2312,7 @@ pub fn poll_oneoff(
 ) -> __wasi_errno_t {
     debug!("wasi::poll_oneoff");
     debug!("  => nsubscriptions = {}", nsubscriptions);
-    let (memory, state) = get_memory_and_wasi_state(ctx, 0);
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let subscription_array = wasi_try!(in_.deref(memory, 0, nsubscriptions));
     let event_array = wasi_try!(out_.deref(memory, 0, nsubscriptions));
@@ -2503,11 +2490,13 @@ pub fn poll_oneoff(
     __WASI_ESUCCESS
 }
 
-pub fn proc_exit(ctx: &mut Ctx, code: __wasi_exitcode_t) -> Result<Infallible, ExitCode> {
+pub fn proc_exit(env: &mut WasiEnv, code: __wasi_exitcode_t) {
     debug!("wasi::proc_exit, {}", code);
-    Err(ExitCode { code })
+    RuntimeError::raise(Box::new(WasiError::Exit(code)));
+    unreachable!();
 }
-pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
+
+pub fn proc_raise(env: &mut WasiEnv, sig: __wasi_signal_t) -> __wasi_errno_t {
     debug!("wasi::proc_raise");
     unimplemented!("wasi::proc_raise")
 }
@@ -2519,9 +2508,9 @@ pub fn proc_raise(ctx: &mut Ctx, sig: __wasi_signal_t) -> __wasi_errno_t {
 ///     A pointer to a buffer where the random bytes will be written
 /// - `size_t buf_len`
 ///     The number of bytes that will be written
-pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
+pub fn random_get(env: &mut WasiEnv, buf: WasmPtr<u8, Array>, buf_len: u32) -> __wasi_errno_t {
     debug!("wasi::random_get buf_len: {}", buf_len);
-    let memory = ctx.memory(0);
+    let memory = env.memory();
 
     let buf = wasi_try!(buf.deref(memory, 0, buf_len));
 
@@ -2537,14 +2526,14 @@ pub fn random_get(ctx: &mut Ctx, buf: WasmPtr<u8, Array>, buf_len: u32) -> __was
 
 /// ### `sched_yield()`
 /// Yields execution of the thread
-pub fn sched_yield(ctx: &mut Ctx) -> __wasi_errno_t {
+pub fn sched_yield(env: &mut WasiEnv) -> __wasi_errno_t {
     debug!("wasi::sched_yield");
     ::std::thread::yield_now();
     __WASI_ESUCCESS
 }
 
 pub fn sock_recv(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     sock: __wasi_fd_t,
     ri_data: WasmPtr<__wasi_iovec_t, Array>,
     ri_data_len: u32,
@@ -2556,7 +2545,7 @@ pub fn sock_recv(
     unimplemented!("wasi::sock_recv")
 }
 pub fn sock_send(
-    ctx: &mut Ctx,
+    env: &mut WasiEnv,
     sock: __wasi_fd_t,
     si_data: WasmPtr<__wasi_ciovec_t, Array>,
     si_data_len: u32,
@@ -2566,7 +2555,11 @@ pub fn sock_send(
     debug!("wasi::sock_send");
     unimplemented!("wasi::sock_send")
 }
-pub fn sock_shutdown(ctx: &mut Ctx, sock: __wasi_fd_t, how: __wasi_sdflags_t) -> __wasi_errno_t {
+pub fn sock_shutdown(
+    env: &mut WasiEnv,
+    sock: __wasi_fd_t,
+    how: __wasi_sdflags_t,
+) -> __wasi_errno_t {
     debug!("wasi::sock_shutdown");
     unimplemented!("wasi::sock_shutdown")
 }

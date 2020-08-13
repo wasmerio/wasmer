@@ -1,0 +1,20 @@
+[package]
+name = "wasmer-object"
+version = "1.0.0-alpha.1"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Wasmer Native Object generator"
+license = "(Apache-2.0 WITH LLVM-exception) or MIT"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", default-features = false, features = [
+    "std",
+    "translator"
+] }
+object = { version = "0.19", default-features = false, features = ["write"] }
+thiserror = "1.0"

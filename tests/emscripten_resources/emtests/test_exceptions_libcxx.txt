@@ -1,2 +1,0 @@
-Exception caught:
-basic_string

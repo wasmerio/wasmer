@@ -11,11 +11,11 @@ use std::os::raw::c_char;
 use crate::env::{call_malloc, call_malloc_with_cast, EmAddrInfo, EmSockAddr};
 use crate::ptr::{Array, WasmPtr};
 use crate::utils::{copy_cstr_into_wasm, copy_terminated_array_of_cstrs};
-use wasmer_runtime_core::vm::Ctx;
+use crate::EmEnv;
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(ctx: &mut Ctx, name: i32) -> u32 {
+pub fn _getenv(ctx: &mut EmEnv, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -31,7 +31,7 @@ pub fn _getenv(ctx: &mut Ctx, name: i32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(ctx: &mut Ctx, name: c_int, value: c_int, overwrite: c_int) -> c_int {
+pub fn _setenv(ctx: &mut EmEnv, name: c_int, value: c_int, overwrite: c_int) -> c_int {
     debug!("emscripten::_setenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -44,7 +44,7 @@ pub fn _setenv(ctx: &mut Ctx, name: c_int, value: c_int, overwrite: c_int) -> c_
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub fn _putenv(ctx: &mut Ctx, name: c_int) -> c_int {
+pub fn _putenv(ctx: &mut EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -55,7 +55,7 @@ pub fn _putenv(ctx: &mut Ctx, name: c_int) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(ctx: &mut Ctx, name: c_int) -> c_int {
+pub fn _unsetenv(ctx: &mut EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_unsetenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -66,7 +66,7 @@ pub fn _unsetenv(ctx: &mut Ctx, name: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
+pub fn _getpwnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
     #[cfg(feature = "debug")]
     let _ = name_ptr;
@@ -106,7 +106,7 @@ pub fn _getpwnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
+pub fn _getgrnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
 
     #[repr(C)]
@@ -137,14 +137,14 @@ pub fn _getgrnam(ctx: &mut Ctx, name_ptr: c_int) -> c_int {
     }
 }
 
-pub fn _sysconf(_ctx: &mut Ctx, name: c_int) -> i32 {
+pub fn _sysconf(_ctx: &mut EmEnv, name: c_int) -> i32 {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) as i32 } // TODO review i64
 }
 
 // this may be a memory leak, probably not though because emscripten does the same thing
-pub fn _gai_strerror(ctx: &mut Ctx, ecode: i32) -> i32 {
+pub fn _gai_strerror(ctx: &mut EmEnv, ecode: i32) -> i32 {
     debug!("emscripten::_gai_strerror({})", ecode);
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
@@ -164,7 +164,7 @@ pub fn _gai_strerror(ctx: &mut Ctx, ecode: i32) -> i32 {
 }
 
 pub fn _getaddrinfo(
-    ctx: &mut Ctx,
+    ctx: &mut EmEnv,
     node_ptr: WasmPtr<c_char>,
     service_str_ptr: WasmPtr<c_char>,
     hints_ptr: WasmPtr<EmAddrInfo>,
@@ -263,7 +263,7 @@ pub fn _getaddrinfo(
                     .get_mut();
 
                 guest_sockaddr.sa_family = (*host_sockaddr_ptr).sa_family as i16;
-                guest_sockaddr.sa_data = (*host_sockaddr_ptr).sa_data.clone();
+                guest_sockaddr.sa_data = (*host_sockaddr_ptr).sa_data;
                 guest_sockaddr_ptr
             };
 
@@ -308,7 +308,7 @@ pub fn _getaddrinfo(
         }
         // this frees all connected nodes on the linked list
         freeaddrinfo(out_ptr);
-        head_of_list.unwrap_or(WasmPtr::new(0))
+        head_of_list.unwrap_or_else(|| WasmPtr::new(0))
     };
 
     res_val_ptr.deref(ctx.memory(0)).unwrap().set(head_of_list);

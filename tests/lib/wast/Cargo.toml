@@ -1,0 +1,28 @@
+[package]
+name = "wasmer-wast"
+version = "1.0.0-alpha.1"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "wast testing support for wasmer"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+anyhow = "1.0"
+wasmer = { path = "../../../lib/api", version = "1.0.0-alpha.1", default-features = false }
+wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.0-alpha.1" }
+wast = "17.0"
+serde = "1"
+tempfile = "3"
+thiserror = "1.0"
+typetag = "0.1"
+
+[features]
+default = ["wat"]
+wat = ["wasmer/wat"]
+
+[badges]
+maintenance = { status = "actively-developed" }

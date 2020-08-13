@@ -6,14 +6,10 @@
 #![allow(dead_code)]
 
 use std::{cell::Cell, fmt};
-pub use wasmer_runtime_core::memory::ptr::Array;
-use wasmer_runtime_core::{
-    memory::{ptr, Memory},
-    types::{ValueType, WasmExternType},
-};
+pub use wasmer::{Array, FromToNativeWasmType, Memory, ValueType};
 
 #[repr(transparent)]
-pub struct WasmPtr<T: Copy, Ty = ptr::Item>(ptr::WasmPtr<T, Ty>);
+pub struct WasmPtr<T: Copy, Ty = wasmer::Item>(wasmer::WasmPtr<T, Ty>);
 
 unsafe impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {}
 impl<T: Copy, Ty> Copy for WasmPtr<T, Ty> {}
@@ -30,14 +26,14 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     }
 }
 
-unsafe impl<T: Copy, Ty> WasmExternType for WasmPtr<T, Ty> {
-    type Native = <ptr::WasmPtr<T, Ty> as WasmExternType>::Native;
+unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
+    type Native = <wasmer::WasmPtr<T, Ty> as FromToNativeWasmType>::Native;
 
     fn to_native(self) -> Self::Native {
         self.0.to_native()
     }
     fn from_native(n: Self::Native) -> Self {
-        Self(ptr::WasmPtr::from_native(n))
+        Self(wasmer::WasmPtr::from_native(n))
     }
 }
 
@@ -52,7 +48,7 @@ impl<T: Copy, Ty> Eq for WasmPtr<T, Ty> {}
 impl<T: Copy, Ty> WasmPtr<T, Ty> {
     #[inline(always)]
     pub fn new(offset: u32) -> Self {
-        Self(ptr::WasmPtr::new(offset))
+        Self(wasmer::WasmPtr::new(offset))
     }
 
     #[inline(always)]
@@ -61,7 +57,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     }
 }
 
-impl<T: Copy + ValueType> WasmPtr<T, ptr::Item> {
+impl<T: Copy + ValueType> WasmPtr<T, wasmer::Item> {
     #[inline(always)]
     pub fn deref<'a>(self, memory: &'a Memory) -> Option<&'a Cell<T>> {
         if self.0.offset() == 0 {
@@ -81,7 +77,7 @@ impl<T: Copy + ValueType> WasmPtr<T, ptr::Item> {
     }
 }
 
-impl<T: Copy + ValueType> WasmPtr<T, ptr::Array> {
+impl<T: Copy + ValueType> WasmPtr<T, wasmer::Array> {
     #[inline(always)]
     pub fn deref<'a>(self, memory: &'a Memory, index: u32, length: u32) -> Option<&'a [Cell<T>]> {
         if self.0.offset() == 0 {

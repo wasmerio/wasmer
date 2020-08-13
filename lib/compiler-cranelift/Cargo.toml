@@ -1,0 +1,40 @@
+[package]
+name = "wasmer-compiler-cranelift"
+version = "1.0.0-alpha.1"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "Standalone environment support for WebAsssembly code in Cranelift"
+license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+repository = "https://github.com/wasmerio/wasmer"
+documentation = "https://docs.rs/wasmer-compiler-cranelift/"
+categories = ["wasm"]
+keywords = ["webassembly", "wasm", "compiler", "cranelift"]
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
+wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1", default-features = false, features = ["std"] }
+cranelift-codegen = { version = "0.65", default-features = false }
+cranelift-frontend = { version = "0.65", default-features = false }
+tracing = "0.1"
+hashbrown = { version = "0.8", optional = true }
+rayon = "1.3"
+serde = { version = "1.0", features = ["derive"] }
+more-asserts = "0.2"
+gimli = { version = "0.21", optional = true }
+
+[dev-dependencies]
+target-lexicon = { version = "0.10", default-features = false }
+cranelift-codegen = { version = "0.65", features = ["enable-serde", "all-arch"] }
+lazy_static = "1.4"
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std", "enable-serde", "unwind"]
+unwind = ["cranelift-codegen/unwind", "gimli"]
+enable-serde = ["wasmer-compiler/enable-serde", "cranelift-codegen/enable-serde", "wasm-common/enable-serde"]
+std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasm-common/std"]
+core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]

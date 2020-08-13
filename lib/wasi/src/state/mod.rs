@@ -13,6 +13,8 @@
 //! You can implement `WasiFile` for your own types to get custom behavior and extend WASI, see the
 //! [WASI plugin example](https://github.com/wasmerio/wasmer/blob/master/examples/plugin.rs).
 
+#![allow(clippy::cognitive_complexity, clippy::too_many_arguments)]
+
 mod builder;
 mod types;
 
@@ -31,7 +33,7 @@ use std::{
     path::{Path, PathBuf},
     time::SystemTime,
 };
-use wasmer_runtime_core::vm::Ctx;
+use tracing::debug;
 
 /// the fd value of the virtual root
 pub const VIRTUAL_ROOT_FD: __wasi_fd_t = 3;
@@ -50,15 +52,6 @@ const STDOUT_DEFAULT_RIGHTS: __wasi_rights_t = __WASI_RIGHT_FD_DATASYNC
     | __WASI_RIGHT_FD_FILESTAT_GET
     | __WASI_RIGHT_POLL_FD_READWRITE;
 const STDERR_DEFAULT_RIGHTS: __wasi_rights_t = STDOUT_DEFAULT_RIGHTS;
-
-/// Get WasiState from a Ctx
-///
-/// # Safety
-/// - This function must be called on a `Ctx` that was created with `WasiState`
-///   in the data field
-pub unsafe fn get_wasi_state(ctx: &mut Ctx) -> &mut WasiState {
-    &mut *(ctx.data as *mut WasiState)
-}
 
 /// A completely aribtrary "big enough" number used as the upper limit for
 /// the number of symlinks that can be traversed when resolving a path
@@ -1366,7 +1359,7 @@ impl WasiFs {
                     _ => unreachable!("Symlink pointing to something that's not a directory as its base preopened directory"),
                 }
             }
-            __ => return None,
+            _ => return None,
         };
         Some(__wasi_filestat_t {
             st_filetype: host_file_type_to_wasi_file_type(md.file_type()),
@@ -1410,7 +1403,7 @@ impl WasiFs {
                     .ok_or(__WASI_EINVAL)?
                     .to_string_lossy()
                     .to_string();
-                if let Some(p) = parent.clone() {
+                if let Some(p) = *parent {
                     match &mut self.inodes[p].kind {
                         Kind::Dir { entries, .. } | Kind::Root { entries } => {
                             self.fd_map.remove(&fd).unwrap();
@@ -1459,7 +1452,7 @@ impl WasiFs {
 /// Usage:
 ///
 /// ```no_run
-/// # use wasmer_wasi::state::{WasiState, WasiStateCreationError};
+/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
 /// # fn main() -> Result<(), WasiStateCreationError> {
 /// WasiState::new("program_name")
 ///    .env(b"HOME", "/home/home".to_string())
@@ -1487,8 +1480,9 @@ pub struct WasiState {
 impl WasiState {
     /// Create a [`WasiStateBuilder`] to construct a validated instance of
     /// [`WasiState`].
-    pub fn new(program_name: &str) -> WasiStateBuilder {
-        create_wasi_state(program_name)
+    #[allow(clippy::new_ret_no_self)]
+    pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
+        create_wasi_state(program_name.as_ref())
     }
 
     /// Turn the WasiState into bytes

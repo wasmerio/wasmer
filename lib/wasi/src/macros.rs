@@ -7,11 +7,11 @@ macro_rules! wasi_try {
         let res: Result<_, crate::syscalls::types::__wasi_errno_t> = $expr;
         match res {
             Ok(val) => {
-                trace!("wasi::wasi_try::val: {:?}", val);
+                tracing::trace!("wasi::wasi_try::val: {:?}", val);
                 val
             }
             Err(err) => {
-                trace!("wasi::wasi_try::err: {:?}", err);
+                tracing::trace!("wasi::wasi_try::err: {:?}", err);
                 return err;
             }
         }
