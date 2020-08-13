@@ -72,6 +72,10 @@ bool wasi_get_imports(wasm_store_t* store,
 // Returns whether or not it succeeded.
 bool wasi_env_set_instance(wasi_env_t*, const wasm_instance_t*);
 
+// Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
+// Returns whether or not it succeeded.
+void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
+
 // Read from WASI's buffered stdout if stdout has not been inherited with
 // `wasi_config_inherit_stdout`.
 size_t wasi_env_read_stdout(wasi_env_t* env,
@@ -87,8 +91,13 @@ size_t wasi_env_read_stderr(wasi_env_t* env,
 // Get the version of WASI needed by the given Wasm module.
 wasi_version_t wasi_get_wasi_version(wasm_module_t*);
 
+// Get the start function which initializes the WASI state and calls main.
+//
+// The start function takes 0 arguments and returns 0 values.
+own wasm_func_t* wasi_get_start_function(wasm_instance_t*);
+
 // Delete a `wasm_extern_t` allocated by the API.
-void wasm_extern_delete(wasm_extern_t*);
+void wasm_extern_delete(own wasm_extern_t*);
 
 // TODO: figure out if we can do less duplication.
 /**

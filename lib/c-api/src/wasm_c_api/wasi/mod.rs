@@ -4,7 +4,9 @@
 
 mod capture_files;
 
-use super::{wasm_extern_t, wasm_instance_t, wasm_module_t, wasm_store_t};
+use super::{
+    wasm_extern_t, wasm_func_t, wasm_instance_t, wasm_memory_t, wasm_module_t, wasm_store_t,
+};
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
 use crate::c_try;
@@ -124,6 +126,11 @@ pub extern "C" fn wasi_env_set_instance(env: &mut wasi_env_t, instance: &wasm_in
     env.inner.set_memory(memory.clone());
 
     true
+}
+
+#[no_mangle]
+pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
+    env.inner.set_memory(memory.inner.clone());
 }
 
 #[no_mangle]
@@ -276,6 +283,15 @@ unsafe extern "C" fn wasi_get_imports_inner(
     }
 
     Some(())
+}
+
+#[no_mangle]
+pub unsafe fn wasi_get_start_function(instance: &mut wasm_instance_t) -> Option<Box<wasm_func_t>> {
+    let f = c_try!(instance.inner.exports.get_function("_start"));
+    Some(Box::new(wasm_func_t {
+        inner: f.clone(),
+        instance: Some(instance.inner.clone()),
+    }))
 }
 
 /// Delete a `wasm_extern_t` allocated by the API.

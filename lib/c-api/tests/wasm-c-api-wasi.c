@@ -101,9 +101,10 @@ int main(int argc, const char* argv[]) {
   fprintf(stderr, "found %zu exports\n", exports.size);
 
   wasi_env_set_instance(wasi_env, instance);
-  const wasm_func_t* run_func = wasm_extern_as_func(exports.data[1]);
+  wasm_func_t* run_func = wasi_get_start_function(instance);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
+    print_wasmer_error();
     return 1;
   }
 
@@ -139,6 +140,7 @@ int main(int argc, const char* argv[]) {
 
   // Shut down.
   printf("Shutting down...\n");
+  wasm_func_delete(run_func);
   wasi_env_delete(wasi_env);
   wasm_store_delete(store);
   wasm_engine_delete(engine);
