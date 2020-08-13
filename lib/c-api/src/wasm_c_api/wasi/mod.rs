@@ -228,7 +228,18 @@ pub unsafe extern "C" fn wasi_get_imports(
     store: Option<NonNull<wasm_store_t>>,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
-) -> Option<Box<[Box<wasm_extern_t>]>> {
+    imports: *mut *mut wasm_extern_t,
+) -> bool {
+    wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
+}
+
+/// Takes ownership of `wasi_env_t`.
+unsafe extern "C" fn wasi_get_imports_inner(
+    store: Option<NonNull<wasm_store_t>>,
+    module: &wasm_module_t,
+    wasi_env: &wasi_env_t,
+    imports: *mut *mut wasm_extern_t,
+) -> Option<()> {
     let store_ptr = store?.cast::<Store>();
     let store = store_ptr.as_ref();
 
@@ -240,8 +251,7 @@ pub unsafe extern "C" fn wasi_get_imports(
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
-    let mut extern_vec = vec![];
-    for it in module.inner.imports() {
+    for (i, it) in module.inner.imports().enumerate() {
         let export = c_try!(import_object
             .resolve_by_name(it.module(), it.name())
             .ok_or_else(|| CApiError {
@@ -252,11 +262,15 @@ pub unsafe extern "C" fn wasi_get_imports(
                 ),
             }));
         let inner = Extern::from_export(store, export);
-        extern_vec.push(Box::new(wasm_extern_t {
+        *imports.add(i) = Box::into_raw(Box::new(wasm_extern_t {
             instance: None,
             inner,
         }));
     }
 
-    Some(extern_vec.into_boxed_slice())
+    Some(())
 }
+
+/// Delete a `wasm_extern_t` allocated by the API.
+#[no_mangle]
+pub unsafe fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}

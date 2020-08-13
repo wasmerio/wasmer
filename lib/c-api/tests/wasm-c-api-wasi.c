@@ -69,14 +69,20 @@ int main(int argc, const char* argv[]) {
 
   // Instantiate.
   printf("Instantiating module...\n");
-  const wasm_extern_t* const* imports = wasi_get_imports(store, module, wasi_env);
-  if (!imports) {
+  wasm_importtype_vec_t import_types;
+  wasm_module_imports(module, &import_types);
+  int num_imports = import_types.size;
+  wasm_extern_t** imports = malloc(num_imports * sizeof(wasm_extern_t*));
+  wasm_importtype_vec_delete(&import_types);
+
+  bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
+  if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");
     print_wasmer_error();
     return 1;
   }
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+    wasm_instance_new(store, module, (const wasm_extern_t *const *) imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     print_wasmer_error();
@@ -130,6 +136,12 @@ int main(int argc, const char* argv[]) {
   printf("\n");
 
   wasm_extern_vec_delete(&exports);
+
+  // NEEDS REVIEW:
+  for(int i = 0; i < num_imports; ++i) {
+     wasm_extern_delete(imports[i]);
+  }
+  free(imports);
 
   // Shut down.
   printf("Shutting down...\n");

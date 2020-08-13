@@ -63,9 +63,10 @@ own wasi_env_t* wasi_env_new(own wasi_config_t*);
 void wasi_env_delete(own wasi_env_t*);
 
 // Get an array of imports that can be used to instantiate the given module.
-own const wasm_extern_t* own const* wasi_get_imports(wasm_store_t* store,
-                                                     wasm_module_t* module,
-                                                     wasi_env_t* wasi_env);
+bool wasi_get_imports(wasm_store_t* store,
+                      wasm_module_t* module,
+                      wasi_env_t* wasi_env,
+                      wasm_extern_t** imports);
 
 // TODO: investigate removing this part of the API
 // Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
@@ -85,6 +86,9 @@ size_t wasi_env_read_stderr(wasi_env_t* env,
 
 // Get the version of WASI needed by the given Wasm module.
 wasi_version_t wasi_get_wasi_version(wasm_module_t*);
+
+// Delete a `wasm_extern_t` allocated by the API.
+void wasm_extern_delete(wasm_extern_t*);
 
 // TODO: figure out if we can do less duplication.
 /**
