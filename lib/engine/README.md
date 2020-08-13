@@ -1,4 +1,4 @@
-# `wasmer-engine` [![Build Status](https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-engine` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 This crate is the general abstraction for creating Engines in Wasmer.
 
@@ -26,8 +26,8 @@ Please check [Wasmer `ATTRIBUTIONS`] to further see licenses and other
 attributions of the project.
 
 
-[`wasmer-engine-jit`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/engine-jit
-[`wasmer-engine-native`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/engine-native
-[`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer-reborn/tree/master/tests/lib/engine-dummy
+[`wasmer-engine-jit`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-jit
+[`wasmer-engine-native`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-native
+[`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer/tree/master/tests/lib/engine-dummy
 [`wasmtime-api`]: https://crates.io/crates/wasmtime
 [Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

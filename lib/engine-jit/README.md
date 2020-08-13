@@ -1,4 +1,4 @@
-# `wasmer-engine-jit` [![Build Status](https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-engine-jit` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 The Wasmer JIT engine is usable with any compiler implementation based
 on [`wasmer-compiler`]. After the compiler process the result, the JIT
@@ -18,8 +18,8 @@ Please check [Wasmer `ATTRIBUTIONS`] to further see licenses and other
 attributions of the project.
 
 
-[`wasmer-compiler`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler
-[`wasmer`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/api
-[example]: https://github.com/wasmerio/wasmer-reborn/blob/master/examples/engine_jit.rs
+[`wasmer-compiler`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler
+[`wasmer`]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[example]: https://github.com/wasmerio/wasmer/blob/master/examples/engine_jit.rs
 [`wasmtime-jit`]: https://crates.io/crates/wasmtime-jit
 [Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

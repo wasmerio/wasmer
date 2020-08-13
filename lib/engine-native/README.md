@@ -1,4 +1,4 @@
-# `wasmer-engine-native` [![Build Status](https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-engine-native` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 The Wasmer Native engine is usable with any compiler implementation
 based on [`wasmer-compiler`] that is able to emit
@@ -40,11 +40,11 @@ Or via any of the [pre-built binaries that LLVM
 offers][llvm-pre-built].
 
 
-[`wasmer-compiler`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler
+[`wasmer-compiler`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler
 [PIC]: https://en.wikipedia.org/wiki/Position-independent_code
 [`dlsym`]: https://www.freebsd.org/cgi/man.cgi?query=dlsym
-[`wasmer`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/api
-[example]: https://github.com/wasmerio/wasmer-reborn/blob/master/examples/engine_native.rs
+[`wasmer`]: https://github.com/wasmerio/wasmer/tree/master/lib/api
+[example]: https://github.com/wasmerio/wasmer/blob/master/examples/engine_native.rs
 [`gcc`]: https://gcc.gnu.org/
 [`clang`]: https://clang.llvm.org/
 [llvm-pre-built]: https://releases.llvm.org/download.html
