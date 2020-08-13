@@ -7,33 +7,22 @@ use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
 
+pub(crate) mod utils;
+#[cfg(feature = "wasi")]
+pub mod wasi;
+
+// required due to really weird Rust resolution rules
+// https://github.com/rust-lang/rust/issues/57966
+use crate::c_try;
+
 use crate::ordered_resolver::OrderedResolver;
 use wasmer::{
-    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, Instance,
-    Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType, Val,
-    ValType,
+    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, ImportType,
+    Instance, Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType,
+    Val, ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-
-use crate::error::update_last_error;
-
-macro_rules! c_try {
-    ($expr:expr) => {{
-        let res: Result<_, _> = $expr;
-        match res {
-            Ok(val) => val,
-            Err(err) => {
-                update_last_error(err);
-                return None;
-            }
-        }
-    }};
-    ($expr:expr, $e:expr) => {{
-        let opt: Option<_> = $expr;
-        c_try!(opt.ok_or_else(|| $e))
-    }};
-}
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]
@@ -200,7 +189,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
 #[repr(C)]
 pub struct wasm_module_t {
-    inner: Arc<Module>,
+    pub(crate) inner: Arc<Module>,
 }
 
 #[no_mangle]
@@ -239,6 +228,25 @@ pub unsafe extern "C" fn wasm_module_exports(
     out.size = exports.len();
     out.data = exports.as_mut_ptr();
     mem::forget(exports);
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_imports(
+    module: &wasm_module_t,
+    out: &mut wasm_importtype_vec_t,
+) {
+    let mut imports = module
+        .inner
+        .imports()
+        .map(Into::into)
+        .map(Box::new)
+        .map(Box::into_raw)
+        .collect::<Vec<*mut wasm_importtype_t>>();
+
+    debug_assert_eq!(imports.len(), imports.capacity());
+    out.size = imports.len();
+    out.data = imports.as_mut_ptr();
+    mem::forget(imports);
 }
 
 #[no_mangle]
@@ -864,7 +872,7 @@ pub unsafe extern "C" fn wasm_global_same(
 #[repr(C)]
 pub struct wasm_memory_t {
     // maybe needs to hold onto instance
-    inner: Memory,
+    pub(crate) inner: Memory,
 }
 
 #[no_mangle]
@@ -1184,8 +1192,8 @@ pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut
 #[repr(C)]
 pub struct wasm_extern_t {
     // this is how we ensure the instance stays alive
-    instance: Option<Arc<Instance>>,
-    inner: Extern,
+    pub(crate) instance: Option<Arc<Instance>>,
+    pub(crate) inner: Extern,
 }
 wasm_declare_boxed_vec!(extern);
 
@@ -1817,5 +1825,93 @@ impl From<&ExportType> for wasm_exporttype_t {
         };
 
         wasm_exporttype_t { name, extern_type }
+    }
+}
+
+// TODO: improve ownership in `importtype_t` (can we safely use `Box<wasm_name_t>` here?)
+#[repr(C)]
+#[allow(non_camel_case_types)]
+pub struct wasm_importtype_t {
+    module: NonNull<wasm_name_t>,
+    name: NonNull<wasm_name_t>,
+    extern_type: NonNull<wasm_externtype_t>,
+}
+
+wasm_declare_boxed_vec!(importtype);
+
+#[no_mangle]
+pub extern "C" fn wasm_importtype_new(
+    module: NonNull<wasm_name_t>,
+    name: NonNull<wasm_name_t>,
+    extern_type: NonNull<wasm_externtype_t>,
+) -> Box<wasm_importtype_t> {
+    Box::new(wasm_importtype_t {
+        name,
+        module,
+        extern_type,
+    })
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_importtype_module(et: &'static wasm_importtype_t) -> &'static wasm_name_t {
+    unsafe { et.module.as_ref() }
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_importtype_name(et: &'static wasm_importtype_t) -> &'static wasm_name_t {
+    unsafe { et.name.as_ref() }
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_importtype_type(
+    et: &'static wasm_importtype_t,
+) -> &'static wasm_externtype_t {
+    unsafe { et.extern_type.as_ref() }
+}
+
+impl From<ImportType> for wasm_importtype_t {
+    fn from(other: ImportType) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&ImportType> for wasm_importtype_t {
+    fn from(other: &ImportType) -> Self {
+        // TODO: double check that freeing String as `Vec<u8>` is valid
+        let name = {
+            let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
+            let char_ptr = heap_str.as_mut_ptr();
+            let str_len = heap_str.bytes().len();
+            let name_inner = wasm_name_t {
+                size: str_len,
+                data: char_ptr,
+            };
+            Box::leak(heap_str);
+            unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(name_inner))) }
+        };
+
+        // TODO: double check that freeing String as `Vec<u8>` is valid
+        let module = {
+            let mut heap_str: Box<str> = other.module().to_string().into_boxed_str();
+            let char_ptr = heap_str.as_mut_ptr();
+            let str_len = heap_str.bytes().len();
+            let name_inner = wasm_name_t {
+                size: str_len,
+                data: char_ptr,
+            };
+            Box::leak(heap_str);
+            unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(name_inner))) }
+        };
+
+        let extern_type = {
+            let extern_type: wasm_externtype_t = other.ty().into();
+            unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(extern_type))) }
+        };
+
+        wasm_importtype_t {
+            name,
+            module,
+            extern_type,
+        }
     }
 }

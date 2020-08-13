@@ -30,7 +30,9 @@ cfg-if = "0.1"
 lazy_static = "1"
 libc = { version = "^0.2.69", default-features = false }
 libffi = { version = "0.9" }
+serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
+typetag = { version = "0.1", optional = true }
 paste = "0.1"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
@@ -41,7 +43,7 @@ default = [
     "cranelift",
     "wasi",
 ]
-wasi = ["wasmer-wasi"]
+wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 jit = [
     "wasmer-engine-jit",

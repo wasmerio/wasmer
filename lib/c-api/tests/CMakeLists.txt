@@ -20,6 +20,7 @@ add_executable(test-validate test-validate.c)
 add_executable(test-context test-context.c)
 add_executable(test-module-import-instantiate test-module-import-instantiate.c)
 
+
 # Wasm C API tests
 add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
 add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
@@ -31,6 +32,9 @@ add_executable(wasm-c-api-callback wasm-c-api/example/callback.c)
 add_executable(wasm-c-api-reflect wasm-c-api/example/reflect.c)
 #add_executable(wasm-c-api-start wasm-c-api/example/start.c)
 
+# Custom Wasm C API tests
+add_executable(wasm-c-api-wasi wasm-c-api-wasi.c)
+
 if (DEFINED WASI_TESTS)
     add_executable(test-wasi-import-object test-wasi-import-object.c)
 endif()
@@ -40,6 +44,7 @@ if (DEFINED EMSCRIPTEN_TESTS)
 endif()
 
 include_directories(wasm-c-api/include)
+include_directories(..)
 
 
 find_library(
@@ -208,3 +213,13 @@ add_test(NAME wasm-c-api-reflect
 #         COMMAND wasm-c-api-start
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
 #)
+
+
+set_property(TARGET wasm-c-api-wasi PROPERTY C_STANDARD 11)
+target_link_libraries(wasm-c-api-wasi general ${WASMER_LIB})
+target_compile_options(wasm-c-api-wasi PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-wasi
+         COMMAND wasm-c-api-wasi
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} #/wasm-c-api/example
+)
+
