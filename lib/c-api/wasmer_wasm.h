@@ -64,13 +64,13 @@ void wasi_env_delete(own wasi_env_t*);
 
 // Get an array of imports that can be used to instantiate the given module.
 bool wasi_get_imports(wasm_store_t* store,
-                      wasm_module_t* module,
+                      const wasm_module_t* module,
                       wasi_env_t* wasi_env,
                       wasm_extern_t** imports);
 
-// TODO: investigate removing this part of the API
-// Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
-void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
+// Set up the `wasi_env_t` so that the WASI host functions can access WASI's memory.
+// Returns whether or not it succeeded.
+bool wasi_env_set_instance(wasi_env_t*, const wasm_instance_t*);
 
 // Read from WASI's buffered stdout if stdout has not been inherited with
 // `wasi_config_inherit_stdout`.

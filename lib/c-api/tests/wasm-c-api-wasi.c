@@ -100,13 +100,7 @@ int main(int argc, const char* argv[]) {
   }
   fprintf(stderr, "found %zu exports\n", exports.size);
 
-  printf("Getting memory...\n");
-  const wasm_memory_t* memory = wasm_extern_as_memory(exports.data[0]);
-  if (! memory) {
-    printf("Could not get memory!\n");
-    return 1;
-  }
-  wasi_env_set_memory(wasi_env, memory);
+  wasi_env_set_instance(wasi_env, instance);
   const wasm_func_t* run_func = wasm_extern_as_func(exports.data[1]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");

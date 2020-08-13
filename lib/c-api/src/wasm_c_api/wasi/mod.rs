@@ -4,7 +4,7 @@
 
 mod capture_files;
 
-use super::{wasm_extern_t, wasm_memory_t, wasm_module_t, wasm_store_t};
+use super::{wasm_extern_t, wasm_instance_t, wasm_module_t, wasm_store_t};
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
 use crate::c_try;
@@ -115,8 +115,15 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
 #[no_mangle]
-pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    env.inner.set_memory(memory.inner.clone());
+pub extern "C" fn wasi_env_set_instance(env: &mut wasi_env_t, instance: &wasm_instance_t) -> bool {
+    let memory = if let Ok(memory) = instance.inner.exports.get_memory("memory") {
+        memory
+    } else {
+        return false;
+    };
+    env.inner.set_memory(memory.clone());
+
+    true
 }
 
 #[no_mangle]
