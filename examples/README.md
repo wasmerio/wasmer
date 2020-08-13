@@ -191,8 +191,8 @@ example.
 [cross-compilation]: ./engine_cross_compilation.rs
 [exported-function]: ./exports_function.rs
 [wasi]: ./wasi.rs
-[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-singlepass
-[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-cranelift
-[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/compiler-llvm
-[`wasmer-wasi`]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/wasi
+[`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
+[`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
+[`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
+[`wasmer-wasi`]: https://github.com/wasmerio/wasmer/tree/master/lib/wasi
 [WASI]: https://github.com/WebAssembly/WASI

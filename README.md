@@ -4,8 +4,8 @@
   </a>
   
   <p>
-    <a href="https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square" alt="Build Status">
+    <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
+      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="License">
@@ -27,7 +27,7 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer-reborn#language-integrations).
+[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer#language-integrations).
 
 ## Features
 
@@ -102,12 +102,12 @@ qjs >
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: ./assets/languages/rust.svg
-[rust integration]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/api
+[rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
 
 [c logo]: ./assets/languages/c.svg
-[c integration]: https://github.com/wasmerio/wasmer-reborn/tree/master/lib/c-api
+[c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 [c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
 

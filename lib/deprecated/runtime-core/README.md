@@ -1,4 +1,4 @@
-# `wasmer-runtime-core` [DEPRECATED] [![Build Status](https://github.com/wasmerio/wasmer-reborn/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer-reborn/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-runtime-core` [DEPRECATED] [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
 
 ## Deprecation notice: please read
 
@@ -40,6 +40,6 @@ by providing common types to compile and to instantiate a WebAssembly
 module.
 
 Most Wasmer users should prefer the API which is re-exported by the
-[`wasmer-runtime`](https://github.com/wasmerio/wasmer-reborn/tree/master/lib/deprecated/runtime)
+[`wasmer-runtime`](https://github.com/wasmerio/wasmer/tree/master/lib/deprecated/runtime)
 library by default. This crate provides additional APIs which may be
 useful to users that wish to customize the Wasmer runtime.

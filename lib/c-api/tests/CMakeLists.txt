@@ -4,7 +4,7 @@ project (WasmerRuntimeCApiTests)
 add_executable(test-exported-memory test-exported-memory.c)
 add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
-# trampoline functionality not yet implemented in wasmer reborn
+# trampoline functionality not yet implemented
 #add_executable(test-import-function test-import-function.c)
 add_executable(test-import-trap test-import-trap.c)
 add_executable(test-imports test-imports.c)
@@ -80,7 +80,7 @@ target_link_libraries(test-globals general ${WASMER_LIB})
 target_compile_options(test-globals PRIVATE ${COMPILER_OPTIONS})
 add_test(test-globals test-globals)
 
-# trampoline functionality not yet implemented in wasmer reborn
+# trampoline functionality not yet implemented
 #target_link_libraries(test-import-function general ${WASMER_LIB})
 #target_compile_options(test-import-function PRIVATE ${COMPILER_OPTIONS})
 #add_test(test-import-function test-import-function)

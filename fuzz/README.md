@@ -20,7 +20,7 @@ or the `jit_cranelift` fuzzer
 ```sh
 cargo fuzz run jit_cranelift
 ```
-See the [fuzz/fuzz_targets](https://github.com/wasmerio/wasmer-reborn/tree/fuzz/fuzz_targets/) directory for the full list of targets.
+See the [fuzz/fuzz_targets](https://github.com/wasmerio/wasmer/tree/fuzz/fuzz_targets/) directory for the full list of targets.
 
 You should see output that looks something like this:
 
