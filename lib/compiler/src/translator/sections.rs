@@ -19,9 +19,9 @@ use core::convert::TryFrom;
 use std::boxed::Box;
 use std::collections::HashMap;
 use std::vec::Vec;
-use wasm_common::entity::packed_option::ReservedValue;
-use wasm_common::entity::EntityRef;
-use wasm_common::{
+use wasmer_types::entity::packed_option::ReservedValue;
+use wasmer_types::entity::EntityRef;
+use wasmer_types::{
     DataIndex, ElemIndex, FunctionIndex, FunctionType, GlobalIndex, GlobalInit, GlobalType,
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };

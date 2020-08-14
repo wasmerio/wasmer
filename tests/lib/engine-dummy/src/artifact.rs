@@ -5,15 +5,15 @@ use crate::engine::DummyEngine;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{
-    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
-};
 use wasmer_compiler::CompileError;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::ModuleEnvironment;
 use wasmer_engine::{Artifact, DeserializeError, Engine as _, SerializeError, Tunables};
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{
+    Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
+};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody,
     VMSharedSignatureIndex,

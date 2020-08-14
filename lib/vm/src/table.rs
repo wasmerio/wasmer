@@ -14,7 +14,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasm_common::{TableType, Type as ValType};
+use wasmer_types::{TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]

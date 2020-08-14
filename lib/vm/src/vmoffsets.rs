@@ -10,7 +10,7 @@ use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
-use wasm_common::{
+use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
     SignatureIndex, TableIndex,
 };

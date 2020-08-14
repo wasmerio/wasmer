@@ -9,7 +9,7 @@ use crate::lib::std::vec::Vec;
 use crate::Relocation;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasm_common::entity::entity_impl;
+use wasmer_types::entity::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]

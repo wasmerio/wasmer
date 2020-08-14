@@ -2115,14 +2115,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "72b6c0220ded549d63860c78c38f3bcc558d1ca3f4efa74942c536ddbbb55e87"
 
 [[package]]
-name = "wasm-common"
-version = "1.0.0-alpha.1"
-dependencies = [
- "cranelift-entity",
- "serde",
-]
-
-[[package]]
 name = "wasmer"
 version = "1.0.0-alpha.1"
 dependencies = [
@@ -2134,7 +2126,6 @@ dependencies = [
  "target-lexicon",
  "tempfile",
  "thiserror",
- "wasm-common",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
@@ -2143,6 +2134,7 @@ dependencies = [
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-types",
  "wasmer-vm",
  "wat",
  "winapi",
@@ -2161,7 +2153,6 @@ dependencies = [
  "serde",
  "thiserror",
  "typetag",
- "wasm-common",
  "wasmer",
  "wasmer-compiler",
  "wasmer-compiler-cranelift",
@@ -2171,6 +2162,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-types",
  "wasmer-wasi",
 ]
 
@@ -2198,7 +2190,6 @@ dependencies = [
  "fern",
  "log",
  "structopt",
- "wasm-common",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
@@ -2209,6 +2200,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-types",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -2226,7 +2218,7 @@ dependencies = [
  "smallvec",
  "target-lexicon",
  "thiserror",
- "wasm-common",
+ "wasmer-types",
  "wasmer-vm",
  "wasmparser",
 ]
@@ -2245,8 +2237,8 @@ dependencies = [
  "serde",
  "target-lexicon",
  "tracing",
- "wasm-common",
  "wasmer-compiler",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2267,9 +2259,8 @@ dependencies = [
  "semver",
  "smallvec",
  "target-lexicon",
- "wasm-common",
  "wasmer-compiler",
- "wasmer-object",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2286,8 +2277,8 @@ dependencies = [
  "rayon",
  "serde",
  "smallvec",
- "wasm-common",
  "wasmer-compiler",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2317,8 +2308,8 @@ dependencies = [
  "serde_bytes",
  "target-lexicon",
  "thiserror",
- "wasm-common",
  "wasmer-compiler",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2329,9 +2320,9 @@ dependencies = [
  "bincode",
  "serde",
  "serde_bytes",
- "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2344,9 +2335,9 @@ dependencies = [
  "region",
  "serde",
  "serde_bytes",
- "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
+ "wasmer-types",
  "wasmer-vm",
  "winapi",
 ]
@@ -2362,10 +2353,10 @@ dependencies = [
  "serde",
  "tempfile",
  "tracing",
- "wasm-common",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-object",
+ "wasmer-types",
  "wasmer-vm",
 ]
 
@@ -2375,8 +2366,16 @@ version = "1.0.0-alpha.1"
 dependencies = [
  "object 0.19.0",
  "thiserror",
- "wasm-common",
  "wasmer-compiler",
+ "wasmer-types",
+]
+
+[[package]]
+name = "wasmer-types"
+version = "1.0.0-alpha.1"
+dependencies = [
+ "cranelift-entity",
+ "serde",
 ]
 
 [[package]]
@@ -2393,7 +2392,7 @@ dependencies = [
  "region",
  "serde",
  "thiserror",
- "wasm-common",
+ "wasmer-types",
  "winapi",
 ]
 
@@ -2455,7 +2454,6 @@ dependencies = [
  "rustc_version",
  "tempfile",
  "test-generator",
- "wasm-common",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
@@ -2466,6 +2464,7 @@ dependencies = [
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
 ]

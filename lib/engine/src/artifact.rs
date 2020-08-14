@@ -5,12 +5,12 @@ use std::any::Any;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{
+use wasmer_compiler::Features;
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{
     DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
     SignatureIndex, TableIndex,
 };
-use wasmer_compiler::Features;
 use wasmer_vm::{
     FunctionBodyPtr, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
 };

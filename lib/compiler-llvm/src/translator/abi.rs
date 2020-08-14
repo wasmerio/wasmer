@@ -22,8 +22,8 @@ use inkwell::{
     },
     AddressSpace,
 };
-use wasm_common::{FunctionType as FuncSig, Type};
 use wasmer_compiler::CompileError;
+use wasmer_types::{FunctionType as FuncSig, Type};
 
 // Given a function definition, retrieve the parameter that is the vmctx pointer.
 pub fn get_vmctx_ptr_param<'ctx>(func_value: &FunctionValue<'ctx>) -> PointerValue<'ctx> {
@@ -443,7 +443,7 @@ pub fn is_sret(func_sig: &FuncSig) -> Result<bool, CompileError> {
             Type::I64 | Type::F64 => Ok(64),
             Type::V128 => Ok(128),
             ty => Err(CompileError::Codegen(format!(
-                "is_sret: unimplemented wasm_common type {:?}",
+                "is_sret: unimplemented wasmer_types type {:?}",
                 ty
             ))),
         })

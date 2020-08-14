@@ -3,8 +3,8 @@
 
 use crate::{ImportError, LinkError};
 use more_asserts::assert_ge;
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasm_common::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
+use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
     Export, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,

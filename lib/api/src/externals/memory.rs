@@ -4,7 +4,7 @@ use crate::store::Store;
 use crate::{MemoryType, MemoryView};
 use std::slice;
 use std::sync::Arc;
-use wasm_common::{Pages, ValueType};
+use wasmer_types::{Pages, ValueType};
 use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
 /// A WebAssembly `memory` instance.

@@ -40,7 +40,7 @@ use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasm_common::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
+use wasmer_types::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
 /// Implementation of f32.ceil
 #[no_mangle]

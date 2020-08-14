@@ -3,14 +3,6 @@ use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
-use wasm_common::{
-    entity::{EntityRef, PrimaryMap, SecondaryMap},
-    FunctionType,
-};
-use wasm_common::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type,
-};
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
@@ -18,6 +10,14 @@ use wasmer_compiler::{
     CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     FunctionBody, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
     TrapInformation,
+};
+use wasmer_types::{
+    entity::{EntityRef, PrimaryMap, SecondaryMap},
+    FunctionType,
+};
+use wasmer_types::{
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 

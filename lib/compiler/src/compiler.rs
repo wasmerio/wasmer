@@ -11,8 +11,8 @@ use crate::translator::FunctionMiddlewareGenerator;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
 
 /// The compiler configuration options.
@@ -101,7 +101,7 @@ pub trait Compiler {
     }
 }
 
-/// The kinds of wasm_common objects that might be found in a native object file.
+/// The kinds of wasmer_types objects that might be found in a native object file.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub enum Symbol {
     /// A function defined in the wasm.

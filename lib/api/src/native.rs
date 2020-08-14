@@ -15,7 +15,7 @@ use crate::externals::function::{
 };
 use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use wasm_common::NativeWasmType;
+use wasmer_types::NativeWasmType;
 use wasmer_vm::{
     ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
 };

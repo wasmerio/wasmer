@@ -1,12 +1,12 @@
 //! Linking for JIT-compiled code.
 
 use std::ptr::write_unaligned;
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::LocalFunctionIndex;
 use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionIndex,
 };
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
 use wasmer_vm::{FunctionBodyPtr, VMFunctionBody};
 

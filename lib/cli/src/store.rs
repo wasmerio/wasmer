@@ -201,10 +201,10 @@ impl StoreOptions {
                 use std::fmt;
                 use std::fs::File;
                 use std::io::Write;
-                use wasm_common::entity::EntityRef;
                 use wasmer_compiler_llvm::{
                     CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };
+                use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
                 struct Callbacks {
                     debug_dir: PathBuf,

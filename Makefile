@@ -105,7 +105,7 @@ test-llvm:
 test-packages:
 	cargo test -p wasmer --release
 	cargo test -p wasmer-vm --release
-	cargo test -p wasm-common --release
+	cargo test -p wasmer-types --release
 	cargo test -p wasmer-wasi --release
 	cargo test -p wasmer-object --release
 	cargo test -p wasmer-engine-native --release --no-default-features

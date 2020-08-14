@@ -17,8 +17,8 @@ use inkwell::{
 };
 use std::cmp;
 use std::convert::TryInto;
-use wasm_common::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{CompileError, FunctionBody, RelocationTarget};
+use wasmer_types::{FunctionType, LocalFunctionIndex};
 
 pub struct FuncTrampoline {
     ctx: Context,

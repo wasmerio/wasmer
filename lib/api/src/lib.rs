@@ -63,10 +63,6 @@ pub use crate::types::{
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
-pub use wasm_common::{
-    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
-};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{
@@ -76,6 +72,10 @@ pub use wasmer_compiler::{
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
+};
+pub use wasmer_types::{
+    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
 #[cfg(feature = "wat")]

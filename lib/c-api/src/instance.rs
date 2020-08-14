@@ -13,10 +13,10 @@ use std::collections::HashMap;
 use std::ffi::CStr;
 use std::ptr::NonNull;
 use std::slice;
-use wasm_common::{entity::*, ExportIndex, MemoryIndex};
 use wasmer::{
     Exports, Extern, Function, Global, ImportObject, Instance, Memory, Module, Table, Val,
 };
+use wasmer_types::{entity::*, ExportIndex, MemoryIndex};
 
 /// Opaque pointer to an Instance type plus metadata.
 ///

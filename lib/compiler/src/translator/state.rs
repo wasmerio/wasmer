@@ -3,8 +3,8 @@
 
 use crate::{wasm_unsupported, WasmResult};
 use std::boxed::Box;
-use wasm_common::entity::PrimaryMap;
-use wasm_common::SignatureIndex;
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::SignatureIndex;
 
 /// Map of signatures to a function's parameter and return types.
 pub(crate) type WasmTypes =

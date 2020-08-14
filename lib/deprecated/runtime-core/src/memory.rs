@@ -9,7 +9,7 @@ pub mod ptr {
     pub use crate::new::wasmer::{Array, Item, WasmPtr};
 }
 
-pub use new::wasm_common::MemoryType as MemoryDescriptor;
+pub use new::wasmer_types::MemoryType as MemoryDescriptor;
 pub use new::wasmer::{Atomically, MemoryView};
 pub use new::wasmer_vm::MemoryStyle as MemoryType;
 

@@ -1,7 +1,7 @@
 use crate::error::LinkError;
 use std::sync::Arc;
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{
     GlobalType, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType,
     TableIndex, TableType,
 };

@@ -10,13 +10,13 @@ fd wasmer.iss --exec sed -i '' "s/AppVersion=$PREVIOUS_VERSION/AppVersion=$NEXT_
 echo "manually check changes to wasmer.iss"
 
 # Order to upload packages in
+## wasmer-types
 ## runtime-core
 ## win-exception-handler
-## middleware-common
-## clif-backend
-## llvm-backend
-## singlepass-backend
+## compiler
+## compiler-cranelift
+## compiler-llvm
+## compiler-singlepass
 ## emscripten
 ## wasi
-## runtime
-## runtime-c-api
+## wasmer (api)

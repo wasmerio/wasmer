@@ -11,8 +11,8 @@ use std::fmt;
 use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,

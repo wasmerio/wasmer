@@ -24,15 +24,15 @@ use smallvec::SmallVec;
 
 use crate::config::{CompiledFunctionKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{
-    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
-    TableIndex, Type,
-};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
     to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
     MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 

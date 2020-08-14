@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha.1" }
 region = "2.2"
 libc = { version = "^0.2.69", default-features = false }
 memoffset = "0.5"
