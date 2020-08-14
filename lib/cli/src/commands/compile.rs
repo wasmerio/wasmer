@@ -65,6 +65,8 @@ impl Compile {
             EngineType::JIT => {
                 wasmer_engine_jit::JITArtifact::get_default_extension(target.triple())
             }
+            #[cfg(not(all(feature = "native", feature = "jit")))]
+            _ => bail!("selected engine type is not compiled in"),
         };
         match self.output.extension() {
             Some(ext) => {
