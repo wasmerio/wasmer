@@ -293,7 +293,7 @@ impl Executor for TokioExecutor {
                 ri_data_len,
                 ri_flags,
                 ro_datalen,
-                ro_flags
+                ro_flags,
             } => {
                 let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
 
@@ -309,7 +309,6 @@ impl Executor for TokioExecutor {
 
                 return Ok(self.spawn_oneshot(
                     self.runtime.enter(|| async move {
-
                         // FIXME: Allow multiple iovec elements
                         if iovecs.len() == 0 {
                             let ro_datalen = match ro_datalen.deref(&memory) {
@@ -325,9 +324,8 @@ impl Executor for TokioExecutor {
                             Ok(x) => x,
                             Err(e) => return __WASI_EFAULT,
                         };
-                        let data = unsafe {
-                            std::mem::transmute::<&mut [Cell<u8>], &mut [u8]>(data)
-                        };
+                        let data =
+                            unsafe { std::mem::transmute::<&mut [Cell<u8>], &mut [u8]>(data) };
 
                         let sock_inner = sock.inner.read().await;
                         match *sock_inner {

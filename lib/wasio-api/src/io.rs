@@ -32,7 +32,16 @@ pub async fn read(fd: __wasi_fd_t, data: &mut [u8]) -> Result<usize, __wasi_errn
     let mut out_len: u32 = 0;
     let err = IoFuture::new(move |uctx| unsafe {
         let mut ct = CancellationToken(0);
-        let e = sys::read(fd, &iov, 1, 0, &mut out_len, std::ptr::null_mut(), uctx, &mut ct);
+        let e = sys::read(
+            fd,
+            &iov,
+            1,
+            0,
+            &mut out_len,
+            std::ptr::null_mut(),
+            uctx,
+            &mut ct,
+        );
         if e != 0 {
             Err(e)
         } else {
