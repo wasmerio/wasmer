@@ -17,12 +17,12 @@ use cranelift_codegen::ir::{self, Block, InstBuilder, ValueLabel};
 use cranelift_codegen::timing;
 use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
-use wasmer_types::LocalFunctionIndex;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
     to_wasm_error, wasm_unsupported, GenerateMiddlewareChain, MiddlewareBinaryReader,
     ModuleTranslationState, WasmResult,
 };
+use wasmer_types::LocalFunctionIndex;
 
 /// WebAssembly to Cranelift IR function translator.
 ///

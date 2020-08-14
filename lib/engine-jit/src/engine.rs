@@ -4,15 +4,15 @@ use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::Features;
-use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::Features;
+use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
     FunctionBodyPtr, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,

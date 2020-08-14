@@ -1,11 +1,11 @@
 use serde::{Deserialize, Serialize};
-use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
     SectionIndex,
 };
 use wasmer_engine::SerializableFunctionFrameInfo;
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 // /// The serializable function data
 // #[derive(Serialize, Deserialize)]

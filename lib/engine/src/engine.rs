@@ -5,8 +5,8 @@ use crate::{Artifact, DeserializeError};
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
-use wasmer_types::FunctionType;
 use wasmer_compiler::{CompileError, Target};
+use wasmer_types::FunctionType;
 use wasmer_vm::{VMSharedSignatureIndex, VMTrampoline};
 
 /// A unimplemented Wasmer `Engine`.

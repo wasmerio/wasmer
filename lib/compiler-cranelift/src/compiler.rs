@@ -19,14 +19,14 @@ use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
     CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
 };
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.

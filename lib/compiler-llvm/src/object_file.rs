@@ -1,12 +1,12 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
-use wasmer_types::entity::{PrimaryMap, SecondaryMap};
 use wasmer_compiler::{
     CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
     RelocationKind, RelocationTarget, SectionBody, SectionIndex, SourceLoc,
 };
+use wasmer_types::entity::{PrimaryMap, SecondaryMap};
 use wasmer_vm::libcalls::LibCall;
 
 use wasmer_types::entity::entity_impl;

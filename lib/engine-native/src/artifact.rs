@@ -14,13 +14,6 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasmer_types::entity::{BoxedSlice, PrimaryMap};
-#[cfg(feature = "compiler")]
-use wasmer_types::DataInitializer;
-use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
-};
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
@@ -33,6 +26,13 @@ use wasmer_engine::{
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+#[cfg(feature = "compiler")]
+use wasmer_types::DataInitializer;
+use wasmer_types::{
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
+};
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,

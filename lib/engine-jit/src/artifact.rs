@@ -8,11 +8,6 @@ use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
-use wasmer_types::entity::{BoxedSlice, PrimaryMap};
-use wasmer_types::{
-    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
-    TableIndex,
-};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
@@ -21,6 +16,11 @@ use wasmer_engine::{
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
+};
 use wasmer_vm::{FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex};
 
 /// A compiled wasm module, ready to be instantiated.

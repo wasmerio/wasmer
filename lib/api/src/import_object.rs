@@ -263,8 +263,8 @@ macro_rules! import_namespace {
 mod test {
     use super::*;
     use crate::{Global, Store, Val};
-    use wasmer_types::Type;
     use wasmer_engine::ChainableNamedResolver;
+    use wasmer_types::Type;
     use wasmer_vm::Export;
 
     #[test]

@@ -8,8 +8,8 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasmer_types::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
+use wasmer_types::{FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
 pub type InkwellModule<'ctx> = inkwell::module::Module<'ctx>;

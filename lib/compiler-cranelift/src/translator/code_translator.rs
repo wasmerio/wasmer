@@ -42,10 +42,10 @@ use cranelift_codegen::ir::{
 use cranelift_codegen::packed_option::ReservedValue;
 use cranelift_frontend::{FunctionBuilder, Variable};
 use std::vec::Vec;
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{to_wasm_error, WasmResult};
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 
 // Clippy warns about "flags: _" but its important to document that the flags field is ignored
 #[cfg_attr(

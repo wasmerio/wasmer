@@ -2,9 +2,9 @@
 
 use crate::DummyArtifact;
 use std::sync::Arc;
-use wasmer_types::FunctionType;
 use wasmer_compiler::{CompileError, Features, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
+use wasmer_types::FunctionType;
 use wasmer_vm::{
     SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };

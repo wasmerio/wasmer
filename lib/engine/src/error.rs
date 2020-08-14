@@ -2,8 +2,8 @@
 use crate::trap::RuntimeError;
 use std::io;
 use thiserror::Error;
-use wasmer_types::ExternType;
 use wasmer_compiler::CompileError;
+use wasmer_types::ExternType;
 
 /// The Serialize error can occur when serializing a
 /// compiled Module into a binary.
