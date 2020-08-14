@@ -43,6 +43,7 @@ members = [
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
     "lib/wasmer-types",
+    "lib/wasio-api",
     "tests/lib/wast",
 ]
 exclude = [

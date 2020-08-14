@@ -14,6 +14,8 @@ pub mod windows;
 pub mod legacy;
 
 use self::types::*;
+#[cfg(feature = "wasio")]
+use crate::wasio::types::*;
 use crate::{
     ptr::{Array, WasmPtr},
     state::{
@@ -2562,4 +2564,223 @@ pub fn sock_shutdown(
 ) -> __wasi_errno_t {
     debug!("wasi::sock_shutdown");
     unimplemented!("wasi::sock_shutdown")
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_wait(
+    env: &mut WasiEnv,
+    error_out: WasmPtr<__wasi_errno_t>,
+    user_context_out: WasmPtr<UserContext>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_wait");
+    let (memory, state) = env.get_memory_and_wasi_state(0);
+    let error_out_cell = wasi_try!(error_out.deref(memory));
+    let user_context_out_cell = wasi_try!(user_context_out.deref(memory));
+
+    let (error_code, user_context) = wasi_try!(state.wasio_executor.wait());
+    error_out_cell.set(error_code);
+    user_context_out_cell.set(user_context);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_delay(
+    env: &mut WasiEnv,
+    nanoseconds: u64,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_delay {} {:?}", nanoseconds, user_context);
+    let (memory, state) = env.get_memory_and_wasi_state(0);
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let got_cancellation_token = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::Delay(std::time::Duration::from_nanos(nanoseconds)),
+        user_context
+    ));
+
+    cancellation_token_cell.set(got_cancellation_token);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_async_nop(
+    env: &mut WasiEnv,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_async_nop");
+    let (memory, state) = env.get_memory_and_wasi_state(0);
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let got_cancellation_token = wasi_try!(state
+        .wasio_executor
+        .enqueue_oneshot(AsyncOneshotOperation::Nop, user_context));
+
+    cancellation_token_cell.set(got_cancellation_token);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_cancel(env: &mut WasiEnv, token: CancellationToken) -> __wasi_errno_t {
+    debug!("wasio::wasio_cancel {:?}", token);
+    let (_, state) = env.get_memory_and_wasi_state(0);
+    wasi_try!(state.wasio_executor.perform(SyncOperation::Cancel(token)));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_create(
+    env: &mut WasiEnv,
+    fd_out: WasmPtr<__wasi_fd_t>,
+    domain: __wasio_socket_domain_t,
+    ty: __wasio_socket_type_t,
+    protocol: __wasio_socket_protocol_t,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_create");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketCreate(
+        memory,
+        fd_out,
+        &mut state.fs,
+        domain,
+        ty,
+        protocol
+    )));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_bind(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    sockaddr: WasmPtr<u8, Array>,
+    sockaddr_size: u32,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_bind");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketBind(
+        memory,
+        &mut state.fs,
+        fd,
+        sockaddr,
+        sockaddr_size
+    )));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_listen(env: &mut WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_listen");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketListen {
+        fs: &mut state.fs,
+        fd,
+    }));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_pre_accept(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_pre_accept");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::SocketPreAccept {
+            fs: &mut state.fs,
+            fd,
+        },
+        user_context
+    ));
+    cancellation_token_cell.set(ct);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_accept(env: &mut WasiEnv, fd_out: WasmPtr<__wasi_fd_t>) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_accept");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketAccept {
+        memory,
+        fs: &mut state.fs,
+        fd_out,
+    }));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_write(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    si_data: WasmPtr<__wasi_ciovec_t, Array>,
+    si_data_len: u32,
+    si_flags: __wasi_siflags_t,
+    so_datalen: WasmPtr<u32>,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_write");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::Write {
+            memory,
+            fs: &mut state.fs,
+            fd,
+            si_data,
+            si_data_len,
+            si_flags,
+            so_datalen,
+        },
+        user_context
+    ));
+    cancellation_token_cell.set(ct);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_read(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    ri_data: WasmPtr<__wasi_ciovec_t, Array>,
+    ri_data_len: u32,
+    ri_flags: __wasi_riflags_t,
+    ro_datalen: WasmPtr<u32>,
+    ro_flags: WasmPtr<__wasi_roflags_t>,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_read");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::Read {
+            memory,
+            fs: &mut state.fs,
+            fd,
+            ri_data,
+            ri_data_len,
+            ri_flags,
+            ro_datalen,
+            ro_flags,
+        },
+        user_context
+    ));
+    cancellation_token_cell.set(ct);
+    __WASI_ESUCCESS
 }

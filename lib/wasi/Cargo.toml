@@ -21,7 +21,17 @@ getrandom = "0.1"
 time = "0.1"
 typetag = "0.1"
 serde = { version = "1.0", features = ["derive"] }
+tokio = { version = "0.2", features = ["full"], optional = true }
+futures = { version = "0.3", optional = true }
+crossbeam = { version = "0.7", optional = true }
+flurry = { version = "0.3", optional = true }
 wasmer = { path = "../api", version = "1.0.0-alpha.1", default-features = false }
+uuid = { version = "0.8", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
+
+[features]
+default = ["wasio", "wasio-executor-tokio"]
+wasio = []
+wasio-executor-tokio = ["tokio", "futures", "crossbeam", "flurry"]

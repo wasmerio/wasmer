@@ -4,6 +4,7 @@ use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
 use crate::WasiEnv;
 use std::path::{Path, PathBuf};
+use std::sync::Arc;
 use thiserror::Error;
 
 /// Creates an empty [`WasiStateBuilder`].
@@ -42,6 +43,9 @@ pub struct WasiStateBuilder {
     stdout_override: Option<Box<dyn WasiFile>>,
     stderr_override: Option<Box<dyn WasiFile>>,
     stdin_override: Option<Box<dyn WasiFile>>,
+
+    #[cfg(feature = "wasio")]
+    pub wasio_executor: Option<Arc<dyn crate::wasio::Executor>>,
 }
 
 impl std::fmt::Debug for WasiStateBuilder {
@@ -309,6 +313,13 @@ impl WasiStateBuilder {
         self
     }
 
+    /// Set the WASIO executor to be used.
+    #[cfg(feature = "wasio")]
+    pub fn wasio_executor(&mut self, new_executor: Arc<dyn crate::wasio::Executor>) -> &mut Self {
+        self.wasio_executor = Some(new_executor);
+        self
+    }
+
     /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
@@ -387,6 +398,12 @@ impl WasiStateBuilder {
             fs: wasi_fs,
             args: self.args.clone(),
             envs: self.envs.clone(),
+
+            #[cfg(feature = "wasio")]
+            wasio_executor: match self.wasio_executor {
+                Some(ref executor) => executor.clone(),
+                None => Arc::new(crate::wasio::DummyExecutor),
+            },
         })
     }
 

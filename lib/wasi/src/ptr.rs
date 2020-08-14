@@ -60,6 +60,14 @@ impl<T: Copy + ValueType> WasmPtr<T, Item> {
     pub fn deref<'a>(self, memory: &'a Memory) -> Result<&'a Cell<T>, __wasi_errno_t> {
         self.0.deref(memory).ok_or(__WASI_EFAULT)
     }
+
+    #[inline(always)]
+    pub unsafe fn deref_mut<'a>(
+        self,
+        memory: &'a Memory,
+    ) -> Result<&'a mut Cell<T>, __wasi_errno_t> {
+        self.0.deref_mut(memory).ok_or(__WASI_EFAULT)
+    }
 }
 
 impl<T: Copy + ValueType> WasmPtr<T, Array> {
@@ -71,6 +79,16 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         length: u32,
     ) -> Result<&'a [Cell<T>], __wasi_errno_t> {
         self.0.deref(memory, index, length).ok_or(__WASI_EFAULT)
+    }
+
+    #[inline(always)]
+    pub unsafe fn deref_mut<'a>(
+        self,
+        memory: &'a Memory,
+        index: u32,
+        length: u32,
+    ) -> Result<&'a mut [Cell<T>], __wasi_errno_t> {
+        self.0.deref_mut(memory, index, length).ok_or(__WASI_EFAULT)
     }
 
     #[inline(always)]

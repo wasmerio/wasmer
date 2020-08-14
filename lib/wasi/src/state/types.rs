@@ -210,6 +210,11 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
     fn get_raw_fd(&self) -> Option<i32> {
         None
     }
+
+    /// Attempts to clone this `WasiFile` handle.
+    fn try_clone_dyn(&self) -> Option<Box<dyn WasiFile>> {
+        None
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .

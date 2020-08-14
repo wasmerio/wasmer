@@ -59,8 +59,10 @@ default = [
     "native",
     "cache",
     "wasi",
+    "wasio",
     "emscripten",
 ]
+wasio = []
 engine = []
 jit = [
     "wasmer-engine-jit",

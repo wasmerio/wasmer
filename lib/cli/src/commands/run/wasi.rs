@@ -6,6 +6,62 @@ use wasmer_wasi::{get_wasi_version, WasiError, WasiState, WasiVersion};
 
 use structopt::StructOpt;
 
+#[cfg(feature = "wasio")]
+mod wasio {
+    use anyhow::{Error, Result};
+    use std::str::FromStr;
+    use std::string::ToString;
+    use std::sync::Arc;
+    use wasmer_wasi::wasio::Executor;
+
+    /// The executor used for wasio
+    #[derive(Debug, Clone, PartialEq, Eq)]
+    pub enum ExecutorType {
+        /// Dummy executor
+        Dummy,
+        /// Tokio executor
+        Tokio,
+    }
+
+    impl Default for ExecutorType {
+        fn default() -> Self {
+            Self::Tokio
+        }
+    }
+
+    impl ExecutorType {
+        /// The executor associated to this `ExecutorType`.
+        pub fn executor(&self) -> Result<Arc<dyn Executor>> {
+            match self {
+                Self::Dummy => Ok(Arc::new(wasmer_wasi::wasio::DummyExecutor)),
+                Self::Tokio => Ok(Arc::new(wasmer_wasi::wasio::TokioExecutor::new())),
+                #[allow(unreachable_patterns)]
+                _ => bail!("The `{:?}` executor is not enabled.", &self),
+            }
+        }
+    }
+
+    impl ToString for ExecutorType {
+        fn to_string(&self) -> String {
+            match self {
+                Self::Dummy => "dummy".to_string(),
+                Self::Tokio => "tokio".to_string(),
+            }
+        }
+    }
+
+    impl FromStr for ExecutorType {
+        type Err = Error;
+        fn from_str(s: &str) -> Result<Self> {
+            match s {
+                "dummy" => Ok(Self::Dummy),
+                "tokio" => Ok(Self::Tokio),
+                backend => bail!("The `{}` executor does not exist.", backend),
+            }
+        }
+    }
+}
+
 #[derive(Debug, StructOpt, Clone)]
 /// WASI Options
 pub struct Wasi {
@@ -25,6 +81,10 @@ pub struct Wasi {
     #[cfg(feature = "experimental-io-devices")]
     #[structopt(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
+
+    #[cfg(feature = "wasio")]
+    #[structopt(default_value, long = "wasio-executor")]
+    wasio_executor: wasio::ExecutorType,
 }
 
 impl Wasi {
@@ -32,7 +92,7 @@ impl Wasi {
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
         // Get the wasi version on strict mode, so no other imports are
         // allowed.
-        get_wasi_version(&module, true)
+        get_wasi_version(&module, false)
     }
 
     /// Helper function for executing Wasi from the `Run` command.
@@ -45,6 +105,11 @@ impl Wasi {
             .envs(self.env_vars.clone())
             .preopen_dirs(self.pre_opened_directories.clone())?
             .map_dirs(self.mapped_dirs.clone())?;
+
+        #[cfg(feature = "wasio")]
+        {
+            wasi_state_builder.wasio_executor(self.wasio_executor.executor()?);
+        }
 
         #[cfg(feature = "experimental-io-devices")]
         {

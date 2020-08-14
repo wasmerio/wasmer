@@ -25,6 +25,7 @@ use generational_arena::Arena;
 pub use generational_arena::Index as Inode;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
+use std::sync::Arc;
 use std::{
     borrow::Borrow,
     cell::Cell,
@@ -1028,6 +1029,28 @@ impl WasiFs {
         self.fd_map.get(&fd).ok_or(__WASI_EBADF)
     }
 
+    pub fn get_wasi_file(&self, fd: __wasi_fd_t) -> Result<&dyn WasiFile, __wasi_errno_t> {
+        let fd = self.get_fd(fd)?;
+        let inode = &self.inodes[fd.inode];
+        match inode.kind {
+            Kind::File { ref handle, .. } => {
+                if let Some(ref x) = handle {
+                    Ok(&**x)
+                } else {
+                    Err(__WASI_EBADF)
+                }
+            }
+            _ => Err(__WASI_EBADF),
+        }
+    }
+
+    pub fn get_wasi_file_as<T: 'static>(&self, fd: __wasi_fd_t) -> Result<&T, __wasi_errno_t> {
+        match self.get_wasi_file(fd)?.upcast_any_ref().downcast_ref::<T>() {
+            Some(x) => Ok(x),
+            None => Err(__WASI_EBADF),
+        }
+    }
+
     /// gets either a normal inode or an orphaned inode
     pub fn get_inodeval_mut(&mut self, fd: __wasi_fd_t) -> Result<&mut InodeVal, __wasi_errno_t> {
         let inode = self.get_fd(fd)?.inode;
@@ -1470,11 +1493,14 @@ impl WasiFs {
 /// # Ok(())
 /// # }
 /// ```
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug)]
 pub struct WasiState {
     pub fs: WasiFs,
     pub args: Vec<Vec<u8>>,
     pub envs: Vec<Vec<u8>>,
+
+    #[cfg(feature = "wasio")]
+    pub wasio_executor: Arc<dyn crate::wasio::Executor>,
 }
 
 impl WasiState {
@@ -1485,6 +1511,8 @@ impl WasiState {
         create_wasi_state(program_name.as_ref())
     }
 
+    // Temporarily disabled for WASIO. Re-enable later.
+    /*
     /// Turn the WasiState into bytes
     pub fn freeze(&self) -> Option<Vec<u8>> {
         bincode::serialize(self).ok()
@@ -1494,6 +1522,7 @@ impl WasiState {
     pub fn unfreeze(bytes: &[u8]) -> Option<Self> {
         bincode::deserialize(bytes).ok()
     }
+    */
 }
 
 pub fn host_file_type_to_wasi_file_type(file_type: fs::FileType) -> __wasi_filetype_t {

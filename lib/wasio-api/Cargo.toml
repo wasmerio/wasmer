@@ -1,0 +1,14 @@
+[package]
+name = "wasio"
+version = "1.0.0-alpha.1"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "WebAssembly async I/O"
+license = "(Apache-2.0 WITH LLVM-exception) or MIT"
+categories = ["wasm"]
+keywords = ["webassembly", "async", "wasm"]
+repository = "https://github.com/wasmerio/wasmer"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+futures = "0.3"

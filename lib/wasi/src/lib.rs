@@ -19,6 +19,9 @@ mod state;
 mod syscalls;
 mod utils;
 
+#[cfg(feature = "wasio")]
+pub mod wasio;
+
 use crate::syscalls::*;
 
 pub use crate::state::{
@@ -249,6 +252,20 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
         },
+        #[cfg(feature = "wasio")]
+        "wasio_unstable" => {
+            "cancel" => Function::new_native_with_env(store, env.clone(), wasio_cancel),
+            "delay" => Function::new_native_with_env(store, env.clone(), wasio_delay),
+            "async_nop" => Function::new_native_with_env(store, env.clone(), wasio_async_nop),
+            "wait" => Function::new_native_with_env(store, env.clone(), wasio_wait),
+            "socket_create" => Function::new_native_with_env(store, env.clone(), wasio_socket_create),
+            "socket_bind" => Function::new_native_with_env(store, env.clone(), wasio_socket_bind),
+            "socket_listen" => Function::new_native_with_env(store, env.clone(), wasio_socket_listen),
+            "socket_pre_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_pre_accept),
+            "socket_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_accept),
+            "write" => Function::new_native_with_env(store, env.clone(), wasio_write),
+            "read" => Function::new_native_with_env(store, env.clone(), wasio_read),
+        },
     }
 }
 
@@ -301,6 +318,20 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "sock_recv" => Function::new_native_with_env(store, env.clone(), sock_recv),
             "sock_send" => Function::new_native_with_env(store, env.clone(), sock_send),
             "sock_shutdown" => Function::new_native_with_env(store, env.clone(), sock_shutdown),
-        }
+        },
+        #[cfg(feature = "wasio")]
+        "wasio_unstable" => {
+            "cancel" => Function::new_native_with_env(store, env.clone(), wasio_cancel),
+            "delay" => Function::new_native_with_env(store, env.clone(), wasio_delay),
+            "async_nop" => Function::new_native_with_env(store, env.clone(), wasio_async_nop),
+            "wait" => Function::new_native_with_env(store, env.clone(), wasio_wait),
+            "socket_create" => Function::new_native_with_env(store, env.clone(), wasio_socket_create),
+            "socket_bind" => Function::new_native_with_env(store, env.clone(), wasio_socket_bind),
+            "socket_listen" => Function::new_native_with_env(store, env.clone(), wasio_socket_listen),
+            "socket_pre_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_pre_accept),
+            "socket_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_accept),
+            "write" => Function::new_native_with_env(store, env.clone(), wasio_write),
+            "read" => Function::new_native_with_env(store, env.clone(), wasio_read),
+        },
     }
 }
