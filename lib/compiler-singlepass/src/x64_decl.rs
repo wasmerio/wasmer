@@ -2,7 +2,7 @@
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
 use std::collections::BTreeMap;
-use wasm_common::Type;
+use wasmer_types::Type;
 
 /// General-purpose registers.
 #[repr(u8)]

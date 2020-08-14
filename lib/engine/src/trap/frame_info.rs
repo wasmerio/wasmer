@@ -14,8 +14,8 @@ use crate::serialize::SerializableFunctionFrameInfo;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};
-use wasm_common::entity::{BoxedSlice, EntityRef, PrimaryMap};
-use wasm_common::LocalFunctionIndex;
+use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
+use wasmer_types::LocalFunctionIndex;
 use wasmer_compiler::{CompiledFunctionFrameInfo, SourceLoc, TrapInformation};
 use wasmer_vm::{FunctionBodyPtr, ModuleInfo};
 

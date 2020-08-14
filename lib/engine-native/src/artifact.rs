@@ -14,10 +14,10 @@ use std::sync::Arc;
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 #[cfg(feature = "compiler")]
-use wasm_common::DataInitializer;
-use wasm_common::{
+use wasmer_types::DataInitializer;
+use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };

@@ -5,7 +5,7 @@ use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
-use wasm_common::LocalFunctionIndex;
+use wasmer_types::LocalFunctionIndex;
 use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
 
 /// A shared builder for function middlewares.

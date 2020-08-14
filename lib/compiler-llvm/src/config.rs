@@ -8,7 +8,7 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasm_common::{FunctionType, LocalFunctionIndex};
+use wasmer_types::{FunctionType, LocalFunctionIndex};
 use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
 
 /// The InkWell ModuleInfo type

@@ -2,8 +2,8 @@ use crate::externals::Function;
 use crate::store::{Store, StoreObject};
 use crate::RuntimeError;
 use std::ptr;
-use wasm_common::Value;
-pub use wasm_common::{
+use wasmer_types::Value;
+pub use wasmer_types::{
     ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };

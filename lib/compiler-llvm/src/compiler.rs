@@ -6,8 +6,8 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::Module;
 use inkwell::targets::FileType;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,

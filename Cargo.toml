@@ -21,7 +21,7 @@ wasmer-engine-native = { version = "1.0.0-alpha.1", path = "lib/engine-native", 
 wasmer-wasi = { version = "1.0.0-alpha.1", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha.1", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha.1", path = "lib/cache", optional = true }
-wasm-common = { version = "1.0.0-alpha.1", path = "lib/wasm-common" }
+wasmer-types = { version = "1.0.0-alpha.1", path = "lib/wasmer-types" }
 cfg-if = "0.1"
 
 [workspace]
@@ -42,7 +42,7 @@ members = [
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
-    "lib/wasm-common",
+    "lib/wasmer-types",
     "tests/lib/wast",
 ]
 exclude = [

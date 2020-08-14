@@ -20,8 +20,8 @@ use inkwell::{
     AddressSpace,
 };
 use std::collections::{hash_map::Entry, HashMap};
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{
     FunctionIndex, FunctionType as FuncType, GlobalIndex, LocalFunctionIndex, MemoryIndex,
     Mutability, SignatureIndex, TableIndex, Type,
 };
@@ -40,7 +40,7 @@ pub fn type_to_llvm_ptr<'ctx>(
         Type::F64 => Ok(intrinsics.f64_ptr_ty),
         Type::V128 => Ok(intrinsics.i128_ptr_ty),
         ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasm_common type {:?}",
+            "type_to_llvm: unimplemented wasmer_types type {:?}",
             ty
         ))),
     }
@@ -57,7 +57,7 @@ pub fn type_to_llvm<'ctx>(
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
         ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasm_common type {:?}",
+            "type_to_llvm: unimplemented wasmer_types type {:?}",
             ty
         ))),
     }

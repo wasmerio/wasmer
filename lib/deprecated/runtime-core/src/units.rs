@@ -1,6 +1,6 @@
 use crate::new;
 
-pub use new::wasm_common::{
+pub use new::wasmer_types::{
     //
     Bytes,
     Pages,

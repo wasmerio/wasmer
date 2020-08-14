@@ -40,7 +40,7 @@
 //! customize the wasmer runtime.
 
 pub(crate) mod new {
-    pub use wasm_common;
+    pub use wasmer_types;
     pub use wasmer;
     pub use wasmer_cache;
     pub use wasmer_compiler;

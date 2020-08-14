@@ -1,6 +1,6 @@
 use crate::new;
 
-pub use new::wasm_common::{
+pub use new::wasmer_types::{
     //
     ExportType as ExportDescriptor,
     ExternType as ExternDescriptor,
@@ -36,8 +36,8 @@ pub struct GlobalDescriptor {
     pub ty: Type,
 }
 
-impl From<&new::wasm_common::GlobalType> for GlobalDescriptor {
-    fn from(value: &new::wasm_common::GlobalType) -> Self {
+impl From<&new::wasmer_types::GlobalType> for GlobalDescriptor {
+    fn from(value: &new::wasmer_types::GlobalType) -> Self {
         Self {
             mutable: value.mutability.into(),
             ty: value.ty,

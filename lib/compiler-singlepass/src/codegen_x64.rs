@@ -3,11 +3,11 @@ use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
 use std::collections::BTreeMap;
 use std::iter;
-use wasm_common::{
+use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
     FunctionType,
 };
-use wasm_common::{
+use wasmer_types::{
     FunctionIndex, GlobalIndex, LocalFunctionIndex, LocalMemoryIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
 };

@@ -1,7 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
-use wasm_common::entity::{PrimaryMap, SecondaryMap};
+use wasmer_types::entity::{PrimaryMap, SecondaryMap};
 use wasmer_compiler::{
     CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
@@ -9,7 +9,7 @@ use wasmer_compiler::{
 };
 use wasmer_vm::libcalls::LibCall;
 
-use wasm_common::entity::entity_impl;
+use wasmer_types::entity::entity_impl;
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
 pub struct ElfSectionIndex(u32);
 entity_impl!(ElfSectionIndex);

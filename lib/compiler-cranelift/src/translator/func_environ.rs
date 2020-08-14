@@ -12,7 +12,7 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::wasmparser::Operator;
 use wasmer_compiler::WasmResult;
 

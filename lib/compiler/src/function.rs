@@ -14,8 +14,8 @@ use crate::trap::TrapInformation;
 use crate::{CompiledFunctionUnwindInfo, FunctionAddressMap, JumpTableOffsets, Relocation};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// The frame info for a Compiled function.
 ///

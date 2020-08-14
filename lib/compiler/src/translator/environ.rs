@@ -9,9 +9,9 @@ use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::{WasmError, WasmResult};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
-use wasm_common::entity::PrimaryMap;
-use wasm_common::FunctionType;
-use wasm_common::{
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::FunctionType;
+use wasmer_types::{
     CustomSectionIndex, DataIndex, DataInitializer, DataInitializerLocation, ElemIndex,
     ExportIndex, FunctionIndex, GlobalIndex, GlobalInit, GlobalType, ImportIndex,
     LocalFunctionIndex, MemoryIndex, MemoryType, SignatureIndex, TableIndex, TableInitializer,

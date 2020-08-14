@@ -2,7 +2,7 @@
 use crate::trap::RuntimeError;
 use std::io;
 use thiserror::Error;
-use wasm_common::ExternType;
+use wasmer_types::ExternType;
 use wasmer_compiler::CompileError;
 
 /// The Serialize error can occur when serializing a

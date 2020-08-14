@@ -4,9 +4,9 @@ use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
-use wasm_common::entity::PrimaryMap;
-use wasm_common::Features;
-use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::Features;
+use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{

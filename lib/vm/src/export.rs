@@ -6,7 +6,7 @@ use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind};
 use std::sync::Arc;
-use wasm_common::{FunctionType, MemoryType, TableType};
+use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]

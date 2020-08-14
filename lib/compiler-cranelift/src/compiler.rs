@@ -19,8 +19,8 @@ use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{

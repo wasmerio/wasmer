@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasm-common = { path = "../wasm-common", version = "1.0.0-alpha.1" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha.1" }
 wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
 wasmer-engine = { path = "../engine", version = "1.0.0-alpha.1" }

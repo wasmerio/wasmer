@@ -1,1 +1,1 @@
-pub use crate::new::wasm_common::entity::EntityRef as TypedIndex;
+pub use crate::new::wasmer_types::entity::EntityRef as TypedIndex;

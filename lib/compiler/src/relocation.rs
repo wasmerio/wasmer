@@ -15,8 +15,8 @@ use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset, JumpTable};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use wasm_common::entity::PrimaryMap;
-use wasm_common::LocalFunctionIndex;
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.

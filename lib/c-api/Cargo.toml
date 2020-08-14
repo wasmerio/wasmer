@@ -25,7 +25,7 @@ wasmer-engine = { version = "1.0.0-alpha.1", path = "../engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha.1", path = "../engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha.1", path = "../engine-native", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha.1", path = "../wasi", optional = true }
-wasm-common = { version = "1.0.0-alpha.1", path = "../wasm-common" }
+wasmer-types = { version = "1.0.0-alpha.1", path = "../wasmer-types" }
 cfg-if = "0.1"
 lazy_static = "1"
 libc = { version = "^0.2.69", default-features = false }

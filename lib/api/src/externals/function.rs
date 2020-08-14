@@ -554,7 +554,7 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
-    use wasm_common::{FunctionType, NativeWasmType, Type};
+    use wasmer_types::{FunctionType, NativeWasmType, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
@@ -1129,7 +1129,7 @@ mod inner {
     #[cfg(test)]
     mod test_wasm_type_list {
         use super::*;
-        use wasm_common::Type;
+        use wasmer_types::Type;
 
         #[test]
         fn test_from_array() {
@@ -1202,7 +1202,7 @@ mod inner {
     #[cfg(test)]
     mod test_function {
         use super::*;
-        use wasm_common::Type;
+        use wasmer_types::Type;
 
         fn func() {}
         fn func__i32() -> i32 {

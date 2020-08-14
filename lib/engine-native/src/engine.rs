@@ -6,8 +6,8 @@ use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
 #[cfg(feature = "compiler")]
-use wasm_common::Features;
-use wasm_common::FunctionType;
+use wasmer_types::Features;
+use wasmer_types::FunctionType;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{CompileError, Target};

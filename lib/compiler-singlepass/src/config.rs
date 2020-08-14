@@ -3,7 +3,7 @@
 
 use crate::compiler::SinglepassCompiler;
 use std::sync::Arc;
-use wasm_common::Features;
+use wasmer_types::Features;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target};
 
 #[derive(Debug, Clone)]

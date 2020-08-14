@@ -2,8 +2,8 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 
 /// Resolved import pointers.
 #[derive(Clone)]

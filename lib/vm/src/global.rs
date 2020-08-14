@@ -3,7 +3,7 @@ use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasm_common::{GlobalType, Type};
+use wasmer_types::{GlobalType, Type};
 
 #[derive(Debug)]
 /// TODO: figure out a decent name for this thing

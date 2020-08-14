@@ -6,7 +6,7 @@ use crate::unwind::UnwindRegistry;
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::{cmp, mem};
-use wasm_common::entity::{EntityRef, PrimaryMap};
+use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_compiler::{CompiledFunctionUnwindInfo, FunctionBody, SectionBody};
 use wasmer_vm::{FunctionBodyPtr, Mmap, VMFunctionBody};
 

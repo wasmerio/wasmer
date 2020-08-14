@@ -9,8 +9,8 @@ use crate::codegen_x64::{
 use crate::config::Singlepass;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};

@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use wasm_common::entity::{EntityRef, PrimaryMap};
-use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
+use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 
 /// Serializable struct that represents the compiled metadata.

@@ -8,8 +8,8 @@ use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };

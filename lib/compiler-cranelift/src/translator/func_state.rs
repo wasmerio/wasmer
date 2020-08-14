@@ -13,7 +13,7 @@ use super::func_environ::{FuncEnvironment, GlobalVariable};
 use crate::{HashMap, Occupied, Vacant};
 use cranelift_codegen::ir::{self, Block, Inst, Value};
 use std::vec::Vec;
-use wasm_common::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 use wasmer_compiler::WasmResult;
 
 /// Information about the presence of an associated `else` for an `if`, or the

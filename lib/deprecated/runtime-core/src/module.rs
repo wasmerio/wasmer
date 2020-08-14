@@ -16,7 +16,7 @@ use std::{
     ptr,
 };
 
-pub use new::wasm_common::{DataInitializer, ExportIndex, TableInitializer};
+pub use new::wasmer_types::{DataInitializer, ExportIndex, TableInitializer};
 pub use new::wasmer_vm::{
     //
     MemoryStyle as MemoryType,

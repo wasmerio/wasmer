@@ -27,8 +27,8 @@ use std::convert::TryFrom;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
-use wasm_common::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
+use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex, TableInitializer,

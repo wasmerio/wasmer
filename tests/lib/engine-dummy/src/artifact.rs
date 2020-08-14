@@ -5,8 +5,8 @@ use crate::engine::DummyEngine;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
-use wasm_common::entity::{BoxedSlice, PrimaryMap};
-use wasm_common::{
+use wasmer_types::entity::{BoxedSlice, PrimaryMap};
+use wasmer_types::{
     Features, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };

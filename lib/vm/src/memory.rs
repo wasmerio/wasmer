@@ -15,7 +15,7 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasm_common::{Bytes, MemoryType, Pages};
+use wasmer_types::{Bytes, MemoryType, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]

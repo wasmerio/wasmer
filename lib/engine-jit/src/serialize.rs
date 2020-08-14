@@ -1,6 +1,6 @@
 use serde::{Deserialize, Serialize};
-use wasm_common::entity::PrimaryMap;
-use wasm_common::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
+use wasmer_types::entity::PrimaryMap;
+use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
     SectionIndex,

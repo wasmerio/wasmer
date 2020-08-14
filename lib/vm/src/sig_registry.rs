@@ -9,7 +9,7 @@ use more_asserts::{assert_lt, debug_assert_lt};
 use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;
 use std::sync::RwLock;
-use wasm_common::FunctionType;
+use wasmer_types::FunctionType;
 
 /// WebAssembly requires that the caller and callee signatures in an indirect
 /// call must match. To implement this efficiently, keep a registry of all
