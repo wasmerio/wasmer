@@ -64,11 +64,11 @@ pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
-pub use wasmer_compiler::CompilerConfig;
 pub use wasmer_compiler::{
-    wasmparser, CpuFeature, Features, FunctionMiddleware, FunctionMiddlewareGenerator,
-    MiddlewareReaderState, Target,
+    wasmparser, CompilerConfig, FunctionMiddleware, FunctionMiddlewareGenerator,
+    MiddlewareReaderState,
 };
+pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,

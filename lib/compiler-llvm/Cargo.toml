@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha01.0"
 license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,9 +10,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha.1" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
 target-lexicon = { version = "0.10", default-features = false }
 smallvec = "1"
 goblin = "0.2"
@@ -22,9 +22,7 @@ itertools = "0.9"
 rayon = "1.3"
 
 [dependencies.inkwell]
-#version = "0.1.0-llvm8sample"
-git = "https://github.com/theDan64/inkwell"
-rev = "fdf895777e937c974204e879cf1102cf7a727c42"
+version = "=0.1.0-llvm10sample"
 default-features = false
 features = ["llvm10-0", "target-x86", "target-aarch64"]
 
