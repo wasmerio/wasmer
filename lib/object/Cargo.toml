@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-object"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha01.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer Native Object generator"
 license = "(Apache-2.0 WITH LLVM-exception) or MIT"
@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha.1" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1", default-features = false, features = [
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", default-features = false, features = [
     "std",
     "translator"
 ] }
