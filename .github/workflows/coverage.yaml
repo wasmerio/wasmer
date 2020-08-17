@@ -21,7 +21,6 @@ jobs:
         run: |
           cargo install cargo-tarpaulin
           cargo tarpaulin --forward --features "cranelift,singlepass,test-cranelift,test-no-traps" --release -t120 --out Xml -- --skip traps:: --skip spec::linking
-          ls
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
