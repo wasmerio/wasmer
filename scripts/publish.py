@@ -1,7 +1,8 @@
 #! /usr/bin/env python3
 
 # This is a script for publishing the wasmer crates to crates.io.
-# It should be run in the root of wasmer like `python3 scripts/publish.py`.
+# It should be run in the root of wasmer like `python3 scripts/publish.py --no-dry-run`.
+# By default the script executes a test run and does not publish the crates to crates.io.
 
 # install dependencies:
 # pip3 install toposort
@@ -65,7 +66,7 @@ location = {
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
 }
 
-dry_run = False
+no_dry_run = False
 
 def get_latest_version_for_crate(crate_name: str) -> Optional[str]:
     output = subprocess.run(["cargo", "search", crate_name], capture_output=True)
@@ -88,22 +89,22 @@ def publish_crate(crate: str):
     starting_dir = os.getcwd()
     os.chdir("lib/{}".format(location[crate]))
 
-    global dry_run
-    if dry_run:
-        print("In dry-run: not publishing crate `{}`".format(crate))
-    else:
+    global no_dry_run
+    if no_dry_run:
         output = subprocess.run(["cargo", "publish"])
+    else:
+        print("In dry-run: not publishing crate `{}`".format(crate))
 
     os.chdir(starting_dir)
 
 def main():
     parser = argparse.ArgumentParser(description='Publish the Wasmer crates to crates.io')
-    parser.add_argument('--dry-run', default=False, action='store_true',
+    parser.add_argument('--no-dry-run', default=False, action='store_true',
                         help='Run the script without actually publishing anything to crates.io')
     args = vars(parser.parse_args())
 
-    global dry_run
-    dry_run = args['dry_run']
+    global no_dry_run
+    no_dry_run = args['no_dry_run']
 
     # get the order to publish the crates in
     order = list(toposort_flatten(dep_graph, sort=True))
