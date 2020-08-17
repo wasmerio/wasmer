@@ -5,6 +5,7 @@ authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer placeholder engine"
 license = "MIT"
 edition = "2018"
+publish = false
 
 [dependencies]
 wasmer-types = { path = "../../../lib/wasmer-types", version = "1.0.0-alpha01.0" }
@@ -29,4 +30,5 @@ serialize = [
 ]
 
 [badges]
+# TODO: publish this crate again and deprecate it
 maintenance = { status = "actively-developed" }
