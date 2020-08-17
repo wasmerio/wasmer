@@ -19,7 +19,7 @@ possible. Indeed, it was not always possible to provide the exact same
 API, but changes are subtle.
 
 We have carefully documented most of the differences in [the
-`runtime-core/CHANGES.md` document](../runtme-core/CHANGES.md).
+`runtime-core/CHANGES.md` document][changes].
 
 It is important to understand the public of this port. We do not
 recommend to advanced users of Wasmer to use this port. Advanced API,
@@ -31,7 +31,8 @@ for this port is beginners or regular users that do not necesarily
 have time to update their code immediately but that want to enjoy a
 performance boost and memory improvements.
 
-[`wasmer`]: https://crates.io/crates/wasmer-runtime/
+[`wasmer`]: https://crates.io/crates/wasmer/
+[changes]: ../runtime-core/CHANGES.md
 
 ## Introduction
 
