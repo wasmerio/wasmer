@@ -1,4 +1,4 @@
-#! /bin/python3
+#! /usr/bin/env python3
 
 # This is a script for publishing the wasmer crates to crates.io.
 # It should be run in the root of wasmer like `python3 scripts/publish.py`.
@@ -13,13 +13,16 @@ import subprocess
 import time
 
 from typing import Optional
-from toposort import toposort_flatten
+try:
+    from toposort import toposort_flatten
+except ImportError:
+    print("Please install toposort, `pip3 install toposort`")
 
 
-# TODO find this automatically
+# TODO: find this automatically
 target_version = "1.0.0-alpha01.1"
 
-# TODO generate this by parsing toml files
+# TODO: generate this by parsing toml files
 dep_graph = {
     "wasmer-types": set([]),
     "wasmer-vm": set(["wasmer-types"]),
@@ -42,7 +45,7 @@ dep_graph = {
 }
 
 # where each crate is located in `lib`
-# this can also be generated from the toml files
+# TODO: this could also be generated from the toml files
 location = {
     "wasmer-types": "wasmer-types",
     "wasmer-vm": "vm",
@@ -81,8 +84,8 @@ def is_crate_already_published(crate_name: str) -> bool:
 
     return target_version == found_string
     
-# TODO: add dry run mode
 def publish_crate(crate: str):
+    starting_dir = os.getcwd()
     os.chdir("lib/{}".format(location[crate]))
 
     global dry_run
@@ -91,7 +94,7 @@ def publish_crate(crate: str):
     else:
         output = subprocess.run(["cargo", "publish"])
 
-    os.chdir("../..")
+    os.chdir(starting_dir)
 
 def main():
     parser = argparse.ArgumentParser(description='Publish the Wasmer crates to crates.io')
