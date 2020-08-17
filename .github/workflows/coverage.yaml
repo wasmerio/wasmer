@@ -4,6 +4,7 @@ name: build
 
 env:
   RUST_BACKTRACE: 1
+  RUSTFLAGS: "-Ccodegen-units=1 -Clink-dead-code -Coverflow-checks=off"
 
 jobs:
   lint:
@@ -20,7 +21,7 @@ jobs:
       - name: Generate Coverage Report
         run: |
           cargo install cargo-tarpaulin
-          cargo tarpaulin --forward --features "cranelift,singlepass,test-cranelift,test-no-traps" --release -t120 --out Xml -- --skip traps:: --skip spec::linking
+          cargo tarpaulin --forward --features "cranelift,singlepass,test-cranelift,test-no-traps" --release -t120 --out Xml --ignore-tests -- --skip traps:: --skip spec::linking
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
