@@ -3,6 +3,7 @@ name = "wasmer-compiler-llvm"
 version = "1.0.0-alpha01.0"
 license = "MIT"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+description = "LLVM compiler backend for the Wasmer Wasm runtime"
 repository = "https://github.com/wasmerio/wasmer"
 keywords = ["webassembly", "wasm", "compiler", "llvm"]
 categories = ["wasm"]
