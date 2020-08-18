@@ -19,7 +19,6 @@ jobs:
           toolchain: 1.45.0
           override: true
       - name: Install LLVM (Linux)
-        if: matrix.os == 'ubuntu-latest'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
           mkdir -p /opt/llvm-10
