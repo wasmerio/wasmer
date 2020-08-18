@@ -1,4 +1,10 @@
-on: [push]
+on:
+  push:
+    branches:
+      - '*'
+      - '!trying'
+      - '!staging'
+      - '!master'
 
 name: lint
 
