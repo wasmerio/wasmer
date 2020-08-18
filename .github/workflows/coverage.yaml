@@ -28,7 +28,7 @@ jobs:
       - name: Generate Coverage Report
         run: |
           cargo install cargo-tarpaulin
-          cargo tarpaulin --forward --release -t120 --out Xml --ignore-tests --workspace --exclude wasi-experimental-io-devices --exclude wasmer-c-api -- --skip traps:: --skip spec::linking --test-threads=1
+          cargo tarpaulin --forward --release -t120 --out Xml --ignore-tests --workspace --exclude wasmer-wasi-experimental-io-devices --exclude wasmer-c-api -- --skip traps:: --skip spec::linking --test-threads=1
       - name: Upload coverage to Codecov
         uses: codecov/codecov-action@v1
         with:
