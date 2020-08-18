@@ -2,7 +2,8 @@
 name = "wasmer-engine-dummy"
 version = "1.0.0-alpha01.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "wasmer testing utils"
+description = "Wasmer placeholder engine"
+license = "MIT"
 edition = "2018"
 publish = false
 
@@ -29,4 +30,5 @@ serialize = [
 ]
 
 [badges]
+# TODO: publish this crate again and deprecate it
 maintenance = { status = "actively-developed" }
