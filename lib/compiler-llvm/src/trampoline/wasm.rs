@@ -13,7 +13,7 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::BasicType,
     values::{BasicValue, FunctionValue},
-    AddressSpace,
+    AddressSpace, DLLStorageClass,
 };
 use std::cmp;
 use std::convert::TryInto;
@@ -71,7 +71,7 @@ impl FuncTrampoline {
             .set_linkage(Linkage::DLLExport);
         trampoline_func
             .as_global_value()
-            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
+            .set_dll_storage_class(DLLStorageClass::Export);
         generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -193,7 +193,7 @@ impl FuncTrampoline {
             .set_linkage(Linkage::DLLExport);
         trampoline_func
             .as_global_value()
-            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
+            .set_dll_storage_class(DLLStorageClass::Export);
         generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {

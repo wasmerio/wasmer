@@ -18,7 +18,7 @@ use inkwell::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
     },
-    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 
@@ -114,7 +114,7 @@ impl FuncTranslator {
         func.as_global_value().set_section(FUNCTION_SECTION);
         func.set_linkage(Linkage::DLLExport);
         func.as_global_value()
-            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
+            .set_dll_storage_class(DLLStorageClass::Export);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");

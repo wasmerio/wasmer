@@ -6,6 +6,7 @@ use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
+use inkwell::DLLStorageClass;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
@@ -188,7 +189,7 @@ impl LLVMCompiler {
             merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
         metadata_gv.set_initializer(&metadata_init);
         metadata_gv.set_linkage(Linkage::DLLExport);
-        metadata_gv.set_dll_storage_class(inkwell::DLLStorageClass::Export);
+        metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
 
         if self.config().enable_verifier {
             merged_module.verify().unwrap();
