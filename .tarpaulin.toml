@@ -1,0 +1,18 @@
+[cranelift_coverage]
+features = "cranelift,singlepass,llvm,test-no-traps,test-cranelift"
+release = true
+
+[llvm_coverage]
+features = "cranelift,singlepass,llvm,test-no-traps,test-llvm"
+release = true
+
+[singlepass_coverage]
+features = "cranelift,singlepass,llvm,test-no-traps,test-singlepass"
+release = true
+
+[feature_a_and_b_coverage]
+features = "feature_a feature_b"
+release = true
+
+[report]
+out = ["Xml"]
