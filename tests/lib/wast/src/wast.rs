@@ -155,6 +155,7 @@ impl Wast {
                 let result = self.perform_execute(exec);
                 self.assert_return(result, &results)?;
             }
+            #[cfg(not(feature = "test-no-traps"))]
             AssertTrap {
                 span: _,
                 exec,
@@ -163,6 +164,7 @@ impl Wast {
                 let result = self.perform_execute(exec);
                 self.assert_trap(result, message)?;
             }
+            #[cfg(not(feature = "test-no-traps"))]
             AssertExhaustion {
                 span: _,
                 call,
@@ -171,6 +173,9 @@ impl Wast {
                 let result = self.perform_invoke(call);
                 self.assert_trap(result, message)?;
             }
+            // See https://github.com/wasmerio/wasmer/issues/1550 for more info
+            #[cfg(feature = "test-no-traps")]
+            AssertTrap { .. } | AssertExhaustion { .. } => {}
             AssertInvalid {
                 span: _,
                 mut module,
