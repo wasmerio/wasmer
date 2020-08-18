@@ -715,7 +715,7 @@ The imports macro does not support a callback as the first argument anymore.
 
 Before
 
-``````rust
+```rust
 let import_obj = imports! {
     || { setup_context::<MockStorage, MockQuerier>(GAS_LIMIT) },
     "env" => {
@@ -724,7 +724,7 @@ let import_obj = imports! {
         "db_remove" => Func::new(|_a: u32| {}),
     },
 };
-````
+```
 
 After:
 
