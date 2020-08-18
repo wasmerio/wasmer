@@ -1,6 +1,7 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use crate::CompiledFunctionKind;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::Module;
@@ -194,6 +195,12 @@ impl LLVMCompiler {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&merged_module, FileType::Object)
             .unwrap();
+        if let Some(ref callbacks) = self.config.callbacks {
+            callbacks.obj_memory_buffer(
+                &CompiledFunctionKind::Local(function_body_inputs.iter().next().unwrap().0),
+                &memory_buffer,
+            );
+        }
 
         Ok(memory_buffer.as_slice().to_vec())
     }
