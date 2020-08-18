@@ -4,7 +4,7 @@ use crate::translator::FuncTranslator;
 use crate::CompiledFunctionKind;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasmer_compiler::{
@@ -187,6 +187,8 @@ impl LLVMCompiler {
         let metadata_gv =
             merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
         metadata_gv.set_initializer(&metadata_init);
+        metadata_gv.set_linkage(Linkage::DLLExport);
+        metadata_gv.set_dll_storage_class(inkwell::DLLStorageClass::Export);
 
         if self.config().enable_verifier {
             merged_module.verify().unwrap();
