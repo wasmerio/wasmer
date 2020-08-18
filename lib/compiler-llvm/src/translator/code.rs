@@ -112,6 +112,9 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(FUNCTION_SECTION);
+        func.set_linkage(Linkage::DLLExport);
+        func.as_global_value()
+            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");

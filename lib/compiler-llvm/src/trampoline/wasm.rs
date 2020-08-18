@@ -66,6 +66,12 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
+        trampoline_func
+            .as_global_value()
+            .set_linkage(Linkage::DLLExport);
+        trampoline_func
+            .as_global_value()
+            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
         generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -182,6 +188,12 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
+        trampoline_func
+            .as_global_value()
+            .set_linkage(Linkage::DLLExport);
+        trampoline_func
+            .as_global_value()
+            .set_dll_storage_class(inkwell::DLLStorageClass::Export);
         generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
