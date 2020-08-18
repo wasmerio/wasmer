@@ -1,5 +1,8 @@
 status = [
-    "wasmerio.wasmer"
+    "wasmerio.wasmer",
+    "Test on linux",
+    "Test on macos",
+    "Test on windows"
 ]
 required_approvals = 1
 timeout_sec = 7200
