@@ -1,7 +1,7 @@
 on:
   push:
     branches:
-      - '*'
+      - '**'
       - '!trying'
       - '!staging'
       - '!master'
