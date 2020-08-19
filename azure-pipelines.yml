@@ -20,7 +20,7 @@ jobs:
       - script: cargo fmt --all -- --check
         displayName: Lint
     variables:
-      rust_toolchain: '1.41.1'
+      rust_toolchain: '1.45.2'
 
   - job: clippy_lint
     pool:
@@ -38,7 +38,7 @@ jobs:
       - script: cargo clippy --workspace
         displayName: Clippy Lint
     variables:
-      rust_toolchain: nightly-2019-12-19
+      rust_toolchain: '1.45.2'
 
   - job: Test
     strategy:
@@ -46,23 +46,23 @@ jobs:
         linux:
           poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
         android:
           poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
           ANDROID: true
         mac:
           poolName: "Azure Pipelines"
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
           # By default schannel checks revocation of certificates unlike some other SSL
           # backends, but we've historically had problems on CI where a revocation
           # server goes down presumably. See #43333 for more info
           CARGO_HTTP_CHECK_REVOKE: false
         arm:
           poolName: "Packet"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
         windows:
           poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
@@ -105,7 +105,7 @@ jobs:
     pool:
       vmImage: "ubuntu-16.04"
     variables:
-      rust_toolchain: nightly-2019-12-19
+      rust_toolchain: 'nightly-2020-08-18'
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
@@ -125,15 +125,15 @@ jobs:
         linux:
           poolName: "Azure Pipelines"
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
         mac:
           poolName: "Azure Pipelines"
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
           MACOSX_DEPLOYMENT_TARGET: 10.10
         arm:
           poolName: "Packet"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
         windows:
           poolName: "Azure Pipelines"
           imageName: "vs2017-win2016"
@@ -196,10 +196,10 @@ jobs:
       matrix:
         linux:
           imageName: "ubuntu-16.04"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
         mac:
           imageName: "macos-10.14"
-          rust_toolchain: nightly-2019-12-19
+          rust_toolchain: '1.45.2'
           MACOSX_DEPLOYMENT_TARGET: 10.10
         windows:
           imageName: "vs2017-win2016"
@@ -253,7 +253,7 @@ jobs:
     pool:
       vmImage: "ubuntu-16.04"
     variables:
-      rust_toolchain: nightly-2019-12-19
+      rust_toolchain: '1.45.2'
     condition: in(variables['Build.SourceBranch'], 'refs/heads/master', 'refs/heads/staging', 'refs/heads/trying')
     steps:
       - checkout: self
