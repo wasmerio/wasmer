@@ -13,6 +13,10 @@
   #     - run: make doc-local
 
 name: core tests
+
+env:
+  RUST_BACKTRACE: 1
+
 on:
   push:
     branches:
