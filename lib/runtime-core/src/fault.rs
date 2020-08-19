@@ -33,13 +33,17 @@ use crate::state::x64::{build_instance_image, read_stack, X64Register, GPR};
 use crate::state::{CodeVersion, ExecutionStateImage};
 use crate::vm;
 use libc::{mmap, mprotect, siginfo_t, MAP_ANON, MAP_PRIVATE, PROT_NONE, PROT_READ, PROT_WRITE};
+#[cfg(feature = "managed")]
+use nix::sys::signal::SIGINT;
 use nix::sys::signal::{
-    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGINT,
-    SIGSEGV, SIGTRAP,
+    sigaction, SaFlags, SigAction, SigHandler, SigSet, Signal, SIGBUS, SIGFPE, SIGILL, SIGSEGV,
+    SIGTRAP,
 };
 use std::cell::{Cell, RefCell, UnsafeCell};
 use std::ffi::c_void;
+#[cfg(feature = "managed")]
 use std::process;
+#[cfg(feature = "managed")]
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Once;
 
@@ -84,6 +88,7 @@ thread_local! {
     static UNWIND: UnsafeCell<Option<UnwindInfo>> = UnsafeCell::new(None);
     static CURRENT_CTX: UnsafeCell<*mut vm::Ctx> = UnsafeCell::new(::std::ptr::null_mut());
     static CURRENT_CODE_VERSIONS: RefCell<Vec<CodeVersion>> = RefCell::new(vec![]);
+    #[cfg(feature = "managed")]
     static WAS_SIGINT_TRIGGERED: Cell<bool> = Cell::new(false);
     static BOUNDARY_REGISTER_PRESERVATION: UnsafeCell<BoundaryRegisterPreservation> = UnsafeCell::new(BoundaryRegisterPreservation::default());
 }
@@ -118,9 +123,11 @@ lazy_static! {
         InterruptSignalMem(ptr as _)
     };
 }
+#[cfg(feature = "managed")]
 static INTERRUPT_SIGNAL_DELIVERED: AtomicBool = AtomicBool::new(false);
 
 /// Returns a boolean indicating if SIGINT triggered the fault.
+#[cfg(feature = "managed")]
 pub fn was_sigint_triggered_fault() -> bool {
     WAS_SIGINT_TRIGGERED.with(|x| x.get())
 }
@@ -341,6 +348,7 @@ extern "C" fn signal_trap_handler(
         should_unwind = allocate_and_run(TRAP_STACK_SIZE, || {
             let mut is_suspend_signal = false;
 
+            #[cfg(feature = "managed")]
             WAS_SIGINT_TRIGGERED.with(|x| x.set(false));
 
             match Signal::from_c_int(signum) {
@@ -371,6 +379,7 @@ extern "C" fn signal_trap_handler(
                     if fault.faulting_addr as usize == get_wasm_interrupt_signal_mem() as usize {
                         is_suspend_signal = true;
                         clear_wasm_interrupt();
+                        #[cfg(feature = "managed")]
                         if INTERRUPT_SIGNAL_DELIVERED.swap(false, Ordering::SeqCst) {
                             WAS_SIGINT_TRIGGERED.with(|x| x.set(true));
                         }
@@ -439,6 +448,7 @@ extern "C" fn signal_trap_handler(
     }
 }
 
+#[cfg(feature = "managed")]
 extern "C" fn sigint_handler(
     _signum: ::nix::libc::c_int,
     _siginfo: *mut siginfo_t,
@@ -474,12 +484,15 @@ unsafe fn install_sighandler() {
     sigaction(SIGBUS, &sa_trap).unwrap();
     sigaction(SIGTRAP, &sa_trap).unwrap();
 
-    let sa_interrupt = SigAction::new(
-        SigHandler::SigAction(sigint_handler),
-        SaFlags::SA_ONSTACK,
-        SigSet::empty(),
-    );
-    sigaction(SIGINT, &sa_interrupt).unwrap();
+    #[cfg(feature = "managed")]
+    {
+        let sa_interrupt = SigAction::new(
+            SigHandler::SigAction(sigint_handler),
+            SaFlags::SA_ONSTACK,
+            SigSet::empty(),
+        );
+        sigaction(SIGINT, &sa_interrupt).unwrap();
+    }
 }
 
 #[derive(Debug, Clone)]

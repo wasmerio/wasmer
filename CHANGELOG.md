@@ -3,6 +3,7 @@
 ## **[Unreleased]**
 
 - [#1554](https://github.com/wasmerio/wasmer/pull/1554) Update supported stable Rust version to 1.45.2.
+- [#1552](https://github.com/wasmerio/wasmer/pull/1552) Disable `sigint` handler by default.
 
 ## 0.17.1 - 2020-06-24
 
