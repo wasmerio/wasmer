@@ -241,7 +241,7 @@ impl VMOffsets {
 
     /// The size of the `current_length` field.
     pub const fn size_of_vmmemory_definition_current_length(&self) -> u8 {
-        4
+        self.pointer_size
     }
 
     /// Return the size of [`VMMemoryDefinition`].
