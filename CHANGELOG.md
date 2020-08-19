@@ -2,6 +2,8 @@
 
 ## **[Unreleased]**
 
+- [#1554](https://github.com/wasmerio/wasmer/pull/1554) Update supported stable Rust version to 1.45.2.
+
 ## 0.17.1 - 2020-06-24
 
 - [#1439](https://github.com/wasmerio/wasmer/pull/1439) Move `wasmer-interface-types` into its own repository
