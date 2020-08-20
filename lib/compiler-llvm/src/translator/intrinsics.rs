@@ -237,7 +237,6 @@ impl<'ctx> Intrinsics<'ctx> {
         let f32x4_ty_basic = f32x4_ty.as_basic_type_enum();
         let f64x2_ty_basic = f64x2_ty.as_basic_type_enum();
         let i8_ptr_ty_basic = i8_ptr_ty.as_basic_type_enum();
-        let i64_ptr_ty_basic = i64_ptr_ty.as_basic_type_enum();
 
         let ctx_ty = i8_ty;
         let ctx_ptr_ty = ctx_ty.ptr_type(AddressSpace::Generic);
@@ -420,7 +419,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 .const_int(TrapCode::BadSignature as _, false)
                 .as_basic_value_enum(),
             trap_memory_oob: i32_ty
-                .const_int(TrapCode::OutOfBounds as _, false)
+                .const_int(TrapCode::HeapAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
             trap_illegal_arithmetic: i32_ty
                 .const_int(TrapCode::IntegerOverflow as _, false)
@@ -464,7 +463,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
-                .struct_type(&[i8_ptr_ty_basic, i64_ptr_ty_basic], false)
+                .struct_type(&[i8_ptr_ty_basic, i64_ty_basic], false)
                 .ptr_type(AddressSpace::Generic),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
@@ -508,7 +507,7 @@ pub enum MemoryCache<'ctx> {
     /// The memory moves around.
     Dynamic {
         ptr_to_base_ptr: PointerValue<'ctx>,
-        current_length_ptr: PointerValue<'ctx>,
+        ptr_to_current_length: PointerValue<'ctx>,
     },
     /// The memory is always in the same place.
     Static { base_ptr: PointerValue<'ctx> },
@@ -637,19 +636,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                 )
                 .unwrap();
             if let MemoryStyle::Dynamic { .. } = memory_style {
-                let current_length_ptr_ptr = cache_builder
+                let current_length_ptr = cache_builder
                     .build_struct_gep(
                         memory_definition_ptr,
                         intrinsics.vmmemory_definition_current_length_element,
                         "",
                     )
                     .unwrap();
-                let current_length_ptr = cache_builder
-                    .build_load(current_length_ptr_ptr, "")
-                    .into_pointer_value();
                 MemoryCache::Dynamic {
                     ptr_to_base_ptr: base_ptr,
-                    current_length_ptr,
+                    ptr_to_current_length: current_length_ptr,
                 }
             } else {
                 let base_ptr = cache_builder.build_load(base_ptr, "").into_pointer_value();

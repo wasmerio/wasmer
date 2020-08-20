@@ -1000,7 +1000,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             {
                 MemoryCache::Dynamic {
                     ptr_to_base_ptr,
-                    current_length_ptr,
+                    ptr_to_current_length,
                 } => {
                     // Bounds check it.
                     let minimum = self.wasm_module.memories[memory_index].minimum;
@@ -1024,8 +1024,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap_or_else(|| {
                         let load_offset_end = builder.build_int_add(offset, value_size_v, "");
 
-                        let current_length =
-                            builder.build_load(current_length_ptr, "").into_int_value();
+                        let current_length = builder
+                            .build_load(ptr_to_current_length, "")
+                            .into_int_value();
                         tbaa_label(
                             self.module,
                             self.intrinsics,
@@ -1053,7 +1054,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                                 intrinsics.expect_i1,
                                 &[
                                     ptr_in_bounds.as_basic_value_enum(),
-                                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                                    intrinsics.i1_ty.const_int(1, true).as_basic_value_enum(),
                                 ],
                                 "ptr_in_bounds_expect",
                             )
