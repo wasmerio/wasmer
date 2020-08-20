@@ -221,10 +221,13 @@ impl WasiFs {
                 )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                // todo handle collisions
-                assert!(entries
-                    .insert(dir.to_string_lossy().into_owned(), inode)
-                    .is_none())
+                let result = entries.insert(dir.to_string_lossy().into_owned(), inode);
+                if result.is_some() {
+                    return Err(format!(
+                        "Error: found collision in preopened directory names, `{}`",
+                        dir.to_string_lossy()
+                    ));
+                }
             }
             wasi_fs.preopen_fds.push(fd);
         }
@@ -271,8 +274,13 @@ impl WasiFs {
                 )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", &real_dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                // todo handle collisions
-                assert!(entries.insert(alias.clone(), inode).is_none());
+                let result = entries.insert(alias.clone(), inode);
+                if result.is_some() {
+                    return Err(format!(
+                        "Error: found collision in preopened directory aliases, `{}`",
+                        alias,
+                    ));
+                }
             }
             wasi_fs.preopen_fds.push(fd);
         }
@@ -390,12 +398,15 @@ impl WasiFs {
                 .create_fd(rights, rights, 0, fd_flags, inode)
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let existing_entry = if let Some(alias) = &alias {
-                    entries.insert(alias.clone(), inode)
+                let key = if let Some(alias) = &alias {
+                    alias.clone()
                 } else {
-                    entries.insert(path.to_string_lossy().into_owned(), inode)
+                    path.to_string_lossy().into_owned()
                 };
-                // todo handle collisions
+                let existing_entry = entries.insert(key.clone(), inode);
+                if existing_entry.is_some() {
+                    return Err(format!("Found duplicate entry for alias `{}`", key));
+                }
                 assert!(existing_entry.is_none())
             }
             wasi_fs.preopen_fds.push(fd);
