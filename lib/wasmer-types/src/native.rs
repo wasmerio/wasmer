@@ -71,6 +71,7 @@ impl NativeWasmType for i32 {
         bits as _
     }
 }
+
 impl NativeWasmType for i64 {
     const WASM_TYPE: Type = Type::I64;
     type Abi = Self;
@@ -95,6 +96,7 @@ impl NativeWasmType for i64 {
         bits as _
     }
 }
+
 impl NativeWasmType for f32 {
     const WASM_TYPE: Type = Type::F32;
     type Abi = Self;
@@ -119,6 +121,7 @@ impl NativeWasmType for f32 {
         Self::from_bits(bits as _)
     }
 }
+
 impl NativeWasmType for f64 {
     const WASM_TYPE: Type = Type::F64;
     type Abi = Self;
@@ -141,6 +144,31 @@ impl NativeWasmType for f64 {
     #[inline]
     fn from_binary(bits: i128) -> Self {
         Self::from_bits(bits as _)
+    }
+}
+
+impl NativeWasmType for u128 {
+    const WASM_TYPE: Type = Type::V128;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    #[inline]
+    fn from_binary(bits: i128) -> Self {
+        bits as _
     }
 }
 
