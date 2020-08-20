@@ -463,7 +463,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             // TODO: this i64 is actually a rust usize
             vmmemory_definition_ptr_ty: context
-                .struct_type(&[i8_ptr_ty_basic, i64_ty_basic], false)
+                .struct_type(&[i8_ptr_ty_basic, i32_ty_basic], false)
                 .ptr_type(AddressSpace::Generic),
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,

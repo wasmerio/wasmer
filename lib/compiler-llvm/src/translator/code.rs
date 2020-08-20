@@ -1033,6 +1033,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             format!("memory {} length", memory_index.as_u32()),
                             current_length.as_instruction_value().unwrap(),
                         );
+                        let current_length =
+                            builder.build_int_z_extend(current_length, intrinsics.i64_ty, "");
 
                         builder.build_int_compare(
                             IntPredicate::ULE,

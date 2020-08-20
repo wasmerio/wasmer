@@ -272,7 +272,7 @@ pub struct VMMemoryDefinition {
     pub base: *mut u8,
 
     /// The current logical size of this linear memory in bytes.
-    pub current_length: usize,
+    pub current_length: u32,
 }
 
 /// # Safety
@@ -301,10 +301,10 @@ impl VMMemoryDefinition {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-memory-copy
         if src
             .checked_add(len)
-            .map_or(true, |n| n as usize > self.current_length)
+            .map_or(true, |n| n > self.current_length)
             || dst
                 .checked_add(len)
-                .map_or(true, |m| m as usize > self.current_length)
+                .map_or(true, |m| m > self.current_length)
         {
             return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
@@ -334,7 +334,7 @@ impl VMMemoryDefinition {
     pub(crate) unsafe fn memory_fill(&self, dst: u32, val: u32, len: u32) -> Result<(), Trap> {
         if dst
             .checked_add(len)
-            .map_or(true, |m| m as usize > self.current_length)
+            .map_or(true, |m| m > self.current_length)
         {
             return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
