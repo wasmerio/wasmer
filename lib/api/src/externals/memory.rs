@@ -85,10 +85,10 @@ impl Memory {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self) -> u32 {
+    pub fn data_size(&self) -> u64 {
         let definition = self.memory.vmmemory();
         let def = unsafe { definition.as_ref() };
-        def.current_length
+        def.current_length.into()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
