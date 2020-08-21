@@ -1,4 +1,4 @@
-use crate::config::{CompiledFunctionKind, LLVM};
+use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use crate::translator::abi::{
     func_type_to_llvm, get_vmctx_ptr_param, is_sret, pack_values_for_register_return,
@@ -13,7 +13,7 @@ use inkwell::{
     targets::{FileType, TargetMachine},
     types::BasicType,
     values::{BasicValue, FunctionValue},
-    AddressSpace,
+    AddressSpace, DLLStorageClass,
 };
 use std::cmp;
 use std::convert::TryInto;
@@ -42,7 +42,7 @@ impl FuncTrampoline {
         name: &str,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
+        let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
@@ -66,6 +66,12 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
+        trampoline_func
+            .as_global_value()
+            .set_linkage(Linkage::DLLExport);
+        trampoline_func
+            .as_global_value()
+            .set_dll_storage_class(DLLStorageClass::Export);
         generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -96,7 +102,7 @@ impl FuncTrampoline {
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
         let module = self.trampoline_to_module(ty, config, name)?;
-        let function = CompiledFunctionKind::FunctionCallTrampoline(ty.clone());
+        let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
         let memory_buffer = target_machine
@@ -166,7 +172,7 @@ impl FuncTrampoline {
         name: &str,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks
-        let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
+        let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let module = self.ctx.create_module("");
         let target_machine = &self.target_machine;
         let target_triple = target_machine.get_triple();
@@ -182,6 +188,12 @@ impl FuncTrampoline {
         trampoline_func
             .as_global_value()
             .set_section(FUNCTION_SECTION);
+        trampoline_func
+            .as_global_value()
+            .set_linkage(Linkage::DLLExport);
+        trampoline_func
+            .as_global_value()
+            .set_dll_storage_class(DLLStorageClass::Export);
         generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -210,7 +222,7 @@ impl FuncTrampoline {
         config: &LLVM,
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
-        let function = CompiledFunctionKind::DynamicFunctionTrampoline(ty.clone());
+        let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
         let module = self.dynamic_trampoline_to_module(ty, config, name)?;

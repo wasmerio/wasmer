@@ -18,11 +18,11 @@ use inkwell::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
     },
-    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 
-use crate::config::{CompiledFunctionKind, LLVM};
+use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -79,7 +79,7 @@ impl FuncTranslator {
         symbol_registry: &dyn SymbolRegistry,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
@@ -112,6 +112,9 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(FUNCTION_SECTION);
+        func.set_linkage(Linkage::DLLExport);
+        func.as_global_value()
+            .set_dll_storage_class(DLLStorageClass::Export);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -295,7 +298,7 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
         )?;
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
