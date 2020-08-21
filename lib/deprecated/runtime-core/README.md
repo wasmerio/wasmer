@@ -19,7 +19,7 @@ possible. Indeed, it was not always possible to provide the exact same
 API, but changes are subtle.
 
 We have carefully documented most of the differences in [the
-`runtime-core/CHANGES.md` document](../runtme-core/CHANGES.md).
+`runtime-core/CHANGES.md` document][changes].
 
 It is important to understand the public of this port. We do not
 recommend to advanced users of Wasmer to use this port. Advanced API,
@@ -31,7 +31,8 @@ for this port is beginners or regular users that do not necesarily
 have time to update their code immediately but that want to enjoy a
 performance boost and memory improvements.
 
-[`wasmer`]: https://crates.io/crates/wasmer-runtime/
+[`wasmer`]: https://crates.io/crates/wasmer/
+[changes]: ./CHANGES.md
 
 ## Introduction
 
@@ -40,6 +41,8 @@ by providing common types to compile and to instantiate a WebAssembly
 module.
 
 Most Wasmer users should prefer the API which is re-exported by the
-[`wasmer-runtime`](https://github.com/wasmerio/wasmer/tree/master/lib/deprecated/runtime)
-library by default. This crate provides additional APIs which may be
-useful to users that wish to customize the Wasmer runtime.
+[`wasmer-runtime`] library by default. This crate provides additional
+APIs which may be useful to users that wish to customize the Wasmer
+runtime.
+
+[`wasmer-runtime`]: https://github.com/wasmerio/wasmer/tree/master/lib/deprecated/runtime
