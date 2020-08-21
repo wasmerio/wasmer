@@ -269,7 +269,7 @@ impl NativeArtifact {
             vec![]
         };
         let target_args = match (target_triple.operating_system, is_cross_compiling) {
-            (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved"],
+            (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved,/noentry"],
             (OperatingSystem::Windows, false) => vec!["-Wl,-undefined,dynamic_lookup"],
             _ => vec!["-nostartfiles", "-Wl,-undefined,dynamic_lookup"],
         };

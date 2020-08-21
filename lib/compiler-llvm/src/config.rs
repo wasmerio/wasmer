@@ -19,24 +19,22 @@ pub type InkwellMemoryBuffer = inkwell::memory_buffer::MemoryBuffer;
 
 /// The compiled function kind, used for debugging in the `LLVMCallbacks`.
 #[derive(Debug, Clone)]
-pub enum CompiledFunctionKind {
-    // A locally-defined function in the Wasm file
+pub enum CompiledKind {
+    // A locally-defined function in the Wasm file.
     Local(LocalFunctionIndex),
-    // A function call trampoline for a given signature
+    // A function call trampoline for a given signature.
     FunctionCallTrampoline(FunctionType),
-    // A dynamic function trampoline for a given signature
+    // A dynamic function trampoline for a given signature.
     DynamicFunctionTrampoline(FunctionType),
+    // An entire Wasm module.
+    Module,
 }
 
 /// Callbacks to the different LLVM compilation phases.
 pub trait LLVMCallbacks: Debug + Send + Sync {
-    fn preopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
-    fn postopt_ir(&self, function: &CompiledFunctionKind, module: &InkwellModule);
-    fn obj_memory_buffer(
-        &self,
-        function: &CompiledFunctionKind,
-        memory_buffer: &InkwellMemoryBuffer,
-    );
+    fn preopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
+    fn postopt_ir(&self, function: &CompiledKind, module: &InkwellModule);
+    fn obj_memory_buffer(&self, function: &CompiledKind, memory_buffer: &InkwellMemoryBuffer);
 }
 
 #[derive(Debug, Clone)]
