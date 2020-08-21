@@ -249,7 +249,7 @@ impl StoreOptions {
                             types_to_signature(&func_type.params()),
                             types_to_signature(&func_type.results())
                         ),
-                        CompiledKind::Module => "module",
+                        CompiledKind::Module => "module".into(),
                     }
                 }
                 impl LLVMCallbacks for Callbacks {
