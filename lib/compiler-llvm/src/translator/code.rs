@@ -22,7 +22,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 
-use crate::config::{CompiledFunctionKind, LLVM};
+use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -79,7 +79,7 @@ impl FuncTranslator {
         symbol_registry: &dyn SymbolRegistry,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
@@ -298,7 +298,7 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
         )?;
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
