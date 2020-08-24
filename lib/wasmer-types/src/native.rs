@@ -183,6 +183,7 @@ mod test_native_type {
         assert_eq!(i64::WASM_TYPE, Type::I64);
         assert_eq!(f32::WASM_TYPE, Type::F32);
         assert_eq!(f64::WASM_TYPE, Type::F64);
+        assert_eq!(u128::WASM_TYPE, Type::V128);
     }
 
     #[test]
@@ -191,6 +192,7 @@ mod test_native_type {
         assert_eq!(i64::from_binary(42i64.to_binary()), 42i64);
         assert_eq!(f32::from_binary(42f32.to_binary()), 42f32);
         assert_eq!(f64::from_binary(42f64.to_binary()), 42f64);
+        assert_eq!(u128::from_binary(42u128.to_binary()), 42u128);
     }
 }
 
