@@ -780,9 +780,9 @@ dependencies = [
 
 [[package]]
 name = "hashbrown"
-version = "0.8.1"
+version = "0.8.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "34f595585f103464d8d2f6e9864682d74c1601fed5e07d62b1c9058dba8246fb"
+checksum = "e91b62f79061a0bc2e046024cb7ba44b08419ed238ecbd9adbd787434b9e8c25"
 dependencies = [
  "ahash",
  "autocfg 1.0.0",
@@ -834,7 +834,7 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5b88cd59ee5f71fea89a62248fc8f387d44400cefe05ef548466d61ced9029a7"
 dependencies = [
  "autocfg 1.0.0",
- "hashbrown 0.8.1",
+ "hashbrown 0.8.2",
  "serde",
 ]
 
@@ -2230,7 +2230,7 @@ name = "wasmer-compiler"
 version = "1.0.0-alpha01.0"
 dependencies = [
  "enumset",
- "hashbrown 0.8.1",
+ "hashbrown 0.8.2",
  "raw-cpuid",
  "serde",
  "serde_bytes",
@@ -2249,7 +2249,7 @@ dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
  "gimli 0.21.0",
- "hashbrown 0.8.1",
+ "hashbrown 0.8.2",
  "lazy_static",
  "more-asserts",
  "rayon",
@@ -2290,7 +2290,7 @@ dependencies = [
  "byteorder",
  "dynasm",
  "dynasmrt",
- "hashbrown 0.8.1",
+ "hashbrown 0.8.2",
  "lazy_static",
  "more-asserts",
  "rayon",
