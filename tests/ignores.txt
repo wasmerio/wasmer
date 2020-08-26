@@ -67,4 +67,7 @@ wasitests::unstable::file_metadata on windows
 wasitests::unstable::fseek on windows
 wasitests::unstable::path_link on windows
 wasitests::unstable::path_symlink on windows
-wasitests::*::unix_open_special_files on windows
+
+# This test is meant to only run on Unix
+wasitests::unstable::unix_open_special_files on windows
+wasitests::snapshot1::unix_open_special_files on windows
