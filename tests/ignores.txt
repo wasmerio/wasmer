@@ -67,3 +67,4 @@ wasitests::unstable::file_metadata on windows
 wasitests::unstable::fseek on windows
 wasitests::unstable::path_link on windows
 wasitests::unstable::path_symlink on windows
+wasitests::*::unix_open_special_files on windows
