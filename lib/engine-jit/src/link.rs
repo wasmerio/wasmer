@@ -23,8 +23,8 @@ fn apply_relocation(
             fatptr as *const VMFunctionBody as usize
         }
         RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
-        RelocationTarget::CustomSection(custom_section) => {
-            allocated_sections[custom_section] as usize
+        RelocationTarget::CustomSection((custom_section, offset)) => {
+            allocated_sections[custom_section] as usize + offset as usize
         }
         RelocationTarget::JumpTable(func_index, jt) => {
             let offset = *jt_offsets
@@ -37,22 +37,18 @@ fn apply_relocation(
     };
 
     match r.kind {
-        #[cfg(target_pointer_width = "64")]
         RelocationKind::Abs8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        #[cfg(target_pointer_width = "32")]
         RelocationKind::X86PCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
-        #[cfg(target_pointer_width = "64")]
         RelocationKind::X86PCRel8 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u64, reloc_delta);
         },
-        #[cfg(target_pointer_width = "32")]
         RelocationKind::X86CallPCRel4 => unsafe {
             let (reloc_address, reloc_delta) = r.for_address(body, target_func_address as u64);
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
