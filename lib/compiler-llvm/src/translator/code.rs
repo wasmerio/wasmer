@@ -111,7 +111,7 @@ impl FuncTranslator {
         // TODO: mark vmctx nofree
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
-        func.as_global_value().set_section(FUNCTION_SECTION);
+        //func.as_global_value().set_section(FUNCTION_SECTION);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");

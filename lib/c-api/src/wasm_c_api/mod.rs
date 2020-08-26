@@ -23,6 +23,10 @@ use wasmer::{
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
+#[cfg(feature = "native")]
+use wasmer_engine_native::Native;
+#[cfg(feature = "object-file")]
+use wasmer_engine_object_file::ObjectFile;
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]
@@ -39,24 +43,26 @@ pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 
+// Compiler JIT
+#[cfg(feature = "compiler")]
+use wasmer_compiler::CompilerConfig;
+#[cfg(feature = "compiler")]
+fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
+    cfg_if! {
+        if #[cfg(feature = "cranelift")] {
+            Box::new(wasmer_compiler_cranelift::Cranelift::default())
+        } else if #[cfg(feature = "llvm")] {
+            Box::new(wasmer_compiler_llvm::LLVM::default())
+        } else if #[cfg(feature = "singlepass")] {
+            Box::new(wasmer_compiler_singlepass::Singlepass::default())
+        } else {
+            compile_error!("Please enable one of the compiler backends")
+        }
+    }
+}
+
 cfg_if! {
     if #[cfg(all(feature = "jit", feature = "compiler"))] {
-        // Compiler JIT
-        use wasmer_compiler::CompilerConfig;
-        fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
-            cfg_if! {
-                if #[cfg(feature = "cranelift")] {
-                    Box::new(wasmer_compiler_cranelift::Cranelift::default())
-                } else if #[cfg(feature = "llvm")] {
-                    Box::new(wasmer_compiler_llvm::LLVM::default())
-                } else if #[cfg(feature = "singlepass")] {
-                    Box::new(wasmer_compiler_singlepass::Singlepass::default())
-                } else {
-                    compile_error!("Please enable one of the compiler backends")
-                }
-            }
-        }
-
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
@@ -69,6 +75,36 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else if #[cfg(all(feature = "native", feature = "compiler"))] {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(&mut *compiler_config).engine());
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else if #[cfg(feature = "native")] {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::headless().engine());
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else if #[cfg(all(feature = "object-file", feature = "compiler"))] {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::new(&mut *compiler_config).engine());
+            Box::new(wasm_engine_t { inner: engine })
+        }
+    }
+    else if #[cfg(feature = "object-file")] {
+        #[no_mangle]
+        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -119,6 +155,12 @@ pub unsafe extern "C" fn wasm_instance_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
+
+// TODO: NOT part of the standard Wasm C API
+#[no_mangle]
+pub unsafe extern "C" fn wasm_instance_get_vmctx_ptr(instance: &wasm_instance_t) -> *mut c_void {
+    instance.inner.vmctx_ptr() as _
+}
 
 struct CArrayIter<T: Sized + 'static> {
     cur_entry: *const *const T,

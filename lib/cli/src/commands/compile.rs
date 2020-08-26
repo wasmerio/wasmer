@@ -33,6 +33,28 @@ impl Compile {
         self.inner_execute()
             .context(format!("failed to compile `{}`", self.path.display()))
     }
+
+    fn get_recommend_extension(
+        &self,
+        engine_type: &EngineType,
+        target_triple: &Triple,
+    ) -> &'static str {
+        match engine_type {
+            #[cfg(feature = "native")]
+            EngineType::Native => {
+                wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
+            }
+            #[cfg(feature = "jit")]
+            EngineType::JIT => wasmer_engine_jit::JITArtifact::get_default_extension(target_triple),
+            #[cfg(feature = "object-file")]
+            EngineType::ObjectFile => {
+                wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
+            }
+            #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
+            _ => bail!("selected engine type is not compiled in"),
+        }
+    }
+
     fn inner_execute(&self) -> Result<()> {
         let target = self
             .target_triple
@@ -56,18 +78,7 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = match engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(target.triple())
-            }
-            #[cfg(feature = "jit")]
-            EngineType::JIT => {
-                wasmer_engine_jit::JITArtifact::get_default_extension(target.triple())
-            }
-            #[cfg(not(all(feature = "native", feature = "jit")))]
-            _ => bail!("selected engine type is not compiled in"),
-        };
+        let recommended_extension = self.get_recommend_extension(&engine_type, target.triple());
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {
@@ -83,6 +94,18 @@ impl Compile {
         println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;
+        // for C code
+        let module_bytes = module.serialize()?;
+        let mut header = std::fs::OpenOptions::new()
+            .create(true)
+            .truncate(true)
+            .write(true)
+            .open("test.h")?;
+        use std::io::Write;
+        header
+            .write(format!("const int module_bytes_len = {};\n", module_bytes.len()).as_bytes())?;
+        header.write(b"extern const char WASMER_METADATA[];\n")?;
+        // end c gen
         eprintln!(
             "✔ File compiled successfully to `{}`.",
             self.output.display(),

@@ -2181,6 +2181,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-object-file",
  "wasmer-types",
  "wasmer-wasi",
 ]
@@ -2219,6 +2220,7 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-object-file",
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
@@ -2380,6 +2382,24 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-engine-object-file"
+version = "1.0.0-alpha01.0"
+dependencies = [
+ "bincode",
+ "cfg-if",
+ "leb128",
+ "libloading 0.6.2",
+ "serde",
+ "tempfile",
+ "tracing",
+ "wasmer-compiler",
+ "wasmer-engine",
+ "wasmer-object",
+ "wasmer-types",
+ "wasmer-vm",
+]
+
+[[package]]
 name = "wasmer-object"
 version = "1.0.0-alpha01.0"
 dependencies = [
@@ -2483,6 +2503,7 @@ dependencies = [
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
  "wasmer-engine-native",
+ "wasmer-engine-object-file",
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",

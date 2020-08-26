@@ -37,12 +37,16 @@ pub struct StoreOptions {
     llvm_debug_dir: Option<PathBuf>,
 
     /// Use JIT Engine.
-    #[structopt(long, conflicts_with_all = &["native"])]
+    #[structopt(long, conflicts_with_all = &["native", "object_file"])]
     jit: bool,
 
     /// Use Native Engine.
-    #[structopt(long, conflicts_with_all = &["jit"])]
+    #[structopt(long, conflicts_with_all = &["jit", "object_file"])]
     native: bool,
+
+    /// Use ObjectFile Engine.
+    #[structopt(long, conflicts_with_all = &["jit", "native"])]
+    object_file: bool,
 
     /// The deprecated backend flag - Please not use
     #[structopt(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
@@ -110,6 +114,8 @@ pub enum EngineType {
     JIT,
     /// Native Engine
     Native,
+    /// Object File Engine
+    ObjectFile,
 }
 
 impl ToString for EngineType {
@@ -117,6 +123,7 @@ impl ToString for EngineType {
         match self {
             Self::JIT => "jit".to_string(),
             Self::Native => "native".to_string(),
+            Self::ObjectFile => "objectfile".to_string(),
         }
     }
 }
@@ -350,7 +357,17 @@ impl StoreOptions {
                         .engine(),
                 )
             }
-            #[cfg(not(all(feature = "jit", feature = "native")))]
+            #[cfg(feature = "object-file")]
+            EngineType::ObjectFile => {
+                let mut compiler_config = compiler_config;
+                Box::new(
+                    wasmer_engine_object_file::ObjectFile::new(&mut *compiler_config)
+                        .target(target)
+                        .features(features)
+                        .engine(),
+                )
+            }
+            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -367,12 +384,16 @@ impl StoreOptions {
             Ok(EngineType::JIT)
         } else if self.native {
             Ok(EngineType::Native)
+        } else if self.object_file {
+            Ok(EngineType::ObjectFile)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "jit") {
                 Ok(EngineType::JIT)
             } else if cfg!(feature = "native") {
                 Ok(EngineType::Native)
+            } else if cfg!(feature = "object-file") {
+                Ok(EngineType::ObjectFile)
             } else {
                 bail!("There are no available engines for your architecture")
             }
@@ -390,7 +411,11 @@ impl StoreOptions {
             EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
             #[cfg(feature = "native")]
             EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
-            #[cfg(not(all(feature = "jit", feature = "native",)))]
+            #[cfg(feature = "object-file")]
+            EngineType::ObjectFile => {
+                Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
+            }
+            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
