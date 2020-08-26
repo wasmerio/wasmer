@@ -279,10 +279,12 @@ impl Compiler for LLVMCompiler {
                     // TODO: remove this call to clone()
                     let mut custom_section = custom_section.clone();
                     for mut reloc in &mut custom_section.relocations {
-                        if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
-                            reloc.reloc_target = RelocationTarget::CustomSection(
+                        if let RelocationTarget::CustomSection((index, offset)) = reloc.reloc_target
+                        {
+                            reloc.reloc_target = RelocationTarget::CustomSection((
                                 SectionIndex::from_u32(first_section + index.as_u32()),
-                            )
+                                offset,
+                            ))
                         }
                     }
                     if compiled_function
@@ -306,10 +308,11 @@ impl Compiler for LLVMCompiler {
                     }
                 }
                 for mut reloc in &mut compiled_function.compiled_function.relocations {
-                    if let RelocationTarget::CustomSection(index) = reloc.reloc_target {
-                        reloc.reloc_target = RelocationTarget::CustomSection(
+                    if let RelocationTarget::CustomSection((index, offset)) = reloc.reloc_target {
+                        reloc.reloc_target = RelocationTarget::CustomSection((
                             SectionIndex::from_u32(first_section + index.as_u32()),
-                        )
+                            offset,
+                        ))
                     }
                 }
                 compiled_function.compiled_function

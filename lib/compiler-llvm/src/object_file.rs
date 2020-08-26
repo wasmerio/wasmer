@@ -86,7 +86,6 @@ where
 
     let mut visited: HashSet<ElfSectionIndex> = HashSet::new();
     let mut worklist: Vec<ElfSectionIndex> = Vec::new();
-    let mut section_targets: HashMap<ElfSectionIndex, RelocationTarget> = HashMap::new();
 
     let root_section_index = elf
         .section_headers
@@ -105,18 +104,14 @@ where
     let root_section_index = root_section_index[0];
     let root_section_index = ElfSectionIndex::from_usize(root_section_index)?;
 
-    let mut section_to_custom_section = HashMap::new();
-
-    section_targets.insert(root_section_index, root_section_reloc_target);
+    let mut section_indices: HashMap<ElfSectionIndex, SectionIndex> = HashMap::new();
 
     let mut next_custom_section: u32 = 0;
-    let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
-        *section_targets.entry(elf_section_index).or_insert_with(|| {
+    let mut elf_section_to_section_index = |elf_section_index: ElfSectionIndex| {
+        *section_indices.entry(elf_section_index).or_insert_with(|| {
             let next = SectionIndex::from_u32(next_custom_section);
-            section_to_custom_section.insert(elf_section_index, next);
-            let target = RelocationTarget::CustomSection(next);
             next_custom_section += 1;
-            target
+            next
         })
     };
 
@@ -141,8 +136,8 @@ where
     // contains any duplicates or sections we've already visited. `visited`
     // contains all the sections we've ever added to the worklist in a set
     // so that we can quickly check whether a section is new before adding
-    // it to worklist. `section_to_custom_section` is filled in with all
-    // the sections we want to include.
+    // it to worklist. `section_indices` is filled in with all the sections
+    // we want to include.
     worklist.push(root_section_index);
     visited.insert(root_section_index);
 
@@ -157,7 +152,7 @@ where
             visited.insert(index);
             eh_frame_section_indices.push(index);
             // This allocates a custom section index for the ELF section.
-            elf_section_to_target(index);
+            elf_section_to_section_index(index);
         }
     }
 
@@ -171,17 +166,8 @@ where
                 // TODO: these constants are not per-arch, we'll need to
                 // make the whole match per-arch.
                 goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
+                goblin::elf::reloc::R_X86_64_PC32 => RelocationKind::X86PCRel4,
                 goblin::elf::reloc::R_X86_64_PC64 => RelocationKind::X86PCRel8,
-                goblin::elf::reloc::R_X86_64_GOT64 => {
-                    return Err(CompileError::Codegen(
-                        "unimplemented PIC relocation R_X86_64_GOT64".into(),
-                    ));
-                }
-                goblin::elf::reloc::R_X86_64_GOTPC64 => {
-                    return Err(CompileError::Codegen(
-                        "unimplemented PIC relocation R_X86_64_GOTPC64".into(),
-                    ));
-                }
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown ELF relocation {}",
@@ -206,7 +192,10 @@ where
                 if visited.insert(elf_target_section) {
                     worklist.push(elf_target_section);
                 }
-                elf_section_to_target(elf_target_section)
+                RelocationTarget::CustomSection((
+                    elf_section_to_section_index(elf_target_section),
+                    0,
+                ))
             } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
                 && elf_target_section.is_undef()
             {
@@ -221,8 +210,25 @@ where
                 } else {
                     unimplemented!("reference to unknown symbol {}", name);
                 }
+            } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
+                && !elf_target_section.is_undef()
+            {
+                // Reference to specific data in a section.
+                if visited.insert(elf_target_section) {
+                    worklist.push(elf_target_section);
+                }
+                RelocationTarget::CustomSection((
+                    elf_section_to_section_index(elf_target_section),
+                    0,
+                )) // TODO
             } else {
-                unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
+                unimplemented!(
+                    "unknown relocation {:?} (kind={:?}) with target {:?} (elf_target={:?})",
+                    reloc,
+                    kind,
+                    target,
+                    elf_target
+                );
             };
             relocations
                 .entry(section_index)
@@ -239,7 +245,7 @@ where
     let eh_frame_section_indices = eh_frame_section_indices
         .iter()
         .map(|index| {
-            section_to_custom_section.get(index).map_or_else(
+            section_indices.get(index).map_or_else(
                 || {
                     Err(CompileError::Codegen(format!(
                         ".eh_frame section with index={:?} was never loaded",
@@ -251,7 +257,7 @@ where
         })
         .collect::<Result<Vec<SectionIndex>, _>>()?;
 
-    let mut custom_sections = section_to_custom_section
+    let mut custom_sections = section_indices
         .iter()
         .map(|(elf_section_index, custom_section_index)| {
             (

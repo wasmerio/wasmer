@@ -98,6 +98,9 @@ pub use wasmer_types::Features;
 /// wasmparser is exported as a module to slim compiler dependencies
 pub use wasmparser;
 
+/// Offset in bytes from the beginning of the section.
+pub type SectionOffset = u32;
+
 /// Offset in bytes from the beginning of the function.
 pub type CodeOffset = u32;
 

@@ -282,7 +282,7 @@ pub fn emit_compilation(
                     )
                     .map_err(ObjectError::Write)?;
                 }
-                RelocationTarget::CustomSection(section_index) => {
+                RelocationTarget::CustomSection((section_index, _)) => {
                     let target_name =
                         symbol_registry.symbol_to_name(Symbol::Section(section_index));
                     let target_symbol = obj.symbol_id(target_name.as_bytes()).unwrap();
