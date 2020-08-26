@@ -266,17 +266,17 @@ impl FuncTrampoline {
         }
         if !all_sections_are_eh_sections {
             return Err(CompileError::Codegen(
-                "trampoline generation produced non-eh custom sections".into(),
+                "dynamic trampoline generation produced non-eh custom sections".into(),
             ));
         }
         if !compiled_function.relocations.is_empty() {
             return Err(CompileError::Codegen(
-                "trampoline generation produced relocations".into(),
+                "dynamic trampoline generation produced relocations".into(),
             ));
         }
         if !compiled_function.jt_offsets.is_empty() {
             return Err(CompileError::Codegen(
-                "trampoline generation produced jump tables".into(),
+                "dynamic trampoline generation produced jump tables".into(),
             ));
         }
         // Ignore CompiledFunctionFrameInfo. Extra frame info isn't a problem.
