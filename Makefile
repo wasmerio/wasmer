@@ -90,6 +90,9 @@ build-capi-llvm:
 build-capi-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features object-file,wasi
+build-capi-native-debug:
+	cargo build --manifest-path lib/c-api/Cargo.toml \
+		--no-default-features --features object-file,wasi
 
 
 ###########

@@ -94,18 +94,19 @@ impl Compile {
         println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;
-        // for C code
-        let module_bytes = module.serialize()?;
-        let mut header = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open("test.h")?;
-        use std::io::Write;
-        header
-            .write(format!("const int module_bytes_len = {};\n", module_bytes.len()).as_bytes())?;
-        header.write(b"extern const char WASMER_METADATA[];\n")?;
-        // end c gen
+        #[cfg(feature = "object-file")]
+        if let Some(header_file_src) = module.artifact().create_header_file() {
+            // for C code
+            let mut header = std::fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open("test.h")?;
+
+            use std::io::Write;
+            header.write(header_file_src.as_bytes())?;
+            // end c gen
+        }
         eprintln!(
             "✔ File compiled successfully to `{}`.",
             self.output.display(),

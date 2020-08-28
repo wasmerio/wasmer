@@ -26,7 +26,7 @@ use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]
 use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
-use wasmer_engine_object_file::ObjectFile;
+use wasmer_engine_object_file::{ObjectFile, ObjectFileArtifact};
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]
@@ -265,6 +265,7 @@ pub unsafe extern "C" fn wasm_module_exports(
         .map(Box::new)
         .map(Box::into_raw)
         .collect::<Vec<*mut wasm_exporttype_t>>();
+    exports.shrink_to_fit();
 
     debug_assert_eq!(exports.len(), exports.capacity());
     out.size = exports.len();
@@ -284,6 +285,7 @@ pub unsafe extern "C" fn wasm_module_imports(
         .map(Box::new)
         .map(Box::into_raw)
         .collect::<Vec<*mut wasm_importtype_t>>();
+    imports.shrink_to_fit();
 
     debug_assert_eq!(imports.len(), imports.capacity());
     out.size = imports.len();

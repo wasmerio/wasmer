@@ -71,6 +71,11 @@ pub trait Artifact: Send + Sync {
         Ok(())
     }
 
+    /// Create a header file for use with a native object file;
+    fn create_header_file(&self) -> Option<String> {
+        None
+    }
+
     /// Do preinstantiation logic that is executed before instantiating
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())

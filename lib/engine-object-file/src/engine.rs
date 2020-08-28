@@ -1,8 +1,8 @@
 use crate::ObjectFileArtifact;
 use std::collections::HashMap;
+use std::io::Read;
 use std::path::Path;
-use std::sync::Arc;
-use std::sync::Mutex;
+use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{CompileError, Target};
@@ -156,9 +156,11 @@ impl Engine for ObjectFileEngine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(ObjectFileArtifact::deserialize_from_file(
-            &self, &file_ref,
-        )?))
+        let mut f = std::fs::File::open(file_ref)?;
+        let mut vec = vec![];
+        f.read_to_end(&mut vec)?;
+
+        self.deserialize(&vec[..])
     }
 
     fn id(&self) -> &EngineId {

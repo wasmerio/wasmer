@@ -410,6 +410,13 @@ impl Module {
     pub fn info(&self) -> &ModuleInfo {
         &self.artifact.module_ref()
     }
+
+    /// Temporary function to implement this; we probably want to implement the functionality
+    /// dependent on the `Artifact` as individual hidden methods on the `Module`.
+    #[doc(hidden)]
+    pub fn artifact(&self) -> &Arc<dyn Artifact> {
+        &self.artifact
+    }
 }
 
 impl fmt::Debug for Module {

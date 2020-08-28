@@ -3,28 +3,21 @@
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
 use crate::serialize::ModuleMetadata;
+use std::collections::BTreeMap;
 use std::error::Error;
-use std::fs::File;
-use std::io::{Read, Write};
-use std::path::{Path, PathBuf};
-#[cfg(feature = "compiler")]
-use std::process::Command;
+use std::mem;
 use std::sync::Arc;
-use tempfile::NamedTempFile;
-#[cfg(feature = "compiler")]
-use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
-use wasmer_engine::{
-    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
-};
+use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_object::{emit_compilation, emit_data, get_object_for_target};
+use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 #[cfg(feature = "compiler")]
 use wasmer_types::DataInitializer;
@@ -33,8 +26,7 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
@@ -44,6 +36,8 @@ pub struct ObjectFileArtifact {
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    /// Length of the serialized metadata
+    metadata_length: usize,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -162,11 +156,11 @@ impl ObjectFileArtifact {
         /*
         // We construct the function body lengths
         let function_body_lengths = compilation
-            .get_function_bodies()
-            .values()
-            .map(|function_body| function_body.body.len() as u64)
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+        .get_function_bodies()
+        .values()
+        .map(|function_body| function_body.body.len() as u64)
+        .map(|_function_body| 0u64)
+        .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
          */
 
         // TODO: we currently supply all-zero function body lengths.
@@ -194,10 +188,10 @@ impl ObjectFileArtifact {
         to construct an api::Module which is a Store (can be passed in via argument) and an
         Arc<dyn Artifact> which means this struct which includes:
         - CompileModuleInfo
-          - Features
-          - ModuleInfo
-          - MemoryIndex -> MemoryStyle
-          - TableIndex -> TableStyle
+        - Features
+        - ModuleInfo
+        - MemoryIndex -> MemoryStyle
+        - TableIndex -> TableStyle
         - LocalFunctionIndex -> FunctionBodyPtr // finished functions
         - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
         - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
@@ -209,6 +203,7 @@ impl ObjectFileArtifact {
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
+        let metadata_length = metadata_binary.len();
 
         let maybe_obj_bytes = compiler.experimental_object_file_compile_module(
             &target,
@@ -239,7 +234,111 @@ impl ObjectFileArtifact {
         //let host_target = Triple::host();
         //let is_cross_compiling = target_triple != &host_target;
 
-        Self::from_parts_crosscompiled(metadata, obj_bytes)
+        Self::from_parts_crosscompiled(&mut *engine_inner, metadata, obj_bytes, metadata_length)
+    }
+
+    /// Generate the header file that goes with the generated object file.
+    pub fn generate_header_file(&self) -> String {
+        let mut out = String::new();
+        use std::fmt::Write;
+        // TODO: double check this length (it's probably off by 10 or so)
+        write!(
+            &mut out,
+            "const int module_bytes_len = {};\n",
+            self.metadata_length
+        )
+        .unwrap();
+        write!(&mut out, "extern const char WASMER_METADATA[];\n\n").unwrap();
+        for (function_local_index, _function_len) in self.metadata.function_body_lengths.iter() {
+            let function_name = self
+                .metadata
+                .symbol_to_name(Symbol::LocalFunction(function_local_index));
+            // TODO: figure out the signtaure here too
+            write!(&mut out, "void {}(void);\n", function_name).unwrap();
+        }
+
+        // function pointer array
+        {
+            write!(&mut out, "const void* function_pointers[] = {{\n").unwrap();
+            for (function_local_index, _function_len) in self.metadata.function_body_lengths.iter()
+            {
+                let function_name = self
+                    .metadata
+                    .symbol_to_name(Symbol::LocalFunction(function_local_index));
+                // TODO: figure out the signtaure here too
+                write!(&mut out, "\t{},\n", function_name).unwrap();
+                //write!(&mut out, "\t{},\n", function_len).unwrap();
+            }
+            write!(&mut out, "}};\n").unwrap();
+        }
+
+        write!(&mut out, "\n").unwrap();
+
+        for (sig_index, _func_type) in self.metadata.compile_info.module.signatures.iter() {
+            let function_name = self
+                .metadata
+                .symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+
+            write!(&mut out, "void {}(void*, void*, void*);\n", function_name).unwrap();
+        }
+
+        write!(&mut out, "\n").unwrap();
+
+        // function trampolines
+        {
+            write!(&mut out, "const void* function_trampolines[] = {{\n").unwrap();
+            for (sig_index, _vm_shared_index) in self.metadata.compile_info.module.signatures.iter()
+            {
+                let function_name = self
+                    .metadata
+                    .symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+                write!(&mut out, "\t{},\n", function_name).unwrap();
+            }
+            write!(&mut out, "}};\n").unwrap();
+        }
+
+        write!(&mut out, "\n").unwrap();
+
+        for func_index in self
+            .metadata
+            .compile_info
+            .module
+            .functions
+            .keys()
+            .take(self.metadata.compile_info.module.num_imported_functions)
+        {
+            let function_name = self
+                .metadata
+                .symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+            // TODO: figure out the signature here
+            write!(&mut out, "void {}(void*, void*, void*);\n", function_name).unwrap();
+        }
+
+        // dynamic function trampoline pointer array
+        {
+            write!(
+                &mut out,
+                "const void* dynamic_function_trampoline_pointers[] = {{\n"
+            )
+            .unwrap();
+            for func_index in self
+                .metadata
+                .compile_info
+                .module
+                .functions
+                .keys()
+                .take(self.metadata.compile_info.module.num_imported_functions)
+            {
+                let function_name = self
+                    .metadata
+                    .symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+                // TODO: figure out the signature here
+                write!(&mut out, "\t{},\n", function_name).unwrap();
+            }
+            write!(&mut out, "}};\n").unwrap();
+        }
+
+        out
     }
 
     /// Get the default extension when serializing this artifact
@@ -252,13 +351,24 @@ impl ObjectFileArtifact {
 
     /// Construct a `ObjectFileArtifact` from component parts.
     pub fn from_parts_crosscompiled(
+        engine_inner: &mut ObjectFileEngineInner,
         metadata: ModuleMetadata,
         module_bytes: Vec<u8>,
+        metadata_length: usize,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
+        //let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
+        let signature_registry = engine_inner.signatures();
+        let signatures = metadata
+            .compile_info
+            .module
+            .signatures
+            .values()
+            .map(|sig| signature_registry.register(sig))
+            .collect::<PrimaryMap<_, _>>();
+
         Ok(Self {
             metadata,
             module_bytes,
@@ -266,107 +376,7 @@ impl ObjectFileArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-        })
-    }
-
-    /// Construct a `ObjectFileArtifact` from component parts.
-    pub fn from_parts(
-        engine_inner: &mut ObjectFileEngineInner,
-        metadata: ModuleMetadata,
-    ) -> Result<Self, CompileError> {
-        let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
-            PrimaryMap::new();
-        for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
-            let function_name =
-                metadata.symbol_to_name(Symbol::LocalFunction(function_local_index));
-            /*
-            unsafe {
-                // We use a fake function signature `fn()` because we just
-                // want to get the function address.
-                let func: LibrarySymbol<unsafe extern "C" fn()> = lib
-                    .get(function_name.as_bytes())
-                    .map_err(to_compile_error)?;
-                let raw = *func.into_raw();
-                // The function pointer is a fat pointer, however this information
-                // is only used when retrieving the trap information which is not yet
-                // implemented in this engine.
-                let func_pointer =
-                    std::slice::from_raw_parts(raw as *const (), *function_len as usize);
-                let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_functions.push(FunctionBodyPtr(func_pointer));
-            }
-            */
-            todo!("objectfileartifact:from_parts");
-        }
-
-        // Retrieve function call trampolines (for all signatures in the module)
-        for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
-            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-            unsafe {
-                let trampoline = todo!("Get tramploine in ObjectFileArtifact::from_parts");
-                //engine_inner.add_trampoline(&func_type, *trampoline);
-            }
-        }
-
-        // Retrieve dynamic function trampolines (only for imported functions)
-        let mut finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
-            PrimaryMap::with_capacity(metadata.compile_info.module.num_imported_functions);
-        for func_index in metadata
-            .compile_info
-            .module
-            .functions
-            .keys()
-            .take(metadata.compile_info.module.num_imported_functions)
-        {
-            let function_name =
-                metadata.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-            unsafe {
-                /*let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
-                .get(function_name.as_bytes())
-                .map_err(to_compile_error)?;*/
-                todo!("Get trampoline in from_parts");
-                /*let raw = *trampoline.into_raw();
-                let trampoline_pointer = std::slice::from_raw_parts(raw as *const (), 0);
-                let trampoline_pointer =
-                    trampoline_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_dynamic_function_trampolines.push(FunctionBodyPtr(trampoline_pointer));*/
-            }
-        }
-
-        // Leaving frame infos from now, as they are not yet used
-        // however they might be useful for the future.
-        // let frame_infos = compilation
-        //     .get_frame_info()
-        //     .values()
-        //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-        //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-        // Self::from_parts(&mut engine_inner, lib, metadata, )
-        // let frame_info_registration = register_frame_info(
-        //     serializable.module.clone(),
-        //     &finished_functions,
-        //     serializable.compilation.function_frame_info.clone(),
-        // );
-
-        // Compute indices into the shared signature table.
-        let signatures = {
-            let signature_registry = engine_inner.signatures();
-            metadata
-                .compile_info
-                .module
-                .signatures
-                .values()
-                .map(|sig| signature_registry.register(sig))
-                .collect::<PrimaryMap<_, _>>()
-        };
-
-        Ok(Self {
-            metadata,
-            // TOOD:
-            module_bytes: vec![],
-            finished_functions: finished_functions.into_boxed_slice(),
-            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
-                .into_boxed_slice(),
-            signatures: signatures.into_boxed_slice(),
+            metadata_length,
         })
     }
 
@@ -392,61 +402,127 @@ impl ObjectFileArtifact {
 
         let metadata: ModuleMetadata = bincode::deserialize(&bytes[10..(data_len + 10)]).unwrap();
 
+        const WORD_SIZE: usize = mem::size_of::<usize>();
+        let mut byte_buffer = [0u8; WORD_SIZE];
+
+        let mut cur_offset = data_len + 10;
+        for i in 0..WORD_SIZE {
+            byte_buffer[i] = bytes[cur_offset + i];
+        }
+        cur_offset += WORD_SIZE;
+
+        let num_finished_functions = usize::from_ne_bytes(byte_buffer);
+        let mut finished_functions = PrimaryMap::new();
+
+        #[repr(C)]
+        struct SlicePtr {
+            ptr: usize,
+            len: usize,
+        }
+
+        dbg!(num_finished_functions);
+
+        let mut engine_inner = engine.inner_mut();
+        let signature_registry = engine_inner.signatures();
+        let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
+
         // read finished functions in order now...
+        for i in 0..num_finished_functions {
+            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
+            let func_type = &metadata.compile_info.module.signatures[sig_idx];
+            let vm_shared_idx = signature_registry.register(&func_type);
+            sig_map.insert(sig_idx, vm_shared_idx);
+
+            let mut sp = SlicePtr { ptr: 0, len: 0 };
+            for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+            sp.ptr = usize::from_ne_bytes(byte_buffer);
+            cur_offset += WORD_SIZE;
+            // REVIEW: we can also serialize and read back lengths, do we want to do this?
+            /*for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+                sp.len = usize::from_ne_bytes(byte_buffer);
+                cur_offset += WORD_SIZE;*/
+
+            let fp = FunctionBodyPtr(mem::transmute(sp));
+            finished_functions.push(fp);
+        }
+
+        let mut signatures: PrimaryMap<_, VMSharedSignatureIndex> = PrimaryMap::new();
+        for i in 0..(sig_map.len()) {
+            if let Some(shared_idx) = sig_map.get(&SignatureIndex::new(i)) {
+                signatures.push(*shared_idx);
+            } else {
+                panic!("Invalid data, missing sig idx; TODO: handle this error");
+            }
+        }
+
+        // read trampolines in order
+        for i in 0..WORD_SIZE {
+            byte_buffer[i] = bytes[cur_offset + i];
+        }
+        cur_offset += WORD_SIZE;
+        let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
+        dbg!(&num_function_trampolines);
+        for i in 0..num_function_trampolines {
+            for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+            cur_offset += WORD_SIZE;
+            let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
+            let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
+
+            let func_type = &metadata.compile_info.module.signatures[SignatureIndex::new(i)];
+
+            engine_inner.add_trampoline(func_type, trampoline);
+            // REVIEW: we can also serialize and read back lengths, do we want to do this?
+            /*for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+                sp.len = usize::from_ne_bytes(byte_buffer);
+                cur_offset += WORD_SIZE;*/
+        }
+
         // read dynamic function trampolines in order now...
-        // read signatures in order now...
+        let mut finished_dynamic_function_trampolines = PrimaryMap::new();
+        for i in 0..WORD_SIZE {
+            byte_buffer[i] = bytes[cur_offset + i];
+        }
+        cur_offset += WORD_SIZE;
+        let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
+        dbg!(&num_dynamic_trampoline_functions);
+        for _i in 0..num_dynamic_trampoline_functions {
+            let mut sp = SlicePtr { ptr: 0, len: 0 };
+            for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+            sp.ptr = usize::from_ne_bytes(byte_buffer);
+            cur_offset += WORD_SIZE;
+
+            // REVIEW: we can also serialize and read back lengths, do we want to do this?
+            /*for j in 0..WORD_SIZE {
+                byte_buffer[j] = bytes[cur_offset + j];
+            }
+                sp.len = usize::from_ne_bytes(byte_buffer);
+                cur_offset += WORD_SIZE;*/
+
+            let fp = FunctionBodyPtr(mem::transmute(sp));
+
+            finished_dynamic_function_trampolines.push(fp);
+        }
 
         Ok(Self {
             metadata,
             // TODO: review
             module_bytes: vec![],
-            finished_functions: PrimaryMap::new().into_boxed_slice(),
-            finished_dynamic_function_trampolines: PrimaryMap::new().into_boxed_slice(),
-            signatures: PrimaryMap::new().into_boxed_slice(),
+            finished_functions: finished_functions.into_boxed_slice(),
+            finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
+                .into_boxed_slice(),
+            signatures: signatures.into_boxed_slice(),
+            metadata_length: 0,
         })
-
-        /*if !Self::is_deserializable(&bytes) {
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not in any object file format Wasmer can understand"
-                    .to_string(),
-            ));
-        }*/
-    }
-
-    /// Deserialize a `ObjectFileArtifact` from a file path.
-    ///
-    /// # Safety
-    ///
-    /// The file's content must represent a serialized WebAssembly module.
-    pub unsafe fn deserialize_from_file(
-        engine: &ObjectFileEngine,
-        path: &Path,
-    ) -> Result<Self, DeserializeError> {
-        let mut file = File::open(&path)?;
-        let mut buffer = [0; 5];
-        // read up to 5 bytes
-        file.read_exact(&mut buffer)?;
-        if !Self::is_deserializable(&buffer) {
-            return Err(DeserializeError::Incompatible(
-                "The provided bytes are not in any object file format Wasmer can understand"
-                    .to_string(),
-            ));
-        }
-        Self::deserialize_from_file_unchecked(&engine, &path)
-    }
-
-    /// Deserialize a `ObjectFileArtifact` from a file path (unchecked).
-    ///
-    /// # Safety
-    ///
-    /// The file's content must represent a serialized WebAssembly module.
-    pub unsafe fn deserialize_from_file_unchecked(
-        engine: &ObjectFileEngine,
-        path: &Path,
-    ) -> Result<Self, DeserializeError> {
-        todo!("ObjectFileArtifact::deserialize_from_file_unchecked");
-        /*Self::from_parts(&mut engine_inner, metadata, shared_path)
-        .map_err(DeserializeError::Compiler)*/
     }
 }
 
@@ -495,14 +571,13 @@ impl Artifact for ObjectFileArtifact {
         &self.signatures
     }
 
+    fn create_header_file(&self) -> Option<String> {
+        Some(self.generate_header_file())
+    }
+
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        /*if self.library.is_none() {
-            return Err(InstantiationError::Link(LinkError::Trap(
-                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
-            )));
-        }
-        Ok(())*/
-        todo!("figure out what preinstantiate means here");
+        //todo!("figure out what preinstantiate means here");
+        Ok(())
     }
 
     /// Serialize a ObjectFileArtifact
