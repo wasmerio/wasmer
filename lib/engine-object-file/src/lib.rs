@@ -24,6 +24,7 @@
 mod artifact;
 mod builder;
 mod engine;
+pub(crate) mod header;
 mod serialize;
 
 pub use crate::artifact::ObjectFileArtifact;
