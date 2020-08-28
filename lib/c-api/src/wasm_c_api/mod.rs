@@ -26,7 +26,7 @@ use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]
 use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
-use wasmer_engine_object_file::{ObjectFile, ObjectFileArtifact};
+use wasmer_engine_object_file::ObjectFile;
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[repr(C)]

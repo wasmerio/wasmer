@@ -420,8 +420,6 @@ impl ObjectFileArtifact {
             len: usize,
         }
 
-        dbg!(num_finished_functions);
-
         let mut engine_inner = engine.inner_mut();
         let signature_registry = engine_inner.signatures();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
@@ -465,7 +463,6 @@ impl ObjectFileArtifact {
         }
         cur_offset += WORD_SIZE;
         let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
-        dbg!(&num_function_trampolines);
         for i in 0..num_function_trampolines {
             for j in 0..WORD_SIZE {
                 byte_buffer[j] = bytes[cur_offset + j];
@@ -492,7 +489,6 @@ impl ObjectFileArtifact {
         }
         cur_offset += WORD_SIZE;
         let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
-        dbg!(&num_dynamic_trampoline_functions);
         for _i in 0..num_dynamic_trampoline_functions {
             let mut sp = SlicePtr { ptr: 0, len: 0 };
             for j in 0..WORD_SIZE {
