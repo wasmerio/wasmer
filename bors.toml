@@ -1,4 +1,5 @@
 status = [
+    "Code lint",
     "Test on linux",
     "Test on macos",
     "Test on windows"
