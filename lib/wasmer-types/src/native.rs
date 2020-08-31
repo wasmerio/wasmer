@@ -71,6 +71,7 @@ impl NativeWasmType for i32 {
         bits as _
     }
 }
+
 impl NativeWasmType for i64 {
     const WASM_TYPE: Type = Type::I64;
     type Abi = Self;
@@ -95,6 +96,7 @@ impl NativeWasmType for i64 {
         bits as _
     }
 }
+
 impl NativeWasmType for f32 {
     const WASM_TYPE: Type = Type::F32;
     type Abi = Self;
@@ -119,6 +121,7 @@ impl NativeWasmType for f32 {
         Self::from_bits(bits as _)
     }
 }
+
 impl NativeWasmType for f64 {
     const WASM_TYPE: Type = Type::F64;
     type Abi = Self;
@@ -144,6 +147,31 @@ impl NativeWasmType for f64 {
     }
 }
 
+impl NativeWasmType for u128 {
+    const WASM_TYPE: Type = Type::V128;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn to_binary(self) -> i128 {
+        self as _
+    }
+
+    #[inline]
+    fn from_binary(bits: i128) -> Self {
+        bits as _
+    }
+}
+
 #[cfg(test)]
 mod test_native_type {
     use super::*;
@@ -155,6 +183,7 @@ mod test_native_type {
         assert_eq!(i64::WASM_TYPE, Type::I64);
         assert_eq!(f32::WASM_TYPE, Type::F32);
         assert_eq!(f64::WASM_TYPE, Type::F64);
+        assert_eq!(u128::WASM_TYPE, Type::V128);
     }
 
     #[test]
@@ -163,6 +192,7 @@ mod test_native_type {
         assert_eq!(i64::from_binary(42i64.to_binary()), 42i64);
         assert_eq!(f32::from_binary(42f32.to_binary()), 42f32);
         assert_eq!(f64::from_binary(42f64.to_binary()), 42f64);
+        assert_eq!(u128::from_binary(42u128.to_binary()), 42u128);
     }
 }
 

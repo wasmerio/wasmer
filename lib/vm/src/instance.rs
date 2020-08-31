@@ -23,7 +23,7 @@ use std::alloc::{self, Layout};
 use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
-use std::convert::TryFrom;
+use std::convert::{TryFrom, TryInto};
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
@@ -716,7 +716,7 @@ impl Instance {
             .map_or(true, |n| n as usize > data.len())
             || dst
                 .checked_add(len)
-                .map_or(true, |m| m as usize > memory.current_length)
+                .map_or(true, |m| m > memory.current_length)
         {
             return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
@@ -1145,7 +1145,7 @@ unsafe fn get_memory_slice<'instance>(
         let import = instance.imported_memory(init.location.memory_index);
         import.definition.as_ref().clone()
     };
-    slice::from_raw_parts_mut(memory.base, memory.current_length)
+    slice::from_raw_parts_mut(memory.base, memory.current_length.try_into().unwrap())
 }
 
 fn check_memory_init_bounds(
@@ -1247,7 +1247,7 @@ fn initialize_memories(
         let start = get_memory_init_start(init, instance);
         if start
             .checked_add(init.data.len())
-            .map_or(true, |end| end > memory.current_length)
+            .map_or(true, |end| end > memory.current_length.try_into().unwrap())
         {
             return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }

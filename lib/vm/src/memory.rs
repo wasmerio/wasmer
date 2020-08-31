@@ -11,6 +11,7 @@ use more_asserts::{assert_ge, assert_le};
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
+use std::convert::TryInto;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
@@ -190,7 +191,7 @@ impl LinearMemory {
             needs_signal_handlers,
             vm_memory_definition: Box::new(UnsafeCell::new(VMMemoryDefinition {
                 base: base_ptr,
-                current_length: memory.minimum.bytes().0,
+                current_length: memory.minimum.bytes().0.try_into().unwrap(),
             })),
             memory: memory.clone(),
             style: style.clone(),
@@ -213,7 +214,7 @@ impl Memory for LinearMemory {
     fn size(&self) -> Pages {
         unsafe {
             let ptr = self.vm_memory_definition.get();
-            Bytes((*ptr).current_length).into()
+            Bytes::from((*ptr).current_length).into()
         }
     }
 
@@ -292,7 +293,7 @@ impl Memory for LinearMemory {
         // update memory definition
         unsafe {
             let md = &mut *self.vm_memory_definition.get();
-            md.current_length = new_pages.bytes().0;
+            md.current_length = new_pages.bytes().0.try_into().unwrap();
             md.base = mmap.alloc.as_mut_ptr() as _;
         }
 
