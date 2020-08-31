@@ -2,6 +2,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
 use crate::{MemoryType, MemoryView};
+use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
 use wasmer_types::{Pages, ValueType};
@@ -73,7 +74,7 @@ impl Memory {
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.memory.vmmemory();
         let def = definition.as_ref();
-        slice::from_raw_parts_mut(def.base, def.current_length)
+        slice::from_raw_parts_mut(def.base, def.current_length.try_into().unwrap())
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
@@ -84,10 +85,10 @@ impl Memory {
     }
 
     /// Returns the size (in bytes) of the `Memory`.
-    pub fn data_size(&self) -> usize {
+    pub fn data_size(&self) -> u64 {
         let definition = self.memory.vmmemory();
         let def = unsafe { definition.as_ref() };
-        def.current_length
+        def.current_length.into()
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
