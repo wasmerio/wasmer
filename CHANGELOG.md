@@ -1,6 +1,12 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
+
+## TODO: 1.0.0-alpha1.0
+- Wasmer refactor lands
+
+## TODO: 17...
 
 - [#1382](https://github.com/wasmerio/wasmer/pull/1382) Refactored test infranstructure (part 2)
 - [#1380](https://github.com/wasmerio/wasmer/pull/1380) Refactored test infranstructure (part 1)

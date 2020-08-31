@@ -1232,7 +1232,7 @@ impl WasiFs {
         Ok(self.create_inode_with_stat(kind, is_preopened, name, stat))
     }
 
-    /// creates an inode and inserts it given a Kind, does not assume the file exists to
+    /// Creates an inode and inserts it given a Kind, does not assume the file exists.
     pub(crate) fn create_inode_with_default_stat(
         &mut self,
         kind: Kind,
@@ -1243,7 +1243,7 @@ impl WasiFs {
         self.create_inode_with_stat(kind, is_preopened, name, stat)
     }
 
-    /// creates an inode with the given filestat and insert it.
+    /// Creates an inode with the given filestat and inserts it.
     pub(crate) fn create_inode_with_stat(
         &mut self,
         kind: Kind,
