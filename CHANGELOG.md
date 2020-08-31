@@ -1,6 +1,12 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
+
+## TODO: 1.0.0-alpha1.0
+- Wasmer refactor lands
+
+## TODO: 17...
 
 - [#1554](https://github.com/wasmerio/wasmer/pull/1554) Update supported stable Rust version to 1.45.2.
 - [#1552](https://github.com/wasmerio/wasmer/pull/1552) Disable `sigint` handler by default.
