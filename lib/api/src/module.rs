@@ -30,10 +30,15 @@ pub enum IoCompileError {
 ///
 /// Cloning a module is cheap: it does a shallow copy of the compiled
 /// contents rather than a deep copy.
+// Note on the field order. When `Module` is dropped, its fields are
+// dropped in reverse order. The store must be dropped first, as the
+// engine might holds pointers to the artifact, with specific `Drop`
+// implementations. In order to avoid having dangling pointers, we
+// must drop `store` first.
 #[derive(Clone)]
 pub struct Module {
-    store: Store,
     artifact: Arc<dyn Artifact>,
+    store: Store,
 }
 
 impl Module {
