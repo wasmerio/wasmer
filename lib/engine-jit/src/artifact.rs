@@ -6,7 +6,7 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
-use crate::unwind::UnwindRegistry;
+use crate::unwind::{UnwindRegistry, UnwindRegistryExt};
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
@@ -135,10 +135,6 @@ impl JITArtifact {
         }
 
         let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
-
-        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-
         let serializable: SerializableModule = bincode::deserialize(inner_bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
@@ -193,9 +189,12 @@ impl JITArtifact {
                     .bytes
                     .len();
                 let eh_frame_section_pointer = custom_sections[debug.eh_frame];
-                Some(unsafe {
-                    std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
-                })
+                Some(
+                    unsafe {
+                        std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
+                    }
+                    .to_vec(),
+                )
             }
             None => None,
         };

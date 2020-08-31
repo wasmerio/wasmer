@@ -1,5 +1,6 @@
 //! Module for Dummy unwind registry.
 
+use crate::unwind::UnwindRegistryExt;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information when the host system
@@ -11,7 +12,9 @@ impl DummyUnwindRegistry {
     pub fn new() -> Self {
         DummyUnwindRegistry {}
     }
+}
 
+impl UnwindRegistryExt for DummyUnwindRegistry {
     /// Registers a function given the start offset, length, and unwind information.
     pub fn register(
         &mut self,
@@ -25,7 +28,7 @@ impl DummyUnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
+    pub fn publish(&mut self, eh_frame: Option<Vec<u8>>) -> Result<(), String> {
         // Do nothing
         Ok(())
     }

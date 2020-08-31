@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Memory management for executable code.
-use crate::unwind::UnwindRegistry;
+use crate::unwind::{UnwindRegistry, UnwindRegistryExt};
 use std::mem::ManuallyDrop;
 use std::sync::Arc;
 use std::{cmp, mem};

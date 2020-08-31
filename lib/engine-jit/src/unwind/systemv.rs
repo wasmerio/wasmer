@@ -2,10 +2,13 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Module for System V ABI unwind registry.
+
+use crate::unwind::UnwindRegistryExt;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information for System V ABI.
 pub struct UnwindRegistry {
+    eh_frame: Vec<u8>,
     registrations: Vec<usize>,
     published: bool,
 }
@@ -20,50 +23,21 @@ impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
     pub fn new() -> Self {
         Self {
+            eh_frame: Vec::new(),
             registrations: Vec::new(),
             published: false,
         }
     }
 
-    /// Registers a function given the start offset, length, and unwind information.
-    pub fn register(
-        &mut self,
-        _base_address: usize,
-        _func_start: u32,
-        _func_len: u32,
-        info: &CompiledFunctionUnwindInfo,
-    ) -> Result<(), String> {
-        match info {
-            CompiledFunctionUnwindInfo::Dwarf => {}
-            _ => return Err("unsupported unwind information".to_string()),
-        };
-        Ok(())
-    }
-
-    /// Publishes all registered functions.
-    pub fn publish(&mut self, eh_frame: Option<&[u8]>) -> Result<(), String> {
-        if self.published {
-            return Err("unwind registry has already been published".to_string());
-        }
-
-        if let Some(eh_frame) = eh_frame {
-            unsafe {
-                self.register_frames(eh_frame);
-            }
-        }
-
-        self.published = true;
-
-        Ok(())
-    }
-
     #[allow(clippy::cast_ptr_alignment)]
-    unsafe fn register_frames(&mut self, eh_frame: &[u8]) {
+    unsafe fn register_frames(&mut self, eh_frame: Vec<u8>) {
+        self.eh_frame = eh_frame;
+
         cfg_if::cfg_if! {
             if #[cfg(target_os = "macos")] {
                 // On macOS, `__register_frame` takes a pointer to a single FDE
-                let start = eh_frame.as_ptr();
-                let end = start.add(eh_frame.len());
+                let start = self.eh_frame.as_ptr();
+                let end = start.add(self.eh_frame.len());
                 let mut current = start;
 
                 // Walk all of the entries in the frame table and register them
@@ -87,13 +61,47 @@ impl UnwindRegistry {
                 // deregistering it. We must avoid this
                 // scenario. Usually, this is handled upstream by the
                 // compilers.
-                debug_assert_ne!(eh_frame, &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
+                debug_assert_ne!(self.eh_frame.as_slice(), &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
 
-                let ptr = eh_frame.as_ptr();
+                let ptr = self.eh_frame.as_ptr();
                 __register_frame(ptr);
                 self.registrations.push(ptr as usize);
             }
         }
+    }
+}
+
+impl UnwindRegistryExt for UnwindRegistry {
+    /// Registers a function given the start offset, length, and unwind information.
+    fn register(
+        &mut self,
+        _base_address: usize,
+        _func_start: u32,
+        _func_len: u32,
+        info: &CompiledFunctionUnwindInfo,
+    ) -> Result<(), String> {
+        match info {
+            CompiledFunctionUnwindInfo::Dwarf => {}
+            _ => return Err("unsupported unwind information".to_string()),
+        };
+        Ok(())
+    }
+
+    /// Publishes all registered functions.
+    fn publish(&mut self, eh_frame: Option<Vec<u8>>) -> Result<(), String> {
+        if self.published {
+            return Err("unwind registry has already been published".to_string());
+        }
+
+        if let Some(eh_frame) = eh_frame {
+            unsafe {
+                self.register_frames(eh_frame);
+            }
+        }
+
+        self.published = true;
+
+        Ok(())
     }
 }
 

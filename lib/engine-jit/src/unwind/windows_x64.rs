@@ -2,6 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Module for Windows x64 ABI unwind registry.
+use crate::unwind::UnwindRegistryExt;
 use std::collections::HashMap;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 use winapi::um::winnt;
@@ -21,7 +22,9 @@ impl UnwindRegistry {
             published: false,
         }
     }
+}
 
+impl UnwindRegistryExt for UnwindRegistry {
     /// Registers a function given the start offset, length, and unwind information.
     pub fn register(
         &mut self,
@@ -60,7 +63,7 @@ impl UnwindRegistry {
     }
 
     /// Publishes all registered functions.
-    pub fn publish(&mut self, _eh_frame: Option<&[u8]>) -> Result<(), String> {
+    pub fn publish(&mut self, _eh_frame: Option<Vec<u8>>) -> Result<(), String> {
         if self.published {
             return Err("unwind registry has already been published".to_string());
         }
