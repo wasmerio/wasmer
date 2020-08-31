@@ -8,6 +8,16 @@
 
 ## TODO: 17...
 
+- [#1554](https://github.com/wasmerio/wasmer/pull/1554) Update supported stable Rust version to 1.45.2.
+- [#1552](https://github.com/wasmerio/wasmer/pull/1552) Disable `sigint` handler by default.
+
+## 0.17.1 - 2020-06-24
+
+- [#1439](https://github.com/wasmerio/wasmer/pull/1439) Move `wasmer-interface-types` into its own repository
+
+## 0.17.0 - 2020-05-11
+
+- [#1401](https://github.com/wasmerio/wasmer/pull/1401) Make breaking change to `RuntimeError`: `RuntimeError` is now more explicit about its possible error values allowing for better insight into why a call into Wasm failed.
 - [#1382](https://github.com/wasmerio/wasmer/pull/1382) Refactored test infranstructure (part 2)
 - [#1380](https://github.com/wasmerio/wasmer/pull/1380) Refactored test infranstructure (part 1)
 - [#1357](https://github.com/wasmerio/wasmer/pull/1357) Refactored bin commands into separate files
