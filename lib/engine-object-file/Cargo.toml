@@ -7,7 +7,7 @@ categories = ["wasm"]
 keywords = ["webassembly", "wasm"]
 repository = "https://github.com/wasmerio/wasmer"
 # TODO: make a readme explaining what this crate is
-# readme = "README.md"
+readme = "README.md"
 edition = "2018"
 
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html

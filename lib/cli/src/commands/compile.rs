@@ -13,8 +13,12 @@ pub struct Compile {
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT", short = "o", parse(from_os_str))]
+    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
+
+    /// Output path for generated header filefile
+    #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
+    header_path: Option<PathBuf>,
 
     /// Compilation Target triple
     #[structopt(long = "target")]
@@ -94,23 +98,39 @@ impl Compile {
         println!("Target: {}", target.triple());
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;
+        eprintln!(
+            "✔ File compiled successfully to `{}`.",
+            self.output.display(),
+        );
         #[cfg(feature = "object-file")]
         if let Some(header_file_src) = module.artifact().create_header_file() {
+            let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
+                let mut hp = PathBuf::from(
+                    self.path
+                        .file_stem()
+                        .map(|fs| fs.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "wasm_out".to_string()),
+                );
+                hp.set_extension("h");
+                hp
+            });
             // for C code
             let mut header = std::fs::OpenOptions::new()
                 .create(true)
                 .truncate(true)
                 .write(true)
-                .open("test.h")?;
+                .open(&header_path)?;
 
             use std::io::Write;
             header.write(header_file_src.as_bytes())?;
+            eprintln!(
+                "✔ Header file generated successfully at `{}`.",
+                header_path.display(),
+            );
+
             // end c gen
         }
-        eprintln!(
-            "✔ File compiled successfully to `{}`.",
-            self.output.display(),
-        );
+
         Ok(())
     }
 }
