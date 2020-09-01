@@ -205,7 +205,7 @@ impl ObjectFileArtifact {
         metadata_binary.extend(serialized_data);
         let metadata_length = metadata_binary.len();
 
-        let maybe_obj_bytes = compiler.experimental_object_file_compile_module(
+        let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
             &metadata.compile_info,
             module_translation.as_ref().unwrap(),

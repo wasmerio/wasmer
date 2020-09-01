@@ -29,6 +29,7 @@ impl CType {
         }
     }
 
+    #[allow(dead_code)]
     pub fn const_void_ptr() -> Self {
         CType::PointerTo {
             is_const: false,

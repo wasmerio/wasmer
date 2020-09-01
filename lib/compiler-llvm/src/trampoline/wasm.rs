@@ -63,9 +63,9 @@ impl FuncTrampoline {
         );
 
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
-        /*trampoline_func
-        .as_global_value()
-        .set_section(FUNCTION_SECTION);*/
+        trampoline_func
+            .as_global_value()
+            .set_section(FUNCTION_SECTION);
         generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
@@ -179,9 +179,9 @@ impl FuncTrampoline {
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);
         }
-        /*trampoline_func
-        .as_global_value()
-        .set_section(FUNCTION_SECTION);*/
+        trampoline_func
+            .as_global_value()
+            .set_section(FUNCTION_SECTION);
         generate_dynamic_trampoline(trampoline_func, ty, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {

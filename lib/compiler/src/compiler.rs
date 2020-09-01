@@ -99,24 +99,6 @@ pub trait Compiler {
     ) -> Option<Result<Vec<u8>, CompileError>> {
         None
     }
-
-    /// Compiles a module into an object file that can be built with libwasmer
-    /// into a stand-alone executable.
-    ///
-    /// It returns the bytes as a `&[u8]` or a [`CompileError`].
-    fn experimental_object_file_compile_module<'data, 'module>(
-        &self,
-        _target: &Target,
-        _module: &'module CompileModuleInfo,
-        _module_translation: &ModuleTranslationState,
-        // The list of function bodies
-        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
-        _symbol_registry: &dyn SymbolRegistry,
-        // The metadata to inject into the wasmer_metadata section of the object file.
-        _wasmer_metadata: &[u8],
-    ) -> Option<Result<Vec<u8>, CompileError>> {
-        None
-    }
 }
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
