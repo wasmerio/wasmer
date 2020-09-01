@@ -45,7 +45,7 @@ dep_graph = {
     "wasmer-emscripten": set(["wasmer"]),
 }
 
-# where each crate is located in `lib`
+# where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
     "wasmer-types": "wasmer-types",
