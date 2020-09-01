@@ -572,7 +572,7 @@ version = "0.4.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "b11f15d1e3268f140f68d390637d5e76d849782d971ae7063e0da69fe9709a76"
 dependencies = [
- "libloading 0.6.2",
+ "libloading 0.6.3",
 ]
 
 [[package]]
@@ -974,10 +974,11 @@ dependencies = [
 
 [[package]]
 name = "libloading"
-version = "0.6.2"
+version = "0.6.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "2cadb8e769f070c45df05c78c7520eb4cd17061d4ab262e43cfc68b4d00ac71c"
+checksum = "2443d8f0478b16759158b2f66d525991a05491138bc05814ef52a250148ef4f9"
 dependencies = [
+ "cfg-if",
  "winapi",
 ]
 
@@ -2374,7 +2375,7 @@ dependencies = [
  "bincode",
  "cfg-if",
  "leb128",
- "libloading 0.6.2",
+ "libloading 0.6.3",
  "serde",
  "tempfile",
  "tracing",
