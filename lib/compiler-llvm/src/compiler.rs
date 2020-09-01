@@ -1,10 +1,12 @@
 use crate::config::LLVM;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
+use crate::CompiledKind;
 use inkwell::context::Context;
 use inkwell::memory_buffer::MemoryBuffer;
-use inkwell::module::Module;
+use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
+use inkwell::DLLStorageClass;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
@@ -186,6 +188,8 @@ impl LLVMCompiler {
         let metadata_gv =
             merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
         metadata_gv.set_initializer(&metadata_init);
+        metadata_gv.set_linkage(Linkage::DLLExport);
+        metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
 
         if self.config().enable_verifier {
             merged_module.verify().unwrap();
@@ -194,6 +198,9 @@ impl LLVMCompiler {
         let memory_buffer = target_machine
             .write_to_memory_buffer(&merged_module, FileType::Object)
             .unwrap();
+        if let Some(ref callbacks) = self.config.callbacks {
+            callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
+        }
 
         Ok(memory_buffer.as_slice().to_vec())
     }

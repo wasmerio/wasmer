@@ -2,6 +2,7 @@ use crate::lib::std::fmt;
 use crate::lib::std::ops::{Add, Sub};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+use std::convert::TryInto;
 
 /// WebAssembly page sizes are fixed to be 64KiB.
 /// Note: large page support may be added in an opt-in manner in the [future].
@@ -78,6 +79,12 @@ impl From<Pages> for Bytes {
 impl From<usize> for Bytes {
     fn from(other: usize) -> Self {
         Self(other)
+    }
+}
+
+impl From<u32> for Bytes {
+    fn from(other: u32) -> Self {
+        Self(other.try_into().unwrap())
     }
 }
 

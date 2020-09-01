@@ -25,3 +25,8 @@ And here's an example of how to generate these tests:
 cargo run -- -as # set up the toolchains for all targets
 cargo run -- -ag # generate the WASI tests for all targets
 ```
+
+## Updating in Wasmer
+
+Run
+`git subtree pull --prefix tests/wasi-wast git@github.com:wasmerio/wasi-tests master --squash`
