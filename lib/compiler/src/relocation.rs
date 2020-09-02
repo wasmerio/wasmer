@@ -123,9 +123,11 @@ impl Relocation {
             RelocationKind::X86PCRel4 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
-                let reloc_delta_u32 = (target_func_address as u32)
-                    .wrapping_sub(reloc_address as u32)
-                    .wrapping_add(reloc_addend as u32);
+                let reloc_delta = target_func_address
+                    .wrapping_sub(reloc_address as u64)
+                    .wrapping_add(reloc_addend as u64);
+                let reloc_delta_u32 = reloc_delta as u32;
+                assert!(reloc_delta == reloc_delta_u32 as u64);
                 (reloc_address, reloc_delta_u32 as u64)
             }
             RelocationKind::X86PCRel8 => {

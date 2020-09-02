@@ -77,3 +77,6 @@ unsafe impl Send for FunctionBodyPtr {}
 /// # Safety
 /// TODO:
 unsafe impl Sync for FunctionBodyPtr {}
+
+/// Pointers to section data.
+pub type SectionBodyPtr = *const u8;

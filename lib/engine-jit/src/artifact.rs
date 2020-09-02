@@ -155,15 +155,15 @@ impl JITArtifact {
             finished_functions,
             _finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
+            custom_sections,
         ) = inner_jit.allocate(
             &mut unwind_registry,
             &serializable.compile_info.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
+            &serializable.compilation.custom_sections,
         )?;
-        let custom_sections =
-            inner_jit.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.compile_info.module,

@@ -7,15 +7,16 @@ use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionBody, SectionIndex,
+    Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::Features;
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    FunctionBodyPtr, ModuleInfo, SignatureRegistry, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    FunctionBodyPtr, ModuleInfo, SectionBodyPtr, SignatureRegistry, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -193,38 +194,6 @@ impl JITEngineInner {
         &self.features
     }
 
-    /// Allocate custom sections into memory
-    pub(crate) fn allocate_custom_sections(
-        &mut self,
-        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
-    ) -> Result<PrimaryMap<SectionIndex, *const u8>, CompileError> {
-        let mut result = PrimaryMap::with_capacity(custom_sections.len());
-        for (_, section) in custom_sections.iter() {
-            let buffer: &[u8] = match section.protection {
-                CustomSectionProtection::Read => self
-                    .code_memory
-                    .allocate_for_custom_section(&section.bytes)
-                    .map_err(|message| {
-                        CompileError::Resource(format!(
-                            "failed to allocate readable memory for custom section: {}",
-                            message
-                        ))
-                    })?,
-                CustomSectionProtection::ReadExecute => self
-                    .code_memory
-                    .allocate_for_executable_custom_section(&section.bytes)
-                    .map_err(|message| {
-                        CompileError::Resource(format!(
-                            "failed to allocate executable memory for custom section: {}",
-                            message
-                        ))
-                    })?,
-            };
-            result.push(buffer.as_ptr());
-        }
-        Ok(result)
-    }
-
     /// Allocate compiled functions into memory
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
@@ -234,19 +203,33 @@ impl JITEngineInner {
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
+        custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
     ) -> Result<
         (
             PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
             PrimaryMap<SignatureIndex, FunctionBodyPtr>,
             PrimaryMap<FunctionIndex, FunctionBodyPtr>,
+            PrimaryMap<SectionIndex, SectionBodyPtr>,
         ),
         CompileError,
     > {
-        // Allocate all of the compiled functions into executable memory,
-        // copying over their contents.
-        let allocated_functions = self
+        let function_bodies = functions
+            .values()
+            .chain(function_call_trampolines.values())
+            .chain(dynamic_function_trampolines.values())
+            .collect::<Vec<_>>();
+        let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
+            .values()
+            .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
+
+        let (allocated_functions, allocated_executable_sections, allocated_data_sections) = self
             .code_memory
-            .allocate_functions(registry, &functions)
+            .allocate(
+                registry,
+                function_bodies.as_slice(),
+                executable_sections.as_slice(),
+                data_sections.as_slice(),
+            )
             .map_err(|message| {
                 CompileError::Resource(format!(
                     "failed to allocate memory for functions: {}",
@@ -256,56 +239,33 @@ impl JITEngineInner {
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        // let (indices, compiled_functions): (Vec<VMSharedSignatureIndex>, PrimaryMap<FunctionIndex, FunctionBody>) = function_call_trampolines.iter().map(|(sig_index, compiled_function)| {
-        //     let func_type = module.signatures.get(sig_index).unwrap();
-        //     let index = self.signatures.register(&func_type);
-        //     (index, compiled_function)
-        // }).filter(|(index, _)| {
-        //     !self.function_call_trampolines.contains_key(index)
-        // }).unzip();
-        for (sig_index, compiled_function) in function_call_trampolines.iter() {
+        for (i, (sig_index, compiled_function)) in function_call_trampolines.iter().enumerate() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
-            // if self.function_call_trampolines.contains_key(&index) {
-            //     // We don't need to allocate the trampoline in case
-            //     // it's signature is already allocated.
-            //     continue;
-            // }
-            let ptr = self
-                .code_memory
-                .allocate_for_function(registry, &compiled_function)
-                .map_err(|message| {
-                    CompileError::Resource(format!(
-                        "failed to allocate memory for function call trampolines: {}",
-                        message
-                    ))
-                })?;
+            let ptr = allocated_functions[functions.len() + i];
             allocated_function_call_trampolines.push(FunctionBodyPtr(ptr));
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
             self.function_call_trampolines.insert(index, trampoline);
         }
 
-        let allocated_dynamic_function_trampolines = dynamic_function_trampolines
-            .values()
-            .map(|compiled_function| {
-                let ptr = self
-                    .code_memory
-                    .allocate_for_function(registry, &compiled_function)
-                    .map_err(|message| {
-                        CompileError::Resource(format!(
-                            "failed to allocate memory for dynamic function trampolines: {}",
-                            message
-                        ))
-                    })?;
-                Ok(FunctionBodyPtr(ptr as _))
-            })
-            .collect::<Result<PrimaryMap<FunctionIndex, _>, CompileError>>()?;
+        let allocated_dynamic_function_trampolines = allocated_functions
+            [functions.len() + function_call_trampolines.len()..]
+            .iter()
+            .map(|ptr| FunctionBodyPtr(&mut **ptr))
+            .collect::<PrimaryMap<_, _>>();
+
+        let allocated_functions = allocated_functions[0..functions.len()]
+            .iter()
+            .map(|ptr| FunctionBodyPtr(&mut **ptr))
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         Ok((
             allocated_functions,
             allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
+            // TODO: custom sections
+            PrimaryMap::new(),
         ))
     }
 
