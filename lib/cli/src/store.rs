@@ -183,7 +183,7 @@ impl StoreOptions {
 
     /// Get the Compiler Config for the current options
     #[allow(unused_variables)]
-    fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
+    pub(crate) fn get_compiler_config(&self) -> Result<(Box<dyn CompilerConfig>, CompilerType)> {
         let compiler = self.get_compiler()?;
         let compiler_config: Box<dyn CompilerConfig> = match compiler {
             CompilerType::Headless => bail!("The headless engine can't be chosen"),

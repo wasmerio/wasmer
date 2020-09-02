@@ -263,7 +263,7 @@ impl ObjectFileArtifact {
             let function_name = self
                 .metadata
                 .symbol_to_name(Symbol::LocalFunction(function_local_index));
-            // TODO: figure out the signtaure here too
+            // TODO: figure out the signature here too
             c_statements.push(CStatement::Declaration {
                 name: function_name.clone(),
                 array: false,
@@ -285,7 +285,7 @@ impl ObjectFileArtifact {
                 let function_name = self
                     .metadata
                     .symbol_to_name(Symbol::LocalFunction(function_local_index));
-                // TODO: figure out the signtaure here too
+                // TODO: figure out the signature here too
 
                 function_pointer_array_statements.push(CStatement::LiteralConstant {
                     value: function_name.clone(),
@@ -629,10 +629,6 @@ impl Artifact for ObjectFileArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
-    }
-
-    fn create_header_file(&self) -> Option<String> {
-        Some(self.generate_header_file())
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {

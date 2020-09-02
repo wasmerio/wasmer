@@ -2395,7 +2395,7 @@ dependencies = [
  "bincode",
  "cfg-if",
  "leb128",
- "libloading 0.6.2",
+ "libloading 0.6.3",
  "serde",
  "tempfile",
  "tracing",
