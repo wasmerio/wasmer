@@ -43,7 +43,7 @@ impl Global {
         });
         unsafe {
             global
-                .set(val.clone())
+                .set_unchecked(val.clone())
                 .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
 
@@ -76,25 +76,13 @@ impl Global {
     /// * The global is not mutable
     /// * The type of the `Val` doesn't matches the Global type.
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
-        if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(
-                "immutable global cannot be set".to_string(),
-            ));
-        }
-        if val.ty() != self.ty().ty {
-            return Err(RuntimeError::new(format!(
-                "global of type {:?} cannot be set to {:?}",
-                self.ty().ty,
-                val.ty()
-            )));
-        }
         if !val.comes_from_same_store(&self.store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
             self.global
                 .set(val)
-                .map_err(|e| RuntimeError::new(format!("Failed to set global: {}", e)))?;
+                .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }
