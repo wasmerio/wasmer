@@ -243,7 +243,7 @@ impl JITEngineInner {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
             let ptr = allocated_functions
-                .drain(functions.len() + i..functions.len() + i + 1)
+                .drain(functions.len() + i - 1..=functions.len() + i - 1)
                 .map(|slice| FunctionBodyPtr(slice as *mut [_]))
                 .collect::<Vec<_>>()[0];
             allocated_function_call_trampolines.push(ptr);
@@ -263,12 +263,28 @@ impl JITEngineInner {
             .map(|slice| FunctionBodyPtr(slice as *mut [_]))
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
+        let mut exec_iter = allocated_executable_sections.iter();
+        let mut data_iter = allocated_data_sections.iter();
+        let allocated_custom_sections = custom_sections
+            .iter()
+            .map(|(_, section)| {
+                SectionBodyPtr(
+                    if section.protection == CustomSectionProtection::ReadExecute {
+                        exec_iter.next()
+                    } else {
+                        data_iter.next()
+                    }
+                    .unwrap()
+                    .as_ptr(),
+                )
+            })
+            .collect::<PrimaryMap<SectionIndex, _>>();
+
         Ok((
             allocated_functions,
             allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
-            // TODO: custom sections
-            PrimaryMap::new(),
+            allocated_custom_sections,
         ))
     }
 

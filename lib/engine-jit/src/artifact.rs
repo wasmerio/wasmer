@@ -194,7 +194,7 @@ impl JITArtifact {
                     .len();
                 let eh_frame_section_pointer = custom_sections[debug.eh_frame];
                 Some(unsafe {
-                    std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
+                    std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
                 })
             }
             None => None,

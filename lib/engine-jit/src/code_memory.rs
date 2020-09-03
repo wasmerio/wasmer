@@ -17,33 +17,10 @@ use wasmer_vm::{FunctionBodyPtr, Mmap, VMFunctionBody};
 /// optimal alignment values.
 const ARCH_FUNCTION_ALIGNMENT: usize = 16;
 
-struct CodeMemoryEntry {
-    mmap: ManuallyDrop<Mmap>,
-}
-
-impl CodeMemoryEntry {
-    fn new() -> Self {
-        let mmap = ManuallyDrop::new(Mmap::new());
-        Self { mmap }
-    }
-    fn with_capacity(cap: usize) -> Result<Self, String> {
-        let mmap = ManuallyDrop::new(Mmap::with_at_least(cap)?);
-        Ok(Self { mmap })
-    }
-}
-
-impl Drop for CodeMemoryEntry {
-    fn drop(&mut self) {
-        unsafe {
-            ManuallyDrop::drop(&mut self.mmap);
-        }
-    }
-}
-
 /// Memory manager for executable code.
 pub struct CodeMemory {
-    mmap: Mmap,
     unwind_registries: Vec<Arc<UnwindRegistry>>,
+    mmap: Mmap,
     start_of_nonexecutable_pages: usize,
 }
 
@@ -107,8 +84,10 @@ impl CodeMemory {
         let mut bytes = 0;
         let mut buf = self.mmap.as_mut_slice();
         for func in functions {
-            let len = get_align_padding_size(bytes, ARCH_FUNCTION_ALIGNMENT)
-                + Self::function_allocation_size(func);
+            let len = Mmap::round_up_to_page_size(
+                Self::function_allocation_size(func),
+                ARCH_FUNCTION_ALIGNMENT,
+            );
             let (mut func_buf, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
 
@@ -119,8 +98,8 @@ impl CodeMemory {
         }
         for section in executable_sections {
             let section = &section.bytes;
-            //assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
-            let len = get_align_padding_size(section.len(), ARCH_FUNCTION_ALIGNMENT);
+            assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
+            let len = Mmap::round_up_to_page_size(section.len(), ARCH_FUNCTION_ALIGNMENT);
             let padding = len - section.len();
             let (s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
@@ -130,7 +109,7 @@ impl CodeMemory {
         }
 
         {
-            let padding = get_align_padding_size(bytes, data_section_align) - bytes;
+            let padding = Mmap::round_up_to_page_size(bytes, data_section_align) - bytes;
             buf = buf.split_at_mut(padding).1;
             //buf = &mut buf[padding..];
             bytes += padding;
@@ -140,8 +119,7 @@ impl CodeMemory {
         for section in data_sections {
             let section = &section.bytes;
             assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % data_section_align == 0);
-            let len = get_align_padding_size(section.len(), data_section_align);
-            let padding = len - section.len();
+            let len = Mmap::round_up_to_page_size(section.len(), data_section_align);
             let (s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             s[..section.len()].copy_from_slice(section.as_slice());
