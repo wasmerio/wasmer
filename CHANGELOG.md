@@ -1,6 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1590](https://github.com/wasmerio/wasmer/pull/1590) Fix soundness issue in API on vm::Global
 - [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
 
 ## TODO: 1.0.0-alpha1.0
