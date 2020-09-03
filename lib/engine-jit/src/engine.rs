@@ -222,42 +222,45 @@ impl JITEngineInner {
             .values()
             .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
 
-        let (allocated_functions, allocated_executable_sections, allocated_data_sections) = self
-            .code_memory
-            .allocate(
-                registry,
-                function_bodies.as_slice(),
-                executable_sections.as_slice(),
-                data_sections.as_slice(),
-            )
-            .map_err(|message| {
-                CompileError::Resource(format!(
-                    "failed to allocate memory for functions: {}",
-                    message
-                ))
-            })?;
+        let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
+            self.code_memory
+                .allocate(
+                    registry,
+                    function_bodies.as_slice(),
+                    executable_sections.as_slice(),
+                    data_sections.as_slice(),
+                )
+                .map_err(|message| {
+                    CompileError::Resource(format!(
+                        "failed to allocate memory for functions: {}",
+                        message
+                    ))
+                })?;
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         for (i, (sig_index, compiled_function)) in function_call_trampolines.iter().enumerate() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
-            let ptr = allocated_functions[functions.len() + i];
-            allocated_function_call_trampolines.push(FunctionBodyPtr(ptr));
-            let trampoline =
-                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr.as_ptr()) };
+            let ptr = allocated_functions
+                .drain(functions.len() + i..functions.len() + i + 1)
+                .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+                .collect::<Vec<_>>()[0];
+            allocated_function_call_trampolines.push(ptr);
+            let trampoline = unsafe {
+                std::mem::transmute::<*const VMFunctionBody, VMTrampoline>((**ptr).as_ptr())
+            };
             self.function_call_trampolines.insert(index, trampoline);
         }
 
         let allocated_dynamic_function_trampolines = allocated_functions
-            [functions.len() + function_call_trampolines.len()..]
-            .iter()
-            .map(|ptr| FunctionBodyPtr(&mut **ptr))
-            .collect::<PrimaryMap<_, _>>();
+            .drain(functions.len()..)
+            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .collect::<PrimaryMap<FunctionIndex, _>>();
 
-        let allocated_functions = allocated_functions[0..functions.len()]
-            .iter()
-            .map(|ptr| FunctionBodyPtr(&mut **ptr))
+        let allocated_functions = allocated_functions
+            .drain(..)
+            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         Ok((

@@ -57,6 +57,7 @@ impl CodeMemory {
         }
     }
 
+    /// Allocate a single contiguous block of memory for the functions and custom sections, and copy the data in place.
     pub fn allocate(
         &mut self,
         registry: &mut UnwindRegistry,
@@ -96,7 +97,7 @@ impl CodeMemory {
 
         // 2. Allocate the pages. Mark them all read-write.
 
-        let mut mmap = Mmap::with_at_least(total_len)?;
+        self.mmap = Mmap::with_at_least(total_len)?;
 
         // 3. Determine where the pointers to each function, executable section
         // or data section are. Copy the functions. Change permissions of
@@ -104,30 +105,34 @@ impl CodeMemory {
         // them.
 
         let mut bytes = 0;
-        let mut buf = mmap.as_mut_slice();
+        let mut buf = self.mmap.as_mut_slice();
         for func in functions {
-            let (next_start, next_buf, vmfunc) = Self::copy_function(registry, func, &mut buf);
+            let len = get_align_padding_size(bytes, ARCH_FUNCTION_ALIGNMENT)
+                + Self::function_allocation_size(func);
+            let (mut func_buf, next_buf) = buf.split_at_mut(len);
+            buf = next_buf;
+
+            let vmfunc = Self::copy_function(registry, func, func_buf);
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
             function_result.push(vmfunc);
-            let padding = get_align_padding_size(next_start as usize, ARCH_FUNCTION_ALIGNMENT);
-            //buf = &mut next_buf[padding..];
-            let (_, buf) = next_buf.split_at_mut(padding);
-            bytes += padding;
+            bytes += len;
         }
         for section in executable_sections {
             let section = &section.bytes;
-            assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
+            //assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
             let len = get_align_padding_size(section.len(), ARCH_FUNCTION_ALIGNMENT);
             let padding = len - section.len();
-            let (s, buf) = buf.split_at_mut(len);
-            executable_section_result.push(s);
+            let (s, next_buf) = buf.split_at_mut(len);
+            buf = next_buf;
             s[..section.len()].copy_from_slice(section.as_slice());
+            executable_section_result.push(s);
             bytes += padding;
         }
 
         {
             let padding = get_align_padding_size(bytes, data_section_align) - bytes;
-            buf = &mut buf[padding..];
+            buf = buf.split_at_mut(padding).1;
+            //buf = &mut buf[padding..];
             bytes += padding;
         }
         self.start_of_nonexecutable_pages = bytes;
@@ -137,9 +142,10 @@ impl CodeMemory {
             assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % data_section_align == 0);
             let len = get_align_padding_size(section.len(), data_section_align);
             let padding = len - section.len();
-            let (s, buf) = buf.split_at_mut(len);
-            data_section_result.push(s);
+            let (s, next_buf) = buf.split_at_mut(len);
+            buf = next_buf;
             s[..section.len()].copy_from_slice(section.as_slice());
+            data_section_result.push(s);
             bytes += len;
         }
 
@@ -189,10 +195,9 @@ impl CodeMemory {
     /// This will also add the function to the current function table.
     fn copy_function<'a>(
         registry: &mut UnwindRegistry,
-        //base_address: usize,
         func: &FunctionBody,
         buf: &'a mut [u8],
-    ) -> (u32, &'a mut [u8], &'a mut [VMFunctionBody]) {
+    ) -> &'a mut [VMFunctionBody] {
         assert!((buf.as_ptr() as usize) % ARCH_FUNCTION_ALIGNMENT == 0);
 
         let func_len = func.body.len();
@@ -219,7 +224,7 @@ impl CodeMemory {
             registry
                 .register(
                     //base_address,
-                    buf.as_ptr() as usize,
+                    vmfunc.as_ptr() as usize,
                     0,
                     func_len as u32,
                     info,
@@ -227,7 +232,7 @@ impl CodeMemory {
                 .expect("failed to register unwind information");
         }
 
-        (func_end, remainder, vmfunc)
+        vmfunc
     }
 
     /// Convert mut a slice from u8 to VMFunctionBody.
