@@ -69,8 +69,8 @@ impl Global {
         unsafe {
             let definition = &*self.vm_global_definition.get();
             match self.ty().ty {
-                Type::I32 => Value::from(*definition.as_i32()),
-                Type::I64 => Value::from(*definition.as_i64()),
+                Type::I32 => Value::I32(*definition.as_i32()),
+                Type::I64 => Value::I64(*definition.as_i64()),
                 Type::F32 => Value::F32(*definition.as_f32()),
                 Type::F64 => Value::F64(*definition.as_f64()),
                 Type::V128 => Value::V128(*definition.as_u128()),
@@ -104,7 +104,7 @@ impl Global {
     /// The caller should also ensure that this global is synchronized. Otherwise, use
     /// `set` instead.
     pub unsafe fn set_unchecked<T>(&self, val: Value<T>) -> Result<(), GlobalError> {
-        // ideally we'd use atomics here
+        // ideally we'd use atomics for the global value rather than needing to lock it
         let definition = &mut *self.vm_global_definition.get();
         match val {
             Value::I32(i) => *definition.as_i32_mut() = i,
