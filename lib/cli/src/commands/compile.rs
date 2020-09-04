@@ -106,37 +106,34 @@ impl Compile {
 
         #[cfg(feature = "object-file")]
         if engine_type == EngineType::ObjectFile {
-            use wasmer_engine_object_file::ObjectFileArtifact;
+            let symbol_registry = module.artifact().symbol_registry();
+            let module_info = module.info();
+            let header_file_src =
+                crate::header_file_generation::generate_header_file(module_info, symbol_registry);
 
-            if let Some(obj_file) = module.artifact().downcast_ref::<ObjectFileArtifact>() {
-                let header_file_src = obj_file.generate_header_file();
-                let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
-                    let mut hp = PathBuf::from(
-                        self.path
-                            .file_stem()
-                            .map(|fs| fs.to_string_lossy().to_string())
-                            .unwrap_or_else(|| "wasm_out".to_string()),
-                    );
-                    hp.set_extension("h");
-                    hp
-                });
-                // for C code
-                let mut header = std::fs::OpenOptions::new()
-                    .create(true)
-                    .truncate(true)
-                    .write(true)
-                    .open(&header_path)?;
-
-                use std::io::Write;
-                header.write(header_file_src.as_bytes())?;
-                eprintln!(
-                    "✔ Header file generated successfully at `{}`.",
-                    header_path.display(),
+            let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
+                let mut hp = PathBuf::from(
+                    self.path
+                        .file_stem()
+                        .map(|fs| fs.to_string_lossy().to_string())
+                        .unwrap_or_else(|| "wasm_out".to_string()),
                 );
-            } else {
-                // TODO: handle error
-                panic!("Downcast failed!")
-            }
+                hp.set_extension("h");
+                hp
+            });
+            // for C code
+            let mut header = std::fs::OpenOptions::new()
+                .create(true)
+                .truncate(true)
+                .write(true)
+                .open(&header_path)?;
+
+            use std::io::Write;
+            header.write(header_file_src.as_bytes())?;
+            eprintln!(
+                "✔ Header file generated successfully at `{}`.",
+                header_path.display(),
+            );
         }
         Ok(())
     }

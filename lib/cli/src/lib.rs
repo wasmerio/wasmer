@@ -20,6 +20,7 @@ pub mod commands;
 pub mod common;
 #[macro_use]
 pub mod error;
+pub mod header_file_generation;
 #[cfg(feature = "debug")]
 pub mod logging;
 pub mod store;

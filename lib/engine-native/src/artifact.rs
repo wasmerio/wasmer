@@ -598,4 +598,8 @@ impl Artifact for NativeArtifact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.sharedobject_path)?)
     }
+
+    fn symbol_registry(&self) -> &dyn SymbolRegistry {
+        &self.metadata
+    }
 }

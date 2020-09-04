@@ -8,7 +8,7 @@ use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
-use wasmer_compiler::{CompileError, Features, Triple};
+use wasmer_compiler::{CompileError, Features, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
@@ -302,5 +302,9 @@ impl Artifact for JITArtifact {
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(bytes);
         Ok(serialized)
+    }
+
+    fn symbol_registry(&self) -> &dyn SymbolRegistry {
+        unimplemented!("TODO: figure out why engine JIT doesn't have a SymbolRegistry")
     }
 }

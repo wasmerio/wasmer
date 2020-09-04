@@ -2229,6 +2229,7 @@ dependencies = [
  "wasmer-engine-native",
  "wasmer-engine-object-file",
  "wasmer-types",
+ "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",

@@ -35,6 +35,7 @@ wasmer-engine-object-file = { version = "1.0.0-alpha01.0", path = "../engine-obj
 wasmer-wasi = { version = "1.0.0-alpha01.0", path = "../wasi", optional = true }
 wasmer-wasi-experimental-io-devices = { version = "1.0.0-alpha01.0", path = "../wasi-experimental-io-devices", optional = true }
 wasmer-wast = { version = "1.0.0-alpha01.0", path = "../../tests/lib/wast", optional = true }
+wasmer-vm = { version = "1.0.0-alpha01.0", path = "../vm" }
 wasmer-cache = { version = "1.0.0-alpha01.0", path = "../cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha01.0", path = "../wasmer-types" }
 atty = "0.2"
