@@ -15,15 +15,15 @@ jobs:
         uses: actions/checkout@v2
       - name: Download Artifacts
         uses: actions/download-artifact@v2
-          with:
-            name: wasmer-ubuntu-latest
-            path: wasmer-ubuntu
-          with:
-            name: wasmer-macos-latest
-            path: wasmer-macos
-          with:
-            name: wasmer-windows-latest
-            path: wasmer-windows
+        with:
+          name: wasmer-ubuntu-latest
+          path: wasmer-ubuntu
+        with:
+          name: wasmer-macos-latest
+          path: wasmer-macos
+        with:
+          name: wasmer-windows-latest
+          path: wasmer-windows
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
