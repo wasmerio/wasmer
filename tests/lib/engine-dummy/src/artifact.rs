@@ -240,4 +240,12 @@ impl Artifact for DummyArtifact {
             "The serializer feature is not enabled in the DummyEngine",
         ))
     }
+
+    fn symbol_registry(&self) -> &dyn wasmer_compiler::SymbolRegistry {
+        unimplemented!("dummy engine does not hav ea symbol registry")
+    }
+
+    fn metadata_length(&self) -> usize {
+        0
+    }
 }
