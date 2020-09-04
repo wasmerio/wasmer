@@ -107,9 +107,13 @@ impl Compile {
         #[cfg(feature = "object-file")]
         if engine_type == EngineType::ObjectFile {
             let symbol_registry = module.artifact().symbol_registry();
+            let metadata_length = module.artifact().metadata_length();
             let module_info = module.info();
-            let header_file_src =
-                crate::header_file_generation::generate_header_file(module_info, symbol_registry);
+            let header_file_src = crate::c_gen::object_file_header::generate_header_file(
+                module_info,
+                symbol_registry,
+                metadata_length,
+            );
 
             let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
                 let mut hp = PathBuf::from(

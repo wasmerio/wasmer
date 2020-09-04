@@ -307,4 +307,9 @@ impl Artifact for JITArtifact {
     fn symbol_registry(&self) -> &dyn SymbolRegistry {
         unimplemented!("TODO: figure out why engine JIT doesn't have a SymbolRegistry")
     }
+
+    fn metadata_length(&self) -> usize {
+        // TODO: figure out what to do here
+        0
+    }
 }

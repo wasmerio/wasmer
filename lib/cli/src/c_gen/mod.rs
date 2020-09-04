@@ -1,6 +1,8 @@
 //! A convenient little abstraction for building up C expressions and generating
 //! simple C code.
 
+pub mod object_file_header;
+
 /// A Type in the C language.
 #[derive(Debug, Clone)]
 pub enum CType {
@@ -57,7 +59,7 @@ impl CType {
     #[allow(dead_code)]
     pub fn const_void_ptr() -> Self {
         CType::PointerTo {
-            is_const: false,
+            is_const: true,
             inner: Box::new(CType::Void),
         }
     }
@@ -133,7 +135,7 @@ impl CType {
     }
 
     /// Generate the C source code for a type with a nameinto the given `String`.
-    fn generate_c_with_name(&self, name: &String, w: &mut String) {
+    fn generate_c_with_name(&self, name: &str, w: &mut String) {
         match &self {
             Self::PointerTo { .. }
             | Self::Void
@@ -280,177 +282,184 @@ pub fn generate_c(statements: &[CStatement]) -> String {
     out
 }
 
-// TODO: split the bottom part into its own file
+#[cfg(test)]
+mod test {
+    use super::*;
 
-use wasmer_compiler::{Symbol, SymbolRegistry};
-use wasmer_vm::ModuleInfo;
+    #[test]
+    fn generate_types() {
+        macro_rules! assert_c_type {
+            ($ctype:expr, $expected:expr) => {
+                let mut w = String::new();
+                let ctype = $ctype;
+                ctype.generate_c(&mut w);
+                assert_eq!(w, $expected);
+            };
+        }
 
-/// Generate the header file that goes with the generated object file.
-pub fn generate_header_file(
-    module_info: &ModuleInfo,
-    symbol_registry: &dyn SymbolRegistry,
-) -> String {
-    let mut c_statements = vec![];
-    c_statements.push(CStatement::Declaration {
-        name: "module_bytes_len".to_string(),
-        array: false,
-        is_extern: false,
-        is_const: true,
-        ctype: CType::U32,
-        definition: Some(Box::new(CStatement::LiteralConstant {
-            value: "0".to_string(), //todo!("get the metadata length from somewhere"), //format!("{}", self.metadata_length),
-        })),
-    });
-    c_statements.push(CStatement::Declaration {
-        name: "WASMER_METADATA".to_string(),
-        array: true,
-        is_extern: true,
-        is_const: true,
-        ctype: CType::U8,
-        definition: None,
-    });
-    for (function_local_index, _sig_index) in
-        module_info
-            .functions
-            .iter()
-            .filter_map(|(f_index, sig_index)| {
-                Some((module_info.local_func_index(f_index)?, sig_index))
-            })
-    {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-        // TODO: figure out the signature here too
-        c_statements.push(CStatement::Declaration {
-            name: function_name.clone(),
-            array: false,
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::Void],
+        assert_c_type!(CType::Void, "void");
+        assert_c_type!(CType::void_ptr(), "void*");
+        assert_c_type!(CType::const_void_ptr(), "const void*");
+        assert_c_type!(CType::U8, "unsigned char");
+        assert_c_type!(CType::U16, "unsigned short");
+        assert_c_type!(CType::U32, "unsigned int");
+        assert_c_type!(CType::U64, "unsigned long long");
+        assert_c_type!(CType::USize, "unsigned size_t");
+        assert_c_type!(CType::I8, "char");
+        assert_c_type!(CType::I16, "short");
+        assert_c_type!(CType::I32, "int");
+        assert_c_type!(CType::I64, "long long");
+        assert_c_type!(CType::ISize, "size_t");
+        assert_c_type!(
+            CType::Function {
+                arguments: vec![CType::U8, CType::ISize],
                 return_value: None,
             },
-            definition: None,
-        });
-    }
+            "void (*)(unsigned char, size_t)"
+        );
+        assert_c_type!(
+            CType::Function {
+                arguments: vec![],
+                return_value: Some(Box::new(CType::ISize)),
+            },
+            "size_t (*)()"
+        );
 
-    // function pointer array
-    {
-        let mut function_pointer_array_statements = vec![];
-        for (function_local_index, _sig_index) in
-            module_info
-                .functions
-                .iter()
-                .filter_map(|(f_index, sig_index)| {
-                    Some((module_info.local_func_index(f_index)?, sig_index))
+        assert_c_type!(
+            CType::PointerTo {
+                is_const: true,
+                inner: Box::new(CType::PointerTo {
+                    is_const: false,
+                    inner: Box::new(CType::U32),
                 })
-        {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-            // TODO: figure out the signature here too
-
-            function_pointer_array_statements.push(CStatement::LiteralConstant {
-                value: function_name.clone(),
-            });
-        }
-
-        c_statements.push(CStatement::Declaration {
-            name: "function_pointers".to_string(),
-            array: true,
-            is_extern: false,
-            is_const: true,
-            ctype: CType::void_ptr(),
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: function_pointer_array_statements,
-            })),
-        });
+            },
+            "const unsigned int**"
+        );
+        // TODO: test more complicated const correctness rules: there are bugs relating to it.
     }
 
-    for (sig_index, _func_type) in module_info.signatures.iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+    #[test]
+    fn generate_types_with_names() {
+        macro_rules! assert_c_type {
+            ($ctype:expr, $name:literal, $expected:expr) => {
+                let mut w = String::new();
+                let ctype = $ctype;
+                ctype.generate_c_with_name($name, &mut w);
+                assert_eq!(w, $expected);
+            };
+        }
 
-        c_statements.push(CStatement::Declaration {
-            name: function_name.clone(),
-            array: false,
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
+        assert_c_type!(CType::Void, "main", "void main");
+        assert_c_type!(CType::void_ptr(), "data", "void* data");
+        assert_c_type!(CType::const_void_ptr(), "data", "const void* data");
+        assert_c_type!(CType::U8, "data", "unsigned char data");
+        assert_c_type!(CType::U16, "data", "unsigned short data");
+        assert_c_type!(CType::U32, "data", "unsigned int data");
+        assert_c_type!(CType::U64, "data", "unsigned long long data");
+        assert_c_type!(CType::USize, "data", "unsigned size_t data");
+        assert_c_type!(CType::I8, "data", "char data");
+        assert_c_type!(CType::I16, "data", "short data");
+        assert_c_type!(CType::I32, "data", "int data");
+        assert_c_type!(CType::I64, "data", "long long data");
+        assert_c_type!(CType::ISize, "data", "size_t data");
+        assert_c_type!(
+            CType::Function {
+                arguments: vec![CType::U8, CType::ISize],
                 return_value: None,
             },
-            definition: None,
-        });
-    }
-
-    // function trampolines
-    {
-        let mut function_trampoline_statements = vec![];
-        for (sig_index, _vm_shared_index) in module_info.signatures.iter() {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-            function_trampoline_statements.push(CStatement::LiteralConstant {
-                value: function_name,
-            });
-        }
-
-        c_statements.push(CStatement::Declaration {
-            name: "function_trampolines".to_string(),
-            array: true,
-            is_extern: false,
-            is_const: true,
-            ctype: CType::void_ptr(),
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: function_trampoline_statements,
-            })),
-        });
-    }
-
-    for func_index in module_info
-        .functions
-        .keys()
-        .take(module_info.num_imported_functions)
-    {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-        // TODO: figure out the signature here
-        c_statements.push(CStatement::Declaration {
-            name: function_name,
-            array: false,
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
-                return_value: None,
+            "my_func",
+            "void my_func(unsigned char, size_t)"
+        );
+        assert_c_type!(
+            CType::Function {
+                arguments: vec![],
+                return_value: Some(Box::new(CType::ISize)),
             },
-            definition: None,
-        });
+            "my_func",
+            "size_t my_func()"
+        );
+
+        assert_c_type!(
+            CType::PointerTo {
+                is_const: true,
+                inner: Box::new(CType::PointerTo {
+                    is_const: false,
+                    inner: Box::new(CType::U32),
+                })
+            },
+            "data",
+            "const unsigned int** data"
+        );
+        // TODO: test more complicated const correctness rules: there are bugs relating to it.
     }
 
-    // dynamic function trampoline pointer array
-    {
-        let mut dynamic_function_trampoline_statements = vec![];
-        for func_index in module_info
-            .functions
-            .keys()
-            .take(module_info.num_imported_functions)
-        {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-            dynamic_function_trampoline_statements.push(CStatement::LiteralConstant {
-                value: function_name,
-            });
+    #[test]
+    fn generate_expressions_works() {
+        macro_rules! assert_c_expr {
+            ($cexpr:expr, $expected:expr) => {
+                let mut w = String::new();
+                let cexpr = $cexpr;
+                cexpr.generate_c(&mut w);
+                assert_eq!(w, $expected);
+            };
         }
-        c_statements.push(CStatement::Declaration {
-            name: "dynamic_function_trampoline_pointers".to_string(),
-            array: true,
-            is_extern: false,
-            is_const: true,
-            ctype: CType::void_ptr(),
-            definition: Some(Box::new(CStatement::LiteralArray {
-                items: dynamic_function_trampoline_statements,
-            })),
-        });
-    }
 
-    generate_c(&c_statements)
+        assert_c_expr!(
+            CStatement::LiteralConstant {
+                value: "\"Hello, world!\"".to_string(),
+            },
+            "\"Hello, world!\""
+        );
+        assert_c_expr!(
+            CStatement::LiteralArray {
+                items: vec![
+                    CStatement::LiteralConstant {
+                        value: "1".to_string()
+                    },
+                    CStatement::LiteralConstant {
+                        value: "2".to_string()
+                    },
+                    CStatement::LiteralConstant {
+                        value: "3".to_string()
+                    },
+                ]
+            },
+            "{\n\t1,\n\t2,\n\t3,\n}"
+        );
+        assert_c_expr!(CStatement::LiteralArray { items: vec![] }, "{}");
+        assert_c_expr!(
+            CStatement::Declaration {
+                name: "my_array".to_string(),
+                array: true,
+                is_extern: false,
+                is_const: true,
+                ctype: CType::I32,
+                definition: Some(Box::new(CStatement::LiteralArray {
+                    items: vec![
+                        CStatement::LiteralConstant {
+                            value: "1".to_string()
+                        },
+                        CStatement::LiteralConstant {
+                            value: "2".to_string()
+                        },
+                        CStatement::LiteralConstant {
+                            value: "3".to_string()
+                        },
+                    ]
+                }))
+            },
+            "const int my_array[] = {\n\t1,\n\t2,\n\t3,\n};\n"
+        );
+        assert_c_expr!(
+            CStatement::Declaration {
+                name: "my_array".to_string(),
+                array: true,
+                is_extern: true,
+                is_const: true,
+                ctype: CType::I32,
+                definition: None,
+            },
+            "const extern int my_array[];\n"
+        );
+    }
 }

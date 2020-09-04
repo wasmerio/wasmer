@@ -151,4 +151,7 @@ pub trait Artifact: Send + Sync {
 
     /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
     fn symbol_registry(&self) -> &dyn SymbolRegistry;
+
+    /// The length in bytes of the metadata in the serialized output.
+    fn metadata_length(&self) -> usize;
 }

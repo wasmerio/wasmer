@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
@@ -475,5 +475,9 @@ impl Artifact for ObjectFileArtifact {
 
     fn symbol_registry(&self) -> &dyn SymbolRegistry {
         &self.metadata
+    }
+
+    fn metadata_length(&self) -> usize {
+        self.metadata_length
     }
 }

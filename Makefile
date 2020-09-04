@@ -117,6 +117,7 @@ test-packages:
 	cargo test -p wasmer-wasi --release
 	cargo test -p wasmer-object --release
 	cargo test -p wasmer-engine-native --release --no-default-features
+	cargo test -p wasmer-cli --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
