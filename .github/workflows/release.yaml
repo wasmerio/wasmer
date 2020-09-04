@@ -1,0 +1,56 @@
+on:
+  push:
+    # Sequence of patterns matched against refs/tags
+    tags:
+    - '[0-9]+\.[0-9]+\.[0-9]+.*' # Push events to matching v*, i.e. v1.0, v20.15.10
+
+name: Upload Release Asset
+
+jobs:
+  build:
+    name: Upload Release Asset
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v2
+      - name: Download Artifacts
+        uses: actions/download-artifact@v2
+          with:
+            name: wasmer-ubuntu-latest
+            path: wasmer-ubuntu
+          with:
+            name: wasmer-macos-latest
+            path: wasmer-macos
+          with:
+            name: wasmer-windows-latest
+            path: wasmer-windows
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ github.ref }}
+          release_name: Release ${{ github.ref }}
+          draft: true # leaving this as a draft while this workflow is being developed
+          prerelease: false
+      - name: Upload Release Asset
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: wasmer-windows/wasmer-windows.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: wasmer-ubuntu/wasmer.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/zip
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: wasmer-macos/wasmer.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/zip

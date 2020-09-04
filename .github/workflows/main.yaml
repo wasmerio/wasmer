@@ -129,9 +129,19 @@ jobs:
       - name: Build Wasmer binary
         run: |
           make build-wasmer
-          # TODO: build wapm
-          # make build-wapm
+      - name: Build Wapm binary
+        run: |
+          make build-wapm
+        if: github.ref == 'refs/heads/master' # TODO: add extra condition here
+      - name: Package Wasmer
+        run: |
           make package
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        if: github.ref == 'refs/heads/master' # TODO: add extra condition here
+        with:
+          - name: wasmer-${{ matrix.os }}
+          - path: dist
 
   audit:
     name: Audit
