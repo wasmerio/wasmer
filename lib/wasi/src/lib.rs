@@ -180,7 +180,7 @@ impl WasiEnv {
         &mut self,
         _mem_index: u32,
     ) -> (&Memory, MutexGuard<WasiState>) {
-        let memory = self.memory.get_memory().unwrap();
+        let memory = self.memory();
         let state = self.state.lock().unwrap();
         (memory, state)
     }

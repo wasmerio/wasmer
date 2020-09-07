@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::{Store, StoreObject};
-use crate::types::{Val, ValType};
+use crate::types::Val;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
@@ -42,14 +42,9 @@ impl Global {
             ty: val.ty(),
         });
         unsafe {
-            match val {
-                Val::I32(x) => *global.get_mut().as_i32_mut() = x,
-                Val::I64(x) => *global.get_mut().as_i64_mut() = x,
-                Val::F32(x) => *global.get_mut().as_f32_mut() = x,
-                Val::F64(x) => *global.get_mut().as_f64_mut() = x,
-                Val::V128(x) => *global.get_mut().as_u128_bits_mut() = x.to_ne_bytes(),
-                _ => return Err(RuntimeError::new(format!("create_global for {:?}", val))),
-            }
+            global
+                .set_unchecked(val.clone())
+                .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
 
         Ok(Global {
@@ -70,16 +65,7 @@ impl Global {
 
     /// Retrieves the current value [`Val`] that the Global has.
     pub fn get(&self) -> Val {
-        unsafe {
-            let definition = self.global.get();
-            match self.ty().ty {
-                ValType::I32 => Val::from(*definition.as_i32()),
-                ValType::I64 => Val::from(*definition.as_i64()),
-                ValType::F32 => Val::F32(*definition.as_f32()),
-                ValType::F64 => Val::F64(*definition.as_f64()),
-                _ => unimplemented!("Global::get for {:?}", self.ty().ty),
-            }
-        }
+        self.global.get()
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
@@ -90,30 +76,13 @@ impl Global {
     /// * The global is not mutable
     /// * The type of the `Val` doesn't matches the Global type.
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
-        if self.ty().mutability != Mutability::Var {
-            return Err(RuntimeError::new(
-                "immutable global cannot be set".to_string(),
-            ));
-        }
-        if val.ty() != self.ty().ty {
-            return Err(RuntimeError::new(format!(
-                "global of type {:?} cannot be set to {:?}",
-                self.ty().ty,
-                val.ty()
-            )));
-        }
         if !val.comes_from_same_store(&self.store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            let definition = self.global.get_mut();
-            match val {
-                Val::I32(i) => *definition.as_i32_mut() = i,
-                Val::I64(i) => *definition.as_i64_mut() = i,
-                Val::F32(f) => *definition.as_f32_mut() = f,
-                Val::F64(f) => *definition.as_f64_mut() = f,
-                _ => unimplemented!("Global::set for {:?}", val.ty()),
-            }
+            self.global
+                .set(val)
+                .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }

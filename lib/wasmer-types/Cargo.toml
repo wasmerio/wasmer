@@ -1,8 +1,8 @@
 [package]
 name = "wasmer-types"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha01.0"
 description = "Wasmer Common Types"
-license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 categories = ["no-std", "wasm"]

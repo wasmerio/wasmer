@@ -81,6 +81,14 @@ impl UnwindRegistry {
                 }
             } else {
                 // On other platforms, `__register_frame` will walk the FDEs until an entry of length 0
+
+                // Registering an empty `eh_frame` (i.e. which
+                // contains empty FDEs) cause problems on Linux when
+                // deregistering it. We must avoid this
+                // scenario. Usually, this is handled upstream by the
+                // compilers.
+                debug_assert_ne!(eh_frame, &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
+
                 let ptr = eh_frame.as_ptr();
                 __register_frame(ptr);
                 self.registrations.push(ptr as usize);

@@ -1,25 +1,3 @@
-on: [push]
-
-name: build
-
-env:
-  RUST_BACKTRACE: 1
-
-jobs:
-  lint:
-    name: Code lint
-    runs-on: ubuntu-latest
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          profile: minimal
-          toolchain: 1.45.0
-          override: true
-          components: rustfmt, clippy
-      - run: make lint
-
   # Uncomment this once LLVM toolchain is added to the CI
   # docs:
   #   name: Docs
@@ -34,6 +12,18 @@ jobs:
   #         components: rustfmt, clippy
   #     - run: make doc-local
 
+name: core tests
+
+env:
+  RUST_BACKTRACE: 1
+
+on:
+  push:
+    branches:
+      - 'master'
+      - 'staging'
+      - 'trying'
+jobs:
   test:
     name: Test on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}

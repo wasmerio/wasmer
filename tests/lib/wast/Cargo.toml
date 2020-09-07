@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wast"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha01.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "wast testing support for wasmer"
 license = "MIT OR (Apache-2.0 WITH LLVM-exception)"
@@ -12,8 +12,8 @@ edition = "2018"
 
 [dependencies]
 anyhow = "1.0"
-wasmer = { path = "../../../lib/api", version = "1.0.0-alpha.1", default-features = false }
-wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.0-alpha.1" }
+wasmer = { path = "../../../lib/api", version = "1.0.0-alpha01.0", default-features = false }
+wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.0-alpha01.0" }
 wast = "17.0"
 serde = "1"
 tempfile = "3"
@@ -23,6 +23,7 @@ typetag = "0.1"
 [features]
 default = ["wat"]
 wat = ["wasmer/wat"]
+test-no-traps = [] 
 
 [badges]
 maintenance = { status = "actively-developed" }

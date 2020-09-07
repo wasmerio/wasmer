@@ -1,23 +1,23 @@
 [package]
 name = "wasmer"
-version = "1.0.0-alpha.1"
+version = "1.0.0-alpha01.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer runtime API"
-license = "(Apache-2.0 WITH LLVM-exception) OR MIT"
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha.1" }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.0-alpha.1", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.0-alpha.1", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.0-alpha.1", optional = true }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha.1" }
-wasmer-engine = { path = "../engine", version = "1.0.0-alpha.1" }
-wasmer-engine-jit = { path = "../engine-jit", version = "1.0.0-alpha.1", optional = true }
-wasmer-engine-native = { path = "../engine-native", version = "1.0.0-alpha.1", optional = true }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha.1" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.0-alpha01.0", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.0-alpha01.0", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.0-alpha01.0", optional = true }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0" }
+wasmer-engine = { path = "../engine", version = "1.0.0-alpha01.0" }
+wasmer-engine-jit = { path = "../engine-jit", version = "1.0.0-alpha01.0", optional = true }
+wasmer-engine-native = { path = "../engine-native", version = "1.0.0-alpha01.0", optional = true }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
 indexmap = { version = "1.4", features = ["serde-1"] }
 cfg-if = "0.1"
 wat = { version = "1.0", optional = true }
@@ -30,7 +30,6 @@ winapi = "0.3"
 
 [dev-dependencies]
 # for the binary wasmer.rs
-wasmer-engine-dummy = { path = "../../tests/lib/engine-dummy", version = "1.0.0-alpha.1" }
 libc = { version = "^0.2.69", default-features = false }
 wat = "1.0"
 tempfile = "3.1"

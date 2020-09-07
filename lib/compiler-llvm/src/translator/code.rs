@@ -18,11 +18,11 @@ use inkwell::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
     },
-    AddressSpace, AtomicOrdering, AtomicRMWBinOp, FloatPredicate, IntPredicate,
+    AddressSpace, AtomicOrdering, AtomicRMWBinOp, DLLStorageClass, FloatPredicate, IntPredicate,
 };
 use smallvec::SmallVec;
 
-use crate::config::{CompiledFunctionKind, LLVM};
+use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
@@ -79,7 +79,7 @@ impl FuncTranslator {
         symbol_registry: &dyn SymbolRegistry,
     ) -> Result<Module, CompileError> {
         // The function type, used for the callbacks.
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let func_index = wasm_module.func_index(*local_func_index);
         let function_name =
             symbol_registry.symbol_to_name(Symbol::LocalFunction(*local_func_index));
@@ -112,6 +112,9 @@ impl FuncTranslator {
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(FUNCTION_SECTION);
+        func.set_linkage(Linkage::DLLExport);
+        func.as_global_value()
+            .set_dll_storage_class(DLLStorageClass::Export);
 
         let entry = self.ctx.append_basic_block(func, "entry");
         let start_of_code = self.ctx.append_basic_block(func, "start_of_code");
@@ -295,7 +298,7 @@ impl FuncTranslator {
             table_styles,
             symbol_registry,
         )?;
-        let function = CompiledFunctionKind::Local(*local_func_index);
+        let function = CompiledKind::Local(*local_func_index);
         let target_machine = &self.target_machine;
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
@@ -1000,7 +1003,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             {
                 MemoryCache::Dynamic {
                     ptr_to_base_ptr,
-                    current_length_ptr,
+                    ptr_to_current_length,
                 } => {
                     // Bounds check it.
                     let minimum = self.wasm_module.memories[memory_index].minimum;
@@ -1024,14 +1027,17 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .unwrap_or_else(|| {
                         let load_offset_end = builder.build_int_add(offset, value_size_v, "");
 
-                        let current_length =
-                            builder.build_load(current_length_ptr, "").into_int_value();
+                        let current_length = builder
+                            .build_load(ptr_to_current_length, "")
+                            .into_int_value();
                         tbaa_label(
                             self.module,
                             self.intrinsics,
                             format!("memory {} length", memory_index.as_u32()),
                             current_length.as_instruction_value().unwrap(),
                         );
+                        let current_length =
+                            builder.build_int_z_extend(current_length, intrinsics.i64_ty, "");
 
                         builder.build_int_compare(
                             IntPredicate::ULE,
@@ -1053,7 +1059,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                                 intrinsics.expect_i1,
                                 &[
                                     ptr_in_bounds.as_basic_value_enum(),
-                                    intrinsics.i1_ty.const_int(1, false).as_basic_value_enum(),
+                                    intrinsics.i1_ty.const_int(1, true).as_basic_value_enum(),
                                 ],
                                 "ptr_in_bounds_expect",
                             )

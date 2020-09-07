@@ -202,7 +202,7 @@ impl StoreOptions {
                 use std::fs::File;
                 use std::io::Write;
                 use wasmer_compiler_llvm::{
-                    CompiledFunctionKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
+                    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM,
                 };
                 use wasmer_types::entity::EntityRef;
                 let mut config = LLVM::new();
@@ -234,32 +234,33 @@ impl StoreOptions {
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
-                fn function_kind_to_filename(kind: &CompiledFunctionKind) -> String {
+                fn function_kind_to_filename(kind: &CompiledKind) -> String {
                     match kind {
-                        CompiledFunctionKind::Local(local_index) => {
+                        CompiledKind::Local(local_index) => {
                             format!("function_{}", local_index.index())
                         }
-                        CompiledFunctionKind::FunctionCallTrampoline(func_type) => format!(
+                        CompiledKind::FunctionCallTrampoline(func_type) => format!(
                             "trampoline_call_{}_{}",
                             types_to_signature(&func_type.params()),
                             types_to_signature(&func_type.results())
                         ),
-                        CompiledFunctionKind::DynamicFunctionTrampoline(func_type) => format!(
+                        CompiledKind::DynamicFunctionTrampoline(func_type) => format!(
                             "trampoline_dynamic_{}_{}",
                             types_to_signature(&func_type.params()),
                             types_to_signature(&func_type.results())
                         ),
+                        CompiledKind::Module => "module".into(),
                     }
                 }
                 impl LLVMCallbacks for Callbacks {
-                    fn preopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
+                    fn preopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
                         let mut path = self.debug_dir.clone();
                         path.push(format!("{}.preopt.ll", function_kind_to_filename(kind)));
                         module
                             .print_to_file(&path)
                             .expect("Error while dumping pre optimized LLVM IR");
                     }
-                    fn postopt_ir(&self, kind: &CompiledFunctionKind, module: &InkwellModule) {
+                    fn postopt_ir(&self, kind: &CompiledKind, module: &InkwellModule) {
                         let mut path = self.debug_dir.clone();
                         path.push(format!("{}.postopt.ll", function_kind_to_filename(kind)));
                         module
@@ -268,7 +269,7 @@ impl StoreOptions {
                     }
                     fn obj_memory_buffer(
                         &self,
-                        kind: &CompiledFunctionKind,
+                        kind: &CompiledKind,
                         memory_buffer: &InkwellMemoryBuffer,
                     ) {
                         let mut path = self.debug_dir.clone();
@@ -328,7 +329,7 @@ impl StoreOptions {
     fn get_engine_with_compiler(
         &self,
         target: Target,
-        mut compiler_config: Box<dyn CompilerConfig>,
+        compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
         let features = self.get_features(compiler_config.default_features_for_target(&target))?;
@@ -341,13 +342,16 @@ impl StoreOptions {
                     .engine(),
             ),
             #[cfg(feature = "native")]
-            EngineType::Native => Box::new(
-                wasmer_engine_native::Native::new(&mut *compiler_config)
-                    .target(target)
-                    .features(features)
-                    .engine(),
-            ),
-            #[cfg(not(all(feature = "jit", feature = "native",)))]
+            EngineType::Native => {
+                let mut compiler_config = compiler_config;
+                Box::new(
+                    wasmer_engine_native::Native::new(&mut *compiler_config)
+                        .target(target)
+                        .features(features)
+                        .engine(),
+                )
+            }
+            #[cfg(not(all(feature = "jit", feature = "native")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

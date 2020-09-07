@@ -222,10 +222,13 @@ impl WasiFs {
                 )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                // todo handle collisions
-                assert!(entries
-                    .insert(dir.to_string_lossy().into_owned(), inode)
-                    .is_none())
+                let result = entries.insert(dir.to_string_lossy().into_owned(), inode);
+                if result.is_some() {
+                    return Err(format!(
+                        "Error: found collision in preopened directory names, `{}`",
+                        dir.to_string_lossy()
+                    ));
+                }
             }
             wasi_fs.preopen_fds.push(fd);
         }
@@ -272,8 +275,13 @@ impl WasiFs {
                 )
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", &real_dir, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                // todo handle collisions
-                assert!(entries.insert(alias.clone(), inode).is_none());
+                let result = entries.insert(alias.clone(), inode);
+                if result.is_some() {
+                    return Err(format!(
+                        "Error: found collision in preopened directory aliases, `{}`",
+                        alias,
+                    ));
+                }
             }
             wasi_fs.preopen_fds.push(fd);
         }
@@ -391,12 +399,15 @@ impl WasiFs {
                 .create_fd(rights, rights, 0, fd_flags, inode)
                 .map_err(|e| format!("Could not open fd for file {:?}: {}", path, e))?;
             if let Kind::Root { entries } = &mut wasi_fs.inodes[root_inode].kind {
-                let existing_entry = if let Some(alias) = &alias {
-                    entries.insert(alias.clone(), inode)
+                let key = if let Some(alias) = &alias {
+                    alias.clone()
                 } else {
-                    entries.insert(path.to_string_lossy().into_owned(), inode)
+                    path.to_string_lossy().into_owned()
                 };
-                // todo handle collisions
+                let existing_entry = entries.insert(key.clone(), inode);
+                if existing_entry.is_some() {
+                    return Err(format!("Found duplicate entry for alias `{}`", key));
+                }
                 assert!(existing_entry.is_none())
             }
             wasi_fs.preopen_fds.push(fd);
@@ -809,6 +820,56 @@ impl WasiFs {
                                     relative_path: link_value,
                                 }
                             } else {
+                                #[cfg(unix)]
+                                {
+                                    use std::os::unix::fs::FileTypeExt;
+                                    let file_type: __wasi_filetype_t = if file_type.is_char_device()
+                                    {
+                                        __WASI_FILETYPE_CHARACTER_DEVICE
+                                    } else if file_type.is_block_device() {
+                                        __WASI_FILETYPE_BLOCK_DEVICE
+                                    } else if file_type.is_fifo() {
+                                        // FIFO doesn't seem to fit any other type, so unknown
+                                        __WASI_FILETYPE_UNKNOWN
+                                    } else if file_type.is_socket() {
+                                        // TODO: how do we know if it's a `__WASI_FILETYPE_SOCKET_STREAM` or
+                                        // a `__WASI_FILETYPE_SOCKET_DGRAM`?
+                                        __WASI_FILETYPE_SOCKET_STREAM
+                                    } else {
+                                        unimplemented!("state::get_inode_at_path unknown file type: not file, directory, symlink, char device, block device, fifo, or socket");
+                                    };
+
+                                    let kind = Kind::File {
+                                        handle: None,
+                                        path: file.clone(),
+                                        fd: None,
+                                    };
+                                    let new_inode = self.create_inode_with_stat(
+                                        kind,
+                                        false,
+                                        file.to_string_lossy().to_string(),
+                                        __wasi_filestat_t {
+                                            st_filetype: file_type,
+                                            ..__wasi_filestat_t::default()
+                                        },
+                                    );
+                                    if let Kind::Dir {
+                                        ref mut entries, ..
+                                    } = &mut self.inodes[cur_inode].kind
+                                    {
+                                        entries.insert(
+                                            component.as_os_str().to_string_lossy().to_string(),
+                                            new_inode,
+                                        );
+                                    } else {
+                                        unreachable!(
+                                            "Attempted to insert special device into non-directory"
+                                        );
+                                    }
+                                    // perhaps just continue with symlink resolution and return at the end
+                                    return Ok(new_inode);
+                                }
+                                #[cfg(not(unix))]
                                 unimplemented!("state::get_inode_at_path unknown file type: not file, directory, or symlink");
                             };
 
@@ -1190,25 +1251,29 @@ impl WasiFs {
         is_preopened: bool,
         name: String,
     ) -> Result<Inode, __wasi_errno_t> {
-        let mut stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
-        stat.st_ino = self.get_next_inode_index();
-
-        Ok(self.inodes.insert(InodeVal {
-            stat,
-            is_preopened,
-            name,
-            kind,
-        }))
+        let stat = self.get_stat_for_kind(&kind).ok_or(__WASI_EIO)?;
+        Ok(self.create_inode_with_stat(kind, is_preopened, name, stat))
     }
 
-    /// creates an inode and inserts it given a Kind, does not assume the file exists to
+    /// Creates an inode and inserts it given a Kind, does not assume the file exists.
     pub(crate) fn create_inode_with_default_stat(
         &mut self,
         kind: Kind,
         is_preopened: bool,
         name: String,
     ) -> Inode {
-        let mut stat = __wasi_filestat_t::default();
+        let stat = __wasi_filestat_t::default();
+        self.create_inode_with_stat(kind, is_preopened, name, stat)
+    }
+
+    /// Creates an inode with the given filestat and inserts it.
+    pub(crate) fn create_inode_with_stat(
+        &mut self,
+        kind: Kind,
+        is_preopened: bool,
+        name: String,
+        mut stat: __wasi_filestat_t,
+    ) -> Inode {
         stat.st_ino = self.get_next_inode_index();
 
         self.inodes.insert(InodeVal {
