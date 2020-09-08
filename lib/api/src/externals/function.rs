@@ -621,11 +621,39 @@ mod inner {
         };
     }
 
+    macro_rules! from_to_native_wasm_type_same_size {
+        ( $( $type:ty => $native_type:ty ),* ) => {
+            $(
+                #[allow(clippy::use_self)]
+                unsafe impl FromToNativeWasmType for $type {
+                    type Native = $native_type;
+
+                    #[inline]
+                    fn from_native(native: Self::Native) -> Self {
+                        unsafe {
+                            std::mem::transmute::<$native_type, $type>(native)
+                        }
+                    }
+
+                    #[inline]
+                    fn to_native(self) -> Self::Native {
+                        unsafe {
+                            std::mem::transmute::<$type, $native_type>(self)
+                        }
+                    }
+                }
+            )*
+        };
+    }
+
     from_to_native_wasm_type!(
         i8 => i32,
         u8 => i32,
         i16 => i32,
-        u16 => i32,
+        u16 => i32
+    );
+
+    from_to_native_wasm_type_same_size!(
         i32 => i32,
         u32 => i32,
         i64 => i64,
