@@ -630,16 +630,12 @@ mod inner {
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        unsafe {
-                            std::mem::transmute::<$native_type, $type>(native)
-                        }
+                        Self::from_ne_bytes(Self::Native::to_ne_bytes(native))
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        unsafe {
-                            std::mem::transmute::<$type, $native_type>(self)
-                        }
+                        Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
                     }
                 }
             )*
@@ -669,16 +665,7 @@ mod inner {
         #[test]
         fn test_to_native() {
             assert_eq!(7i8.to_native(), 7i32);
-        }
-
-        #[test]
-        #[should_panic(
-            expected = "out of range type conversion attempt (tried to convert `u32` to `i32`)"
-        )]
-        fn test_to_native_panics() {
-            use std::{i32, u32};
-
-            assert_eq!(u32::MAX.to_native(), i32::MAX);
+            assert_eq!(u32::MAX.to_native(), -1);
         }
     }
 
