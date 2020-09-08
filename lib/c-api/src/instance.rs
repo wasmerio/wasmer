@@ -322,7 +322,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    if params.is_null() {
+    if params_len > 0 && params.is_null() {
         update_last_error(CApiError {
             msg: "params ptr is null".to_string(),
         });
