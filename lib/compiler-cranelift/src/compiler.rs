@@ -71,7 +71,12 @@ impl Compiler for CraneliftCompiler {
 
         // Generate the frametable
         #[cfg(feature = "unwind")]
-        let dwarf_frametable = {
+        let dwarf_frametable = if function_body_inputs.is_empty() {
+            // If we have no function body inputs, we don't need to
+            // construct the `FrameTable`. Constructing it, with empty
+            // FDEs will cause some issues in Linux.
+            None
+        } else {
             use std::sync::{Arc, Mutex};
             match target.triple().default_calling_convention() {
                 Ok(CallingConvention::SystemV) => {
