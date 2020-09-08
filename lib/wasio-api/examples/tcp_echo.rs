@@ -4,6 +4,7 @@ use wasio::net;
 use wasio::task::Task;
 use wasio::thread::delay;
 use wasio::types::*;
+use futures::FutureExt;
 
 fn main() {
     Task::spawn(Box::pin(root_task()));
@@ -40,10 +41,16 @@ async fn root_task() {
 async fn conn_worker(conn: __wasi_fd_t) {
     loop {
         let mut buf = [0u8; 128];
-        let n = match io::read(conn, &mut buf).await {
-            Ok(n) => n,
-            Err(e) => {
-                println!("read error: {:?}", e);
+        let n = futures::select! {
+            res = io::read(conn, &mut buf).fuse() => match res {
+                Ok(n) => n,
+                Err(e) => {
+                    println!("read error: {:?}", e);
+                    break;
+                }
+            },
+            _ = delay(Duration::from_millis(1000)).fuse() => {
+                drop(io::write(conn, "timeout".as_bytes()).await);
                 break;
             }
         };

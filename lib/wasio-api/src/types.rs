@@ -151,6 +151,9 @@ pub struct __wasi_ciovec_t {
     pub buf_len: u32,
 }
 
+unsafe impl Send for __wasi_ciovec_t {}
+unsafe impl Sync for __wasi_ciovec_t {}
+
 pub type __wasi_siflags_t = u16;
 pub type __wasi_riflags_t = u16;
 pub type __wasi_roflags_t = u16;

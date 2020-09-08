@@ -12,3 +12,4 @@ edition = "2018"
 
 [dependencies]
 futures = "0.3"
+executor = "0.7"
