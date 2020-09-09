@@ -237,13 +237,18 @@ impl JITEngineInner {
                     ))
                 })?;
 
+        let allocated_functions_result = allocated_functions
+            .drain(0..functions.len())
+            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         for (i, (sig_index, compiled_function)) in function_call_trampolines.iter().enumerate() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
             let ptr = allocated_functions
-                .drain(functions.len() + i - 1..=functions.len() + i - 1)
+                .drain(0..1)
                 .map(|slice| FunctionBodyPtr(slice as *mut [_]))
                 .collect::<Vec<_>>()[0];
             allocated_function_call_trampolines.push(ptr);
@@ -254,14 +259,9 @@ impl JITEngineInner {
         }
 
         let allocated_dynamic_function_trampolines = allocated_functions
-            .drain(functions.len()..)
-            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
-            .collect::<PrimaryMap<FunctionIndex, _>>();
-
-        let allocated_functions = allocated_functions
             .drain(..)
             .map(|slice| FunctionBodyPtr(slice as *mut [_]))
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+            .collect::<PrimaryMap<FunctionIndex, _>>();
 
         let mut exec_iter = allocated_executable_sections.iter();
         let mut data_iter = allocated_data_sections.iter();
@@ -281,7 +281,7 @@ impl JITEngineInner {
             .collect::<PrimaryMap<SectionIndex, _>>();
 
         Ok((
-            allocated_functions,
+            allocated_functions_result,
             allocated_function_call_trampolines,
             allocated_dynamic_function_trampolines,
             allocated_custom_sections,
