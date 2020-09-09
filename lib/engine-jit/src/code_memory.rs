@@ -62,14 +62,16 @@ impl CodeMemory {
 
         let total_len = Mmap::round_up_to_page_size(
             functions.iter().fold(0, |acc, func| {
-                acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT)
-                    + Self::function_allocation_size(func)
+                Mmap::round_up_to_page_size(
+                    acc + Self::function_allocation_size(func),
+                    ARCH_FUNCTION_ALIGNMENT,
+                )
             }) + executable_sections.iter().fold(0, |acc, exec| {
-                acc + get_align_padding_size(acc, ARCH_FUNCTION_ALIGNMENT) + exec.bytes.len()
+                Mmap::round_up_to_page_size(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
             }),
-            page_size,
+            data_section_align,
         ) + data_sections.iter().fold(0, |acc, data| {
-            acc + get_align_padding_size(data.bytes.len(), data_section_align)
+            Mmap::round_up_to_page_size(acc + data.bytes.len(), data_section_align)
         });
 
         // 2. Allocate the pages. Mark them all read-write.
