@@ -28,8 +28,8 @@ impl CodeMemory {
     /// Create a new `CodeMemory` instance.
     pub fn new() -> Self {
         Self {
-            mmap: Mmap::new(),
             unwind_registries: Vec::new(),
+            mmap: Mmap::new(),
             start_of_nonexecutable_pages: 0,
         }
     }
