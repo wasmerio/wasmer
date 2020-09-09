@@ -129,19 +129,76 @@ jobs:
       - name: Build Wasmer binary
         run: |
           make build-wasmer
+      - name: Get the version
+        if: matrix.os == 'ubuntu-latest'
+        id: get_version
+        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+        run: echo ::set-output name=DOING_RELEASE=$(('1.0.0-alpha1.0' | grep -q '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?') && echo $?)
       - name: Build Wapm binary
         run: |
           make build-wapm
-        if: github.ref == 'refs/heads/master' # TODO: add extra condition here
+        if: github.ref == 'refs/heads/master' && ${{ DOING_RELEASE }} == '1'
       - name: Package Wasmer
         run: |
           make package
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
-        if: github.ref == 'refs/heads/master' # TODO: add extra condition here
+        if: github.ref == 'refs/heads/master' && ${{ DOING_RELEASE }} == '1'
         with:
           - name: wasmer-${{ matrix.os }}
           - path: dist
+
+  release:
+    needs: test
+    runs-on: ubuntu-latest
+
+      # Publish the release (ubuntu only)
+      # I'm hoping we can just set this once above... but I doubt it
+#      - name: Get the version
+#        if: matrix.os == 'ubuntu-latest'
+#        id: get_version
+#        run: echo ::set-output name=VERSION::${GITHUB_REF/refs\/tags\//}
+#        run: echo ::set-output name=DOING_RELEASE=$(('1.0.0-alpha1.0' | grep -q '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?') && echo $?)
+      - name: Download The Artifacts
+        if: ${{ DOING_RELEASE }} == '1'
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Create Release
+        if: ${{ DOING_RELEASE }} == '1'
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ VERSION }}
+          release_name: Release ${{ VERSION }}
+          draft: true # leaving this as a draft while this workflow is being developed
+          prerelease: false
+      - name: Upload Release Asset
+        if: ${{ DOING_RELEASE }} == '1'
+        id: upload-release-asset 
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: artifacts/wasmer-windows/wasmer-windows.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-ubuntu/wasmer.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-macos/wasmer.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+
+
+
 
   audit:
     name: Audit
