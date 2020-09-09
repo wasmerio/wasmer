@@ -128,9 +128,22 @@ pub unsafe extern "C" fn wasmer_instantiate(
         });
         return wasmer_result_t::WASMER_ERROR;
     };
+
+    if imports_len > 0 && imports.is_null() {
+        update_last_error(CApiError {
+            msg: "imports ptr is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
     let mut imported_memories = vec![];
     let mut instance_pointers_to_update = vec![];
-    let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    let imports: &[wasmer_import_t] = if imports_len == 0 {
+        &[]
+    } else {
+        slice::from_raw_parts(imports, imports_len as usize)
+    };
+
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
     for import in imports {
