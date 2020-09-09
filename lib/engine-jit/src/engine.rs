@@ -36,7 +36,7 @@ impl JITEngine {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
                 function_call_trampolines: HashMap::new(),
-                code_memory: CodeMemory::new(),
+                code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
             })),
@@ -64,7 +64,7 @@ impl JITEngine {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 function_call_trampolines: HashMap::new(),
-                code_memory: CodeMemory::new(),
+                code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
             })),
@@ -158,7 +158,7 @@ pub struct JITEngineInner {
     features: Features,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
-    code_memory: CodeMemory,
+    code_memory: Vec<CodeMemory>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -222,8 +222,12 @@ impl JITEngineInner {
             .values()
             .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
 
+        self.code_memory.push(CodeMemory::new());
+
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
             self.code_memory
+                .last_mut()
+                .unwrap()
                 .allocate(
                     registry,
                     function_bodies.as_slice(),
@@ -290,12 +294,15 @@ impl JITEngineInner {
 
     /// Make memory containing compiled code executable.
     pub(crate) fn publish_compiled_code(&mut self) {
-        self.code_memory.publish();
+        self.code_memory.last_mut().unwrap().publish();
     }
 
     /// Publish the unwind registry into code memory.
     pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
-        self.code_memory.publish_unwind_registry(unwind_registry);
+        self.code_memory
+            .last_mut()
+            .unwrap()
+            .publish_unwind_registry(unwind_registry);
     }
 
     /// Shared signature registry.
