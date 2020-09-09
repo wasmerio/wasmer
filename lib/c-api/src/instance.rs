@@ -322,7 +322,7 @@ pub unsafe extern "C" fn wasmer_instance_call(
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    if params.is_null() {
+    if params_len > 0 && params.is_null() {
         update_last_error(CApiError {
             msg: "params ptr is null".to_string(),
         });
@@ -330,8 +330,17 @@ pub unsafe extern "C" fn wasmer_instance_call(
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let params: &[wasmer_value_t] = slice::from_raw_parts(params, params_len as usize);
-    let params: Vec<Val> = params.iter().cloned().map(|x| x.into()).collect();
+    let params: Vec<Val> = {
+        if params_len == 0 {
+            vec![]
+        } else {
+            slice::from_raw_parts::<wasmer_value_t>(params, params_len as usize)
+                .iter()
+                .cloned()
+                .map(|x| x.into())
+                .collect()
+        }
+    };
 
     let function_name_c = CStr::from_ptr(name);
     let function_name_r = function_name_c.to_str().unwrap();
