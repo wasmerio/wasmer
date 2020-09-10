@@ -30,7 +30,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows]
+        build: [linux, macos, windows, linux-arm]
         include:
           - build: linux
             os: ubuntu-latest
@@ -41,6 +41,9 @@ jobs:
           - build: windows
             os: windows-latest
             rust: 1.45.0
+          - build: linux-arm
+            os: [self-hosted, linux, ARM64]
+            rust: 1.45.2
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
