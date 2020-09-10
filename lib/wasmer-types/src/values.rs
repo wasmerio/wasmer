@@ -8,10 +8,14 @@ use crate::types::Type;
 /// produce.
 #[derive(Clone, PartialEq)]
 pub enum Value<T> {
-    /// A 32-bit integer
+    /// A 32-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I32(i32),
 
-    /// A 64-bit integer
+    /// A 64-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I64(i64),
 
     /// A 32-bit float.
@@ -175,9 +179,23 @@ impl<T> From<i32> for Value<T> {
     }
 }
 
+impl<T> From<u32> for Value<T> {
+    fn from(val: u32) -> Self {
+        // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
+        Self::I32(val as i32)
+    }
+}
+
 impl<T> From<i64> for Value<T> {
     fn from(val: i64) -> Self {
         Self::I64(val)
+    }
+}
+
+impl<T> From<u64> for Value<T> {
+    fn from(val: u64) -> Self {
+        // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
+        Self::I64(val as i64)
     }
 }
 
