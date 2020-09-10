@@ -166,7 +166,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           tag_name: ${{ needs.setup.outputs.VERSION }}
-          release_name: Release ${{ needs.setup.output.VERSION }}
+          release_name: Release ${{ needs.setup.outputs.VERSION }}
           draft: true
           prerelease: false
       - name: Upload Release Asset Windows
