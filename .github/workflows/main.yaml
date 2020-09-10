@@ -124,8 +124,7 @@ jobs:
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
-      # commented out to speed up iteration
-      #- run: make test
+      - run: make test
       - name: Build and Test C API
         run: |
           make build-capi
