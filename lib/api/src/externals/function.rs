@@ -597,24 +597,12 @@ mod inner {
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($native_type),
-                            "` to `",
-                            stringify!($type),
-                            "`)",
-                        ))
+                        native as Self
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($type),
-                            "` to `",
-                            stringify!($native_type),
-                            "`)",
-                        ))
+                        self as Self::Native
                     }
                 }
             )*
