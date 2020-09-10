@@ -3,12 +3,9 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use std::mem::ManuallyDrop;
 use std::sync::Arc;
-use std::{cmp, mem};
-use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody, SectionBody};
-use wasmer_types::entity::{EntityRef, PrimaryMap};
-use wasmer_vm::{FunctionBodyPtr, Mmap, VMFunctionBody};
+use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
+use wasmer_vm::{Mmap, VMFunctionBody};
 
 /// The optimal alignment for functions.
 ///
@@ -16,6 +13,10 @@ use wasmer_vm::{FunctionBodyPtr, Mmap, VMFunctionBody};
 /// When we add support for other architectures, we should also figure out their
 /// optimal alignment values.
 const ARCH_FUNCTION_ALIGNMENT: usize = 16;
+
+/// The optimal alignment for data.
+///
+const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
 pub struct CodeMemory {
@@ -46,9 +47,7 @@ impl CodeMemory {
         let mut data_section_result = vec![];
         let mut executable_section_result = vec![];
 
-        // TODO: get the correct value for the system
-        const page_size: usize = 4096;
-        const data_section_align: usize = 64;
+        let page_size = region::page::size();
 
         // 1. Calculate the total size, that is:
         // - function body size, including all trampolines
@@ -60,18 +59,18 @@ impl CodeMemory {
         // - data section body size
         // -- padding between data sections
 
-        let total_len = Mmap::round_up_to_page_size(
+        let total_len = round_up(
             functions.iter().fold(0, |acc, func| {
-                Mmap::round_up_to_page_size(
+                round_up(
                     acc + Self::function_allocation_size(func),
                     ARCH_FUNCTION_ALIGNMENT,
                 )
             }) + executable_sections.iter().fold(0, |acc, exec| {
-                Mmap::round_up_to_page_size(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
+                round_up(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
             }),
-            data_section_align,
+            page_size,
         ) + data_sections.iter().fold(0, |acc, data| {
-            Mmap::round_up_to_page_size(acc + data.bytes.len(), data_section_align)
+            round_up(acc + data.bytes.len(), DATA_SECTION_ALIGNMENT)
         });
 
         // 2. Allocate the pages. Mark them all read-write.
@@ -86,47 +85,48 @@ impl CodeMemory {
         let mut bytes = 0;
         let mut buf = self.mmap.as_mut_slice();
         for func in functions {
-            let len = Mmap::round_up_to_page_size(
+            let len = round_up(
                 Self::function_allocation_size(func),
                 ARCH_FUNCTION_ALIGNMENT,
             );
-            let (mut func_buf, next_buf) = buf.split_at_mut(len);
+            let (func_buf, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
+            bytes += len;
 
             let vmfunc = Self::copy_function(registry, func, func_buf);
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
             function_result.push(vmfunc);
-            bytes += len;
         }
         for section in executable_sections {
             let section = &section.bytes;
             assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
-            let len = Mmap::round_up_to_page_size(section.len(), ARCH_FUNCTION_ALIGNMENT);
-            let padding = len - section.len();
+            let len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
             let (s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
+            bytes += len;
             s[..section.len()].copy_from_slice(section.as_slice());
             executable_section_result.push(s);
-            bytes += padding;
         }
 
-        {
-            let padding = Mmap::round_up_to_page_size(bytes, data_section_align) - bytes;
-            buf = buf.split_at_mut(padding).1;
-            //buf = &mut buf[padding..];
-            bytes += padding;
-        }
         self.start_of_nonexecutable_pages = bytes;
 
-        for section in data_sections {
-            let section = &section.bytes;
-            assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % data_section_align == 0);
-            let len = Mmap::round_up_to_page_size(section.len(), data_section_align);
-            let (s, next_buf) = buf.split_at_mut(len);
-            buf = next_buf;
-            s[..section.len()].copy_from_slice(section.as_slice());
-            data_section_result.push(s);
-            bytes += len;
+        if !data_sections.is_empty() {
+            // Data sections have different page permissions from the executable
+            // code that came before it, so they need to be on different pages.
+            let padding = round_up(bytes, page_size) - bytes;
+            buf = buf.split_at_mut(padding).1;
+
+            for section in data_sections {
+                let section = &section.bytes;
+                assert!(
+                    buf.as_mut_ptr() as *mut _ as *mut u8 as usize % DATA_SECTION_ALIGNMENT == 0
+                );
+                let len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
+                let (s, next_buf) = buf.split_at_mut(len);
+                buf = next_buf;
+                s[..section.len()].copy_from_slice(section.as_slice());
+                data_section_result.push(s);
+            }
         }
 
         Ok((
@@ -181,23 +181,20 @@ impl CodeMemory {
         assert!((buf.as_ptr() as usize) % ARCH_FUNCTION_ALIGNMENT == 0);
 
         let func_len = func.body.len();
-        let mut func_end = func_len as u32;
 
-        let (body, mut remainder) = buf.split_at_mut(func_len);
+        let (body, remainder) = buf.split_at_mut(func_len);
         body.copy_from_slice(&func.body);
         let vmfunc = Self::view_as_mut_vmfunc_slice(body);
 
         if let Some(CompiledFunctionUnwindInfo::WindowsX64(info)) = &func.unwind_info {
             // Windows unwind information is written following the function body
             // Keep unwind information 32-bit aligned (round up to the nearest 4 byte boundary)
-            let unwind_start = (func_end + 3) & !3;
+            let unwind_start = (func_len + 3) & !3;
             let unwind_size = info.len();
-            let padding = (unwind_start - func_end) as usize;
+            let padding = unwind_start - func_len;
             assert_eq!((func_len + padding) % 4, 0);
-            let (slice, r) = remainder.split_at_mut(padding + unwind_size);
+            let slice = remainder.split_at_mut(padding + unwind_size).0;
             slice[padding..].copy_from_slice(&info);
-            func_end = unwind_start + (unwind_size as u32);
-            remainder = r;
         }
 
         if let Some(info) = &func.unwind_info {
@@ -223,12 +220,9 @@ impl CodeMemory {
     }
 }
 
-/// Calculates the minimum number of padding bytes required to fulfill `alignment`.
-fn get_align_padding_size(position: usize, alignment: usize) -> usize {
-    match position % alignment {
-        0 => 0,
-        x => alignment - x,
-    }
+fn round_up(size: usize, multiple: usize) -> usize {
+    debug_assert!(multiple.is_power_of_two());
+    (size + (multiple - 1)) & !(multiple - 1)
 }
 
 #[cfg(test)]

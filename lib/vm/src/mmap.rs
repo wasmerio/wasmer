@@ -10,6 +10,11 @@ use std::io;
 use std::ptr;
 use std::slice;
 
+/// Round `size` up to the nearest multiple of `page_size`.
+fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
+    (size + (page_size - 1)) & !(page_size - 1)
+}
+
 /// A simple struct consisting of a page-aligned pointer to page-aligned
 /// and initially-zeroed memory and a length.
 #[derive(Debug)]
@@ -38,7 +43,7 @@ impl Mmap {
     /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
     pub fn with_at_least(size: usize) -> Result<Self, String> {
         let page_size = region::page::size();
-        let rounded_size = Mmap::round_up_to_page_size(size, page_size);
+        let rounded_size = round_up_to_page_size(size, page_size);
         Self::accessible_reserved(rounded_size, rounded_size)
     }
 
@@ -245,11 +250,6 @@ impl Mmap {
     pub fn is_empty(&self) -> bool {
         self.len() == 0
     }
-
-    /// Round `size` up to the nearest multiple of `page_size`.
-    pub fn round_up_to_page_size(size: usize, page_size: usize) -> usize {
-        (size + (page_size - 1)) & !(page_size - 1)
-    }
 }
 
 impl Drop for Mmap {
@@ -284,9 +284,9 @@ mod tests {
 
     #[test]
     fn test_round_up_to_page_size() {
-        assert_eq!(Mmap::round_up_to_page_size(0, 4096), 0);
-        assert_eq!(Mmap::round_up_to_page_size(1, 4096), 4096);
-        assert_eq!(Mmap::round_up_to_page_size(4096, 4096), 4096);
-        assert_eq!(Mmap::round_up_to_page_size(4097, 4096), 8192);
+        assert_eq!(round_up_to_page_size(0, 4096), 0);
+        assert_eq!(round_up_to_page_size(1, 4096), 4096);
+        assert_eq!(round_up_to_page_size(4096, 4096), 4096);
+        assert_eq!(round_up_to_page_size(4097, 4096), 8192);
     }
 }

@@ -7,8 +7,7 @@ use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionBody, SectionIndex,
-    Target,
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::entity::PrimaryMap;
@@ -248,7 +247,7 @@ impl JITEngineInner {
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        for (i, (sig_index, compiled_function)) in function_call_trampolines.iter().enumerate() {
+        for (sig_index, _) in function_call_trampolines.iter() {
             let func_type = module.signatures.get(sig_index).unwrap();
             let index = self.signatures.register(&func_type);
             let ptr = allocated_functions
