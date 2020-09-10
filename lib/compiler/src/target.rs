@@ -116,8 +116,8 @@ impl CpuFeature {
 // here by architectures:
 //
 // X86: https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html
-// ARM: https://gcc.gnu.org/onlinedocs/gcc/gcc/ARM-Options.html
-// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/gcc/AArch64-Options.html
+// ARM: https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html
+// Aarch64: https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html
 impl FromStr for CpuFeature {
     type Err = ParseCpuFeatureError;
 
