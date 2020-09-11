@@ -10,6 +10,7 @@ on:
       - 'staging'
       - 'trying'
     tags:
+      # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
       - '[0-9]+.[0-9]+.[0-9]+*'
 jobs:
   setup:
@@ -25,7 +26,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
           echo ::set-output name=VERSION::${VERSION}
-          DOING_RELEASE=$(echo $VERSION | grep -q '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' && echo -n '1' || echo -n '0')
+          DOING_RELEASE=$(echo $VERSION | grep -c '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' || true)
           echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
           echo $VERSION
           echo $DOING_RELEASE
