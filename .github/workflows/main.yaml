@@ -156,7 +156,7 @@ jobs:
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
-      - name: Download The Artifacts
+      - name: Download the Artifacts
         uses: actions/download-artifact@v2
         with:
           path: artifacts
