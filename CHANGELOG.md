@@ -1,11 +1,13 @@
 # Changelog
 
 ## **[Unreleased]**
+
+## 1.0.0-alpha02.0 - 2020-09-11
 - [#1602](https://github.com/wasmerio/wasmer/pull/1602) Fix panic when calling host functions with negative numbers in certain situations
 - [#1590](https://github.com/wasmerio/wasmer/pull/1590) Fix soundness issue in API of vm::Global
 - [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
 
-## TODO: 1.0.0-alpha1.0
+## TODO: 1.0.0-alpha01.0
 - Wasmer refactor lands
 
 ## TODO: 17...
