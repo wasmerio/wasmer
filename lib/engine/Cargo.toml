@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine"
-version = "1.0.0-alpha01.0"
+version = "1.0.0-alpha02.0"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer Engine abstraction"
 license = "MIT OR Apache-2.0 WITH LLVM-exception "
@@ -11,9 +11,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0" }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha02.0" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha02.0" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha02.0" }
 target-lexicon = { version = "0.10", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3"
