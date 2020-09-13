@@ -2,16 +2,16 @@
 name = "wasmer-types"
 version = "1.0.0-alpha02.0"
 description = "Wasmer Common Types"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
+categories = ["wasm", "no-std", "data-structures"]
+keywords = ["wasm", "webassembly", "types"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-categories = ["no-std", "wasm"]
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
-keywords = ["webassembly", "wasm", "types"]
 edition = "2018"
 
 [dependencies]
-# We use `cranelift-entity` here because it's a light-weight dependency and it contains
+# We use `cranelift-entity` here because it's a lightweight dependency and it contains
 # some useful data structures
 cranelift-entity = "0.65"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }

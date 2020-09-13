@@ -2,12 +2,12 @@
 name = "wasmer-c-api"
 version = "1.0.0-alpha02.0"
 description = "Wasmer C API library"
+categories = ["wasm", "api-bindings"]
+keywords = ["wasm", "webassembly", "runtime"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://wasmerio.github.io/wasmer/c-api/"
 license = "MIT"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-keywords = ["wasm", "webassembly", "runtime"]
-categories = ["wasm"]
 readme = "README.md"
 edition = "2018"
 

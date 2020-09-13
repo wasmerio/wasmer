@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-runtime-core"
 version = "0.18.0"
-description = "Wasmer runtime core library"
-license = "MIT"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
-repository = "https://github.com/wasmerio/wasmer"
-keywords = ["wasm", "webassembly", "runtime"]
+description = "Wasmer runtime core library (deprecated in favor of wasmer crate)"
 categories = ["wasm"]
+keywords = ["wasm", "webassembly", "runtime"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 

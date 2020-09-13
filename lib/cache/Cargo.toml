@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-cache"
 version = "1.0.0-alpha02.0"
-description = "Cache system for WebAssembly"
-license = "MIT"
+description = "Cache system for Wasmer WebAssembly runtime"
+categories = ["wasm", "caching"]
+keywords = ["wasm", "webassembly", "cache"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-categories = ["wasm"]
-keywords = ["webassembly", "wasm", "cache"]
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 

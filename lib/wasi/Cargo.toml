@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-wasi"
 version = "1.0.0-alpha02.0"
-description = "Wasmer runtime WASI implementation library"
-license = "MIT"
+description = "WASI implementation library for Wasmer WebAssembly runtime"
+categories = ["wasm", "os"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
-categories = ["wasm"]
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 

@@ -1,13 +1,13 @@
 [package]
 name = "wasmer-compiler-singlepass"
 version = "1.0.0-alpha02.0"
+description = "Singlepass compiler for Wasmer WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler", "singlepass"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Standalone environment support for WebAsssembly code in Singlepass"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-singlepass/"
-categories = ["wasm"]
-keywords = ["webassembly", "wasm", "compiler", "singlepass"]
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 

@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-engine-native"
 version = "1.0.0-alpha02.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Wasmer JIT Engine"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
+description = "Wasmer Native Engine"
 categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+keywords = ["wasm", "webassembly", "engine", "native"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 

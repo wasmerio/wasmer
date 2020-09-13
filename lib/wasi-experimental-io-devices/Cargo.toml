@@ -1,13 +1,14 @@
 [package]
 name = "wasmer-wasi-experimental-io-devices"
 version = "1.0.0-alpha02.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-edition = "2018"
-repository = "https://github.com/wasmerio/wasmer"
-publish = true
 description = "An experimental non-standard WASI extension for graphics"
-readme = "README.md"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "types"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"
+readme = "README.md"
+edition = "2018"
 
 [badges]
 maintenance = { status = "experimental" }

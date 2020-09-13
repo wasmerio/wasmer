@@ -1,17 +1,12 @@
 [package]
 name = "wasmer-cli"
 version = "1.0.0-alpha02.0"
+description = "Wasmer CLI"
+categories = ["wasm", "command-line-interface"]
+keywords = ["wasm", "webassembly", "cli"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-description = "Wasmer CLI"
 license = "MIT"
-include = [
-    "src/**/*",
-    "Cargo.lock",
-    "Cargo.toml",
-    "LICENSE",
-    "README.md"
-]
 readme = "README.md"
 edition = "2018"
 default-run = "wasmer"

@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-compiler"
 version = "1.0.0-alpha02.0"
-description = "Base compiler abstraction for WebAssembly"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
+description = "Base compiler abstraction for Wasmer WebAssembly runtime"
+categories = ["wasm", "no-std"]
+keywords = ["wasm", "webassembly", "compiler"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-categories = ["no-std", "wasm"]
-keywords = ["webassembly", "wasm", "compiler"]
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition = "2018"
 

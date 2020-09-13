@@ -1,13 +1,13 @@
 [package]
 name = "wasmer-compiler-cranelift"
 version = "1.0.0-alpha02.0"
+description = "Cranelift compiler for Wasmer WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler", "cranelift"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Standalone environment support for WebAsssembly code in Cranelift"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-cranelift/"
-categories = ["wasm"]
-keywords = ["webassembly", "wasm", "compiler", "cranelift"]
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition = "2018"
 

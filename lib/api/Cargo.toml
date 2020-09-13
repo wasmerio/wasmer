@@ -1,10 +1,12 @@
 [package]
 name = "wasmer"
 version = "1.0.0-alpha02.0"
+description = "High-performant WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "runtime", "vm"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Wasmer runtime API"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
