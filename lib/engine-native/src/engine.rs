@@ -13,6 +13,8 @@ use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::Features;
 use wasmer_types::FunctionType;
 use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
+#[cfg(feature = "compiler")]
+use which::which;
 
 /// A WebAssembly `Native` Engine.
 #[derive(Clone)]
@@ -27,6 +29,10 @@ impl NativeEngine {
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
+        if let Err(_) = which("gcc").or_else(|_| which("clang-10")) {
+            panic!("gcc/clang is not found, it is required for using the `NativeEngine`");
+        }
+
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 compiler: Some(compiler),
