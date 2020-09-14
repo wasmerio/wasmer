@@ -144,6 +144,7 @@ jobs:
       - name: Package Wasmer
         run: |
           make package
+        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         if: needs.setup.outputs.DOING_RELEASE == '1'
