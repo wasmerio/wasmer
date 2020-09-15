@@ -10,7 +10,7 @@ It's designed to be safe and secure, and runnable in any kind of environment.
 
 Add to your `Cargo.toml`
 
-```
+```toml
 [dependencies]
 wasmer = "1.0.0-alpha"
 ```
