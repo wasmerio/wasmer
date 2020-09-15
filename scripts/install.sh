@@ -363,10 +363,18 @@ wasmer_reset() {
 # }
 
 version() {
-    echo "$@" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }';
+    RAW_VERSION=$(echo "$@" | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+).*/\1/')
+    # get the tag if it exists
+    VERSION_TAG=$(echo "$@" | grep -q "-" && (echo "$@" | sed -E 's/([0-9]+\.[0-9]+\.[0-9]+)-(.*)/\2/') || echo -n "")
+    # normalize tag into tag:N1:N2
+    VERSION_TAG=$(echo "$VERSION_TAG" | sed -E 's/([a-zA-Z]+)([0-9]+)(\.([0-9]+))?/\1:\2:\4/')
+    VERSION_NUMBER=$(echo "$RAW_VERSION" | awk -F. '{ printf("%d%03d%03d%03d\n", $1,$2,$3,$4); }')
+    TAG_AS_NUMBER=$(echo "$VERSION_TAG" | awk -F: '{ if ($1 ~ /alpha/) { printf("001") } else if ($1 ~ /beta/) { printf("002") } else { printf "000" } printf("%03d%03d\n", $2,$3); }')
+    echo "$VERSION_NUMBER$TAG_AS_NUMBER"
 }
 
-# TODO: Does not support versions with characters in them yet. Won't work for wasmer_compareversions "1.4.5-rc4" "1.4.5-r5"
+# tags in versions are supported but they have semantic value. If the tag is defined in `version`
+# then it will work, otherwise the tag will be treated the same as if there was no tag.
 wasmer_compareversions () {
     WASMER_VERSION=$(version $1)
     WASMER_COMPARE=$(version $2)
@@ -412,7 +420,7 @@ wasmer_download() {
   fi
 
   if which wasmer >/dev/null; then
-    WASMER_VERSION=$(wasmer --version | sed 's/[a-z[:blank:]]//g')
+    WASMER_VERSION=$(wasmer --version | sed 's/wasmer //')
     WASMER_COMPARE=$(wasmer_compareversions $WASMER_VERSION $WASMER_RELEASE_TAG)
     # printf "version: $WASMER_COMPARE\n"
     case $WASMER_COMPARE in
