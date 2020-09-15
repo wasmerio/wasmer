@@ -176,7 +176,7 @@ macro_rules! impl_native_traits {
                                     let ctx = self.vmctx as *mut VMContextWithoutEnv;
                                     unsafe { (*ctx).ctx.call(&params_list)? }
                                 } else {
-                                    type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
+                                    type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Box<std::ffi::c_void>>>;
                                     let ctx = self.vmctx as *mut VMContextWithEnv;
                                     unsafe { (*ctx).ctx.call(&params_list)? }
                                 };
