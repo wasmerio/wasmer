@@ -7,7 +7,7 @@ This crate provides the necessary imports to use WASI easily from Wasmer.
 First, add this crate into your `Cargo.toml` dependencies:
 
 ```toml
-wasmer-wasi = "1.0.0-alpha.1"
+wasmer-wasi = "1.0.0-alpha"
 ```
 
 And then:

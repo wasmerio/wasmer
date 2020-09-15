@@ -12,7 +12,7 @@ Add to your `Cargo.toml`
 
 ```
 [dependencies]
-wasmer = "1.0.0-alpha.1"
+wasmer = "1.0.0-alpha"
 ```
 
 ```rust
