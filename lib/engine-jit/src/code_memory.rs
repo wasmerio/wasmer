@@ -3,7 +3,6 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use std::sync::Arc;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 
@@ -20,7 +19,7 @@ const DATA_SECTION_ALIGNMENT: usize = 64;
 
 /// Memory manager for executable code.
 pub struct CodeMemory {
-    unwind_registries: Vec<Arc<UnwindRegistry>>,
+    unwind_registry: UnwindRegistry,
     mmap: Mmap,
     start_of_nonexecutable_pages: usize,
 }
@@ -29,16 +28,20 @@ impl CodeMemory {
     /// Create a new `CodeMemory` instance.
     pub fn new() -> Self {
         Self {
-            unwind_registries: Vec::new(),
+            unwind_registry: UnwindRegistry::new(),
             mmap: Mmap::new(),
             start_of_nonexecutable_pages: 0,
         }
     }
 
+    /// Mutably get the UnwindRegistry.
+    pub fn unwind_registry_mut(&mut self) -> &mut UnwindRegistry {
+        &mut self.unwind_registry
+    }
+
     /// Allocate a single contiguous block of memory for the functions and custom sections, and copy the data in place.
     pub fn allocate(
         &mut self,
-        registry: &mut UnwindRegistry,
         functions: &[&FunctionBody],
         executable_sections: &[&CustomSection],
         data_sections: &[&CustomSection],
@@ -91,7 +94,7 @@ impl CodeMemory {
             buf = next_buf;
             bytes += len;
 
-            let vmfunc = Self::copy_function(registry, func, func_buf);
+            let vmfunc = Self::copy_function(&mut self.unwind_registry, func, func_buf);
             assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
             function_result.push(vmfunc);
         }
@@ -132,11 +135,6 @@ impl CodeMemory {
             executable_section_result,
             data_section_result,
         ))
-    }
-
-    /// Publish the unwind registry into code memory.
-    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
-        self.unwind_registries.push(unwind_registry);
     }
 
     /// Apply the page permissions.

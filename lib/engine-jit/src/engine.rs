@@ -1,6 +1,5 @@
 //! JIT compilation.
 
-use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -197,7 +196,6 @@ impl JITEngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
-        registry: &mut UnwindRegistry,
         module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
@@ -227,7 +225,6 @@ impl JITEngineInner {
                 .last_mut()
                 .unwrap()
                 .allocate(
-                    registry,
                     function_bodies.as_slice(),
                     executable_sections.as_slice(),
                     data_sections.as_slice(),
@@ -295,12 +292,17 @@ impl JITEngineInner {
         self.code_memory.last_mut().unwrap().publish();
     }
 
-    /// Publish the unwind registry into code memory.
-    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
+    /// Register DWARF-type exception handling information associated with the code.
+    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
-            .publish_unwind_registry(unwind_registry);
+            .unwind_registry_mut()
+            .publish(eh_frame)
+            .map_err(|e| {
+                CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+            })?;
+        Ok(())
     }
 
     /// Shared signature registry.
