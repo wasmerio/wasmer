@@ -18,8 +18,8 @@ use std::ptr::NonNull;
 use std::slice;
 use wasmer::{Extern, NamedResolver, Store};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
-    WasiStateBuilder, WasiVersion,
+    generate_import_object_from_env, get_wasi_version, WasiContext, WasiContext, WasiEnv, WasiFile,
+    WasiVersion,
 };
 
 #[derive(Debug, Default)]
@@ -29,7 +29,7 @@ pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    state_builder: WasiStateBuilder,
+    context: WasiContext,
 }
 
 #[no_mangle]
@@ -42,7 +42,7 @@ pub unsafe extern "C" fn wasi_config_new(
     let prog_name = c_try!(name_c_str.to_str());
 
     Some(Box::new(wasi_config_t {
-        state_builder: WasiState::new(prog_name),
+        context: WasiContext::new_command(prog_name),
         ..wasi_config_t::default()
     }))
 }
@@ -61,7 +61,7 @@ pub unsafe extern "C" fn wasi_config_env(
     let value_cstr = CStr::from_ptr(value);
     let value_bytes = value_cstr.to_bytes();
 
-    config.state_builder.env(key_bytes, value_bytes);
+    config.context.env(key_bytes, value_bytes);
 }
 
 #[no_mangle]
@@ -71,7 +71,7 @@ pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const
     let arg_cstr = CStr::from_ptr(arg);
     let arg_bytes = arg_cstr.to_bytes();
 
-    config.state_builder.arg(arg_bytes);
+    config.context.arg(arg_bytes);
 }
 
 #[no_mangle]
@@ -98,16 +98,16 @@ pub struct wasi_env_t {
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
     if config.inherit_stdout {
         config
-            .state_builder
+            .context
             .stdout(Box::new(capture_files::OutputCapturer::new()));
     }
     if config.inherit_stderr {
         config
-            .state_builder
+            .context
             .stderr(Box::new(capture_files::OutputCapturer::new()));
     }
     // TODO: impl capturer for stdin
-    let wasi_state = c_try!(config.state_builder.build());
+    let wasi_state = c_try!(config.context.build());
     Some(Box::new(wasi_env_t {
         inner: WasiEnv::new(wasi_state),
     }))

@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Memory, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiFsError, WasiState,
-    WasiVersion,
+    generate_import_object_from_env, get_wasi_version, WasiContext, WasiEnv, WasiFile, WasiFsError,
+    WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -120,7 +120,7 @@ impl<'a> WasiTest<'a> {
 
     /// Create the wasi env with the given metadata.
     fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
-        let mut builder = WasiState::new(self.wasm_path);
+        let mut builder = WasiContext::new_command(self.wasm_path);
         for (name, value) in &self.envs {
             builder.env(name, value);
         }

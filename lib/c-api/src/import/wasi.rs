@@ -176,17 +176,17 @@ fn wasmer_wasi_generate_import_object_inner(
 
     let store = crate::get_global_store();
 
-    let mut wasi_state_builder = wasi::WasiState::new(
+    let mut wasi_context = wasi::WasiContext::new_command(
         arg_vec
             .first()
             .unwrap_or_else("wasmer-wasi-default-program-name"),
     );
-    wasi_state_builder
+    wasi_context
         .args(&arg_vec[1..])
         .envs(env_vec)
         .preopen_dirs(po_file_vec)?
         .map_dirs(mapped_dir_vec)?;
-    let wasi_state = wasi_state_builder.build().unwrap();
+    let wasi_state = wasi_context.state().unwrap();
     let mut wasi_env = wasi::WasiEnv::new(wasi_state);
     let memory_type = MemoryType::new(0, None, false);
     let memory = Memory::new(store, memory_type);
@@ -210,8 +210,8 @@ fn wasmer_wasi_generate_import_object_inner(
 pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wasmer_import_object_t
 {
     let store = crate::get_global_store();
-    let mut wasi_state_builder = wasi::WasiState::new("wasmer-wasi-default-program-name");
-    let wasi_state = wasi_state_builder.build().unwrap();
+    let mut wasi_context = wasi::WasiContext::new_command("wasmer-wasi-default-program-name");
+    let wasi_state = wasi_context.state().unwrap();
     let mut wasi_env = wasi::WasiEnv::new(wasi_state);
     // this API will now leak a `Memory`
     let memory_type = MemoryType::new(0, None, false);

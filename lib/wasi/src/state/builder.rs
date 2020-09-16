@@ -1,4 +1,4 @@
-//! Builder system for configuring a [`WasiState`] and creating it.
+//! Builder system for configuring a [`WasiContext`] and creating it.
 
 use crate::state::{WasiFile, WasiFs, WasiFsError, WasiState};
 use crate::syscalls::types::{__WASI_STDERR_FILENO, __WASI_STDIN_FILENO, __WASI_STDOUT_FILENO};
@@ -6,34 +6,24 @@ use crate::WasiEnv;
 use std::path::{Path, PathBuf};
 use thiserror::Error;
 
-/// Creates an empty [`WasiStateBuilder`].
-///
-/// Internal method only, users should call [`WasiState::new`].
-pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
-    WasiStateBuilder {
-        args: vec![program_name.bytes().collect()],
-        ..WasiStateBuilder::default()
-    }
-}
-
-/// Convenient builder API for configuring WASI via [`WasiState`].
+/// Convenient builder API for configuring WASI via [`WasiContext`].
 ///
 /// Usage:
 /// ```no_run
-/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
-/// # fn main() -> Result<(), WasiStateCreationError> {
-/// let mut state_builder = WasiState::new("wasi-prog-name");
-/// state_builder
+/// # use wasmer_wasi::{WasiContext, WasiContextError};
+/// # fn main() -> Result<(), WasiContextError> {
+/// let mut context = WasiContext::new_command("wasi-prog-name");
+/// context
 ///    .env("ENV_VAR", "ENV_VAL")
 ///    .arg("--verbose")
 ///    .preopen_dir("src")?
 ///    .map_dir("name_wasi_sees", "path/on/host/fs")?
-///    .build();
+///    .state();
 /// # Ok(())
 /// # }
 /// ```
 #[derive(Default)]
-pub struct WasiStateBuilder {
+pub struct WasiContext {
     args: Vec<Vec<u8>>,
     envs: Vec<Vec<u8>>,
     preopens: Vec<PreopenedDir>,
@@ -44,9 +34,9 @@ pub struct WasiStateBuilder {
     stdin_override: Option<Box<dyn WasiFile>>,
 }
 
-impl std::fmt::Debug for WasiStateBuilder {
+impl std::fmt::Debug for WasiContext {
     fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
-        f.debug_struct("WasiStateBuilder")
+        f.debug_struct("WasiContext")
             .field("args", &self.args)
             .field("envs", &self.envs)
             .field("preopens", &self.preopens)
@@ -58,9 +48,9 @@ impl std::fmt::Debug for WasiStateBuilder {
     }
 }
 
-/// Error type returned when bad data is given to [`WasiStateBuilder`].
+/// Error type returned when bad data is given to [`WasiContext`].
 #[derive(Error, Debug, PartialEq, Eq)]
-pub enum WasiStateCreationError {
+pub enum WasiContextError {
     #[error("bad environment variable format: `{0}`")]
     EnvironmentVariableFormatError(String),
     #[error("argument contains null byte: `{0}`")]
@@ -79,11 +69,12 @@ pub enum WasiStateCreationError {
     WasiFsError(WasiFsError),
 }
 
-fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
+fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiContextError> {
     if !alias.bytes().all(|b| b != b'\0') {
-        return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-            format!("Alias \"{}\" contains a nul byte", alias),
-        ));
+        return Err(WasiContextError::MappedDirAliasFormattingError(format!(
+            "Alias \"{}\" contains a nul byte",
+            alias
+        )));
     }
 
     Ok(())
@@ -91,7 +82,22 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
 
 // TODO add other WasiFS APIs here like swapping out stdout, for example (though we need to
 // return stdout somehow, it's unclear what that API should look like)
-impl WasiStateBuilder {
+impl WasiContext {
+    /// Creates an empty `WasiContext`.
+    pub fn new() -> Self {
+        Self {
+            ..WasiContext::default()
+        }
+    }
+
+    /// Creates a new `WasiContext` with a given program name.
+    pub fn new_command(program_name: &str) -> Self {
+        Self {
+            args: vec![program_name.bytes().collect()],
+            ..WasiContext::default()
+        }
+    }
+
     /// Add an environment variable pair.
     /// Environment variable keys and values must not contain the byte `=` (0x3d)
     /// or nul (0x0).
@@ -174,10 +180,7 @@ impl WasiStateBuilder {
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    pub fn preopen_dir<FilePath>(
-        &mut self,
-        po_dir: FilePath,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen_dir<FilePath>(&mut self, po_dir: FilePath) -> Result<&mut Self, WasiContextError>
     where
         FilePath: AsRef<Path>,
     {
@@ -196,16 +199,16 @@ impl WasiStateBuilder {
     /// Usage:
     ///
     /// ```no_run
-    /// # use wasmer_wasi::{WasiState, WasiStateCreationError};
-    /// # fn main() -> Result<(), WasiStateCreationError> {
-    /// WasiState::new("program_name")
+    /// # use wasmer_wasi::{WasiContext, WasiContextError};
+    /// # fn main() -> Result<(), WasiContextError> {
+    /// WasiContext::new_command("program_name")
     ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
     ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-    ///    .build()?;
+    ///    .state()?;
     /// # Ok(())
     /// # }
     /// ```
-    pub fn preopen<F>(&mut self, inner: F) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen<F>(&mut self, inner: F) -> Result<&mut Self, WasiContextError>
     where
         F: Fn(&mut PreopenDirBuilder) -> &mut PreopenDirBuilder,
     {
@@ -220,10 +223,7 @@ impl WasiStateBuilder {
     /// Preopen a directory
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
-    pub fn preopen_dirs<I, FilePath>(
-        &mut self,
-        po_dirs: I,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn preopen_dirs<I, FilePath>(&mut self, po_dirs: I) -> Result<&mut Self, WasiContextError>
     where
         I: IntoIterator<Item = FilePath>,
         FilePath: AsRef<Path>,
@@ -240,7 +240,7 @@ impl WasiStateBuilder {
         &mut self,
         alias: &str,
         po_dir: FilePath,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    ) -> Result<&mut Self, WasiContextError>
     where
         FilePath: AsRef<Path>,
     {
@@ -259,10 +259,7 @@ impl WasiStateBuilder {
     }
 
     /// Preopen directorys with a different names exposed to the WASI.
-    pub fn map_dirs<I, FilePath>(
-        &mut self,
-        mapped_dirs: I,
-    ) -> Result<&mut Self, WasiStateCreationError>
+    pub fn map_dirs<I, FilePath>(&mut self, mapped_dirs: I) -> Result<&mut Self, WasiContextError>
     where
         I: IntoIterator<Item = (String, FilePath)>,
         FilePath: AsRef<Path>,
@@ -309,14 +306,14 @@ impl WasiStateBuilder {
         self
     }
 
-    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiState`]
+    /// Consumes the [`WasiContext`] and produces a [`WasiContext`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
-    pub fn build(&mut self) -> Result<WasiState, WasiStateCreationError> {
+    pub fn state(&mut self) -> Result<WasiState, WasiContextError> {
         for (i, arg) in self.args.iter().enumerate() {
             for b in arg.iter() {
                 if *b == 0 {
-                    return Err(WasiStateCreationError::ArgumentContainsNulByte(
+                    return Err(WasiContextError::ArgumentContainsNulByte(
                         std::str::from_utf8(arg)
                             .unwrap_or(if i == 0 {
                                 "Inner error: program name is invalid utf8!"
@@ -334,24 +331,20 @@ impl WasiStateBuilder {
                 match *b {
                     b'=' => {
                         if eq_seen {
-                            return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                                format!(
-                                    "found '=' in env var string \"{}\" (key=value)",
-                                    std::str::from_utf8(env)
-                                        .unwrap_or("Inner error: env var is invalid_utf8!")
-                                ),
-                            ));
+                            return Err(WasiContextError::EnvironmentVariableFormatError(format!(
+                                "found '=' in env var string \"{}\" (key=value)",
+                                std::str::from_utf8(env)
+                                    .unwrap_or("Inner error: env var is invalid_utf8!")
+                            )));
                         }
                         eq_seen = true;
                     }
                     0 => {
-                        return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                            format!(
-                                "found nul byte in env var string \"{}\" (key=value)",
-                                std::str::from_utf8(env)
-                                    .unwrap_or("Inner error: env var is invalid_utf8!")
-                            ),
-                        ));
+                        return Err(WasiContextError::EnvironmentVariableFormatError(format!(
+                            "found nul byte in env var string \"{}\" (key=value)",
+                            std::str::from_utf8(env)
+                                .unwrap_or("Inner error: env var is invalid_utf8!")
+                        )));
                     }
                     _ => (),
                 }
@@ -363,25 +356,25 @@ impl WasiStateBuilder {
         // this deprecation warning only applies to external callers
         #[allow(deprecated)]
         let mut wasi_fs = WasiFs::new_with_preopen(&self.preopens)
-            .map_err(WasiStateCreationError::WasiFsCreationError)?;
+            .map_err(WasiContextError::WasiFsCreationError)?;
         // set up the file system, overriding base files and calling the setup function
         if let Some(stdin_override) = self.stdin_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDIN_FILENO, stdin_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiContextError::WasiFsError)?;
         }
         if let Some(stdout_override) = self.stdout_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDOUT_FILENO, stdout_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiContextError::WasiFsError)?;
         }
         if let Some(stderr_override) = self.stderr_override.take() {
             wasi_fs
                 .swap_file(__WASI_STDERR_FILENO, stderr_override)
-                .map_err(WasiStateCreationError::WasiFsError)?;
+                .map_err(WasiContextError::WasiFsError)?;
         }
         if let Some(f) = &self.setup_fs_fn {
-            f(&mut wasi_fs).map_err(WasiStateCreationError::WasiFsSetupError)?;
+            f(&mut wasi_fs).map_err(WasiContextError::WasiFsSetupError)?;
         }
         Ok(WasiState {
             fs: wasi_fs,
@@ -390,11 +383,11 @@ impl WasiStateBuilder {
         })
     }
 
-    /// Consumes the [`WasiStateBuilder`] and produces a [`WasiEnv`]
+    /// Consumes the [`WasiContext`] and produces a [`WasiEnv`]
     ///
     /// Returns the error from `WasiFs::new` if there's an error
-    pub fn finalize(&mut self) -> Result<WasiEnv, WasiStateCreationError> {
-        let state = self.build()?;
+    pub fn finalize(&mut self) -> Result<WasiEnv, WasiContextError> {
+        let state = self.state()?;
         Ok(WasiEnv::new(state))
     }
 }
@@ -469,21 +462,21 @@ impl PreopenDirBuilder {
         self
     }
 
-    pub(crate) fn build(&self) -> Result<PreopenedDir, WasiStateCreationError> {
+    pub(crate) fn build(&self) -> Result<PreopenedDir, WasiContextError> {
         // ensure at least one is set
         if !(self.read || self.write || self.create) {
-            return Err(WasiStateCreationError::PreopenedDirectoryError("Preopened directories must have at least one of read, write, create permissions set".to_string()));
+            return Err(WasiContextError::PreopenedDirectoryError("Preopened directories must have at least one of read, write, create permissions set".to_string()));
         }
 
         if self.path.is_none() {
-            return Err(WasiStateCreationError::PreopenedDirectoryError(
+            return Err(WasiContextError::PreopenedDirectoryError(
                 "Preopened directories must point to a host directory".to_string(),
             ));
         }
         let path = self.path.clone().unwrap();
 
         if !path.exists() {
-            return Err(WasiStateCreationError::PreopenedDirectoryNotFound(path));
+            return Err(WasiContextError::PreopenedDirectoryNotFound(path));
         }
         if let Some(alias) = &self.alias {
             validate_mapped_dir_alias(alias)?;
@@ -505,35 +498,37 @@ mod test {
 
     #[test]
     fn env_var_errors() {
-        let output = create_wasi_state("test_prog")
+        let output = WasiContext::new_command("test_prog")
             .env("HOM=E", "/home/home")
-            .build();
+            .state();
         match output {
-            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
+            Err(WasiContextError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
         }
 
-        let output = create_wasi_state("test_prog")
+        let output = WasiContext::new_command("test_prog")
             .env("HOME\0", "/home/home")
-            .build();
+            .state();
         match output {
-            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
+            Err(WasiContextError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
         }
     }
 
     #[test]
     fn nul_character_in_args() {
-        let output = create_wasi_state("test_prog").arg("--h\0elp").build();
+        let output = WasiContext::new_command("test_prog")
+            .arg("--h\0elp")
+            .state();
         match output {
-            Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
+            Err(WasiContextError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = create_wasi_state("test_prog")
+        let output = WasiContext::new_command("test_prog")
             .args(&["--help", "--wat\0"])
-            .build();
+            .state();
         match output {
-            Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
+            Err(WasiContextError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
     }

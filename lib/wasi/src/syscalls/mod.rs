@@ -18,8 +18,7 @@ use crate::{
     ptr::{Array, WasmPtr},
     state::{
         self, host_file_type_to_wasi_file_type, iterate_poll_events, poll, Fd, HostFile, Inode,
-        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, WasiState,
-        MAX_SYMLINKS,
+        InodeVal, Kind, PollEvent, PollEventBuilder, WasiFile, WasiFsError, MAX_SYMLINKS,
     },
     WasiEnv, WasiError,
 };

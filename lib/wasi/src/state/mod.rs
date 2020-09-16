@@ -167,10 +167,10 @@ pub struct WasiFs {
 
 impl WasiFs {
     /// Internal function for constructing a [`WasiFs`].  Please use
-    /// [`WasiState::new`].
+    /// [`WasiContext::new_command`].
     #[deprecated(
         since = "0.14.0",
-        note = "This method will change or be made private in the future.  Please use `WasiState::new` and the builder API instead."
+        note = "This method will change or be made private in the future.  Please use `WasiContext::new_command` and the builder API instead."
     )]
     pub fn new(
         preopened_dirs: &[PathBuf],
@@ -1517,9 +1517,9 @@ impl WasiFs {
 /// Usage:
 ///
 /// ```no_run
-/// # use wasmer_wasi::{WasiState, WasiStateCreationError};
-/// # fn main() -> Result<(), WasiStateCreationError> {
-/// WasiState::new("program_name")
+/// # use wasmer_wasi::{WasiContext, WasiContextError};
+/// # fn main() -> Result<(), WasiContextError> {
+/// WasiContext::new_command("program_name")
 ///    .env(b"HOME", "/home/home".to_string())
 ///    .arg("--help")
 ///    .envs({
@@ -1531,7 +1531,7 @@ impl WasiFs {
 ///    .args(&["--verbose", "list"])
 ///    .preopen(|p| p.directory("src").read(true).write(true).create(true))?
 ///    .preopen(|p| p.directory(".").alias("dot").read(true))?
-///    .build()?;
+///    .state()?;
 /// # Ok(())
 /// # }
 /// ```
@@ -1543,11 +1543,11 @@ pub struct WasiState {
 }
 
 impl WasiState {
-    /// Create a [`WasiStateBuilder`] to construct a validated instance of
+    /// Create a [`WasiContext`] to construct a validated instance of
     /// [`WasiState`].
     #[allow(clippy::new_ret_no_self)]
-    pub fn new(program_name: impl AsRef<str>) -> WasiStateBuilder {
-        create_wasi_state(program_name.as_ref())
+    pub fn context(program_name: impl AsRef<str>) -> WasiContext {
+        WasiContext::new_command(program_name.as_ref())
     }
 
     /// Turn the WasiState into bytes

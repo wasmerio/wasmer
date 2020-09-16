@@ -14,13 +14,13 @@ And then:
 
 ```rust
 use wasmer::{Store, Module, Instance};
-use wasmer_wasi::WasiState;
+use wasmer_wasi::WasiContext;
 
 let store = Store::default();
 let module = Module::from_file(&store, "my_wasi_module.wasm")?;
 
 // Create the WasiEnv
-let wasi_env = WasiState::new("command name")
+let wasi_env = WasiContext::new_command("command name")
     .args(&["world"])
     .env("KEY", "VALUE")
     .finalize()?;

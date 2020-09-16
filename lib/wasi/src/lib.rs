@@ -22,8 +22,8 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, WasiContext, WasiContextError, WasiFile, WasiFs, WasiFsError, WasiState, ALL_RIGHTS,
+    VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
@@ -183,9 +183,8 @@ impl WasiEnv {
     }
 }
 
-/// Create an [`ImportObject`] with an existing [`WasiEnv`]. `WasiEnv`
-/// needs a [`WasiState`], that can be constructed from a
-/// [`WasiStateBuilder`](state::WasiStateBuilder).
+/// Create an [`ImportObject`] with an existing [`WasiEnv`].
+/// `WasiEnv` can be constructed from a [`WasiContext`](state::WasiContext).
 pub fn generate_import_object_from_env(
     store: &Store,
     wasi_env: WasiEnv,

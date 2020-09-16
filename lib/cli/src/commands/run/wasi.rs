@@ -2,7 +2,7 @@ use crate::utils::{parse_envvar, parse_mapdir};
 use anyhow::{Context, Result};
 use std::path::PathBuf;
 use wasmer::{Instance, Module};
-use wasmer_wasi::{get_wasi_version, WasiError, WasiState, WasiVersion};
+use wasmer_wasi::{get_wasi_version, WasiContext, WasiError, WasiVersion};
 
 use structopt::StructOpt;
 
@@ -39,8 +39,8 @@ impl Wasi {
     pub fn execute(&self, module: Module, program_name: String, args: Vec<String>) -> Result<()> {
         let args = args.iter().cloned().map(|arg| arg.into_bytes());
 
-        let mut wasi_state_builder = WasiState::new(program_name);
-        wasi_state_builder
+        let mut wasi_context = WasiContext::new_command(program_name);
+        wasi_context
             .args(args)
             .envs(self.env_vars.clone())
             .preopen_dirs(self.pre_opened_directories.clone())?
@@ -49,12 +49,12 @@ impl Wasi {
         #[cfg(feature = "experimental-io-devices")]
         {
             if self.enable_experimental_io_devices {
-                wasi_state_builder
+                wasi_context
                     .setup_fs(Box::new(wasmer_wasi_experimental_io_devices::initialize));
             }
         }
 
-        let mut wasi_env = wasi_state_builder.finalize()?;
+        let mut wasi_env = wasi_context.finalize()?;
         let import_object = wasi_env.import_object(&module)?;
         let instance = Instance::new(&module, &import_object)?;
 
