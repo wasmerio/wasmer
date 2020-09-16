@@ -222,3 +222,78 @@ impl<T> From<ExternRef> for Value<T> {
 //         Self::FuncRef(val)
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_value_i32_from_u32() {
+        let input: u32 = 0x00000000;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0x00000000);
+
+        let input: u32 = 0x00000001;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0x00000001);
+
+        let input: u32 = 0xaabbccdd;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0xaabbccdd);
+
+        let input: u32 = 0xffffffff;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0xffffffff);
+    }
+
+    #[test]
+    fn test_value_i64_from_u64() {
+        let input: u64 = 0x0000000000000000;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0x0000000000000000);
+
+        let input: u64 = 0x0000000000000001;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0x0000000000000001);
+
+        let input: u64 = 0xaabbccddeeff0011;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0xaabbccddeeff0011);
+
+        let input: u64 = 0xffffffffffffffff;
+        let value = Value::<()>::from(input);
+        let mut out: i128 = 0;
+        unsafe {
+            value.write_value_to(&mut out as *mut i128);
+        }
+        assert_eq!(out, 0xffffffffffffffff);
+    }
+}
