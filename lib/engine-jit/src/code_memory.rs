@@ -95,12 +95,12 @@ impl CodeMemory {
             bytes += len;
 
             let vmfunc = Self::copy_function(&mut self.unwind_registry, func, func_buf);
-            assert!(vmfunc as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
+            assert_eq!(vmfunc.as_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
             function_result.push(vmfunc);
         }
         for section in executable_sections {
             let section = &section.bytes;
-            assert!(buf.as_mut_ptr() as *mut _ as *mut u8 as usize % ARCH_FUNCTION_ALIGNMENT == 0);
+            assert_eq!(buf.as_mut_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
             let len = round_up(section.len(), ARCH_FUNCTION_ALIGNMENT);
             let (s, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
@@ -119,9 +119,7 @@ impl CodeMemory {
 
             for section in data_sections {
                 let section = &section.bytes;
-                assert!(
-                    buf.as_mut_ptr() as *mut _ as *mut u8 as usize % DATA_SECTION_ALIGNMENT == 0
-                );
+                assert_eq!(buf.as_mut_ptr() as usize % DATA_SECTION_ALIGNMENT, 0);
                 let len = round_up(section.len(), DATA_SECTION_ALIGNMENT);
                 let (s, next_buf) = buf.split_at_mut(len);
                 buf = next_buf;
@@ -174,7 +172,7 @@ impl CodeMemory {
         func: &FunctionBody,
         buf: &'a mut [u8],
     ) -> &'a mut [VMFunctionBody] {
-        assert!((buf.as_ptr() as usize) % ARCH_FUNCTION_ALIGNMENT == 0);
+        assert_eq!(buf.as_ptr() as usize % ARCH_FUNCTION_ALIGNMENT, 0);
 
         let func_len = func.body.len();
 

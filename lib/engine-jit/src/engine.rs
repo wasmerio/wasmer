@@ -243,13 +243,13 @@ impl JITEngineInner {
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        for (sig_index, _) in function_call_trampolines.iter() {
-            let func_type = module.signatures.get(sig_index).unwrap();
+        for ((sig_index, _), ptr) in function_call_trampolines.iter().zip(
+            allocated_functions
+                .drain(0..function_call_trampolines.len())
+                .map(|slice| FunctionBodyPtr(slice as *mut [_])),
+        ) {
+            let func_type = &module.signatures[sig_index];
             let index = self.signatures.register(&func_type);
-            let ptr = allocated_functions
-                .drain(0..1)
-                .map(|slice| FunctionBodyPtr(slice as *mut [_]))
-                .collect::<Vec<_>>()[0];
             allocated_function_call_trampolines.push(ptr);
             let trampoline = unsafe {
                 std::mem::transmute::<*const VMFunctionBody, VMTrampoline>((**ptr).as_ptr())
