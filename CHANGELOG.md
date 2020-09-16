@@ -1,11 +1,17 @@
 # Changelog
 
 ## **[Unreleased]**
+
+## 1.0.0-alpha3 - 2020-09-14
+- [#1620](https://github.com/wasmerio/wasmer/pull/1620) Fix bug causing the Wapm binary to not be packaged with the release
+- [#1619](https://github.com/wasmerio/wasmer/pull/1619) Improve error message in engine-native when C compiler is missing
+
+## 1.0.0-alpha02.0 - 2020-09-11
 - [#1602](https://github.com/wasmerio/wasmer/pull/1602) Fix panic when calling host functions with negative numbers in certain situations
 - [#1590](https://github.com/wasmerio/wasmer/pull/1590) Fix soundness issue in API of vm::Global
 - [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
 
-## TODO: 1.0.0-alpha1.0
+## TODO: 1.0.0-alpha01.0
 - Wasmer refactor lands
 
 ## TODO: 17...
