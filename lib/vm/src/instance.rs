@@ -919,17 +919,10 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
-        is_bulk_memory: bool,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
-        // Check initializer bounds before initializing anything. Only do this
-        // when bulk memory is disabled, since the bulk memory proposal changes
-        // instantiation such that the intermediate results of failed
-        // initializations are visible.
-        if !is_bulk_memory {
-            check_table_init_bounds(self.instance())?;
-            check_memory_init_bounds(self.instance(), data_initializers)?;
-        }
+        check_table_init_bounds(self.instance())?;
+        check_memory_init_bounds(self.instance(), data_initializers)?;
 
         // Apply the initializers.
         initialize_tables(self.instance())?;
