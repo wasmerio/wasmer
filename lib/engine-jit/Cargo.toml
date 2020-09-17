@@ -1,20 +1,20 @@
 [package]
 name = "wasmer-engine-jit"
-version = "1.0.0-alpha01.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+version = "1.0.0-alpha3"
 description = "Wasmer JIT Engine"
-license = "MIT OR Apache-2.0 WITH LLVM-exception "
 categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+keywords = ["wasm", "webassembly", "engine", "jit"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT OR Apache-2.0 WITH LLVM-exception "
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
-wasmer-engine = { path = "../engine", version = "1.0.0-alpha01.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha3" }
+wasmer-engine = { path = "../engine", version = "1.0.0-alpha3" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 region = "2.2"
 serde = { version = "1.0", features = ["derive", "rc"] }
