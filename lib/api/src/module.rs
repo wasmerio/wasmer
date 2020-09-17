@@ -198,7 +198,7 @@ impl Module {
         self.artifact.serialize_to_file(path.as_ref())
     }
 
-    /// Deserializes a a serialized Module binary into a `Module`.
+    /// Deserializes a serialized Module binary into a `Module`.
     /// > Note: the module has to be serialized before with the `serialize` method.
     ///
     /// # Safety
