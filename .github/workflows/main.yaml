@@ -126,7 +126,7 @@ jobs:
           echo ::add-path::/opt/llvm-10/bin
           echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
       - name: Install LLVM (Linux ARM64)
-        if: matrix.os == [self-hosted, linux, ARM64]
+        if: matrix.os == 'ARM64'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz -L -o llvm.tar.xz
           mkdir -p /opt/llvm-10
