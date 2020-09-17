@@ -43,15 +43,18 @@ jobs:
           - build: linux
             os: ubuntu-latest
             rust: 1.45.2
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
           - build: macos
             os: macos-latest
             rust: 1.45.2
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
           - build: windows
             os: windows-latest
             rust: 1.45.2
           - build: linux-arm
             os: [self-hosted, linux, ARM64]
             rust: 1.45.2
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -107,32 +110,16 @@ jobs:
         #   echo ::add-path::C:/llvm-10/bin
         #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
         #   echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
-      - name: Install LLVM (macOS)
-        if: matrix.os == 'macos-latest'
+      - name: Install LLVM (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "::add-path::${{ env.LLVM_DIR }}/bin"
           echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
-      - name: Install LLVM (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
-      - name: Install LLVM (Linux ARM64)
-        if: matrix.os == 'ARM64'
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
