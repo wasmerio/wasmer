@@ -132,6 +132,12 @@ impl Mmap {
         assert_eq!(mapping_size & (page_size - 1), 0);
         assert_eq!(accessible_size & (page_size - 1), 0);
 
+        // VirtualAlloc may return ERROR_INVALID_PARAMETER if the size is zero,
+        // so just special-case that.
+        if mapping_size == 0 {
+            return Ok(Self::new());
+        }
+
         Ok(if accessible_size == mapping_size {
             // Allocate a single read-write region at once.
             let ptr = unsafe {
@@ -143,7 +149,6 @@ impl Mmap {
                 )
             };
             if ptr.is_null() {
-                dbg!(mapping_size);
                 return Err(io::Error::last_os_error().to_string());
             }
 
@@ -156,7 +161,6 @@ impl Mmap {
             let ptr =
                 unsafe { VirtualAlloc(ptr::null_mut(), mapping_size, MEM_RESERVE, PAGE_NOACCESS) };
             if ptr.is_null() {
-                dbg!(mapping_size);
                 return Err(io::Error::last_os_error().to_string());
             }
 
