@@ -143,6 +143,7 @@ impl Mmap {
                 )
             };
             if ptr.is_null() {
+                dbg!(mapping_size);
                 return Err(io::Error::last_os_error().to_string());
             }
 
@@ -155,6 +156,7 @@ impl Mmap {
             let ptr =
                 unsafe { VirtualAlloc(ptr::null_mut(), mapping_size, MEM_RESERVE, PAGE_NOACCESS) };
             if ptr.is_null() {
+                dbg!(mapping_size);
                 return Err(io::Error::last_os_error().to_string());
             }
 
