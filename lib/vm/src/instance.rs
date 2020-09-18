@@ -767,14 +767,14 @@ pub struct InstanceHandle {
 }
 
 /// # Safety
-/// 
+///
 /// This is safe because there is no thread-specific logic in `InstanceHandle`,
 /// and because `InstanceHandle` is neither clonable nor sync.
-/// 
+///
 /// If `InstanceHandle` could be cloned and/or would be sync, then other issues appear as reported by:
 /// * https://github.com/wasmerio/wasmer/issues/1630
 /// * https://github.com/wasmerio/wasmer/issues/1632
-/// 
+///
 /// TODO: this needs extra review
 unsafe impl Send for InstanceHandle {}
 
