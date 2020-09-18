@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows, linux-arm]
+        build: [linux, macos, windows, linux-aarch64]
         include:
           - build: linux
             os: ubuntu-latest
@@ -54,7 +54,7 @@ jobs:
             os: windows-latest
             rust: 1.45.2
             artifact_name: 'wasmer-windows-amd64'
-          - build: linux-arm
+          - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             rust: 1.45.2
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
