@@ -4,6 +4,7 @@ use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
 use std::fmt;
+use std::sync::Arc;
 use wasmer_engine::Resolver;
 use wasmer_vm::InstanceHandle;
 
@@ -17,7 +18,7 @@ use wasmer_vm::InstanceHandle;
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
 #[derive(Clone)]
 pub struct Instance {
-    handle: InstanceHandle,
+    handle: Arc<InstanceHandle>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -86,7 +87,7 @@ impl Instance {
             .collect::<Exports>();
 
         Ok(Instance {
-            handle,
+            handle: Arc::new(handle),
             module: module.clone(),
             exports,
         })

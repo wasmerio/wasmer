@@ -1073,14 +1073,6 @@ impl InstanceHandle {
     }
 }
 
-impl Clone for InstanceHandle {
-    fn clone(&self) -> Self {
-        Self {
-            instance: self.instance,
-        }
-    }
-}
-
 // TODO: uncomment this, as we need to store the handles
 // in the store, and once the store is dropped, then the instances
 // will too.
