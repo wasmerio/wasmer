@@ -1,17 +1,3 @@
-  # Uncomment this once LLVM toolchain is added to the CI
-  # docs:
-  #   name: Docs
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Install Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         profile: minimal
-  #         toolchain: 1.45.0
-  #         override: true
-  #         components: rustfmt, clippy
-  #     - run: make doc-local
-
 name: core tests
 
 env:
@@ -23,10 +9,32 @@ on:
       - 'master'
       - 'staging'
       - 'trying'
+    tags:
+      # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - '[0-9]+.[0-9]+.[0-9]+*'
 jobs:
+  setup:
+    name: Set up
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.setup.outputs.VERSION }}
+      DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
+    steps:
+      - name: Set up env vars
+        id: setup
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF/refs\/tags\//}
+          echo ::set-output name=VERSION::${VERSION}
+          DOING_RELEASE=$(echo $VERSION | grep -c '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' || true)
+          echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
+          echo $VERSION
+          echo $DOING_RELEASE
+
   test:
     name: Test on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
+    needs: setup
     strategy:
       fail-fast: false
       matrix:
@@ -34,13 +42,13 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.45.0
+            rust: 1.45.2
           - build: macos
             os: macos-latest
-            rust: 1.45.0
+            rust: 1.45.2
           - build: windows
             os: windows-latest
-            rust: 1.45.0
+            rust: 1.45.2
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -129,9 +137,70 @@ jobs:
       - name: Build Wasmer binary
         run: |
           make build-wasmer
-          # TODO: build wapm
-          # make build-wapm
+      - name: Build Wapm binary
+        run: |
+          make build-wapm
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer
+        run: |
           make package
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+        with:
+          name: wasmer-${{ matrix.os }}
+          path: dist
+
+  release:
+    needs: [setup, test]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.DOING_RELEASE == '1'
+    steps:
+      - name: Download the Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.setup.outputs.VERSION }}
+          release_name: Release ${{ needs.setup.outputs.VERSION }}
+          draft: true
+          prerelease: false
+      - name: Upload Release Asset Windows
+        id: upload-release-asset-windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: artifacts/wasmer-windows-latest/wasmer-windows.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Linux
+        id: upload-release-asset-linux
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-ubuntu-latest/wasmer-linux-amd64.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac
+        id: upload-release-asset-mac
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-macos-latest/wasmer-darwin-amd64.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
 
   audit:
     name: Audit

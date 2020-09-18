@@ -1,6 +1,5 @@
 //! JIT compilation.
 
-use crate::unwind::UnwindRegistry;
 use crate::{CodeMemory, JITArtifact};
 use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
@@ -197,7 +196,6 @@ impl JITEngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
-        registry: &mut UnwindRegistry,
         module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
@@ -220,7 +218,6 @@ impl JITEngineInner {
         let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
             .values()
             .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
-
         self.code_memory.push(CodeMemory::new());
 
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
@@ -228,7 +225,6 @@ impl JITEngineInner {
                 .last_mut()
                 .unwrap()
                 .allocate(
-                    registry,
                     function_bodies.as_slice(),
                     executable_sections.as_slice(),
                     data_sections.as_slice(),
@@ -247,13 +243,13 @@ impl JITEngineInner {
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        for (sig_index, _) in function_call_trampolines.iter() {
-            let func_type = module.signatures.get(sig_index).unwrap();
+        for ((sig_index, _), ptr) in function_call_trampolines.iter().zip(
+            allocated_functions
+                .drain(0..function_call_trampolines.len())
+                .map(|slice| FunctionBodyPtr(slice as *mut [_])),
+        ) {
+            let func_type = &module.signatures[sig_index];
             let index = self.signatures.register(&func_type);
-            let ptr = allocated_functions
-                .drain(0..1)
-                .map(|slice| FunctionBodyPtr(slice as *mut [_]))
-                .collect::<Vec<_>>()[0];
             allocated_function_call_trampolines.push(ptr);
             let trampoline = unsafe {
                 std::mem::transmute::<*const VMFunctionBody, VMTrampoline>((**ptr).as_ptr())
@@ -296,12 +292,17 @@ impl JITEngineInner {
         self.code_memory.last_mut().unwrap().publish();
     }
 
-    /// Publish the unwind registry into code memory.
-    pub(crate) fn publish_unwind_registry(&mut self, unwind_registry: Arc<UnwindRegistry>) {
+    /// Register DWARF-type exception handling information associated with the code.
+    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
         self.code_memory
             .last_mut()
             .unwrap()
-            .publish_unwind_registry(unwind_registry);
+            .unwind_registry_mut()
+            .publish(eh_frame)
+            .map_err(|e| {
+                CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
+            })?;
+        Ok(())
     }
 
     /// Shared signature registry.

@@ -6,7 +6,6 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
-use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
@@ -25,7 +24,6 @@ use wasmer_vm::{FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSi
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
-    _unwind_registry: Arc<UnwindRegistry>,
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
@@ -150,14 +148,12 @@ impl JITArtifact {
         inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let mut unwind_registry = UnwindRegistry::new();
         let (
             finished_functions,
             _finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             custom_sections,
         ) = inner_jit.allocate(
-            &mut unwind_registry,
             &serializable.compile_info.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
@@ -202,14 +198,7 @@ impl JITArtifact {
         // Make all code compiled thus far executable.
         inner_jit.publish_compiled_code();
 
-        unwind_registry.publish(eh_frame).map_err(|e| {
-            CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
-        })?;
-
-        let unwind_registry = Arc::new(unwind_registry);
-        // Save the unwind registry into CodeMemory, so it can survive longer than
-        // the Module.
-        inner_jit.publish_unwind_registry(unwind_registry.clone());
+        inner_jit.publish_eh_frame(eh_frame)?;
 
         let finished_functions = finished_functions.into_boxed_slice();
         let finished_dynamic_function_trampolines =
@@ -217,7 +206,6 @@ impl JITArtifact {
         let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
-            _unwind_registry: unwind_registry,
             serializable,
             finished_functions,
             finished_dynamic_function_trampolines,

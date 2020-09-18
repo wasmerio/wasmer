@@ -3,7 +3,7 @@ name = "wasi-test-generator"
 version = "0.17.0"
 description = "Tests for our WASI implementation"
 license = "MIT"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 edition = "2018"
 publish = false
 
