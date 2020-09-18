@@ -769,7 +769,7 @@ pub struct InstanceHandle {
 /// # Safety
 /// 
 /// This is safe because there is no thread-specific logic in `InstanceHandle`,
-/// and because `InstanceHandle` is not clonable.
+/// and because `InstanceHandle` is neither clonable nor sync.
 /// 
 /// If `InstanceHandle` could be cloned, then other issues appear as reported by:
 /// * https://github.com/wasmerio/wasmer/issues/1630
