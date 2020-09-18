@@ -34,7 +34,6 @@ impl JITEngine {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
                 function_call_trampolines: HashMap::new(),
-                code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
             })),
@@ -62,7 +61,6 @@ impl JITEngine {
                 #[cfg(feature = "compiler")]
                 compiler: None,
                 function_call_trampolines: HashMap::new(),
-                code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
             })),
@@ -154,9 +152,6 @@ pub struct JITEngineInner {
     function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The features to compile the Wasm module with
     features: Features,
-    /// The code memory is responsible of publishing the compiled
-    /// functions to memory.
-    code_memory: Vec<CodeMemory>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -196,6 +191,7 @@ impl JITEngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
+        code_memory: &mut CodeMemory,
         module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
@@ -218,12 +214,9 @@ impl JITEngineInner {
         let (executable_sections, data_sections): (Vec<_>, _) = custom_sections
             .values()
             .partition(|section| section.protection == CustomSectionProtection::ReadExecute);
-        self.code_memory.push(CodeMemory::new());
 
         let (mut allocated_functions, allocated_executable_sections, allocated_data_sections) =
-            self.code_memory
-                .last_mut()
-                .unwrap()
+            code_memory
                 .allocate(
                     function_bodies.as_slice(),
                     executable_sections.as_slice(),
@@ -285,24 +278,6 @@ impl JITEngineInner {
             allocated_dynamic_function_trampolines,
             allocated_custom_sections,
         ))
-    }
-
-    /// Make memory containing compiled code executable.
-    pub(crate) fn publish_compiled_code(&mut self) {
-        self.code_memory.last_mut().unwrap().publish();
-    }
-
-    /// Register DWARF-type exception handling information associated with the code.
-    pub(crate) fn publish_eh_frame(&mut self, eh_frame: Option<&[u8]>) -> Result<(), CompileError> {
-        self.code_memory
-            .last_mut()
-            .unwrap()
-            .unwind_registry_mut()
-            .publish(eh_frame)
-            .map_err(|e| {
-                CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
-            })?;
-        Ok(())
     }
 
     /// Shared signature registry.
