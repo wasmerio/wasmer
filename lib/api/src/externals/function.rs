@@ -18,14 +18,14 @@ use wasmer_vm::{
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
-    // The trampoline to do the call
+    /// The trampoline to do the call
     pub(crate) trampoline: VMTrampoline,
 }
 
 /// A function defined in the Host
 #[derive(Clone, PartialEq)]
 pub struct HostFunctionDefinition {
-    /// If the host function has a custom environment attached
+    /// Whether the host function has a custom environment attached
     pub(crate) has_env: bool,
 }
 
@@ -174,7 +174,7 @@ impl Function {
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
+        let vmctx = std::ptr::null_mut() as *mut VMContext;
         let signature = function.ty();
 
         Self {
@@ -227,7 +227,7 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let vmctx = Box::into_raw(box_env) as *mut VMContext;
         let signature = function.ty();
 
         Self {
