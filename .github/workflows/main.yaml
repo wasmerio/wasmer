@@ -184,7 +184,7 @@ jobs:
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
       - name: Upload Release Asset Linux amd64
-        id: upload-release-asset-linux
+        id: upload-release-asset-linux-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -204,7 +204,7 @@ jobs:
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
-        id: upload-release-asset-linux
+        id: upload-release-asset-linux-aarch64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
