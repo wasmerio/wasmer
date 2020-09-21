@@ -4,8 +4,6 @@ project (WasmerRuntimeCApiTests)
 add_executable(test-exported-memory test-exported-memory.c)
 add_executable(test-exports test-exports.c)
 add_executable(test-globals test-globals.c)
-# trampoline functionality not yet implemented
-#add_executable(test-import-function test-import-function.c)
 add_executable(test-import-trap test-import-trap.c)
 add_executable(test-imports test-imports.c)
 add_executable(test-import-object test-import-object.c)
@@ -20,17 +18,20 @@ add_executable(test-validate test-validate.c)
 add_executable(test-context test-context.c)
 add_executable(test-module-import-instantiate test-module-import-instantiate.c)
 
-
 # Wasm C API tests
-add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
-add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
-add_executable(wasm-c-api-global wasm-c-api/example/global.c)
-#add_executable(wasm-c-api-table wasm-c-api/example/table.c)
-add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 add_executable(wasm-c-api-callback wasm-c-api/example/callback.c)
 #add_executable(wasm-c-api-finalize wasm-c-api/example/finalize.c)
+add_executable(wasm-c-api-global wasm-c-api/example/global.c)
+add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
+#add_executable(wasm-c-api-hostref wasm-c-api/example/hostref.c)
+add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
+#add_executable(wasm-c-api-multi wasm-c-api/example/multi.c)
 add_executable(wasm-c-api-reflect wasm-c-api/example/reflect.c)
+add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 #add_executable(wasm-c-api-start wasm-c-api/example/start.c)
+#add_executable(wasm-c-api-table wasm-c-api/example/table.c)
+#add_executable(wasm-c-api-threads wasm-c-api/example/threads.c)
+#add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
 
 # Custom Wasm C API tests
 add_executable(wasm-c-api-wasi wasm-c-api-wasi.c)
@@ -45,7 +46,6 @@ endif()
 
 include_directories(wasm-c-api/include)
 include_directories(..)
-
 
 find_library(
     WASMER_LIB NAMES libwasmer_c_api.dylib libwasmer_c_api.so wasmer_c_api.dll
@@ -151,75 +151,101 @@ target_link_libraries(test-module-import-instantiate general ${WASMER_LIB})
 target_compile_options(test-module-import-instantiate PRIVATE ${COMPILER_OPTIONS})
 add_test(test-module-import-instantiate test-module-import-instantiate)
 
-target_link_libraries(wasm-c-api-hello general ${WASMER_LIB})
-target_compile_options(wasm-c-api-hello PRIVATE ${COMPILER_OPTIONS})
-add_test(NAME wasm-c-api-hello
-         COMMAND wasm-c-api-hello
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-)
-
-target_link_libraries(wasm-c-api-memory general ${WASMER_LIB})
-target_compile_options(wasm-c-api-memory PRIVATE ${COMPILER_OPTIONS})
-add_test(NAME wasm-c-api-memory
-         COMMAND wasm-c-api-memory
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-)
-
-target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
-target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
-add_test(NAME wasm-c-api-global
-         COMMAND wasm-c-api-global
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-)
-
-#target_link_libraries(wasm-c-api-table general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-table PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-table
-#         COMMAND wasm-c-api-table
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-#)
-
-target_link_libraries(wasm-c-api-serialize general ${WASMER_LIB})
-target_compile_options(wasm-c-api-serialize PRIVATE ${COMPILER_OPTIONS})
-add_test(NAME wasm-c-api-serialize
-         COMMAND wasm-c-api-serialize
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
-)
+# Wasm C API tests
 
 target_link_libraries(wasm-c-api-callback general ${WASMER_LIB})
 target_compile_options(wasm-c-api-callback PRIVATE ${COMPILER_OPTIONS})
 add_test(NAME wasm-c-api-callback
          COMMAND wasm-c-api-callback
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 )
 
 #target_link_libraries(wasm-c-api-finalize general ${WASMER_LIB})
 #target_compile_options(wasm-c-api-finalize PRIVATE ${COMPILER_OPTIONS})
 #add_test(NAME wasm-c-api-finalize
 #         COMMAND wasm-c-api-finalize
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+#)
+
+target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
+target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-global
+         COMMAND wasm-c-api-global
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
+
+target_link_libraries(wasm-c-api-hello general ${WASMER_LIB})
+target_compile_options(wasm-c-api-hello PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-hello
+         COMMAND wasm-c-api-hello
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
+
+#target_link_libraries(wasm-c-api-hostref general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-hostref PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-hostref
+#         COMMAND wasm-c-api-hostref
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+#)
+
+target_link_libraries(wasm-c-api-memory general ${WASMER_LIB})
+target_compile_options(wasm-c-api-memory PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-memory
+         COMMAND wasm-c-api-memory
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
+
+#target_link_libraries(wasm-c-api-multi general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-multi PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-multi
+#         COMMAND wasm-c-api-multi
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 #)
 
 target_link_libraries(wasm-c-api-reflect general ${WASMER_LIB})
 target_compile_options(wasm-c-api-reflect PRIVATE ${COMPILER_OPTIONS})
 add_test(NAME wasm-c-api-reflect
          COMMAND wasm-c-api-reflect
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
+
+target_link_libraries(wasm-c-api-serialize general ${WASMER_LIB})
+target_compile_options(wasm-c-api-serialize PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-serialize
+         COMMAND wasm-c-api-serialize
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 )
 
 #target_link_libraries(wasm-c-api-start general ${WASMER_LIB})
 #target_compile_options(wasm-c-api-start PRIVATE ${COMPILER_OPTIONS})
 #add_test(NAME wasm-c-api-start
 #         COMMAND wasm-c-api-start
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 #)
 
+#target_link_libraries(wasm-c-api-table general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-table PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-table
+#         COMMAND wasm-c-api-table
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+#)
+
+#target_link_libraries(wasm-c-api-threads general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-threads PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-threads
+#         COMMAND wasm-c-api-threads
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+#)
+
+#target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
+#target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
+#add_test(NAME wasm-c-api-trap
+#         COMMAND wasm-c-api-trap
+#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+#)
 
 set_property(TARGET wasm-c-api-wasi PROPERTY C_STANDARD 11)
 target_link_libraries(wasm-c-api-wasi general ${WASMER_LIB})
 target_compile_options(wasm-c-api-wasi PRIVATE ${COMPILER_OPTIONS})
-add_test(NAME wasm-c-api-wasi
-         COMMAND wasm-c-api-wasi
-         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR} #/wasm-c-api/example
-)
+add_test(wasm-c-api-wasi wasm-c-api-wasi)
 
