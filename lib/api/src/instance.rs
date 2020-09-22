@@ -4,6 +4,7 @@ use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
 use std::fmt;
+use std::sync::Arc;
 use wasmer_engine::Resolver;
 use wasmer_vm::InstanceHandle;
 
@@ -18,7 +19,7 @@ use wasmer_vm::InstanceHandle;
 #[derive(Clone)]
 pub struct Instance {
     handle: InstanceHandle,
-    module: Module,
+    module: Arc<Module>,
     /// The exports for an instance.
     pub exports: Exports,
 }
@@ -71,6 +72,8 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Instance, InstantiationError> {
+        let module = Arc::new(module.clone());
+
         let store = module.store();
 
         let handle = module.instantiate(resolver)?;
@@ -87,7 +90,7 @@ impl Instance {
 
         Ok(Instance {
             handle,
-            module: module.clone(),
+            module,
             exports,
         })
     }
