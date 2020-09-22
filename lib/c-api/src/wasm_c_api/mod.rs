@@ -7,6 +7,12 @@ pub(crate) mod utils;
 #[cfg(feature = "wasi")]
 pub mod wasi;
 
+// required due to really weird Rust resolution rules
+// https://github.com/rust-lang/rust/issues/57966
+use crate::c_try;
+use crate::ordered_resolver::OrderedResolver;
+use externals::global::wasm_global_t;
+use externals::memory::wasm_memory_t;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
 use std::mem;
@@ -15,15 +21,9 @@ use std::slice;
 use std::sync::Arc;
 use store::wasm_store_t;
 use thiserror::Error;
-// required due to really weird Rust resolution rules
-// https://github.com/rust-lang/rust/issues/57966
-use crate::c_try;
-use crate::ordered_resolver::OrderedResolver;
-use externals::global::wasm_global_t;
 use wasmer::{
     ExportType, Extern, ExternType, Function, FunctionType, GlobalType, ImportType, Instance,
-    Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType, Val,
-    ValType,
+    MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType, Val, ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
@@ -723,75 +723,6 @@ pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().results().len()
-}
-
-#[repr(C)]
-pub struct wasm_memory_t {
-    // maybe needs to hold onto instance
-    pub(crate) inner: Memory,
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_new(
-    store_ptr: Option<NonNull<wasm_store_t>>,
-    mt: &wasm_memorytype_t,
-) -> Option<Box<wasm_memory_t>> {
-    let md = mt.as_memorytype().clone();
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
-
-    let memory = c_try!(Memory::new(store, md));
-    Some(Box::new(wasm_memory_t { inner: memory }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_delete(_memory: Option<Box<wasm_memory_t>>) {}
-
-// TODO: figure out if these should be deep or shallow copies
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_copy(wasm_memory: &wasm_memory_t) -> Box<wasm_memory_t> {
-    // do shallow copy
-    Box::new(wasm_memory_t {
-        inner: wasm_memory.inner.clone(),
-    })
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_type(_memory_ptr: &wasm_memory_t) -> *mut wasm_memorytype_t {
-    todo!("wasm_memory_type")
-}
-
-// get a raw pointer into bytes
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_data(memory: &mut wasm_memory_t) -> *mut u8 {
-    mem::transmute::<&[std::cell::Cell<u8>], &[u8]>(&memory.inner.view()[..]) as *const [u8]
-        as *const u8 as *mut u8
-}
-
-// size in bytes
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_data_size(memory: &wasm_memory_t) -> usize {
-    memory.inner.size().bytes().0
-}
-
-// size in pages
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_size(memory: &wasm_memory_t) -> u32 {
-    memory.inner.size().0 as _
-}
-
-// delta is in pages
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_grow(memory: &mut wasm_memory_t, delta: u32) -> bool {
-    memory.inner.grow(Pages(delta)).is_ok()
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_same(
-    wasm_memory1: &wasm_memory_t,
-    wasm_memory2: &wasm_memory_t,
-) -> bool {
-    wasm_memory1.inner.same(&wasm_memory2.inner)
 }
 
 #[repr(C)]
