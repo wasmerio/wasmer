@@ -1,96 +1,30 @@
 //! entrypoints for the standard C API
 
-use cfg_if::cfg_if;
+pub mod engine;
+pub mod store;
+pub(crate) mod utils;
+#[cfg(feature = "wasi")]
+pub mod wasi;
+
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
+use store::wasm_store_t;
 use thiserror::Error;
-
-pub(crate) mod utils;
-#[cfg(feature = "wasi")]
-pub mod wasi;
-
 // required due to really weird Rust resolution rules
 // https://github.com/rust-lang/rust/issues/57966
 use crate::c_try;
-
 use crate::ordered_resolver::OrderedResolver;
 use wasmer::{
-    Engine, ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, ImportType,
+    ExportType, Extern, ExternType, Function, FunctionType, Global, GlobalType, ImportType,
     Instance, Memory, MemoryType, Module, Mutability, Pages, RuntimeError, Store, Table, TableType,
     Val, ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-
-/// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
-#[repr(C)]
-pub struct wasm_config_t {}
-
-#[no_mangle]
-pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
-    todo!("wasm_config_new")
-    //ptr::null_mut()
-}
-
-#[repr(C)]
-pub struct wasm_engine_t {
-    pub(crate) inner: Arc<dyn Engine + Send + Sync>,
-}
-
-cfg_if! {
-    if #[cfg(all(feature = "jit", feature = "compiler"))] {
-        // Compiler JIT
-        use wasmer_compiler::CompilerConfig;
-        fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
-            cfg_if! {
-                if #[cfg(feature = "cranelift")] {
-                    Box::new(wasmer_compiler_cranelift::Cranelift::default())
-                } else if #[cfg(feature = "llvm")] {
-                    Box::new(wasmer_compiler_llvm::LLVM::default())
-                } else if #[cfg(feature = "singlepass")] {
-                    Box::new(wasmer_compiler_singlepass::Singlepass::default())
-                } else {
-                    compile_error!("Please enable one of the compiler backends")
-                }
-            }
-        }
-
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    }
-    else if #[cfg(feature = "jit")] {
-        // Headless JIT
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    }
-    else {
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            unimplemented!("The JITEngine is not attached");
-        }
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_engine_delete(_wasm_engine_address: Option<Box<wasm_engine_t>>) {}
-
-#[no_mangle]
-pub extern "C" fn wasm_engine_new_with_config(
-    _config_ptr: *mut wasm_config_t,
-) -> Box<wasm_engine_t> {
-    wasm_engine_new()
-}
 
 #[repr(C)]
 pub struct wasm_instance_t {
@@ -294,31 +228,6 @@ pub unsafe extern "C" fn wasm_module_serialize(
     out_ptr.size = byte_vec.len();
     out_ptr.data = byte_vec.as_mut_ptr();
     mem::forget(byte_vec);
-}
-
-/// Opaque wrapper around `Store`
-#[repr(C)]
-pub struct wasm_store_t {}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_store_new(
-    wasm_engine_ptr: Option<NonNull<wasm_engine_t>>,
-) -> Option<NonNull<wasm_store_t>> {
-    let wasm_engine_ptr = wasm_engine_ptr?;
-    let wasm_engine = wasm_engine_ptr.as_ref();
-    let store = Store::new(&*wasm_engine.inner);
-    Some(NonNull::new_unchecked(
-        Box::into_raw(Box::new(store)) as *mut wasm_store_t
-    ))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_store_delete(wasm_store: Option<NonNull<wasm_store_t>>) {
-    if let Some(s_inner) = wasm_store {
-        // this should not leak memory:
-        // we should double check it to make sure though
-        let _: Box<Store> = Box::from_raw(s_inner.cast::<Store>().as_ptr());
-    }
 }
 
 #[no_mangle]
