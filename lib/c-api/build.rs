@@ -103,6 +103,7 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
             .with_define("target_arch", "x86_64", "ARCH_X86_64")
             .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
             .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+            .with_documentation(true)
             .generate()
             .expect("Unable to generate C bindings")
             .write_to_file(out_header_file.as_path());
@@ -129,6 +130,7 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
             .with_define("target_arch", "x86_64", "ARCH_X86_64")
             .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
             .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+            .with_documentation(true)
             .generate()
             .expect("Unable to generate C++ bindings")
             .write_to_file(out_header_file.as_path());
