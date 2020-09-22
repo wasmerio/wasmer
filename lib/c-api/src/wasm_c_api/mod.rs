@@ -1871,6 +1871,9 @@ pub extern "C" fn wasm_importtype_type(
     unsafe { et.extern_type.as_ref() }
 }
 
+#[no_mangle]
+pub unsafe extern "C" fn wasm_importtype_delete(_importtype: Option<Box<wasm_importtype_t>>) {}
+
 impl From<ImportType> for wasm_importtype_t {
     fn from(other: ImportType) -> Self {
         (&other).into()
