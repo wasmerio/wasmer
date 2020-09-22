@@ -1,5 +1,5 @@
 use super::*;
-use crate::get_slice_checked;
+use crate::deprecated::{get_global_store, get_slice_checked};
 use libc::c_uchar;
 use std::path::PathBuf;
 use std::ptr;
@@ -174,7 +174,7 @@ fn wasmer_wasi_generate_import_object_inner(
         _ => panic!("Version {:?} is invalid.", version),
     };
 
-    let store = crate::get_global_store();
+    let store = get_global_store();
 
     let mut wasi_state_builder = wasi::WasiState::new(
         arg_vec
@@ -209,7 +209,7 @@ fn wasmer_wasi_generate_import_object_inner(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wasmer_import_object_t
 {
-    let store = crate::get_global_store();
+    let store = get_global_store();
     let mut wasi_state_builder = wasi::WasiState::new("wasmer-wasi-default-program-name");
     let wasi_state = wasi_state_builder.build().unwrap();
     let mut wasi_env = wasi::WasiEnv::new(wasi_state);

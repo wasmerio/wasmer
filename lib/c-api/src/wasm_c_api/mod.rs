@@ -1,11 +1,13 @@
 //! entrypoints for the standard C API
 
+use cfg_if::cfg_if;
 use std::convert::{TryFrom, TryInto};
 use std::ffi::c_void;
 use std::mem;
 use std::ptr::{self, NonNull};
 use std::slice;
 use std::sync::Arc;
+use thiserror::Error;
 
 pub(crate) mod utils;
 #[cfg(feature = "wasi")]

@@ -1,12 +1,13 @@
 //! Compile, validate, instantiate, serialize, and destroy modules.
 
-use crate::{
-    error::{update_last_error, CApiError},
+use crate::deprecated::{
     export::wasmer_import_export_kind,
+    get_global_store,
     import::{wasmer_import_object_t, wasmer_import_t, CAPIImportObject},
     instance::{wasmer_instance_t, CAPIInstance},
     wasmer_byte_array, wasmer_result_t,
 };
+use crate::error::{update_last_error, CApiError};
 use libc::c_int;
 use std::collections::HashMap;
 use std::ptr::NonNull;
@@ -33,7 +34,7 @@ pub unsafe extern "C" fn wasmer_compile(
     wasm_bytes_len: u32,
 ) -> wasmer_result_t {
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes, wasm_bytes_len as usize);
-    let store = crate::get_global_store();
+    let store = get_global_store();
     let result = Module::from_binary(store, bytes);
     let new_module = match result {
         Ok(instance) => instance,
@@ -68,7 +69,7 @@ pub unsafe extern "C" fn wasmer_validate(wasm_bytes: *const u8, wasm_bytes_len: 
 
     let bytes: &[u8] = slice::from_raw_parts(wasm_bytes, wasm_bytes_len as usize);
 
-    let store = crate::get_global_store();
+    let store = get_global_store();
     Module::validate(store, bytes).is_ok()
 }
 
@@ -297,7 +298,7 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
         return wasmer_result_t::WASMER_ERROR;
     };
 
-    let store = crate::get_global_store();
+    let store = get_global_store();
 
     match Module::deserialize(store, serialized_module) {
         Ok(deserialized_module) => {

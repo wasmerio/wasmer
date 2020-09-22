@@ -1,7 +1,10 @@
 //! Create, set, get and destroy global variables of an instance.
 
+use crate::deprecated::{
+    get_global_store,
+    value::{wasmer_value_t, wasmer_value_tag},
+};
 use crate::error::update_last_error;
-use crate::value::{wasmer_value_t, wasmer_value_tag};
 use std::ptr::NonNull;
 use wasmer::Global;
 
@@ -20,7 +23,7 @@ pub struct wasmer_global_t;
 /// The caller owns the object and should call `wasmer_global_destroy` to free it.
 #[no_mangle]
 pub extern "C" fn wasmer_global_new(value: wasmer_value_t, mutable: bool) -> *mut wasmer_global_t {
-    let store = crate::get_global_store();
+    let store = get_global_store();
     let global = if mutable {
         Global::new_mut(store, value.into())
     } else {

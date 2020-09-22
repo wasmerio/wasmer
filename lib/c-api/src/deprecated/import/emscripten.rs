@@ -1,7 +1,7 @@
 //! Functions and types for dealing with Emscripten imports
 
 use super::*;
-use crate::{
+use crate::deprecated::{
     get_slice_checked,
     instance::{wasmer_instance_t, CAPIInstance},
     module::wasmer_module_t,

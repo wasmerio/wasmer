@@ -1,8 +1,7 @@
 //! Create, read, destroy export definitions (function, global, memory
 //! and table) on an instance.
 
-use crate::{
-    error::{update_last_error, CApiError},
+use crate::deprecated::{
     global::wasmer_global_t,
     import::wasmer_import_func_t,
     instance::CAPIInstance,
@@ -12,6 +11,7 @@ use crate::{
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_byte_array, wasmer_result_t,
 };
+use crate::error::{update_last_error, CApiError};
 use libc::{c_int, c_uint};
 use std::ptr::{self, NonNull};
 use std::slice;
@@ -41,9 +41,9 @@ pub struct wasmer_export_func_t;
 /// exposed to C.
 pub(crate) struct NamedExports(pub Vec<NamedExport>);
 
-/// Opaque pointer to the opaque structure `crate::NamedExports`,
-/// which is a wrapper around a vector of the opaque structure
-/// `crate::NamedExport`.
+/// Opaque pointer to the opaque structure
+/// `crate::deprecated::NamedExports`, which is a wrapper around a
+/// vector of the opaque structure `crate::deprecated::NamedExport`.
 ///
 /// Check the `wasmer_instance_exports()` function to learn more.
 #[repr(C)]

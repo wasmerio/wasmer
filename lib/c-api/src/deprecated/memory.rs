@@ -1,9 +1,7 @@
 //! Create, read, write, grow, destroy memory of an instance.
 
-use crate::{
-    error::{update_last_error, CApiError},
-    wasmer_limits_t, wasmer_result_t,
-};
+use crate::deprecated::{get_global_store, wasmer_limits_t, wasmer_result_t};
+use crate::error::{update_last_error, CApiError};
 use std::{cell::Cell, ptr};
 use wasmer::{Bytes, Memory, MemoryType, Pages};
 
@@ -67,7 +65,7 @@ pub unsafe extern "C" fn wasmer_memory_new(
     } else {
         None
     };
-    let store = crate::get_global_store();
+    let store = get_global_store();
     let desc = MemoryType::new(Pages(limits.min), max, false);
     match Memory::new(store, desc) {
         Ok(new_memory) => {

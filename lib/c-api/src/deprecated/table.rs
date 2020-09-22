@@ -1,6 +1,7 @@
 //! Create, grow, destroy tables of an instance.
 
-use crate::{error::update_last_error, wasmer_limits_t, wasmer_result_t};
+use crate::deprecated::{get_global_store, wasmer_limits_t, wasmer_result_t};
+use crate::error::update_last_error;
 use std::ptr::NonNull;
 use wasmer::{ExternRef, Table, TableType, Val, ValType};
 
@@ -45,7 +46,7 @@ pub unsafe extern "C" fn wasmer_table_new(
         minimum: limits.min,
         maximum: max,
     };
-    let store = crate::get_global_store();
+    let store = get_global_store();
     let result = Table::new(store, desc, get_default_table_value(ValType::FuncRef));
     let new_table = match result {
         Ok(table) => table,

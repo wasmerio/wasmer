@@ -1,13 +1,14 @@
 //! Instantiate a module, call functions, and read exports.
 
-use crate::{
-    error::{update_last_error, CApiError},
+use crate::deprecated::{
     export::{wasmer_exports_t, wasmer_import_export_kind, NamedExport, NamedExports},
+    get_global_store,
     import::{wasmer_import_t, FunctionWrapper},
     memory::wasmer_memory_t,
     value::{wasmer_value, wasmer_value_t, wasmer_value_tag},
     wasmer_result_t,
 };
+use crate::error::{update_last_error, CApiError};
 use libc::{c_char, c_int, c_void};
 use std::collections::HashMap;
 use std::ffi::CStr;
@@ -191,7 +192,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
     }
 
     let bytes: &[u8] = slice::from_raw_parts_mut(wasm_bytes.as_ptr(), wasm_bytes_len as usize);
-    let store = crate::get_global_store();
+    let store = get_global_store();
 
     let module_result = Module::from_binary(store, bytes);
     let module = match module_result {

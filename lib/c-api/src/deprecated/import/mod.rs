@@ -1,14 +1,15 @@
 //! Create, read, destroy import definitions (function, global, memory
 //! and table) on an instance.
 
-use crate::{
-    error::{update_last_error, CApiError},
+use crate::deprecated::{
     export::{wasmer_import_export_kind, wasmer_import_export_value},
+    get_global_store,
     instance::{wasmer_instance_context_t, CAPIInstance},
     module::wasmer_module_t,
     value::wasmer_value_tag,
     wasmer_byte_array, wasmer_result_t,
 };
+use crate::error::{update_last_error, CApiError};
 use libc::c_uint;
 use std::ffi::{c_void, CStr};
 use std::os::raw::c_char;
@@ -687,7 +688,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
     let returns: Vec<ValType> = returns.iter().cloned().map(|x| x.into()).collect();
     let func_type = FunctionType::new(params, &returns[..]);
 
-    let store = crate::get_global_store();
+    let store = get_global_store();
 
     let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
 
