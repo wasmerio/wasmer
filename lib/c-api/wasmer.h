@@ -1,3 +1,4 @@
+// The Wasmer C/C++ header file.
 
 #if !defined(WASMER_H_MACROS)
 
@@ -27,8 +28,15 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
+
 #endif // WASMER_H_MACROS
+
+
+//
+// OK, here we go. The code below is automatically generated.
+//
 
 
 #ifndef WASMER_H
