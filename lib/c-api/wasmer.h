@@ -255,9 +255,9 @@ typedef struct {
 } wasmer_memory_t;
 
 /**
- * Opaque pointer to the opaque structure `crate::NamedExports`,
- * which is a wrapper around a vector of the opaque structure
- * `crate::NamedExport`.
+ * Opaque pointer to the opaque structure
+ * `crate::deprecated::NamedExports`, which is a wrapper around a
+ * vector of the opaque structure `crate::deprecated::NamedExport`.
  *
  * Check the `wasmer_instance_exports()` function to learn more.
  */
