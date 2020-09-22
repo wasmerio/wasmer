@@ -24,6 +24,7 @@ use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::ops::Deref;
 use std::ptr::NonNull;
 use std::sync::Arc;
 use std::{mem, ptr, slice};
@@ -763,13 +764,27 @@ impl Instance {
 /// A handle holding an `Instance` of a WebAssembly module.
 #[derive(Hash, PartialEq, Eq)]
 pub struct InstanceHandle {
+    instance: Arc<InstanceHandleInner>,
+}
+
+#[derive(Hash, PartialEq, Eq)]
+pub(crate) struct InstanceHandleInner {
     instance: *mut Instance,
 }
 
-/// # Safety
-/// This is safe because there is no thread-specific logic in `InstanceHandle`.
-/// TODO: this needs extra review
-unsafe impl Send for InstanceHandle {}
+impl Deref for InstanceHandleInner {
+    type Target = *mut Instance;
+
+    fn deref(&self) -> &Self::Target {
+        &self.instance
+    }
+}
+
+impl Drop for InstanceHandleInner {
+    fn drop(&mut self) {
+        unsafe { self.dealloc() }
+    }
+}
 
 impl InstanceHandle {
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
@@ -851,7 +866,9 @@ impl InstanceHandle {
             }
             ptr::write(instance_ptr, instance);
             Self {
-                instance: instance_ptr,
+                instance: Arc::new(InstanceHandleInner {
+                    instance: instance_ptr,
+                }),
             }
         };
         let instance = handle.instance();
@@ -944,7 +961,9 @@ impl InstanceHandle {
         let instance = (&*vmctx).instance();
 
         Self {
-            instance: instance as *const Instance as *mut Instance,
+            instance: Arc::new(InstanceHandleInner {
+                instance: instance as *const Instance as *mut Instance,
+            }),
         }
     }
 
@@ -1055,9 +1074,11 @@ impl InstanceHandle {
 
     /// Return a reference to the contained `Instance`.
     pub(crate) fn instance(&self) -> &Instance {
-        unsafe { &*(self.instance as *const Instance) }
+        unsafe { &*(self.instance.instance as *const Instance) }
     }
+}
 
+impl InstanceHandleInner {
     /// Deallocates memory associated with this instance.
     ///
     /// # Safety
@@ -1066,7 +1087,7 @@ impl InstanceHandle {
     /// `InstanceHandle` elsewhere, and there's nothing preventing
     /// usage of this handle after this function is called.
     pub unsafe fn dealloc(&self) {
-        let instance = self.instance();
+        let instance = &*(self.instance as *const Instance);
         let layout = instance.alloc_layout();
         ptr::drop_in_place(self.instance);
         alloc::dealloc(self.instance.cast(), layout);
@@ -1076,19 +1097,10 @@ impl InstanceHandle {
 impl Clone for InstanceHandle {
     fn clone(&self) -> Self {
         Self {
-            instance: self.instance,
+            instance: self.instance.clone(),
         }
     }
 }
-
-// TODO: uncomment this, as we need to store the handles
-// in the store, and once the store is dropped, then the instances
-// will too.
-// impl Drop for InstanceHandle {
-//     fn drop(&mut self) {
-//         unsafe { self.dealloc() }
-//     }
-// }
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
