@@ -69,10 +69,8 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-
 #emscripten = ["wasmer-emscripten"]
-# used to avoid generating standard Wasm C API types in our header files
-ignore-wasm-c-api = []
+include-deprecated = []
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]
@@ -80,4 +78,4 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = { version = "0.14.3" }
+cbindgen = { version = "0.14.6" }

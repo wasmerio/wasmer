@@ -11,8 +11,8 @@
     unreachable_patterns
 )]
 
+#[cfg(feature = "include-deprecated")]
 pub mod deprecated;
 pub mod error;
 mod ordered_resolver;
-/// cbindgen:ignore
 pub mod wasm_c_api;

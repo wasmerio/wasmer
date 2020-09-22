@@ -30,7 +30,6 @@
 
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-
 #endif // WASMER_H_MACROS
 
 
@@ -69,6 +68,15 @@ enum class Version : uint8_t {
 };
 #endif
 
+enum class wasm_valkind_enum : uint8_t {
+  WASM_I32 = 0,
+  WASM_I64 = 1,
+  WASM_F32 = 2,
+  WASM_F64 = 3,
+  WASM_ANYREF = 128,
+  WASM_FUNCREF = 129,
+};
+
 /// List of export/import kinds.
 enum class wasmer_import_export_kind : uint32_t {
   /// The export/import is a function.
@@ -103,6 +111,143 @@ enum class wasmer_value_tag : uint32_t {
   /// Represents the `f64` WebAssembly type.
   WASM_F64,
 };
+
+template<typename T = void>
+struct Arc;
+
+template<typename T = void>
+struct Box;
+
+template<typename T = void>
+struct Option;
+
+#if defined(WASMER_WASI_ENABLED)
+struct wasi_version_t;
+#endif
+
+struct wasm_engine_t;
+
+struct wasm_ref_t;
+
+#if defined(WASMER_WASI_ENABLED)
+struct wasi_config_t {
+  bool inherit_stdout;
+  bool inherit_stderr;
+  bool inherit_stdin;
+  WasiStateBuilder state_builder;
+};
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+struct wasi_env_t {
+  WasiEnv inner;
+};
+#endif
+
+struct wasm_instance_t {
+  Arc<Instance> inner;
+};
+
+struct wasm_memory_t {
+  Memory inner;
+};
+
+/// Opaque wrapper around `Store`
+struct wasm_store_t {
+
+};
+
+struct wasm_module_t {
+  Arc<Module> inner;
+};
+
+struct wasm_extern_t {
+  Option<Arc<Instance>> instance;
+  Extern inner;
+};
+
+/// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
+struct wasm_config_t {
+
+};
+
+using wasm_name_t = wasm_byte_vec_t;
+
+using wasm_externtype_t = ExternType;
+
+struct wasm_exporttype_t {
+  wasm_name_t *name;
+  wasm_externtype_t *extern_type;
+};
+
+struct wasm_func_t {
+  Function inner;
+  Option<Arc<Instance>> instance;
+};
+
+struct wasm_global_t {
+  Global inner;
+};
+
+struct wasm_table_t {
+  Table inner;
+};
+
+using wasm_externkind_t = uint8_t;
+
+using wasm_functype_t = wasm_externtype_t;
+
+using wasm_globaltype_t = wasm_externtype_t;
+
+using wasm_memorytype_t = wasm_externtype_t;
+
+struct wasm_tabletype_t {
+  wasm_externtype_t extern_;
+};
+
+struct wasm_trap_t {
+
+};
+
+using wasm_valkind_t = uint8_t;
+
+union wasm_val_inner {
+  int32_t int32_t;
+  int64_t int64_t;
+  float float32_t;
+  double float64_t;
+  wasm_ref_t *wref;
+};
+
+struct wasm_val_t {
+  wasm_valkind_t kind;
+  wasm_val_inner of;
+};
+
+using wasm_func_callback_t = wasm_trap_t*(*)(const wasm_val_t *args, wasm_val_t *results);
+
+using wasm_func_callback_with_env_t = wasm_trap_t*(*)(void*, const wasm_val_t *args, wasm_val_t *results);
+
+using wasm_env_finalizer_t = void(*)(void);
+
+struct wasm_valtype_t {
+  wasm_valkind_enum valkind;
+};
+
+using wasm_mutability_t = uint8_t;
+
+struct wasm_importtype_t {
+  wasm_name_t *module;
+  wasm_name_t *name;
+  wasm_externtype_t *extern_type;
+};
+
+struct wasm_limits_t {
+  uint32_t min;
+  uint32_t max;
+};
+
+using wasm_table_size_t = uint32_t;
 
 struct wasmer_module_t {
 
@@ -320,6 +465,284 @@ struct wasmer_wasi_map_dir_entry_t {
 #endif
 
 extern "C" {
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_arg(wasi_config_t *config, const char *arg);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stderr(wasi_config_t *config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stdin(wasi_config_t *config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stdout(wasi_config_t *config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+Option<Box<wasi_config_t>> wasi_config_new(const char *program_name);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_env_delete(Option<Box<wasi_env_t>> _state);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/// Takes ownership over the `wasi_config_t`.
+Option<Box<wasi_env_t>> wasi_env_new(Box<wasi_config_t> config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+intptr_t wasi_env_read_stderr(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/// Takes ownership of `wasi_env_t`.
+bool wasi_get_imports(wasm_store_t *store,
+                      const wasm_module_t *module,
+                      const wasi_env_t *wasi_env,
+                      wasm_extern_t **imports);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
+#endif
+
+wasm_config_t *wasm_config_new();
+
+void wasm_engine_delete(Option<Box<wasm_engine_t>> _wasm_engine_address);
+
+Box<wasm_engine_t> wasm_engine_new_with_config(wasm_config_t *_config_ptr);
+
+const wasm_name_t *wasm_exporttype_name(const wasm_exporttype_t *et);
+
+Box<wasm_exporttype_t> wasm_exporttype_new(wasm_name_t *name, wasm_externtype_t *extern_type);
+
+const wasm_externtype_t *wasm_exporttype_type(const wasm_exporttype_t *et);
+
+Option<Box<wasm_func_t>> wasm_extern_as_func(wasm_extern_t *extern_ptr);
+
+Option<Box<wasm_global_t>> wasm_extern_as_global(wasm_extern_t *extern_ptr);
+
+Option<Box<wasm_memory_t>> wasm_extern_as_memory(wasm_extern_t *extern_ptr);
+
+Option<Box<wasm_table_t>> wasm_extern_as_table(wasm_extern_t *extern_ptr);
+
+wasm_externkind_t wasm_extern_kind(const wasm_extern_t *e);
+
+Box<wasm_externtype_t> wasm_extern_type(const wasm_extern_t *e);
+
+const wasm_functype_t *wasm_externtype_as_functype(const wasm_externtype_t *et);
+
+const wasm_functype_t *wasm_externtype_as_functype_const(const wasm_externtype_t *et);
+
+const wasm_globaltype_t *wasm_externtype_as_globaltype(const wasm_externtype_t *et);
+
+const wasm_globaltype_t *wasm_externtype_as_globaltype_const(const wasm_externtype_t *et);
+
+const wasm_memorytype_t *wasm_externtype_as_memorytype(const wasm_externtype_t *et);
+
+const wasm_memorytype_t *wasm_externtype_as_memorytype_const(const wasm_externtype_t *et);
+
+const wasm_tabletype_t *wasm_externtype_as_tabletype(const wasm_externtype_t *et);
+
+const wasm_tabletype_t *wasm_externtype_as_tabletype_const(const wasm_externtype_t *et);
+
+void wasm_externtype_delete(Option<Box<wasm_externtype_t>> _et);
+
+wasm_externkind_t wasm_externtype_kind(const wasm_externtype_t *et);
+
+Option<Box<wasm_extern_t>> wasm_func_as_extern(wasm_func_t *func_ptr);
+
+wasm_trap_t *wasm_func_call(const wasm_func_t *func, const wasm_val_t *args, wasm_val_t *results);
+
+void wasm_func_delete(Option<Box<wasm_func_t>> _func);
+
+Option<Box<wasm_func_t>> wasm_func_new(wasm_store_t *store,
+                                       const wasm_functype_t *ft,
+                                       wasm_func_callback_t callback);
+
+Option<Box<wasm_func_t>> wasm_func_new_with_env(wasm_store_t *store,
+                                                const wasm_functype_t *ft,
+                                                wasm_func_callback_with_env_t callback,
+                                                void *env,
+                                                wasm_env_finalizer_t finalizer);
+
+uintptr_t wasm_func_param_arity(const wasm_func_t *func);
+
+uintptr_t wasm_func_result_arity(const wasm_func_t *func);
+
+const wasm_externtype_t *wasm_functype_as_externtype(const wasm_functype_t *ft);
+
+const wasm_externtype_t *wasm_functype_as_externtype_const(const wasm_functype_t *ft);
+
+Option<Box<wasm_functype_t>> wasm_functype_copy(wasm_functype_t *arg);
+
+void wasm_functype_delete(Option<Box<wasm_functype_t>> _ft);
+
+Option<Box<wasm_functype_t>> wasm_functype_new(wasm_valtype_vec_t *params,
+                                               wasm_valtype_vec_t *results);
+
+const wasm_valtype_vec_t *wasm_functype_params(const wasm_functype_t *ft);
+
+const wasm_valtype_vec_t *wasm_functype_results(const wasm_functype_t *ft);
+
+Option<Box<wasm_extern_t>> wasm_global_as_extern(wasm_global_t *global_ptr);
+
+Box<wasm_global_t> wasm_global_copy(const wasm_global_t *wasm_global);
+
+void wasm_global_delete(Option<Box<wasm_global_t>> _global);
+
+void wasm_global_get(const wasm_global_t *wasm_global, wasm_val_t *out);
+
+Option<Box<wasm_global_t>> wasm_global_new(wasm_store_t *store_ptr,
+                                           const wasm_globaltype_t *gt,
+                                           const wasm_val_t *val);
+
+bool wasm_global_same(const wasm_global_t *wasm_global1, const wasm_global_t *wasm_global2);
+
+void wasm_global_set(wasm_global_t *wasm_global, const wasm_val_t *val);
+
+const wasm_externtype_t *wasm_globaltype_as_externtype(const wasm_globaltype_t *gt);
+
+const wasm_externtype_t *wasm_globaltype_as_externtype_const(const wasm_globaltype_t *gt);
+
+const wasm_valtype_t *wasm_globaltype_content(const wasm_globaltype_t *globaltype);
+
+void wasm_globaltype_delete(Option<Box<wasm_globaltype_t>> _globaltype);
+
+wasm_mutability_t wasm_globaltype_mutability(const wasm_globaltype_t *globaltype);
+
+Option<Box<wasm_globaltype_t>> wasm_globaltype_new(Option<Box<wasm_valtype_t>> valtype,
+                                                   wasm_mutability_t mutability);
+
+void wasm_importtype_delete(Option<Box<wasm_importtype_t>> _importtype);
+
+const wasm_name_t *wasm_importtype_module(const wasm_importtype_t *et);
+
+const wasm_name_t *wasm_importtype_name(const wasm_importtype_t *et);
+
+Box<wasm_importtype_t> wasm_importtype_new(wasm_name_t *module,
+                                           wasm_name_t *name,
+                                           wasm_externtype_t *extern_type);
+
+const wasm_externtype_t *wasm_importtype_type(const wasm_importtype_t *et);
+
+void wasm_instance_delete(Option<Box<wasm_instance_t>> _instance);
+
+void wasm_instance_exports(const wasm_instance_t *instance, wasm_extern_vec_t *out);
+
+Option<Box<wasm_instance_t>> wasm_instance_new(wasm_store_t *store,
+                                               const wasm_module_t *module,
+                                               const wasm_extern_t *const *imports,
+                                               wasm_trap_t **_traps);
+
+Option<Box<wasm_extern_t>> wasm_memory_as_extern(wasm_memory_t *memory_ptr);
+
+Box<wasm_memory_t> wasm_memory_copy(const wasm_memory_t *wasm_memory);
+
+uint8_t *wasm_memory_data(wasm_memory_t *memory);
+
+uintptr_t wasm_memory_data_size(const wasm_memory_t *memory);
+
+void wasm_memory_delete(Option<Box<wasm_memory_t>> _memory);
+
+bool wasm_memory_grow(wasm_memory_t *memory, uint32_t delta);
+
+Option<Box<wasm_memory_t>> wasm_memory_new(wasm_store_t *store_ptr, const wasm_memorytype_t *mt);
+
+bool wasm_memory_same(const wasm_memory_t *wasm_memory1, const wasm_memory_t *wasm_memory2);
+
+uint32_t wasm_memory_size(const wasm_memory_t *memory);
+
+wasm_memorytype_t *wasm_memory_type(const wasm_memory_t *_memory_ptr);
+
+const wasm_externtype_t *wasm_memorytype_as_externtype(const wasm_memorytype_t *mt);
+
+const wasm_externtype_t *wasm_memorytype_as_externtype_const(const wasm_memorytype_t *mt);
+
+void wasm_memorytype_delete(Option<Box<wasm_memorytype_t>> _memorytype);
+
+const wasm_limits_t *wasm_memorytype_limits(const wasm_memorytype_t *mt);
+
+Box<wasm_memorytype_t> wasm_memorytype_new(const wasm_limits_t *limits);
+
+void wasm_module_delete(Option<Box<wasm_module_t>> _module);
+
+wasm_module_t *wasm_module_deserialize(wasm_store_t *store_ptr, const wasm_byte_vec_t *bytes);
+
+void wasm_module_exports(const wasm_module_t *module, wasm_exporttype_vec_t *out);
+
+void wasm_module_imports(const wasm_module_t *module, wasm_importtype_vec_t *out);
+
+Option<Box<wasm_module_t>> wasm_module_new(wasm_store_t *store_ptr, const wasm_byte_vec_t *bytes);
+
+void wasm_module_serialize(const wasm_module_t *module, wasm_byte_vec_t *out_ptr);
+
+void wasm_store_delete(wasm_store_t *wasm_store);
+
+wasm_store_t *wasm_store_new(wasm_engine_t *wasm_engine_ptr);
+
+Option<Box<wasm_extern_t>> wasm_table_as_extern(wasm_table_t *table_ptr);
+
+Box<wasm_table_t> wasm_table_copy(const wasm_table_t *wasm_table);
+
+void wasm_table_delete(Option<Box<wasm_table_t>> _table);
+
+bool wasm_table_grow(wasm_table_t *_wasm_table, wasm_table_size_t _delta, wasm_ref_t *_init);
+
+Option<Box<wasm_table_t>> wasm_table_new(wasm_store_t *store_ptr,
+                                         const wasm_tabletype_t *tt,
+                                         const wasm_ref_t *init);
+
+bool wasm_table_same(const wasm_table_t *wasm_table1, const wasm_table_t *wasm_table2);
+
+uintptr_t wasm_table_size(const wasm_table_t *wasm_table);
+
+const wasm_externtype_t *wasm_tabletype_as_externtype(const wasm_tabletype_t *tt);
+
+const wasm_externtype_t *wasm_tabletype_as_externtype_const(const wasm_tabletype_t *tt);
+
+void wasm_tabletype_delete(Option<Box<wasm_tabletype_t>> _tabletype);
+
+const wasm_valtype_t *wasm_tabletype_element(const wasm_tabletype_t *tabletype);
+
+const wasm_limits_t *wasm_tabletype_limits(const wasm_tabletype_t *tabletype);
+
+Box<wasm_tabletype_t> wasm_tabletype_new(Box<wasm_valtype_t> valtype, const wasm_limits_t *limits);
+
+void wasm_trap_delete(wasm_trap_t *trap);
+
+void wasm_trap_message(const wasm_trap_t *trap, wasm_byte_vec_t *out_ptr);
+
+void wasm_val_copy(wasm_val_t *out_ptr, const wasm_val_t *val);
+
+void wasm_val_delete(wasm_val_t *val);
+
+void wasm_valtype_delete(Option<Box<wasm_valtype_t>> _valtype);
+
+wasm_valkind_t wasm_valtype_kind(const wasm_valtype_t *valtype);
+
+Option<Box<wasm_valtype_t>> wasm_valtype_new(wasm_valkind_t kind);
 
 /// Creates a new Module from the given wasm bytes.
 ///
