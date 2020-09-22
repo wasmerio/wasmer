@@ -7,8 +7,8 @@ DOXYFILE_ENCODING      = UTF-8
 PROJECT_NAME           = "wasmer-c-api"
 PROJECT_NUMBER         =
 PROJECT_BRIEF          = 
-PROJECT_LOGO           = ../../assets/logo.png
-OUTPUT_DIRECTORY       = doc/
+PROJECT_LOGO           = ../../../../assets/logo.png
+OUTPUT_DIRECTORY       = .
 CREATE_SUBDIRS         = NO
 ALLOW_UNICODE_NAMES    = NO
 OUTPUT_LANGUAGE        = English
@@ -116,8 +116,8 @@ WARN_LOGFILE           =
 #---------------------------------------------------------------------------
 # Configuration options related to the input files
 #---------------------------------------------------------------------------
-INPUT                  = doc/index.md
-INPUT                 += wasmer.h
+INPUT                  = index.md
+INPUT                 += ../../wasmer.h
 INPUT_ENCODING         = UTF-8
 FILE_PATTERNS          = *.h \
                          *.hh
@@ -134,7 +134,7 @@ INPUT_FILTER           =
 FILTER_PATTERNS        =
 FILTER_SOURCE_FILES    = NO
 FILTER_SOURCE_PATTERNS =
-USE_MDFILE_AS_MAINPAGE = doc/index.md
+USE_MDFILE_AS_MAINPAGE = index.md
 #---------------------------------------------------------------------------
 # Configuration options related to source browsing
 #---------------------------------------------------------------------------
@@ -159,10 +159,10 @@ IGNORE_PREFIX          =
 GENERATE_HTML          = YES
 HTML_OUTPUT            = html
 HTML_FILE_EXTENSION    = .html
-HTML_HEADER            = doc/theme/header.html
-HTML_FOOTER            = doc/theme/footer.html
+HTML_HEADER            = theme/header.html
+HTML_FOOTER            = theme/footer.html
 HTML_STYLESHEET        =
-HTML_EXTRA_STYLESHEET  = doc/theme/css/wasmer.css
+HTML_EXTRA_STYLESHEET  = theme/css/wasmer.css
 HTML_EXTRA_FILES       =
 HTML_COLORSTYLE_HUE    = 220
 HTML_COLORSTYLE_SAT    = 100
