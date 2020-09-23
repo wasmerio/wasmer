@@ -10,7 +10,7 @@ use std::cell::RefCell;
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction, InstanceHandle,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
     VMTrampoline,
 };
@@ -54,6 +54,7 @@ pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
     pub(crate) exported: ExportFunction,
+    pub(crate) instance: InstanceHandle,
 }
 
 impl Function {
@@ -96,6 +97,7 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
             },
+            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -145,6 +147,7 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
             },
+            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -186,6 +189,7 @@ impl Function {
                 signature,
                 kind: VMFunctionKind::Static,
             },
+            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -239,6 +243,7 @@ impl Function {
                 vmctx,
                 signature,
             },
+            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
     /// Returns the [`FunctionType`] of the `Function`.
@@ -356,10 +361,12 @@ impl Function {
             .engine()
             .function_call_trampoline(vmsignature)
             .expect("Can't get call trampoline for the function");
+        let instance = unsafe { wasmer_export.vmctx.as_ref().unwrap().instance_handle() };
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
+            instance,
         }
     }
 

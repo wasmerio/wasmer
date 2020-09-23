@@ -89,6 +89,7 @@ where
                 signature,
                 kind: other.arg_kind,
             },
+            instance: unsafe { other.vmctx.as_ref().unwrap().instance_handle() },
         }
     }
 }

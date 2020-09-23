@@ -5,7 +5,7 @@
 //! fields that compiled wasm code accesses directly.
 
 use crate::global::Global;
-use crate::instance::Instance;
+use crate::instance::{Instance, InstanceHandle};
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
@@ -935,6 +935,16 @@ impl VMContext {
     #[inline]
     pub unsafe fn host_state(&self) -> &dyn Any {
         self.instance().host_state()
+    }
+
+    /// Return a reference counted reference to the associated `Instance`.
+    ///
+    /// # Safety
+    /// This is unsafe because it doesn't work on just any `VMContext`, it must
+    /// be a `VMContext` allocated as part of an `Instance`.
+    #[inline]
+    pub unsafe fn instance_handle(&self) -> InstanceHandle {
+        self.instance().get_handle()
     }
 }
 

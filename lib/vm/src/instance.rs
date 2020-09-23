@@ -26,7 +26,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ops::Deref;
 use std::ptr::NonNull;
-use std::sync::Arc;
+use std::sync::{Arc, Weak};
 use std::{mem, ptr, slice};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -68,6 +68,9 @@ cfg_if::cfg_if! {
 /// This is repr(C) to ensure that the vmctx field is last.
 #[repr(C)]
 pub(crate) struct Instance {
+    /// The owning handle of this `Instance`.
+    handle: Weak<InstanceHandleInner>,
+
     /// The `ModuleInfo` this `Instance` was instantiated from.
     module: Arc<ModuleInfo>,
 
@@ -109,6 +112,12 @@ pub(crate) struct Instance {
 
 #[allow(clippy::cast_ptr_alignment)]
 impl Instance {
+    pub fn get_handle(&self) -> InstanceHandle {
+        InstanceHandle {
+            instance: self.handle.upgrade().unwrap().clone(),
+        }
+    }
+
     /// Helper function to access various locations offset from our `*mut
     /// VMContext` object.
     unsafe fn vmctx_plus_offset<T>(&self, offset: u32) -> *mut T {
@@ -762,12 +771,12 @@ impl Instance {
 }
 
 /// A handle holding an `Instance` of a WebAssembly module.
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub struct InstanceHandle {
     instance: Arc<InstanceHandleInner>,
 }
 
-#[derive(Hash, PartialEq, Eq)]
+#[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InstanceHandleInner {
     instance: *mut Instance,
 }
@@ -846,6 +855,7 @@ impl InstanceHandle {
 
         let handle = {
             let instance = Instance {
+                handle: Weak::new(),
                 module,
                 offsets,
                 memories: finished_memories,
@@ -865,11 +875,13 @@ impl InstanceHandle {
                 alloc::handle_alloc_error(layout);
             }
             ptr::write(instance_ptr, instance);
-            Self {
+            let handle = Self {
                 instance: Arc::new(InstanceHandleInner {
                     instance: instance_ptr,
                 }),
-            }
+            };
+            (*handle.instance.instance).handle = Arc::downgrade(&handle.instance);
+            handle
         };
         let instance = handle.instance();
 
