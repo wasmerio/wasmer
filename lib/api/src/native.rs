@@ -17,7 +17,8 @@ use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, W
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
+    ExportFunction, InstanceHandle, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -29,6 +30,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
+    instance: InstanceHandle,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -52,6 +54,7 @@ where
             address,
             vmctx,
             arg_kind,
+            instance: unsafe { (*vmctx).instance_handle() },
             _phantom: PhantomData,
         }
     }
