@@ -78,4 +78,4 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = { version = "0.14.6" }
+cbindgen = { git = "https://github.com/Hywan/cbindgen", branch = "incoming" }

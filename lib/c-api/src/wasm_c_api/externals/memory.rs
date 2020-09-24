@@ -6,6 +6,7 @@ use wasmer::{Memory, Pages, Store};
 
 #[repr(C)]
 pub struct wasm_memory_t {
+    /// cbindgen:ignore
     // maybe needs to hold onto instance
     pub(crate) inner: Memory,
 }

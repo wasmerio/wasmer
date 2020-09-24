@@ -3,9 +3,10 @@ use wasmer::{ExternType, MemoryType, Pages};
 
 // opaque type wrapping `MemoryType`
 #[derive(Clone, Debug)]
-#[repr(transparent)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasm_memorytype_t {
+    /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
 }
 

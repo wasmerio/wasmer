@@ -8,6 +8,7 @@ pub type wasm_table_size_t = u32;
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasm_tabletype_t {
+    /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
 }
 

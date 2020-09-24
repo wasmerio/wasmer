@@ -61,10 +61,6 @@ enum wasm_valkind_enum {
 };
 typedef uint8_t wasm_valkind_enum;
 
-typedef struct Arc_Instance Arc_Instance;
-
-typedef struct Arc_Module Arc_Module;
-
 typedef struct Box_wasi_config_t Box_wasi_config_t;
 
 typedef struct Box_wasm_engine_t Box_wasm_engine_t;
@@ -86,8 +82,6 @@ typedef struct Box_wasm_table_t Box_wasm_table_t;
 typedef struct Box_wasm_tabletype_t Box_wasm_tabletype_t;
 
 typedef struct Box_wasm_valtype_t Box_wasm_valtype_t;
-
-typedef struct Option_Arc_Instance Option_Arc_Instance;
 
 typedef struct Option_Box_wasi_config_t Option_Box_wasi_config_t;
 
@@ -127,8 +121,6 @@ typedef struct Option_Box_wasm_valtype_t Option_Box_wasm_valtype_t;
 typedef struct wasi_version_t wasi_version_t;
 #endif
 
-typedef struct wasm_engine_t wasm_engine_t;
-
 typedef struct wasm_ref_t wasm_ref_t;
 
 #if defined(WASMER_WASI_ENABLED)
@@ -136,22 +128,21 @@ typedef struct {
   bool inherit_stdout;
   bool inherit_stderr;
   bool inherit_stdin;
-  WasiStateBuilder state_builder;
 } wasi_config_t;
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct {
-  WasiEnv inner;
+
 } wasi_env_t;
 #endif
 
 typedef struct {
-  Arc_Instance inner;
+
 } wasm_instance_t;
 
 typedef struct {
-  Memory inner;
+
 } wasm_memory_t;
 
 /**
@@ -162,12 +153,11 @@ typedef struct {
 } wasm_store_t;
 
 typedef struct {
-  Arc_Module inner;
+
 } wasm_module_t;
 
 typedef struct {
-  Option_Arc_Instance instance;
-  Extern inner;
+
 } wasm_extern_t;
 
 /**
@@ -179,7 +169,9 @@ typedef struct {
 
 typedef wasm_byte_vec_t wasm_name_t;
 
-typedef ExternType wasm_externtype_t;
+typedef struct {
+
+} wasm_externtype_t;
 
 typedef struct {
   wasm_name_t *name;
@@ -188,19 +180,24 @@ typedef struct {
 
 typedef uint8_t wasm_externkind_t;
 
-typedef wasm_externtype_t wasm_functype_t;
+typedef struct {
 
-typedef wasm_externtype_t wasm_globaltype_t;
-
-typedef wasm_externtype_t wasm_memorytype_t;
+} wasm_functype_t;
 
 typedef struct {
-  wasm_externtype_t extern_;
+
+} wasm_globaltype_t;
+
+typedef struct {
+
+} wasm_memorytype_t;
+
+typedef struct {
+
 } wasm_tabletype_t;
 
 typedef struct {
-  Function inner;
-  Option_Arc_Instance instance;
+
 } wasm_func_t;
 
 typedef struct {
@@ -229,7 +226,7 @@ typedef wasm_trap_t *(*wasm_func_callback_with_env_t)(void*, const wasm_val_t *a
 typedef void (*wasm_env_finalizer_t)(void);
 
 typedef struct {
-  Global inner;
+
 } wasm_global_t;
 
 typedef struct {
@@ -250,7 +247,11 @@ typedef struct {
 } wasm_limits_t;
 
 typedef struct {
-  Table inner;
+
+} wasm_engine_t;
+
+typedef struct {
+
 } wasm_table_t;
 
 typedef uint32_t wasm_table_size_t;

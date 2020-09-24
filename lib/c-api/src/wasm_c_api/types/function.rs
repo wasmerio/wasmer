@@ -4,9 +4,10 @@ use std::ptr::NonNull;
 use wasmer::{ExternType, FunctionType, ValType};
 
 #[derive(Clone, Debug)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
-#[repr(transparent)]
 pub struct wasm_functype_t {
+    /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
 }
 

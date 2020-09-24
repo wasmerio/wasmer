@@ -11,6 +11,7 @@ use wasmer::{Module, Store};
 
 #[repr(C)]
 pub struct wasm_module_t {
+    /// cbindgen:ignore
     pub(crate) inner: Arc<Module>,
 }
 

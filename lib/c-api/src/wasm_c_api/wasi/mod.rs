@@ -31,6 +31,7 @@ pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
+    /// cbindgen:ignore
     state_builder: WasiStateBuilder,
 }
 
@@ -92,6 +93,7 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasi_env_t {
+    /// cbindgen:ignore
     inner: WasiEnv,
 }
 

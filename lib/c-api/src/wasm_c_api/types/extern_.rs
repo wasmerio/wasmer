@@ -7,8 +7,9 @@ use wasmer::ExternType;
 
 #[derive(Clone, Debug)]
 #[allow(non_camel_case_types)]
-#[repr(transparent)]
+#[repr(C)]
 pub struct wasm_externtype_t {
+    /// cbindgen:ignore
     pub(crate) inner: ExternType,
 }
 

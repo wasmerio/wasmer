@@ -5,9 +5,10 @@ use std::convert::TryInto;
 use wasmer::{ExternType, GlobalType};
 
 #[derive(Clone, Debug)]
-#[repr(transparent)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasm_globaltype_t {
+    /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
 }
 

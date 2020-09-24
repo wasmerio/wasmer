@@ -7,6 +7,7 @@ use wasmer::{Global, Store, Val};
 
 #[repr(C)]
 pub struct wasm_global_t {
+    /// cbindgen:ignore
     // maybe needs to hold onto instance
     pub(crate) inner: Global,
 }

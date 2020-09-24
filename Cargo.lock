@@ -206,8 +206,7 @@ dependencies = [
 [[package]]
 name = "cbindgen"
 version = "0.14.6"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afa64e93023395ee316490cf013f07f753bc88d116eb1aec1bcee7d63fbcca53"
+source = "git+https://github.com/Hywan/cbindgen?branch=incoming#ab5427b358f8953f1455e3a630af76e8dd37af67"
 dependencies = [
  "clap",
  "heck",

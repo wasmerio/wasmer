@@ -14,6 +14,7 @@ pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
 
 #[repr(C)]
 pub struct wasm_engine_t {
+    /// cbindgen:ignore
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
 

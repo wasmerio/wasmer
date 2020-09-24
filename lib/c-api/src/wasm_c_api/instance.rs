@@ -10,6 +10,7 @@ use wasmer::{Extern, Instance};
 
 #[repr(C)]
 pub struct wasm_instance_t {
+    /// cbindgen:ignore
     pub(crate) inner: Arc<Instance>,
 }
 

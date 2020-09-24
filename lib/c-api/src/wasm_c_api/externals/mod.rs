@@ -13,8 +13,10 @@ use wasmer::{Extern, Instance};
 
 #[repr(C)]
 pub struct wasm_extern_t {
+    /// cbindgen:ignore
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,
+    /// cbindgen:ignore
     pub(crate) inner: Extern,
 }
 

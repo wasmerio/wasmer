@@ -127,7 +127,12 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
                 "include-deprecated",
                 INCLUDE_DEPRECATED_FEATURE_AS_C_DEFINE,
             )
-            .with_include("wasm.h")
+            // Do not include `wasm.h` as it doesn't contain any
+            // documentation.
+            // We export the same functions, with documentations and
+            // examples, which is better for the user.
+            //
+            //.with_include("wasm.h")
             .with_documentation(true);
 
         #[cfg(not(feature = "include-deprecated"))]

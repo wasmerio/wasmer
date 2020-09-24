@@ -10,7 +10,9 @@ use wasmer::{Function, Instance, RuntimeError, Store, Val};
 
 #[repr(C)]
 pub struct wasm_func_t {
+    /// cbindgen:ignore
     pub(crate) inner: Function,
+    /// cbindgen:ignore
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,
 }

@@ -5,6 +5,7 @@ use wasmer::{Store, Table};
 
 #[repr(C)]
 pub struct wasm_table_t {
+    /// cbindgen:ignore
     // maybe needs to hold onto instance
     pub(crate) inner: Table,
 }
