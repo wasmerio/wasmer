@@ -32,7 +32,8 @@ pub struct JITArtifact {
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
     /// The code memory is responsible of publishing the compiled
     /// functions to memory.
-    code_memory: CodeMemory,
+    /// We need to hold this simply so that it is dropped when we are dropped.
+    _code_memory: CodeMemory,
 }
 
 impl JITArtifact {
@@ -224,7 +225,7 @@ impl JITArtifact {
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
-            code_memory,
+            _code_memory: code_memory,
         })
     }
 

@@ -30,7 +30,8 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
-    instance: Option<InstanceHandle>,
+    // This is held for its reference count to the Instance.
+    _instance: Option<InstanceHandle>,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -54,7 +55,7 @@ where
             address,
             vmctx,
             arg_kind,
-            instance: Some(unsafe { (*vmctx).instance_handle() }),
+            _instance: Some(unsafe { (*vmctx).instance_handle() }),
             _phantom: PhantomData,
         }
     }
@@ -72,7 +73,7 @@ where
             address,
             vmctx,
             arg_kind,
-            instance: None,
+            _instance: None,
             _phantom: PhantomData,
         }
     }
