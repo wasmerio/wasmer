@@ -94,14 +94,14 @@ impl Default for Store {
             }
         }
 
-        #[allow(unreachable_code)]
-        fn get_engine(config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
+        #[allow(unreachable_code, unused_mut)]
+        fn get_engine(mut config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-jit")] {
                     wasmer_engine_jit::JIT::new(&config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_native::Native::new(&config)
+                    wasmer_engine_native::Native::new(&mut config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")
