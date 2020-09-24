@@ -114,7 +114,7 @@ pub(crate) struct Instance {
 impl Instance {
     pub fn get_handle(&self) -> InstanceHandle {
         InstanceHandle {
-            instance: self.handle.upgrade().unwrap().clone(),
+            instance: self.handle.upgrade().unwrap(),
         }
     }
 
@@ -776,6 +776,8 @@ pub struct InstanceHandle {
     instance: Arc<InstanceHandleInner>,
 }
 
+/// Instance doesn't have a fixed length, the last field of Instance is a VMContext whose length is dynamic. We must dealloc it ourselves instead of relying on standard drop. This type is a transparent wrapper that calls the Instance's custom dealloc function.
+// TODO: would it work to just impl Drop for Instance instead?
 #[derive(Debug, Hash, PartialEq, Eq)]
 pub(crate) struct InstanceHandleInner {
     instance: *mut Instance,
