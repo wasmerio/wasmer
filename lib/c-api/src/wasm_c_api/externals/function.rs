@@ -1,6 +1,7 @@
 use super::super::store::wasm_store_t;
+use super::super::trap::wasm_trap_t;
+use super::super::types::{wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t};
-use super::super::{wasm_functype_t, wasm_trap_t, wasm_valkind_enum};
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::ptr::NonNull;

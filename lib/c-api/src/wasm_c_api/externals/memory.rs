@@ -1,6 +1,5 @@
 use super::super::store::wasm_store_t;
-use super::super::wasm_memorytype_t;
-use crate::c_try;
+use super::super::types::wasm_memorytype_t;
 use std::mem;
 use std::ptr::NonNull;
 use wasmer::{Memory, Pages, Store};

@@ -12,7 +12,6 @@ use super::{
 };
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
-use crate::c_try;
 use crate::error::{update_last_error, CApiError};
 use std::convert::TryFrom;
 use std::ffi::CStr;

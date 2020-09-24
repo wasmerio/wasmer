@@ -1,9 +1,8 @@
 use super::store::wasm_store_t;
-use super::{
+use super::types::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
     wasm_importtype_vec_t,
 };
-use crate::c_try;
 use std::mem;
 use std::ptr::NonNull;
 use std::slice;

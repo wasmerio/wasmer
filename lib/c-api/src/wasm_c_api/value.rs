@@ -1,4 +1,4 @@
-use super::{wasm_ref_t, wasm_valkind_enum};
+use super::types::{wasm_ref_t, wasm_valkind_enum};
 use std::convert::{TryFrom, TryInto};
 use std::ptr::NonNull;
 use wasmer::Val;
