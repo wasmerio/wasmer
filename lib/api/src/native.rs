@@ -30,7 +30,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
-    instance: InstanceHandle,
+    instance: Option<InstanceHandle>,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
 }
 
@@ -41,7 +41,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    pub(crate) fn new(
+    pub(crate) fn new_from_wasm(
         store: Store,
         address: *const VMFunctionBody,
         vmctx: *mut VMContext,
@@ -54,7 +54,25 @@ where
             address,
             vmctx,
             arg_kind,
-            instance: unsafe { (*vmctx).instance_handle() },
+            instance: Some(unsafe { (*vmctx).instance_handle() }),
+            _phantom: PhantomData,
+        }
+    }
+
+    pub(crate) fn new_from_host(
+        store: Store,
+        address: *const VMFunctionBody,
+        vmctx: *mut VMContext,
+        arg_kind: VMFunctionKind,
+        definition: FunctionDefinition,
+    ) -> Self {
+        Self {
+            definition,
+            store,
+            address,
+            vmctx,
+            arg_kind,
+            instance: None,
             _phantom: PhantomData,
         }
     }
@@ -92,7 +110,6 @@ where
                 signature,
                 kind: other.arg_kind,
             },
-            instance: unsafe { other.vmctx.as_ref().unwrap().instance_handle() },
         }
     }
 }
@@ -109,7 +126,8 @@ macro_rules! impl_native_traits {
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
-                        trampoline
+                        trampoline,
+                        instance: _,
                     }) => {
                         // TODO: when `const fn` related features mature more, we can declare a single array
                         // of the correct size here.

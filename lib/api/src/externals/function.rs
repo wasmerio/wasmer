@@ -20,6 +20,8 @@ use wasmer_vm::{
 pub struct WasmFunctionDefinition {
     /// The trampoline to do the call
     pub(crate) trampoline: VMTrampoline,
+    /// The instance that owns the memory for this function.
+    pub(crate) instance: InstanceHandle,
 }
 
 /// A function defined in the Host
@@ -54,7 +56,6 @@ pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
     pub(crate) exported: ExportFunction,
-    pub(crate) instance: InstanceHandle,
 }
 
 impl Function {
@@ -97,7 +98,6 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
             },
-            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -147,7 +147,6 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
             },
-            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -189,7 +188,6 @@ impl Function {
                 signature,
                 kind: VMFunctionKind::Static,
             },
-            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
 
@@ -243,7 +241,6 @@ impl Function {
                 vmctx,
                 signature,
             },
-            instance: unsafe { (*vmctx).instance_handle() },
         }
     }
     /// Returns the [`FunctionType`] of the `Function`.
@@ -364,9 +361,11 @@ impl Function {
         let instance = unsafe { wasmer_export.vmctx.as_ref().unwrap().instance_handle() };
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition {
+                trampoline,
+                instance,
+            }),
             exported: wasmer_export,
-            instance,
         }
     }
 
@@ -417,7 +416,10 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(
+        Ok(match self.definition {
+            FunctionDefinition::Wasm(_) => NativeFunc::new_from_wasm,
+            FunctionDefinition::Host(_) => NativeFunc::new_from_host,
+        }(
             self.store.clone(),
             self.exported.address,
             self.exported.vmctx,
