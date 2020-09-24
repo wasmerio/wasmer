@@ -1,6 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1645](https://github.com/wasmerio/wasmer/pull/1645) Move the install script to https://github.com/wasmerio/wasmer-install
 
 ## 1.0.0-alpha3 - 2020-09-14
 - [#1620](https://github.com/wasmerio/wasmer/pull/1620) Fix bug causing the Wapm binary to not be packaged with the release
