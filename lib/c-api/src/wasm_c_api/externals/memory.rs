@@ -1,4 +1,5 @@
-use super::super::{store::wasm_store_t, wasm_memorytype_t};
+use super::super::store::wasm_store_t;
+use super::super::wasm_memorytype_t;
 use crate::c_try;
 use std::mem;
 use std::ptr::NonNull;

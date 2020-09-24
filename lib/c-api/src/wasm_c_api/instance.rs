@@ -1,4 +1,9 @@
-use super::{wasm_extern_t, wasm_extern_vec_t, wasm_module_t, wasm_store_t, wasm_trap_t};
+use super::{
+    externals::{wasm_extern_t, wasm_extern_vec_t},
+    module::wasm_module_t,
+    store::wasm_store_t,
+    wasm_trap_t,
+};
 use crate::c_try;
 use crate::ordered_resolver::OrderedResolver;
 use std::mem;

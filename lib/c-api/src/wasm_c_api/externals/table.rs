@@ -1,4 +1,5 @@
-use super::super::{wasm_ref_t, wasm_store_t, wasm_table_size_t, wasm_tabletype_t};
+use super::super::store::wasm_store_t;
+use super::super::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
 use crate::c_try;
 use std::ptr::NonNull;
 use wasmer::{Store, Table};

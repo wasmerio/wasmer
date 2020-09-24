@@ -1,5 +1,8 @@
 //! entrypoints for the standard C API
 
+#[macro_use]
+pub mod macros;
+
 pub mod engine;
 pub mod externals;
 pub mod instance;
@@ -13,135 +16,18 @@ pub mod wasi;
 // required due to really weird Rust resolution rules
 // https://github.com/rust-lang/rust/issues/57966
 use crate::c_try;
-use externals::function::wasm_func_t;
-use externals::global::wasm_global_t;
-use externals::memory::wasm_memory_t;
-use externals::table::wasm_table_t;
-use module::wasm_module_t;
+use externals::wasm_extern_t;
 use std::convert::{TryFrom, TryInto};
 use std::mem;
-use std::ptr::{self, NonNull};
-use std::slice;
-use std::sync::Arc;
-use store::wasm_store_t;
+use std::ptr::NonNull;
 use thiserror::Error;
 use value::wasm_valkind_t;
 use wasmer::{
-    ExportType, Extern, ExternType, FunctionType, GlobalType, ImportType, Instance, MemoryType,
-    Mutability, Pages, RuntimeError, TableType, ValType,
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability, Pages,
+    RuntimeError, TableType, ValType,
 };
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_func_as_extern(
-    func_ptr: Option<NonNull<wasm_func_t>>,
-) -> Option<Box<wasm_extern_t>> {
-    let func_ptr = func_ptr?;
-    let func = func_ptr.as_ref();
-
-    Some(Box::new(wasm_extern_t {
-        instance: func.instance.clone(),
-        inner: Extern::Function(func.inner.clone()),
-    }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_global_as_extern(
-    global_ptr: Option<NonNull<wasm_global_t>>,
-) -> Option<Box<wasm_extern_t>> {
-    let global_ptr = global_ptr?;
-    let global = global_ptr.as_ref();
-
-    Some(Box::new(wasm_extern_t {
-        // update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Global(global.inner.clone()),
-    }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_memory_as_extern(
-    memory_ptr: Option<NonNull<wasm_memory_t>>,
-) -> Option<Box<wasm_extern_t>> {
-    let memory_ptr = memory_ptr?;
-    let memory = memory_ptr.as_ref();
-
-    Some(Box::new(wasm_extern_t {
-        // update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Memory(memory.inner.clone()),
-    }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_table_as_extern(
-    table_ptr: Option<NonNull<wasm_table_t>>,
-) -> Option<Box<wasm_extern_t>> {
-    let table_ptr = table_ptr?;
-    let table = table_ptr.as_ref();
-
-    Some(Box::new(wasm_extern_t {
-        // update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Table(table.inner.clone()),
-    }))
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_func(
-    extern_ptr: Option<NonNull<wasm_extern_t>>,
-) -> Option<Box<wasm_func_t>> {
-    let extern_ptr = extern_ptr?;
-    let r#extern = extern_ptr.as_ref();
-    if let Extern::Function(f) = &r#extern.inner {
-        Some(Box::new(wasm_func_t {
-            inner: f.clone(),
-            instance: r#extern.instance.clone(),
-        }))
-    } else {
-        None
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_global(
-    extern_ptr: Option<NonNull<wasm_extern_t>>,
-) -> Option<Box<wasm_global_t>> {
-    let extern_ptr = extern_ptr?;
-    let r#extern = extern_ptr.as_ref();
-    if let Extern::Global(g) = &r#extern.inner {
-        Some(Box::new(wasm_global_t { inner: g.clone() }))
-    } else {
-        None
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_memory(
-    extern_ptr: Option<NonNull<wasm_extern_t>>,
-) -> Option<Box<wasm_memory_t>> {
-    let extern_ptr = extern_ptr?;
-    let r#extern = extern_ptr.as_ref();
-    if let Extern::Memory(m) = &r#extern.inner {
-        Some(Box::new(wasm_memory_t { inner: m.clone() }))
-    } else {
-        None
-    }
-}
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_table(
-    extern_ptr: Option<NonNull<wasm_extern_t>>,
-) -> Option<Box<wasm_table_t>> {
-    let extern_ptr = extern_ptr?;
-    let r#extern = extern_ptr.as_ref();
-    if let Extern::Table(t) = &r#extern.inner {
-        Some(Box::new(wasm_table_t { inner: t.clone() }))
-    } else {
-        None
-    }
-}
 
 #[allow(non_camel_case_types)]
 pub type wasm_table_size_t = u32;
@@ -254,137 +140,6 @@ impl From<ValType> for wasm_valkind_enum {
     }
 }
 
-macro_rules! wasm_declare_vec_inner {
-    ($name:ident) => {
-        paste::item! {
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
-                // TODO: actually implement this
-                [<wasm_ $name _vec_new_uninitialized>](out, 0);
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
-                let vec = &mut *ptr;
-                if !vec.data.is_null() {
-                    Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    vec.data = ptr::null_mut();
-                    vec.size = 0;
-                }
-            }
-        }
-    }
-}
-
-macro_rules! wasm_declare_vec {
-    ($name:ident) => {
-        paste::item! {
-            #[repr(C)]
-            pub struct [<wasm_ $name _vec_t>] {
-                pub size: usize,
-                pub data: *mut [<wasm_ $name _t>],
-            }
-
-            impl [<wasm_ $name _vec_t>] {
-                pub unsafe fn into_slice(&self) -> Option<&[[<wasm_ $name _t>]]>{
-                    if self.data.is_null() {
-                        return None;
-                    }
-
-                    Some(slice::from_raw_parts(self.data, self.size))
-                }
-            }
-
-            // TODO: investigate possible memory leak on `init` (owned pointer)
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
-                let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
-                for i in 0..length {
-                    bytes.push(ptr::read(init.add(i)));
-                }
-                let pointer = bytes.as_mut_ptr();
-                debug_assert!(bytes.len() == bytes.capacity());
-                (*out).data = pointer;
-                (*out).size = length;
-                mem::forget(bytes);
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
-                let pointer = bytes.as_mut_ptr();
-                (*out).data = pointer;
-                (*out).size = length;
-                mem::forget(bytes);
-            }
-        }
-        wasm_declare_vec_inner!($name);
-    };
-}
-
-macro_rules! wasm_declare_boxed_vec {
-    ($name:ident) => {
-        paste::item! {
-            #[repr(C)]
-            pub struct [<wasm_ $name _vec_t>] {
-                pub size: usize,
-                pub data: *mut *mut [<wasm_ $name _t>],
-            }
-
-            // TODO: do this properly
-            impl [<wasm_ $name _vec_t>] {
-                pub unsafe fn into_slice(&self) -> Option<&[*mut [<wasm_ $name _t>]]>{
-                    if self.data.is_null() {
-                        return None;
-                    }
-
-                    Some(slice::from_raw_parts(self.data, self.size))
-                }
-            }
-
-            // TODO: investigate possible memory leak on `init` (owned pointer)
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *const *mut [<wasm_ $name _t>]) {
-                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
-                for i in 0..length {
-                    bytes.push(*init.add(i));
-                }
-                let pointer = bytes.as_mut_ptr();
-                debug_assert!(bytes.len() == bytes.capacity());
-                (*out).data = pointer;
-                (*out).size = length;
-                mem::forget(bytes);
-            }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
-                let pointer = bytes.as_mut_ptr();
-                (*out).data = pointer;
-                (*out).size = length;
-                mem::forget(bytes);
-            }
-        }
-        wasm_declare_vec_inner!($name);
-    };
-}
-
-macro_rules! wasm_declare_ref_base {
-    ($name:ident) => {
-        wasm_declare_own!($name);
-        paste::item! {
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _copy>](_arg: *const [<wasm_ $name _t>]) -> *mut [<wasm_ $name _t>] {
-                todo!("in generated declare ref base");
-                //ptr::null_mut()
-            }
-
-            // TODO: finish this...
-
-        }
-    };
-}
-
 #[allow(non_camel_case_types)]
 pub type wasm_byte_t = u8;
 wasm_declare_vec!(byte);
@@ -433,14 +188,6 @@ pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut
     let re = &*(trap as *const RuntimeError);
     todo!()
 }*/
-
-#[repr(C)]
-pub struct wasm_extern_t {
-    // this is how we ensure the instance stays alive
-    pub(crate) instance: Option<Arc<Instance>>,
-    pub(crate) inner: Extern,
-}
-wasm_declare_boxed_vec!(extern);
 
 #[derive(Debug, Clone, Copy)]
 #[repr(C)]

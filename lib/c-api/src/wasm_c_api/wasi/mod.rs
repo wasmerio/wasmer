@@ -5,8 +5,10 @@
 mod capture_files;
 
 use super::{
-    externals::memory::wasm_memory_t, instance::wasm_instance_t, wasm_extern_t, wasm_func_t,
-    wasm_module_t, wasm_store_t,
+    externals::{wasm_extern_t, wasm_func_t, wasm_memory_t},
+    instance::wasm_instance_t,
+    module::wasm_module_t,
+    store::wasm_store_t,
 };
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966

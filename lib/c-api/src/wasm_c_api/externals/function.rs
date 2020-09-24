@@ -1,5 +1,6 @@
+use super::super::store::wasm_store_t;
 use super::super::value::{wasm_val_inner, wasm_val_t};
-use super::super::{wasm_functype_t, wasm_store_t, wasm_trap_t, wasm_valkind_enum};
+use super::super::{wasm_functype_t, wasm_trap_t, wasm_valkind_enum};
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::ptr::NonNull;
@@ -151,18 +152,4 @@ pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().results().len()
-}
-
-macro_rules! wasm_declare_own {
-    ($name:ident) => {
-        paste::item! {
-            #[repr(C)]
-            pub struct [<wasm_ $name _t>] {}
-
-            #[no_mangle]
-            pub extern "C" fn [<wasm_ $name _delete>](_arg: *mut [<wasm_ $name _t>]) {
-                todo!("in generated delete")
-            }
-        }
-    };
 }

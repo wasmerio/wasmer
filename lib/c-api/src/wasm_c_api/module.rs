@@ -1,6 +1,7 @@
+use super::store::wasm_store_t;
 use super::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
-    wasm_importtype_vec_t, wasm_store_t,
+    wasm_importtype_vec_t,
 };
 use crate::c_try;
 use std::mem;

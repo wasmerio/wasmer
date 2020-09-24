@@ -1,5 +1,6 @@
+use super::super::store::wasm_store_t;
 use super::super::value::wasm_val_t;
-use super::super::{store::wasm_store_t, wasm_globaltype_t};
+use super::super::wasm_globaltype_t;
 use std::convert::TryInto;
 use std::ptr::NonNull;
 use wasmer::{Global, Store, Val};
