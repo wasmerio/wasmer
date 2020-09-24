@@ -12,7 +12,7 @@ readme = "README.md"
 edition = "2018"
 
 [lib]
-crate-type = ["cdylib", "staticlib"]
+crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
 wasmer = { version = "1.0.0-alpha3", path = "../api", default-features = false }
