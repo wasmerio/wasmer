@@ -82,8 +82,10 @@ impl UnwindRegistry {
                 let len = std::ptr::read::<u32>(current as *const u32) as usize;
 
                 // Skip over the CIE
-                // We also skip to register the frame if the FDE is empty (len == 0) 
-                if current != start && len > 0 {
+                if current != start {
+                    // If len == 0, __register_frame will be a no-op.
+                    // So rather than skip it here, we just let __register_frame
+                    // deal with empty FDEs the way they want.
                     __register_frame(current);
                     self.registrations.push(current as usize);
                 }
