@@ -43,7 +43,7 @@ See the [examples] to find out how to do specific things in Wasmer 1.0.0.
 
 ## Project Structure
 
-![Wasmer depgraph](./docs/deps_dedup.svg)
+![Wasmer depgraph](./deps_dedup.svg)
 
 The figure above shows the core Wasmer crates and their dependencies with transitive dependencies deduplicated.
 
