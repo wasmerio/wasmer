@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-object-file"
-version = "1.0.0-alpha01.0"
+version = "1.0.0-alpha3"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 description = "Wasmer Object File Engine"
 categories = ["wasm"]
@@ -13,11 +13,11 @@ edition = "2018"
 # See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3" }
 wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
-wasmer-engine = { path = "../engine", version = "1.0.0-alpha01.0" }
-wasmer-object = { path = "../object", version = "1.0.0-alpha01.0" }
+wasmer-engine = { path = "../engine", version = "1.0.0-alpha3" }
+wasmer-object = { path = "../object", version = "1.0.0-alpha3" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "0.1"
 tracing = "0.1"

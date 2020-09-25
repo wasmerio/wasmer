@@ -2229,7 +2229,6 @@ dependencies = [
  "wasmer-engine-native",
  "wasmer-engine-object-file",
  "wasmer-types",
- "wasmer-vm",
  "wasmer-wasi",
  "wasmer-wasi-experimental-io-devices",
  "wasmer-wast",
@@ -2392,7 +2391,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-object-file"
-version = "1.0.0-alpha01.0"
+version = "1.0.0-alpha3"
 dependencies = [
  "bincode",
  "cfg-if",
