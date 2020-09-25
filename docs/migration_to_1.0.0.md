@@ -30,7 +30,11 @@ Install the latest versions of wasmer with [wasmer-nightly].
 
 ### Using Wasmer 1.0.0
 
-The CLI interface for Wasmer 1.0.0 is the same as it was in Wasmer 0.X.
+The CLI interface for Wasmer 1.0.0 is mostly the same as it was in Wasmer 0.X.
+
+One difference is that rather than specifying the compiler with `--backend=cranelift`,
+in Wasmer 1.0.0 we prefer using the name of the backend as a flag directly,
+for example: `--cranelift`.
 
 The top level crates that users will usually interface with are:
 
@@ -61,6 +65,31 @@ provided ABIs such as [wasmer-wasi]. However for users that need finer grained c
 the behavior of wasmer, other crates such as [wasmer-compiler] and [wasmer-engine] may be used
 to implement custom compilers and engines respectively.
 
+## Differences
+
+### Instantiating modules
+
+TODO: link to example, etc.
+
+### Passing host functions
+
+TODO: link to example showing advanced uses of the import object, show some example code inline and compare it to old wasmer
+
+### Accessing the environment as a host function
+
+TODO: link to example showing host functions accessing VM internals such as memory, calling other functions, etc., show some example code inline and compare it to old wasmer
+
+### Error handling
+
+TODO: link to example doing error handling, show inline what it looks like and compare it to old wasmer
+
+### Caching modules
+
+TODO: link to example, etc.
+
+### Metering
+
+TODO: link to example, etc.
 
 [examples]: https://github.com/wasmerio/wasmer/tree/master/examples
 [wasmer]: https://crates.io/crates/wasmer/1.0.0-alpha3
