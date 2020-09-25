@@ -46,6 +46,7 @@ members = [
     "lib/wasi-experimental-io-devices",
     "lib/wasmer-types",
     "tests/lib/wast",
+    "tests/integration/cli",
 ]
 exclude = [
     "lib/deprecated",

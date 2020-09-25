@@ -2408,6 +2408,14 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-integration-tests-cli"
+version = "1.0.0-alpha3"
+dependencies = [
+ "anyhow",
+ "tempfile",
+]
+
+[[package]]
 name = "wasmer-object"
 version = "1.0.0-alpha3"
 dependencies = [

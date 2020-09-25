@@ -10,8 +10,6 @@ repository = "https://github.com/wasmerio/wasmer"
 readme = "README.md"
 edition = "2018"
 
-# See more keys and their definitions at https://doc.rust-lang.org/cargo/reference/manifest.html
-
 [dependencies]
 wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
 wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3" }
