@@ -135,7 +135,6 @@ pub trait Artifact: Send + Sync {
         &self,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.features().bulk_memory;
         let data_initializers = self
             .data_initializers()
             .iter()
@@ -145,7 +144,7 @@ pub trait Artifact: Send + Sync {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(is_bulk_memory, &data_initializers)
+            .finish_instantiation(&data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 

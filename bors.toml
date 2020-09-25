@@ -2,6 +2,7 @@ status = [
     "Audit",
     "Code lint",
     "Test on linux",
+    "Test on linux-aarch64",
     "Test on macos",
     "Test on windows"
 ]

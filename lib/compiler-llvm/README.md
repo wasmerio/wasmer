@@ -7,7 +7,7 @@ This crate contains a compiler implementation based on [the LLVM Compiler Infras
 First, add this crate into your `Cargo.toml` dependencies:
 
 ```toml
-wasmer-compiler-llvm = "1.0.0-alpha.1"
+wasmer-compiler-llvm = "1.0.0-alpha"
 ```
 
 And then:

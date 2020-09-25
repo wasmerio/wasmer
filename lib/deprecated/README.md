@@ -6,7 +6,7 @@ Thanks to users feedback, collected experience and various use cases,
 Wasmer has decided to entirely improve its API to offer the best user
 experience and the best features to as many users as possible.
 
-The new version of Wasmer (`1.0.0-alpha.1`) includes many improvements
+The new version of Wasmer (`1.0.0-alpha`) includes many improvements
 in terms of performance or the memory consumption, in addition to a ton
 of new features and much better flexibility!
 You can check revamped new API in the [`wasmer`] crate.

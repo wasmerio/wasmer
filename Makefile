@@ -150,6 +150,7 @@ test-deprecated:
 
 package-wapm:
 	mkdir -p "package/bin"
+	cp ./wapm-cli/target/release/wapm package/bin/
 ifeq ($(OS), Windows_NT)
 	echo ""
 else
@@ -165,10 +166,7 @@ else
 	cp target/release/wasmer package/bin/
 endif
 
-# Comment out WAPM for now to speed up release process.
-# cp ./wapm-cli/target/release/wapm package/bin/
-# # Create the wax binary as symlink to wapm
-# cd package/bin/ && ln -sf wapm wax && chmod +x wax
+
 
 package-capi:
 	mkdir -p "package/include"
@@ -181,12 +179,12 @@ ifeq ($(OS), Windows_NT)
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
-	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
 else
 	cp target/release/libwasmer_c_api.so package/lib/libwasmer.so
-	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
 

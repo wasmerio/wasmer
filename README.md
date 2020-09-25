@@ -117,19 +117,19 @@ qjs >
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
 
 [python logo]: ./assets/languages/python.svg
-[python integration]: https://github.com/wasmerio/python-ext-wasm
+[python integration]: https://github.com/wasmerio/wasmer-python
 [`wasmer` pypi package]: https://pypi.org/project/wasmer/
-[python docs]: https://github.com/wasmerio/python-ext-wasm#api-of-the-wasmer-extensionmodule
+[python docs]: https://github.com/wasmerio/wasmer-python#api-of-the-wasmer-extensionmodule
 
 [go logo]: ./assets/languages/go.svg
-[go integration]: https://github.com/wasmerio/go-ext-wasm
-[`wasmer` go package]: https://pkg.go.dev/github.com/wasmerio/go-ext-wasm/wasmer
-[go docs]: https://pkg.go.dev/github.com/wasmerio/go-ext-wasm/wasmer?tab=doc
+[go integration]: https://github.com/wasmerio/wasmer-go
+[`wasmer` go package]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer
+[go docs]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer?tab=doc
 
 [php logo]: ./assets/languages/php.svg
-[php integration]: https://github.com/wasmerio/php-ext-wasm
+[php integration]: https://github.com/wasmerio/wasmer-php
 [`wasm` pecl package]: https://pecl.php.net/package/wasm
-[php docs]: https://wasmerio.github.io/php-ext-wasm/wasm/
+[php docs]: https://wasmerio.github.io/wasmer-php/wasm/
 
 [js logo]: ./assets/languages/js.svg
 [js integration]: https://github.com/wasmerio/wasmer-js
@@ -137,14 +137,14 @@ qjs >
 [js docs]: https://docs.wasmer.io/wasmer-js/wasmer-js
 
 [ruby logo]: ./assets/languages/ruby.svg
-[ruby integration]: https://github.com/wasmerio/ruby-ext-wasm
+[ruby integration]: https://github.com/wasmerio/wasmer-ruby
 [`wasmer` ruby gem]: https://rubygems.org/gems/wasmer
 [ruby docs]: https://www.rubydoc.info/gems/wasmer/
 
 [java logo]: ./assets/languages/java.svg
-[java integration]: https://github.com/wasmerio/java-ext-wasm
+[java integration]: https://github.com/wasmerio/wasmer-java
 [`wasmer/wasmer-jni` bintray package]: https://bintray.com/wasmer/wasmer-jni/wasmer-jni
-[java docs]: https://github.com/wasmerio/java-ext-wasm/#api-of-the-wasmer-library
+[java docs]: https://github.com/wasmerio/wasmer-java/#api-of-the-wasmer-library
 
 [elixir logo]: ./assets/languages/elixir.svg
 [elixir integration]: https://github.com/tessi/wasmex
@@ -156,8 +156,8 @@ qjs >
 [r docs]: https://github.com/dirkschumacher/wasmr#example
 
 [postgres logo]: ./assets/languages/postgres.svg
-[postgres integration]: https://github.com/wasmerio/postgres-ext-wasm
-[postgres docs]: https://github.com/wasmerio/postgres-ext-wasm#usage--documentation
+[postgres integration]: https://github.com/wasmerio/wasmer-postgres
+[postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 
 ## Contribute
 

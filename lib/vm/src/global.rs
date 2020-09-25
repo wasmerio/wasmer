@@ -3,7 +3,7 @@ use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasmer_types::{GlobalType, Type};
+use wasmer_types::{GlobalType, Mutability, Type, Value};
 
 #[derive(Debug)]
 /// TODO: figure out a decent name for this thing
@@ -63,13 +63,57 @@ impl Global {
         unsafe { NonNull::new_unchecked(ptr) }
     }
 
-    /// Get a reference to the definition
-    pub fn get(&self) -> &VMGlobalDefinition {
-        unsafe { &*self.vm_global_definition.get() }
+    /// Get a value from the global.
+    pub fn get<T>(&self) -> Value<T> {
+        let _global_guard = self.lock.lock().unwrap();
+        unsafe {
+            let definition = &*self.vm_global_definition.get();
+            match self.ty().ty {
+                Type::I32 => Value::I32(*definition.as_i32()),
+                Type::I64 => Value::I64(*definition.as_i64()),
+                Type::F32 => Value::F32(*definition.as_f32()),
+                Type::F64 => Value::F64(*definition.as_f64()),
+                Type::V128 => Value::V128(*definition.as_u128()),
+                _ => unimplemented!("Global::get for {:?}", self.ty),
+            }
+        }
     }
 
-    /// Get a mutable reference to the definition
-    pub fn get_mut(&self) -> &mut VMGlobalDefinition {
-        unsafe { &mut *self.vm_global_definition.get() }
+    /// Set a value for the global.
+    ///
+    /// # Safety
+    /// The caller should check that the `val` comes from the same store as this global.
+    pub unsafe fn set<T>(&self, val: Value<T>) -> Result<(), GlobalError> {
+        let _global_guard = self.lock.lock().unwrap();
+        if self.ty().mutability != Mutability::Var {
+            return Err(GlobalError::ImmutableGlobalCannotBeSet);
+        }
+        if val.ty() != self.ty().ty {
+            return Err(GlobalError::IncorrectType {
+                expected: self.ty.ty,
+                found: val.ty(),
+            });
+        }
+        self.set_unchecked(val)
+    }
+
+    /// Set a value from the global (unchecked)
+    ///
+    /// # Safety
+    /// The caller should check that the `val` comes from the same store as this global.
+    /// The caller should also ensure that this global is synchronized. Otherwise, use
+    /// `set` instead.
+    pub unsafe fn set_unchecked<T>(&self, val: Value<T>) -> Result<(), GlobalError> {
+        // ideally we'd use atomics for the global value rather than needing to lock it
+        let definition = &mut *self.vm_global_definition.get();
+        match val {
+            Value::I32(i) => *definition.as_i32_mut() = i,
+            Value::I64(i) => *definition.as_i64_mut() = i,
+            Value::F32(f) => *definition.as_f32_mut() = f,
+            Value::F64(f) => *definition.as_f64_mut() = f,
+            Value::V128(x) => *definition.as_u128_bits_mut() = x.to_ne_bytes(),
+            _ => unimplemented!("Global::set for {:?}", val.ty()),
+        }
+        Ok(())
     }
 }

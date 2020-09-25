@@ -8,10 +8,19 @@ After the compiler generates the machine code for the functions, the
 Native engine generates a shared object file and links it via
 [`dlsym`] so it can be usable by the [`wasmer`] API.
 
-This allows Wasmer to achieve *blazing fast* native startup times.
+This allows Wasmer to achieve *blazing fast* **native startup times**.
 
 *Note: you can find a [full working example using the Native engine
 here][example].*
+
+### Difference with `wasmer-engine-jit`
+
+The Native Engine and JIT engine mainly differ on how the Modules are loaded/stored.
+Using the same compilers, both will have the same runtime speed.
+
+However, the Native engine uses the Operating System shared library loader (via `dlopen`)
+and as such is able to achieve a much faster startup time when deserializing a serialized
+Module.
 
 ## Requirements
 

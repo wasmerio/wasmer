@@ -256,8 +256,7 @@ impl NativeArtifact {
                 .map_err(to_compile_error)?
         };
 
-        let host_target = Triple::host();
-        let is_cross_compiling = target_triple != &host_target;
+        let is_cross_compiling = engine_inner.is_cross_compiling();
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
                 format!("--target={}", target_triple),
@@ -276,15 +275,10 @@ impl NativeArtifact {
         trace!(
             "Compiling for target {} from host {}",
             target_triple.to_string(),
-            host_target.to_string()
+            Triple::host().to_string(),
         );
 
-        let linker = if is_cross_compiling {
-            "clang-10"
-        } else {
-            "gcc"
-        };
-
+        let linker: &'static str = engine_inner.linker().into();
         let output = Command::new(linker)
             .arg(&filepath)
             .arg("-o")
