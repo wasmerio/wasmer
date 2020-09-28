@@ -32,7 +32,8 @@ pub struct wasm_limits_t {
     pub(crate) max: u32,
 }
 
-/// cbindgen:ignoren#[no_mangle]
+/// cbindgen:ignore
+#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     // TODO: investigate if `0` is in fact a sentinel value here
@@ -48,12 +49,14 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
     })
 }
 
-/// cbindgen:ignoren#[no_mangle]
+/// cbindgen:ignore
+#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_delete(_memorytype: Option<Box<wasm_memorytype_t>>) {}
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
-/// cbindgen:ignoren#[no_mangle]
+/// cbindgen:ignore
+#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *const wasm_limits_t {
     let md = mt.as_memorytype();
     Box::into_raw(Box::new(wasm_limits_t {
