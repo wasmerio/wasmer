@@ -129,6 +129,11 @@ name = "static_and_dynamic_functions"
 harness = false
 
 [[example]]
+name = "early-exit"
+path = "examples/early_exit.rs"
+required-features = ["cranelift"]
+
+[[example]]
 name = "engine-jit"
 path = "examples/engine_jit.rs"
 required-features = ["cranelift"]
