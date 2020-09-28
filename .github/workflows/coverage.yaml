@@ -4,6 +4,7 @@ on:
       - '!trying'
       - '!trying.tmp'
       - '!staging'
+      - '!staging.tmp'
 
 name: build
 
