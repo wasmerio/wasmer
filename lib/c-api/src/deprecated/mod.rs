@@ -172,7 +172,7 @@ pub(crate) unsafe fn get_slice_checked<'a, T>(ptr: *const T, len: usize) -> &'a 
 
 lazy_static! {
     pub(crate) static ref GLOBAL_STORE: wasmer::Store =
-        wasmer::Store::new(&*crate::wasm_c_api::wasm_engine_new().inner);
+        wasmer::Store::new(&*crate::wasm_c_api::engine::wasm_engine_new().inner);
 }
 
 pub(crate) fn get_global_store() -> &'static wasmer::Store {

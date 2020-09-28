@@ -230,7 +230,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 
             // List of all structs and enums to exclude given by:
             //
-            // `rg 'pub (enum|struct)' deprecated/`
+            // `rg 'pub (enum|struct|union)' deprecated/`
             builder = builder
                 .exclude_item("NamedExportDescriptors(Vec<NamedExportDescriptor>)")
                 .exclude_item("NamedImportDescriptors(Vec<ImportType>)")
