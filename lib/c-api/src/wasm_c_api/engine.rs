@@ -25,6 +25,8 @@ cfg_if! {
     if #[cfg(all(feature = "jit", feature = "compiler"))] {
         // Compiler JIT
         use wasmer_compiler::CompilerConfig;
+        use wasmer_engine_jit::JIT;
+
         fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
             cfg_if! {
                 if #[cfg(feature = "cranelift")] {
