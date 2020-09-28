@@ -23,35 +23,35 @@ fn test_deprecated_c_api() {
 }
 
 fn run_command(command_str: &str, dir: &str, args: Vec<&str>) {
-    println!("Running command: `{}` args: {:?}", command_str, args);
+    println!(
+        "Running command: `{}` with arguments: {:?}",
+        command_str, args
+    );
 
     let mut command = Command::new(command_str);
-
     command.args(&args);
-
     command.current_dir(dir);
 
-    let result = command.output();
+    match command.output() {
+        Ok(result) => {
+            println!(">   Status: `{:?}`", result.status.code());
+            println!(
+                ">   Stdout: `{}`",
+                String::from_utf8_lossy(&result.stdout[..])
+            );
+            println!(
+                ">   Stderr: `{}`",
+                String::from_utf8_lossy(&result.stderr[..])
+            );
 
-    match result {
-        Ok(r) => {
-            println!(">   Output:");
-
-            if let Some(code) = r.status.code() {
-                println!(">   Status: {}", code);
-            } else {
-                println!(">   Status: None");
-            }
-
-            println!(">   Stdout: {}", String::from_utf8_lossy(&r.stdout[..]));
-            println!(">   Stderr: {}", String::from_utf8_lossy(&r.stderr[..]));
-
-            if r.status.success() {
+            if result.status.success() {
                 assert!(true)
             } else {
-                panic!("Command failed with exit status: {:?}", r.status);
+                panic!("Command failed with exit status: `{:?}`", result.status);
             }
         }
-        Err(e) => panic!("Command failed: {}", e),
+        Err(error) => panic!("Command failed: `{}`", error),
     }
+
+    println!("\n");
 }
