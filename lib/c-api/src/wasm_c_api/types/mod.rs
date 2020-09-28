@@ -5,8 +5,6 @@ mod global;
 mod import;
 mod memory;
 mod mutability;
-mod name;
-mod reference;
 mod table;
 mod value;
 
@@ -17,8 +15,6 @@ pub use global::*;
 pub use import::*;
 pub use memory::*;
 pub use mutability::*;
-pub use name::*;
-pub use reference::*;
 pub use table::*;
 pub use value::*;
 
@@ -32,3 +28,12 @@ wasm_declare_vec!(byte);
 pub struct wasm_frame_t {}
 
 wasm_declare_vec!(frame);
+
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
+pub type wasm_name_t = wasm_byte_vec_t;
+
+// opaque type over `ExternRef`?
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
+pub struct wasm_ref_t;

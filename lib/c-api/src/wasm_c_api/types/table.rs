@@ -1,12 +1,14 @@
 use super::{wasm_externtype_t, wasm_limits_t, wasm_valtype_delete, wasm_valtype_t};
 use wasmer::{ExternType, TableType};
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_table_size_t = u32;
 
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
 #[derive(Clone, Debug)]
 #[repr(C)]
-#[allow(non_camel_case_types)]
 pub struct wasm_tabletype_t {
     /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
@@ -26,6 +28,7 @@ impl wasm_tabletype_t {
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
     // own
@@ -54,6 +57,7 @@ pub unsafe extern "C" fn wasm_tabletype_new(
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_limits(
     tabletype: &wasm_tabletype_t,
@@ -67,6 +71,7 @@ pub unsafe extern "C" fn wasm_tabletype_limits(
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_element(
     tabletype: &wasm_tabletype_t,
@@ -76,5 +81,6 @@ pub unsafe extern "C" fn wasm_tabletype_element(
     Box::into_raw(Box::new(tt.ty.into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_delete(_tabletype: Option<Box<wasm_tabletype_t>>) {}

@@ -4,9 +4,11 @@ use std::ptr::NonNull;
 use wasmer::RuntimeError;
 
 // opaque type which is a `RuntimeError`
-#[repr(C)]
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
 pub struct wasm_trap_t {}
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_delete(trap: Option<NonNull<wasm_trap_t>>) {
     if let Some(t_inner) = trap {
@@ -14,6 +16,7 @@ pub unsafe extern "C" fn wasm_trap_delete(trap: Option<NonNull<wasm_trap_t>>) {
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_message(
     trap: *const wasm_trap_t,

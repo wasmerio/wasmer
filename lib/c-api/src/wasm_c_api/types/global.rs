@@ -4,11 +4,10 @@ use super::{
 use std::convert::TryInto;
 use wasmer::{ExternType, GlobalType};
 
-#[derive(Clone, Debug)]
-#[repr(C)]
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
+#[derive(Clone, Debug)]
 pub struct wasm_globaltype_t {
-    /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
 }
 
@@ -26,6 +25,7 @@ impl wasm_globaltype_t {
 
 wasm_declare_vec!(globaltype);
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_new(
     // own
@@ -35,6 +35,7 @@ pub unsafe extern "C" fn wasm_globaltype_new(
     wasm_globaltype_new_inner(valtype?, mutability)
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_delete(_globaltype: Option<Box<wasm_globaltype_t>>) {}
 
@@ -54,6 +55,7 @@ unsafe fn wasm_globaltype_new_inner(
     Some(gd)
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_mutability(
     globaltype: &wasm_globaltype_t,
@@ -64,6 +66,7 @@ pub unsafe extern "C" fn wasm_globaltype_mutability(
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_content(
     globaltype: &wasm_globaltype_t,

@@ -11,17 +11,17 @@ use std::sync::Arc;
 pub use table::*;
 use wasmer::{Extern, Instance};
 
-#[repr(C)]
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
 pub struct wasm_extern_t {
-    /// cbindgen:ignore
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,
-    /// cbindgen:ignore
     pub(crate) inner: Extern,
 }
 
 wasm_declare_boxed_vec!(extern);
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_as_extern(
     func_ptr: Option<NonNull<wasm_func_t>>,
@@ -35,6 +35,7 @@ pub unsafe extern "C" fn wasm_func_as_extern(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_as_extern(
     global_ptr: Option<NonNull<wasm_global_t>>,
@@ -49,6 +50,7 @@ pub unsafe extern "C" fn wasm_global_as_extern(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_as_extern(
     memory_ptr: Option<NonNull<wasm_memory_t>>,
@@ -63,6 +65,7 @@ pub unsafe extern "C" fn wasm_memory_as_extern(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_as_extern(
     table_ptr: Option<NonNull<wasm_table_t>>,
@@ -77,6 +80,7 @@ pub unsafe extern "C" fn wasm_table_as_extern(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_func(
     extern_ptr: Option<NonNull<wasm_extern_t>>,
@@ -93,6 +97,7 @@ pub unsafe extern "C" fn wasm_extern_as_func(
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_global(
     extern_ptr: Option<NonNull<wasm_extern_t>>,
@@ -106,6 +111,7 @@ pub unsafe extern "C" fn wasm_extern_as_global(
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_memory(
     extern_ptr: Option<NonNull<wasm_extern_t>>,
@@ -119,6 +125,7 @@ pub unsafe extern "C" fn wasm_extern_as_memory(
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_table(
     extern_ptr: Option<NonNull<wasm_extern_t>>,

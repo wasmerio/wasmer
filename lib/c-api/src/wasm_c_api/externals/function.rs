@@ -8,19 +8,20 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::{Function, Instance, RuntimeError, Store, Val};
 
-#[repr(C)]
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
 pub struct wasm_func_t {
-    /// cbindgen:ignore
     pub(crate) inner: Function,
-    /// cbindgen:ignore
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,
 }
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_t =
     unsafe extern "C" fn(args: *const wasm_val_t, results: *mut wasm_val_t) -> *mut wasm_trap_t;
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
     *mut c_void,
@@ -28,9 +29,11 @@ pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
     results: *mut wasm_val_t,
 ) -> *mut wasm_trap_t;
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
     store: Option<NonNull<wasm_store_t>>,
@@ -74,6 +77,7 @@ pub unsafe extern "C" fn wasm_func_new(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new_with_env(
     store: Option<NonNull<wasm_store_t>>,
@@ -120,9 +124,11 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     }))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_call(
     func: &wasm_func_t,
@@ -147,11 +153,13 @@ pub unsafe extern "C" fn wasm_func_call(
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().params().len()
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().results().len()

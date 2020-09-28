@@ -3,12 +3,14 @@
 macro_rules! wasm_declare_vec_inner {
     ($name:ident) => {
         paste::item! {
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
                 // TODO: actually implement this
                 [<wasm_ $name _vec_new_uninitialized>](out, 0);
             }
 
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
                 let vec = &mut *ptr;
@@ -27,6 +29,7 @@ macro_rules! wasm_declare_vec_inner {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::item! {
+            /// cbindgen:ignore
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -44,6 +47,7 @@ macro_rules! wasm_declare_vec {
             }
 
             // TODO: investigate possible memory leak on `init` (owned pointer)
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
@@ -57,6 +61,7 @@ macro_rules! wasm_declare_vec {
                 ::std::mem::forget(bytes);
             }
 
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
@@ -76,6 +81,7 @@ macro_rules! wasm_declare_vec {
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         paste::item! {
+            /// cbindgen:ignore
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -94,6 +100,7 @@ macro_rules! wasm_declare_boxed_vec {
             }
 
             // TODO: investigate possible memory leak on `init` (owned pointer)
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *const *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
@@ -107,6 +114,7 @@ macro_rules! wasm_declare_boxed_vec {
                 ::std::mem::forget(bytes);
             }
 
+            /// cbindgen:ignore
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
@@ -128,6 +136,7 @@ macro_rules! wasm_declare_ref_base {
         wasm_declare_own!($name);
 
         paste::item! {
+            /// cbindgen:ignore
             #[no_mangle]
             pub extern "C" fn [<wasm_ $name _copy>](_arg: *const [<wasm_ $name _t>]) -> *mut [<wasm_ $name _t>] {
                 todo!("in generated declare ref base");
@@ -145,9 +154,11 @@ macro_rules! wasm_declare_ref_base {
 macro_rules! wasm_declare_own {
     ($name:ident) => {
         paste::item! {
+            /// cbindgen:ignore
             #[repr(C)]
             pub struct [<wasm_ $name _t>] {}
 
+            /// cbindgen:ignore
             #[no_mangle]
             pub extern "C" fn [<wasm_ $name _delete>](_arg: *mut [<wasm_ $name _t>]) {
                 todo!("in generated delete")

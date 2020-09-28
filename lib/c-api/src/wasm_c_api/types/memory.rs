@@ -2,9 +2,9 @@ use super::wasm_externtype_t;
 use wasmer::{ExternType, MemoryType, Pages};
 
 // opaque type wrapping `MemoryType`
-#[derive(Clone, Debug)]
-#[repr(C)]
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
+#[derive(Clone, Debug)]
 pub struct wasm_memorytype_t {
     /// cbindgen:ignore
     pub(crate) extern_: wasm_externtype_t,
@@ -24,14 +24,15 @@ impl wasm_memorytype_t {
 
 wasm_declare_vec!(memorytype);
 
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
-#[repr(C)]
 pub struct wasm_limits_t {
     pub(crate) min: u32,
     pub(crate) max: u32,
 }
 
-#[no_mangle]
+/// cbindgen:ignoren#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     // TODO: investigate if `0` is in fact a sentinel value here
@@ -47,12 +48,12 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
     })
 }
 
-#[no_mangle]
+/// cbindgen:ignoren#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_delete(_memorytype: Option<Box<wasm_memorytype_t>>) {}
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
-#[no_mangle]
+/// cbindgen:ignoren#[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *const wasm_limits_t {
     let md = mt.as_memorytype();
     Box::into_raw(Box::new(wasm_limits_t {

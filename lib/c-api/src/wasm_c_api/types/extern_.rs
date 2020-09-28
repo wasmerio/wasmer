@@ -5,14 +5,14 @@ use std::mem;
 use thiserror::Error;
 use wasmer::ExternType;
 
-#[derive(Clone, Debug)]
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
-#[repr(C)]
+#[derive(Clone, Debug)]
 pub struct wasm_externtype_t {
-    /// cbindgen:ignore
     pub(crate) inner: ExternType,
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externtype_t> {
     Box::new(wasm_externtype_t {
@@ -20,6 +20,7 @@ pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externt
     })
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_delete(_et: Option<Box<wasm_externtype_t>>) {}
 
@@ -35,9 +36,11 @@ impl From<&ExternType> for wasm_externtype_t {
     }
 }
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 type wasm_externkind_t = u8;
 
+/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[repr(u8)]
 pub enum wasm_externkind_enum {
@@ -47,6 +50,7 @@ pub enum wasm_externkind_enum {
     WASM_EXTERN_MEMORY = 3,
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_kind(e: &wasm_extern_t) -> wasm_externkind_t {
     wasm_externkind_enum::from(e.inner.ty()) as wasm_externkind_t
@@ -68,6 +72,7 @@ impl From<&ExternType> for wasm_externkind_enum {
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_kind(et: &wasm_externtype_t) -> wasm_externkind_t {
     wasm_externkind_enum::from(&et.inner) as wasm_externkind_t
@@ -131,6 +136,7 @@ impl TryFrom<&'static wasm_externtype_t> for &'static wasm_tabletype_t {
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_functype_const(
     et: &'static wasm_externtype_t,
@@ -138,6 +144,7 @@ pub unsafe extern "C" fn wasm_externtype_as_functype_const(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_functype(
     et: &'static wasm_externtype_t,
@@ -145,6 +152,7 @@ pub unsafe extern "C" fn wasm_externtype_as_functype(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_as_externtype_const(
     ft: &'static wasm_functype_t,
@@ -152,6 +160,7 @@ pub unsafe extern "C" fn wasm_functype_as_externtype_const(
     &ft.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_as_externtype(
     ft: &'static wasm_functype_t,
@@ -159,6 +168,7 @@ pub unsafe extern "C" fn wasm_functype_as_externtype(
     &ft.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_memorytype_const(
     et: &'static wasm_externtype_t,
@@ -166,6 +176,7 @@ pub unsafe extern "C" fn wasm_externtype_as_memorytype_const(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_memorytype(
     et: &'static wasm_externtype_t,
@@ -173,6 +184,7 @@ pub unsafe extern "C" fn wasm_externtype_as_memorytype(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_as_externtype_const(
     mt: &'static wasm_memorytype_t,
@@ -180,6 +192,7 @@ pub unsafe extern "C" fn wasm_memorytype_as_externtype_const(
     &mt.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_as_externtype(
     mt: &'static wasm_memorytype_t,
@@ -187,6 +200,7 @@ pub unsafe extern "C" fn wasm_memorytype_as_externtype(
     &mt.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_globaltype_const(
     et: &'static wasm_externtype_t,
@@ -194,6 +208,7 @@ pub unsafe extern "C" fn wasm_externtype_as_globaltype_const(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_globaltype(
     et: &'static wasm_externtype_t,
@@ -201,6 +216,7 @@ pub unsafe extern "C" fn wasm_externtype_as_globaltype(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_as_externtype_const(
     gt: &'static wasm_globaltype_t,
@@ -208,6 +224,7 @@ pub unsafe extern "C" fn wasm_globaltype_as_externtype_const(
     &gt.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_as_externtype(
     gt: &'static wasm_globaltype_t,
@@ -215,6 +232,7 @@ pub unsafe extern "C" fn wasm_globaltype_as_externtype(
     &gt.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_tabletype_const(
     et: &'static wasm_externtype_t,
@@ -222,6 +240,7 @@ pub unsafe extern "C" fn wasm_externtype_as_tabletype_const(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_as_tabletype(
     et: &'static wasm_externtype_t,
@@ -229,6 +248,7 @@ pub unsafe extern "C" fn wasm_externtype_as_tabletype(
     Some(c_try!(et.try_into()))
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_as_externtype_const(
     tt: &'static wasm_tabletype_t,
@@ -236,6 +256,7 @@ pub unsafe extern "C" fn wasm_tabletype_as_externtype_const(
     &tt.extern_
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_as_externtype(
     tt: &'static wasm_tabletype_t,
