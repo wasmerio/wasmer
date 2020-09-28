@@ -1,4 +1,9 @@
-on: [push]
+on:
+  push:
+    branches:
+      - '!trying'
+      - '!trying.tmp'
+      - '!staging'
 
 name: build
 
