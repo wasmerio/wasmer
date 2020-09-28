@@ -172,7 +172,7 @@ struct LinkCode {
 impl Default for LinkCode {
     fn default() -> Self {
         Self {
-            linker_path: PathBuf::from("g++"),
+            linker_path: PathBuf::from("cc"),
             optimization_flag: String::from("-O2"),
             object_paths: vec![],
             output_path: PathBuf::from("a.out"),
