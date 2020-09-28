@@ -37,6 +37,7 @@ fn get_libwasmer_path() -> PathBuf {
     )
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum Engine {
     Jit,
@@ -55,6 +56,7 @@ impl Engine {
     }
 }
 
+#[allow(dead_code)]
 #[derive(Debug, Copy, Clone)]
 pub enum Compiler {
     Cranelift,
@@ -181,6 +183,7 @@ impl LinkCode {
             .arg(&self.optimization_flag)
             .args(&self.object_paths)
             .arg(&self.libwasmer_path)
+            .arg("-pthread")
             .arg("-o")
             .arg(&self.output_path)
             .output()?;
@@ -192,18 +195,12 @@ impl LinkCode {
                     .expect("stderr is not utf8! need to handle arbitrary bytes")
             );
         }
-        #[cfg(unix)]
-        Command::new("chmod")
-            .arg("+x")
-            .arg(&self.output_path)
-            .status()
-            .expect("Failed to make linked executable executable");
         Ok(())
     }
 }
 
 fn run_code(executable_path: &Path) -> anyhow::Result<String> {
-    let output = Command::new(executable_path).output()?;
+    let output = Command::new(executable_path.canonicalize().unwrap()).output()?;
 
     if !output.status.success() {
         bail!(
@@ -260,6 +257,12 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     }
     .run()
     .context("Failed to link objects together")?;
+
+    let cd = std::env::current_dir().unwrap();
+    let rd = fs::read_dir(cd).unwrap();
+    for dir in rd {
+        dbg!(dir);
+    }
 
     let result = run_code(&executable_path).context("Failed to run generated executable")?;
     assert_eq!(

@@ -132,6 +132,7 @@ int main() {
         void* vmctx = wasm_instance_get_vmctx_ptr(instance);
         wasm_val_t* inout[2] = { NULL, NULL };
 
+        fflush(stdout);
         // We're able to call our compiled functions directly through their trampolines.
         wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
 
