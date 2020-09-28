@@ -120,7 +120,9 @@ impl WasmerCompile {
 
         if !output.status.success() {
             bail!(
-                "wasmer compile failed with: {}",
+                "wasmer compile failed with: stdout: {}\n\nstderr: {}",
+                std::str::from_utf8(&output.stdout)
+                    .expect("stdout is not utf8! need to handle arbitrary bytes"),
                 std::str::from_utf8(&output.stderr)
                     .expect("stderr is not utf8! need to handle arbitrary bytes")
             );
@@ -142,7 +144,9 @@ fn run_c_compile(path_to_c_src: &Path, output_name: &Path) -> anyhow::Result<()>
 
     if !output.status.success() {
         bail!(
-            "C code compile failed with: {}",
+            "C code compile failed with: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
             std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
@@ -183,6 +187,7 @@ impl LinkCode {
             .arg(&self.optimization_flag)
             .args(&self.object_paths)
             .arg(&self.libwasmer_path)
+            .arg("-ldl")
             .arg("-pthread")
             .arg("-o")
             .arg(&self.output_path)
@@ -190,7 +195,9 @@ impl LinkCode {
 
         if !output.status.success() {
             bail!(
-                "linking failed with: {}",
+                "linking failed with: stdout: {}\n\nstderr: {}",
+                std::str::from_utf8(&output.stdout)
+                    .expect("stdout is not utf8! need to handle arbitrary bytes"),
                 std::str::from_utf8(&output.stderr)
                     .expect("stderr is not utf8! need to handle arbitrary bytes")
             );
@@ -204,7 +211,9 @@ fn run_code(executable_path: &Path) -> anyhow::Result<String> {
 
     if !output.status.success() {
         bail!(
-            "running executable failed: {}",
+            "running executable failed: stdout: {}\n\nstderr: {}",
+            std::str::from_utf8(&output.stdout)
+                .expect("stdout is not utf8! need to handle arbitrary bytes"),
             std::str::from_utf8(&output.stderr)
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
@@ -257,12 +266,6 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     }
     .run()
     .context("Failed to link objects together")?;
-
-    let cd = std::env::current_dir().unwrap();
-    let rd = fs::read_dir(cd).unwrap();
-    for dir in rd {
-        dbg!(dir);
-    }
 
     let result = run_code(&executable_path).context("Failed to run generated executable")?;
     assert_eq!(
