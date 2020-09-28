@@ -192,6 +192,12 @@ impl LinkCode {
                     .expect("stderr is not utf8! need to handle arbitrary bytes")
             );
         }
+        #[cfg(unix)]
+        Command::new("chmod")
+            .arg("+x")
+            .arg(&self.output_path)
+            .status()
+            .expect("Failed to make linked executable executable");
         Ok(())
     }
 }
@@ -221,7 +227,6 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     let wasm_path = PathBuf::from(OBJECT_FILE_ENGINE_TEST_WASM_PATH);
     let wasm_object_path = PathBuf::from("wasm.o");
     let header_output_path = PathBuf::from("my_wasm.h");
-    let libwasmer_path = get_libwasmer_path();
 
     WasmerCompile {
         wasm_path: wasm_path.clone(),
