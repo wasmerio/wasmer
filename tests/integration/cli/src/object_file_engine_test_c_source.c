@@ -30,7 +30,10 @@ void print_wasmer_error()
 
 int main() {
         printf("Initializing...\n");
-        wasm_engine_t* engine = wasm_engine_new();
+        wasm_config_t* config = wasm_config_new();
+        wasm_config_set_compiler(config, CRANELIFT);
+        wasm_config_set_engine(config, OBJECT_FILE);
+        wasm_engine_t* engine = wasm_engine_new_with_config(config);
         wasm_store_t* store = wasm_store_new(engine);
 
         char* byte_ptr = (char*)&WASMER_METADATA[0];
@@ -95,11 +98,11 @@ int main() {
 
         // In this example we're passing some JavaScript source code as a command line argumnet
         // to a WASI module that can evaluate JavaScript.
-        wasi_config_t* config = wasi_config_new("constant_value_here");
+        wasi_config_t* wasi_config = wasi_config_new("constant_value_here");
         const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
-        wasi_config_arg(config, "--eval");
-        wasi_config_arg(config, js_string);
-        wasi_env_t* wasi_env = wasi_env_new(config);
+        wasi_config_arg(wasi_config, "--eval");
+        wasi_config_arg(wasi_config, js_string);
+        wasi_env_t* wasi_env = wasi_env_new(wasi_config);
         if (!wasi_env) {
                 printf("> Error building WASI env!\n");
                 print_wasmer_error();

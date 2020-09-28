@@ -60,7 +60,8 @@ object-file = [
 ]
 compiler = [
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

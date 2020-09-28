@@ -35,6 +35,21 @@ enum {
   WASI_VERSION_INVALID = ~0
 };
 
+typedef enum wasmer_compiler_t {
+  CRANELIFT = 0,
+  LLVM = 1,
+  SINGLEPASS = 2,
+} wasmer_compiler_t;
+
+typedef enum wasmer_engine_t {
+  JIT = 0,
+  NATIVE = 1,
+  OBJECT_FILE = 2,
+} wasmer_engine_t;
+
+void wasm_config_set_compiler(wasm_config_t* config, wasmer_compiler_t compiler);
+void wasm_config_set_engine(wasm_config_t* config, wasmer_engine_t engine);
+
 // Create a `wasi_config_t`.
 //
 // Takes as an argument the name of the Wasm program to execute (will show up

@@ -109,7 +109,7 @@ impl WasmerCompile {
     fn run(&self) -> anyhow::Result<()> {
         let output = Command::new(&self.wasmer_path)
             .arg("compile")
-            .arg(&self.wasm_path)
+            .arg(&self.wasm_path.canonicalize()?)
             .arg(&self.compiler.to_flag())
             .arg(&self.engine.to_flag())
             .arg("-o")
@@ -131,8 +131,13 @@ impl WasmerCompile {
     }
 }
 
+/// Compile the C code.
 fn run_c_compile(path_to_c_src: &Path, output_name: &Path) -> anyhow::Result<()> {
-    let output = Command::new("cc")
+    #[cfg(not(windows))]
+    let c_compiler = "cc";
+    #[cfg(windows)]
+    let c_compiler = "clang";
+    let output = Command::new(c_compiler)
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
@@ -171,8 +176,12 @@ struct LinkCode {
 
 impl Default for LinkCode {
     fn default() -> Self {
+        #[cfg(not(windows))]
+        let linker = "cc";
+        #[cfg(windows)]
+        let linker = "clang";
         Self {
-            linker_path: PathBuf::from("cc"),
+            linker_path: PathBuf::from(linker),
             optimization_flag: String::from("-O2"),
             object_paths: vec![],
             output_path: PathBuf::from("a.out"),
@@ -185,9 +194,15 @@ impl LinkCode {
     fn run(&self) -> anyhow::Result<()> {
         let output = Command::new(&self.linker_path)
             .arg(&self.optimization_flag)
-            .args(&self.object_paths)
-            .arg(&self.libwasmer_path)
+            .args(
+                self.object_paths
+                    .iter()
+                    .map(|path| path.canonicalize().unwrap()),
+            )
+            .arg(&self.libwasmer_path.canonicalize()?)
+            .arg("-lffi")
             .arg("-ldl")
+            .arg("-lm")
             .arg("-pthread")
             .arg("-o")
             .arg(&self.output_path)
@@ -207,7 +222,7 @@ impl LinkCode {
 }
 
 fn run_code(executable_path: &Path) -> anyhow::Result<String> {
-    let output = Command::new(executable_path.canonicalize().unwrap()).output()?;
+    let output = Command::new(executable_path.canonicalize()?).output()?;
 
     if !output.status.success() {
         bail!(
