@@ -1,8 +1,8 @@
 use std::process::Command;
 
 #[test]
-fn test_c_api() {
-    let project_tests_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests");
+fn test_deprecated_c_api() {
+    let project_tests_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/deprecated/");
 
     let cmake_args = vec![
         ".",
@@ -35,18 +35,16 @@ fn run_command(command_str: &str, dir: &str, args: Vec<&str>) {
 
     match result {
         Ok(r) => {
-            println!("output:");
+            println!(">   Output:");
 
             if let Some(code) = r.status.code() {
-                println!("status: {}", code);
+                println!(">   Status: {}", code);
             } else {
-                println!("status: None");
+                println!(">   Status: None");
             }
 
-            println!("stdout:");
-            println!("{}", String::from_utf8_lossy(&r.stdout[..]));
-            println!("stderr:");
-            println!("{}", String::from_utf8_lossy(&r.stderr[..]));
+            println!(">   Stdout: {}", String::from_utf8_lossy(&r.stdout[..]));
+            println!(">   Stderr: {}", String::from_utf8_lossy(&r.stderr[..]));
 
             if r.status.success() {
                 assert!(true)
@@ -54,7 +52,6 @@ fn run_command(command_str: &str, dir: &str, args: Vec<&str>) {
                 panic!("Command failed with exit status: {:?}", r.status);
             }
         }
-
         Err(e) => panic!("Command failed: {}", e),
     }
 }
