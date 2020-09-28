@@ -145,7 +145,7 @@ test-deprecated:
 	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
 test-integration:
-	WASMER_TEST_WASMER_PATH=`pwd`/target/release/wasmer WASMER_TEST_LIBWASMER_PATH=`pwd`/target/release/libwasmer_c_api.a cargo test -p wasmer-integration-tests-cli
+	cargo test -p wasmer-integration-tests-cli
 
 #############
 # Packaging #

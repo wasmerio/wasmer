@@ -15,19 +15,25 @@ const OBJECT_FILE_ENGINE_TEST_C_SOURCE: &[u8] =
 const OBJECT_FILE_ENGINE_TEST_WASM_PATH: &str =
     concat!(env!("CARGO_MANIFEST_DIR"), "/assets/qjs.wasm");
 
+const WASMER_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../target/release/wasmer"
+);
+
+const LIBWASMER_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../target/release/libwasmer_c_api.a"
+);
+
 /// Get the path to the `wasmer` executable to be used in this test.
 fn get_wasmer_path() -> PathBuf {
-    PathBuf::from(
-        env::var("WASMER_TEST_WASMER_PATH")
-            .expect("`WASMER_TEST_WASMER_PATH` env var set with the path of a wasmer executable"),
-    )
+    PathBuf::from(env::var("WASMER_TEST_WASMER_PATH").unwrap_or_else(|_| WASMER_PATH.to_string()))
 }
 
 /// Get the path to the `libwasmer.a` static library.
 fn get_libwasmer_path() -> PathBuf {
     PathBuf::from(
-        env::var("WASMER_TEST_LIBWASMER_PATH")
-            .expect("`WASMER_TEST_LIBWASMER_PATH` env var set with the path of libwasmer.a"),
+        env::var("WASMER_TEST_LIBWASMER_PATH").unwrap_or_else(|_| LIBWASMER_PATH.to_string()),
     )
 }
 
@@ -39,7 +45,8 @@ pub enum Engine {
 }
 
 impl Engine {
-    pub const fn to_flag(self) -> &'static str {
+    // TODO: make this `const fn` when Wasmer moves to Rust 1.46.0+
+    pub fn to_flag(self) -> &'static str {
         match self {
             Engine::Jit => "--jit",
             Engine::Native => "--native",
@@ -56,7 +63,8 @@ pub enum Compiler {
 }
 
 impl Compiler {
-    pub const fn to_flag(self) -> &'static str {
+    // TODO: make this `const fn` when Wasmer moves to Rust 1.46.0+
+    pub fn to_flag(self) -> &'static str {
         match self {
             Compiler::Cranelift => "--cranelift",
             Compiler::LLVM => "--llvm",
@@ -188,7 +196,7 @@ impl LinkCode {
     }
 }
 
-fn run_code(executable_path: &Path) -> anyhow::Result<()> {
+fn run_code(executable_path: &Path) -> anyhow::Result<String> {
     let output = Command::new(executable_path).output()?;
 
     if !output.status.success() {
@@ -198,14 +206,17 @@ fn run_code(executable_path: &Path) -> anyhow::Result<()> {
                 .expect("stderr is not utf8! need to handle arbitrary bytes")
         );
     }
-    Ok(())
+    let output =
+        std::str::from_utf8(&output.stdout).expect("output from running executable is not utf-8");
+
+    Ok(output.to_owned())
 }
 
 #[test]
 fn object_file_engine_works() -> anyhow::Result<()> {
     let operating_dir = tempfile::tempdir()?;
 
-    std::env::set_current_dir(&operating_dir);
+    std::env::set_current_dir(&operating_dir)?;
 
     let wasm_path = PathBuf::from(OBJECT_FILE_ENGINE_TEST_WASM_PATH);
     let wasm_object_path = PathBuf::from("wasm.o");
@@ -245,7 +256,14 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     .run()
     .context("Failed to link objects together")?;
 
-    run_code(&executable_path).context("Failed to run generated executable")?;
+    let result = run_code(&executable_path).context("Failed to run generated executable")?;
+    assert_eq!(
+        &result,
+        r#"Initializing...
+Buffer size: 1801380
+"Hello, World"
+"#
+    );
 
     Ok(())
 }

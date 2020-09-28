@@ -143,6 +143,9 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Run integration tests
+        run: |
+          make test-integration
       - name: Package Wasmer
         run: |
           make package
