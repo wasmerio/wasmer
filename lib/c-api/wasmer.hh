@@ -110,22 +110,15 @@ template<typename T = void>
 struct Option;
 
 #if defined(WASMER_WASI_ENABLED)
+struct wasi_config_t;
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+struct wasi_env_t;
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 struct wasi_version_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-struct wasi_config_t {
-  bool inherit_stdout;
-  bool inherit_stderr;
-  bool inherit_stdin;
-  WasiStateBuilder state_builder;
-};
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-struct wasi_env_t {
-  WasiEnv inner;
-};
 #endif
 
 struct wasmer_module_t {

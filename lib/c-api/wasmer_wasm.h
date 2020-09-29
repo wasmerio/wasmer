@@ -52,22 +52,15 @@
 #include "wasm.h"
 
 #if defined(WASMER_WASI_ENABLED)
+typedef struct wasi_config_t wasi_config_t;
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+typedef struct wasi_env_t wasi_env_t;
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_version_t wasi_version_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-typedef struct {
-  bool inherit_stdout;
-  bool inherit_stderr;
-  bool inherit_stdin;
-  WasiStateBuilder state_builder;
-} wasi_config_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-typedef struct {
-  WasiEnv inner;
-} wasi_env_t;
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
