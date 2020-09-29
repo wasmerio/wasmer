@@ -713,13 +713,10 @@ pub unsafe extern "C" fn wasm_func_new(
         ];
 
         let trap = callback(processed_args.as_ptr(), results.as_mut_ptr());
-        dbg!(&trap);
         if !trap.is_null() {
             let trap: Box<wasm_trap_t> = Box::from_raw(trap);
-            dbg!("raising trap!");
             RuntimeError::raise(Box::new(trap.inner));
         }
-        // TODO: do something with `traps`
 
         let processed_results = results
             .into_iter()
@@ -1056,6 +1053,38 @@ macro_rules! wasm_declare_vec {
                 }
             }
 
+
+            impl<'a> From<Vec<[<wasm_ $name _t>]>> for [<wasm_ $name _vec_t>] {
+                fn from(other: Vec<[<wasm_ $name _t>]>) -> Self {
+                    let mut boxed_slice = other.into_boxed_slice();
+                    let size = boxed_slice.len();
+                    let data = boxed_slice.as_mut_ptr();
+                    mem::forget(boxed_slice);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
+            }
+
+            impl<'a, T: Into<[<wasm_ $name _t>]> + Clone> From<&'a [T]> for [<wasm_ $name _vec_t>] {
+                fn from(other: &'a [T]) -> Self {
+                    let size = other.len();
+                    let mut copied_data = other
+                        .iter()
+                        .cloned()
+                        .map(Into::into)
+                        .collect::<Vec<[<wasm_ $name _t>]>>()
+                        .into_boxed_slice();
+                    let data = copied_data.as_mut_ptr();
+                    mem::forget(copied_data);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
+            }
+
             // TODO: investigate possible memory leak on `init` (owned pointer)
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
@@ -1185,11 +1214,9 @@ pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_message(trap: &wasm_trap_t, out_ptr: &mut wasm_byte_vec_t) {
     let message = trap.inner.message();
-    out_ptr.size = message.len();
-    // TODO: make helper function for converting `Vec<T>` into owned `wasm_T_vec_t`
-    let mut dupe_data: Box<[u8]> = message.into_bytes().into_boxed_slice();
-    out_ptr.data = dupe_data.as_mut_ptr();
-    mem::forget(dupe_data);
+    let byte_vec: wasm_byte_vec_t = message.into_bytes().into();
+    out_ptr.size = byte_vec.size;
+    out_ptr.data = byte_vec.data;
 }
 
 #[no_mangle]
@@ -1197,27 +1224,13 @@ pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm
     trap.inner.trace().first().map(Into::into).map(Box::new)
 }
 
-// TODO: old comment, rm after finish implementation
-// in trap/RuntimeError we need to store
-// 1. message
-// 2. origin (frame); frame contains:
-//    1. func index
-//    2. func offset
-//    3. module offset
-//    4. which instance this was apart of
-
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_trace(trap: &wasm_trap_t, out_ptr: &mut wasm_frame_vec_t) {
     let frames = trap.inner.trace();
-    out_ptr.size = frames.len();
-    // TODO: make helper function for converting `Vec<T>` into owned `wasm_T_vec_t`
-    let mut dupe_data: Box<[wasm_frame_t]> = frames
-        .iter()
-        .map(Into::into)
-        .collect::<Vec<wasm_frame_t>>()
-        .into_boxed_slice();
-    out_ptr.data = dupe_data.as_mut_ptr();
-    mem::forget(dupe_data);
+    let frame_vec: wasm_frame_vec_t = frames.into();
+
+    out_ptr.size = frame_vec.size;
+    out_ptr.data = frame_vec.data;
 }
 
 #[repr(C)]

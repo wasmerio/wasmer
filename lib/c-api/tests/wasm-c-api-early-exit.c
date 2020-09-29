@@ -1,14 +1,13 @@
+#include <inttypes.h>
 #include <stdio.h>
 #include <stdlib.h>
 #include <string.h>
-#include <inttypes.h>
 
 #include "wasm.h"
 #include "wasmer_wasm.h"
 
 // Use the last_error API to retrieve error messages
-void print_wasmer_error()
-{
+void print_wasmer_error() {
   int error_len = wasmer_last_error_length();
   printf("Error len: `%d`\n", error_len);
   char *error_str = malloc(error_len);
@@ -16,25 +15,34 @@ void print_wasmer_error()
   printf("Error str: `%s`\n", error_str);
 }
 
-wasm_store_t* store = NULL;
+void print_frame(wasm_frame_t* frame) {
+  printf("> %p @ 0x%zx = %"PRIu32".0x%zx\n",
+    wasm_frame_instance(frame),
+    wasm_frame_module_offset(frame),
+    wasm_frame_func_index(frame),
+    wasm_frame_func_offset(frame)
+  );
+}
 
-own wasm_trap_t* early_exit(const wasm_val_t args[], wasm_val_t results[]) {
+wasm_store_t *store = NULL;
+
+own wasm_trap_t *early_exit(const wasm_val_t args[], wasm_val_t results[]) {
   own wasm_message_t trap_message;
-  wasm_name_new_from_string(&trap_message,"trapping from a host import");
-  own wasm_trap_t* trap = wasm_trap_new(store, &trap_message);
+  wasm_name_new_from_string(&trap_message, "trapping from a host import");
+  own wasm_trap_t *trap = wasm_trap_new(store, &trap_message);
   wasm_name_delete(&trap_message);
   return trap;
 }
 
-int main(int argc, const char* argv[]) {
+int main(int argc, const char *argv[]) {
   // Initialize.
   printf("Initializing...\n");
-  wasm_engine_t* engine = wasm_engine_new();
+  wasm_engine_t *engine = wasm_engine_new();
   store = wasm_store_new(engine);
 
   // Load binary.
   printf("Loading binary...\n");
-  FILE* file = fopen("assets/call_trap.wasm", "r");
+  FILE *file = fopen("assets/call_trap.wasm", "r");
   if (!file) {
     printf("> Error loading module!\n");
     return 1;
@@ -52,7 +60,7 @@ int main(int argc, const char* argv[]) {
 
   // Compile.
   printf("Compiling module...\n");
-  own wasm_module_t* module = wasm_module_new(store, &binary);
+  own wasm_module_t *module = wasm_module_new(store, &binary);
   if (!module) {
     printf("> Error compiling module!\n");
     return 1;
@@ -63,14 +71,14 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
 
-  wasm_functype_t* host_func_type = wasm_functype_new_0_0();
-  wasm_func_t* host_func = wasm_func_new(store, host_func_type, early_exit);
+  wasm_functype_t *host_func_type = wasm_functype_new_0_0();
+  wasm_func_t *host_func = wasm_func_new(store, host_func_type, early_exit);
 
   wasm_functype_delete(host_func_type);
 
-  const wasm_extern_t* imports[] = { wasm_func_as_extern(host_func) };
-  own wasm_instance_t* instance =
-    wasm_instance_new(store, module, imports, NULL);
+  const wasm_extern_t *imports[] = {wasm_func_as_extern(host_func)};
+  own wasm_instance_t *instance =
+      wasm_instance_new(store, module, imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     print_wasmer_error();
@@ -88,11 +96,11 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
   fprintf(stderr, "found %zu exports\n", exports.size);
-  
+
   wasm_module_delete(module);
   wasm_instance_delete(instance);
 
-  wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
+  wasm_func_t *run_func = wasm_extern_as_func(exports.data[0]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
     print_wasmer_error();
@@ -102,17 +110,11 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   own const wasm_val_t args[] = {
-    {
-      .kind = WASM_I32,
-      .of = { .i32 = 1 }
-    },
-    {
-      .kind = WASM_I32,
-      .of = { .i32 = 7 }
-    },
+      {.kind = WASM_I32, .of = {.i32 = 1}},
+      {.kind = WASM_I32, .of = {.i32 = 7}},
   };
-  own wasm_val_t rets[1] = { };
-  own wasm_trap_t* trap = wasm_func_call(run_func, args, rets);
+  own wasm_val_t rets[1] = {};
+  own wasm_trap_t *trap = wasm_func_call(run_func, args, rets);
   if (!trap) {
     printf("> Error calling function: expected trap!\n");
     return 1;
@@ -123,7 +125,7 @@ int main(int argc, const char* argv[]) {
   wasm_trap_message(trap, &message);
   printf("> %s\n", message.data);
 
-  /* printf("Printing origin...\n");
+  printf("Printing origin...\n");
   own wasm_frame_t* frame = wasm_trap_origin(trap);
   if (frame) {
     print_frame(frame);
@@ -143,7 +145,7 @@ int main(int argc, const char* argv[]) {
     printf("> Empty trace.\n");
   }
 
-  wasm_frame_vec_delete(&trace);*/
+  wasm_frame_vec_delete(&trace);
   wasm_trap_delete(trap);
   wasm_name_delete(&message);
 

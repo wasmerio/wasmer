@@ -8,3 +8,4 @@
         (local.get $x)
         (local.get $y)))
   (export "run" (func $run)))
+
