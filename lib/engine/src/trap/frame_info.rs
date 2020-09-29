@@ -282,7 +282,7 @@ pub fn register(
 /// each frame is described by this structure.
 ///
 /// [`Trap`]: crate::Trap
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct FrameInfo {
     module_name: String,
     func_index: u32,
