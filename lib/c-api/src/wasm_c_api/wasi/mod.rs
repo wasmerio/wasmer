@@ -248,7 +248,7 @@ pub unsafe extern "C" fn wasi_get_imports(
 }
 
 /// Takes ownership of `wasi_env_t`.
-unsafe extern "C" fn wasi_get_imports_inner(
+unsafe fn wasi_get_imports_inner(
     store: Option<NonNull<wasm_store_t>>,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
@@ -286,7 +286,9 @@ unsafe extern "C" fn wasi_get_imports_inner(
 }
 
 #[no_mangle]
-pub unsafe fn wasi_get_start_function(instance: &mut wasm_instance_t) -> Option<Box<wasm_func_t>> {
+pub unsafe extern "C" fn wasi_get_start_function(
+    instance: &mut wasm_instance_t,
+) -> Option<Box<wasm_func_t>> {
     let f = c_try!(instance.inner.exports.get_function("_start"));
     Some(Box::new(wasm_func_t {
         inner: f.clone(),
@@ -296,4 +298,4 @@ pub unsafe fn wasi_get_start_function(instance: &mut wasm_instance_t) -> Option<
 
 /// Delete a `wasm_extern_t` allocated by the API.
 #[no_mangle]
-pub unsafe fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
+pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
