@@ -9,21 +9,21 @@
 // Use the last_error API to retrieve error messages
 void print_wasmer_error()
 {
-    int error_len = wasmer_last_error_length();
-    printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
-    wasmer_last_error_message(error_str, error_len);
-    printf("Error str: `%s`\n", error_str);
+  int error_len = wasmer_last_error_length();
+  printf("Error len: `%d`\n", error_len);
+  char *error_str = malloc(error_len);
+  wasmer_last_error_message(error_str, error_len);
+  printf("Error str: `%s`\n", error_str);
 }
 
 wasm_store_t* store = NULL;
 
-wasm_trap_t* early_exit(wasm_val_t args[], wasm_val_t results[]) {
-        wasm_message_t* trap_message = NULL;
-        const char* message_inner = "trapping from a host import";
-        wasm_byte_vec_new_uninitialized(trap_message, strlen(message_inner));
-        // TODO: should we free this data?
-        return wasm_trap_new(store, trap_message);
+own wasm_trap_t* early_exit(const wasm_val_t args[], wasm_val_t results[]) {
+  own wasm_message_t trap_message;
+  wasm_name_new_from_string(&trap_message,"trapping from a host import");
+  own wasm_trap_t* trap = wasm_trap_new(store, &trap_message);
+  wasm_name_delete(&trap_message);
+  return trap;
 }
 
 int main(int argc, const char* argv[]) {
@@ -63,22 +63,21 @@ int main(int argc, const char* argv[]) {
   // Instantiate.
   printf("Instantiating module...\n");
 
-  // TODO: fill imports
-
   wasm_functype_t* host_func_type = wasm_functype_new_0_0();
-  wasm_func_t* host_func = wasm_func_new(store, host_func_type, (wasm_func_callback_t)early_exit);
-  wasm_extern_t* host_func_as_extern = wasm_func_as_extern(host_func);
+  wasm_func_t* host_func = wasm_func_new(store, host_func_type, early_exit);
+
   wasm_functype_delete(host_func_type);
 
-  wasm_extern_t* imports[] = { host_func_as_extern };
-
+  const wasm_extern_t* imports[] = { wasm_func_as_extern(host_func) };
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, (const wasm_extern_t *const *) imports, NULL);
+    wasm_instance_new(store, module, imports, NULL);
   if (!instance) {
     printf("> Error instantiating module!\n");
     print_wasmer_error();
     return 1;
   }
+
+  wasm_func_delete(host_func);
 
   // Extract export.
   printf("Extracting export...\n");
@@ -89,36 +88,69 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
   fprintf(stderr, "found %zu exports\n", exports.size);
+  
+  wasm_module_delete(module);
+  wasm_instance_delete(instance);
 
-  // TODO:
-  wasm_func_t* run_func = NULL;
+  wasm_func_t* run_func = wasm_extern_as_func(exports.data[0]);
   if (run_func == NULL) {
     printf("> Error accessing export!\n");
     print_wasmer_error();
     return 1;
   }
 
-  wasm_module_delete(module);
-  wasm_instance_delete(instance);
-
   // Call.
   printf("Calling export...\n");
-  if (wasm_func_call(run_func, NULL, NULL)) {
-    printf("> Error calling function!\n");
+  own const wasm_val_t args[] = {
+    {
+      .kind = WASM_I32,
+      .of = { .i32 = 1 }
+    },
+    {
+      .kind = WASM_I32,
+      .of = { .i32 = 7 }
+    },
+  };
+  own wasm_val_t rets[1] = { };
+  own wasm_trap_t* trap = wasm_func_call(run_func, args, rets);
+  if (!trap) {
+    printf("> Error calling function: expected trap!\n");
     return 1;
   }
 
-  wasm_extern_vec_delete(&exports);
+  printf("Printing message...\n");
+  own wasm_name_t message;
+  wasm_trap_message(trap, &message);
+  printf("> %s\n", message.data);
 
-  // NEEDS REVIEW:
-  for(int i = 0; i < num_imports; ++i) {
-     wasm_extern_delete(imports[i]);
+  /* printf("Printing origin...\n");
+  own wasm_frame_t* frame = wasm_trap_origin(trap);
+  if (frame) {
+    print_frame(frame);
+    wasm_frame_delete(frame);
+  } else {
+    printf("> Empty origin.\n");
   }
-  free(imports);
+
+  printf("Printing trace...\n");
+  own wasm_frame_vec_t trace;
+  wasm_trap_trace(trap, &trace);
+  if (trace.size > 0) {
+    for (size_t i = 0; i < trace.size; ++i) {
+      print_frame(trace.data[i]);
+    }
+  } else {
+    printf("> Empty trace.\n");
+  }
+
+  wasm_frame_vec_delete(&trace);*/
+  wasm_trap_delete(trap);
+  wasm_name_delete(&message);
+
+  wasm_extern_vec_delete(&exports);
 
   // Shut down.
   printf("Shutting down...\n");
-  wasm_func_delete(run_func);
   wasm_store_delete(store);
   wasm_engine_delete(engine);
 

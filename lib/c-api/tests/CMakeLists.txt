@@ -31,11 +31,11 @@ add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 #add_executable(wasm-c-api-start wasm-c-api/example/start.c)
 #add_executable(wasm-c-api-table wasm-c-api/example/table.c)
 #add_executable(wasm-c-api-threads wasm-c-api/example/threads.c)
-#add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
+add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
 
 # Custom Wasm C API tests
 add_executable(wasm-c-api-wasi wasm-c-api-wasi.c)
-add_executable(wasm-c-api-trap wasm-c-api-trap.c)
+add_executable(wasm-c-api-early-exit wasm-c-api-early-exit.c)
 
 if (DEFINED WASI_TESTS)
     add_executable(test-wasi-import-object test-wasi-import-object.c)
@@ -238,19 +238,19 @@ add_test(NAME wasm-c-api-serialize
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 #)
 
-#target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-trap
-#         COMMAND wasm-c-api-trap
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
-#)
+target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
+target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-trap
+         COMMAND wasm-c-api-trap
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
 
 set_property(TARGET wasm-c-api-wasi PROPERTY C_STANDARD 11)
 target_link_libraries(wasm-c-api-wasi general ${WASMER_LIB})
 target_compile_options(wasm-c-api-wasi PRIVATE ${COMPILER_OPTIONS})
 add_test(wasm-c-api-wasi wasm-c-api-wasi)
 
-set_property(TARGET wasm-c-api-trap PROPERTY C_STANDARD 11)
-target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
-target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
-add_test(wasm-c-api-trap wasm-c-api-trap)
+set_property(TARGET wasm-c-api-early-exit PROPERTY C_STANDARD 11)
+target_link_libraries(wasm-c-api-early-exit general ${WASMER_LIB})
+target_compile_options(wasm-c-api-early-exit PRIVATE ${COMPILER_OPTIONS})
+add_test(wasm-c-api-early-exit wasm-c-api-early-exit)

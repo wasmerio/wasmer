@@ -70,8 +70,8 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
-    NamedResolverChain, Resolver, RuntimeError, SerializeError,
+    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, InstantiationError, LinkError,
+    NamedResolver, NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
     Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,

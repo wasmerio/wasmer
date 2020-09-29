@@ -1,6 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1657](https://github.com/wasmerio/wasmer/pull/1657) Implement `wasm_trap_t` and `wasm_frame_t` for Wasm C API; add examples in Rust and C of exiting early with a host function.
 - [#1645](https://github.com/wasmerio/wasmer/pull/1645) Move the install script to https://github.com/wasmerio/wasmer-install
 
 ## 1.0.0-alpha3 - 2020-09-14
