@@ -103,24 +103,6 @@ enum class wasmer_value_tag : uint32_t {
   WASM_F64,
 };
 
-template<typename T = void>
-struct Box;
-
-template<typename T = void>
-struct Option;
-
-#if defined(WASMER_WASI_ENABLED)
-struct wasi_config_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-struct wasi_env_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-struct wasi_version_t;
-#endif
-
 struct wasmer_module_t {
 
 };
@@ -337,67 +319,6 @@ struct wasmer_wasi_map_dir_entry_t {
 #endif
 
 extern "C" {
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_config_arg(wasi_config_t *config, const char *arg);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stderr(wasi_config_t *config);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stdin(wasi_config_t *config);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stdout(wasi_config_t *config);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-Option<Box<wasi_config_t>> wasi_config_new(const char *program_name);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_env_delete(Option<Box<wasi_env_t>> _state);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-/// Takes ownership over the `wasi_config_t`.
-Option<Box<wasi_env_t>> wasi_env_new(Box<wasi_config_t> config);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-intptr_t wasi_env_read_stderr(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-/// Takes ownership of `wasi_env_t`.
-bool wasi_get_imports(wasm_store_t *store,
-                      const wasm_module_t *module,
-                      const wasi_env_t *wasi_env,
-                      wasm_extern_t **imports);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
-#endif
 
 /// Creates a new Module from the given wasm bytes.
 ///
