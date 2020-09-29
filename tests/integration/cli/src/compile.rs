@@ -137,6 +137,10 @@ fn run_c_compile(path_to_c_src: &Path, output_name: &Path) -> anyhow::Result<()>
     let c_compiler = "cc";
     #[cfg(windows)]
     let c_compiler = "clang";
+
+    dbg!(path_to_c_src.exists());
+    dbg!(Path::new(CLI_INTEGRATION_TESTS_ASSETS).exists());
+    dbg!(Command::new(c_compiler).arg("--help").output());
     let output = Command::new(c_compiler)
         .arg("-O2")
         .arg("-c")
@@ -200,7 +204,6 @@ impl LinkCode {
                     .map(|path| path.canonicalize().unwrap()),
             )
             .arg(&self.libwasmer_path.canonicalize()?)
-            .arg("-lffi")
             .arg("-ldl")
             .arg("-lm")
             .arg("-pthread")
