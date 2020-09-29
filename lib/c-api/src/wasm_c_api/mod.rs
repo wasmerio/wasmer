@@ -11,5 +11,6 @@ pub mod store;
 pub mod trap;
 pub mod types;
 pub mod value;
+
 #[cfg(feature = "wasi")]
 pub mod wasi;
