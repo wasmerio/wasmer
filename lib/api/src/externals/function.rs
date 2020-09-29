@@ -3,6 +3,7 @@ use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::Val;
 use crate::FunctionType;
+use crate::Module;
 use crate::NativeFunc;
 use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
@@ -10,18 +11,24 @@ use std::cell::RefCell;
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction, InstanceHandle,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
     VMTrampoline,
 };
 
 /// A function defined in the Wasm module
-#[derive(Clone, PartialEq)]
+#[derive(Clone)]
 pub struct WasmFunctionDefinition {
     /// The trampoline to do the call
     pub(crate) trampoline: VMTrampoline,
-    /// The instance that owns the memory for this function.
-    pub(crate) instance: InstanceHandle,
+    /// The module that owns the memory for this function.
+    pub(crate) module: Module,
+}
+
+impl PartialEq for WasmFunctionDefinition {
+    fn eq(&self, other: &Self) -> bool {
+        self.trampoline == other.trampoline && self.module.store() == other.module.store()
+    }
 }
 
 /// A function defined in the Host
@@ -352,19 +359,19 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let vmsignature = store.engine().register_signature(&wasmer_export.signature);
-        let trampoline = store
+    pub(crate) fn from_export(module: Module, wasmer_export: ExportFunction) -> Self {
+        let vmsignature = module
+            .store()
+            .engine()
+            .register_signature(&wasmer_export.signature);
+        let trampoline = module
+            .store()
             .engine()
             .function_call_trampoline(vmsignature)
             .expect("Can't get call trampoline for the function");
-        let instance = unsafe { wasmer_export.vmctx.as_ref().unwrap().instance_handle() };
         Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition {
-                trampoline,
-                instance,
-            }),
+            store: module.store().clone(),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline, module }),
             exported: wasmer_export,
         }
     }

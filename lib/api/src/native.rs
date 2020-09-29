@@ -128,7 +128,7 @@ macro_rules! impl_native_traits {
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
                         trampoline,
-                        instance: _,
+                        module: _,
                     }) => {
                         // TODO: when `const fn` related features mature more, we can declare a single array
                         // of the correct size here.

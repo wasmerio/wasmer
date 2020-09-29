@@ -1,6 +1,6 @@
 use crate::externals::Function;
 use crate::store::{Store, StoreObject};
-use crate::RuntimeError;
+use crate::{Module, RuntimeError};
 use std::ptr;
 use wasmer_types::Value;
 pub use wasmer_types::{
@@ -41,7 +41,7 @@ pub trait ValFuncRef {
         store: &Store,
     ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError>;
 
-    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self;
+    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, module: Module) -> Self;
 }
 
 impl ValFuncRef for Val {
@@ -63,11 +63,12 @@ impl ValFuncRef for Val {
         })
     }
 
-    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Val {
+    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, module: Module) -> Val {
         if item.type_index == wasmer_vm::VMSharedSignatureIndex::default() {
             return Val::ExternRef(ExternRef::Null);
         }
-        let signature = store
+        let signature = module
+            .store()
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
@@ -79,7 +80,7 @@ impl ValFuncRef for Val {
             kind: wasmer_vm::VMFunctionKind::Static,
             vmctx: item.vmctx,
         };
-        let f = Function::from_export(store, export);
+        let f = Function::from_export(module.store(), export);
         Val::FuncRef(f)
     }
 }

@@ -12,7 +12,7 @@ pub use self::table::Table;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
-use crate::ExternType;
+use crate::{ExternType, Module};
 use std::fmt;
 use wasmer_vm::Export;
 
@@ -44,12 +44,12 @@ impl Extern {
     }
 
     /// Create an `Extern` from an `Export`.
-    pub fn from_export(store: &Store, export: Export) -> Extern {
+    pub fn from_export(module: Module, export: Export) -> Extern {
         match export {
-            Export::Function(f) => Extern::Function(Function::from_export(store, f)),
-            Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
-            Export::Global(g) => Extern::Global(Global::from_export(store, g)),
-            Export::Table(t) => Extern::Table(Table::from_export(store, t)),
+            Export::Function(f) => Extern::Function(Function::from_export(module, f)),
+            Export::Memory(m) => Extern::Memory(Memory::from_export(module.store(), m)),
+            Export::Global(g) => Extern::Global(Global::from_export(module.store(), g)),
+            Export::Table(t) => Extern::Table(Table::from_export(module.store(), t)),
         }
     }
 }

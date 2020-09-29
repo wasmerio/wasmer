@@ -2,6 +2,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
+use crate::Module;
 use crate::RuntimeError;
 use crate::TableType;
 use std::sync::Arc;
@@ -20,17 +21,20 @@ use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfu
 pub struct Table {
     store: Store,
     table: Arc<dyn RuntimeTable>,
-}
-
-fn set_table_item(
-    table: &dyn RuntimeTable,
-    item_index: u32,
-    item: VMCallerCheckedAnyfunc,
-) -> Result<(), RuntimeError> {
-    table.set(item_index, item).map_err(|e| e.into())
+    modules: Vec<Arc<Module>>,
 }
 
 impl Table {
+    fn set_table_item(
+        &mut self,
+        table: &dyn RuntimeTable,
+        item_index: u32,
+        item: VMCallerCheckedAnyfunc,
+        module: Optional<Arc<Module>>,
+    ) -> Result<(), RuntimeError> {
+        table.set(item_index, item).map_err(|e| e.into())
+    }
+
     /// Creates a new `Table` with the provided [`TableType`] definition.
     ///
     /// All the elements in the table will be set to the `init` value.
@@ -48,13 +52,10 @@ impl Table {
 
         let num_elements = table.size();
         for i in 0..num_elements {
-            set_table_item(table.as_ref(), i, item.clone())?;
+            self.set_table_item(table.as_ref(), i, item.clone(), None)?;
         }
 
-        Ok(Table {
-            store: store.clone(),
-            table,
-        })
+        Ok(Table { store, table })
     }
 
     /// Returns the [`TableType`] of the `Table`.
@@ -70,12 +71,12 @@ impl Table {
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
         let item = self.table.get(index)?;
-        Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
+        Some(ValFuncRef::from_checked_anyfunc(item, self.module.clone()))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let item = val.into_checked_anyfunc(&self.store)?;
+        let item = val.into_checked_anyfunc(self.store())?;
         set_table_item(self.table.as_ref(), index, item)
     }
 
@@ -94,7 +95,7 @@ impl Table {
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
-        let item = init.into_checked_anyfunc(&self.store)?;
+        let item = init.into_checked_anyfunc(self.store())?;
         match self.table.grow(delta) {
             Some(len) => {
                 for i in 0..delta {
@@ -123,7 +124,7 @@ impl Table {
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
-        if !Store::same(&dst_table.store, &src_table.store) {
+        if !Store::same(&dst_table.store(), &src_table.store()) {
             return Err(RuntimeError::new(
                 "cross-`Store` table copies are not supported",
             ));
@@ -139,9 +140,9 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Table {
+    pub(crate) fn from_export(module: Module, wasmer_export: ExportTable) -> Table {
         Table {
-            store: store.clone(),
+            module,
             table: wasmer_export.from,
         }
     }
