@@ -51,12 +51,6 @@
 #include <stdlib.h>
 #include "wasm.h"
 
-typedef struct Box_wasi_config_t Box_wasi_config_t;
-
-typedef struct Option_Box_wasi_config_t Option_Box_wasi_config_t;
-
-typedef struct Option_Box_wasi_env_t Option_Box_wasi_env_t;
-
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_version_t wasi_version_t;
 #endif
@@ -97,18 +91,18 @@ void wasi_config_inherit_stdout(wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-Option_Box_wasi_config_t wasi_config_new(const char *program_name);
+wasi_config_t *wasi_config_new(const char *program_name);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_env_delete(Option_Box_wasi_env_t _state);
+void wasi_env_delete(wasi_env_t *_state);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
 /**
  * Takes ownership over the `wasi_config_t`.
  */
-Option_Box_wasi_env_t wasi_env_new(Box_wasi_config_t config);
+wasi_env_t *wasi_env_new(wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
