@@ -35,6 +35,7 @@ add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 
 # Custom Wasm C API tests
 add_executable(wasm-c-api-wasi wasm-c-api-wasi.c)
+add_executable(wasm-c-api-trap wasm-c-api-trap.c)
 
 if (DEFINED WASI_TESTS)
     add_executable(test-wasi-import-object test-wasi-import-object.c)
@@ -249,3 +250,7 @@ target_link_libraries(wasm-c-api-wasi general ${WASMER_LIB})
 target_compile_options(wasm-c-api-wasi PRIVATE ${COMPILER_OPTIONS})
 add_test(wasm-c-api-wasi wasm-c-api-wasi)
 
+set_property(TARGET wasm-c-api-trap PROPERTY C_STANDARD 11)
+target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
+target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
+add_test(wasm-c-api-trap wasm-c-api-trap)

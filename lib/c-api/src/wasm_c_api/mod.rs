@@ -1150,14 +1150,21 @@ pub struct wasm_ref_t;
 
 // opaque type which is a `RuntimeError`
 #[repr(C)]
-pub struct wasm_trap_t {}
+pub struct wasm_trap_t {
+    // have a vec of frames
+// have a message
+}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_trap_delete(trap: Option<NonNull<wasm_trap_t>>) {
-    if let Some(t_inner) = trap {
-        let _ = Box::from_raw(t_inner.cast::<RuntimeError>().as_ptr());
-    }
+pub unsafe extern "C" fn wasm_trap_new(
+    store: &mut wasm_store_t,
+    message: &wasm_message_t,
+) -> Box<wasm_trap_t> {
+    todo!()
 }
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_trap_message(
@@ -1768,6 +1775,9 @@ pub unsafe extern "C" fn wasm_tabletype_as_externtype(
 
 #[allow(non_camel_case_types)]
 type wasm_name_t = wasm_byte_vec_t;
+
+#[allow(non_camel_case_types)]
+type wasm_message_t = wasm_byte_vec_t;
 
 #[repr(C)]
 #[allow(non_camel_case_types)]
