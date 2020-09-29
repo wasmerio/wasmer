@@ -113,8 +113,7 @@ jobs:
         if: matrix.os == 'windows-latest'
         run: |
           choco install llvm
-          echo "%path%"
-          where clang
+          refreshenv
         # run: |
         #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
         #   7z x llvm-installer.exe -oC:/llvm-10
