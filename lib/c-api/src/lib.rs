@@ -11,7 +11,7 @@
     unreachable_patterns
 )]
 
-#[cfg(feature = "include-deprecated")]
+#[cfg(feature = "deprecated")]
 pub mod deprecated;
 pub mod error;
 mod ordered_resolver;

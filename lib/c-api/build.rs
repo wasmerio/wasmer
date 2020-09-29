@@ -40,7 +40,7 @@ const WASI_FEATURE_AS_C_DEFINE: &'static str = "WASMER_WASI_ENABLED";
 const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &'static str = "WASMER_EMSCRIPTEN_ENABLED";
 
 #[allow(unused)]
-const INCLUDE_DEPRECATED_FEATURE_AS_C_DEFINE: &'static str = "WASMER_DEPRECATED_ENABLED";
+const DEPRECATED_FEATURE_AS_C_DEFINE: &'static str = "WASMER_DEPRECATED_ENABLED";
 
 macro_rules! map_feature_as_c_define {
     ($feature:expr, $c_define:ident, $accumulator:ident) => {
@@ -62,7 +62,10 @@ fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
 
+    #[cfg(not(feature = "deprecated"))]
     build_wasm_c_api_headers(&crate_dir, &out_dir);
+
+    #[cfg(feature = "deprecated")]
     build_wasmer_headers(&crate_dir, &out_dir);
 }
 
@@ -87,11 +90,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE, pre_header);
-    map_feature_as_c_define!(
-        "include-deprecated",
-        INCLUDE_DEPRECATED_FEATURE_AS_C_DEFINE,
-        pre_header
-    );
+    map_feature_as_c_define!("deprecated", DEPRECATED_FEATURE_AS_C_DEFINE, pre_header);
 
     // Close pre header.
     pre_header.push_str(
@@ -122,15 +121,11 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
             .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
             .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
             .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
-            .with_define(
-                "feature",
-                "include-deprecated",
-                INCLUDE_DEPRECATED_FEATURE_AS_C_DEFINE,
-            )
+            .with_define("feature", "deprecated", DEPRECATED_FEATURE_AS_C_DEFINE)
             .with_include("wasm.h")
             .with_documentation(true);
 
-        #[cfg(not(feature = "include-deprecated"))]
+        #[cfg(not(feature = "deprecated"))]
         {
             // List of all functions to exclude given by:
             //
@@ -270,7 +265,6 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
         }
 
         builder
-            .exclude_item("Version")
             .generate()
             .expect("Unable to generate C bindings")
             .write_to_file(out_header_file.as_path());
@@ -284,10 +278,6 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     }
 }
 
-#[cfg(not(feature = "include-deprecated"))]
-fn build_wasmer_headers(_crate_dir: &str, _out_dir: &str) {}
-
-#[cfg(feature = "include-deprecated")]
 fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer");

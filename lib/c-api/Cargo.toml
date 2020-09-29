@@ -70,7 +70,7 @@ llvm = [
     "compiler",
 ]
 #emscripten = ["wasmer-emscripten"]
-include-deprecated = []
+deprecated = []
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]
