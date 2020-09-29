@@ -69,6 +69,7 @@ fn main() {
     build_wasmer_headers(&crate_dir, &out_dir);
 }
 
+#[allow(unused)]
 fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer_wasm");
@@ -124,146 +125,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
             .with_define("feature", "deprecated", DEPRECATED_FEATURE_AS_C_DEFINE)
             .with_include("wasm.h")
             .with_documentation(true);
-
-        #[cfg(not(feature = "deprecated"))]
-        {
-            // List of all functions to exclude given by:
-            //
-            // `rg 'extern "C" fn' deprecated/` builder = builder
-            builder = builder
-                .exclude_item("wasmer_compile")
-                .exclude_item("wasmer_emscripten_call_main")
-                .exclude_item("wasmer_emscripten_destroy_globals")
-                .exclude_item("wasmer_emscripten_generate_import_object")
-                .exclude_item("wasmer_emscripten_get_globals")
-                .exclude_item("wasmer_emscripten_set_up")
-                .exclude_item("wasmer_export_descriptor_kind")
-                .exclude_item("wasmer_export_descriptor_name")
-                .exclude_item("wasmer_export_descriptors")
-                .exclude_item("wasmer_export_descriptors_destroy")
-                .exclude_item("wasmer_export_descriptors_get")
-                .exclude_item("wasmer_export_descriptors_len")
-                .exclude_item("wasmer_export_func_call")
-                .exclude_item("wasmer_export_func_params")
-                .exclude_item("wasmer_export_func_params_arity")
-                .exclude_item("wasmer_export_func_returns")
-                .exclude_item("wasmer_export_func_returns_arity")
-                .exclude_item("wasmer_export_kind")
-                .exclude_item("wasmer_export_name")
-                .exclude_item("wasmer_export_to_func")
-                .exclude_item("wasmer_export_to_memory")
-                .exclude_item("wasmer_exports_destroy")
-                .exclude_item("wasmer_exports_get")
-                .exclude_item("wasmer_exports_len")
-                .exclude_item("wasmer_global_destroy")
-                .exclude_item("wasmer_global_get")
-                .exclude_item("wasmer_global_get_descriptor")
-                .exclude_item("wasmer_global_new")
-                .exclude_item("wasmer_global_set")
-                .exclude_item("wasmer_import_descriptor_kind")
-                .exclude_item("wasmer_import_descriptor_module_name")
-                .exclude_item("wasmer_import_descriptor_name")
-                .exclude_item("wasmer_import_descriptors")
-                .exclude_item("wasmer_import_descriptors_destroy")
-                .exclude_item("wasmer_import_descriptors_get")
-                .exclude_item("wasmer_import_descriptors_len")
-                .exclude_item("wasmer_import_func_destroy")
-                .exclude_item("wasmer_import_func_new")
-                .exclude_item("wasmer_import_func_params")
-                .exclude_item("wasmer_import_func_params_arity")
-                .exclude_item("wasmer_import_func_returns")
-                .exclude_item("wasmer_import_func_returns_arity")
-                .exclude_item("wasmer_import_object_destroy")
-                .exclude_item("wasmer_import_object_extend")
-                .exclude_item("wasmer_import_object_get_import")
-                .exclude_item("wasmer_import_object_imports_destroy")
-                .exclude_item("wasmer_import_object_iter_at_end")
-                .exclude_item("wasmer_import_object_iter_destroy")
-                .exclude_item("wasmer_import_object_iter_next")
-                .exclude_item("wasmer_import_object_iterate_functions")
-                .exclude_item("wasmer_import_object_new")
-                .exclude_item("wasmer_import_object_new")
-                .exclude_item("wasmer_instance_call")
-                .exclude_item("wasmer_instance_context_data_get")
-                .exclude_item("wasmer_instance_context_data_set")
-                .exclude_item("wasmer_instance_context_get")
-                .exclude_item("wasmer_instance_context_memory")
-                .exclude_item("wasmer_instance_destroy")
-                .exclude_item("wasmer_instance_exports")
-                .exclude_item("wasmer_instantiate")
-                .exclude_item("wasmer_memory_data")
-                .exclude_item("wasmer_memory_data_length")
-                .exclude_item("wasmer_memory_destroy")
-                .exclude_item("wasmer_memory_grow")
-                .exclude_item("wasmer_memory_length")
-                .exclude_item("wasmer_memory_new")
-                .exclude_item("wasmer_module_deserialize")
-                .exclude_item("wasmer_module_destroy")
-                .exclude_item("wasmer_module_import_instantiate")
-                .exclude_item("wasmer_module_instantiate")
-                .exclude_item("wasmer_module_serialize")
-                .exclude_item("wasmer_serialized_module_bytes")
-                .exclude_item("wasmer_serialized_module_destroy")
-                .exclude_item("wasmer_serialized_module_from_bytes")
-                .exclude_item("wasmer_table_destroy")
-                .exclude_item("wasmer_table_grow")
-                .exclude_item("wasmer_table_length")
-                .exclude_item("wasmer_table_new")
-                .exclude_item("wasmer_trampoline_buffer_builder_add_callinfo_trampoline")
-                .exclude_item("wasmer_trampoline_buffer_builder_add_context_trampoline")
-                .exclude_item("wasmer_trampoline_buffer_builder_build")
-                .exclude_item("wasmer_trampoline_buffer_builder_new")
-                .exclude_item("wasmer_trampoline_buffer_destroy")
-                .exclude_item("wasmer_trampoline_buffer_get_trampoline")
-                .exclude_item("wasmer_trampoline_get_context")
-                .exclude_item("wasmer_trap")
-                .exclude_item("wasmer_validate")
-                .exclude_item("wasmer_wasi_generate_default_import_object")
-                .exclude_item("wasmer_wasi_generate_import_object")
-                .exclude_item("wasmer_wasi_generate_import_object_for_version")
-                .exclude_item("wasmer_wasi_get_version");
-
-            // List of all structs and enums to exclude given by:
-            //
-            // `rg 'pub (enum|struct|union)' deprecated/`
-            builder = builder
-                .exclude_item("NamedExportDescriptors(Vec<NamedExportDescriptor>)")
-                .exclude_item("NamedImportDescriptors(Vec<ImportType>)")
-                .exclude_item("Version")
-                .exclude_item("WasmerImportObjectIterator")
-                .exclude_item("wasmer_byte_array")
-                .exclude_item("wasmer_emscripten_globals_t")
-                .exclude_item("wasmer_export_descriptor_t")
-                .exclude_item("wasmer_export_descriptors_t")
-                .exclude_item("wasmer_export_func_t")
-                .exclude_item("wasmer_export_t")
-                .exclude_item("wasmer_exports_t")
-                .exclude_item("wasmer_global_descriptor_t")
-                .exclude_item("wasmer_global_t")
-                .exclude_item("wasmer_import_descriptor_t")
-                .exclude_item("wasmer_import_descriptors_t")
-                .exclude_item("wasmer_import_export_kind")
-                .exclude_item("wasmer_import_func_t")
-                .exclude_item("wasmer_import_object_iter_t")
-                .exclude_item("wasmer_import_object_t")
-                .exclude_item("wasmer_import_t")
-                .exclude_item("wasmer_instance_context_t")
-                .exclude_item("wasmer_instance_t")
-                .exclude_item("wasmer_limit_option_t")
-                .exclude_item("wasmer_limits_t")
-                .exclude_item("wasmer_memory_t")
-                .exclude_item("wasmer_module_t")
-                .exclude_item("wasmer_result_t")
-                .exclude_item("wasmer_serialized_module_t")
-                .exclude_item("wasmer_table_t")
-                .exclude_item("wasmer_trampoline_buffer_builder_t")
-                .exclude_item("wasmer_trampoline_buffer_t")
-                .exclude_item("wasmer_trampoline_callable_t")
-                .exclude_item("wasmer_value_t")
-                .exclude_item("wasmer_value_tag")
-                .exclude_item("wasmer_wasi_map_dir_entry_t");
-        }
-
+        builder = exclude_items_from_deprecated(builder);
         builder
             .generate()
             .expect("Unable to generate C bindings")
@@ -278,6 +140,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     }
 }
 
+#[allow(unused)]
 fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer");
@@ -314,7 +177,7 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
         // Generate the bindings in the `OUT_DIR`.
         out_header_file.set_extension("h");
 
-        Builder::new()
+        let mut builder = Builder::new()
             .with_language(Language::C)
             .with_crate(crate_dir)
             .with_include_guard("WASMER_H")
@@ -323,7 +186,9 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
             .with_define("target_arch", "x86_64", "ARCH_X86_64")
             .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
             .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
-            .with_documentation(true)
+            .with_documentation(true);
+        builder = exclude_items_from_wasm_c_api(builder);
+        builder
             .generate()
             .expect("Unable to generate C bindings")
             .write_to_file(out_header_file.as_path());
@@ -341,7 +206,7 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
         // Generate the bindings in the `OUT_DIR`.
         out_header_file.set_extension("hh");
 
-        Builder::new()
+        let mut builder = Builder::new()
             .with_language(Language::Cxx)
             .with_crate(crate_dir)
             .with_include_guard("WASMER_H")
@@ -350,7 +215,9 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
             .with_define("target_arch", "x86_64", "ARCH_X86_64")
             .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
             .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
-            .with_documentation(true)
+            .with_documentation(true);
+        builder = exclude_items_from_wasm_c_api(builder);
+        builder
             .generate()
             .expect("Unable to generate C++ bindings")
             .write_to_file(out_header_file.as_path());
@@ -362,4 +229,171 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
         fs::copy(out_header_file, crate_header_file)
             .expect("Unable to copy the generated C++ bindings");
     }
+}
+
+fn exclude_items_from_deprecated(mut builder: Builder) -> Builder {
+    // List of all functions to exclude given by:
+    //
+    // `rg 'extern "C" fn' deprecated/` builder = builder
+    builder = builder
+        .exclude_item("wasmer_compile")
+        .exclude_item("wasmer_emscripten_call_main")
+        .exclude_item("wasmer_emscripten_destroy_globals")
+        .exclude_item("wasmer_emscripten_generate_import_object")
+        .exclude_item("wasmer_emscripten_get_globals")
+        .exclude_item("wasmer_emscripten_set_up")
+        .exclude_item("wasmer_export_descriptor_kind")
+        .exclude_item("wasmer_export_descriptor_name")
+        .exclude_item("wasmer_export_descriptors")
+        .exclude_item("wasmer_export_descriptors_destroy")
+        .exclude_item("wasmer_export_descriptors_get")
+        .exclude_item("wasmer_export_descriptors_len")
+        .exclude_item("wasmer_export_func_call")
+        .exclude_item("wasmer_export_func_params")
+        .exclude_item("wasmer_export_func_params_arity")
+        .exclude_item("wasmer_export_func_returns")
+        .exclude_item("wasmer_export_func_returns_arity")
+        .exclude_item("wasmer_export_kind")
+        .exclude_item("wasmer_export_name")
+        .exclude_item("wasmer_export_to_func")
+        .exclude_item("wasmer_export_to_memory")
+        .exclude_item("wasmer_exports_destroy")
+        .exclude_item("wasmer_exports_get")
+        .exclude_item("wasmer_exports_len")
+        .exclude_item("wasmer_global_destroy")
+        .exclude_item("wasmer_global_get")
+        .exclude_item("wasmer_global_get_descriptor")
+        .exclude_item("wasmer_global_new")
+        .exclude_item("wasmer_global_set")
+        .exclude_item("wasmer_import_descriptor_kind")
+        .exclude_item("wasmer_import_descriptor_module_name")
+        .exclude_item("wasmer_import_descriptor_name")
+        .exclude_item("wasmer_import_descriptors")
+        .exclude_item("wasmer_import_descriptors_destroy")
+        .exclude_item("wasmer_import_descriptors_get")
+        .exclude_item("wasmer_import_descriptors_len")
+        .exclude_item("wasmer_import_func_destroy")
+        .exclude_item("wasmer_import_func_new")
+        .exclude_item("wasmer_import_func_params")
+        .exclude_item("wasmer_import_func_params_arity")
+        .exclude_item("wasmer_import_func_returns")
+        .exclude_item("wasmer_import_func_returns_arity")
+        .exclude_item("wasmer_import_object_destroy")
+        .exclude_item("wasmer_import_object_extend")
+        .exclude_item("wasmer_import_object_get_import")
+        .exclude_item("wasmer_import_object_imports_destroy")
+        .exclude_item("wasmer_import_object_iter_at_end")
+        .exclude_item("wasmer_import_object_iter_destroy")
+        .exclude_item("wasmer_import_object_iter_next")
+        .exclude_item("wasmer_import_object_iterate_functions")
+        .exclude_item("wasmer_import_object_new")
+        .exclude_item("wasmer_import_object_new")
+        .exclude_item("wasmer_instance_call")
+        .exclude_item("wasmer_instance_context_data_get")
+        .exclude_item("wasmer_instance_context_data_set")
+        .exclude_item("wasmer_instance_context_get")
+        .exclude_item("wasmer_instance_context_memory")
+        .exclude_item("wasmer_instance_destroy")
+        .exclude_item("wasmer_instance_exports")
+        .exclude_item("wasmer_instantiate")
+        .exclude_item("wasmer_memory_data")
+        .exclude_item("wasmer_memory_data_length")
+        .exclude_item("wasmer_memory_destroy")
+        .exclude_item("wasmer_memory_grow")
+        .exclude_item("wasmer_memory_length")
+        .exclude_item("wasmer_memory_new")
+        .exclude_item("wasmer_module_deserialize")
+        .exclude_item("wasmer_module_destroy")
+        .exclude_item("wasmer_module_import_instantiate")
+        .exclude_item("wasmer_module_instantiate")
+        .exclude_item("wasmer_module_serialize")
+        .exclude_item("wasmer_serialized_module_bytes")
+        .exclude_item("wasmer_serialized_module_destroy")
+        .exclude_item("wasmer_serialized_module_from_bytes")
+        .exclude_item("wasmer_table_destroy")
+        .exclude_item("wasmer_table_grow")
+        .exclude_item("wasmer_table_length")
+        .exclude_item("wasmer_table_new")
+        .exclude_item("wasmer_trampoline_buffer_builder_add_callinfo_trampoline")
+        .exclude_item("wasmer_trampoline_buffer_builder_add_context_trampoline")
+        .exclude_item("wasmer_trampoline_buffer_builder_build")
+        .exclude_item("wasmer_trampoline_buffer_builder_new")
+        .exclude_item("wasmer_trampoline_buffer_destroy")
+        .exclude_item("wasmer_trampoline_buffer_get_trampoline")
+        .exclude_item("wasmer_trampoline_get_context")
+        .exclude_item("wasmer_trap")
+        .exclude_item("wasmer_validate")
+        .exclude_item("wasmer_wasi_generate_default_import_object")
+        .exclude_item("wasmer_wasi_generate_import_object")
+        .exclude_item("wasmer_wasi_generate_import_object_for_version")
+        .exclude_item("wasmer_wasi_get_version");
+
+    // List of all structs and enums to exclude given by:
+    //
+    // `rg 'pub (enum|struct|union)' deprecated/`
+    builder = builder
+        .exclude_item("NamedExportDescriptors(Vec<NamedExportDescriptor>)")
+        .exclude_item("NamedImportDescriptors(Vec<ImportType>)")
+        .exclude_item("Version")
+        .exclude_item("WasmerImportObjectIterator")
+        .exclude_item("wasmer_byte_array")
+        .exclude_item("wasmer_emscripten_globals_t")
+        .exclude_item("wasmer_export_descriptor_t")
+        .exclude_item("wasmer_export_descriptors_t")
+        .exclude_item("wasmer_export_func_t")
+        .exclude_item("wasmer_export_t")
+        .exclude_item("wasmer_exports_t")
+        .exclude_item("wasmer_global_descriptor_t")
+        .exclude_item("wasmer_global_t")
+        .exclude_item("wasmer_import_descriptor_t")
+        .exclude_item("wasmer_import_descriptors_t")
+        .exclude_item("wasmer_import_export_kind")
+        .exclude_item("wasmer_import_func_t")
+        .exclude_item("wasmer_import_object_iter_t")
+        .exclude_item("wasmer_import_object_t")
+        .exclude_item("wasmer_import_t")
+        .exclude_item("wasmer_instance_context_t")
+        .exclude_item("wasmer_instance_t")
+        .exclude_item("wasmer_limit_option_t")
+        .exclude_item("wasmer_limits_t")
+        .exclude_item("wasmer_memory_t")
+        .exclude_item("wasmer_module_t")
+        .exclude_item("wasmer_result_t")
+        .exclude_item("wasmer_serialized_module_t")
+        .exclude_item("wasmer_table_t")
+        .exclude_item("wasmer_trampoline_buffer_builder_t")
+        .exclude_item("wasmer_trampoline_buffer_t")
+        .exclude_item("wasmer_trampoline_callable_t")
+        .exclude_item("wasmer_value_t")
+        .exclude_item("wasmer_value_tag")
+        .exclude_item("wasmer_wasi_map_dir_entry_t");
+
+    builder
+}
+
+fn exclude_items_from_wasm_c_api(mut builder: Builder) -> Builder {
+    // All items defined in `wasm.h` are ignored by cbindgen, because
+    // we don't want duplications. We must exclude extra non-standard
+    // items, like the ones from the WASI API.
+    builder = builder
+        .exclude_item("wasi_config_arg")
+        .exclude_item("wasi_config_env")
+        .exclude_item("wasi_config_inherit_stderr")
+        .exclude_item("wasi_config_inherit_stdin")
+        .exclude_item("wasi_config_inherit_stdout")
+        .exclude_item("wasi_config_new")
+        .exclude_item("wasi_config_t")
+        .exclude_item("wasi_env_delete")
+        .exclude_item("wasi_env_new")
+        .exclude_item("wasi_env_read_stderr")
+        .exclude_item("wasi_env_read_stdout")
+        .exclude_item("wasi_env_set_instance")
+        .exclude_item("wasi_env_set_memory")
+        .exclude_item("wasi_env_t")
+        .exclude_item("wasi_get_imports")
+        .exclude_item("wasi_get_imports_inner")
+        .exclude_item("wasi_get_wasi_version")
+        .exclude_item("wasi_version_t");
+
+    builder
 }
