@@ -6,7 +6,6 @@ description = "Wasmer Object File Engine"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm"]
 repository = "https://github.com/wasmerio/wasmer"
-# TODO: make a readme explaining what this crate is
 readme = "README.md"
 edition = "2018"
 
