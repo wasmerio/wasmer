@@ -27,7 +27,7 @@ use wasmer_engine_native::Native;
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = wat2wasm(
-        r#"
+        br#"
 (module
   (type $sum_t (func (param i32 i32) (result i32)))
   (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
@@ -35,8 +35,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     local.get $y
     i32.add)
   (export "sum" (func $sum_f)))
-"#
-        .as_bytes(),
+"#,
     )?;
 
     // Define a compiler configuration.
