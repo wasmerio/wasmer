@@ -44,6 +44,13 @@ pub enum CType {
         /// None is equivalent to Some(Box(Ctype::Void)).
         return_value: Option<Box<CType>>,
     },
+    /// C constant array.
+    Array {
+        /// The type of the array.
+        inner: Box<CType>,
+    },
+    /// A user defined type.
+    TypeDef(String),
 }
 
 impl CType {
@@ -131,6 +138,13 @@ impl CType {
                 }
                 w.push(')');
             }
+            Self::Array { inner } => {
+                inner.generate_c(w);
+                w.push_str("[]");
+            }
+            Self::TypeDef(inner) => {
+                w.push_str(&inner);
+            }
         }
     }
 
@@ -138,6 +152,7 @@ impl CType {
     fn generate_c_with_name(&self, name: &str, w: &mut String) {
         match &self {
             Self::PointerTo { .. }
+            | Self::TypeDef { .. }
             | Self::Void
             | Self::U8
             | Self::U16
@@ -176,6 +191,12 @@ impl CType {
                 }
                 w.push(')');
             }
+            Self::Array { inner } => {
+                inner.generate_c(w);
+                w.push(' ');
+                w.push_str(&name);
+                w.push_str("[]");
+            }
         }
     }
 }
@@ -195,9 +216,6 @@ pub enum CStatement {
     Declaration {
         /// The name of the thing being declared.
         name: String,
-        /// Whether the thing being declared is an array.
-        // TODO: probably make this part of CType
-        array: bool,
         /// Whether the thing being declared is `extern`.
         is_extern: bool,
         /// Whether the thing being declared is `const`.
@@ -220,6 +238,21 @@ pub enum CStatement {
         /// The raw value acting as a constant.
         value: String,
     },
+
+    /// A C-style cast
+    Cast {
+        /// The type to cast to.
+        target_type: CType,
+        /// The thing being cast.
+        expression: Box<CStatement>,
+    },
+    /// Typedef one type to another.
+    TypeDef {
+        /// The type of the thing being typedef'd.
+        source_type: CType,
+        /// The new name by which this type may be called.
+        new_name: String,
+    },
 }
 
 impl CStatement {
@@ -228,7 +261,6 @@ impl CStatement {
         match &self {
             Self::Declaration {
                 name,
-                array,
                 is_extern,
                 is_const,
                 ctype,
@@ -241,10 +273,6 @@ impl CStatement {
                     w.push_str("extern ");
                 }
                 ctype.generate_c_with_name(name, w);
-                // TODO: array should be part of the type
-                if *array {
-                    w.push_str("[]");
-                }
                 if let Some(def) = definition {
                     w.push_str(" = ");
                     def.generate_c(w);
@@ -267,6 +295,32 @@ impl CStatement {
             }
             Self::LiteralConstant { value } => {
                 w.push_str(&value);
+            }
+            Self::Cast {
+                target_type,
+                expression,
+            } => {
+                w.push('(');
+                target_type.generate_c(w);
+                w.push(')');
+                w.push(' ');
+                expression.generate_c(w);
+            }
+            Self::TypeDef {
+                source_type,
+                new_name,
+            } => {
+                w.push_str("typedef ");
+                // leaky abstraction / hack, doesn't fully solve the problem
+                if let CType::Function { .. } = source_type {
+                    source_type.generate_c_with_name(&format!("(*{})", new_name), w);
+                } else {
+                    source_type.generate_c(w);
+                    w.push(' ');
+                    w.push_str(&new_name);
+                }
+                w.push(';');
+                w.push('\n');
             }
         }
     }
@@ -310,6 +364,7 @@ mod test {
         assert_c_type!(CType::I32, "int");
         assert_c_type!(CType::I64, "long long");
         assert_c_type!(CType::ISize, "size_t");
+        assert_c_type!(CType::TypeDef("my_type".to_string()), "my_type");
         assert_c_type!(
             CType::Function {
                 arguments: vec![CType::U8, CType::ISize],
@@ -363,6 +418,11 @@ mod test {
         assert_c_type!(CType::I64, "data", "long long data");
         assert_c_type!(CType::ISize, "data", "size_t data");
         assert_c_type!(
+            CType::TypeDef("my_type".to_string()),
+            "data",
+            "my_type data"
+        );
+        assert_c_type!(
             CType::Function {
                 arguments: vec![CType::U8, CType::ISize],
                 return_value: None,
@@ -411,6 +471,16 @@ mod test {
             "\"Hello, world!\""
         );
         assert_c_expr!(
+            CStatement::TypeDef {
+                source_type: CType::Function {
+                    arguments: vec![CType::I32, CType::I32],
+                    return_value: None,
+                },
+                new_name: "my_func_ptr".to_string(),
+            },
+            "typedef void (*my_func_ptr)(int, int);\n"
+        );
+        assert_c_expr!(
             CStatement::LiteralArray {
                 items: vec![
                     CStatement::LiteralConstant {
@@ -430,10 +500,11 @@ mod test {
         assert_c_expr!(
             CStatement::Declaration {
                 name: "my_array".to_string(),
-                array: true,
                 is_extern: false,
                 is_const: true,
-                ctype: CType::I32,
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32),
+                },
                 definition: Some(Box::new(CStatement::LiteralArray {
                     items: vec![
                         CStatement::LiteralConstant {
@@ -453,10 +524,11 @@ mod test {
         assert_c_expr!(
             CStatement::Declaration {
                 name: "my_array".to_string(),
-                array: true,
                 is_extern: true,
                 is_const: true,
-                ctype: CType::I32,
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32),
+                },
                 definition: None,
             },
             "const extern int my_array[];\n"

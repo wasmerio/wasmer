@@ -1,3 +1,7 @@
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "wasmer_wasm.h"
 #include "wasm.h"
 #include "my_wasm.h"
@@ -11,6 +15,10 @@ void wasmer_trampoline_function_call__1(void*, void*, void*);
 // todo: add to wasmer_wasm.h or something
 void* wasm_instance_get_vmctx_ptr(wasm_instance_t*);
 
+#ifdef __cplusplus
+}
+#endif
+
 // a bit of a hack; TODO: clean this up
 typedef struct my_byte_vec_t {
         size_t size;
@@ -22,7 +30,7 @@ void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
     printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
+    char* error_str = (char*) malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
 }
@@ -58,7 +66,7 @@ int main() {
 
         char* memory_buffer = (char*) malloc(buffer_size);
         size_t current_offset = 0;
-        printf("Buffer size: %d\n", buffer_size);
+        printf("Buffer size: %zu\n", buffer_size);
 
         memcpy(memory_buffer + current_offset, byte_ptr, module_bytes_len);
         current_offset += module_bytes_len;
@@ -112,7 +120,7 @@ int main() {
         wasm_importtype_vec_t import_types;
         wasm_module_imports(module, &import_types);
         int num_imports = import_types.size;
-        wasm_extern_t** imports = malloc(num_imports * sizeof(wasm_extern_t*));
+        wasm_extern_t** imports = (wasm_extern_t**) malloc(num_imports * sizeof(wasm_extern_t*));
         wasm_importtype_vec_delete(&import_types);
         
         bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);

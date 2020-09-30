@@ -3,6 +3,10 @@
 #ifndef WASMER_WASM_H
 #define WASMER_WASM_H
 
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include <stdint.h>
 #include "wasm.h"
 
@@ -156,5 +160,9 @@ int wasmer_last_error_length();
  * ```
  */
 int wasmer_last_error_message(char* buffer, int length);
+
+#ifdef __cplusplus
+}
+#endif
 
 #endif /* WASMER_WASM_H */

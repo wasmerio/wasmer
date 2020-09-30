@@ -20,9 +20,15 @@ const WASMER_PATH: &str = concat!(
     "/../../../target/release/wasmer"
 );
 
+#[cfg(not(windows))]
 const LIBWASMER_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../target/release/libwasmer_c_api.a"
+);
+#[cfg(windows)]
+const LIBWASMER_PATH: &str = concat!(
+    env!("CARGO_MANIFEST_DIR"),
+    "/../../../target/release/wasmer_c_api.lib"
 );
 
 /// Get the path to the `wasmer` executable to be used in this test.
@@ -94,10 +100,14 @@ struct WasmerCompile {
 
 impl Default for WasmerCompile {
     fn default() -> Self {
+        #[cfg(not(windows))]
+        let wasm_obj_path = "wasm.o";
+        #[cfg(windows)]
+        let wasm_obj_path = "wasm.obj";
         Self {
             wasmer_path: get_wasmer_path(),
             wasm_path: PathBuf::from(OBJECT_FILE_ENGINE_TEST_WASM_PATH),
-            wasm_object_path: PathBuf::from("wasm.o"),
+            wasm_object_path: PathBuf::from(wasm_obj_path),
             header_output_path: PathBuf::from("my_wasm.h"),
             compiler: Compiler::Cranelift,
             engine: Engine::ObjectFile,
@@ -136,11 +146,8 @@ fn run_c_compile(path_to_c_src: &Path, output_name: &Path) -> anyhow::Result<()>
     #[cfg(not(windows))]
     let c_compiler = "cc";
     #[cfg(windows)]
-    let c_compiler = "clang";
+    let c_compiler = "clang++";
 
-    dbg!(path_to_c_src.exists());
-    dbg!(Path::new(CLI_INTEGRATION_TESTS_ASSETS).exists());
-    dbg!(Command::new(c_compiler).arg("--help").output());
     let output = Command::new(c_compiler)
         .arg("-O2")
         .arg("-c")
@@ -196,20 +203,20 @@ impl Default for LinkCode {
 
 impl LinkCode {
     fn run(&self) -> anyhow::Result<()> {
-        let output = Command::new(&self.linker_path)
+        let mut command = Command::new(&self.linker_path);
+        let command = command
             .arg(&self.optimization_flag)
             .args(
                 self.object_paths
                     .iter()
                     .map(|path| path.canonicalize().unwrap()),
             )
-            .arg(&self.libwasmer_path.canonicalize()?)
-            .arg("-ldl")
-            .arg("-lm")
-            .arg("-pthread")
-            .arg("-o")
-            .arg(&self.output_path)
-            .output()?;
+            .arg(&self.libwasmer_path.canonicalize()?);
+        #[cfg(windows)]
+        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
+        #[cfg(not(windows))]
+        let command = command.arg("-ldl").arg("-lm").arg("-pthread");
+        let output = command.arg("-o").arg(&self.output_path).output()?;
 
         if !output.status.success() {
             bail!(
@@ -249,7 +256,10 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     std::env::set_current_dir(&operating_dir)?;
 
     let wasm_path = PathBuf::from(OBJECT_FILE_ENGINE_TEST_WASM_PATH);
+    #[cfg(not(windows))]
     let wasm_object_path = PathBuf::from("wasm.o");
+    #[cfg(windows)]
+    let wasm_object_path = PathBuf::from("wasm.obj");
     let header_output_path = PathBuf::from("my_wasm.h");
 
     WasmerCompile {
@@ -264,7 +274,10 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     .context("Failed to compile wasm with Wasmer")?;
 
     let c_src_file_name = Path::new("c_src.c");
+    #[cfg(not(windows))]
     let c_object_path = PathBuf::from("c_src.o");
+    #[cfg(windows)]
+    let c_object_path = PathBuf::from("c_src.obj");
     let executable_path = PathBuf::from("a.out");
 
     // TODO: adjust C source code based on locations of things
@@ -286,12 +299,17 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     .context("Failed to link objects together")?;
 
     let result = run_code(&executable_path).context("Failed to run generated executable")?;
+    let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(
-        &result,
-        r#"Initializing...
-Buffer size: 1801380
-"Hello, World"
-"#
+        result_lines,
+        vec![
+            "Initializing...",
+            #[cfg(windows)]
+            "Buffer size: 1801376",
+            #[cfg(not(windows))]
+            "Buffer size: 1801380",
+            "\"Hello, World\""
+        ],
     );
 
     Ok(())
