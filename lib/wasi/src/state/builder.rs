@@ -438,7 +438,17 @@ impl PreopenDirBuilder {
 
     /// Make this preopened directory appear to the WASI program as `alias`
     pub fn alias(&mut self, alias: &str) -> &mut Self {
-        self.alias = Some(alias.to_string());
+        let alias = if let Some(first_byte) = alias.as_bytes().first() {
+            if *first_byte == b'/' {
+                &alias[1..]
+            } else {
+                alias
+            }
+        } else {
+            alias
+        }
+        .to_string();
+        self.alias = Some(alias);
 
         self
     }
