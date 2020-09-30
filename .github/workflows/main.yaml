@@ -154,10 +154,10 @@ jobs:
         run: |
           call refreshenv
           make test-integration
-        if: ${{ matrix.run_integration_tests }} && ${{ matrix.os }} == 'windows-latest'
+        if: matrix.run_integration_tests && matrix.os == 'windows-latest'
       - name: Run integration tests (Unix)
         run: make test-integration
-        if: ${{ matrix.run_integration_tests }} && ${{ matrix.os }} != 'windows-latest'
+        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Package Wasmer
         run: |
           make package
