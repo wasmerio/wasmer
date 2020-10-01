@@ -7,7 +7,7 @@ This crate contains a compiler implementation based on the Singlepass linear com
 Add this crate into your `Cargo.toml` dependencies:
 
 ```toml
-wasmer-compiler-singlepass = "1.0.0-alpha.1"
+wasmer-compiler-singlepass = "1.0.0-alpha"
 ```
 
 And then:

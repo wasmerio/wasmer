@@ -1,19 +1,20 @@
 [package]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-alpha01.0"
-license = "MIT"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "LLVM compiler backend for the Wasmer Wasm runtime"
-repository = "https://github.com/wasmerio/wasmer"
-keywords = ["webassembly", "wasm", "compiler", "llvm"]
+version = "1.0.0-alpha3"
+description = "LLVM compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler", "llvm"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+documentation = "https://docs.rs/wasmer-compiler-llvm/"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha3" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
 target-lexicon = { version = "0.10", default-features = false }
 smallvec = "1"
 goblin = "0.2"

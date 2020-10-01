@@ -1,21 +1,21 @@
 [package]
 name = "wasmer-engine-native"
-version = "1.0.0-alpha01.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Wasmer JIT Engine"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
+version = "1.0.0-alpha3"
+description = "Wasmer Native Engine"
 categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+keywords = ["wasm", "webassembly", "engine", "native"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0" }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
-wasmer-engine = { path = "../engine", version = "1.0.0-alpha01.0" }
-wasmer-object = { path = "../object", version = "1.0.0-alpha01.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha3" }
+wasmer-engine = { path = "../engine", version = "1.0.0-alpha3" }
+wasmer-object = { path = "../object", version = "1.0.0-alpha3" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "0.1"
 tracing = "0.1"
@@ -23,6 +23,7 @@ bincode = "1.3"
 leb128 = "0.2"
 libloading = "0.6"
 tempfile = "3.1"
+which = "4.0"
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile

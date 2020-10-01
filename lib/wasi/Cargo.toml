@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-wasi"
-version = "1.0.0-alpha01.0"
-description = "Wasmer runtime WASI implementation library"
-license = "MIT"
+version = "1.0.0-alpha3"
+description = "WASI implementation library for Wasmer WebAssembly runtime"
+categories = ["wasm", "os"]
+keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-keywords = ["wasm", "webassembly", "wasi", "sandbox", "ABI"]
-categories = ["wasm"]
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
@@ -25,7 +25,7 @@ tokio = { version = "0.2", features = ["full"], optional = true }
 futures = { version = "0.3", optional = true }
 crossbeam = { version = "0.7", optional = true }
 flurry = { version = "0.3", optional = true }
-wasmer = { path = "../api", version = "1.0.0-alpha01.0", default-features = false }
+wasmer = { path = "../api", version = "1.0.0-alpha3", default-features = false }
 uuid = { version = "0.8", features = ["v4"] }
 
 [target.'cfg(windows)'.dependencies]

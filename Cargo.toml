@@ -1,27 +1,27 @@
 [package]
 name = "wasmer-workspace"
-version = "1.0.0-alpha01.0"
+version = "1.0.0-alpha3"
+description = "Wasmer workspace"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-description = "Wasmer workspace"
 license = "MIT"
 edition = "2018"
 publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "1.0.0-alpha01.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "1.0.0-alpha01.0", path = "lib/compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0-alpha01.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0-alpha01.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0-alpha01.0", path = "lib/compiler-llvm", optional = true }
-wasmer-engine = { version = "1.0.0-alpha01.0", path = "lib/engine" }
-wasmer-engine-jit = { version = "1.0.0-alpha01.0", path = "lib/engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-alpha01.0", path = "lib/engine-native", optional = true }
-wasmer-wasi = { version = "1.0.0-alpha01.0", path = "lib/wasi", optional = true }
-wasmer-wast = { version = "1.0.0-alpha01.0", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.0-alpha01.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.0-alpha01.0", path = "lib/wasmer-types" }
+wasmer = { version = "1.0.0-alpha3", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "1.0.0-alpha3", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "1.0.0-alpha3", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.0-alpha3", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.0-alpha3", path = "lib/compiler-llvm", optional = true }
+wasmer-engine = { version = "1.0.0-alpha3", path = "lib/engine" }
+wasmer-engine-jit = { version = "1.0.0-alpha3", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.0-alpha3", path = "lib/engine-native", optional = true }
+wasmer-wasi = { version = "1.0.0-alpha3", path = "lib/wasi", optional = true }
+wasmer-wast = { version = "1.0.0-alpha3", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "1.0.0-alpha3", path = "lib/cache", optional = true }
+wasmer-types = { version = "1.0.0-alpha3", path = "lib/wasmer-types" }
 cfg-if = "0.1"
 
 [workspace]
@@ -128,6 +128,11 @@ test-no-traps = ["wasmer-wast/test-no-traps"]
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
+
+[[example]]
+name = "early-exit"
+path = "examples/early_exit.rs"
+required-features = ["cranelift"]
 
 [[example]]
 name = "engine-jit"

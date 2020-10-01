@@ -597,24 +597,33 @@ mod inner {
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($native_type),
-                            "` to `",
-                            stringify!($type),
-                            "`)",
-                        ))
+                        native as Self
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($type),
-                            "` to `",
-                            stringify!($native_type),
-                            "`)",
-                        ))
+                        self as Self::Native
+                    }
+                }
+            )*
+        };
+    }
+
+    macro_rules! from_to_native_wasm_type_same_size {
+        ( $( $type:ty => $native_type:ty ),* ) => {
+            $(
+                #[allow(clippy::use_self)]
+                unsafe impl FromToNativeWasmType for $type {
+                    type Native = $native_type;
+
+                    #[inline]
+                    fn from_native(native: Self::Native) -> Self {
+                        Self::from_ne_bytes(Self::Native::to_ne_bytes(native))
+                    }
+
+                    #[inline]
+                    fn to_native(self) -> Self::Native {
+                        Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
                     }
                 }
             )*
@@ -625,7 +634,10 @@ mod inner {
         i8 => i32,
         u8 => i32,
         i16 => i32,
-        u16 => i32,
+        u16 => i32
+    );
+
+    from_to_native_wasm_type_same_size!(
         i32 => i32,
         u32 => i32,
         i64 => i64,
@@ -641,16 +653,7 @@ mod inner {
         #[test]
         fn test_to_native() {
             assert_eq!(7i8.to_native(), 7i32);
-        }
-
-        #[test]
-        #[should_panic(
-            expected = "out of range type conversion attempt (tried to convert `u32` to `i32`)"
-        )]
-        fn test_to_native_panics() {
-            use std::{i32, u32};
-
-            assert_eq!(u32::MAX.to_native(), i32::MAX);
+            assert_eq!(u32::MAX.to_native(), -1);
         }
     }
 
