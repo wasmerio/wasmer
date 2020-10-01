@@ -54,7 +54,7 @@ fn main() -> anyhow::Result<()> {
     };
     let instance = Instance::new(&module, &import_object)?;
 
-    // get the `run` function which we'll use as our entrypoint.
+    // Get the `run` function which we'll use as our entrypoint.
     let run_func: NativeFunc<(i32, i32), i32> =
         instance.exports.get_native_function("run").unwrap();
 
@@ -66,10 +66,10 @@ fn main() -> anyhow::Result<()> {
                 result
             );
         }
-        // we're expecting it to fail.
-        // we attempt to downcast the error into the error type that we were expecting.
+        // We're expecting it to fail.
+        // We attempt to downcast the error into the error type that we were expecting.
         Err(e) => match e.downcast::<ExitCode>() {
-            // we found the exit code used to terminate execution.
+            // We found the exit code used to terminate execution.
             Ok(exit_code) => {
                 println!("Exited early with exit code: {}", exit_code);
                 Ok(())
