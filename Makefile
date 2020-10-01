@@ -76,15 +76,15 @@ build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,singlepass,wasi
+		--no-default-features --features jit,singlepass,wasi,deprecated
 
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,cranelift,wasi
+		--no-default-features --features jit,cranelift,wasi,deprecated
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,llvm,wasi
+		--no-default-features --features jit,llvm,wasi,deprecated
 
 
 ###########
