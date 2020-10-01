@@ -426,7 +426,7 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
 /// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
 pub fn emscripten_call_main(
     instance: &mut Instance,
-    env: &mut EmEnv,
+    env: &EmEnv,
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
@@ -503,7 +503,7 @@ pub fn run_emscripten_instance(
     Ok(())
 }
 
-fn store_module_arguments(ctx: &mut EmEnv, args: Vec<&str>) -> (u32, u32) {
+fn store_module_arguments(ctx: &EmEnv, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
@@ -652,7 +652,7 @@ impl EmscriptenGlobals {
 pub fn generate_emscripten_env(
     store: &Store,
     globals: &mut EmscriptenGlobals,
-    env: &mut EmEnv,
+    env: &EmEnv,
 ) -> ImportObject {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
         Function::new_native_with_env(
@@ -1151,7 +1151,7 @@ pub fn generate_emscripten_env(
     import_object
 }
 
-pub fn nullfunc(ctx: &mut EmEnv, _x: u32) {
+pub fn nullfunc(ctx: &EmEnv, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
     abort_with_message(
