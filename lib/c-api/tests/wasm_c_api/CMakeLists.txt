@@ -18,7 +18,7 @@ add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
 
 # Our additional tests.
 add_executable(test-wasi test-wasi.c)
-#add_executable(test-early-exit test-early-exit.c)
+add_executable(test-early-exit test-early-exit.c)
 
 include_directories(wasm-c-api/include)
 include_directories(../../)
@@ -140,7 +140,7 @@ target_link_libraries(test-wasi general ${WASMER_LIB})
 target_compile_options(test-wasi PRIVATE ${COMPILER_OPTIONS})
 add_test(test-wasi test-wasi)
 
-#set_property(TARGET test-early-exit PROPERTY C_STANDARD 11)
-#target_link_libraries(test-early-exit general ${WASMER_LIB})
-#target_compile_options(test-early-exit PRIVATE ${COMPILER_OPTIONS})
-#add_test(test-early-exit test-early-exit)
+set_property(TARGET test-early-exit PROPERTY C_STANDARD 11)
+target_link_libraries(test-early-exit general ${WASMER_LIB})
+target_compile_options(test-early-exit PRIVATE ${COMPILER_OPTIONS})
+add_test(test-early-exit test-early-exit)
