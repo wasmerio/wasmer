@@ -1,5 +1,6 @@
 mod export;
 mod extern_;
+mod frame;
 mod function;
 mod global;
 mod import;
@@ -10,6 +11,7 @@ mod value;
 
 pub use export::*;
 pub use extern_::*;
+pub use frame::*;
 pub use function::*;
 pub use global::*;
 pub use import::*;
@@ -23,12 +25,6 @@ pub type wasm_byte_t = u8;
 
 wasm_declare_vec!(byte);
 
-#[derive(Debug)]
-#[repr(C)]
-pub struct wasm_frame_t {}
-
-wasm_declare_vec!(frame);
-
 /// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_name_t = wasm_byte_vec_t;
@@ -37,3 +33,7 @@ pub type wasm_name_t = wasm_byte_vec_t;
 /// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_ref_t;
+
+/// cbindgen:ignore
+#[allow(non_camel_case_types)]
+pub type wasm_message_t = wasm_byte_vec_t;

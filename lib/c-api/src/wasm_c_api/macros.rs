@@ -36,6 +36,37 @@ macro_rules! wasm_declare_vec {
                 pub data: *mut [<wasm_ $name _t>],
             }
 
+            impl<'a> From<Vec<[<wasm_ $name _t>]>> for [<wasm_ $name _vec_t>] {
+                fn from(other: Vec<[<wasm_ $name _t>]>) -> Self {
+                    let mut boxed_slice = other.into_boxed_slice();
+                    let size = boxed_slice.len();
+                    let data = boxed_slice.as_mut_ptr();
+                    ::std::mem::forget(boxed_slice);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
+            }
+
+            impl<'a, T: Into<[<wasm_ $name _t>]> + Clone> From<&'a [T]> for [<wasm_ $name _vec_t>] {
+                fn from(other: &'a [T]) -> Self {
+                    let size = other.len();
+                    let mut copied_data = other
+                        .iter()
+                        .cloned()
+                        .map(Into::into)
+                        .collect::<Vec<[<wasm_ $name _t>]>>()
+                        .into_boxed_slice();
+                    let data = copied_data.as_mut_ptr();
+                    ::std::mem::forget(copied_data);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
+            }
+
             impl [<wasm_ $name _vec_t>] {
                 pub unsafe fn into_slice(&self) -> Option<&[[<wasm_ $name _t>]]>{
                     if self.data.is_null() {

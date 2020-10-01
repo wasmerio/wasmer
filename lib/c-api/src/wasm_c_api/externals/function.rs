@@ -60,8 +60,11 @@ pub unsafe extern "C" fn wasm_func_new(
             num_rets
         ];
 
-        let _traps = callback(processed_args.as_ptr(), results.as_mut_ptr());
-        // TODO: do something with `traps`
+        let trap = callback(processed_args.as_ptr(), results.as_mut_ptr());
+        if !trap.is_null() {
+            let trap: Box<wasm_trap_t> = Box::from_raw(trap);
+            RuntimeError::raise(Box::new(trap.inner));
+        }
 
         let processed_results = results
             .into_iter()
@@ -134,7 +137,7 @@ pub unsafe extern "C" fn wasm_func_call(
     func: &wasm_func_t,
     args: *const wasm_val_t,
     results: *mut wasm_val_t,
-) -> Option<NonNull<wasm_trap_t>> {
+) -> Option<Box<wasm_trap_t>> {
     let num_params = func.inner.ty().params().len();
     let params: Vec<Val> = (0..num_params)
         .map(|i| (&(*args.add(i))).try_into())
@@ -149,7 +152,7 @@ pub unsafe extern "C" fn wasm_func_call(
             }
             None
         }
-        Err(e) => Some(NonNull::new_unchecked(Box::into_raw(Box::new(e)) as _)),
+        Err(e) => Some(Box::new(e.into())),
     }
 }
 

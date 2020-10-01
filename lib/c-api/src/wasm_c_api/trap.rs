@@ -1,51 +1,59 @@
-use super::types::wasm_byte_vec_t;
-use std::mem;
-use std::ptr::NonNull;
+use super::store::wasm_store_t;
+use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
 use wasmer::RuntimeError;
 
 // opaque type which is a `RuntimeError`
 /// cbindgen:ignore
 #[allow(non_camel_case_types)]
-pub struct wasm_trap_t {}
+pub struct wasm_trap_t {
+    pub(crate) inner: RuntimeError,
+}
 
-/// cbindgen:ignore
-#[no_mangle]
-pub unsafe extern "C" fn wasm_trap_delete(trap: Option<NonNull<wasm_trap_t>>) {
-    if let Some(t_inner) = trap {
-        let _ = Box::from_raw(t_inner.cast::<RuntimeError>().as_ptr());
+impl From<RuntimeError> for wasm_trap_t {
+    fn from(other: RuntimeError) -> Self {
+        Self { inner: other }
     }
 }
 
 /// cbindgen:ignore
 #[no_mangle]
-pub unsafe extern "C" fn wasm_trap_message(
-    trap: *const wasm_trap_t,
-    out_ptr: *mut wasm_byte_vec_t,
-) {
-    let re = &*(trap as *const RuntimeError);
-    // this code assumes no nul bytes appear in the message
-    let mut message = format!("{}\0", re);
-    message.shrink_to_fit();
+pub unsafe extern "C" fn wasm_trap_new(
+    _store: &mut wasm_store_t,
+    message: &wasm_message_t,
+) -> Option<Box<wasm_trap_t>> {
+    let message_bytes: &[u8] = message.into_slice()?;
+    let message_str = c_try!(std::str::from_utf8(message_bytes));
+    let runtime_error = RuntimeError::new(message_str);
+    let trap = runtime_error.into();
 
-    // TODO use `String::into_raw_parts` when it gets stabilized
-    (*out_ptr).size = message.as_bytes().len();
-    (*out_ptr).data = message.as_mut_ptr();
-    mem::forget(message);
+    Some(Box::new(trap))
 }
 
-// in trap/RuntimeError we need to store
-// 1. message
-// 2. origin (frame); frame contains:
-//    1. func index
-//    2. func offset
-//    3. module offset
-//    4. which instance this was apart of
+/// cbindgen:ignore
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 
-/*#[no_mangle]
-pub unsafe extern "C" fn wasm_trap_trace(trap: *const wasm_trap_t, out_ptr: *mut wasm_frame_vec_t) {
-    let re = &*(trap as *const RuntimeError);
-    todo!()
-}*/
+/// cbindgen:ignore
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_message(trap: &wasm_trap_t, out_ptr: &mut wasm_byte_vec_t) {
+    let message = trap.inner.message();
+    let byte_vec: wasm_byte_vec_t = message.into_bytes().into();
+    out_ptr.size = byte_vec.size;
+    out_ptr.data = byte_vec.data;
+}
 
-//wasm_declare_ref!(trap);
-//wasm_declare_ref!(foreign);
+/// cbindgen:ignore
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm_frame_t>> {
+    trap.inner.trace().first().map(Into::into).map(Box::new)
+}
+
+/// cbindgen:ignore
+#[no_mangle]
+pub unsafe extern "C" fn wasm_trap_trace(trap: &wasm_trap_t, out_ptr: &mut wasm_frame_vec_t) {
+    let frames = trap.inner.trace();
+    let frame_vec: wasm_frame_vec_t = frames.into();
+
+    out_ptr.size = frame_vec.size;
+    out_ptr.data = frame_vec.data;
+}
