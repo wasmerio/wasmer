@@ -14,7 +14,7 @@ add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 #add_executable(wasm-c-api-start wasm-c-api/example/start.c)
 #add_executable(wasm-c-api-table wasm-c-api/example/table.c)
 #add_executable(wasm-c-api-threads wasm-c-api/example/threads.c)
-#add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
+add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
 
 # Our additional tests.
 #add_executable(test-wasi test-wasi.c)
@@ -127,12 +127,12 @@ add_test(NAME wasm-c-api-serialize
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 #)
 
-#target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-trap
-#         COMMAND wasm-c-api-trap
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
-#)
+target_link_libraries(wasm-c-api-trap general ${WASMER_LIB})
+target_compile_options(wasm-c-api-trap PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-trap
+         COMMAND wasm-c-api-trap
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
 
 #set_property(TARGET test-wasi PROPERTY C_STANDARD 11)
 #target_link_libraries(test-wasi general ${WASMER_LIB})
