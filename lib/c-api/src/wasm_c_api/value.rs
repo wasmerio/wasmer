@@ -20,9 +20,10 @@ pub union wasm_val_inner {
 
 /// cbindgen:ignore
 #[allow(non_camel_case_types)]
+#[repr(C)]
 pub struct wasm_val_t {
-    pub(crate) kind: wasm_valkind_t,
-    pub(crate) of: wasm_val_inner,
+    pub kind: wasm_valkind_t,
+    pub of: wasm_val_inner,
 }
 
 impl Clone for wasm_val_t {
