@@ -1,6 +1,7 @@
 use super::super::instance::wasm_instance_t;
 use wasmer::FrameInfo;
 
+#[allow(non_camel_case_types)]
 #[derive(Debug, Clone)]
 pub struct wasm_frame_t {
     info: FrameInfo,
