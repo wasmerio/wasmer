@@ -17,7 +17,8 @@ add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
 add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
 
 # Our additional tests.
-#add_executable(test-wasi test-wasi.c)
+add_executable(test-wasi test-wasi.c)
+#add_executable(test-early-exit test-early-exit.c)
 
 include_directories(wasm-c-api/include)
 include_directories(../../)
@@ -134,7 +135,12 @@ add_test(NAME wasm-c-api-trap
          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 )
 
-#set_property(TARGET test-wasi PROPERTY C_STANDARD 11)
-#target_link_libraries(test-wasi general ${WASMER_LIB})
-#target_compile_options(test-wasi PRIVATE ${COMPILER_OPTIONS})
-#add_test(test-wasi test-wasi)
+set_property(TARGET test-wasi PROPERTY C_STANDARD 11)
+target_link_libraries(test-wasi general ${WASMER_LIB})
+target_compile_options(test-wasi PRIVATE ${COMPILER_OPTIONS})
+add_test(test-wasi test-wasi)
+
+#set_property(TARGET test-early-exit PROPERTY C_STANDARD 11)
+#target_link_libraries(test-early-exit general ${WASMER_LIB})
+#target_compile_options(test-early-exit PRIVATE ${COMPILER_OPTIONS})
+#add_test(test-early-exit test-early-exit)

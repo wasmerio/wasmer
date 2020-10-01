@@ -3,10 +3,10 @@
 #include <string.h>
 #include <inttypes.h>
 
-#include "../../wasm.h"
 #include "../../wasmer_wasm.h"
 
 #define BUF_SIZE 128
+#define own
 
 // Use the last_error API to retrieve error messages
 void print_wasmer_error()
