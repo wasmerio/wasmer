@@ -10,6 +10,7 @@ pub fn compile_with_cmake_and_run_test(project_tests_dir: &str, cmake_args: Vec<
         ],
     );
     run_command("cmake", project_tests_dir, cmake_args);
+    run_command("make", project_tests_dir, vec!["clean"]);
     run_command("make", project_tests_dir, vec!["-Wdev", "-Werror=dev"]);
     run_command("make", project_tests_dir, vec!["test", "ARGS=\"-V\""]);
 }
