@@ -70,9 +70,13 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-#emscripten = ["wasmer-emscripten"]
+
 # Include the deprecated Wasmer C API.
 deprecated = []
+
+# Deprecated feature.
+# TODO: Port this feature.
+#emscripten = ["wasmer-emscripten"]
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]

@@ -34,14 +34,11 @@ fn run_command(command_str: &str, dir: &str, args: Vec<&str>) {
 
     match command.output() {
         Ok(result) => {
-            println!(">   Status: `{:?}`", result.status.code());
             println!(
-                ">   Stdout: `{}`",
-                String::from_utf8_lossy(&result.stdout[..])
-            );
-            println!(
-                ">   Stderr: `{}`",
-                String::from_utf8_lossy(&result.stderr[..])
+                ">   Status: `{:?}`\n>   Stdout: `{}`\n>   Stderr: `{}`",
+                result.status.code(),
+                String::from_utf8_lossy(&result.stdout[..]),
+                String::from_utf8_lossy(&result.stderr[..]),
             );
 
             if result.status.success() {

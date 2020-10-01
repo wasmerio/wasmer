@@ -1,6 +1,6 @@
 #include <inttypes.h>
 #include <stdio.h>
-#include "../wasmer.h"
+#include "../../wasmer.h"
 #include <assert.h>
 #include <stdint.h>
 #include <string.h>

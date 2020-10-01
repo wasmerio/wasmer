@@ -206,7 +206,7 @@ dependencies = [
 [[package]]
 name = "cbindgen"
 version = "0.14.6"
-source = "git+https://github.com/Hywan/cbindgen?branch=incoming#ab5427b358f8953f1455e3a630af76e8dd37af67"
+source = "git+https://github.com/eqrion/cbindgen#1fc4cb072422e722f8bcb3af5766f84587a180c6"
 dependencies = [
  "clap",
  "heck",
