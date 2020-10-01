@@ -272,8 +272,8 @@ impl Instance {
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *mut VMContext {
-        self.vmctx() as *const VMContext as *mut VMContext
+    pub fn vmctx_ptr(&self) -> *const VMContext {
+        self.vmctx() as *const VMContext
     }
 
     /// Lookup an export with the given name.
@@ -384,7 +384,7 @@ impl Instance {
         // Make the call.
         unsafe {
             catch_traps(callee_vmctx, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*const VMContext)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -940,7 +940,7 @@ impl InstanceHandle {
     /// # Safety
     /// This is unsafe because it doesn't work on just any `VMContext`, it must
     /// be a `VMContext` allocated as part of an `Instance`.
-    pub unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
+    pub unsafe fn from_vmctx(vmctx: *const VMContext) -> Self {
         let instance = (&*vmctx).instance();
 
         Self {
@@ -954,7 +954,7 @@ impl InstanceHandle {
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *mut VMContext {
+    pub fn vmctx_ptr(&self) -> *const VMContext {
         self.instance().vmctx_ptr()
     }
 

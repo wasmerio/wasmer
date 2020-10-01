@@ -6,7 +6,6 @@ use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
-use std::cell::RefCell;
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
@@ -122,11 +121,11 @@ impl Function {
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
-        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env: RefCell::new(env),
+            env: Box::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
@@ -205,7 +204,7 @@ impl Function {
     /// };
     /// let env = Env { multiplier: 2 };
     ///
-    /// fn sum_and_multiply(env: &mut Env, a: i32, b: i32) -> i32 {
+    /// fn sum_and_multiply(env: &Env, a: i32, b: i32) -> i32 {
     ///     (a + b) * env.multiplier
     /// }
     ///
@@ -227,7 +226,7 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let vmctx = Box::into_raw(box_env) as *mut _ as *const VMContext;
         let signature = function.ty();
 
         Self {
@@ -469,8 +468,8 @@ where
 {
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: RefCell<Env>,
+    func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: Box<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
@@ -478,9 +477,7 @@ where
     Env: Sized + 'static,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-        // TODO: the `&mut *self.env.as_ptr()` is likely invoking some "mild"
-        //      undefined behavior due to how it's used in the static fn call
-        unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }
+        (*self.func)(&*self.env, &args)
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
@@ -1015,20 +1012,20 @@ mod inner {
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Env: Sized,
-                Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
+                Func: Fn(&Env, $( $x , )*) -> RetsAsResult + Send + 'static,
             {
                 #[allow(non_snake_case)]
                 fn function_body_ptr(self) -> *const VMFunctionBody {
                     /// This is a function that wraps the real host
                     /// function. Its address will be used inside the
                     /// runtime.
-                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &Env, $( $x: $x::Native, )* ) -> Rets::CStruct
                     where
                         $( $x: FromToNativeWasmType, )*
                         Rets: WasmTypeList,
                         RetsAsResult: IntoResult<Rets>,
                         Env: Sized,
-                        Func: Fn(&mut Env, $( $x ),* ) -> RetsAsResult + 'static
+                        Func: Fn(&Env, $( $x ),* ) -> RetsAsResult + 'static
                     {
                         let func: &Func = unsafe { &*(&() as *const () as *const Func) };
 

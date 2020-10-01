@@ -429,13 +429,13 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    vmctx: *mut VMContext,
+    vmctx: *const VMContext,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<_, extern "C" fn(*mut VMContext, *const VMFunctionBody, *mut u8)>(
+        mem::transmute::<_, extern "C" fn(*const VMContext, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec)
     })
@@ -447,7 +447,7 @@ pub unsafe fn wasmer_call_trampoline(
 /// # Safety
 ///
 /// Highly unsafe since `closure` won't have any destructors run.
-pub unsafe fn catch_traps<F>(vmctx: *mut VMContext, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(vmctx: *const VMContext, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
 {
@@ -501,7 +501,7 @@ pub struct CallThreadState {
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Option<*const CallThreadState>,
-    vmctx: *mut VMContext,
+    vmctx: *const VMContext,
     handling_trap: Cell<bool>,
 }
 
@@ -518,7 +518,7 @@ enum UnwindReason {
 }
 
 impl CallThreadState {
-    fn new(vmctx: *mut VMContext) -> Self {
+    fn new(vmctx: *const VMContext) -> Self {
         Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,

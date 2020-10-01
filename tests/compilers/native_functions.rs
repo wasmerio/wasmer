@@ -85,20 +85,14 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 fn static_host_function_with_env() -> anyhow::Result<()> {
     let store = get_store();
 
-    fn f(env: &mut Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+    fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         assert_eq!(*env.0.borrow(), 100);
         env.0.replace(101);
 
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
-    fn f_ok(
-        env: &mut Env,
-        a: i32,
-        b: i64,
-        c: f32,
-        d: f64,
-    ) -> Result<(f64, f32, i64, i32), Infallible> {
+    fn f_ok(env: &Env, a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
         assert_eq!(*env.0.borrow(), 100);
         env.0.replace(101);
 

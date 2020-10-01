@@ -26,7 +26,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
     address: *const VMFunctionBody,
-    vmctx: *mut VMContext,
+    vmctx: *const VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
@@ -42,7 +42,7 @@ where
     pub(crate) fn new(
         store: Store,
         address: *const VMFunctionBody,
-        vmctx: *mut VMContext,
+        vmctx: *const VMContext,
         arg_kind: VMFunctionKind,
         definition: FunctionDefinition,
     ) -> Self {
@@ -163,7 +163,7 @@ macro_rules! impl_native_traits {
                         match self.arg_kind {
                             VMFunctionKind::Static => {
                                 let results = catch_unwind(AssertUnwindSafe(|| unsafe {
-                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( *const VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
                                     // We always pass the vmctx
                                     f( self.vmctx, $( $x, )* )
                                 })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;

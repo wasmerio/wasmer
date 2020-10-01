@@ -23,7 +23,7 @@ pub struct VMFunctionImport {
     pub body: *const VMFunctionBody,
 
     /// A pointer to the `VMContext` that owns the function.
-    pub vmctx: *mut VMContext,
+    pub vmctx: *const VMContext,
 }
 
 #[cfg(test)]
@@ -729,7 +729,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext`.
-    pub vmctx: *mut VMContext,
+    pub vmctx: *const VMContext,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
