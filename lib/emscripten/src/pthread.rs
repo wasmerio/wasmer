@@ -5,12 +5,7 @@ pub fn _pthread_attr_destroy(_ctx: &EmEnv, _a: i32) -> i32 {
     0
 }
 
-pub fn _pthread_attr_getstack(
-    _ctx: &EmEnv,
-    _stackaddr: i32,
-    _stacksize: i32,
-    _other: i32,
-) -> i32 {
+pub fn _pthread_attr_getstack(_ctx: &EmEnv, _stackaddr: i32, _stacksize: i32, _other: i32) -> i32 {
     trace!(
         "emscripten::_pthread_attr_getstack({}, {}, {})",
         _stackaddr,

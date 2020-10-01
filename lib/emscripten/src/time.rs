@@ -387,13 +387,7 @@ pub fn _timegm(_ctx: &EmEnv, _time_ptr: c_int) -> i32 {
 }
 
 /// emscripten: _strftime
-pub fn _strftime(
-    ctx: &EmEnv,
-    s_ptr: c_int,
-    maxsize: u32,
-    format_ptr: c_int,
-    tm_ptr: c_int,
-) -> i32 {
+pub fn _strftime(ctx: &EmEnv, s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int) -> i32 {
     debug!(
         "emscripten::_strftime {} {} {} {}",
         s_ptr, maxsize, format_ptr, tm_ptr

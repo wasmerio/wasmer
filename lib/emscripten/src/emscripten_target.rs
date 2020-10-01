@@ -223,15 +223,7 @@ pub fn invoke_iiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32)
     debug!("emscripten::invoke_iiiii");
     invoke!(ctx, dyn_call_iiiii, index, a1, a2, a3, a4)
 }
-pub fn invoke_iiiiii(
-    ctx: &EmEnv,
-    index: i32,
-    a1: i32,
-    a2: i32,
-    a3: i32,
-    a4: i32,
-    a5: i32,
-) -> i32 {
+pub fn invoke_iiiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) -> i32 {
     debug!("emscripten::invoke_iiiiii");
     invoke!(ctx, dyn_call_iiiiii, index, a1, a2, a3, a4, a5)
 }
@@ -631,16 +623,7 @@ pub fn invoke_viijiii(
         panic!("dyn_call_viijiii is set to None");
     }
 }
-pub fn invoke_viijj(
-    ctx: &EmEnv,
-    index: i32,
-    a1: i32,
-    a2: i32,
-    a3: i32,
-    a4: i32,
-    a5: i32,
-    a6: i32,
-) {
+pub fn invoke_viijj(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32, a6: i32) {
     debug!("emscripten::invoke_viijj");
     if let Some(dyn_call_viijj) = &get_emscripten_data(ctx).dyn_call_viijj {
         dyn_call_viijj.call(index, a1, a2, a3, a4, a5, a6).unwrap();
