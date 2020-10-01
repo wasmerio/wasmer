@@ -118,6 +118,10 @@ own wasm_func_t* wasi_get_start_function(wasm_instance_t*);
 // Delete a `wasm_extern_t` allocated by the API.
 void wasm_extern_delete(own wasm_extern_t*);
 
+// Get an opaque pointer to the vmctx. This pointer can be used to call functions
+// through their generated trampolines when compiling with the object-file engine.
+void* wasm_instance_get_vmctx_ptr(wasm_instance_t*);
+
 // TODO: figure out if we can do less duplication.
 /**
  * Gets the length in bytes of the last error if any.

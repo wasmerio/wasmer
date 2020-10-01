@@ -35,9 +35,6 @@ Now lets create a program to link with this object file.
 void wasmer_function__1(void);
 void wasmer_trampoline_function_call__1(void*, void*, void*);
 
-// todo: add to wasmer_wasm.h or something
-void* wasm_instance_get_vmctx_ptr(wasm_instance_t*);
-
 // a bit of a hack; TODO: clean this up
 typedef struct my_byte_vec_t {
         size_t size;

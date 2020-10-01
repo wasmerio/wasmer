@@ -12,9 +12,6 @@ extern "C" {
 void wasmer_function__1(void);
 void wasmer_trampoline_function_call__1(void*, void*, void*);
 
-// todo: add to wasmer_wasm.h or something
-void* wasm_instance_get_vmctx_ptr(wasm_instance_t*);
-
 #ifdef __cplusplus
 }
 #endif
