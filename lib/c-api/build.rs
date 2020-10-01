@@ -384,6 +384,7 @@ fn exclude_items_from_wasm_c_api(mut builder: Builder) -> Builder {
         .exclude_item("wasi_env_t")
         .exclude_item("wasi_get_imports")
         .exclude_item("wasi_get_imports_inner")
+        .exclude_item("wasi_get_start_function")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t");
 

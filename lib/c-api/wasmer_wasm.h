@@ -125,6 +125,10 @@ bool wasi_get_imports(wasm_store_t *store,
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
