@@ -1,5 +1,5 @@
 cmake_minimum_required (VERSION 2.6)
-project (WasmerRuntimeCApiTests)
+project (WasmerDeprecatedCApiTests)
 
 add_executable(test-context test-context.c)
 add_executable(test-exported-memory test-exported-memory.c)
