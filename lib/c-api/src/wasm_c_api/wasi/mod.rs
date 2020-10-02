@@ -5,11 +5,13 @@
 mod capture_files;
 
 use super::{
-    wasm_extern_t, wasm_func_t, wasm_instance_t, wasm_memory_t, wasm_module_t, wasm_store_t,
+    externals::{wasm_extern_t, wasm_func_t, wasm_memory_t},
+    instance::wasm_instance_t,
+    module::wasm_module_t,
+    store::wasm_store_t,
 };
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
-use crate::c_try;
 use crate::error::{update_last_error, CApiError};
 use std::convert::TryFrom;
 use std::ffi::CStr;
@@ -24,11 +26,11 @@ use wasmer_wasi::{
 
 #[derive(Debug, Default)]
 #[allow(non_camel_case_types)]
-#[repr(C)]
 pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
+    /// cbindgen:ignore
     state_builder: WasiStateBuilder,
 }
 
@@ -88,8 +90,8 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 }
 
 #[allow(non_camel_case_types)]
-#[repr(C)]
 pub struct wasi_env_t {
+    /// cbindgen:ignore
     inner: WasiEnv,
 }
 
@@ -297,5 +299,7 @@ pub unsafe extern "C" fn wasi_get_start_function(
 }
 
 /// Delete a `wasm_extern_t` allocated by the API.
+///
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}

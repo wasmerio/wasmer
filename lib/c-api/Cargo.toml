@@ -70,9 +70,9 @@ llvm = [
     "compiler",
 ]
 
+# Deprecated feature.
+# TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]
-# used to avoid generating standard Wasm C API types in our header files
-ignore-wasm-c-api = []
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]
@@ -80,4 +80,5 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = { version = "0.14.3" }
+#cbindgen = "0.14.6"
+cbindgen = { git = "https://github.com/eqrion/cbindgen", branch = "master" }
