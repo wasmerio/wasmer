@@ -3,7 +3,7 @@
 #include <stdlib.h>
 #include <string.h>
 
-#include "../../wasmer_wasm.h"
+#include "wasmer_wasm.h"
 
 #define own
 
