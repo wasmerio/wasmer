@@ -11,5 +11,7 @@ CTestTestfile.cmake
 _deps
 rust-build
 
+wasm-c-api-*
+test-*
 # Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
 !*.c
