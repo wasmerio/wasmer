@@ -3,11 +3,9 @@ use std::ptr::NonNull;
 use wasmer::Store;
 
 /// Opaque wrapper around `Store`
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_store_t {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_new(
     wasm_engine_ptr: Option<NonNull<wasm_engine_t>>,
@@ -20,7 +18,6 @@ pub unsafe extern "C" fn wasm_store_new(
     ))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_delete(wasm_store: Option<NonNull<wasm_store_t>>) {
     if let Some(s_inner) = wasm_store {

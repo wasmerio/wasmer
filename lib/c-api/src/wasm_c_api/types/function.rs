@@ -3,7 +3,6 @@ use std::mem;
 use std::ptr::NonNull;
 use wasmer::{ExternType, FunctionType, ValType};
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[derive(Clone, Debug)]
 pub struct wasm_functype_t {
@@ -22,7 +21,6 @@ impl wasm_functype_t {
 
 wasm_declare_vec!(functype);
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
     // own
@@ -60,11 +58,9 @@ unsafe fn wasm_functype_new_inner(
     Some(Box::new(wasm_functype_t { extern_ }))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_delete(_ft: Option<Box<wasm_functype_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_copy(
     arg: Option<NonNull<wasm_functype_t>>,
@@ -75,7 +71,6 @@ pub unsafe extern "C" fn wasm_functype_copy(
 }
 
 // TODO: fix memory leak
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
     let mut valtypes = ft
@@ -96,7 +91,6 @@ pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wa
 }
 
 // TODO: fix memory leak
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_results(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
     let mut valtypes = ft

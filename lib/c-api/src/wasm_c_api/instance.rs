@@ -8,7 +8,6 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::{Extern, Instance};
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
     pub(crate) inner: Arc<Instance>,
@@ -51,7 +50,6 @@ unsafe fn argument_import_iter(
         .unwrap_or_else(|| Box::new(std::iter::empty()) as _)
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
     store: Option<NonNull<wasm_store_t>>,
@@ -74,11 +72,9 @@ pub unsafe extern "C" fn wasm_instance_new(
     Some(Box::new(wasm_instance_t { inner: instance }))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,

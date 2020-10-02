@@ -5,14 +5,12 @@ use std::convert::TryInto;
 use std::ptr::NonNull;
 use wasmer::{Global, Store, Val};
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_global_t {
     // maybe needs to hold onto instance
     pub(crate) inner: Global,
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
@@ -32,12 +30,10 @@ pub unsafe extern "C" fn wasm_global_new(
     Some(Box::new(wasm_global_t { inner: global }))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>) {}
 
 // TODO: figure out if these should be deep or shallow copies
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_copy(wasm_global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
@@ -46,21 +42,18 @@ pub unsafe extern "C" fn wasm_global_copy(wasm_global: &wasm_global_t) -> Box<wa
     })
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_get(wasm_global: &wasm_global_t, out: &mut wasm_val_t) {
     let value = wasm_global.inner.get();
     *out = value.try_into().unwrap();
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_set(wasm_global: &mut wasm_global_t, val: &wasm_val_t) {
     let value: Val = val.try_into().unwrap();
     wasm_global.inner.set(value);
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_same(
     wasm_global1: &wasm_global_t,

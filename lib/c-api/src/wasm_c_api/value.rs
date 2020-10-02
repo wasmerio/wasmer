@@ -3,11 +3,9 @@ use std::convert::{TryFrom, TryInto};
 use std::ptr::NonNull;
 use wasmer::Val;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_valkind_t = u8;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy)]
 pub union wasm_val_inner {
@@ -18,7 +16,6 @@ pub union wasm_val_inner {
     pub(crate) wref: *mut wasm_ref_t,
 }
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasm_val_t {
@@ -35,7 +32,6 @@ impl Clone for wasm_val_t {
     }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_val_copy(out_ptr: *mut wasm_val_t, val: &wasm_val_t) {
     (*out_ptr).kind = val.kind;
@@ -51,7 +47,6 @@ pub unsafe extern "C" fn wasm_val_copy(out_ptr: *mut wasm_val_t, val: &wasm_val_
         };
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_val_delete(val: Option<NonNull<wasm_val_t>>) {
     if let Some(v_inner) = val {

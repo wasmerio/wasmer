@@ -2,7 +2,6 @@ use super::super::value::wasm_valkind_t;
 use std::convert::TryInto;
 use wasmer::ValType;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]
@@ -43,7 +42,6 @@ impl From<wasm_valkind_enum> for ValType {
     }
 }
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy)]
 pub struct wasm_valtype_t {
@@ -74,7 +72,6 @@ impl From<ValType> for wasm_valtype_t {
     }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valtype_t>> {
     let kind_enum = kind.try_into().ok()?;
@@ -82,11 +79,9 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valt
     Some(Box::new(valtype))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valkind_t {
     if valtype.is_null() {

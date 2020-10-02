@@ -25,15 +25,12 @@ pub type wasm_byte_t = u8;
 
 wasm_declare_vec!(byte);
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_name_t = wasm_byte_vec_t;
 
 // opaque type over `ExternRef`?
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_ref_t;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_message_t = wasm_byte_vec_t;

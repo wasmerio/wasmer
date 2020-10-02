@@ -2,7 +2,6 @@ use super::{wasm_externtype_t, wasm_name_t};
 use std::ptr::NonNull;
 use wasmer::ExportType;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_exporttype_t {
     name: NonNull<wasm_name_t>,
@@ -11,7 +10,6 @@ pub struct wasm_exporttype_t {
 
 wasm_declare_boxed_vec!(exporttype);
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_new(
     name: NonNull<wasm_name_t>,
@@ -20,13 +18,11 @@ pub extern "C" fn wasm_exporttype_new(
     Box::new(wasm_exporttype_t { name, extern_type })
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_name(et: &'static wasm_exporttype_t) -> &'static wasm_name_t {
     unsafe { et.name.as_ref() }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_type(
     et: &'static wasm_exporttype_t,

@@ -1,11 +1,9 @@
 use std::convert::TryFrom;
 use wasmer::Mutability;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub type wasm_mutability_t = u8;
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u8)]

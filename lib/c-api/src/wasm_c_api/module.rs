@@ -9,13 +9,11 @@ use std::slice;
 use std::sync::Arc;
 use wasmer::{Module, Store};
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_module_t {
     pub(crate) inner: Arc<Module>,
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
@@ -32,11 +30,9 @@ pub unsafe extern "C" fn wasm_module_new(
     }))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
@@ -56,7 +52,6 @@ pub unsafe extern "C" fn wasm_module_exports(
     mem::forget(exports);
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
@@ -76,7 +71,6 @@ pub unsafe extern "C" fn wasm_module_imports(
     mem::forget(imports);
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_deserialize(
     store_ptr: Option<NonNull<wasm_store_t>>,
@@ -102,7 +96,6 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     ))))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(
     module: &wasm_module_t,

@@ -4,18 +4,15 @@ use wasmer::Engine;
 
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 ///
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_config_t {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_config_new() -> *mut wasm_config_t {
     todo!("wasm_config_new")
     //ptr::null_mut()
 }
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
@@ -41,8 +38,7 @@ cfg_if! {
             }
         }
 
-        /// cbindgen:ignore
-        #[no_mangle]
+                #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
@@ -51,27 +47,23 @@ cfg_if! {
     }
     else if #[cfg(feature = "jit")] {
         // Headless JIT
-        /// cbindgen:ignore
-        #[no_mangle]
+                #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
     else {
-        /// cbindgen:ignore
-        #[no_mangle]
+                #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             unimplemented!("The JITEngine is not attached");
         }
     }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_engine_delete(_wasm_engine_address: Option<Box<wasm_engine_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(
     _config_ptr: *mut wasm_config_t,

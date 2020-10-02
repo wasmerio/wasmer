@@ -3,14 +3,12 @@ use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
 use std::ptr::NonNull;
 use wasmer::{Store, Table};
 
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_table_t {
     // maybe needs to hold onto instance
     pub(crate) inner: Table,
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_new(
     store_ptr: Option<NonNull<wasm_store_t>>,
@@ -27,11 +25,9 @@ pub unsafe extern "C" fn wasm_table_new(
     Some(Box::new(wasm_table_t { inner: table }))
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_copy(wasm_table: &wasm_table_t) -> Box<wasm_table_t> {
     // do shallow copy
@@ -40,7 +36,6 @@ pub unsafe extern "C" fn wasm_table_copy(wasm_table: &wasm_table_t) -> Box<wasm_
     })
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_same(
     wasm_table1: &wasm_table_t,
@@ -49,13 +44,11 @@ pub unsafe extern "C" fn wasm_table_same(
     wasm_table1.inner.same(&wasm_table2.inner)
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_size(wasm_table: &wasm_table_t) -> usize {
     wasm_table.inner.size() as _
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_grow(
     _wasm_table: &mut wasm_table_t,

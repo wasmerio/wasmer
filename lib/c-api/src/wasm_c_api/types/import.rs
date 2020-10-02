@@ -3,7 +3,6 @@ use std::ptr::NonNull;
 use wasmer::ImportType;
 
 // TODO: improve ownership in `importtype_t` (can we safely use `Box<wasm_name_t>` here?)
-/// cbindgen:ignore
 #[allow(non_camel_case_types)]
 pub struct wasm_importtype_t {
     pub(crate) module: NonNull<wasm_name_t>,
@@ -13,7 +12,6 @@ pub struct wasm_importtype_t {
 
 wasm_declare_boxed_vec!(importtype);
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_importtype_new(
     module: NonNull<wasm_name_t>,
@@ -27,19 +25,16 @@ pub extern "C" fn wasm_importtype_new(
     })
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_importtype_module(et: &'static wasm_importtype_t) -> &'static wasm_name_t {
     unsafe { et.module.as_ref() }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_importtype_name(et: &'static wasm_importtype_t) -> &'static wasm_name_t {
     unsafe { et.name.as_ref() }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_importtype_type(
     et: &'static wasm_importtype_t,
@@ -47,7 +42,6 @@ pub extern "C" fn wasm_importtype_type(
     unsafe { et.extern_type.as_ref() }
 }
 
-/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_importtype_delete(_importtype: Option<Box<wasm_importtype_t>>) {}
 
