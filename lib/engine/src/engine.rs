@@ -19,6 +19,7 @@ pub trait Engine {
     /// Gets the target
     fn target(&self) -> &Target;
 
+    /*
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
 
@@ -27,6 +28,7 @@ pub trait Engine {
 
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
+    */
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;

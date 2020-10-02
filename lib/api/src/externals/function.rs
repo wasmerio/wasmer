@@ -10,16 +10,26 @@ use std::cell::RefCell;
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
-    VMTrampoline,
+    raise_user_trap,
+    resume_panic,
+    wasmer_call_trampoline,
+    Export,
+    ExportFunction,
+    VMCallerCheckedAnyfunc,
+    VMContext,
+    VMDynamicFunctionContext,
+    VMFunctionBody,
+    VMFunctionKind,
+    VMSharedSignatureIndex, //VMTrampoline,
 };
 
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
     // The trampoline to do the call
-    pub(crate) trampoline: VMTrampoline,
+    //pub(crate) trampoline: VMTrampoline,
+    // The signature to look up the trampoline to make the call
+    pub(crate) signature: VMSharedSignatureIndex,
 }
 
 /// A function defined in the Host
@@ -351,7 +361,7 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let vmsignature = store.engine().register_signature(&wasmer_export.signature);
+        let vmsignature = store.engine().register(&wasmer_export.signature);
         let trampoline = store
             .engine()
             .function_call_trampoline(vmsignature)

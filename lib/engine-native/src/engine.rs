@@ -49,7 +49,6 @@ impl NativeEngine {
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 compiler: Some(compiler),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 features,
@@ -81,7 +80,6 @@ impl NativeEngine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 is_cross_compiling: false,
@@ -125,6 +123,7 @@ impl Engine for NativeEngine {
         &self.target
     }
 
+    /*
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
@@ -141,6 +140,7 @@ impl Engine for NativeEngine {
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.inner().trampoline(sig)
     }
+    */
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
@@ -222,8 +222,6 @@ pub struct NativeEngineInner {
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,
-    /// Pointers to trampoline functions used to enter particular signatures
-    trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -283,6 +281,7 @@ impl NativeEngineInner {
         &self.signatures
     }
 
+    /*
     /// Gets the trampoline pre-registered for a particular signature
     pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.trampolines.get(&sig).cloned()
@@ -295,6 +294,7 @@ impl NativeEngineInner {
         // where they belong become unallocated.
         self.trampolines.insert(index, trampoline);
     }
+    */
 
     pub(crate) fn is_cross_compiling(&self) -> bool {
         self.is_cross_compiling

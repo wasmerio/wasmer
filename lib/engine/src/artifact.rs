@@ -54,8 +54,13 @@ pub trait Artifact: Send + Sync {
     /// ready to be run.
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>;
 
+    /// Returns the static typed function trampolines allocated in memory of
+    /// this `Artifact`, ready to be run.
+    fn finished_function_trampolines(&self)
+        -> &BoxedSlice<VMSharedSignatureIndex, FunctionBodyPtr>;
+
     /// Returns the dynamic function trampolines allocated in memory
-    /// for this `Artifact`, ready to be run.
+    /// of this `Artifact`, ready to be run.
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr>;
 
     /// Returns the associated VM signatures for this `Artifact`.
