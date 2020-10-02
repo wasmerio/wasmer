@@ -42,13 +42,13 @@ unsafe fn wasm_functype_new_inner(
     let params: Vec<ValType> = params
         .into_slice()?
         .iter()
-        .map(|&ptr| *ptr)
+        .map(|ptr| **ptr)
         .map(Into::into)
         .collect::<Vec<_>>();
     let results: Vec<ValType> = results
         .into_slice()?
         .iter()
-        .map(|&ptr| *ptr)
+        .map(|ptr| **ptr)
         .map(Into::into)
         .collect::<Vec<_>>();
 

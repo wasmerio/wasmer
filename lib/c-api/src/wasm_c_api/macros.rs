@@ -131,12 +131,14 @@ macro_rules! wasm_declare_boxed_vec {
 
             // TODO: do this properly
             impl [<wasm_ $name _vec_t>] {
-                pub unsafe fn into_slice(&self) -> Option<&[*mut [<wasm_ $name _t>]]>{
+                pub unsafe fn into_slice(&self) -> Option<&[Box<[<wasm_ $name _t>]>]>{
                     if self.data.is_null() {
                         return None;
                     }
 
-                    Some(::std::slice::from_raw_parts(self.data, self.size))
+                    let slice: &[*mut [<wasm_ $name _t>]] = ::std::slice::from_raw_parts(self.data, self.size);
+                    let slice: &[Box<[<wasm_ $name _t>]>] = ::std::mem::transmute(slice);
+                    Some(slice)
                 }
             }
 
