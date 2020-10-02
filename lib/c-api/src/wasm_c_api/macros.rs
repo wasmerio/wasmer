@@ -8,16 +8,6 @@ macro_rules! wasm_declare_vec_inner {
                 // TODO: actually implement this
                 [<wasm_ $name _vec_new_uninitialized>](out, 0);
             }
-
-            #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
-                let vec = &mut *ptr;
-                if !vec.data.is_null() {
-                    Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    vec.data = ::std::ptr::null_mut();
-                    vec.size = 0;
-                }
-            }
         }
     }
 }
@@ -96,6 +86,17 @@ macro_rules! wasm_declare_vec {
                 (*out).size = length;
                 ::std::mem::forget(bytes);
             }
+
+
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
+                let vec = &mut *ptr;
+                if !vec.data.is_null() {
+                    Vec::from_raw_parts(vec.data, vec.size, vec.size);
+                    vec.data = ::std::ptr::null_mut();
+                    vec.size = 0;
+                }
+            }
         }
 
         wasm_declare_vec_inner!($name);
@@ -111,6 +112,21 @@ macro_rules! wasm_declare_boxed_vec {
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
                 pub data: *mut *mut [<wasm_ $name _t>],
+            }
+
+            impl<'a> From<Vec<Box<[<wasm_ $name _t>]>>> for [<wasm_ $name _vec_t>] {
+                fn from(other: Vec<Box<[<wasm_ $name _t>]>>) -> Self {
+                    let boxed_slice: Box<[Box<[<wasm_ $name _t>]>]> = other.into_boxed_slice();
+                    let mut boxed_slice: Box<[*mut [<wasm_ $name _t>]]> = unsafe { ::std::mem::transmute(boxed_slice) };
+                    let size = boxed_slice.len();
+                    let data = boxed_slice.as_mut_ptr();
+
+                    ::std::mem::forget(boxed_slice);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
             }
 
             // TODO: do this properly
@@ -145,6 +161,17 @@ macro_rules! wasm_declare_boxed_vec {
                 (*out).data = pointer;
                 (*out).size = length;
                 ::std::mem::forget(bytes);
+            }
+
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
+                let vec = &mut *ptr;
+                if !vec.data.is_null() {
+                    let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
+                    let data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
+                    vec.data = ::std::ptr::null_mut();
+                    vec.size = 0;
+                }
             }
         }
 
