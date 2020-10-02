@@ -31,11 +31,8 @@ include_directories(../../)
 find_library(
     WASMER_LIB NAMES libwasmer_c_api.dylib libwasmer_c_api.so wasmer_c_api.dll
     PATHS ${CMAKE_SOURCE_DIR}/../../../../target/release/
+    REQUIRED
 )
-
-if(NOT WASMER_LIB)
-    message(FATAL_ERROR "wasmer library not found")
-endif()
 
 enable_testing()
 
