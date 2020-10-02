@@ -1,4 +1,4 @@
-//! entrypoints for the standard C API
+//! Entrypoints for the standard C API
 
 #[macro_use]
 pub mod macros;
