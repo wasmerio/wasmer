@@ -42,7 +42,6 @@ paste = "0.1"
 default = [
     "cranelift",
     "wasi",
-    "deprecated",
 ]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
@@ -70,9 +69,6 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
-
-# Include the deprecated Wasmer C API.
-deprecated = []
 
 # Deprecated feature.
 # TODO: Port this feature.
