@@ -63,7 +63,7 @@ fn main() {
     build_wasmer_headers(&crate_dir, &out_dir);
 }
 
-#[allow(unused)]
+/// Build the header files for the `wasm_c_api` API.
 fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer_wasm");
@@ -98,27 +98,16 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 "#,
     );
 
+    let guard = "WASMER_WASM_H";
+
     // C bindings.
     {
         // Generate the bindings in the `OUT_DIR`.
         out_header_file.set_extension("h");
 
-        #[allow(unused_mut)]
-        let mut builder = Builder::new()
-            .with_language(Language::C)
-            .with_crate(crate_dir)
-            .with_include_guard("WASMER_WASM_H")
-            .with_header(&pre_header)
-            .with_define("target_family", "windows", "_WIN32")
-            .with_define("target_arch", "x86_64", "ARCH_X86_64")
-            .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
-            .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
-            .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-            .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+        // Build and generate the header file.
+        exclude_items_from_deprecated(new_builder(Language::C, crate_dir, guard, &pre_header))
             .with_include("wasm.h")
-            .with_documentation(true);
-        builder = exclude_items_from_deprecated(builder);
-        builder
             .generate()
             .expect("Unable to generate C bindings")
             .write_to_file(out_header_file.as_path());
@@ -132,7 +121,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     }
 }
 
-#[allow(unused)]
+/// Build the header files for the `deprecated` API.
 fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer");
@@ -164,23 +153,15 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
 "#,
     );
 
+    let guard = "WASMER_H";
+
     // C bindings.
     {
         // Generate the bindings in the `OUT_DIR`.
         out_header_file.set_extension("h");
 
-        let mut builder = Builder::new()
-            .with_language(Language::C)
-            .with_crate(crate_dir)
-            .with_include_guard("WASMER_H")
-            .with_header(&pre_header)
-            .with_define("target_family", "windows", "_WIN32")
-            .with_define("target_arch", "x86_64", "ARCH_X86_64")
-            .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-            .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
-            .with_documentation(true);
-        builder = exclude_items_from_wasm_c_api(builder);
-        builder
+        // Build and generate the header file.
+        exclude_items_from_wasm_c_api(new_builder(Language::C, crate_dir, guard, &pre_header))
             .generate()
             .expect("Unable to generate C bindings")
             .write_to_file(out_header_file.as_path());
@@ -198,18 +179,8 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
         // Generate the bindings in the `OUT_DIR`.
         out_header_file.set_extension("hh");
 
-        let mut builder = Builder::new()
-            .with_language(Language::Cxx)
-            .with_crate(crate_dir)
-            .with_include_guard("WASMER_H")
-            .with_header(&pre_header)
-            .with_define("target_family", "windows", "_WIN32")
-            .with_define("target_arch", "x86_64", "ARCH_X86_64")
-            .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-            .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
-            .with_documentation(true);
-        builder = exclude_items_from_wasm_c_api(builder);
-        builder
+        // Build and generate the header file.
+        exclude_items_from_wasm_c_api(new_builder(Language::Cxx, crate_dir, guard, &pre_header))
             .generate()
             .expect("Unable to generate C++ bindings")
             .write_to_file(out_header_file.as_path());
@@ -223,11 +194,28 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
     }
 }
 
-fn exclude_items_from_deprecated(mut builder: Builder) -> Builder {
-    // List of all functions to exclude given by:
-    //
-    // `rg 'extern "C" fn' deprecated/` builder = builder
-    builder = builder
+/// Create a fresh new `Builder`, already pre-configured.
+fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
+    Builder::new()
+        .with_language(language)
+        .with_crate(crate_dir)
+        .with_include_guard(include_guard)
+        .with_header(header)
+        .with_documentation(true)
+        .with_define("target_family", "windows", "_WIN32")
+        .with_define("target_arch", "x86_64", "ARCH_X86_64")
+        .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+}
+
+/// Exclude types and functions from the `deprecated` API.
+fn exclude_items_from_deprecated(builder: Builder) -> Builder {
+    builder
+        // List of all functions to exclude given by:
+        //
+        // `rg 'extern "C" fn' deprecated/` builder = builder
         .exclude_item("wasmer_compile")
         .exclude_item("wasmer_emscripten_call_main")
         .exclude_item("wasmer_emscripten_destroy_globals")
@@ -318,12 +306,10 @@ fn exclude_items_from_deprecated(mut builder: Builder) -> Builder {
         .exclude_item("wasmer_wasi_generate_default_import_object")
         .exclude_item("wasmer_wasi_generate_import_object")
         .exclude_item("wasmer_wasi_generate_import_object_for_version")
-        .exclude_item("wasmer_wasi_get_version");
-
-    // List of all structs and enums to exclude given by:
-    //
-    // `rg 'pub (enum|struct|union)' deprecated/`
-    builder = builder
+        .exclude_item("wasmer_wasi_get_version")
+        // List of all structs and enums to exclude given by:
+        //
+        // `rg 'pub (enum|struct|union)' deprecated/`
         .exclude_item("NamedExportDescriptors(Vec<NamedExportDescriptor>)")
         .exclude_item("NamedImportDescriptors(Vec<ImportType>)")
         .exclude_item("Version")
@@ -358,16 +344,17 @@ fn exclude_items_from_deprecated(mut builder: Builder) -> Builder {
         .exclude_item("wasmer_trampoline_callable_t")
         .exclude_item("wasmer_value_t")
         .exclude_item("wasmer_value_tag")
-        .exclude_item("wasmer_wasi_map_dir_entry_t");
-
-    builder
+        .exclude_item("wasmer_wasi_map_dir_entry_t")
 }
 
-fn exclude_items_from_wasm_c_api(mut builder: Builder) -> Builder {
-    // All items defined in `wasm.h` are ignored by cbindgen, because
-    // we don't want duplications. We must exclude extra non-standard
-    // items, like the ones from the WASI API.
-    builder = builder
+/// Excludes non-standard types and functions of the `wasm_c_api` API.
+///
+/// All items defined in `wasm.h` are ignored by cbindgen already
+/// based on `cbindgen:ignore` instructions, because we don't want
+/// duplications. We must exclude extra non-standard items, like the
+/// ones from the WASI API.
+fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
+    builder
         .exclude_item("wasi_config_arg")
         .exclude_item("wasi_config_env")
         .exclude_item("wasi_config_inherit_stderr")
@@ -386,7 +373,5 @@ fn exclude_items_from_wasm_c_api(mut builder: Builder) -> Builder {
         .exclude_item("wasi_get_imports_inner")
         .exclude_item("wasi_get_start_function")
         .exclude_item("wasi_get_wasi_version")
-        .exclude_item("wasi_version_t");
-
-    builder
+        .exclude_item("wasi_version_t")
 }
