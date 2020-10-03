@@ -3,7 +3,6 @@ use super::types::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
     wasm_importtype_vec_t,
 };
-use std::mem;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
@@ -38,18 +37,14 @@ pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
     out: &mut wasm_exporttype_vec_t,
 ) {
-    let mut exports = module
+    let exports = module
         .inner
         .exports()
         .map(Into::into)
         .map(Box::new)
-        .map(Box::into_raw)
-        .collect::<Vec<*mut wasm_exporttype_t>>();
+        .collect::<Vec<Box<wasm_exporttype_t>>>();
 
-    debug_assert_eq!(exports.len(), exports.capacity());
-    out.size = exports.len();
-    out.data = exports.as_mut_ptr();
-    mem::forget(exports);
+    *out = exports.into();
 }
 
 #[no_mangle]
@@ -57,18 +52,14 @@ pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
     out: &mut wasm_importtype_vec_t,
 ) {
-    let mut imports = module
+    let imports = module
         .inner
         .imports()
         .map(Into::into)
         .map(Box::new)
-        .map(Box::into_raw)
-        .collect::<Vec<*mut wasm_importtype_t>>();
+        .collect::<Vec<Box<wasm_importtype_t>>>();
 
-    debug_assert_eq!(imports.len(), imports.capacity());
-    out.size = imports.len();
-    out.data = imports.as_mut_ptr();
-    mem::forget(imports);
+    *out = imports.into();
 }
 
 #[no_mangle]
@@ -102,16 +93,8 @@ pub unsafe extern "C" fn wasm_module_serialize(
     out_ptr: &mut wasm_byte_vec_t,
 ) {
     let mut byte_vec = match module.inner.serialize() {
-        Ok(mut byte_vec) => {
-            byte_vec.shrink_to_fit();
-            byte_vec
-        }
+        Ok(byte_vec) => byte_vec,
         Err(_) => return,
     };
-    // ensure we won't leak memory
-    // TODO: use `Vec::into_raw_parts` when it becomes stable
-    debug_assert_eq!(byte_vec.capacity(), byte_vec.len());
-    out_ptr.size = byte_vec.len();
-    out_ptr.data = byte_vec.as_mut_ptr();
-    mem::forget(byte_vec);
+    *out_ptr = byte_vec.into();
 }
