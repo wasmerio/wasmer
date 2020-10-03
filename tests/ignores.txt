@@ -61,12 +61,14 @@ wasitests::snapshot1::file_metadata on windows
 wasitests::snapshot1::fseek on windows
 wasitests::snapshot1::path_link on windows
 wasitests::snapshot1::path_symlink on windows
+wasitests::snapshot1::mapdir_with_leading_slash on windows
 wasitests::unstable::fd_pread on windows
 wasitests::unstable::fd_read on windows
 wasitests::unstable::file_metadata on windows
 wasitests::unstable::fseek on windows
 wasitests::unstable::path_link on windows
 wasitests::unstable::path_symlink on windows
+wasitests::unstable::mapdir_with_leading_slash on windows
 
 # This test is meant to only run on Unix
 wasitests::unstable::unix_open_special_files on windows

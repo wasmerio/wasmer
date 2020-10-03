@@ -438,6 +438,9 @@ impl PreopenDirBuilder {
 
     /// Make this preopened directory appear to the WASI program as `alias`
     pub fn alias(&mut self, alias: &str) -> &mut Self {
+        // We mount at preopened dirs at `/` by default and multiple `/` in a row
+        // are equal to a single `/`.
+        let alias = alias.trim_start_matches('/');
         self.alias = Some(alias.to_string());
 
         self
