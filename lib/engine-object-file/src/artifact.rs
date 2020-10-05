@@ -416,6 +416,16 @@ impl ObjectFileArtifact {
             metadata_length: 0,
         })
     }
+
+    /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
+    pub fn symbol_registry(&self) -> &dyn SymbolRegistry {
+        &self.metadata
+    }
+
+    /// The length in bytes of the metadata in the serialized output.
+    pub fn metadata_length(&self) -> usize {
+        self.metadata_length
+    }
 }
 
 impl Artifact for ObjectFileArtifact {
@@ -471,13 +481,5 @@ impl Artifact for ObjectFileArtifact {
     /// Serialize a ObjectFileArtifact
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(self.module_bytes.clone())
-    }
-
-    fn symbol_registry(&self) -> &dyn SymbolRegistry {
-        &self.metadata
-    }
-
-    fn metadata_length(&self) -> usize {
-        self.metadata_length
     }
 }

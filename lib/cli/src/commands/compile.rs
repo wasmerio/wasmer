@@ -106,8 +106,10 @@ impl Compile {
 
         #[cfg(feature = "object-file")]
         if engine_type == EngineType::ObjectFile {
-            let symbol_registry = module.artifact().symbol_registry();
-            let metadata_length = module.artifact().metadata_length();
+            let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
+                module.artifact().as_ref().downcast_ref().context("Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact")?;
+            let symbol_registry = artifact.symbol_registry();
+            let metadata_length = artifact.metadata_length();
             let module_info = module.info();
             let header_file_src = crate::c_gen::object_file_header::generate_header_file(
                 module_info,

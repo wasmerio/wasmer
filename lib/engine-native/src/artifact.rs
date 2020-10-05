@@ -592,14 +592,4 @@ impl Artifact for NativeArtifact {
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.sharedobject_path)?)
     }
-
-    fn symbol_registry(&self) -> &dyn SymbolRegistry {
-        &self.metadata
-    }
-
-    fn metadata_length(&self) -> usize {
-        // TODO: figure out what to do here;
-        // we could easily store this data and return it... so we probably should
-        0
-    }
 }

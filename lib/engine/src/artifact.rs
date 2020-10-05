@@ -5,7 +5,7 @@ use std::any::Any;
 use std::fs;
 use std::path::Path;
 use std::sync::Arc;
-use wasmer_compiler::{Features, SymbolRegistry};
+use wasmer_compiler::Features;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     DataInitializer, FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
@@ -21,7 +21,7 @@ use wasmer_vm::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync {
+pub trait Artifact: Send + Sync + Upcastable {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 
@@ -147,10 +147,41 @@ pub trait Artifact: Send + Sync {
             .finish_instantiation(&data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
+}
 
-    /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
-    fn symbol_registry(&self) -> &dyn SymbolRegistry;
+// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
+/// Trait needed to get downcasting from `WasiFile` to work.
+pub trait Upcastable {
+    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any;
+    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any;
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
+}
 
-    /// The length in bytes of the metadata in the serialized output.
-    fn metadata_length(&self) -> usize;
+impl<T: Any + Send + Sync + 'static> Upcastable for T {
+    #[inline]
+    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl dyn Artifact + 'static {
+    /// Try to downcast the artifact into a given type.
+    #[inline]
+    pub fn downcast_ref<T: 'static>(self: &'_ Self) -> Option<&'_ T> {
+        self.upcast_any_ref().downcast_ref::<T>()
+    }
+
+    /// Try to downcast the artifact into a given type mutably.
+    #[inline]
+    pub fn downcast_mut<T: 'static>(self: &'_ mut Self) -> Option<&'_ mut T> {
+        self.upcast_any_mut().downcast_mut::<T>()
+    }
 }
