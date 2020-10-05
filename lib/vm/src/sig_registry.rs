@@ -17,7 +17,7 @@ use wasmer_types::FunctionType;
 /// index comparison.
 #[derive(Debug)]
 pub struct SignatureRegistry {
-    // This structure is stored in a `Compiler` and is intended to be shared
+    // This structure is stored in an `Engine` and is intended to be shared
     // across many instances. Ideally instances can themselves be sent across
     // threads, and ideally we can compile across many threads. As a result we
     // use interior mutability here with a lock to avoid having callers to
