@@ -4,7 +4,7 @@
 /// The cancellation token of an ongoing asynchronous operation.
 #[derive(Debug)]
 #[repr(transparent)]
-pub struct CancellationToken(pub(crate) u64);
+pub struct CancellationToken(pub u64);
 
 /// The user context that will be returned to WebAssembly, once a
 /// requested asynchronous operation is completed.
