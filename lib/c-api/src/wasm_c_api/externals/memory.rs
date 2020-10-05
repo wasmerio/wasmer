@@ -1,8 +1,7 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_memorytype_t;
 use std::mem;
-use std::ptr::NonNull;
-use wasmer::{Memory, Pages, Store};
+use wasmer::{Memory, Pages};
 
 #[allow(non_camel_case_types)]
 pub struct wasm_memory_t {
@@ -12,14 +11,12 @@ pub struct wasm_memory_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_new(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     mt: &wasm_memorytype_t,
 ) -> Option<Box<wasm_memory_t>> {
     let md = mt.as_memorytype().clone();
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
+    let memory = c_try!(Memory::new(&store.inner, md));
 
-    let memory = c_try!(Memory::new(store, md));
     Some(Box::new(wasm_memory_t { inner: memory }))
 }
 

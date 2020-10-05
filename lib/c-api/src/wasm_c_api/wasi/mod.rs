@@ -16,9 +16,8 @@ use crate::error::{update_last_error, CApiError};
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
-use std::ptr::NonNull;
 use std::slice;
-use wasmer::{Extern, NamedResolver, Store};
+use wasmer::{Extern, NamedResolver};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiState,
     WasiStateBuilder, WasiVersion,
@@ -241,7 +240,7 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
 /// Takes ownership of `wasi_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
-    store: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
     imports: *mut *mut wasm_extern_t,
@@ -251,13 +250,12 @@ pub unsafe extern "C" fn wasi_get_imports(
 
 /// Takes ownership of `wasi_env_t`.
 unsafe fn wasi_get_imports_inner(
-    store: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
     imports: *mut *mut wasm_extern_t,
 ) -> Option<()> {
-    let store_ptr = store?.cast::<Store>();
-    let store = store_ptr.as_ref();
+    let store = &store.inner;
 
     let version = c_try!(
         get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {

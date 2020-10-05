@@ -7,7 +7,7 @@ use crate::error::update_last_error;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
-use wasmer::{Module, Store};
+use wasmer::Module;
 
 #[allow(non_camel_case_types)]
 pub struct wasm_module_t {
@@ -16,14 +16,12 @@ pub struct wasm_module_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     bytes: &wasm_byte_vec_t,
 ) -> Option<Box<wasm_module_t>> {
     // TODO: review lifetime of byte slice
     let wasm_byte_slice: &[u8] = slice::from_raw_parts_mut(bytes.data, bytes.size);
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
-    let module = c_try!(Module::from_binary(store, wasm_byte_slice));
+    let module = c_try!(Module::from_binary(&store.inner, wasm_byte_slice));
 
     Some(Box::new(wasm_module_t {
         inner: Arc::new(module),
@@ -35,20 +33,13 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_validate(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     bytes: &wasm_byte_vec_t,
 ) -> bool {
     // TODO: review lifetime of byte slice.
     let wasm_byte_slice: &[u8] = slice::from_raw_parts(bytes.data, bytes.size);
 
-    if store_ptr.is_none() {
-        return false;
-    }
-
-    let store_ptr = store_ptr.unwrap().cast::<Store>();
-    let store = store_ptr.as_ref();
-
-    if let Err(error) = Module::validate(store, wasm_byte_slice) {
+    if let Err(error) = Module::validate(&store.inner, wasm_byte_slice) {
         update_last_error(error);
 
         false
@@ -89,7 +80,7 @@ pub unsafe extern "C" fn wasm_module_imports(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_deserialize(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     bytes: *const wasm_byte_vec_t,
 ) -> Option<NonNull<wasm_module_t>> {
     // TODO: read config from store and use that to decide which compiler to use
@@ -101,9 +92,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
         (&*bytes).into_slice().unwrap()
     };
 
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
-    let module = c_try!(Module::deserialize(store, byte_slice));
+    let module = c_try!(Module::deserialize(&store.inner, byte_slice));
 
     Some(NonNull::new_unchecked(Box::into_raw(Box::new(
         wasm_module_t {
@@ -117,7 +106,7 @@ pub unsafe extern "C" fn wasm_module_serialize(
     module: &wasm_module_t,
     out_ptr: &mut wasm_byte_vec_t,
 ) {
-    let mut byte_vec = match module.inner.serialize() {
+    let byte_vec = match module.inner.serialize() {
         Ok(byte_vec) => byte_vec,
         Err(_) => return,
     };

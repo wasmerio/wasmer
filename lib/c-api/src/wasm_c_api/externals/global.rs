@@ -2,8 +2,7 @@ use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
 use std::convert::TryInto;
-use std::ptr::NonNull;
-use wasmer::{Global, Store, Val};
+use wasmer::{Global, Val};
 
 #[allow(non_camel_case_types)]
 pub struct wasm_global_t {
@@ -13,14 +12,13 @@ pub struct wasm_global_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     gt: &wasm_globaltype_t,
     val: &wasm_val_t,
 ) -> Option<Box<wasm_global_t>> {
     let gt = gt.as_globaltype();
     let wasm_val = val.try_into().ok()?;
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
+    let store = &store.inner;
     let global = if gt.mutability.is_mutable() {
         Global::new_mut(store, wasm_val)
     } else {
