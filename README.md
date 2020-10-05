@@ -171,7 +171,7 @@ Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosys
 
 ## Community
 
-Wasmer has an amazing community developers and contributors. Welcome, please join us! 👋
+Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
 
 ### Channels
 
