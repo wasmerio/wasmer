@@ -115,7 +115,7 @@ fn recursively_accept(fd: usize, err: __wasi_errno_t) {
             panic!("socket_pre_accept early failure: {}", err);
         }
 
-        handle_connection(Box::into_raw(Box::new(RwContinuation {
+        read_data(Box::into_raw(Box::new(RwContinuation {
             buffer: vec![0; 2048],
             conn,
             len_buffer: 0,
@@ -129,11 +129,11 @@ struct RwContinuation {
     len_buffer: u32,
 }
 
-fn handle_connection(continuation: usize, err: __wasi_errno_t) {
+fn read_data(continuation: usize, err: __wasi_errno_t) {
     unsafe {
         let mut continuation = Box::from_raw(continuation as *mut RwContinuation);
         if err != 0 {
-            println!("error before handle_connection: {}", err);
+            println!("error before read_data: {}", err);
             return;
         }
 
@@ -151,20 +151,20 @@ fn handle_connection(continuation: usize, err: __wasi_errno_t) {
             0,
             len_buffer,
             std::ptr::null_mut(),
-            make_user_context(after_read, Box::into_raw(continuation) as usize),
+            make_user_context(write_data, Box::into_raw(continuation) as usize),
             &mut ct
         );
         if err != 0 {
-            panic!("read@handle_connection failed: {}", err);
+            panic!("read@read_data failed: {}", err);
         }
     }
 }
 
-fn after_read(continuation: usize, err: __wasi_errno_t) {
+fn write_data(continuation: usize, err: __wasi_errno_t) {
     unsafe {
         let mut continuation = Box::from_raw(continuation as *mut RwContinuation);
         if err != 0 {
-            println!("error before after_read: {}", err);
+            println!("error before write_data: {}", err);
             return;
         }
 
@@ -186,11 +186,11 @@ fn after_read(continuation: usize, err: __wasi_errno_t) {
             1,
             0,
             len_buffer,
-            make_user_context(handle_connection, Box::into_raw(continuation) as usize),
+            make_user_context(read_data, Box::into_raw(continuation) as usize),
             &mut ct
         );
         if err != 0 {
-            panic!("write@after_read failed: {}", err);
+            panic!("write@write_data failed: {}", err);
         }
     }
 }
