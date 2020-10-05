@@ -1,1 +1,1 @@
-../../../../lib/c-api/tests/wasm-c-api/include/wasm.h
+../../../../lib/c-api/wasm.h

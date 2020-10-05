@@ -8,7 +8,6 @@ use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
 use wasmer_engine_object_file::ObjectFile;
 
-// cbindegn should see this
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -34,7 +33,6 @@ impl Default for wasmer_compiler_t {
     }
 }
 
-// cbindegn should see this
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -60,6 +58,7 @@ impl Default for wasmer_engine_t {
     }
 }
 
+/// cbindgen:ignore
 /// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[derive(Debug, Default)]
 #[repr(C)]
@@ -68,12 +67,12 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::new(wasm_config_t::default())
 }
 
-// cbindegn should see this
 #[no_mangle]
 pub extern "C" fn wasm_config_set_compiler(
     config: &mut wasm_config_t,
@@ -82,12 +81,12 @@ pub extern "C" fn wasm_config_set_compiler(
     config.compiler = compiler;
 }
 
-// cbindegn should see this
 #[no_mangle]
 pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
     config.engine = engine;
 }
 
+/// cbindgen:ignore
 #[repr(C)]
 pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
@@ -166,9 +165,11 @@ cfg_if! {
     }
 }
 
+/// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_engine_delete(_wasm_engine_address: Option<Box<wasm_engine_t>>) {}
 
+/// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(
     config: Box<wasm_config_t>,

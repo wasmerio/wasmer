@@ -86,15 +86,6 @@ build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,object-file,llvm,wasi
 
-# this is debug code; we probably shouldn't ship it like this
-build-capi-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features object-file,wasi
-build-capi-native-debug:
-	cargo build --manifest-path lib/c-api/Cargo.toml \
-		--no-default-features --features object-file,wasi
-
-
 ###########
 # Testing #
 ###########

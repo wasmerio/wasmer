@@ -28,6 +28,9 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `jit` feature has been enabled for this build.
+#define WASMER_JIT_ENABLED
+
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -50,6 +53,21 @@
 #include <stdint.h>
 #include <stdlib.h>
 #include "wasm.h"
+
+/**
+ * this can be a wasmer-specific type with wasmer-specific functions for manipulating it
+ */
+typedef enum {
+  CRANELIFT = 0,
+  LLVM = 1,
+  SINGLEPASS = 2,
+} wasmer_compiler_t;
+
+typedef enum {
+  JIT = 0,
+  NATIVE = 1,
+  OBJECT_FILE = 2,
+} wasmer_engine_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_config_t wasi_config_t;
@@ -131,6 +149,12 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 #if defined(WASMER_WASI_ENABLED)
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
+
+void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
+
+void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
+
+void *wasm_instance_get_vmctx_ptr(const wasm_instance_t *instance);
 
 /**
  * Gets the length in bytes of the last error if any.
