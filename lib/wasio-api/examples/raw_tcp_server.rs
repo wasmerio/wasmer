@@ -85,6 +85,9 @@ fn initial_task(_: usize, _: __wasi_errno_t) {
 
         // Accept on the socket.
         let mut ct = CancellationToken(0);
+
+        // "Pre-accept" will accept the next connection into an internal buffer. The callback should call `socket_accept`
+        // to allocate a file descriptor for the new incoming connection.
         let err = socket_pre_accept(fd, make_user_context(recursively_accept, fd as usize), &mut ct);
         if err != 0 {
             panic!("socket_pre_accept early failure: {}", err);
@@ -98,7 +101,7 @@ fn recursively_accept(fd: usize, err: __wasi_errno_t) {
             panic!("recursively_accept() got failure on fd {}: {}", fd, err);
         }
 
-        // The new connection is currently buffered - let's move it into our visible context.
+        // The new connection is currently buffered - let's move it into a visible file descriptor.
         let mut conn = 0;
         let err = socket_accept(&mut conn);
         if err != 0 {
@@ -112,13 +115,83 @@ fn recursively_accept(fd: usize, err: __wasi_errno_t) {
             panic!("socket_pre_accept early failure: {}", err);
         }
 
-        handle_connection(conn);
+        handle_connection(Box::into_raw(Box::new(RwContinuation {
+            buffer: vec![0; 2048],
+            conn,
+            len_buffer: 0,
+        })) as usize, 0);
     }
 }
 
-fn handle_connection(conn: __wasi_fd_t) {
+struct RwContinuation {
+    buffer: Vec<u8>,
+    conn: __wasi_fd_t,
+    len_buffer: u32,
+}
+
+fn handle_connection(continuation: usize, err: __wasi_errno_t) {
     unsafe {
-        close(conn);
+        let mut continuation = Box::from_raw(continuation as *mut RwContinuation);
+        if err != 0 {
+            println!("error before handle_connection: {}", err);
+            return;
+        }
+
+        // Read from the connection.
+        let iov = __wasi_ciovec_t {
+            buf: continuation.buffer.as_mut_ptr(),
+            buf_len: continuation.buffer.len() as u32,
+        };
+        let mut ct = CancellationToken(0);
+        let mut len_buffer = &mut continuation.len_buffer as *mut u32;
+        let err = read(
+            continuation.conn,
+            &iov,
+            1,
+            0,
+            len_buffer,
+            std::ptr::null_mut(),
+            make_user_context(after_read, Box::into_raw(continuation) as usize),
+            &mut ct
+        );
+        if err != 0 {
+            panic!("read@handle_connection failed: {}", err);
+        }
+    }
+}
+
+fn after_read(continuation: usize, err: __wasi_errno_t) {
+    unsafe {
+        let mut continuation = Box::from_raw(continuation as *mut RwContinuation);
+        if err != 0 {
+            println!("error before after_read: {}", err);
+            return;
+        }
+
+        if continuation.len_buffer == 0 {
+            println!("EOF on connection {}.", continuation.conn);
+            close(continuation.conn);
+            return;
+        }
+
+        let iov = __wasi_ciovec_t {
+            buf: continuation.buffer.as_ptr() as *mut u8,
+            buf_len: continuation.len_buffer,
+        };
+        let mut ct = CancellationToken(0);
+        let mut len_buffer = &mut continuation.len_buffer as *mut u32;
+        let err = write(
+            continuation.conn,
+            &iov,
+            1,
+            0,
+            len_buffer,
+            make_user_context(handle_connection, Box::into_raw(continuation) as usize),
+            &mut ct
+        );
+        if err != 0 {
+            panic!("write@after_read failed: {}", err);
+        }
     }
 }
 
