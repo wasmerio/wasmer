@@ -3,6 +3,7 @@ use super::types::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
     wasm_importtype_vec_t,
 };
+use crate::error::update_last_error;
 use std::ptr::NonNull;
 use std::slice;
 use std::sync::Arc;
@@ -31,6 +32,30 @@ pub unsafe extern "C" fn wasm_module_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasm_module_validate(
+    store_ptr: Option<NonNull<wasm_store_t>>,
+    bytes: &wasm_byte_vec_t,
+) -> bool {
+    // TODO: review lifetime of byte slice.
+    let wasm_byte_slice: &[u8] = slice::from_raw_parts(bytes.data, bytes.size);
+
+    if store_ptr.is_none() {
+        return false;
+    }
+
+    let store_ptr = store_ptr.unwrap().cast::<Store>();
+    let store = store_ptr.as_ref();
+
+    if let Err(error) = Module::validate(store, wasm_byte_slice) {
+        update_last_error(error);
+
+        false
+    } else {
+        true
+    }
+}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_exports(
