@@ -5,6 +5,7 @@ use super::super::socket::*;
 use super::super::types::*;
 use crate::syscalls::types::*;
 use crate::{ptr::WasmPtr, Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
+use wasmer::{Memory, Array};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use flurry::HashMap as ConcHashMap;
 use futures::future::{ready, AbortHandle, Abortable, Future, FutureExt, TryFutureExt};
@@ -383,6 +384,33 @@ impl Executor for TokioExecutor {
                     user_context,
                 ));
             }
+            AsyncOneshotOperation::SocketConnect { memory, fs, fd, sockaddr_ptr, sockaddr_size } => {
+                let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
+                let state = self.state.clone();
+                let addr = decode_socket_addr(memory, sockaddr_ptr, sockaddr_size)?;
+
+                return Ok(self.spawn_oneshot(
+                    async move {
+                        loop {
+                            let mut sock_inner = sock.inner.write().await;
+                            match *sock_inner {
+                                AbstractTcpSocketInner::Undefined4
+                                    | AbstractTcpSocketInner::Undefined6
+                                    | AbstractTcpSocketInner::Binded(_) => {}
+                                _ => break __WASI_EINVAL,
+                            }
+                            let stream = match TcpStream::connect(addr).await {
+                                Ok(x) => x,
+                                Err(e) => break from_tokio_error(e)
+                            };
+                            let (r, w) = stream.into_split();
+                            *sock_inner = AbstractTcpSocketInner::Stream(AsyncMutex::new(r), AsyncMutex::new(w));
+                            break 0;
+                        }
+                    },
+                    user_context
+                ));
+            }
         };
         self.local_completion
             .borrow_mut()
@@ -650,5 +678,34 @@ fn from_tokio_error(e: tokio::io::Error) -> __wasi_errno_t {
         ErrorKind::BrokenPipe => __WASI_EPIPE,
         ErrorKind::PermissionDenied => __WASI_EPERM,
         _ => __WASI_EINVAL,
+    }
+}
+
+fn decode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockaddr_size: u32) -> Result<SocketAddr, __wasi_errno_t> {
+    match sockaddr_size {
+        16 => {
+            let sockaddr = WasmPtr::<SockaddrIn>::new(sockaddr_ptr.offset())
+                .deref(memory)?
+                .get();
+            let ipaddr = Ipv4Addr::from(sockaddr.sin_addr);
+            Ok(SocketAddr::V4(SocketAddrV4::new(
+                ipaddr,
+                sockaddr.sin_port.to_be(), // swap byteorder
+            )))
+        }
+        28 => {
+            let sockaddr = WasmPtr::<SockaddrIn6>::new(sockaddr_ptr.offset())
+                .deref(memory)?
+                .get();
+            let ipaddr = Ipv6Addr::from(sockaddr.sin6_addr);
+            Ok(SocketAddr::V6(SocketAddrV6::new(
+                ipaddr,
+                sockaddr.sin6_port.to_be(), // swap byteorder
+                sockaddr.sin6_flowinfo,
+                sockaddr.sin6_scope_id,
+            )))
+
+        }
+        _ => Err(__WASI_EINVAL)
     }
 }

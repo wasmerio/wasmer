@@ -71,6 +71,21 @@ extern "C" {
         sockaddr_size: u32,
     ) -> __wasi_errno_t;
 
+    /// Connects a socket to a remote address.
+    /// 
+    /// ## Arguments
+    /// 
+    /// - `fd`: The file descriptor to the socket to operate on.
+    /// - `sockaddr`: Pointer to the socket address to connect to. See `SockaddrIn` and `SockaddrIn6`.
+    /// - `sockaddr_size`: Size in bytes of the socket address. `size_of::<SockaddrIn>()` or `size_of::<SockaddrIn6>()`.
+    pub fn socket_connect(
+        fd: __wasi_fd_t,
+        sockaddr: *const u8,
+        sockaddr_size: u32,
+        user_context: UserContext,
+        ct_out: *mut CancellationToken,
+    ) -> __wasi_errno_t;
+
     /// Starts listening on a socket.
     /// 
     /// ## Arguments

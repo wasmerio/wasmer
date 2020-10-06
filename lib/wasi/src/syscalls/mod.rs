@@ -2672,6 +2672,34 @@ pub fn wasio_socket_bind(
 }
 
 #[cfg(feature = "wasio")]
+pub fn wasio_socket_connect(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    sockaddr: WasmPtr<u8, Array>,
+    sockaddr_size: u32,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_connect");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::SocketConnect {
+            memory: memory,
+            fs: &mut state.fs,
+            fd,
+            sockaddr_ptr: sockaddr,
+            sockaddr_size,
+        },
+        user_context
+    ));
+    cancellation_token_cell.set(ct);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
 pub fn wasio_socket_listen(env: &mut WasiEnv, fd: __wasi_fd_t) -> __wasi_errno_t {
     debug!("wasio::wasio_socket_listen");
     let (memory, mut state) = env.get_memory_and_wasi_state(0);

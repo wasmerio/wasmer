@@ -63,6 +63,15 @@ pub enum AsyncOneshotOperation<'a> {
         fs: &'a mut WasiFs,
         fd: __wasi_fd_t, // fd
     },
+
+    /// Connects a socket to a remote address.
+    SocketConnect {
+        memory: &'a Memory,
+        fs: &'a mut WasiFs,
+        fd: __wasi_fd_t,
+        sockaddr_ptr: WasmPtr<u8, Array>,
+        sockaddr_size: u32,
+    },
 }
 
 /// An asynchronous stream operation.
