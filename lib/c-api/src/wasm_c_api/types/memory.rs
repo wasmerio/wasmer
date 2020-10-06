@@ -24,6 +24,7 @@ wasm_declare_vec!(memorytype);
 
 #[allow(non_camel_case_types)]
 #[derive(Copy, Clone, Debug)]
+#[repr(C)]
 pub struct wasm_limits_t {
     pub(crate) min: u32,
     pub(crate) max: u32,

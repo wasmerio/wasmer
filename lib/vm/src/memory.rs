@@ -7,7 +7,7 @@
 
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
-use more_asserts::{assert_ge, assert_le};
+use more_asserts::assert_ge;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
@@ -38,6 +38,22 @@ pub enum MemoryError {
     InvalidMemory {
         /// The reason why the provided memory is invalid.
         reason: String,
+    },
+    /// Caller asked for more minimum memory than we can give them.
+    #[error("The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)", min_requested.0, max_allowed.0)]
+    MinimumMemoryTooLarge {
+        /// The number of pages requested as the minimum amount of memory.
+        min_requested: Pages,
+        /// The maximum amount of memory we can allocate.
+        max_allowed: Pages,
+    },
+    /// Caller asked for a maximum memory greater than we can give them.
+    #[error("The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)", max_requested.0, max_allowed.0)]
+    MaximumMemoryTooLarge {
+        /// The number of pages requested as the maximum amount of memory.
+        max_requested: Pages,
+        /// The number of pages requested as the maximum amount of memory.
+        max_allowed: Pages,
     },
     /// A user defined error value, used for error cases not listed above.
     #[error("A user-defined error occurred: {0}")]
@@ -140,18 +156,28 @@ struct WasmMmap {
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
-        // `maximum` cannot be set to more than `65536` pages.
-        assert_le!(memory.minimum, Pages::max_value());
-        assert!(memory.maximum.is_none() || memory.maximum.unwrap() <= Pages::max_value());
-
-        if memory.maximum.is_some() && memory.maximum.unwrap() < memory.minimum {
-            return Err(MemoryError::InvalidMemory {
-                reason: format!(
-                    "the maximum ({} pages) is less than the minimum ({} pages)",
-                    memory.maximum.unwrap().0,
-                    memory.minimum.0
-                ),
+        if memory.minimum > Pages::max_value() {
+            return Err(MemoryError::MinimumMemoryTooLarge {
+                min_requested: memory.minimum,
+                max_allowed: Pages::max_value(),
             });
+        }
+        // `maximum` cannot be set to more than `65536` pages.
+        if let Some(max) = memory.maximum {
+            if max > Pages::max_value() {
+                return Err(MemoryError::MaximumMemoryTooLarge {
+                    max_requested: max,
+                    max_allowed: Pages::max_value(),
+                });
+            }
+            if max < memory.minimum {
+                return Err(MemoryError::InvalidMemory {
+                    reason: format!(
+                        "the maximum ({} pages) is less than the minimum ({} pages)",
+                        max.0, memory.minimum.0
+                    ),
+                });
+            }
         }
 
         let offset_guard_bytes = style.offset_guard_size() as usize;

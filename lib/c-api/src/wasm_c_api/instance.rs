@@ -4,7 +4,6 @@ use super::store::wasm_store_t;
 use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
 use std::mem;
-use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::{Extern, Instance};
 
@@ -52,7 +51,7 @@ unsafe fn argument_import_iter(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
-    store: Option<NonNull<wasm_store_t>>,
+    _store: &wasm_store_t,
     module: &wasm_module_t,
     imports: *const *const wasm_extern_t,
     // own

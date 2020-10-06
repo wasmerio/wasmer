@@ -1,7 +1,6 @@
 use super::super::store::wasm_store_t;
 use super::super::types::{wasm_ref_t, wasm_table_size_t, wasm_tabletype_t};
-use std::ptr::NonNull;
-use wasmer::{Store, Table};
+use wasmer::Table;
 
 #[allow(non_camel_case_types)]
 pub struct wasm_table_t {
@@ -11,17 +10,14 @@ pub struct wasm_table_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_new(
-    store_ptr: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     tt: &wasm_tabletype_t,
     init: *const wasm_ref_t,
 ) -> Option<Box<wasm_table_t>> {
     let tt = tt.as_tabletype().clone();
-    let store_ptr: NonNull<Store> = store_ptr?.cast::<Store>();
-    let store = store_ptr.as_ref();
-
     let init_val = todo!("get val from init somehow");
+    let table = c_try!(Table::new(&store.inner, tt, init_val));
 
-    let table = c_try!(Table::new(store, tt, init_val));
     Some(Box::new(wasm_table_t { inner: table }))
 }
 
