@@ -21,10 +21,8 @@ pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t) -> Option<Box<wasm_byte
     let mut result: Vec<u8> = result.into_owned();
     result.shrink_to_fit();
 
-    let wasm = wasm_byte_vec_t {
+    Some(Box::new(wasm_byte_vec_t {
         size: result.len(),
         data: result.as_mut_ptr(),
-    };
-
-    Some(Box::new(wasm))
+    }))
 }
