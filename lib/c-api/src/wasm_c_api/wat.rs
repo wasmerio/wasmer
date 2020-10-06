@@ -8,21 +8,7 @@ use super::types::wasm_byte_vec_t;
 #[no_mangle]
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t) -> Option<Box<wasm_byte_vec_t>> {
     let wat: &[u8] = wat.into_slice()?;
+    let result: wasm_byte_vec_t = c_try!(wasmer::wat2wasm(wat)).into_owned().into();
 
-    let result = match wasmer::wat2wasm(wat) {
-        Ok(result) => result,
-        Err(error) => {
-            crate::error::update_last_error(error);
-
-            return None;
-        }
-    };
-
-    let mut result: Vec<u8> = result.into_owned();
-    result.shrink_to_fit();
-
-    Some(Box::new(wasm_byte_vec_t {
-        size: result.len(),
-        data: result.as_mut_ptr(),
-    }))
+    Some(Box::new(result))
 }
