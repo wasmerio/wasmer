@@ -30,6 +30,9 @@ pub extern "C" fn wasm_exporttype_type(
     unsafe { et.extern_type.as_ref() }
 }
 
+#[no_mangle]
+pub extern "C" fn wasm_exporttype_delete(_exporttype: Option<Box<wasm_exporttype_t>>) {}
+
 impl From<ExportType> for wasm_exporttype_t {
     fn from(other: ExportType) -> Self {
         (&other).into()
