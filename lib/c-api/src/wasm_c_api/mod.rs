@@ -29,3 +29,5 @@ pub mod value;
 
 #[cfg(feature = "wasi")]
 pub mod wasi;
+
+pub mod wat;
