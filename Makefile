@@ -77,14 +77,28 @@ build-capi: build-capi-cranelift
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,singlepass,wasi
+	${MAKE} strip-capi
 
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,cranelift,wasi
+	${MAKE} strip-capi
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,llvm,wasi
+	${MAKE} strip-capi
+
+strip-capi:
+ifeq ($(OS), Windows_NT)
+	# How to strip on Windows?
+else
+ifeq ($(UNAME_S), Darwin)
+	strip -x target/release/libwasmer_c_api.dylib
+else
+	strip -x target/release/libwasmer_c_api.so
+endif
+endif
 
 
 ###########

@@ -124,6 +124,10 @@ test-llvm = [
 # context where signal handling is a problem, such as tarpaulin for code coverage.
 test-no-traps = ["wasmer-wast/test-no-traps"]
 
+[profile.release.package.wasmer-c-api]
+opt-level = "z"
+codegen-units = 1
+
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
