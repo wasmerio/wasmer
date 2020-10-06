@@ -40,9 +40,11 @@ paste = "0.1"
 
 [features]
 default = [
+    "wat",
     "cranelift",
     "wasi",
 ]
+wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 jit = [

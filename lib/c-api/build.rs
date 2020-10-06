@@ -374,4 +374,5 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_get_start_function")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t")
+        .exclude_item("wat2wasm")
 }
