@@ -16,7 +16,7 @@ pub struct Compile {
     #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
     output: PathBuf,
 
-    /// Output path for generated header filefile
+    /// Output path for generated header file
     #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
     header_path: Option<PathBuf>,
 

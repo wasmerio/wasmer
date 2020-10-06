@@ -411,8 +411,11 @@ impl Module {
         &self.artifact.module_ref()
     }
 
-    /// Temporary function to implement this; we probably want to implement the functionality
-    /// dependent on the `Artifact` as individual hidden methods on the `Module`.
+    /// Gets the [`Artifact`] used internally by the Module.
+    ///
+    /// This API is hidden because it's not necessarily stable;
+    /// this functionality is required for some core functionality though, like
+    /// the object file engine.
     #[doc(hidden)]
     pub fn artifact(&self) -> &Arc<dyn Artifact> {
         &self.artifact

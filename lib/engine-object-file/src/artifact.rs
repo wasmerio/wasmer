@@ -116,13 +116,13 @@ impl ObjectFileArtifact {
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
-
         let compile_info = CompileModuleInfo {
             module: Arc::new(translation.module),
             features: features.clone(),
             memory_styles,
             table_styles,
         };
+
         Ok((
             compile_info,
             translation.function_body_inputs,
@@ -153,16 +153,6 @@ impl ObjectFileArtifact {
 
         let target_triple = target.triple();
 
-        /*
-        // We construct the function body lengths
-        let function_body_lengths = compilation
-        .get_function_bodies()
-        .values()
-        .map(|function_body| function_body.body.len() as u64)
-        .map(|_function_body| 0u64)
-        .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-         */
-
         // TODO: we currently supply all-zero function body lengths.
         // We don't know the lengths until they're compiled, yet we have to
         // supply the metadata as an input to the compile.
@@ -178,8 +168,6 @@ impl ObjectFileArtifact {
             function_body_lengths,
         };
 
-        // let wasm_info = generate_data_structures_for_c(&metadata);
-        // generate_c(wasm_info);
         /*
         In the C file we need:
         - imports
@@ -231,9 +219,6 @@ impl ObjectFileArtifact {
             obj.write().map_err(to_compile_error)?
         };
 
-        //let host_target = Triple::host();
-        //let is_cross_compiling = target_triple != &host_target;
-
         Self::from_parts_crosscompiled(&mut *engine_inner, metadata, obj_bytes, metadata_length)
     }
 
@@ -255,7 +240,6 @@ impl ObjectFileArtifact {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        //let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         let signature_registry = engine_inner.signatures();
         let signatures = metadata
             .compile_info

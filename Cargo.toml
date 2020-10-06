@@ -103,7 +103,6 @@ compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
     "wasmer-engine-native/compiler",
-    # TODO: does this make sense?
     "wasmer-engine-object-file/compiler",
 ]
 singlepass = [

@@ -227,6 +227,7 @@ pub enum CStatement {
         /// This is useful for initializing constant arrays, for example.
         definition: Option<Box<CStatement>>,
     },
+
     /// A literal array of CStatements.
     LiteralArray {
         /// The contents of the array.
@@ -246,6 +247,7 @@ pub enum CStatement {
         /// The thing being cast.
         expression: Box<CStatement>,
     },
+
     /// Typedef one type to another.
     TypeDef {
         /// The type of the thing being typedef'd.
@@ -379,7 +381,6 @@ mod test {
             },
             "size_t (*)()"
         );
-
         assert_c_type!(
             CType::PointerTo {
                 is_const: true,
@@ -438,7 +439,6 @@ mod test {
             "my_func",
             "size_t my_func()"
         );
-
         assert_c_type!(
             CType::PointerTo {
                 is_const: true,

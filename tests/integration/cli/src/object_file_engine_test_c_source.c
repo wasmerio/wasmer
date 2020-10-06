@@ -16,13 +16,6 @@ void wasmer_trampoline_function_call__1(void*, void*, void*);
 }
 #endif
 
-// a bit of a hack; TODO: clean this up
-typedef struct my_byte_vec_t {
-        size_t size;
-        char* data;
-} my_byte_vec_t;
-
-
 void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
@@ -86,12 +79,12 @@ int main() {
         memcpy(memory_buffer + current_offset, (void*)&dynamic_function_trampoline_pointers[0], sizeof(dynamic_function_trampoline_pointers));
         current_offset += sizeof(dynamic_function_trampoline_pointers);
 
-        my_byte_vec_t module_byte_vec = {
+        wasm_byte_vec_t module_byte_vec = {
                 .size = buffer_size,
                 .data = memory_buffer,
         };
 
-        wasm_module_t* module = wasm_module_deserialize(store, (wasm_byte_vec_t*) &module_byte_vec);
+        wasm_module_t* module = wasm_module_deserialize(store, &module_byte_vec);
         if (! module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();

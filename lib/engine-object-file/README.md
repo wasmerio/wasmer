@@ -2,9 +2,9 @@
 
 This is an [engine](https://crates.io/crates/wasmer-engine) for the [wasmer](https://crates.io/crates/wasmer/1.0.0-alpha3) WebAssembly VM.
 
-This engine is used to produce native code that can be linked against providing
-a sandboxed WebAssembly runtime environment for the compiled module with no need
-for runtime compilation.
+This engine is used to produce a native object file that can be linked
+against providing a sandboxed WebAssembly runtime environment for the
+compiled module with no need for runtime compilation.
 
 ## Example of use
 
@@ -25,6 +25,10 @@ Target: x86_64-apple-darwin
 Now lets create a program to link with this object file.
 
 ```C
+#ifdef __cplusplus
+extern "C" {
+#endif
+
 #include "wasmer_wasm.h"
 #include "wasm.h"
 #include "my_wasm.h"
@@ -35,18 +39,15 @@ Now lets create a program to link with this object file.
 void wasmer_function__1(void);
 void wasmer_trampoline_function_call__1(void*, void*, void*);
 
-// a bit of a hack; TODO: clean this up
-typedef struct my_byte_vec_t {
-        size_t size;
-        char* data;
-} my_byte_vec_t;
-
+#ifdef __cplusplus
+}
+#endif
 
 void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
     printf("Error len: `%d`\n", error_len);
-    char *error_str = malloc(error_len);
+    char* error_str = (char*) malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
 }
@@ -54,7 +55,10 @@ void print_wasmer_error()
 
 int main() {
         printf("Initializing...\n");
-        wasm_engine_t* engine = wasm_engine_new();
+        wasm_config_t* config = wasm_config_new();
+        wasm_config_set_compiler(config, CRANELIFT);
+        wasm_config_set_engine(config, OBJECT_FILE);
+        wasm_engine_t* engine = wasm_engine_new_with_config(config);
         wasm_store_t* store = wasm_store_new(engine);
 
         char* byte_ptr = (char*)&WASMER_METADATA[0];
@@ -79,7 +83,7 @@ int main() {
 
         char* memory_buffer = (char*) malloc(buffer_size);
         size_t current_offset = 0;
-        printf("Buffer size: %d\n", buffer_size);
+        printf("Buffer size: %zu\n", buffer_size);
 
         memcpy(memory_buffer + current_offset, byte_ptr, module_bytes_len);
         current_offset += module_bytes_len;
@@ -102,12 +106,12 @@ int main() {
         memcpy(memory_buffer + current_offset, (void*)&dynamic_function_trampoline_pointers[0], sizeof(dynamic_function_trampoline_pointers));
         current_offset += sizeof(dynamic_function_trampoline_pointers);
 
-        my_byte_vec_t module_byte_vec = {
+        wasm_byte_vec_t module_byte_vec = {
                 .size = buffer_size,
                 .data = memory_buffer,
         };
 
-        wasm_module_t* module = wasm_module_deserialize(store, (wasm_byte_vec_t*) &module_byte_vec);
+        wasm_module_t* module = wasm_module_deserialize(store, &module_byte_vec);
         if (! module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();
@@ -119,11 +123,11 @@ int main() {
 
         // In this example we're passing some JavaScript source code as a command line argumnet
         // to a WASI module that can evaluate JavaScript.
-        wasi_config_t* config = wasi_config_new("constant_value_here");
+        wasi_config_t* wasi_config = wasi_config_new("constant_value_here");
         const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
-        wasi_config_arg(config, "--eval");
-        wasi_config_arg(config, js_string);
-        wasi_env_t* wasi_env = wasi_env_new(config);
+        wasi_config_arg(wasi_config, "--eval");
+        wasi_config_arg(wasi_config, js_string);
+        wasi_env_t* wasi_env = wasi_env_new(wasi_config);
         if (!wasi_env) {
                 printf("> Error building WASI env!\n");
                 print_wasmer_error();
@@ -133,7 +137,7 @@ int main() {
         wasm_importtype_vec_t import_types;
         wasm_module_imports(module, &import_types);
         int num_imports = import_types.size;
-        wasm_extern_t** imports = malloc(num_imports * sizeof(wasm_extern_t*));
+        wasm_extern_t** imports = (wasm_extern_t**) malloc(num_imports * sizeof(wasm_extern_t*));
         wasm_importtype_vec_delete(&import_types);
         
         bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
@@ -156,6 +160,7 @@ int main() {
         void* vmctx = wasm_instance_get_vmctx_ptr(instance);
         wasm_val_t* inout[2] = { NULL, NULL };
 
+        fflush(stdout);
         // We're able to call our compiled functions directly through their trampolines.
         wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
 
@@ -170,14 +175,15 @@ int main() {
 We save that source code into `test.c` and run:
 
 ```sh
-gcc -O2 -c test.c -o test.o
+clang -O2 -c test.c -o test.o
 ```
 
 Now we just need to link everything together:
 
 ```sh
-g++ -O2 test.o my_wasm.o libwasmer.a
+clang -O2 test.o my_wasm.o libwasmer_c_api.a
 ```
 
-We link the object file we created with our C code, the object file we generated with Wasmer,
-and libwasmer together and produce an executable that can call into our compiled WebAssembly!
+We link the object file we created with our C code, the object file we
+generated with Wasmer, and `libwasmer_c_api` together and produce an
+executable that can call into our compiled WebAssembly!

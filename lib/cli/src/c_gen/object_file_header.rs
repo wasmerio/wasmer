@@ -17,7 +17,7 @@ pub fn generate_header_file(
         is_const: true,
         ctype: CType::U32,
         definition: Some(Box::new(CStatement::LiteralConstant {
-            value: format!("{}", metadata_length),
+            value: metadata_length.to_string(),
         })),
     });
     c_statements.push(CStatement::Declaration {
@@ -29,51 +29,50 @@ pub fn generate_header_file(
         },
         definition: None,
     });
-    for (function_local_index, _sig_index) in
-        module_info
+    let function_declarations = module_info
+        .functions
+        .iter()
+        .filter_map(|(f_index, sig_index)| {
+            Some((module_info.local_func_index(f_index)?, sig_index))
+        })
+        .map(|(function_local_index, _sig_index)| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
+            // TODO: figure out the signature here too
+            CStatement::Declaration {
+                name: function_name.clone(),
+                is_extern: false,
+                is_const: false,
+                ctype: CType::Function {
+                    arguments: vec![CType::Void],
+                    return_value: None,
+                },
+                definition: None,
+            }
+        });
+    c_statements.extend(function_declarations);
+
+    // function pointer array
+    {
+        let function_pointer_array_statements = module_info
             .functions
             .iter()
             .filter_map(|(f_index, sig_index)| {
                 Some((module_info.local_func_index(f_index)?, sig_index))
             })
-    {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-        // TODO: figure out the signature here too
-        c_statements.push(CStatement::Declaration {
-            name: function_name.clone(),
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::Void],
-                return_value: None,
-            },
-            definition: None,
-        });
-    }
+            .map(|(function_local_index, _sig_index)| {
+                let function_name =
+                    symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
+                // TODO: figure out the signature here too
 
-    // function pointer array
-    {
-        let mut function_pointer_array_statements = vec![];
-        for (function_local_index, _sig_index) in
-            module_info
-                .functions
-                .iter()
-                .filter_map(|(f_index, sig_index)| {
-                    Some((module_info.local_func_index(f_index)?, sig_index))
-                })
-        {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
-            // TODO: figure out the signature here too
-
-            function_pointer_array_statements.push(CStatement::Cast {
-                target_type: CType::void_ptr(),
-                expression: Box::new(CStatement::LiteralConstant {
-                    value: function_name.clone(),
-                }),
-            });
-        }
+                CStatement::Cast {
+                    target_type: CType::void_ptr(),
+                    expression: Box::new(CStatement::LiteralConstant {
+                        value: function_name.clone(),
+                    }),
+                }
+            })
+            .collect::<Vec<_>>();
 
         c_statements.push(CStatement::Declaration {
             name: "function_pointers".to_string(),
@@ -88,32 +87,40 @@ pub fn generate_header_file(
         });
     }
 
-    for (sig_index, _func_type) in module_info.signatures.iter() {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+    let func_trampoline_declarations =
+        module_info
+            .signatures
+            .iter()
+            .map(|(sig_index, _func_type)| {
+                let function_name =
+                    symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
 
-        c_statements.push(CStatement::Declaration {
-            name: function_name.clone(),
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
-                return_value: None,
-            },
-            definition: None,
-        });
-    }
+                CStatement::Declaration {
+                    name: function_name.clone(),
+                    is_extern: false,
+                    is_const: false,
+                    ctype: CType::Function {
+                        arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
+                        return_value: None,
+                    },
+                    definition: None,
+                }
+            });
+    c_statements.extend(func_trampoline_declarations);
 
     // function trampolines
     {
-        let mut function_trampoline_statements = vec![];
-        for (sig_index, _vm_shared_index) in module_info.signatures.iter() {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-            function_trampoline_statements.push(CStatement::LiteralConstant {
-                value: function_name,
-            });
-        }
+        let function_trampoline_statements = module_info
+            .signatures
+            .iter()
+            .map(|(sig_index, _vm_shared_index)| {
+                let function_name =
+                    symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+                CStatement::LiteralConstant {
+                    value: function_name,
+                }
+            })
+            .collect::<Vec<_>>();
 
         c_statements.push(CStatement::Declaration {
             name: "function_trampolines".to_string(),
@@ -128,25 +135,26 @@ pub fn generate_header_file(
         });
     }
 
-    for func_index in module_info
+    let dyn_func_declarations = module_info
         .functions
         .keys()
         .take(module_info.num_imported_functions)
-    {
-        let function_name =
-            symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-        // TODO: figure out the signature here
-        c_statements.push(CStatement::Declaration {
-            name: function_name,
-            is_extern: false,
-            is_const: false,
-            ctype: CType::Function {
-                arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
-                return_value: None,
-            },
-            definition: None,
+        .map(|func_index| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+            // TODO: figure out the signature here
+            CStatement::Declaration {
+                name: function_name,
+                is_extern: false,
+                is_const: false,
+                ctype: CType::Function {
+                    arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
+                    return_value: None,
+                },
+                definition: None,
+            }
         });
-    }
+    c_statements.extend(dyn_func_declarations);
 
     c_statements.push(CStatement::TypeDef {
         source_type: CType::Function {
@@ -158,18 +166,18 @@ pub fn generate_header_file(
 
     // dynamic function trampoline pointer array
     {
-        let mut dynamic_function_trampoline_statements = vec![];
-        for func_index in module_info
+        let dynamic_function_trampoline_statements = module_info
             .functions
             .keys()
             .take(module_info.num_imported_functions)
-        {
-            let function_name =
-                symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-            dynamic_function_trampoline_statements.push(CStatement::LiteralConstant {
-                value: function_name,
-            });
-        }
+            .map(|func_index| {
+                let function_name =
+                    symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+                CStatement::LiteralConstant {
+                    value: function_name,
+                }
+            })
+            .collect::<Vec<_>>();
         c_statements.push(CStatement::Declaration {
             name: "dynamic_function_trampoline_pointers".to_string(),
             is_extern: false,

@@ -87,7 +87,6 @@ pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: was
 }
 
 /// cbindgen:ignore
-#[repr(C)]
 pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
@@ -160,7 +159,7 @@ cfg_if! {
     else {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            unimplemented!("The JITEngine is not attached");
+            unimplemented!("The JITEngine is not attached; You might want to recompile `wasmer_c_api` with `--feature jit`");
         }
     }
 }
