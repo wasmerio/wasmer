@@ -58,7 +58,8 @@ wasm_byte_vec_t generate_serialized_data() {
         return module_byte_vec;
 }
 
-wasm_module_t* wasmer_object_file_engine_new(wasm_store_t* store) {
+wasm_module_t* wasmer_object_file_engine_new(wasm_store_t* store, const char* wasm_name) {
+        // wasm_name intentionally unsused for now: will be used in the future.
         wasm_byte_vec_t module_byte_vec = generate_serialized_data();
         wasm_module_t* module = wasm_module_deserialize(store, &module_byte_vec);
         free(module_byte_vec.data);

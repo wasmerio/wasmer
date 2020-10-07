@@ -56,7 +56,7 @@ int main() {
         wasm_engine_t* engine = wasm_engine_new_with_config(config);
         wasm_store_t* store = wasm_store_new(engine);
 
-        wasm_module_t* module = wasmer_object_file_engine_new(store);
+        wasm_module_t* module = wasmer_object_file_engine_new(store, "qjs.wasm");
         if (! module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();
@@ -65,7 +65,7 @@ int main() {
         
         // We have now finished the memory buffer book keeping and we have a valid Module.
 
-        // In this example we're passing some JavaScript source code as a command line argumnet
+        // In this example we're passing some JavaScript source code as a command line argument
         // to a WASI module that can evaluate JavaScript.
         wasi_config_t* wasi_config = wasi_config_new("constant_value_here");
         const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
