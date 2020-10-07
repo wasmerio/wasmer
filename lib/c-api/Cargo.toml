@@ -24,6 +24,7 @@ wasmer-emscripten = { version = "1.0.0-alpha3", path = "../emscripten", optional
 wasmer-engine = { version = "1.0.0-alpha3", path = "../engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha3", path = "../engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha3", path = "../engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha3", path = "../engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha3", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.0-alpha3", path = "../wasmer-types" }
 cfg-if = "0.1"
@@ -40,9 +41,11 @@ paste = "0.1"
 
 [features]
 default = [
+    "wat",
     "cranelift",
     "wasi",
 ]
+wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 jit = [
@@ -53,9 +56,14 @@ native = [
     "wasmer-engine-native",
     "engine",
 ]
+object-file = [
+    "wasmer-engine-object-file",
+    "engine",
+]
 compiler = [
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -70,9 +78,9 @@ llvm = [
     "compiler",
 ]
 
+# Deprecated feature.
+# TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]
-# used to avoid generating standard Wasm C API types in our header files
-ignore-wasm-c-api = []
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]
@@ -80,4 +88,5 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = { version = "0.14.3" }
+#cbindgen = "0.14.6"
+cbindgen = { git = "https://github.com/eqrion/cbindgen", branch = "master" }

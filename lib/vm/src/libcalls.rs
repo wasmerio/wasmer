@@ -396,11 +396,10 @@ pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
 ///
 /// # Safety
 ///
-/// To be defined (TODO)
+/// This function does not follow the standard function ABI, and is called as
+/// part of the function prologue.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_probestack() {
-    PROBESTACK();
-}
+pub static wasmer_probestack: unsafe extern "C" fn() = PROBESTACK;
 
 /// The name of a runtime library routine.
 ///

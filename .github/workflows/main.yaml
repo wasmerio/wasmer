@@ -45,20 +45,24 @@ jobs:
             rust: 1.45.2
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
+            run_integration_tests: true
           - build: macos
             os: macos-latest
             rust: 1.45.2
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-macos-amd64'
+            run_integration_tests: true
           - build: windows
             os: windows-latest
             rust: 1.45.2
             artifact_name: 'wasmer-windows-amd64'
+            run_integration_tests: true
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             rust: 1.45.2
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
             artifact_name: 'wasmer-linux-aarch64'
+            run_integration_tests: false
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -107,7 +111,9 @@ jobs:
       #     echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install llvm
+        shell: cmd
+        run: |
+          choco install llvm
         # run: |
         #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
         #   7z x llvm-installer.exe -oC:/llvm-10
@@ -143,6 +149,15 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Run integration tests (Windows)
+        shell: cmd
+        run: |
+          call refreshenv
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os == 'windows-latest'
+      - name: Run integration tests (Unix)
+        run: make test-integration
+        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Package Wasmer
         run: |
           make package

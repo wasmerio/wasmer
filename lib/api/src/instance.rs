@@ -5,7 +5,7 @@ use crate::store::Store;
 use crate::InstantiationError;
 use std::fmt;
 use wasmer_engine::Resolver;
-use wasmer_vm::InstanceHandle;
+use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -100,6 +100,11 @@ impl Instance {
     /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
+    }
+
+    #[doc(hidden)]
+    pub fn vmctx_ptr(&self) -> *mut VMContext {
+        self.handle.vmctx_ptr()
     }
 }
 

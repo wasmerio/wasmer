@@ -76,16 +76,15 @@ build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,singlepass,wasi
+		--no-default-features --features wat,jit,object-file,singlepass,wasi
 
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,cranelift,wasi
+		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,llvm,wasi
-
+		--no-default-features --features wat,jit,object-file,llvm,wasi
 
 ###########
 # Testing #
@@ -109,18 +108,19 @@ test-packages:
 	cargo test -p wasmer-wasi --release
 	cargo test -p wasmer-object --release
 	cargo test -p wasmer-engine-native --release --no-default-features
+	cargo test -p wasmer-cli --release
 
 test-capi-singlepass: build-capi-singlepass
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,singlepass,wasi -- --nocapture
+		--no-default-features --features wat,jit,singlepass,wasi -- --nocapture
 
 test-capi-cranelift: build-capi-cranelift
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,cranelift,wasi -- --nocapture
+		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
 
 test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,llvm,wasi -- --nocapture
+		--no-default-features --features wat,jit,llvm,wasi -- --nocapture
 
 test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
 
@@ -134,6 +134,9 @@ test-deprecated:
 	cargo test --manifest-path lib/deprecated/runtime-core/Cargo.toml -p wasmer-runtime-core --release
 	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
 	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
+
+test-integration:
+	cargo test -p wasmer-integration-tests-cli
 
 #############
 # Packaging #
