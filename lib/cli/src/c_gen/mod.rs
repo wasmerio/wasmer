@@ -3,6 +3,9 @@
 
 pub mod object_file_header;
 
+/// An identifier in C.
+pub type CIdent = String;
+
 /// A Type in the C language.
 #[derive(Debug, Clone)]
 pub enum CType {
@@ -215,7 +218,7 @@ pub enum CStatement {
     /// A declaration of some kind.
     Declaration {
         /// The name of the thing being declared.
-        name: String,
+        name: CIdent,
         /// Whether the thing being declared is `extern`.
         is_extern: bool,
         /// Whether the thing being declared is `const`.
@@ -253,7 +256,7 @@ pub enum CStatement {
         /// The type of the thing being typedef'd.
         source_type: CType,
         /// The new name by which this type may be called.
-        new_name: String,
+        new_name: CIdent,
     },
 }
 

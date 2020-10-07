@@ -300,17 +300,7 @@ fn object_file_engine_works() -> anyhow::Result<()> {
 
     let result = run_code(&executable_path).context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
-    assert_eq!(
-        result_lines,
-        vec![
-            "Initializing...",
-            #[cfg(windows)]
-            "Buffer size: 1801376",
-            #[cfg(not(windows))]
-            "Buffer size: 1801380",
-            "\"Hello, World\""
-        ],
-    );
+    assert_eq!(result_lines, vec!["Initializing...", "\"Hello, World\""],);
 
     Ok(())
 }

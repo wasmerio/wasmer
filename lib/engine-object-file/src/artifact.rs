@@ -211,6 +211,15 @@ impl ObjectFileArtifact {
                 module_translation.as_ref().unwrap(),
                 function_body_inputs,
             )?;
+            // there's an ordering issue, but we can update function_body_lengths here.
+            /*
+            // We construct the function body lengths
+            let function_body_lengths = compilation
+            .get_function_bodies()
+            .values()
+            .map(|function_body| function_body.body.len() as u64)
+            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+             */
             let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
             emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
                 .map_err(to_compile_error)?;
@@ -391,8 +400,7 @@ impl ObjectFileArtifact {
 
         Ok(Self {
             metadata,
-            // TODO: review
-            module_bytes: vec![],
+            module_bytes: bytes.to_owned(),
             finished_functions: finished_functions.into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
