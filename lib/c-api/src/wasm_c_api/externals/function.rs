@@ -4,9 +4,8 @@ use super::super::types::{wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t};
 use std::convert::TryInto;
 use std::ffi::c_void;
-use std::ptr::NonNull;
 use std::sync::Arc;
-use wasmer::{Function, Instance, RuntimeError, Store, Val};
+use wasmer::{Function, Instance, RuntimeError, Val};
 
 #[allow(non_camel_case_types)]
 pub struct wasm_func_t {
@@ -31,13 +30,11 @@ pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
-    store: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     ft: &wasm_functype_t,
     callback: wasm_func_callback_t,
 ) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
-    let store_ptr = store?.cast::<Store>();
-    let store = store_ptr.as_ref();
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
@@ -68,24 +65,23 @@ pub unsafe extern "C" fn wasm_func_new(
             .expect("Result conversion failed");
         Ok(processed_results)
     };
-    let f = Function::new(store, &func_sig, inner_callback);
+    let function = Function::new(&store.inner, &func_sig, inner_callback);
+
     Some(Box::new(wasm_func_t {
         instance: None,
-        inner: f,
+        inner: function,
     }))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new_with_env(
-    store: Option<NonNull<wasm_store_t>>,
+    store: &wasm_store_t,
     ft: &wasm_functype_t,
     callback: wasm_func_callback_with_env_t,
     env: *mut c_void,
     finalizer: wasm_env_finalizer_t,
 ) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
-    let store_ptr = store?.cast::<Store>();
-    let store = store_ptr.as_ref();
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
     let inner_callback =
@@ -114,10 +110,11 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
                 .expect("Result conversion failed");
             Ok(processed_results)
         };
-    let f = Function::new_with_env(store, &func_sig, env, inner_callback);
+    let function = Function::new_with_env(&store.inner, &func_sig, env, inner_callback);
+
     Some(Box::new(wasm_func_t {
         instance: None,
-        inner: f,
+        inner: function,
     }))
 }
 

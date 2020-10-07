@@ -30,3 +30,5 @@ pub mod value;
 pub mod wasi;
 
 pub mod wasmer;
+
+pub mod wat;

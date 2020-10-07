@@ -133,7 +133,7 @@ void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
 /**
  * Takes ownership of `wasi_env_t`.
  */
-bool wasi_get_imports(wasm_store_t *store,
+bool wasi_get_imports(const wasm_store_t *store,
                       const wasm_module_t *module,
                       const wasi_env_t *wasi_env,
                       wasm_extern_t **imports);
@@ -194,5 +194,13 @@ int wasmer_last_error_length(void);
  * ```
  */
 int wasmer_last_error_message(char *buffer, int length);
+
+/**
+ * Parses in-memory bytes as either the WAT format, or a binary Wasm
+ * module. This is wasmer-specific.
+ *
+ * In case of failure, `wat2wasm` returns `NULL`.
+ */
+wasm_byte_vec_t *wat2wasm(const wasm_byte_vec_t *wat);
 
 #endif /* WASMER_WASM_H */

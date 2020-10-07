@@ -379,4 +379,5 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_engine_t")
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
+        .exclude_item("wat2wasm")
 }
