@@ -326,12 +326,7 @@ impl ObjectFileArtifact {
             }
             sp.ptr = usize::from_ne_bytes(byte_buffer);
             cur_offset += WORD_SIZE;
-            // REVIEW: we can also serialize and read back lengths, do we want to do this?
-            /*for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
-                sp.len = usize::from_ne_bytes(byte_buffer);
-                cur_offset += WORD_SIZE;*/
+            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
 
             let fp = FunctionBodyPtr(mem::transmute(sp));
             finished_functions.push(fp);
@@ -363,12 +358,7 @@ impl ObjectFileArtifact {
             let func_type = &metadata.compile_info.module.signatures[SignatureIndex::new(i)];
 
             engine_inner.add_trampoline(func_type, trampoline);
-            // REVIEW: we can also serialize and read back lengths, do we want to do this?
-            /*for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
-                sp.len = usize::from_ne_bytes(byte_buffer);
-                cur_offset += WORD_SIZE;*/
+            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
         }
 
         // read dynamic function trampolines in order now...
@@ -386,13 +376,7 @@ impl ObjectFileArtifact {
             sp.ptr = usize::from_ne_bytes(byte_buffer);
             cur_offset += WORD_SIZE;
 
-            // REVIEW: we can also serialize and read back lengths, do we want to do this?
-            /*for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
-                sp.len = usize::from_ne_bytes(byte_buffer);
-                cur_offset += WORD_SIZE;*/
-
+            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
             let fp = FunctionBodyPtr(mem::transmute(sp));
 
             finished_dynamic_function_trampolines.push(fp);
@@ -466,7 +450,6 @@ impl Artifact for ObjectFileArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        //todo!("figure out what preinstantiate means here");
         Ok(())
     }
 
