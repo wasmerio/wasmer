@@ -186,3 +186,8 @@ required-features = ["cranelift"]
 name = "wasi"
 path = "examples/wasi.rs"
 required-features = ["cranelift", "wasi"]
+
+[[example]]
+name = "table"
+path = "examples/table.rs"
+required-features = ["cranelift"]
