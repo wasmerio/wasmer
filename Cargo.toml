@@ -18,6 +18,7 @@ wasmer-compiler-llvm = { version = "1.0.0-alpha3", path = "lib/compiler-llvm", o
 wasmer-engine = { version = "1.0.0-alpha3", path = "lib/engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha3", path = "lib/engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha3", path = "lib/engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha3", path = "lib/engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha3", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha3", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha3", path = "lib/cache", optional = true }
@@ -38,12 +39,14 @@ members = [
     "lib/engine",
     "lib/engine-jit",
     "lib/engine-native",
+    "lib/engine-object-file",
     "lib/object",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
     "lib/wasmer-types",
     "tests/lib/wast",
+    "tests/integration/cli",
 ]
 exclude = [
     "lib/deprecated",
@@ -72,6 +75,7 @@ default = [
     "wast",
     "jit",
     "native",
+    "object-file",
     "cache",
     "wasi",
     # "emscripten",
@@ -85,6 +89,10 @@ native = [
     "wasmer-engine-native",
     "engine",
 ]
+object-file = [
+    "wasmer-engine-object-file",
+    "engine",
+]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
@@ -94,7 +102,8 @@ compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",

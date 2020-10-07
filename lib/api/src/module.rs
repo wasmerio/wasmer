@@ -410,6 +410,16 @@ impl Module {
     pub fn info(&self) -> &ModuleInfo {
         &self.artifact.module_ref()
     }
+
+    /// Gets the [`Artifact`] used internally by the Module.
+    ///
+    /// This API is hidden because it's not necessarily stable;
+    /// this functionality is required for some core functionality though, like
+    /// the object file engine.
+    #[doc(hidden)]
+    pub fn artifact(&self) -> &Arc<dyn Artifact> {
+        &self.artifact
+    }
 }
 
 impl fmt::Debug for Module {

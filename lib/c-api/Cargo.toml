@@ -24,6 +24,7 @@ wasmer-emscripten = { version = "1.0.0-alpha3", path = "../emscripten", optional
 wasmer-engine = { version = "1.0.0-alpha3", path = "../engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha3", path = "../engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha3", path = "../engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha3", path = "../engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha3", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.0-alpha3", path = "../wasmer-types" }
 cfg-if = "0.1"
@@ -55,9 +56,14 @@ native = [
     "wasmer-engine-native",
     "engine",
 ]
+object-file = [
+    "wasmer-engine-object-file",
+    "engine",
+]
 compiler = [
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
