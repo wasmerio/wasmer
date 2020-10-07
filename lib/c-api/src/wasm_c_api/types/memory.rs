@@ -33,8 +33,8 @@ pub struct wasm_limits_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
-    // TODO: investigate if `0` is in fact a sentinel value here
-    let max_pages = if limits.max == 0 {
+    // u32::max_value() is a sentinel value for no max specified
+    let max_pages = if limits.max == u32::max_value() {
         None
     } else {
         Some(Pages(limits.max as _))
