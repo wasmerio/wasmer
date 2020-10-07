@@ -141,14 +141,8 @@ cfg_if! {
             Box::new(wasm_engine_t { inner: engine })
         }
     }
-    else if #[cfg(all(feature = "object-file", feature = "compiler"))] {
-        #[no_mangle]
-        pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::new(&mut *compiler_config).engine());
-            Box::new(wasm_engine_t { inner: engine })
-        }
-    }
+    // There are currently no uses of the object-file engine + compiler from the C API.
+    // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
     else if #[cfg(feature = "object-file")] {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
@@ -227,8 +221,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                 },
                 wasmer_engine_t::OBJECT_FILE => {
                     cfg_if! {
+                        // There are currently no uses of the object-file engine + compiler from the C API.
+                        // So we run in headless mode.
                         if #[cfg(feature = "object-file")] {
-                            Arc::new(ObjectFile::new(&mut *compiler_config).engine())
+                            Arc::new(ObjectFile::headless().engine())
                         } else {
                             return None;
                         }
