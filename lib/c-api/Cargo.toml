@@ -88,5 +88,4 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-#cbindgen = "0.14.6"
-cbindgen = { git = "https://github.com/eqrion/cbindgen", branch = "master" }
+cbindgen = "0.15"

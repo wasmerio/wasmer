@@ -197,6 +197,10 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
 /// Create a fresh new `Builder`, already pre-configured.
 fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
     Builder::new()
+        .with_config(cbindgen::Config {
+            sort_by: cbindgen::SortKey::Name,
+            ..cbindgen::Config::default()
+        })
         .with_language(language)
         .with_crate(crate_dir)
         .with_include_guard(include_guard)
