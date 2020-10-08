@@ -1,6 +1,7 @@
 # Changelog
 
 ## **[Unreleased]**
+- [#1690](https://github.com/wasmerio/wasmer/pull/1690) Fix `wasm_memorytype_limits` where `min` and `max` represents pages, not bytes. Additionally, fixes the max limit sentinel value.
 - [#1635](https://github.com/wasmerio/wasmer/pull/1635) Implement `wat2wasm` in the Wasm C API.
 - [#1636](https://github.com/wasmerio/wasmer/pull/1636) Implement `wasm_module_validate` in the Wasm C API.
 - [#1671](https://github.com/wasmerio/wasmer/pull/1671) Fix probestack firing inappropriately, and sometimes over/under allocating stack.
