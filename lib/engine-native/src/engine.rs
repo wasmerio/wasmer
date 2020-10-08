@@ -1,7 +1,6 @@
 //! Native Engine.
 
 use crate::NativeArtifact;
-use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
@@ -12,7 +11,7 @@ use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
 use wasmer_types::FunctionType;
-use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex};
 #[cfg(feature = "compiler")]
 use which::which;
 

@@ -31,12 +31,12 @@ use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 #[cfg(feature = "compiler")]
 use wasmer_types::DataInitializer;
 use wasmer_types::{
-    FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer,
-    SignatureIndex, TableIndex,
+    FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
+    TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, SignatureRegistry, TableStyle, VMFunctionBody,
-    VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
@@ -49,8 +49,6 @@ pub struct NativeArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    /// Pointers to trampoline functions used to enter particular signatures.
-    trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -343,7 +341,6 @@ impl NativeArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-            trampolines: HashMap::new(),
         })
     }
 
@@ -373,20 +370,6 @@ impl NativeArtifact {
                     std::slice::from_raw_parts(raw as *const (), *function_len as usize);
                 let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
                 finished_functions.push(FunctionBodyPtr(func_pointer));
-            }
-        }
-
-        let mut trampolines = HashMap::new();
-
-        // Retrieve function call trampolines (for all signatures in the module)
-        for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
-            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-            unsafe {
-                let trampoline: LibrarySymbol<VMTrampoline> = lib
-                    .get(function_name.as_bytes())
-                    .map_err(to_compile_error)?;
-                let index = engine_inner.signatures().register(&func_type);
-                trampolines.insert(index, *trampoline);
             }
         }
 
@@ -463,7 +446,6 @@ impl NativeArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
-            trampolines,
         })
     }
 
