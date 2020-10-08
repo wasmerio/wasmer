@@ -6,6 +6,9 @@ use wasmer::ExportType;
 pub struct wasm_exporttype_t {
     name: NonNull<wasm_name_t>,
     extern_type: NonNull<wasm_externtype_t>,
+
+    /// If `true`, `name` and `extern_type` will be dropped by
+    /// `wasm_exporttype_t::drop`.
     owns_fields: bool,
 }
 
@@ -42,7 +45,7 @@ impl Drop for wasm_exporttype_t {
     fn drop(&mut self) {
         if self.owns_fields {
             // SAFETY: `owns_fields` is set to `true` only in
-            // `wasm_exporttype_t.from(&ExportType)`, where the data
+            // `wasm_exporttype_t::from(&ExportType)`, where the data
             // are leaked properly and won't be freed somewhere else.
             unsafe {
                 let _ = Box::from_raw(self.name.as_ptr());
