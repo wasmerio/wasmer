@@ -2213,6 +2213,7 @@ dependencies = [
  "fern",
  "log",
  "structopt",
+ "tempfile",
  "wasmer",
  "wasmer-cache",
  "wasmer-compiler",
