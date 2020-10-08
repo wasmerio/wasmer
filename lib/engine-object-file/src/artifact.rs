@@ -34,6 +34,7 @@ pub struct ObjectFileArtifact {
     metadata: ModuleMetadata,
     module_bytes: Vec<u8>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     /// Length of the serialized metadata
@@ -247,6 +248,8 @@ impl ObjectFileArtifact {
         metadata_length: usize,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
+        let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         let signature_registry = engine_inner.signatures();
@@ -262,6 +265,8 @@ impl ObjectFileArtifact {
             metadata,
             module_bytes,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -309,7 +314,7 @@ impl ObjectFileArtifact {
             len: usize,
         }
 
-        let mut engine_inner = engine.inner_mut();
+        let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
@@ -342,23 +347,21 @@ impl ObjectFileArtifact {
         }
 
         // read trampolines in order
+        let mut finished_function_call_trampolines = PrimaryMap::new();
         for i in 0..WORD_SIZE {
             byte_buffer[i] = bytes[cur_offset + i];
         }
         cur_offset += WORD_SIZE;
         let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
-        for i in 0..num_function_trampolines {
+        for _ in 0..num_function_trampolines {
             for j in 0..WORD_SIZE {
                 byte_buffer[j] = bytes[cur_offset + j];
             }
             cur_offset += WORD_SIZE;
             let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
             let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
-
-            let func_type = &metadata.compile_info.module.signatures[SignatureIndex::new(i)];
-
-            engine_inner.add_trampoline(func_type, trampoline);
-            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
+            finished_function_call_trampolines.push(trampoline);
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
         }
 
         // read dynamic function trampolines in order now...
@@ -386,6 +389,8 @@ impl ObjectFileArtifact {
             metadata,
             module_bytes: bytes.to_owned(),
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -439,6 +444,10 @@ impl Artifact for ObjectFileArtifact {
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
     }
 
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {

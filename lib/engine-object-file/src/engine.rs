@@ -112,10 +112,12 @@ impl Engine for ObjectFileEngine {
         compiler.signatures().lookup(sig)
     }
 
+    /*
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.inner().trampoline(sig)
     }
+    */
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
