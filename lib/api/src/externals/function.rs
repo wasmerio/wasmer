@@ -20,16 +20,15 @@ use wasmer_vm::{
     VMDynamicFunctionContext,
     VMFunctionBody,
     VMFunctionKind,
-    VMSharedSignatureIndex, //VMTrampoline,
+    VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
-    // The trampoline to do the call
-    //pub(crate) trampoline: VMTrampoline,
-    // The signature to look up the trampoline to make the call
-    pub(crate) signature: VMSharedSignatureIndex,
+    // Address of the trampoline to do the call.
+    pub(crate) trampoline: VMTrampoline,
 }
 
 /// A function defined in the Host
@@ -105,6 +104,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
+                trampoline: std::ptr::null_mut(),
             },
         }
     }
@@ -154,6 +154,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
+                trampoline: std::ptr::null(),
             },
         }
     }
@@ -195,6 +196,7 @@ impl Function {
                 vmctx,
                 signature,
                 kind: VMFunctionKind::Static,
+                trampoline: std::ptr::null(),
             },
         }
     }
@@ -248,6 +250,7 @@ impl Function {
                 kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
+                trampoline: std::ptr::null(),
             },
         }
     }
@@ -311,7 +314,7 @@ impl Function {
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
                 self.exported.vmctx,
-                func.trampoline,
+                *func.trampoline,
                 self.exported.address,
                 values_vec.as_mut_ptr() as *mut u8,
             )
@@ -361,14 +364,9 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let vmsignature = store.engine().register(&wasmer_export.signature);
-        let trampoline = store
-            .engine()
-            .function_call_trampoline(vmsignature)
-            .expect("Can't get call trampoline for the function");
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline: wasmer_export.trampoline }),
             exported: wasmer_export,
         }
     }

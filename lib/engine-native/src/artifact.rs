@@ -46,6 +46,7 @@ pub struct NativeArtifact {
     #[allow(dead_code)]
     library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     /// Pointers to trampoline functions used to enter particular signatures.
@@ -327,6 +328,8 @@ impl NativeArtifact {
         sharedobject_path: PathBuf,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
+        let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
@@ -335,6 +338,7 @@ impl NativeArtifact {
             metadata,
             library: None,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines.into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -382,6 +386,17 @@ impl NativeArtifact {
                     .map_err(to_compile_error)?;
                 let index = engine_inner.signatures().register(&func_type);
                 trampolines.insert(index, *trampoline);
+            }
+        }
+
+        // Retrieve function call trampolines
+        let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> = PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
+        for sig_index in metadata.compile_info.module.signatures.keys() {
+            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+            unsafe {
+                let trampoline: LibrarySymbol<VMTrampoline> = lib.get(function_name.as_bytes()).map_err(to_compile_error)?;
+                let raw = *trampoline.into_raw();
+                finished_function_call_trampolines.push(raw);
             }
         }
 
@@ -439,6 +454,7 @@ impl NativeArtifact {
             metadata,
             library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines.into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -576,6 +592,10 @@ impl Artifact for NativeArtifact {
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
     }
 
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
