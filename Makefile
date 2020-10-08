@@ -82,6 +82,10 @@ build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,object-file,cranelift,wasi,system-libffi
+
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,llvm,wasi
@@ -117,6 +121,10 @@ test-capi-singlepass: build-capi-singlepass
 test-capi-cranelift: build-capi-cranelift
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
+
+test-capi-cranelift-system-libffi: build-capi-cranelift-system-libffi
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
 
 test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
