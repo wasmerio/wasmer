@@ -30,15 +30,18 @@ pub struct wasm_limits_t {
     pub(crate) max: u32,
 }
 
+const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
     // u32::max_value() is a sentinel value for no max specified
-    let max_pages = if limits.max == u32::max_value() {
+    let max_pages = if limits.max == LIMITS_MAX_SENTINEL {
         None
     } else {
         Some(Pages(limits.max as _))
     };
+
     Box::new(wasm_memorytype_t {
         extern_: wasm_externtype_t {
             inner: ExternType::Memory(MemoryType::new(min_pages, max_pages, false)),
@@ -54,8 +57,12 @@ pub unsafe extern "C" fn wasm_memorytype_delete(_memorytype: Option<Box<wasm_mem
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *const wasm_limits_t {
     let md = mt.as_memorytype();
+
     Box::into_raw(Box::new(wasm_limits_t {
-        min: md.minimum.bytes().0 as _,
-        max: md.maximum.map(|max| max.bytes().0 as _).unwrap_or(0),
+        min: md.minimum.0 as _,
+        max: md
+            .maximum
+            .map(|max| max.0 as _)
+            .unwrap_or(LIMITS_MAX_SENTINEL),
     }))
 }
