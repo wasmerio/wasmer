@@ -69,6 +69,7 @@ where
             vmctx: other.vmctx,
             signature,
             kind: other.arg_kind,
+            trampoline: None,
         }
     }
 }
@@ -88,6 +89,7 @@ where
                 vmctx: other.vmctx,
                 signature,
                 kind: other.arg_kind,
+                trampoline: None,
             },
         }
     }

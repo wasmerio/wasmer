@@ -123,7 +123,6 @@ impl Engine for NativeEngine {
         &self.target
     }
 
-    /*
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
@@ -136,6 +135,7 @@ impl Engine for NativeEngine {
         compiler.signatures().lookup(sig)
     }
 
+    /*
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
         self.inner().trampoline(sig)

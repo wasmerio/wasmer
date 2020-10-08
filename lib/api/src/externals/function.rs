@@ -10,18 +10,9 @@ use std::cell::RefCell;
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
-    raise_user_trap,
-    resume_panic,
-    wasmer_call_trampoline,
-    Export,
-    ExportFunction,
-    VMCallerCheckedAnyfunc,
-    VMContext,
-    VMDynamicFunctionContext,
-    VMFunctionBody,
-    VMFunctionKind,
-    VMSharedSignatureIndex,
-    VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
+    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -104,7 +95,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
-                trampoline: std::ptr::null_mut(),
+                trampoline: None,
             },
         }
     }
@@ -154,7 +145,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
-                trampoline: std::ptr::null(),
+                trampoline: None,
             },
         }
     }
@@ -196,7 +187,7 @@ impl Function {
                 vmctx,
                 signature,
                 kind: VMFunctionKind::Static,
-                trampoline: std::ptr::null(),
+                trampoline: None,
             },
         }
     }
@@ -250,7 +241,7 @@ impl Function {
                 kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
-                trampoline: std::ptr::null(),
+                trampoline: None,
             },
         }
     }
@@ -314,7 +305,7 @@ impl Function {
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
                 self.exported.vmctx,
-                *func.trampoline,
+                func.trampoline,
                 self.exported.address,
                 values_vec.as_mut_ptr() as *mut u8,
             )
@@ -364,9 +355,10 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
+        let trampoline = wasmer_export.trampoline.unwrap();
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline: wasmer_export.trampoline }),
+            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
             exported: wasmer_export,
         }
     }

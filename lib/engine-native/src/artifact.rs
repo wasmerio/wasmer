@@ -338,7 +338,8 @@ impl NativeArtifact {
             metadata,
             library: None,
             finished_functions: finished_functions.into_boxed_slice(),
-            finished_function_call_trampolines: finished_function_call_trampolines.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -390,11 +391,14 @@ impl NativeArtifact {
         }
 
         // Retrieve function call trampolines
-        let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> = PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
+        let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
         for sig_index in metadata.compile_info.module.signatures.keys() {
             let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
-                let trampoline: LibrarySymbol<VMTrampoline> = lib.get(function_name.as_bytes()).map_err(to_compile_error)?;
+                let trampoline: LibrarySymbol<VMTrampoline> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
                 let raw = *trampoline.into_raw();
                 finished_function_call_trampolines.push(raw);
             }
@@ -454,7 +458,8 @@ impl NativeArtifact {
             metadata,
             library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
-            finished_function_call_trampolines: finished_function_call_trampolines.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),

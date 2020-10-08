@@ -19,13 +19,13 @@ pub trait Engine {
     /// Gets the target
     fn target(&self) -> &Target;
 
-    /*
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;
 
+    /*
     /// Retrieves a trampoline given a signature
     fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
     */
