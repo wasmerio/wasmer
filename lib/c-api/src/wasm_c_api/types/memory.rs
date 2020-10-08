@@ -58,6 +58,6 @@ pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *cons
 
     Box::into_raw(Box::new(wasm_limits_t {
         min: md.minimum.0 as _,
-        max: md.maximum.map(|max| max.0 as _).unwrap_or(0),
+        max: md.maximum.map(|max| max.0 as _).unwrap_or(u32::max_value()),
     }))
 }
