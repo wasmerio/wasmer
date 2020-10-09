@@ -300,9 +300,7 @@ impl ObjectFileArtifact {
         let mut byte_buffer = [0u8; WORD_SIZE];
 
         let mut cur_offset = data_len + 10;
-        for i in 0..WORD_SIZE {
-            byte_buffer[i] = bytes[cur_offset + i];
-        }
+        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
         cur_offset += WORD_SIZE;
 
         let num_finished_functions = usize::from_ne_bytes(byte_buffer);
@@ -326,9 +324,8 @@ impl ObjectFileArtifact {
             sig_map.insert(sig_idx, vm_shared_idx);
 
             let mut sp = SlicePtr { ptr: 0, len: 0 };
-            for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
+            byte_buffer[0..WORD_SIZE]
+                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
             sp.ptr = usize::from_ne_bytes(byte_buffer);
             cur_offset += WORD_SIZE;
             // TODO: we can read  back the length here if we serialize it. This will improve debug output.
@@ -348,15 +345,12 @@ impl ObjectFileArtifact {
 
         // read trampolines in order
         let mut finished_function_call_trampolines = PrimaryMap::new();
-        for i in 0..WORD_SIZE {
-            byte_buffer[i] = bytes[cur_offset + i];
-        }
+        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
         cur_offset += WORD_SIZE;
         let num_function_trampolines = usize::from_ne_bytes(byte_buffer);
         for _ in 0..num_function_trampolines {
-            for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
+            byte_buffer[0..WORD_SIZE]
+                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
             cur_offset += WORD_SIZE;
             let trampoline_ptr_bytes = usize::from_ne_bytes(byte_buffer);
             let trampoline = mem::transmute::<usize, VMTrampoline>(trampoline_ptr_bytes);
@@ -366,16 +360,13 @@ impl ObjectFileArtifact {
 
         // read dynamic function trampolines in order now...
         let mut finished_dynamic_function_trampolines = PrimaryMap::new();
-        for i in 0..WORD_SIZE {
-            byte_buffer[i] = bytes[cur_offset + i];
-        }
+        byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
         cur_offset += WORD_SIZE;
         let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
         for _i in 0..num_dynamic_trampoline_functions {
             let mut sp = SlicePtr { ptr: 0, len: 0 };
-            for j in 0..WORD_SIZE {
-                byte_buffer[j] = bytes[cur_offset + j];
-            }
+            byte_buffer[0..WORD_SIZE]
+                .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
             sp.ptr = usize::from_ne_bytes(byte_buffer);
             cur_offset += WORD_SIZE;
 

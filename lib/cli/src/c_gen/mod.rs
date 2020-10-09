@@ -85,7 +85,7 @@ impl CType {
                     w.push_str("const ");
                 }
                 inner.generate_c(w);
-                w.push_str("*");
+                w.push('*');
             }
             Self::U8 => {
                 w.push_str("unsigned char");
