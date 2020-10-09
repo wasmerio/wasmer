@@ -105,7 +105,13 @@ typedef wasm_byte_vec_t wasm_name_t;
 #define wasm_name_delete wasm_byte_vec_delete
 
 static inline void wasm_name_new_from_string(
-  own wasm_name_t* out, const char* s
+  own wasm_name_t* out, own const char* s
+) {
+  wasm_name_new(out, strlen(s), s);
+}
+
+static inline void wasm_name_new_from_string_nt(
+  own wasm_name_t* out, own const char* s
 ) {
   wasm_name_new(out, strlen(s) + 1, s);
 }
@@ -408,9 +414,9 @@ WASM_API_EXTERN own wasm_module_t* wasm_module_deserialize(wasm_store_t*, const 
 WASM_DECLARE_REF(func)
 
 typedef own wasm_trap_t* (*wasm_func_callback_t)(
-  const wasm_val_t args[], wasm_val_t results[]);
+  const wasm_val_vec_t* args, own wasm_val_vec_t* results);
 typedef own wasm_trap_t* (*wasm_func_callback_with_env_t)(
-  void* env, const wasm_val_t args[], wasm_val_t results[]);
+  void* env, const wasm_val_vec_t* args, wasm_val_vec_t* results);
 
 WASM_API_EXTERN own wasm_func_t* wasm_func_new(
   wasm_store_t*, const wasm_functype_t*, wasm_func_callback_t);
@@ -423,7 +429,7 @@ WASM_API_EXTERN size_t wasm_func_param_arity(const wasm_func_t*);
 WASM_API_EXTERN size_t wasm_func_result_arity(const wasm_func_t*);
 
 WASM_API_EXTERN own wasm_trap_t* wasm_func_call(
-  const wasm_func_t*, const wasm_val_t args[], wasm_val_t results[]);
+  const wasm_func_t*, const wasm_val_vec_t* args, wasm_val_vec_t* results);
 
 
 // Global Instances
@@ -510,7 +516,7 @@ WASM_API_EXTERN const wasm_memory_t* wasm_extern_as_memory_const(const wasm_exte
 WASM_DECLARE_REF(instance)
 
 WASM_API_EXTERN own wasm_instance_t* wasm_instance_new(
-  wasm_store_t*, const wasm_module_t*, const wasm_extern_t* const imports[],
+  wasm_store_t*, const wasm_module_t*, const wasm_extern_vec_t* imports,
   own wasm_trap_t**
 );
 
@@ -519,6 +525,12 @@ WASM_API_EXTERN void wasm_instance_exports(const wasm_instance_t*, own wasm_exte
 
 ///////////////////////////////////////////////////////////////////////////////
 // Convenience
+
+// Vectors
+
+#define WASM_EMPTY_VEC {0, NULL}
+#define WASM_ARRAY_VEC(array) {sizeof(array)/sizeof(*(array)), array}
+
 
 // Value Type construction short-hands
 
@@ -691,6 +703,13 @@ static inline void* wasm_val_ptr(const wasm_val_t* val) {
   return (void*)(intptr_t)val->of.i64;
 #endif
 }
+
+#define WASM_I32_VAL(i) {.kind = WASM_I32, .of = {.i32 = i}}
+#define WASM_I64_VAL(i) {.kind = WASM_I64, .of = {.i64 = i}}
+#define WASM_F32_VAL(z) {.kind = WASM_F32, .of = {.f32 = z}}
+#define WASM_F64_VAL(z) {.kind = WASM_F64, .of = {.f64 = z}}
+#define WASM_REF_VAL(r) {.kind = WASM_ANYREF, .of = {.ref = r}}
+#define WASM_INIT_VAL {.kind = WASM_ANYREF, .of = {.ref = NULL}}
 
 
 ///////////////////////////////////////////////////////////////////////////////
