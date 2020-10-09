@@ -43,13 +43,13 @@ jobs:
           - build: linux
             os: ubuntu-latest
             rust: 1.46.0
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1910_Release.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
             run_integration_tests: true
           - build: macos
             os: macos-latest
             rust: 1.46.0
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/MacOS_Release.tar.xz'
             artifact_name: 'wasmer-macos-amd64'
             run_integration_tests: true
           - build: windows
