@@ -219,7 +219,7 @@ impl LinearMemory {
                 base: base_ptr,
                 current_length: memory.minimum.bytes().0.try_into().unwrap(),
             })),
-            memory: memory.clone(),
+            memory: *memory,
             style: style.clone(),
         })
     }
