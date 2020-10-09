@@ -38,18 +38,15 @@ impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(self) -> bool {
-        match self {
-            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128 => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128
+        )
     }
 
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(self) -> bool {
-        match self {
-            Self::ExternRef | Self::FuncRef => true,
-            _ => false,
-        }
+        matches!(self, Self::ExternRef | Self::FuncRef)
     }
 }
 
