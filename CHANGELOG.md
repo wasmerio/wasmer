@@ -1,9 +1,15 @@
 # Changelog
 
 ## **[Unreleased]**
+
+## 1.0.0-alpha4 - 2020-10-08
+- [#1691](https://github.com/wasmerio/wasmer/pull/1691) Bump minimum supported Rust version to 1.46.0
+- [#1690](https://github.com/wasmerio/wasmer/pull/1690) Fix `wasm_memorytype_limits` where `min` and `max` represents pages, not bytes. Additionally, fixes the max limit sentinel value.
+- [#1682](https://github.com/wasmerio/wasmer/pull/1682) Improve error reporting when making a memory with invalid settings.
 - [#1635](https://github.com/wasmerio/wasmer/pull/1635) Implement `wat2wasm` in the Wasm C API.
 - [#1636](https://github.com/wasmerio/wasmer/pull/1636) Implement `wasm_module_validate` in the Wasm C API.
 - [#1671](https://github.com/wasmerio/wasmer/pull/1671) Fix probestack firing inappropriately, and sometimes over/under allocating stack.
+- [#1660](https://github.com/wasmerio/wasmer/pull/1660) Fix issue preventing map-dir aliases starting with `/` from working properly.
 - [#1657](https://github.com/wasmerio/wasmer/pull/1657) Implement `wasm_trap_t` and `wasm_frame_t` for Wasm C API; add examples in Rust and C of exiting early with a host function.
 - [#1645](https://github.com/wasmerio/wasmer/pull/1645) Move the install script to https://github.com/wasmerio/wasmer-install
 

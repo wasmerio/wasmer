@@ -31,4 +31,5 @@ pub mod wasi;
 
 pub mod wasmer;
 
+#[cfg(feature = "wat")]
 pub mod wat;

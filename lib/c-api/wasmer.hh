@@ -44,6 +44,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
+#include <ostream>
 #include <new>
 
 #if defined(WASMER_WASI_ENABLED)

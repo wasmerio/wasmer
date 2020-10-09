@@ -82,6 +82,10 @@ build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,object-file,cranelift,wasi,system-libffi
+
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,llvm,wasi
@@ -117,6 +121,10 @@ test-capi-singlepass: build-capi-singlepass
 test-capi-cranelift: build-capi-cranelift
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
+
+test-capi-cranelift-system-libffi: build-capi-cranelift-system-libffi
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
 
 test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -166,7 +174,8 @@ package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/doc/index.md package/include/README.md
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/doc/deprecated/index.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
 	cp target/release/wasmer_c_api.lib package/lib
