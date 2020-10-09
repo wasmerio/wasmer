@@ -80,7 +80,7 @@ impl Run {
             format!(
                 "failed to run `{}`{}",
                 self.path.display(),
-                if CompilerType::enabled().iter().next().is_none() {
+                if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {
                     ""

@@ -295,9 +295,6 @@ impl ObjectFileArtifact {
         let mut byte_buffer = [0u8; WORD_SIZE];
 
         let mut cur_offset = data_len + 10;
-        for i in 0..WORD_SIZE {
-            byte_buffer[i] = bytes[cur_offset + i];
-        }
         byte_buffer[0..WORD_SIZE].clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
         cur_offset += WORD_SIZE;
 
