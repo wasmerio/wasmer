@@ -79,9 +79,9 @@ emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
-#    "wasmer-engine-jit/compiler",
+    "wasmer-engine-jit/compiler",
     "wasmer-engine-native/compiler",
-#    "wasmer-engine-object-file/compiler",
+    "wasmer-engine-object-file/compiler",
 ]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",

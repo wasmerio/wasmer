@@ -134,13 +134,6 @@ impl Engine for NativeEngine {
         compiler.signatures().lookup(sig)
     }
 
-    /*
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.inner().trampoline(sig)
-    }
-    */
-
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
         self.inner().validate(binary)
@@ -279,21 +272,6 @@ impl NativeEngineInner {
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
     }
-
-    /*
-    /// Gets the trampoline pre-registered for a particular signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.trampolines.get(&sig).cloned()
-    }
-
-    pub(crate) fn add_trampoline(&mut self, func_type: &FunctionType, trampoline: VMTrampoline) {
-        let index = self.signatures.register(&func_type);
-        // We always use (for now) the latest trampoline compiled
-        // TODO: we need to deallocate trampolines as the compiled modules
-        // where they belong become unallocated.
-        self.trampolines.insert(index, trampoline);
-    }
-    */
 
     pub(crate) fn is_cross_compiling(&self) -> bool {
         self.is_cross_compiling
