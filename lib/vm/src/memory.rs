@@ -259,7 +259,7 @@ impl Memory for LinearMemory {
         let new_pages = mmap
             .size
             .checked_add(delta)
-            .ok_or_else(|| MemoryError::CouldNotGrow {
+            .ok_or(MemoryError::CouldNotGrow {
                 current: mmap.size,
                 attempted_delta: delta,
             })?;
