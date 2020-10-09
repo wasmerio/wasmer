@@ -23,17 +23,17 @@ pub struct Global {
 
 impl Global {
     /// Create a new `Global` with the initial value [`Val`].
-    pub fn new(store: &Store, val: Val) -> Global {
+    pub fn new(store: &Store, val: Val) -> Self {
         Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Val`].
-    pub fn new_mut(store: &Store, val: Val) -> Global {
+    pub fn new_mut(store: &Store, val: Val) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
-    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Global, RuntimeError> {
+    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Self, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
@@ -47,7 +47,7 @@ impl Global {
                 .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
 
-        Ok(Global {
+        Ok(Self {
             store: store.clone(),
             global: Arc::new(global),
         })
@@ -87,15 +87,15 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Global {
-        Global {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+        Self {
             store: store.clone(),
             global: wasmer_export.from.clone(),
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
-    pub fn same(&self, other: &Global) -> bool {
+    pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.global, &other.global)
     }
 }
