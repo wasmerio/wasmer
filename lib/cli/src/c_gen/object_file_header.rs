@@ -107,7 +107,7 @@ pub fn generate_header_file(
                 symbol_registry.symbol_to_name(Symbol::LocalFunction(function_local_index));
             // TODO: figure out the signature here too
             CStatement::Declaration {
-                name: function_name.clone(),
+                name: function_name,
                 is_extern: false,
                 is_const: false,
                 ctype: CType::Function {
@@ -142,7 +142,7 @@ pub fn generate_header_file(
                 CStatement::Cast {
                     target_type: CType::void_ptr(),
                     expression: Box::new(CStatement::LiteralConstant {
-                        value: function_name.clone(),
+                        value: function_name,
                     }),
                 }
             })
@@ -170,7 +170,7 @@ pub fn generate_header_file(
                     symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
 
                 CStatement::Declaration {
-                    name: function_name.clone(),
+                    name: function_name,
                     is_extern: false,
                     is_const: false,
                     ctype: CType::Function {
