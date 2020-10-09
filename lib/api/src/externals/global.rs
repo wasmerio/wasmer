@@ -90,7 +90,7 @@ impl Global {
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
         Self {
             store: store.clone(),
-            global: wasmer_export.from.clone(),
+            global: wasmer_export.from,
         }
     }
 
