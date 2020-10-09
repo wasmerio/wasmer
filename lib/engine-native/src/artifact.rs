@@ -4,7 +4,6 @@
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
 use libloading::{Library, Symbol as LibrarySymbol};
-use std::collections::HashMap;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};

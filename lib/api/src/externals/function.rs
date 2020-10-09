@@ -12,7 +12,7 @@ use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
     VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
-    VMSharedSignatureIndex, VMTrampoline,
+    VMTrampoline,
 };
 
 /// A function defined in the Wasm module
