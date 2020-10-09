@@ -264,8 +264,8 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "socket_pre_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_pre_accept),
             "socket_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_accept),
             "socket_connect" => Function::new_native_with_env(store, env.clone(), wasio_socket_connect),
-            "write" => Function::new_native_with_env(store, env.clone(), wasio_write),
-            "read" => Function::new_native_with_env(store, env.clone(), wasio_read),
+            "socket_send" => Function::new_native_with_env(store, env.clone(), wasio_socket_send),
+            "socket_recv" => Function::new_native_with_env(store, env.clone(), wasio_socket_recv),
         },
     }
 }
@@ -332,8 +332,8 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "socket_pre_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_pre_accept),
             "socket_accept" => Function::new_native_with_env(store, env.clone(), wasio_socket_accept),
             "socket_connect" => Function::new_native_with_env(store, env.clone(), wasio_socket_connect),
-            "write" => Function::new_native_with_env(store, env.clone(), wasio_write),
-            "read" => Function::new_native_with_env(store, env.clone(), wasio_read),
+            "socket_send" => Function::new_native_with_env(store, env.clone(), wasio_socket_send),
+            "socket_recv" => Function::new_native_with_env(store, env.clone(), wasio_socket_recv),
         },
     }
 }

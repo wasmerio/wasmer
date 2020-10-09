@@ -1,6 +1,6 @@
 //! A WASIO executor backed by `tokio`.
 
-use super::super::executor::Executor;
+use super::super::executor::{self, Executor};
 use super::super::socket::*;
 use super::super::types::*;
 use crate::syscalls::types::*;
@@ -25,6 +25,7 @@ use tokio::net::{
 use tokio::runtime::Runtime;
 use tokio::stream::StreamExt;
 use tokio::sync::{mpsc, Mutex as AsyncMutex, RwLock as AsyncRwLock};
+use std::any::Any;
 
 /// An executor backed by the Tokio runtime.
 ///
@@ -561,6 +562,10 @@ impl Executor for TokioExecutor {
             Ok(self.state.completed_rx.recv().unwrap())
         }
     }
+
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
 }
 
 #[derive(Debug, Clone)]
@@ -593,14 +598,44 @@ impl Seek for AbstractTcpSocket {
 }
 
 impl Read for AbstractTcpSocket {
-    fn read(&mut self, _: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::from(io::ErrorKind::WouldBlock))
+    fn read(&mut self, data: &mut [u8]) -> io::Result<usize> {
+        executor::with_current::<TokioExecutor, _, _>(|current| {
+            let current = match current {
+                Some(x) => x,
+                None => return Err(io::Error::from(io::ErrorKind::WouldBlock))
+            };
+            current.runtime.handle().block_on(async {
+                let sock_inner = self.inner.read().await;
+                match *sock_inner {
+                    AbstractTcpSocketInner::Stream(ref read_half, _) => {
+                        let mut read_half = read_half.lock().await;
+                        read_half.read(data).await
+                    }
+                    _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
+                }
+            })
+        })
     }
 }
 
 impl Write for AbstractTcpSocket {
-    fn write(&mut self, _: &[u8]) -> io::Result<usize> {
-        Err(io::Error::from(io::ErrorKind::WouldBlock))
+    fn write(&mut self, data: &[u8]) -> io::Result<usize> {
+        executor::with_current::<TokioExecutor, _, _>(|current| {
+            let current = match current {
+                Some(x) => x,
+                None => return Err(io::Error::from(io::ErrorKind::WouldBlock))
+            };
+            current.runtime.handle().block_on(async {
+                let sock_inner = self.inner.read().await;
+                match *sock_inner {
+                    AbstractTcpSocketInner::Stream(_, ref write_half) => {
+                        let mut write_half = write_half.lock().await;
+                        write_half.write(&data).await
+                    }
+                    _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
+                }
+            })
+        })
     }
 
     fn flush(&mut self) -> io::Result<()> {
