@@ -122,7 +122,7 @@ fn read_data(continuation: usize, err: __wasi_errno_t) {
         };
         let mut ct = CancellationToken(0);
         let mut len_buffer = &mut continuation.len_buffer as *mut u32;
-        let err = read(
+        let err = socket_recv(
             continuation.conn,
             &iov,
             1,
@@ -165,7 +165,7 @@ fn write_data(continuation: usize, err: __wasi_errno_t) {
         };
         let mut ct = CancellationToken(0);
         let mut len_buffer = &mut continuation.len_buffer as *mut u32;
-        let err = write(
+        let err = socket_send(
             continuation.conn,
             &iov,
             1,

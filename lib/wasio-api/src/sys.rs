@@ -113,7 +113,7 @@ extern "C" {
     /// - `fd_out`: Pointer to the memory location to store the new file descriptor.
     pub fn socket_accept(fd_out: *mut __wasi_fd_t) -> __wasi_errno_t;
 
-    /// Writes data to a file descriptor.
+    /// Sends data to a socket.
     /// 
     /// ## Arguments
     /// 
@@ -129,7 +129,7 @@ extern "C" {
     /// 
     /// WASIO buffers the IO vector `si_data` itself internally, but requires the buffers and `so_datalen`
     /// to be alive until the completion event is handled.
-    pub fn write(
+    pub fn socket_send(
         fd: __wasi_fd_t,
         si_data: *const __wasi_ciovec_t,
         si_data_len: u32,
@@ -139,7 +139,7 @@ extern "C" {
         ct_out: *mut CancellationToken,
     ) -> __wasi_errno_t;
 
-    /// Reads data from a file descriptor.
+    /// Receives data from a socket.
     /// 
     /// ## Arguments
     /// 
@@ -156,7 +156,7 @@ extern "C" {
     /// 
     /// WASIO buffers the IO vector `ri_data` itself internally, but requires the buffers and `ro_datalen`
     /// to be alive until the completion event is handled.
-    pub fn read(
+    pub fn socket_recv(
         fd: __wasi_fd_t,
         ri_data: *const __wasi_ciovec_t,
         ri_data_len: u32,
