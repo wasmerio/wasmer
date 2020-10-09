@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0-alpha3"
+target_version = "1.0.0-alpha4"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -36,16 +36,18 @@ dep_graph = {
     "wasmer-engine-jit": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
     "wasmer-engine-native": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
                                  "wasmer-object"]),
+    "wasmer-engine-object-file": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
+                                      "wasmer-object"]),
     "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
                    "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-jit",
-                   "wasmer-engine-native", "wasmer-types"]),
+                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types"]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
     "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
                          "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-jit",
-                         "wasmer-engine-native", "wasmer-wasi", "wasmer-types"]),
+                         "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-wasi", "wasmer-types"]),
 }
 
 # where each crate is located in the `lib` directory
@@ -62,6 +64,7 @@ location = {
     "wasmer-engine": "engine",
     "wasmer-engine-jit": "engine-jit",
     "wasmer-engine-native": "engine-native",
+    "wasmer-engine-object-file": "engine-object-file",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",

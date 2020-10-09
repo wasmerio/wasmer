@@ -21,20 +21,22 @@ int main(int argc, const char *argv[]) {
   own wasm_engine_t* engine = wasm_engine_new();
   own wasm_store_t* store = wasm_store_new(engine);
 
+  // =====================
   wasm_limits_t limits1 = {
     .min = 0,
-    .max = wasm_limits_max_default,
+    .max = 0x7FFFFFFF,
   };
   own wasm_memorytype_t* memtype1 = wasm_memorytype_new(&limits1);
   own wasm_memory_t* memory1 = wasm_memory_new(store, memtype1);
   assert(memory1 == NULL);
   char* error = get_wasmer_error();
   printf("Found error string: %s\n", error);
-  assert(0 == strcmp("The maximum requested memory (4294967295 pages) is greater than the maximum allowed memory (65536 pages)", error));
+  assert(0 == strcmp("The maximum requested memory (2147483647 pages) is greater than the maximum allowed memory (65536 pages)", error));
   free(error);
 
   wasm_memorytype_delete(memtype1);
 
+  // =====================
   wasm_limits_t limits2 = {
     .min = 15,
     .max = 25,
@@ -45,6 +47,20 @@ int main(int argc, const char *argv[]) {
 
   wasm_memorytype_delete(memtype2);
   wasm_memory_delete(memory2);
+
+  // =====================
+  wasm_limits_t limits3 = {
+    .min = 15,
+    .max = wasm_limits_max_default,
+  };
+  own wasm_memorytype_t* memtype3 = wasm_memorytype_new(&limits3);
+  own wasm_memory_t* memory3 = wasm_memory_new(store, memtype3);
+  assert(memory3 != NULL);
+  int size = wasm_memory_size(memory3);
+  printf("memory size: %d\n", size);
+
+  wasm_memorytype_delete(memtype3);
+  wasm_memory_delete(memory3);
 
   printf("Shutting down...\n");
   wasm_store_delete(store);

@@ -3,7 +3,6 @@
 #[macro_use]
 pub mod macros;
 
-/// cbindgen:ignore
 pub mod engine;
 
 /// cbindgen:ignore
@@ -30,4 +29,7 @@ pub mod value;
 #[cfg(feature = "wasi")]
 pub mod wasi;
 
+pub mod wasmer;
+
+#[cfg(feature = "wat")]
 pub mod wat;

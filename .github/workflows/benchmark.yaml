@@ -16,7 +16,7 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.45.0
+            rust: 1.46.0
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob

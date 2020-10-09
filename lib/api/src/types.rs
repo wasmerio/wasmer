@@ -19,17 +19,17 @@ pub type Val = Value<Function>;
 impl StoreObject for Val {
     fn comes_from_same_store(&self, store: &Store) -> bool {
         match self {
-            Val::FuncRef(f) => Store::same(store, f.store()),
-            Val::ExternRef(ExternRef::Ref(_)) | Val::ExternRef(ExternRef::Other(_)) => false,
-            Val::ExternRef(ExternRef::Null) => true,
-            Val::I32(_) | Val::I64(_) | Val::F32(_) | Val::F64(_) | Val::V128(_) => true,
+            Self::FuncRef(f) => Store::same(store, f.store()),
+            Self::ExternRef(ExternRef::Ref(_)) | Self::ExternRef(ExternRef::Other(_)) => false,
+            Self::ExternRef(ExternRef::Null) => true,
+            Self::I32(_) | Self::I64(_) | Self::F32(_) | Self::F64(_) | Self::V128(_) => true,
         }
     }
 }
 
 impl From<Function> for Val {
-    fn from(val: Function) -> Val {
-        Val::FuncRef(val)
+    fn from(val: Function) -> Self {
+        Self::FuncRef(val)
     }
 }
 
@@ -53,19 +53,19 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Val::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
+            Self::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_vm::VMSharedSignatureIndex::default(),
                 vmctx: ptr::null_mut(),
             },
-            Val::FuncRef(f) => f.checked_anyfunc(),
+            Self::FuncRef(f) => f.checked_anyfunc(),
             _ => return Err(RuntimeError::new("val is not funcref")),
         })
     }
 
-    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Val {
+    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self {
         if item.type_index == wasmer_vm::VMSharedSignatureIndex::default() {
-            return Val::ExternRef(ExternRef::Null);
+            return Self::ExternRef(ExternRef::Null);
         }
         let signature = store
             .engine()
@@ -80,6 +80,6 @@ impl ValFuncRef for Val {
             vmctx: item.vmctx,
         };
         let f = Function::from_export(store, export);
-        Val::FuncRef(f)
+        Self::FuncRef(f)
     }
 }
