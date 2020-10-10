@@ -26,6 +26,7 @@ use tokio::runtime::Runtime;
 use tokio::stream::StreamExt;
 use tokio::sync::{mpsc, Mutex as AsyncMutex, RwLock as AsyncRwLock};
 use std::any::Any;
+use std::os::unix::io::{RawFd, AsRawFd};
 
 /// An executor backed by the Tokio runtime.
 ///
@@ -189,7 +190,7 @@ impl Executor for TokioExecutor {
                         self.runtime.enter(|| async move {
                             let sock_inner = sock.inner.read().await;
                             match *sock_inner {
-                                AbstractTcpSocketInner::Stream(ref read_half, _) => {
+                                AbstractTcpSocketInner::Stream(ref read_half, _, _) => {
                                     let mut read_len: usize = 0;
                                     for v in iovecs {
                                         // FIXME: The vectored read semantics here is correct for streaming protocols (TCP) but not for packet
@@ -266,9 +267,9 @@ impl Executor for TokioExecutor {
 
                         let sock_inner = sock.inner.read().await;
                         match *sock_inner {
-                            AbstractTcpSocketInner::Stream(_, ref write_half) => {
+                            AbstractTcpSocketInner::Stream(_, ref write_half, _) => {
                                 let mut write_half = write_half.lock().await;
-                                match write_half.write(&data_to_write).await {
+                                match sock.run_io_maybe_nb(write_half.write(&data_to_write)).await {
                                     Ok(n) => {
                                         let so_datalen = match so_datalen.deref(&memory) {
                                             Ok(x) => x,
@@ -331,9 +332,9 @@ impl Executor for TokioExecutor {
 
                         let sock_inner = sock.inner.read().await;
                         match *sock_inner {
-                            AbstractTcpSocketInner::Stream(ref read_half, _) => {
+                            AbstractTcpSocketInner::Stream(ref read_half, _, _) => {
                                 let mut read_half = read_half.lock().await;
-                                match read_half.read(data).await {
+                                match sock.run_io_maybe_nb(read_half.read(data)).await {
                                     Ok(n) => {
                                         let ro_datalen = match ro_datalen.deref(&memory) {
                                             Ok(x) => x,
@@ -360,7 +361,7 @@ impl Executor for TokioExecutor {
                         loop {
                             let sock_inner = sock.inner.read().await;
                             let mut listener = match *sock_inner {
-                                AbstractTcpSocketInner::Listening(ref x) => x.lock().await,
+                                AbstractTcpSocketInner::Listening(ref x, _) => x.lock().await,
                                 _ => break __WASI_EINVAL,
                             };
                             let (stream, addr) = match listener.accept().await {
@@ -404,8 +405,9 @@ impl Executor for TokioExecutor {
                                 Ok(x) => x,
                                 Err(e) => break from_tokio_error(e)
                             };
+                            let fd = stream.as_raw_fd();
                             let (r, w) = stream.into_split();
-                            *sock_inner = AbstractTcpSocketInner::Stream(AsyncMutex::new(r), AsyncMutex::new(w));
+                            *sock_inner = AbstractTcpSocketInner::Stream(AsyncMutex::new(r), AsyncMutex::new(w), fd);
                             break 0;
                         }
                     },
@@ -456,6 +458,7 @@ impl Executor for TokioExecutor {
                         }
                         _ => return Err(__WASI_EINVAL),
                     })),
+                    flags: 0,
                 };
                 let file = Box::new(socket);
                 let fd = fs
@@ -514,7 +517,8 @@ impl Executor for TokioExecutor {
                     match &*sock_inner {
                         AbstractTcpSocketInner::Binded(addr) => {
                             let l = TcpListener::bind(addr).map_err(from_tokio_error).await?;
-                            *sock_inner = AbstractTcpSocketInner::Listening(AsyncMutex::new(l));
+                            let fd = l.as_raw_fd();
+                            *sock_inner = AbstractTcpSocketInner::Listening(AsyncMutex::new(l), fd);
                             Ok(())
                         }
                         _ => Err(__WASI_EINVAL),
@@ -525,12 +529,15 @@ impl Executor for TokioExecutor {
                 match self.accepted_rx.borrow_mut().try_recv() {
                     Ok((stream, addr)) => {
                         let fd_out_cell = fd_out.deref(memory)?;
+                        let fd = stream.as_raw_fd();
                         let (r, w) = stream.into_split();
                         let socket = AbstractTcpSocket {
                             inner: Arc::new(AsyncRwLock::new(AbstractTcpSocketInner::Stream(
                                 AsyncMutex::new(r),
                                 AsyncMutex::new(w),
+                                fd,
                             ))),
+                            flags: 0,
                         };
                         let file = Box::new(socket);
                         let socket_name = format!("<accept:{}>", uuid::Uuid::new_v4());
@@ -571,6 +578,7 @@ impl Executor for TokioExecutor {
 #[derive(Debug, Clone)]
 struct AbstractTcpSocket {
     inner: Arc<AsyncRwLock<AbstractTcpSocketInner>>,
+    flags: __wasi_fdflags_t,
 }
 
 #[derive(Debug)]
@@ -585,10 +593,27 @@ enum AbstractTcpSocketInner {
     Binded(SocketAddr),
 
     /// Listening for incoming connections.
-    Listening(AsyncMutex<TcpListener>),
+    Listening(AsyncMutex<TcpListener>, RawFd),
 
     /// A connection is established on this socket.
-    Stream(AsyncMutex<OwnedReadHalf>, AsyncMutex<OwnedWriteHalf>),
+    Stream(AsyncMutex<OwnedReadHalf>, AsyncMutex<OwnedWriteHalf>, RawFd),
+}
+
+impl AbstractTcpSocket {
+    async fn run_io_maybe_nb<T>(&self, f: impl Future<Output = io::Result<T>>) -> io::Result<T> {
+        if self.flags & __WASI_FDFLAG_NONBLOCK != 0 {
+            tokio::select! {
+                x = f => {
+                    x
+                }
+                _ = async {} => {
+                    Err(io::Error::from(io::ErrorKind::WouldBlock))
+                }
+            }
+        } else {
+            f.await
+        }
+    }
 }
 
 impl Seek for AbstractTcpSocket {
@@ -607,9 +632,9 @@ impl Read for AbstractTcpSocket {
             current.runtime.handle().block_on(async {
                 let sock_inner = self.inner.read().await;
                 match *sock_inner {
-                    AbstractTcpSocketInner::Stream(ref read_half, _) => {
+                    AbstractTcpSocketInner::Stream(ref read_half, _, _) => {
                         let mut read_half = read_half.lock().await;
-                        read_half.read(data).await
+                        self.run_io_maybe_nb(read_half.read(data)).await
                     }
                     _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
                 }
@@ -628,9 +653,9 @@ impl Write for AbstractTcpSocket {
             current.runtime.handle().block_on(async {
                 let sock_inner = self.inner.read().await;
                 match *sock_inner {
-                    AbstractTcpSocketInner::Stream(_, ref write_half) => {
+                    AbstractTcpSocketInner::Stream(_, ref write_half, _) => {
                         let mut write_half = write_half.lock().await;
-                        write_half.write(&data).await
+                        self.run_io_maybe_nb(write_half.write(&data)).await
                     }
                     _ => Err(io::Error::from(io::ErrorKind::BrokenPipe)),
                 }
@@ -682,15 +707,22 @@ impl WasiFile for AbstractTcpSocket {
 
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
-        None
-        /*
         use std::os::unix::io::AsRawFd;
-        match *self.inner.read().unwrap() {
-            AbstractTcpSocketInner::Undefined4 | AbstractTcpSocketInner::Undefined6 => None,
-            AbstractTcpSocketInner::Listener(ref x) => Some(x.as_raw_fd()),
-            AbstractTcpSocketInner::Stream(ref x, _) => Some(x.as_raw_fd()),
-        }
-        */
+
+        executor::with_current::<TokioExecutor, _, _>(|current| {
+            let current = match current {
+                Some(x) => x,
+                None => return None
+            };
+            current.runtime.handle().block_on(async {
+                let sock_inner = self.inner.read().await;
+                match *sock_inner {
+                    AbstractTcpSocketInner::Listening(_, fd) => Some(fd),
+                    AbstractTcpSocketInner::Stream(_, _, fd) => Some(fd),
+                    _ => None,
+                }
+            })
+        })
     }
 
     #[cfg(not(unix))]
@@ -702,6 +734,11 @@ impl WasiFile for AbstractTcpSocket {
 
     fn try_clone_dyn(&self) -> Option<Box<dyn WasiFile>> {
         Some(Box::new(self.clone()))
+    }
+
+    fn update_flags(&mut self, flags: __wasi_fdflags_t) -> Result<(), WasiFsError> {
+        self.flags = flags;
+        Ok(())
     }
 }
 

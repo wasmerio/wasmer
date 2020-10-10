@@ -215,6 +215,11 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
     fn try_clone_dyn(&self) -> Option<Box<dyn WasiFile>> {
         None
     }
+
+    /// Notifies an update on the flags.
+    fn update_flags(&mut self, _flags: __wasi_fdflags_t) -> Result<(), WasiFsError> {
+        Ok(())
+    }
 }
 
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .

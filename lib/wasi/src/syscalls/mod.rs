@@ -454,6 +454,10 @@ pub fn fd_fdstat_set_flags(
         return __WASI_EACCES;
     }
 
+    let file = wasi_try!(state.fs.get_wasi_file_mut(fd));
+    wasi_try!(file.update_flags(flags).map_err(WasiFsError::into_wasi_err));
+
+    let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
     fd_entry.flags = flags;
     __WASI_ESUCCESS
 }

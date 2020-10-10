@@ -1105,6 +1105,22 @@ impl WasiFs {
         }
     }
 
+    pub fn get_wasi_file_mut(&mut self, fd: __wasi_fd_t) -> Result<&mut dyn WasiFile, __wasi_errno_t> {
+        let fd = self.get_fd(fd)?;
+        let inode_index = fd.inode;
+        let inode = &mut self.inodes[inode_index];
+        match inode.kind {
+            Kind::File { ref mut handle, .. } => {
+                if let Some(ref mut x) = handle {
+                    Ok(&mut **x)
+                } else {
+                    Err(__WASI_EBADF)
+                }
+            }
+            _ => Err(__WASI_EBADF),
+        }
+    }
+
     pub fn get_wasi_file_as<T: 'static>(&self, fd: __wasi_fd_t) -> Result<&T, __wasi_errno_t> {
         match self.get_wasi_file(fd)?.upcast_any_ref().downcast_ref::<T>() {
             Some(x) => Ok(x),
