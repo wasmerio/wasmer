@@ -2749,7 +2749,7 @@ pub fn wasio_socket_pre_accept(
 }
 
 #[cfg(feature = "wasio")]
-pub fn wasio_socket_accept(env: &mut WasiEnv, fd_out: WasmPtr<__wasi_fd_t>) -> __wasi_errno_t {
+pub fn wasio_socket_accept(env: &mut WasiEnv, fd_out: WasmPtr<__wasi_fd_t>, sockaddr: WasmPtr<u8, Array>, sockaddr_size: u32) -> __wasi_errno_t {
     debug!("wasio::wasio_socket_accept");
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let state = &mut *state;
@@ -2757,6 +2757,8 @@ pub fn wasio_socket_accept(env: &mut WasiEnv, fd_out: WasmPtr<__wasi_fd_t>) -> _
         memory,
         fs: &mut state.fs,
         fd_out,
+        sockaddr_ptr: sockaddr,
+        sockaddr_size,
     }));
     __WASI_ESUCCESS
 }

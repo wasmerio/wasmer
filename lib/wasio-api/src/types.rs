@@ -14,7 +14,7 @@ pub struct UserContext(pub u64);
 
 /// The `sockaddr_in` struct.
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SockaddrIn {
     pub sin_family: i16,
     pub sin_port: u16,
@@ -24,7 +24,7 @@ pub struct SockaddrIn {
 
 /// The `sockaddr_in6` struct.
 #[repr(C)]
-#[derive(Copy, Clone, Debug)]
+#[derive(Copy, Clone, Debug, Default)]
 pub struct SockaddrIn6 {
     pub sin6_family: i16,
     pub sin6_port: u16,

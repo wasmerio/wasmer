@@ -111,7 +111,7 @@ extern "C" {
     /// ## Arguments
     /// 
     /// - `fd_out`: Pointer to the memory location to store the new file descriptor.
-    pub fn socket_accept(fd_out: *mut __wasi_fd_t) -> __wasi_errno_t;
+    pub fn socket_accept(fd_out: *mut __wasi_fd_t, sockaddr: *mut u8, sockaddr_size: u32) -> __wasi_errno_t;
 
     /// Sends data to a socket.
     /// 

@@ -106,6 +106,8 @@ pub enum SyncOperation<'a> {
         memory: &'a Memory,
         fs: &'a mut WasiFs,
         fd_out: WasmPtr<__wasi_fd_t>, // fd
+        sockaddr_ptr: WasmPtr<u8, Array>,
+        sockaddr_size: u32,
     },
 
     /// Starts listening on a socket.

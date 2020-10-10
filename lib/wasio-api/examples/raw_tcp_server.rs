@@ -103,11 +103,12 @@ fn recursively_accept(fd: usize, err: __wasi_errno_t) {
 
         // The new connection is currently buffered - let's move it into a visible file descriptor.
         let mut conn = 0;
-        let err = socket_accept(&mut conn);
+        let mut addr = SockaddrIn::default();
+        let err = socket_accept(&mut conn, &mut addr as *mut _ as *mut u8, std::mem::size_of::<SockaddrIn>() as u32);
         if err != 0 {
             panic!("socket_accept on fd {} failed: {}", fd, err);
         }
-        println!("Accepted new connection on fd {}: {}.", fd, conn);
+        println!("Accepted new connection on fd {}: {}. Source: {:?}", fd, conn, addr);
 
         let mut ct = CancellationToken(0);
         let err = socket_pre_accept(fd as _, make_user_context(recursively_accept, fd as usize), &mut ct);

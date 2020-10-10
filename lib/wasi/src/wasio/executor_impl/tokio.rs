@@ -525,7 +525,7 @@ impl Executor for TokioExecutor {
                     }
                 })
             }
-            SyncOperation::SocketAccept { memory, fs, fd_out } => {
+            SyncOperation::SocketAccept { memory, fs, fd_out, sockaddr_ptr, sockaddr_size } => {
                 match self.accepted_rx.borrow_mut().try_recv() {
                     Ok((stream, addr)) => {
                         let fd_out_cell = fd_out.deref(memory)?;
@@ -553,6 +553,7 @@ impl Executor for TokioExecutor {
                             )
                             .map_err(|_| __WASI_EINVAL)?;
                         fd_out_cell.set(fd);
+                        encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, addr)?;
                         Ok(())
                     }
                     Err(e) => Err(__WASI_EAGAIN),
@@ -779,5 +780,37 @@ fn decode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockadd
 
         }
         _ => Err(__WASI_EINVAL)
+    }
+}
+
+fn encode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockaddr_size: u32, addr: SocketAddr) -> Result<(), __wasi_errno_t> {
+    match addr {
+        SocketAddr::V4(addr) => {
+            if sockaddr_size < 16 {
+                return Err(__WASI_EINVAL);
+            }
+            let target = WasmPtr::<SockaddrIn>::new(sockaddr_ptr.offset()).deref(memory)?;
+            target.set(SockaddrIn {
+                sin_family: AF_INET as _,
+                sin_port: addr.port().to_be(),
+                sin_addr: addr.ip().octets(),
+                sin_zero: [0; 8],
+            });
+            Ok(())
+        }
+        SocketAddr::V6(addr) => {
+            if sockaddr_size < 28 {
+                return Err(__WASI_EINVAL);
+            }
+            let target = WasmPtr::<SockaddrIn6>::new(sockaddr_ptr.offset()).deref(memory)?;
+            target.set(SockaddrIn6 {
+                sin6_family: AF_INET6 as _,
+                sin6_port: addr.port().to_be(),
+                sin6_flowinfo: 0,
+                sin6_addr: addr.ip().octets(),
+                sin6_scope_id: 0,
+            });
+            Ok(())
+        }
     }
 }
