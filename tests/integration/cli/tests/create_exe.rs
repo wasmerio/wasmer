@@ -83,7 +83,11 @@ fn create_exe_works() -> anyhow::Result<()> {
     .run()
     .context("Failed to create-exe wasm with Wasmer")?;
 
-    let result = run_code(&executable_path).context("Failed to run generated executable")?;
+    let result = run_code(
+        &executable_path,
+        &["--eval".to_string(), "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));".to_string()],
+    )
+    .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(result_lines, vec!["Initializing...", "\"Hello, World\""],);
 

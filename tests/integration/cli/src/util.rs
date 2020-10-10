@@ -36,8 +36,10 @@ impl Engine {
     }
 }
 
-pub fn run_code(executable_path: &Path) -> anyhow::Result<String> {
-    let output = Command::new(executable_path.canonicalize()?).output()?;
+pub fn run_code(executable_path: &Path, args: &[String]) -> anyhow::Result<String> {
+    let output = Command::new(executable_path.canonicalize()?)
+        .args(args)
+        .output()?;
 
     if !output.status.success() {
         bail!(

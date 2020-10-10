@@ -153,7 +153,7 @@ fn object_file_engine_works() -> anyhow::Result<()> {
     .run()
     .context("Failed to link objects together")?;
 
-    let result = run_code(&executable_path).context("Failed to run generated executable")?;
+    let result = run_code(&executable_path, &[]).context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
     assert_eq!(result_lines, vec!["Initializing...", "\"Hello, World\""],);
 
