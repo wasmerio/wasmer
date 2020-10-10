@@ -461,12 +461,13 @@ impl Executor for TokioExecutor {
                     flags: 0,
                 };
                 let file = Box::new(socket);
+                let socket_name = format!("<socket:{}>", uuid::Uuid::new_v4());
                 let fd = fs
                     .open_file_at(
                         VIRTUAL_ROOT_FD,
                         file,
                         Fd::READ | Fd::WRITE,
-                        "<socket>".to_string(),
+                        socket_name,
                         ALL_RIGHTS,
                         ALL_RIGHTS,
                         0,
