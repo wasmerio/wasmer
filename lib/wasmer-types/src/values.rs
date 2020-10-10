@@ -229,71 +229,39 @@ mod tests {
 
     #[test]
     fn test_value_i32_from_u32() {
-        let input: u32 = 0x00000000;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0x00000000);
+        let bytes = [0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
 
-        let input: u32 = 0x00000001;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0x00000001);
+        let bytes = [0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
 
-        let input: u32 = 0xaabbccdd;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0xaabbccdd);
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
 
-        let input: u32 = 0xffffffff;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0xffffffff);
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
     }
 
     #[test]
     fn test_value_i64_from_u64() {
-        let input: u64 = 0x0000000000000000;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0x0000000000000000);
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
 
-        let input: u64 = 0x0000000000000001;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0x0000000000000001);
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
 
-        let input: u64 = 0xaabbccddeeff0011;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0xaabbccddeeff0011);
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
 
-        let input: u64 = 0xffffffffffffffff;
-        let value = Value::<()>::from(input);
-        let mut out: i128 = 0;
-        unsafe {
-            value.write_value_to(&mut out as *mut i128);
-        }
-        assert_eq!(out, 0xffffffffffffffff);
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
     }
 }
