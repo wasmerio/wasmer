@@ -2,3 +2,8 @@
 rustflags = [
   "-C", "link-arg=-Wl,-E"
 ]
+
+[target.aarch64-unknown-linux-gnu]
+rustflags = [
+  "-C", "link-arg=-Wl,-E"
+]
