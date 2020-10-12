@@ -5,14 +5,6 @@ static WAT: &'static str = r#"
     (module
       (type (;0;) (func (result i32)))
       (import "env" "do_panic" (func $do_panic (type 0)))
-      (func $dbz (result i32)
-        call $do_panic
-        drop
-        i32.const 42
-        i32.const 0
-        i32.div_u
-      )
-      (export "dbz" (func $dbz))
     )
 "#;
 
@@ -43,16 +35,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     println!("instantiating");
 
-    let instance = module.instantiate(&imports! {
+    let imports = imports! {
         "env" => {
             "do_panic" => Func::new(do_panic),
         },
-    })?;
+    };
 
-    let foo: Func<(), i32> = instance.exports.get("dbz")?;
-    let result = foo.call();
-
-    println!("result: {:?}", result.unwrap_err().message());
+    let instance = module.instantiate(&imports)?;
 
     Ok(())
 }
