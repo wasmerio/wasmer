@@ -5,7 +5,7 @@ use std::path::Path;
 use wasmer::{Features, Store};
 #[cfg(feature = "test-jit")]
 use wasmer_engine_jit::JIT;
- #[cfg(feature = "test-native")]
+#[cfg(feature = "test-native")]
 use wasmer_engine_native::Native;
 use wasmer_wast::Wast;
 
@@ -37,7 +37,11 @@ fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
 #[cfg(feature = "test-native")]
 fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
     let mut compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(&Native::new(&mut compiler_config).features(features).engine())
+    Store::new(
+        &Native::new(&mut compiler_config)
+            .features(features)
+            .engine(),
+    )
 }
 
 pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
