@@ -187,6 +187,8 @@ fn run_c_compile(
 ) -> anyhow::Result<()> {
     #[cfg(not(windows))]
     let c_compiler = "cc";
+    // We must use a C++ compiler on Windows because wasm.h uses `static_assert`
+    // which isn't available in `clang` on Windows.
     #[cfg(windows)]
     let c_compiler = "clang++";
 
