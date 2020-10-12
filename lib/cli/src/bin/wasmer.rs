@@ -29,7 +29,7 @@ enum WasmerCLIOptions {
     Compile(Compile),
 
     /// Compile a WebAssembly binary into a native executable
-    #[cfg(feature = "object-file")]
+    #[cfg(all(feature = "object-file", feature = "compiler"))]
     #[structopt(name = "create-exe")]
     CreateExe(CreateExe),
 
