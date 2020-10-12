@@ -117,7 +117,11 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   printf("Evaluating \"%s\"\n", js_string);
-  if (wasm_func_call(run_func, NULL, NULL)) {
+
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t res = WASM_EMPTY_VEC;
+
+  if (wasm_func_call(run_func, &args, &res)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -134,12 +138,7 @@ int main(int argc, const char* argv[]) {
   printf("\n");
 
   wasm_extern_vec_delete(&exports);
-
-  // NEEDS REVIEW:
-  for(int i = 0; i < num_imports; ++i) {
-     wasm_extern_delete(imports[i]);
-  }
-  free(imports);
+  wasm_extern_vec_delete(&imports);
 
   // Shut down.
   printf("Shutting down...\n");
