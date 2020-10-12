@@ -151,15 +151,21 @@ impl CreateExe {
     }
 }
 
+fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
+    Ok(PathBuf::from(
+        env::var("WASMER_DIR").context("Trying to read env var `WASMER_DIR`")?,
+    ))
+}
+
 fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
-    let mut path = PathBuf::from(env::var("WASMER_DIR")?);
+    let mut path = get_wasmer_dir()?;
     path.push("include");
     Ok(path)
 }
 
 /// path to the static libwasmer
 fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
-    let mut path = PathBuf::from(env::var("WASMER_DIR")?);
+    let mut path = get_wasmer_dir()?;
     path.push("lib");
 
     #[cfg(not(windows))]
