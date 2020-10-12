@@ -52,8 +52,7 @@ impl LinkCode {
         #[cfg(windows)]
         let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
         #[cfg(not(windows))]
-        // TODO: remove `-lffi` before shipping
-        let command = command.arg("-ldl").arg("-lm").arg("-pthread").arg("-lffi");
+        let command = command.arg("-ldl").arg("-lm").arg("-pthread");
         let output = command.arg("-o").arg(&self.output_path).output()?;
 
         if !output.status.success() {

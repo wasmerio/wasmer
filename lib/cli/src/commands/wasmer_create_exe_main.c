@@ -111,7 +111,7 @@ int main(int argc, char* argv[]) {
   wasm_engine_t* engine = wasm_engine_new_with_config(config);
   wasm_store_t* store = wasm_store_new(engine);
   
-  wasm_module_t* module = wasmer_object_file_engine_new(store, "qjs.wasm");
+  wasm_module_t* module = wasmer_object_file_engine_new(store, argv[0]);
   if (! module) {
     fprintf(stderr, "Failed to create module\n");
     print_wasmer_error();

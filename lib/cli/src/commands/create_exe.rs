@@ -11,9 +11,6 @@ use wasmer::*;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
 
-// TODO: to get this working locally I had to add wasmer_wasm.h and wasm.h to `.wasmer/include` manually.
-// this needs to be fixed before we can ship this.
-
 #[derive(Debug, StructOpt)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
@@ -73,8 +70,6 @@ impl CreateExe {
         let output_path = starting_cd.join(&self.output);
         env::set_current_dir(&working_dir)?;
 
-        // TODO: encapsulate compile code
-
         #[cfg(not(windows))]
         let wasm_object_path = PathBuf::from("wasm.o");
         #[cfg(windows)]
@@ -82,7 +77,6 @@ impl CreateExe {
 
         let wasm_module_path = starting_cd.join(&self.path);
 
-        let header_file_path = Path::new("my_wasm.h");
         let module =
             Module::from_file(&store, &wasm_module_path).context("failed to compile Wasm")?;
         let _ = module.serialize_to_file(&wasm_object_path)?;
@@ -100,19 +94,19 @@ impl CreateExe {
             metadata_length,
         );
 
-        let header_path = header_file_path.clone();
-        // for C code
-        let mut header = std::fs::OpenOptions::new()
-            .create(true)
-            .truncate(true)
-            .write(true)
-            .open(&header_path)?;
+        generate_header(header_file_src.as_bytes())?;
+        self.compile_c(wasm_object_path, output_path)?;
 
+        eprintln!(
+            "✔ Native executable compiled successfully to `{}`.",
+            self.output.display(),
+        );
+
+        Ok(())
+    }
+
+    fn compile_c(&self, wasm_object_path: PathBuf, output_path: PathBuf) -> anyhow::Result<()> {
         use std::io::Write;
-        header.write(header_file_src.as_bytes())?;
-
-        // auto compilation
-        //
 
         // write C src to disk
         let c_src_path = Path::new("wasmer_main.c");
@@ -127,7 +121,6 @@ impl CreateExe {
                 .write(true)
                 .open(&c_src_path)
                 .context("Failed to open C source code file")?;
-            // TODO:
             c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
         run_c_compile(&c_src_path, &c_src_obj, self.target_triple.clone())
@@ -142,13 +135,22 @@ impl CreateExe {
         .run()
         .context("Failed to link objects together")?;
 
-        eprintln!(
-            "✔ Native executable compiled successfully to `{}`.",
-            self.output.display(),
-        );
-
         Ok(())
     }
+}
+
+fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
+    let header_file_path = Path::new("my_wasm.h");
+    let mut header = std::fs::OpenOptions::new()
+        .create(true)
+        .truncate(true)
+        .write(true)
+        .open(&header_file_path)?;
+
+    use std::io::Write;
+    header.write(header_file_src)?;
+
+    Ok(())
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
@@ -168,6 +170,7 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     let mut path = get_wasmer_dir()?;
     path.push("lib");
 
+    // TODO: prefer headless Wasmer if/when it's a separate library.
     #[cfg(not(windows))]
     path.push("libwasmer.a");
     #[cfg(windows)]
@@ -253,8 +256,6 @@ impl Default for LinkCode {
 }
 
 impl LinkCode {
-    // TODO: `wasmer create-exe` needs a command line flag for extra libraries to link aganist
-    // or perhaps we just want to add a flag for passing things to the linker
     fn run(&self) -> anyhow::Result<()> {
         let mut command = Command::new(&self.linker_path);
         let command = command
@@ -275,8 +276,11 @@ impl LinkCode {
         } else {
             command
         };
+        // Add libraries required per platform.
+        // We need userenv, sockets (Ws2_32), and advapi32 to call a system call (for random numbers I think).
         #[cfg(windows)]
         let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
+        // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
         let link_aganist_extra_libs = self

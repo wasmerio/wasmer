@@ -51,8 +51,6 @@ impl WasmerCreateExe {
             .arg("create-exe")
             .arg(&self.wasm_path.canonicalize()?)
             .arg(&self.compiler.to_flag())
-            // TODO: remove before shipping
-            .arg("-lffi")
             .arg("-o")
             .arg(&self.native_executable_path)
             .output()?;
