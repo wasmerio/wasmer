@@ -138,21 +138,25 @@ pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_call(
     func: &wasm_func_t,
-    args: *const wasm_val_t,
-    results: *mut wasm_val_t,
+    args: &wasm_val_vec_t,
+    results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>> {
-    let num_params = func.inner.ty().params().len();
-    let params: Vec<Val> = (0..num_params)
-        .map(|i| (&(*args.add(i))).try_into())
-        .collect::<Result<_, _>>()
-        .ok()?;
+    let params = args
+        .into_slice()?
+        .into_iter()
+        .map(TryInto::try_into)
+        .collect::<Result<Vec<Val>, _>>()
+        .expect("Argument conversion failed");
 
     match func.inner.call(&params) {
         Ok(wasm_results) => {
-            for (i, actual_result) in wasm_results.iter().enumerate() {
-                let result_loc = &mut (*results.add(i));
-                *result_loc = (&*actual_result).try_into().ok()?;
-            }
+            *results = wasm_results
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<wasm_val_t>, _>>()
+                .expect("Argument conversion failed")
+                .into();
+
             None
         }
         Err(e) => Some(Box::new(e.into())),
