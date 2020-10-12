@@ -39,8 +39,6 @@ pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
 pub fn get_engine() -> impl Engine {
     let compiler_config = get_compiler(false);
     JIT::new(&compiler_config).engine()
-    // let mut compiler_config = get_compiler(false);
-    // Native::new(&mut compiler_config).engine()
 }
 #[cfg(feature = "test-native")]
 pub fn get_engine() -> impl Engine {
