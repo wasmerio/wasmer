@@ -5,10 +5,7 @@
 //
 // So far, this is an implementation of the SysV AMD64 ABI.
 
-#![deny(
-    dead_code,
-    missing_docs,
-)]
+#![deny(dead_code, missing_docs)]
 
 use crate::translator::intrinsics::{type_to_llvm, Intrinsics};
 use inkwell::{

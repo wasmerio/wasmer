@@ -134,7 +134,7 @@ impl Compile {
                 .open(&header_path)?;
 
             use std::io::Write;
-            header.write(header_file_src.as_bytes())?;
+            header.write_all(header_file_src.as_bytes())?;
             eprintln!(
                 "✔ Header file generated successfully at `{}`.",
                 header_path.display(),
