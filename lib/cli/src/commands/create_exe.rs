@@ -130,11 +130,13 @@ impl CreateExe {
             // TODO:
             c_src_file.write_all(WASMER_MAIN_C_SOURCE)?;
         }
-        run_c_compile(&c_src_path, &c_src_obj).context("Failed to compile C source code")?;
+        run_c_compile(&c_src_path, &c_src_obj, self.target_triple.clone())
+            .context("Failed to compile C source code")?;
         LinkCode {
             object_paths: vec![c_src_obj, wasm_object_path],
             output_path,
             additional_libraries: self.libraries.clone(),
+            target: self.target_triple.clone(),
             ..Default::default()
         }
         .run()
@@ -155,6 +157,7 @@ fn get_wasmer_include_directory() -> anyhow::Result<PathBuf> {
     Ok(path)
 }
 
+/// path to the static libwasmer
 fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     let mut path = PathBuf::from(env::var("WASMER_DIR")?);
     path.push("lib");
@@ -168,21 +171,31 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
 }
 
 /// Compile the C code.
-fn run_c_compile(path_to_c_src: &Path, output_name: &Path) -> anyhow::Result<()> {
+fn run_c_compile(
+    path_to_c_src: &Path,
+    output_name: &Path,
+    target: Option<Triple>,
+) -> anyhow::Result<()> {
     #[cfg(not(windows))]
     let c_compiler = "cc";
     #[cfg(windows)]
     let c_compiler = "clang++";
 
-    let output = Command::new(c_compiler)
+    let mut command = Command::new(c_compiler);
+    let command = command
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
         .arg("-I")
-        .arg(get_wasmer_include_directory()?)
-        .arg("-o")
-        .arg(output_name)
-        .output()?;
+        .arg(get_wasmer_include_directory()?);
+
+    let command = if let Some(target) = target {
+        command.arg("-target").arg(format!("{}", target))
+    } else {
+        command
+    };
+
+    let output = command.arg("-o").arg(output_name).output()?;
 
     if !output.status.success() {
         bail!(
@@ -209,8 +222,10 @@ struct LinkCode {
     additional_libraries: Vec<String>,
     /// Path to the output target.
     output_path: PathBuf,
-    /// Path to the static libwasmer library.
+    /// Path to the dir containing the static libwasmer library.
     libwasmer_path: PathBuf,
+    /// The target to link the executable for.
+    target: Option<Triple>,
 }
 
 impl Default for LinkCode {
@@ -226,6 +241,7 @@ impl Default for LinkCode {
             additional_libraries: vec![],
             output_path: PathBuf::from("a.out"),
             libwasmer_path: get_libwasmer_path().unwrap(),
+            target: None,
         }
     }
 }
@@ -248,6 +264,11 @@ impl LinkCode {
                     .canonicalize()
                     .context("Failed to find libwasmer")?,
             );
+        let command = if let Some(target) = &self.target {
+            command.arg("-target").arg(format!("{}", target))
+        } else {
+            command
+        };
         #[cfg(windows)]
         let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
         #[cfg(not(windows))]
