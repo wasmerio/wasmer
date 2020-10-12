@@ -40,31 +40,37 @@ pub unsafe extern "C" fn wasm_func_new(
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
-        let processed_args = args
+        let processed_args: wasm_val_vec_t = args
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<wasm_val_t>, _>>()
-            .expect("Argument conversion failed");
+            .expect("Argument conversion failed")
+            .into();
 
-        let mut results = vec![
+        let mut results: wasm_val_vec_t = vec![
             wasm_val_t {
                 kind: wasm_valkind_enum::WASM_I64 as _,
                 of: wasm_val_inner { int64_t: 0 },
             };
             num_rets
-        ];
+        ]
+        .into();
 
-        let trap = callback(processed_args.as_ptr(), results.as_mut_ptr());
+        let trap = callback(&processed_args, &mut results);
+
         if !trap.is_null() {
             let trap: Box<wasm_trap_t> = Box::from_raw(trap);
             RuntimeError::raise(Box::new(trap.inner));
         }
 
         let processed_results = results
+            .into_slice()
+            .expect("Failed to convert `results` into a slice")
             .into_iter()
             .map(TryInto::try_into)
             .collect::<Result<Vec<Val>, _>>()
             .expect("Result conversion failed");
+
         Ok(processed_results)
     };
     let function = Function::new(&store.inner, &func_sig, inner_callback);
