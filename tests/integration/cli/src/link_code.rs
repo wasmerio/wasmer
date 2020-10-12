@@ -6,6 +6,8 @@ use std::process::Command;
 /// Data used to run a linking command for generated artifacts.
 #[derive(Debug)]
 pub struct LinkCode {
+    /// The directory to operate in.
+    pub current_dir: PathBuf,
     /// Path to the linker used to run the linking command.
     pub linker_path: PathBuf,
     /// String used as an optimization flag.
@@ -25,6 +27,7 @@ impl Default for LinkCode {
         #[cfg(windows)]
         let linker = "clang";
         Self {
+            current_dir: std::env::current_dir().unwrap(),
             linker_path: PathBuf::from(linker),
             optimization_flag: String::from("-O2"),
             object_paths: vec![],
@@ -38,6 +41,7 @@ impl LinkCode {
     pub fn run(&self) -> anyhow::Result<()> {
         let mut command = Command::new(&self.linker_path);
         let command = command
+            .current_dir(&self.current_dir)
             .arg(&self.optimization_flag)
             .args(
                 self.object_paths

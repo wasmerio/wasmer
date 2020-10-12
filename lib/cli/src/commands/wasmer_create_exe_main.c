@@ -44,20 +44,19 @@ void pass_mapdir_arg(wasi_config_t* wasi_config, char* mapdir) {
     fprintf(stderr, "Expected mapdir argument of the form alias:directory\n");
     exit(-1);
   }
-  // TODO: triple check for off by one errors
   int dir_len = strlen(mapdir) - colon_location;
-  char* alias = (char*)malloc(colon_location);
-  char* dir = (char*)malloc(dir_len);
+  char* alias = (char*)malloc(colon_location + 1);
+  char* dir = (char*)malloc(dir_len + 1);
   int j = 0;
   for (j = 0; j < colon_location; ++j) {
     alias[j] = mapdir[j];
   }
   alias[j] = 0;
   for (j = 0; j < dir_len; ++j) {
-    dir[j] = mapdir[j + colon_location];
+    dir[j] = mapdir[j + colon_location + 1];
   }
   dir[j] = 0;
-  
+
   wasi_config_mapdir(wasi_config, alias, dir);
   free(alias);
   free(dir);
@@ -107,7 +106,6 @@ void handle_arguments(wasi_config_t* wasi_config, int argc, char* argv[]) {
 #endif
 
 int main(int argc, char* argv[]) {
-  printf("Initializing...\n");
   wasm_config_t* config = wasm_config_new();
   wasm_config_set_engine(config, OBJECT_FILE);
   wasm_engine_t* engine = wasm_engine_new_with_config(config);

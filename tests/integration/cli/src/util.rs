@@ -36,8 +36,13 @@ impl Engine {
     }
 }
 
-pub fn run_code(executable_path: &Path, args: &[String]) -> anyhow::Result<String> {
+pub fn run_code(
+    operating_dir: &Path,
+    executable_path: &Path,
+    args: &[String],
+) -> anyhow::Result<String> {
     let output = Command::new(executable_path.canonicalize()?)
+        .current_dir(operating_dir)
         .args(args)
         .output()?;
 
