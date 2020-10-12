@@ -355,11 +355,20 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let trampoline = wasmer_export.trampoline.unwrap();
-        Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
-            exported: wasmer_export,
+        if let Some(trampoline) = wasmer_export.trampoline {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
+                exported: wasmer_export,
+            }
+        } else {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Host(HostFunctionDefinition {
+                    has_env: !wasmer_export.vmctx.is_null(),
+                }),
+                exported: wasmer_export,
+            }
         }
     }
 
