@@ -1,7 +1,7 @@
 use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
-use super::super::value::{wasm_val_inner, wasm_val_t};
+use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::sync::Arc;
@@ -15,14 +15,16 @@ pub struct wasm_func_t {
 }
 
 #[allow(non_camel_case_types)]
-pub type wasm_func_callback_t =
-    unsafe extern "C" fn(args: *const wasm_val_t, results: *mut wasm_val_t) -> *mut wasm_trap_t;
+pub type wasm_func_callback_t = unsafe extern "C" fn(
+    args: *const wasm_val_vec_t,
+    results: *mut wasm_val_vec_t,
+) -> *mut wasm_trap_t;
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
     *mut c_void,
-    args: *const wasm_val_t,
-    results: *mut wasm_val_t,
+    args: *const wasm_val_vec_t,
+    results: *mut wasm_val_vec_t,
 ) -> *mut wasm_trap_t;
 
 #[allow(non_camel_case_types)]
