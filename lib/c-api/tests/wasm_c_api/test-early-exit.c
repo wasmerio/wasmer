@@ -27,9 +27,9 @@ void print_frame(wasm_frame_t* frame) {
 
 wasm_store_t *store = NULL;
 
-own wasm_trap_t *early_exit(const wasm_val_t args[], wasm_val_t results[]) {
+own wasm_trap_t* early_exit(const wasm_val_vec_t* args, wasm_val_vec_t* results) {
   own wasm_message_t trap_message;
-  wasm_name_new_from_string(&trap_message, "trapping from a host import");
+  wasm_name_new_from_string_nt(&trap_message, "trapping from a host import");
   own wasm_trap_t *trap = wasm_trap_new(store, &trap_message);
   wasm_name_delete(&trap_message);
   return trap;
@@ -77,9 +77,13 @@ int main(int argc, const char *argv[]) {
 
   wasm_functype_delete(host_func_type);
 
-  const wasm_extern_t *imports[] = {wasm_func_as_extern(host_func)};
+  wasm_extern_vec_t imports;
+  wasm_extern_vec_new_uninitialized(&imports, 1);
+  imports.data[0] = wasm_func_as_extern(host_func);
+
   own wasm_instance_t *instance =
-      wasm_instance_new(store, module, imports, NULL);
+      wasm_instance_new(store, module, &imports, NULL);
+
   if (!instance) {
     printf("> Error instantiating module!\n");
     print_wasmer_error();
@@ -110,12 +114,12 @@ int main(int argc, const char *argv[]) {
 
   // Call.
   printf("Calling export...\n");
-  own const wasm_val_t args[] = {
-      {.kind = WASM_I32, .of = {.i32 = 1}},
-      {.kind = WASM_I32, .of = {.i32 = 7}},
-  };
-  own wasm_val_t rets[1] = {};
-  own wasm_trap_t *trap = wasm_func_call(run_func, args, rets);
+  wasm_val_t values[2] = { WASM_I32_VAL(1), WASM_I32_VAL(7) };
+  own wasm_val_vec_t args = WASM_ARRAY_VEC(values);
+  wasm_val_t result = WASM_INIT_VAL;
+  own wasm_val_vec_t rets = { 1, &result };
+  own wasm_trap_t *trap = wasm_func_call(run_func, &args, &rets);
+
   if (!trap) {
     printf("> Error calling function: expected trap!\n");
     return 1;
@@ -151,6 +155,7 @@ int main(int argc, const char *argv[]) {
   wasm_name_delete(&message);
 
   wasm_extern_vec_delete(&exports);
+  wasm_extern_vec_delete(&imports);
 
   // Shut down.
   printf("Shutting down...\n");
