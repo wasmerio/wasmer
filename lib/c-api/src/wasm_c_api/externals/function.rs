@@ -142,11 +142,15 @@ pub unsafe extern "C" fn wasm_func_call(
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>> {
     let params = args
-        .into_slice()?
-        .into_iter()
-        .map(TryInto::try_into)
-        .collect::<Result<Vec<Val>, _>>()
-        .expect("Argument conversion failed");
+        .into_slice()
+        .map(|slice| {
+            slice
+                .into_iter()
+                .map(TryInto::try_into)
+                .collect::<Result<Vec<Val>, _>>()
+                .expect("Argument conversion failed")
+        })
+        .unwrap_or_else(|| Vec::new());
 
     match func.inner.call(&params) {
         Ok(wasm_results) => {
