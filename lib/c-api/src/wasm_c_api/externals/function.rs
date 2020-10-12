@@ -94,30 +94,36 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let num_rets = func_sig.results().len();
     let inner_callback =
         move |env: &mut *mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
-            let processed_args = args
+            let processed_args: wasm_val_vec_t = args
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<wasm_val_t>, _>>()
-                .expect("Argument conversion failed");
+                .expect("Argument conversion failed")
+                .into();
 
-            let mut results = vec![
+            let mut results: wasm_val_vec_t = vec![
                 wasm_val_t {
                     kind: wasm_valkind_enum::WASM_I64 as _,
                     of: wasm_val_inner { int64_t: 0 },
                 };
                 num_rets
-            ];
+            ]
+            .into();
 
-            let _traps = callback(*env, processed_args.as_ptr(), results.as_mut_ptr());
+            let _traps = callback(*env, &processed_args, &mut results);
             // TODO: do something with `traps`
 
             let processed_results = results
+                .into_slice()
+                .expect("Failed to convert `results` into a slice")
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<Val>, _>>()
                 .expect("Result conversion failed");
+
             Ok(processed_results)
         };
+
     let function = Function::new_with_env(&store.inner, &func_sig, env, inner_callback);
 
     Some(Box::new(wasm_func_t {
