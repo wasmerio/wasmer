@@ -233,15 +233,10 @@ impl JITEngineInner {
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
             PrimaryMap::new();
-        for ((_sig_index, _), ptr) in function_call_trampolines.iter().zip(
-            allocated_functions
-                .drain(0..function_call_trampolines.len())
-                .map(|slice| slice.as_ptr()),
-        ) {
-            // TODO: make certain that we're visiting sigindex strictly increasing
-            //let func_type = &module.signatures[sig_index];
-            //let index = self.signatures.register(&func_type);
-
+        for ptr in allocated_functions
+            .drain(0..function_call_trampolines.len())
+            .map(|slice| slice.as_ptr())
+        {
             let trampoline =
                 unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
             allocated_function_call_trampolines.push(trampoline);
