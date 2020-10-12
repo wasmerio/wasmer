@@ -2,7 +2,10 @@
 
 ## **[Unreleased]**
 
+- [#1700](https://github.com/wasmerio/wasmer/pull/1700) Implement `wasm_externtype_copy` in the Wasm C API.
+
 ## 1.0.0-alpha4 - 2020-10-08
+
 - [#1691](https://github.com/wasmerio/wasmer/pull/1691) Bump minimum supported Rust version to 1.46.0
 - [#1690](https://github.com/wasmerio/wasmer/pull/1690) Fix `wasm_memorytype_limits` where `min` and `max` represents pages, not bytes. Additionally, fixes the max limit sentinel value.
 - [#1682](https://github.com/wasmerio/wasmer/pull/1682) Improve error reporting when making a memory with invalid settings.
@@ -14,15 +17,18 @@
 - [#1645](https://github.com/wasmerio/wasmer/pull/1645) Move the install script to https://github.com/wasmerio/wasmer-install
 
 ## 1.0.0-alpha3 - 2020-09-14
+
 - [#1620](https://github.com/wasmerio/wasmer/pull/1620) Fix bug causing the Wapm binary to not be packaged with the release
 - [#1619](https://github.com/wasmerio/wasmer/pull/1619) Improve error message in engine-native when C compiler is missing
 
 ## 1.0.0-alpha02.0 - 2020-09-11
+
 - [#1602](https://github.com/wasmerio/wasmer/pull/1602) Fix panic when calling host functions with negative numbers in certain situations
 - [#1590](https://github.com/wasmerio/wasmer/pull/1590) Fix soundness issue in API of vm::Global
 - [#1566](https://github.com/wasmerio/wasmer/pull/1566) Add support for opening special Unix files to the WASI FS
 
 ## TODO: 1.0.0-alpha01.0
+
 - Wasmer refactor lands
 
 ## TODO: 17...

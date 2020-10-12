@@ -6,6 +6,7 @@ description = "Wasmer Object File Engine"
 categories = ["wasm"]
 keywords = ["webassembly", "wasm"]
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
