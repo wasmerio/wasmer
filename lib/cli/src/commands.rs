@@ -2,7 +2,7 @@
 mod cache;
 mod compile;
 mod config;
-#[cfg(feature = "object-file")]
+#[cfg(all(feature = "object-file", feature = "compiler"))]
 mod create_exe;
 mod inspect;
 mod run;
@@ -11,7 +11,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 
-#[cfg(feature = "object-file")]
+#[cfg(all(feature = "object-file", feature = "compiler"))]
 pub use create_exe::*;
 #[cfg(feature = "wast")]
 pub use wast::*;

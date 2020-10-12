@@ -1,5 +1,5 @@
 use anyhow::Result;
-#[cfg(feature = "object-file")]
+#[cfg(all(feature = "object-file", feature = "compiler"))]
 use wasmer_cli::commands::CreateExe;
 #[cfg(feature = "wast")]
 use wasmer_cli::commands::Wast;
@@ -60,7 +60,7 @@ impl WasmerCLIOptions {
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
             Self::Compile(compile) => compile.execute(),
-            #[cfg(feature = "object-file")]
+            #[cfg(all(feature = "object-file", feature = "compiler"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
