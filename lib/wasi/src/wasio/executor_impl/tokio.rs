@@ -673,7 +673,9 @@ struct SocketMetadata {
 
 impl AbstractTcpSocket {
     async fn run_io_maybe_nb<T>(&self, f: impl Future<Output = io::Result<T>>) -> io::Result<T> {
-        if self.flags & __WASI_FDFLAG_NONBLOCK != 0 {
+        // Disable NB mode since Tokio sometimes fails to run the first future to completion even if there is data immediately.
+        // Caused by locks?
+        if false && self.flags & __WASI_FDFLAG_NONBLOCK != 0 {
             tokio::select! {
                 x = f => {
                     x
