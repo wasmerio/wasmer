@@ -42,6 +42,12 @@ use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
+///
+#[no_mangle]
+pub extern "C" fn wasmer_print_ptr(ptr: *const i8) {
+    dbg!(ptr);
+}
+
 /// Implementation of f32.ceil
 #[no_mangle]
 pub extern "C" fn wasmer_f32_ceil(x: f32) -> f32 {
@@ -434,8 +440,11 @@ pub enum LibCall {
     /// trunc.f32
     TruncF32,
 
-    /// frunc.f64
+    /// trunc.f64
     TruncF64,
+
+    ///
+    PrintPtr,
 }
 
 impl LibCall {
@@ -452,6 +461,7 @@ impl LibCall {
             Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::TruncF32 => wasmer_f32_trunc as usize,
             Self::TruncF64 => wasmer_f64_trunc as usize,
+            Self::PrintPtr => wasmer_print_ptr as usize,
         }
     }
 
@@ -468,6 +478,7 @@ impl LibCall {
             Self::RaiseTrap => "wasmer_raise_trap",
             Self::TruncF32 => "wasmer_f32_trunc",
             Self::TruncF64 => "wasmer_f64_trunc",
+            Self::PrintPtr => "wasmer_print_ptr",
         }
     }
 }

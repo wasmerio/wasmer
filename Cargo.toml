@@ -190,4 +190,4 @@ required-features = ["cranelift", "wasi"]
 [[example]]
 name = "table"
 path = "examples/table.rs"
-required-features = ["cranelift"]
+required-features = ["llvm"]

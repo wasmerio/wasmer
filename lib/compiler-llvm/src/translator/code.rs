@@ -2201,6 +2201,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics,
                     self.module,
                 );
+                self.builder.build_call(
+                    self.intrinsics.print_ptr,
+                    &[self
+                        .builder
+                        .build_bitcast(table_base, self.intrinsics.i8_ptr_ty, "")],
+                    "",
+                );
                 let func_index = self.state.pop1()?.into_int_value();
 
                 // We assume the table has the `anyfunc` element type.

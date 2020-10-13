@@ -54,6 +54,7 @@ where
 {
     // TODO: use perfect hash function?
     let mut libcalls = HashMap::new();
+    libcalls.insert("wasmer_print_ptr".to_string(), LibCall::PrintPtr);
     libcalls.insert("wasmer_raise_trap".to_string(), LibCall::RaiseTrap);
     libcalls.insert("truncf".to_string(), LibCall::TruncF32);
     libcalls.insert("trunc".to_string(), LibCall::TruncF64);

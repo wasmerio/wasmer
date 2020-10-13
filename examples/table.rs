@@ -1,5 +1,7 @@
-use wasmer::{imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type};
-use wasmer_compiler_cranelift::Cranelift;
+use wasmer::{
+    imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type, Value,
+};
+use wasmer_compiler_llvm::LLVM;
 use wasmer_engine_jit::JIT;
 
 /// A function we'll call through a table.
@@ -49,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(&LLVM::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};
@@ -97,7 +99,6 @@ fn main() -> anyhow::Result<()> {
 
     // == Growing a table ==
 
-    /*
     // We again construct a `Function` over our host_callback.
     let func = Function::new_native(&store, host_callback);
 
@@ -122,12 +123,15 @@ fn main() -> anyhow::Result<()> {
     } else {
         panic!("ahhH!");
     }
-
+    dbg!("B");
     let result = call_via_table.call(0, 2, 7)?;
     dbg!(result);
     assert_eq!(result, 18);
+    dbg!("C");
     let func = Function::new_native(&store, host_callback);
-    guest_table.set(0, func.into())?;
+    dbg!("D");
+    guest_table.set(0, dbg!(func.into()))?;
+    dbg!("E");
     let result = call_via_table.call(0, 2, 7)?;
     dbg!(result);
     assert_eq!(result, 9);
@@ -137,7 +141,6 @@ fn main() -> anyhow::Result<()> {
         let result = call_via_table.call(table_index, 1, 9)?;
         assert_eq!(result, 10);
     }
-    */
 
     Ok(())
 }

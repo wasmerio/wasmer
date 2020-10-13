@@ -115,6 +115,8 @@ pub struct Intrinsics<'ctx> {
     pub trap: FunctionValue<'ctx>,
     pub debug_trap: FunctionValue<'ctx>,
 
+    pub print_ptr: FunctionValue<'ctx>,
+
     pub personality: FunctionValue<'ctx>,
     pub readonly: Attribute,
     pub stack_probe: Attribute,
@@ -362,6 +364,11 @@ impl<'ctx> Intrinsics<'ctx> {
             expect_i1: module.add_function("llvm.expect.i1", ret_i1_take_i1_i1, None),
             trap: module.add_function("llvm.trap", void_ty.fn_type(&[], false), None),
             debug_trap: module.add_function("llvm.debugtrap", void_ty.fn_type(&[], false), None),
+            print_ptr: module.add_function(
+                "wasmer_print_ptr",
+                void_ty.fn_type(&[i8_ptr_ty_basic], false),
+                Some(Linkage::External),
+            ),
             personality: module.add_function(
                 "__gxx_personality_v0",
                 i32_ty.fn_type(&[], false),
@@ -752,6 +759,16 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
                         .into_pointer_value();
                     (ptr_to_base_ptr, ptr_to_bounds)
                 };
+            cache_builder.build_call(
+                intrinsics.print_ptr,
+                &[cache_builder.build_bitcast(ptr_to_base_ptr, intrinsics.i8_ptr_ty, "")],
+                "",
+            );
+            cache_builder.build_call(
+                intrinsics.print_ptr,
+                &[cache_builder.build_bitcast(ptr_to_bounds, intrinsics.i8_ptr_ty, "")],
+                "",
+            );
             TableCache {
                 ptr_to_base_ptr,
                 ptr_to_bounds,

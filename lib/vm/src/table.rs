@@ -191,10 +191,12 @@ impl Table for LinearTable {
         );
         // update table definition
         unsafe {
-            let td = &mut *self.vm_table_definition.get();
+            let td = dbg!(&mut *self.vm_table_definition.get());
             td.current_elements = new_len;
-            td.base = vec.as_mut_ptr() as _;
+            td.base = dbg!(vec.as_mut_ptr() as _);
         }
+        unsafe { dbg!(&((*self.vm_table_definition.get()).base)) };
+        unsafe { dbg!((*self.vm_table_definition.get()).base) };
         Some(size)
     }
 
