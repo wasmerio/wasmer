@@ -174,7 +174,7 @@ fn get_libwasmer_path() -> anyhow::Result<PathBuf> {
     #[cfg(not(windows))]
     path.push("libwasmer.a");
     #[cfg(windows)]
-    path.push("libwasmer.lib");
+    path.push("wasmer_c_api.lib");
 
     Ok(path)
 }
