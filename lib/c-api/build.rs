@@ -361,6 +361,8 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
     builder
         .exclude_item("wasi_config_arg")
         .exclude_item("wasi_config_env")
+        .exclude_item("wasi_config_mapdir")
+        .exclude_item("wasi_config_preopen_dir")
         .exclude_item("wasi_config_inherit_stderr")
         .exclude_item("wasi_config_inherit_stdin")
         .exclude_item("wasi_config_inherit_stdout")

@@ -1,6 +1,10 @@
 #![forbid(unsafe_code)]
-#![cfg(test)]
 
 //! CLI integration tests
 
-mod compile;
+pub mod assets;
+pub mod link_code;
+pub mod util;
+
+pub use assets::*;
+pub use util::*;
