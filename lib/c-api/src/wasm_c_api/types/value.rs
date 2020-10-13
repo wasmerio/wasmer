@@ -1,6 +1,5 @@
 use super::super::value::wasm_valkind_t;
 use std::convert::TryInto;
-use std::ptr::NonNull;
 use wasmer::ValType;
 
 #[allow(non_camel_case_types)]
@@ -84,11 +83,8 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valt
 pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_valtype_kind(
-    valtype: Option<NonNull<wasm_valtype_t>>,
-) -> wasm_valkind_t {
+pub unsafe extern "C" fn wasm_valtype_kind(valtype: Option<&wasm_valtype_t>) -> wasm_valkind_t {
     valtype
         .expect("`wasm_valtype_kind: argument is a null pointer")
-        .as_ref()
         .valkind as wasm_valkind_t
 }
