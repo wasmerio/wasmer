@@ -46,12 +46,6 @@ pub struct NativeArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
-impl Drop for NativeArtifact {
-    fn drop(&mut self) {
-        println!("Dropping NativeArtifact!");
-    }
-}
-
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
