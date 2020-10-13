@@ -36,7 +36,7 @@ pub struct ExportFunction {
     /// The function kind (it defines how it's the signature that provided `address` have)
     pub kind: VMFunctionKind,
     /// Address of the function call trampoline owned by the same VMContext that owns the VMFunctionBody.
-    /// May be None when the function is an host-function (FunctionType == Dynamic or vmctx == nullptr)
+    /// May be None when the function is an host-function (FunctionType == Dynamic or vmctx == nullptr).
     pub trampoline: Option<VMTrampoline>,
 }
 
