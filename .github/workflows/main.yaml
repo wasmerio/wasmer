@@ -150,19 +150,23 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer
+        run: |
+          make package
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
           call refreshenv
+          cd dist
+          wasmer-windows.exe
+          cd ..
           make test-integration
         if: matrix.run_integration_tests && matrix.os == 'windows-latest'
       - name: Run integration tests (Unix)
-        run: make test-integration
-        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
-      - name: Package Wasmer
         run: |
-          make package
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+          export WASMER_DIR=`pwd`/package
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         if: needs.setup.outputs.DOING_RELEASE == '1'
