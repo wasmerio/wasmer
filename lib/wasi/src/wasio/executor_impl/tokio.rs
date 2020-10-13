@@ -817,10 +817,23 @@ impl WasiFile for AbstractTcpSocket {
 fn from_tokio_error(e: tokio::io::Error) -> __wasi_errno_t {
     use tokio::io::ErrorKind;
     match e.kind() {
+        ErrorKind::NotFound => __WASI_EEXIST,
+        ErrorKind::PermissionDenied => __WASI_EPERM,
+        ErrorKind::ConnectionRefused => __WASI_ECONNREFUSED,
+        ErrorKind::ConnectionReset => __WASI_ECONNRESET,
+        ErrorKind::ConnectionAborted => __WASI_ECONNABORTED,
         ErrorKind::NotConnected => __WASI_ENOTCONN,
         ErrorKind::AddrInUse => __WASI_EADDRINUSE,
+        ErrorKind::AddrNotAvailable => __WASI_EADDRNOTAVAIL,
         ErrorKind::BrokenPipe => __WASI_EPIPE,
-        ErrorKind::PermissionDenied => __WASI_EPERM,
+        ErrorKind::AlreadyExists => __WASI_EEXIST,
+        ErrorKind::WouldBlock => __WASI_EAGAIN,
+        ErrorKind::InvalidInput => __WASI_EINVAL,
+        ErrorKind::InvalidData => __WASI_EINVAL,
+        ErrorKind::TimedOut => __WASI_ETIMEDOUT,
+        ErrorKind::WriteZero => __WASI_EINVAL,
+        ErrorKind::Interrupted => __WASI_EAGAIN,
+        ErrorKind::UnexpectedEof => __WASI_EIO,
         _ => __WASI_EINVAL,
     }
 }
