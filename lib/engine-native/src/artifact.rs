@@ -19,9 +19,7 @@ use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolReg
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
-use wasmer_engine::{
-    Artifact, DeserializeError, InstantiationError, SerializeError,
-};
+use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
