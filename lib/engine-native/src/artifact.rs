@@ -20,7 +20,7 @@ use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
 use wasmer_engine::{
-    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
+    Artifact, DeserializeError, InstantiationError, SerializeError,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
@@ -42,12 +42,16 @@ use wasmer_vm::{
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
-    #[allow(dead_code)]
-    library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+}
+
+impl Drop for NativeArtifact {
+    fn drop(&mut self) {
+        println!("Dropping NativeArtifact!");
+    }
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -333,7 +337,6 @@ impl NativeArtifact {
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: None,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
@@ -435,10 +438,11 @@ impl NativeArtifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
+        engine_inner.add_library(lib);
+
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
@@ -593,11 +597,6 @@ impl Artifact for NativeArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        if self.library.is_none() {
-            return Err(InstantiationError::Link(LinkError::Trap(
-                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
-            )));
-        }
         Ok(())
     }
 
