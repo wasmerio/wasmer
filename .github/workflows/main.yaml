@@ -150,9 +150,13 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer for integration tests
+        run: make package-without-wapm-for-integration-tests
+        if: needs.setup.outputs.DOING_RELEASE != '1'
       - name: Package Wasmer
         run: |
           make package
+        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Run integration tests (Windows)
         shell: cmd
         run: |

@@ -214,6 +214,9 @@ else
 	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
 
+# command for simulating installing Wasmer without wapm.
+package-without-wapm-for-integration-tests: package-wasmer package-capi
+
 #################
 # Miscellaneous #
 #################
