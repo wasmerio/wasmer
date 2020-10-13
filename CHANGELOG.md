@@ -9,6 +9,7 @@
 
 ### Added
 
+- [#1715](https://github.com/wasmerio/wasmer/pull/1715) Register errors from `wasm_module_serialize` in the Wasm C API.
 - [#1700](https://github.com/wasmerio/wasmer/pull/1700) Implement `wasm_externtype_copy` in the Wasm C API.
 
 ## 1.0.0-alpha4 - 2020-10-08
