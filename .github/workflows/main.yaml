@@ -157,9 +157,7 @@ jobs:
         shell: cmd
         run: |
           call refreshenv
-          cd dist
-          wasmer-windows.exe
-          cd ..
+          setx WASMER_DIR "%CD%/package"
           make test-integration
         if: matrix.run_integration_tests && matrix.os == 'windows-latest'
       - name: Run integration tests (Unix)
