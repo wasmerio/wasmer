@@ -2770,6 +2770,48 @@ pub fn wasio_socket_accept(env: &mut WasiEnv, fd_out: WasmPtr<__wasi_fd_t>, sock
 }
 
 #[cfg(feature = "wasio")]
+pub fn wasio_socket_local_addr(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    sockaddr: WasmPtr<u8, Array>,
+    sockaddr_size: WasmPtr<u32>,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_local_addr");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketAddr {
+        memory,
+        fs: &mut state.fs,
+        fd,
+        sockaddr_ptr: sockaddr,
+        sockaddr_size_ptr: sockaddr_size,
+        remote: false,
+    }));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
+pub fn wasio_socket_remote_addr(
+    env: &mut WasiEnv,
+    fd: __wasi_fd_t,
+    sockaddr: WasmPtr<u8, Array>,
+    sockaddr_size: WasmPtr<u32>,
+) -> __wasi_errno_t {
+    debug!("wasio::wasio_socket_remote_addr");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    wasi_try!(state.wasio_executor.perform(SyncOperation::SocketAddr {
+        memory,
+        fs: &mut state.fs,
+        fd,
+        sockaddr_ptr: sockaddr,
+        sockaddr_size_ptr: sockaddr_size,
+        remote: true,
+    }));
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
 pub fn wasio_socket_send(
     env: &mut WasiEnv,
     fd: __wasi_fd_t,

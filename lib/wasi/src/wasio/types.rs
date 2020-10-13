@@ -115,6 +115,16 @@ pub enum SyncOperation<'a> {
         fs: &'a mut WasiFs,
         fd: __wasi_fd_t, // fd
     },
+
+    /// Gets the local or remote address of a socket.
+    SocketAddr {
+        memory: &'a Memory,
+        fs: &'a mut WasiFs,
+        fd: __wasi_fd_t, // fd
+        sockaddr_ptr: WasmPtr<u8, Array>,
+        sockaddr_size_ptr: WasmPtr<u32>,
+        remote: bool,
+    },
 }
 
 /// The user context that will be returned to WebAssembly, once a
