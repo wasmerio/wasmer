@@ -38,8 +38,7 @@ impl Compile {
             .context(format!("failed to compile `{}`", self.path.display()))
     }
 
-    fn get_recommend_extension(
-        &self,
+    pub(crate) fn get_recommend_extension(
         engine_type: &EngineType,
         target_triple: &Triple,
     ) -> &'static str {
@@ -82,7 +81,7 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = self.get_recommend_extension(&engine_type, target.triple());
+        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple());
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {

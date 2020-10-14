@@ -185,6 +185,7 @@ package-capi:
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/doc/deprecated/index.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
@@ -222,6 +223,9 @@ else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
+
+# command for simulating installing Wasmer without wapm.
+package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

@@ -102,7 +102,15 @@ void wasi_config_inherit_stdout(wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+bool wasi_config_mapdir(wasi_config_t *config, const char *alias, const char *dir);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 wasi_config_t *wasi_config_new(const char *program_name);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_config_preopen_dir(wasi_config_t *config, const char *dir);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)

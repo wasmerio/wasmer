@@ -3,7 +3,7 @@
     missing_docs,
     trivial_numeric_casts,
     unused_extern_crates,
-    intra_doc_link_resolution_failure
+    broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
 #![cfg_attr(
