@@ -1,4 +1,6 @@
 use anyhow::Result;
+#[cfg(all(feature = "object-file", feature = "compiler"))]
+use wasmer_cli::commands::CreateExe;
 #[cfg(feature = "wast")]
 use wasmer_cli::commands::Wast;
 use wasmer_cli::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
@@ -25,6 +27,11 @@ enum WasmerCLIOptions {
     /// Compile a WebAssembly binary
     #[structopt(name = "compile")]
     Compile(Compile),
+
+    /// Compile a WebAssembly binary into a native executable
+    #[cfg(all(feature = "object-file", feature = "compiler"))]
+    #[structopt(name = "create-exe")]
+    CreateExe(CreateExe),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
@@ -53,6 +60,8 @@ impl WasmerCLIOptions {
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
             Self::Compile(compile) => compile.execute(),
+            #[cfg(all(feature = "object-file", feature = "compiler"))]
+            Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]

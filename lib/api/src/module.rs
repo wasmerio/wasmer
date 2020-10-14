@@ -97,7 +97,7 @@ impl Module {
     /// # }
     /// ```
     #[allow(unreachable_code)]
-    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Module, CompileError> {
+    pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
             CompileError::Wasm(WasmError::Generic(format!(
@@ -106,15 +106,15 @@ impl Module {
             )))
         })?;
 
-        Module::from_binary(store, bytes.as_ref())
+        Self::from_binary(store, bytes.as_ref())
     }
 
     /// Creates a new WebAssembly module from a file path.
-    pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Module, IoCompileError> {
+    pub fn from_file(store: &Store, file: impl AsRef<Path>) -> Result<Self, IoCompileError> {
         let file_ref = file.as_ref();
         let canonical = file_ref.canonicalize()?;
         let wasm_bytes = std::fs::read(file_ref)?;
-        let mut module = Module::new(store, &wasm_bytes)?;
+        let mut module = Self::new(store, &wasm_bytes)?;
         // Set the module name to the absolute path of the filename.
         // This is useful for debugging the stack traces.
         let filename = canonical.as_path().to_str().unwrap();
@@ -127,9 +127,9 @@ impl Module {
     /// Opposed to [`Module::new`], this function is not compatible with
     /// the WebAssembly text format (if the "wat" feature is enabled for
     /// this crate).
-    pub fn from_binary(store: &Store, binary: &[u8]) -> Result<Module, CompileError> {
-        Module::validate(store, binary)?;
-        unsafe { Module::from_binary_unchecked(store, binary) }
+    pub fn from_binary(store: &Store, binary: &[u8]) -> Result<Self, CompileError> {
+        Self::validate(store, binary)?;
+        unsafe { Self::from_binary_unchecked(store, binary) }
     }
 
     /// Creates a new WebAssembly module skipping any kind of validation.
@@ -142,8 +142,8 @@ impl Module {
     pub unsafe fn from_binary_unchecked(
         store: &Store,
         binary: &[u8],
-    ) -> Result<Module, CompileError> {
-        let module = Module::compile(store, binary)?;
+    ) -> Result<Self, CompileError> {
+        let module = Self::compile(store, binary)?;
         Ok(module)
     }
 
@@ -252,7 +252,7 @@ impl Module {
     }
 
     fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
-        Module {
+        Self {
             store: store.clone(),
             artifact,
         }

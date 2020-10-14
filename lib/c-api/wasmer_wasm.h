@@ -28,6 +28,9 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `jit` feature has been enabled for this build.
+#define WASMER_JIT_ENABLED
+
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -99,7 +102,15 @@ void wasi_config_inherit_stdout(wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+bool wasi_config_mapdir(wasi_config_t *config, const char *alias, const char *dir);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 wasi_config_t *wasi_config_new(const char *program_name);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_config_preopen_dir(wasi_config_t *config, const char *dir);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
@@ -152,6 +163,10 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
 void *wasm_instance_get_vmctx_ptr(const wasm_instance_t *instance);
+
+void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
+
+bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
 
 /**
  * Gets the length in bytes of the last error if any.

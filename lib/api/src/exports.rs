@@ -51,7 +51,7 @@ impl Exports {
 
     /// Creates a new `Exports` with capacity `n`.
     pub fn with_capacity(n: usize) -> Self {
-        Exports {
+        Self {
             map: Arc::new(IndexMap::with_capacity(n)),
         }
     }
@@ -224,7 +224,7 @@ where
 impl FromIterator<(String, Extern)> for Exports {
     fn from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self {
         // TODO: Move into IndexMap collect
-        let mut exports = Exports::new();
+        let mut exports = Self::new();
         for (name, extern_) in iter {
             exports.insert(name, extern_);
         }

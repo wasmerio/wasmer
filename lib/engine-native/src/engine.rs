@@ -5,9 +5,9 @@ use std::collections::HashMap;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use wasmer_compiler::{CompileError, Target};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::Compiler;
-use wasmer_compiler::{CompileError, Target, Triple};
+use wasmer_compiler::{Compiler, Triple};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
