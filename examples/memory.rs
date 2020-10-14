@@ -2,14 +2,11 @@ use wasmer::{
     imports, wat2wasm, Extern, Function, Instance, Memory, MemoryType, Module, NativeFunc, Pages,
     Store, Table, TableType, Type, Value,
 };
-//use wasmer_compiler_cranelift::Cranelift;
-use wasmer_compiler_singlepass::Singlepass;
+use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
 
-/// A function we'll call through a table.
-fn host_callback(arg1: i32, arg2: i32) -> i32 {
-    arg1 + arg2
-}
+// this example is a work in progress:
+// TODO: clean it up and comment it
 
 fn main() -> anyhow::Result<()> {
     let wasm_bytes = wat2wasm(
@@ -40,8 +37,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    //let store = Store::new(&JIT::new(&Cranelift::default()).engine());
-    let store = Store::new(&JIT::new(&Singlepass::default()).engine());
+    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     //let memory = Memory::new(&store, MemoryType::new(1, None, false))?;
@@ -61,26 +57,19 @@ fn main() -> anyhow::Result<()> {
     let mem_addr = 0x2220;
     let val = 0xFEFEFFE;
 
-    dbg!("before grow");
-
     assert_eq!(memory.size(), Pages::from(1));
     memory.grow(2)?;
-    dbg!("after first grow");
     assert_eq!(memory.size(), Pages::from(3));
     let result = mem_size.call()?;
     assert_eq!(result, 3);
 
-    dbg!("Setting value to read later");
     // -------------
     set_at.call(mem_addr, val)?;
     // -------------
-    dbg!("Value set correctly");
 
     let page_size = 0x1_0000;
     let result = get_at.call(page_size * 3 - 4)?;
-    dbg!("Before second grow");
     memory.grow(1025)?;
-    dbg!("After second grow");
     assert_eq!(memory.size(), Pages::from(1028));
     set_at.call(page_size * 1027 - 4, 123456)?;
     let result = get_at.call(page_size * 1027 - 4)?;

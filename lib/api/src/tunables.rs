@@ -9,6 +9,7 @@ use wasmer_engine::Tunables as BaseTunables;
 use wasmer_vm::MemoryError;
 use wasmer_vm::{
     LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
+    VMTableDefinition,
 };
 
 /// Tunable parameters for WebAssembly compilation.
@@ -69,7 +70,7 @@ impl BaseTunables for Tunables {
         //
         // If the module doesn't declare an explicit maximum treat it as 4GiB.
         let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
-        if false && maximum <= self.static_memory_bound {
+        if maximum <= self.static_memory_bound {
             assert_ge!(self.static_memory_bound, memory.minimum);
             MemoryStyle::Static {
                 bound: self.static_memory_bound,
@@ -102,7 +103,16 @@ impl BaseTunables for Tunables {
     }
 
     /// Create a table given a [`TableType`] and a [`TableStyle`].
-    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(&ty, &style)?))
+    fn create_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: Option<NonNull<VMTableDefinition>>,
+    ) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::new(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 }

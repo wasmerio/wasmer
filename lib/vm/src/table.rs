@@ -112,7 +112,20 @@ pub struct LinearTable {
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
-    vm_table_definition: Box<UnsafeCell<VMTableDefinition>>,
+    vm_table_definition: VMTableDefinitionOwnership,
+}
+
+/// A type to help manage who is responsible for the backing table of them
+/// `VMTableDefinition`.
+#[derive(Debug)]
+enum VMTableDefinitionOwnership {
+    /// The `VMTableDefinition` is owned by the `Instance` and we should use
+    /// its table. This is how a local table that's exported should be stored.
+    VMOwned(NonNull<VMTableDefinition>),
+    /// The `VMTableDefinition` is owned by the host and we should manage its
+    /// table. This is how an imported table that doesn't come from another
+    /// Wasm module should be stored.
+    HostOwned(Box<UnsafeCell<VMTableDefinition>>),
 }
 
 /// This is correct because there is no thread-specific data tied to this type.
@@ -122,14 +135,15 @@ unsafe impl Sync for LinearTable {}
 
 impl LinearTable {
     /// Create a new table instance with specified minimum and maximum number of elements.
-    pub fn new(table: &TableType, style: &TableStyle) -> Result<Self, String> {
+    pub fn new(
+        table: &TableType,
+        style: &TableStyle,
+        vm_table_location: Option<NonNull<VMTableDefinition>>,
+    ) -> Result<Self, String> {
         match table.ty {
             ValType::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
-        let table_minimum = usize::try_from(table.minimum)
-            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-        let mut table_size = table_minimum;
         if let Some(max) = table.maximum {
             if max < table.minimum {
                 return Err(format!(
@@ -137,11 +151,10 @@ impl LinearTable {
                     table.minimum, max
                 ));
             }
-            dbg!(max);
-            table_size = max as _;
         }
-        dbg!(table_size);
-        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_size];
+        let table_minimum = usize::try_from(table.minimum)
+            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
+        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_minimum];
         let base = vec.as_mut_ptr();
         match style {
             TableStyle::CallerChecksSignature => Ok(Self {
@@ -149,10 +162,22 @@ impl LinearTable {
                 maximum: table.maximum,
                 table: table.clone(),
                 style: style.clone(),
-                vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
-                    base: base as _,
-                    current_elements: table_minimum as _,
-                })),
+                vm_table_definition: if let Some(table_loc) = vm_table_location {
+                    unsafe {
+                        let mut ptr = table_loc.clone();
+                        let td = ptr.as_mut();
+                        td.base = base as _;
+                        td.current_elements = table_minimum as _;
+                    }
+                    VMTableDefinitionOwnership::VMOwned(table_loc)
+                } else {
+                    VMTableDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
+                        VMTableDefinition {
+                            base: base as _,
+                            current_elements: table_minimum as _,
+                        },
+                    )))
+                },
             }),
         }
     }
@@ -172,8 +197,11 @@ impl Table for LinearTable {
     /// Returns the number of allocated elements.
     fn size(&self) -> u32 {
         unsafe {
-            let ptr = self.vm_table_definition.get();
-            (*ptr).current_elements
+            let td = match &self.vm_table_definition {
+                VMTableDefinitionOwnership::HostOwned(ptr) => &*ptr.get(),
+                VMTableDefinitionOwnership::VMOwned(ptr) => &ptr.as_ref(),
+            };
+            td.current_elements
         }
     }
 
@@ -189,30 +217,19 @@ impl Table for LinearTable {
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
-        dbg!(size);
-        dbg!(new_len);
-        let old_ptr = vec.as_mut_ptr();
-        let old_len = vec.len();
         vec.resize(
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
-        let new_ptr = vec.as_mut_ptr();
-        // debug code to invalidate old table
-        dbg!(old_ptr, new_ptr);
-        if old_ptr != new_ptr {
-            unsafe {
-                for i in 0..old_len {
-                    *old_ptr.add(i) = VMCallerCheckedAnyfunc::default();
-                }
-            }
-        }
+
         // update table definition
         unsafe {
-            let td = &mut *self.vm_table_definition.get();
+            let td = match &self.vm_table_definition {
+                VMTableDefinitionOwnership::HostOwned(ptr) => &mut *ptr.get(),
+                VMTableDefinitionOwnership::VMOwned(ptr) => &mut *ptr.clone().as_ptr(),
+            };
             td.current_elements = new_len;
             td.base = vec.as_mut_ptr() as _;
-            dbg!(td.current_elements);
         }
         Some(size)
     }
@@ -245,8 +262,13 @@ impl Table for LinearTable {
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     fn vmtable(&self) -> NonNull<VMTableDefinition> {
         let _vec_guard = self.vec.lock().unwrap();
-        let ptr = self.vm_table_definition.as_ref() as *const UnsafeCell<VMTableDefinition>
-            as *const VMTableDefinition as *mut VMTableDefinition;
-        unsafe { NonNull::new_unchecked(ptr) }
+        match &self.vm_table_definition {
+            VMTableDefinitionOwnership::HostOwned(ptr) => {
+                let ptr = ptr.as_ref() as *const UnsafeCell<VMTableDefinition>
+                    as *const VMTableDefinition as *mut VMTableDefinition;
+                unsafe { NonNull::new_unchecked(ptr) }
+            }
+            VMTableDefinitionOwnership::VMOwned(ptr) => *ptr,
+        }
     }
 }

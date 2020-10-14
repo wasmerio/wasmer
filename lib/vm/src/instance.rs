@@ -185,6 +185,7 @@ impl Instance {
         unsafe { self.table_ptr(index).as_ref().clone() }
     }
 
+    #[allow(dead_code)]
     /// Updates the value for a defined table to `VMTableDefinition`.
     fn set_table(&self, index: LocalTableIndex, table: &VMTableDefinition) {
         unsafe {
@@ -218,6 +219,7 @@ impl Instance {
         unsafe { self.memory_ptr(index).as_ref().clone() }
     }
 
+    #[allow(dead_code)]
     /// Set the indexed memory to `VMMemoryDefinition`.
     fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
         unsafe {
@@ -441,17 +443,11 @@ impl Instance {
     where
         IntoPages: Into<Pages>,
     {
-        dbg!("In memory_grow: Does this get called?");
         let mem = self
             .memories
             .get(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()));
         let result = mem.grow(delta.into());
-
-        // Keep current the VMContext pointers used by compiled wasm code.
-        let memory_ptr = self.memories[memory_index].vmmemory();
-        let vmmemory = unsafe { memory_ptr.as_ref() };
-        self.set_memory(memory_index, vmmemory);
 
         result
     }
@@ -501,17 +497,11 @@ impl Instance {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
     pub(crate) fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
-        dbg!("in table_grow: this is not called");
         let result = self
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
             .grow(delta);
-
-        // Keep current the VMContext pointers used by compiled wasm code.
-        let table_ptr = self.tables[table_index].vmtable();
-        let vmtable = unsafe { table_ptr.as_ref() };
-        self.set_table(table_index, vmtable);
 
         result
     }
@@ -774,7 +764,10 @@ pub struct InstanceHandle {
 unsafe impl Send for InstanceHandle {}
 
 impl InstanceHandle {
-    /// TODO: document this
+    /// Allocates an instance for use with `InstanceHandle::new`.
+    ///
+    /// Returns the instance pointer and the [`VMOffsets`] that describe the
+    /// memory.
     pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
 
@@ -791,9 +784,11 @@ impl InstanceHandle {
         (ptr, offsets)
     }
 
-    /// Get the locations of where the `VMMemoryDefinition`s will be stored.
-    /// TOOD:
-    pub fn memory_definition_locations(
+    /// Get the locations of where the local `VMMemoryDefinition`s should be stored.
+    ///
+    /// This function lets us create `Memory` objects on the host with backing
+    /// memory in the VM.
+    pub unsafe fn memory_definition_locations(
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMMemoryDefinition>> {
@@ -801,12 +796,36 @@ impl InstanceHandle {
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
         // TODO: better encapsulate this logic, this shouldn't be duplicated
-        let base_ptr = unsafe { instance_ptr.as_ptr().add(std::mem::size_of::<Instance>()) };
+        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
         for i in 0..num_memories {
             let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
             let mem_offset = usize::try_from(mem_offset).unwrap();
 
-            let new_ptr = unsafe { NonNull::new_unchecked(base_ptr.add(mem_offset)) };
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
+
+            out.push(new_ptr.cast());
+        }
+        out
+    }
+
+    /// Get the locations of where the `VMTableDefinition`s should be stored.
+    ///
+    /// This function lets us create `Table` objects on the host with backing
+    /// memory in the VM.
+    pub unsafe fn table_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMTableDefinition>> {
+        let num_tables = offsets.num_local_tables;
+        let num_tables = usize::try_from(num_tables).unwrap();
+        let mut out = Vec::with_capacity(num_tables);
+        // TODO: better encapsulate this logic, this shouldn't be duplicated
+        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+        for i in 0..num_tables {
+            let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = usize::try_from(table_offset).unwrap();
+
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
 
             out.push(new_ptr.cast());
         }
@@ -828,6 +847,14 @@ impl InstanceHandle {
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
+    ///
+    /// However the following must be taken care of before calling this function:
+    /// - `instance_ptr` must point to valid memory sufficiently large for there
+    ///    `Instance`.
+    /// - The memory at `instance.tables_ptr()` must be initialized with data for
+    ///   all the local tables.
+    /// - The memory at `instance.memories_ptr()` must be initialized with adta for
+    ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         instance_ptr: NonNull<u8>,
@@ -842,17 +869,6 @@ impl InstanceHandle {
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
         let instance_ptr = instance_ptr.cast::<Instance>().as_ptr();
-        // TODO: investigate `vmctx_tables` and `vmctx_memories`: both of these
-        // appear to be dropped in this function which may cause memory problems
-        // depending on the ownership of the types in the `PrimaryMap`.
-        let vmctx_tables = finished_tables
-            .values()
-            .map(|t| {
-                let vmtable_ptr = t.vmtable();
-                vmtable_ptr.as_ref().clone()
-            })
-            .collect::<PrimaryMap<LocalTableIndex, _>>()
-            .into_boxed_slice();
 
         let vmctx_globals = finished_globals
             .values()
@@ -910,18 +926,9 @@ impl InstanceHandle {
             instance.imported_globals_ptr() as *mut VMGlobalImport,
             imports.globals.len(),
         );
-        ptr::copy(
-            vmctx_tables.values().as_slice().as_ptr(),
-            instance.tables_ptr() as *mut VMTableDefinition,
-            dbg!(vmctx_tables.len()),
-        );
-        // these should already be set, add asserts here?
-        dbg!(&*instance.memories_ptr());
-        /*ptr::copy(
-            vmctx_memories.values().as_slice().as_ptr(),
-            instance.memories_ptr() as *mut VMMemoryDefinition,
-            dbg!(vmctx_memories.len()),
-        );*/
+        // these should already be set, add asserts here? for:
+        // - instance.tables_ptr() as *mut VMTableDefinition
+        // - instance.memories_ptr() as *mut VMMemoryDefinition
         ptr::copy(
             vmctx_globals.values().as_slice().as_ptr(),
             instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,

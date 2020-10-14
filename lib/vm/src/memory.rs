@@ -244,12 +244,10 @@ impl LinearMemory {
             needs_signal_handlers,
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 unsafe {
-                    dbg!(mem_loc);
                     let mut ptr = mem_loc.clone();
                     let md = ptr.as_mut();
                     md.base = base_ptr;
                     md.current_length = mem_length;
-                    dbg!(&md);
                 }
                 VMMemoryDefinitionOwnership::VMOwned(mem_loc)
             } else {
@@ -284,8 +282,7 @@ impl Memory for LinearMemory {
                 VMMemoryDefinitionOwnership::HostOwned(ptr) => &*ptr.get(),
                 VMMemoryDefinitionOwnership::VMOwned(ptr) => &ptr.as_ref(),
             };
-            dbg!(&md);
-            dbg!(Bytes::from(md.current_length).into())
+            Bytes::from(md.current_length).into()
         }
     }
 
@@ -368,8 +365,8 @@ impl Memory for LinearMemory {
                 VMMemoryDefinitionOwnership::HostOwned(ptr) => &mut *ptr.get(),
                 VMMemoryDefinitionOwnership::VMOwned(ptr) => &mut *ptr.clone().as_ptr(),
             };
-            md.current_length = dbg!(new_pages.bytes().0.try_into().unwrap());
-            md.base = dbg!(mmap.alloc.as_mut_ptr() as _);
+            md.current_length = new_pages.bytes().0.try_into().unwrap();
+            md.base = mmap.alloc.as_mut_ptr() as _;
         }
 
         Ok(prev_pages)

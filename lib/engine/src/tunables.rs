@@ -7,9 +7,9 @@ use wasmer_types::{
     TableIndex, TableType,
 };
 use wasmer_vm::MemoryError;
-use wasmer_vm::VMMemoryDefinition;
 use wasmer_vm::{Global, Memory, ModuleInfo, Table};
 use wasmer_vm::{MemoryStyle, TableStyle};
+use wasmer_vm::{VMMemoryDefinition, VMTableDefinition};
 
 /// An engine delegates the creation of memories, tables, and globals
 /// to a foreign implementor of this trait.
@@ -21,6 +21,10 @@ pub trait Tunables {
     fn table_style(&self, table: &TableType) -> TableStyle;
 
     /// Create a memory given a memory type
+    ///
+    /// `vm_definition_location` should either point to a valid memory location
+    /// in VM memory or be `None` to indicate that the metadata for the memory
+    /// should be owned by the host.
     fn create_memory(
         &self,
         ty: &MemoryType,
@@ -28,8 +32,17 @@ pub trait Tunables {
         vm_definition_location: Option<NonNull<VMMemoryDefinition>>,
     ) -> Result<Arc<dyn Memory>, MemoryError>;
 
-    /// Create a memory given a memory type
-    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String>;
+    /// Create a memory given a memory type.
+    ///
+    /// `vm_definition_location` should either point to a valid memory location
+    /// in VM memory or be `None` to indicate that the metadata for the table
+    /// should be owned by the host.
+    fn create_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: Option<NonNull<VMTableDefinition>>,
+    ) -> Result<Arc<dyn Table>, String>;
 
     /// Create a global with an unset value.
     fn create_global(&self, ty: GlobalType) -> Result<Arc<Global>, String> {
@@ -65,15 +78,21 @@ pub trait Tunables {
         &self,
         module: &ModuleInfo,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
+        table_definition_locations: &[NonNull<VMTableDefinition>],
     ) -> Result<PrimaryMap<LocalTableIndex, Arc<dyn Table>>, LinkError> {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
+        // TODO: error handling
         for index in num_imports..module.tables.len() {
             let ti = TableIndex::new(index);
             let ty = &module.tables[ti];
             let style = &table_styles[ti];
-            tables.push(self.create_table(ty, style).map_err(LinkError::Resource)?);
+            let tdl = table_definition_locations[index];
+            tables.push(
+                self.create_table(ty, style, Some(tdl))
+                    .map_err(LinkError::Resource)?,
+            );
         }
         Ok(tables)
     }

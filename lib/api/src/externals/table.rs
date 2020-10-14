@@ -43,7 +43,7 @@ impl Table {
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let table = tunables
-            .create_table(&ty, &style)
+            .create_table(&ty, &style, None)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
@@ -97,9 +97,7 @@ impl Table {
         let item = init.into_checked_anyfunc(&self.store)?;
         match self.table.grow(delta) {
             Some(len) => {
-                dbg!("In Some result of table.grow");
                 for i in 0..delta {
-                    dbg!("setting element", i);
                     set_table_item(self.table.as_ref(), len + i, item.clone())?;
                 }
                 Ok(len)

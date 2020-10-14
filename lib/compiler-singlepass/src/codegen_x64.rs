@@ -1228,7 +1228,6 @@ impl<'a> FuncGen<'a> {
             MemoryStyle::Static { .. } => false,
             MemoryStyle::Dynamic { .. } => true,
         };
-        dbg!(need_check);
         let tmp_addr = self.machine.acquire_temp_gpr().unwrap();
 
         // Reusing `tmp_addr` for temporary indirection here, since it's not used before the last reference to `{base,bound}_loc`.

@@ -99,15 +99,18 @@ pub trait Artifact: Send + Sync + Upcastable {
             self.table_styles(),
         )
         .map_err(InstantiationError::Link)?;
+        // Get pointers to where metadata about local memories should live in VM memory.
         let memory_definition_locations =
             InstanceHandle::memory_definition_locations(instance_ptr, &offsets);
-        dbg!(&memory_definition_locations);
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
+        // Get pointers to where metadata about local tables should live in VM memory.
+        let table_definition_locations =
+            InstanceHandle::table_definition_locations(instance_ptr, &offsets);
         let finished_tables = tunables
-            .create_tables(&module, self.table_styles())
+            .create_tables(&module, self.table_styles(), &table_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_globals = tunables
