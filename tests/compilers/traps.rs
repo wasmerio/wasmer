@@ -39,7 +39,7 @@ fn test_trap_return() -> Result<()> {
 
 #[cfg(not(feature = "test-no-traps"))]
 #[test]
-#[cfg_attr(feature = "test-singlepass", ignore)]
+#[cfg_attr(any(feature = "test-singlepass", feature = "test-no-traps"), ignore)]
 fn test_trap_trace() -> Result<()> {
     let store = get_store();
     let wat = r#"
