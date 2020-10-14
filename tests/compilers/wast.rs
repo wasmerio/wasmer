@@ -63,6 +63,20 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     features.multi_value(false);
     let store = get_store(features, try_nan_canonicalization);
     let mut wast = Wast::new_with_spectest(store);
+    // `bulk-memory-operations/bulk.wast` checks for a message that
+    // specifies which element is uninitialized, but our traps don't
+    // shepherd that information out.
+    wast.allow_trap_message("uninitialized element 2", "uninitialized element");
+    if cfg!(feature = "test-native") {
+        wast.allow_trap_message("call stack exhausted", "out of bounds memory access");
+        wast.allow_trap_message("indirect call type mismatch", "call stack exhausted");
+        wast.allow_trap_message("integer divide by zero", "call stack exhausted");
+        wast.allow_trap_message("integer overflow", "call stack exhausted");
+        wast.allow_trap_message("invalid conversion to integer", "call stack exhausted");
+        wast.allow_trap_message("undefined element", "call stack exhausted");
+        wast.allow_trap_message("uninitialized element", "call stack exhausted");
+        wast.allow_trap_message("unreachable", "call stack exhausted");
+    }
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[

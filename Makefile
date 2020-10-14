@@ -104,13 +104,13 @@ test-singlepass-jit:
 	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
 
 test-cranelift-native:
-	cargo test --release $(compiler_features) --features "test-cranelift test-native test-no-traps"
+	cargo test --release $(compiler_features) --features "test-cranelift test-native"
 
 test-cranelift-jit:
 	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
 
 test-llvm-native:
-	cargo test --release $(compiler_features) --features "test-llvm test-native test-no-traps"
+	cargo test --release $(compiler_features) --features "test-llvm test-native"
 
 test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
