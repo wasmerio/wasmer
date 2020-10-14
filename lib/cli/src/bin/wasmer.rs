@@ -82,9 +82,8 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let command = args.get(1);
     let options = match command.unwrap_or(&"".to_string()).as_ref() {
-        "run" | "cache" | "validate" | "compile" | "config" | "self-update" | "inspect" => {
-            WasmerCLIOptions::from_args()
-        }
+        "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+        | "self-update" | "validate" | "wast" => WasmerCLIOptions::from_args(),
         _ => {
             WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
                 match e.kind {
