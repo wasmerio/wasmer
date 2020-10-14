@@ -1,5 +1,8 @@
-use wasmer::{imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type};
+use wasmer::{
+    imports, wat2wasm, Function, Instance, Module, NativeFunc, Store, TableType, Type, Value,
+};
 use wasmer_compiler_cranelift::Cranelift;
+//use wasmer_compiler_llvm::LLVM;
 use wasmer_engine_jit::JIT;
 
 /// A function we'll call through a table.
@@ -50,6 +53,7 @@ fn main() -> anyhow::Result<()> {
 
     // We set up our store with an engine and a compiler.
     let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    //let store = Store::new(&JIT::new(&LLVM::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};
@@ -97,7 +101,6 @@ fn main() -> anyhow::Result<()> {
 
     // == Growing a table ==
 
-    /*
     // We again construct a `Function` over our host_callback.
     let func = Function::new_native(&store, host_callback);
 
@@ -115,6 +118,16 @@ fn main() -> anyhow::Result<()> {
             maximum: Some(6),
         }
     );
+    for table_index in 3..6 {
+        dbg!("hmm1");
+        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+            let result = f.call(&[Value::I32(1), Value::I32(9)])?;
+            dbg!(&result);
+            assert_eq!(result[0], Value::I32(10));
+        } else {
+            panic!("expected to find funcref in table!");
+        }
+    }
 
     if let Some(Value::FuncRef(f)) = guest_table.get(3) {
         let result = f.call(&[Value::I32(1), Value::I32(9)]);
@@ -134,10 +147,16 @@ fn main() -> anyhow::Result<()> {
 
     for table_index in 3..6 {
         dbg!("hmm");
+        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+            let result = f.call(&[Value::I32(1), Value::I32(9)])?;
+            dbg!(&result);
+            assert_eq!(result[0], Value::I32(10));
+        } else {
+            panic!("expected to find funcref in table!");
+        }
         let result = call_via_table.call(table_index, 1, 9)?;
         assert_eq!(result, 10);
     }
-    */
 
     Ok(())
 }

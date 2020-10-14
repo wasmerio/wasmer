@@ -37,7 +37,7 @@ impl Memory {
     pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
-        let memory = tunables.create_memory(&ty, &style)?;
+        let memory = tunables.create_memory(&ty, &style, None)?;
 
         Ok(Memory {
             store: store.clone(),

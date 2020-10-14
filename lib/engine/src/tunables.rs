@@ -1,4 +1,5 @@
 use crate::error::LinkError;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -6,6 +7,7 @@ use wasmer_types::{
     TableIndex, TableType,
 };
 use wasmer_vm::MemoryError;
+use wasmer_vm::VMMemoryDefinition;
 use wasmer_vm::{Global, Memory, ModuleInfo, Table};
 use wasmer_vm::{MemoryStyle, TableStyle};
 
@@ -23,6 +25,7 @@ pub trait Tunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
+        vm_definition_location: Option<NonNull<VMMemoryDefinition>>,
     ) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a memory given a memory type
@@ -38,6 +41,7 @@ pub trait Tunables {
         &self,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
+        memory_definition_locations: &[NonNull<VMMemoryDefinition>],
     ) -> Result<PrimaryMap<LocalMemoryIndex, Arc<dyn Memory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
@@ -46,8 +50,10 @@ pub trait Tunables {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
+            // TODO: error handling
+            let mdl = memory_definition_locations[index];
             memories.push(
-                self.create_memory(ty, style)
+                self.create_memory(ty, style, Some(mdl))
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }

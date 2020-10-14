@@ -1,12 +1,15 @@
 use crate::{MemoryType, Pages, TableType};
 use more_asserts::assert_ge;
 use std::cmp::min;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_vm::MemoryError;
-use wasmer_vm::{LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle};
+use wasmer_vm::{
+    LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
+};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -66,7 +69,7 @@ impl BaseTunables for Tunables {
         //
         // If the module doesn't declare an explicit maximum treat it as 4GiB.
         let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
-        if maximum <= self.static_memory_bound {
+        if false && maximum <= self.static_memory_bound {
             assert_ge!(self.static_memory_bound, memory.minimum);
             MemoryStyle::Static {
                 bound: self.static_memory_bound,
@@ -89,8 +92,13 @@ impl BaseTunables for Tunables {
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
+        vm_definition_location: Option<NonNull<VMMemoryDefinition>>,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(&ty, &style)?))
+        Ok(Arc::new(LinearMemory::new(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 
     /// Create a table given a [`TableType`] and a [`TableStyle`].

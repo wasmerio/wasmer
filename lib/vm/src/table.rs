@@ -127,6 +127,9 @@ impl LinearTable {
             ValType::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
         };
+        let table_minimum = usize::try_from(table.minimum)
+            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
+        let mut table_size = table_minimum;
         if let Some(max) = table.maximum {
             if max < table.minimum {
                 return Err(format!(
@@ -134,10 +137,11 @@ impl LinearTable {
                     table.minimum, max
                 ));
             }
+            dbg!(max);
+            table_size = max as _;
         }
-        let table_minimum = usize::try_from(table.minimum)
-            .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_minimum];
+        dbg!(table_size);
+        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_size];
         let base = vec.as_mut_ptr();
         match style {
             TableStyle::CallerChecksSignature => Ok(Self {
@@ -185,15 +189,30 @@ impl Table for LinearTable {
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
+        dbg!(size);
+        dbg!(new_len);
+        let old_ptr = vec.as_mut_ptr();
+        let old_len = vec.len();
         vec.resize(
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
+        let new_ptr = vec.as_mut_ptr();
+        // debug code to invalidate old table
+        dbg!(old_ptr, new_ptr);
+        if old_ptr != new_ptr {
+            unsafe {
+                for i in 0..old_len {
+                    *old_ptr.add(i) = VMCallerCheckedAnyfunc::default();
+                }
+            }
+        }
         // update table definition
         unsafe {
             let td = &mut *self.vm_table_definition.get();
             td.current_elements = new_len;
             td.base = vec.as_mut_ptr() as _;
+            dbg!(td.current_elements);
         }
         Some(size)
     }

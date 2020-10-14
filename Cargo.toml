@@ -191,3 +191,8 @@ required-features = ["cranelift", "wasi"]
 name = "table"
 path = "examples/table.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "memory"
+path = "examples/memory.rs"
+required-features = ["cranelift"]

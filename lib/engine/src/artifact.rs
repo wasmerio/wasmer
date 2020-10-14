@@ -90,6 +90,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.preinstantiate()?;
 
         let module = self.module();
+        let (instance_ptr, offsets) = InstanceHandle::allocate_instance(&module);
         let imports = resolve_imports(
             &module,
             resolver,
@@ -98,8 +99,11 @@ pub trait Artifact: Send + Sync + Upcastable {
             self.table_styles(),
         )
         .map_err(InstantiationError::Link)?;
+        let memory_definition_locations =
+            InstanceHandle::memory_definition_locations(instance_ptr, &offsets);
+        dbg!(&memory_definition_locations);
         let finished_memories = tunables
-            .create_memories(&module, self.memory_styles())
+            .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
@@ -114,6 +118,8 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.register_frame_info();
 
         InstanceHandle::new(
+            instance_ptr,
+            offsets,
             module,
             self.finished_functions().clone(),
             finished_memories,

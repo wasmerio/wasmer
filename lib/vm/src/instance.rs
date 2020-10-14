@@ -441,6 +441,7 @@ impl Instance {
     where
         IntoPages: Into<Pages>,
     {
+        dbg!("In memory_grow: Does this get called?");
         let mem = self
             .memories
             .get(memory_index)
@@ -500,6 +501,7 @@ impl Instance {
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
     pub(crate) fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
+        dbg!("in table_grow: this is not called");
         let result = self
             .tables
             .get(table_index)
@@ -538,11 +540,11 @@ impl Instance {
             .set(index, val)
     }
 
-    fn alloc_layout(&self) -> Layout {
-        let size = mem::size_of_val(self)
-            .checked_add(usize::try_from(self.offsets.size_of_vmctx()).unwrap())
+    fn alloc_layout(offsets: &VMOffsets) -> Layout {
+        let size = mem::size_of::<Self>()
+            .checked_add(usize::try_from(offsets.size_of_vmctx()).unwrap())
             .unwrap();
-        let align = mem::align_of_val(self);
+        let align = mem::align_of::<Self>();
         Layout::from_size_align(size, align).unwrap()
     }
 
@@ -772,6 +774,45 @@ pub struct InstanceHandle {
 unsafe impl Send for InstanceHandle {}
 
 impl InstanceHandle {
+    /// TODO: document this
+    pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
+        let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
+
+        let layout = Instance::alloc_layout(&offsets);
+
+        #[allow(clippy::cast_ptr_alignment)]
+        let instance_ptr = unsafe { alloc::alloc(layout) as *mut Instance };
+        let ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
+            ptr.cast()
+        } else {
+            alloc::handle_alloc_error(layout);
+        };
+
+        (ptr, offsets)
+    }
+
+    /// Get the locations of where the `VMMemoryDefinition`s will be stored.
+    /// TOOD:
+    pub fn memory_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMMemoryDefinition>> {
+        let num_memories = offsets.num_local_memories;
+        let num_memories = usize::try_from(num_memories).unwrap();
+        let mut out = Vec::with_capacity(num_memories);
+        // TODO: better encapsulate this logic, this shouldn't be duplicated
+        let base_ptr = unsafe { instance_ptr.as_ptr().add(std::mem::size_of::<Instance>()) };
+        for i in 0..num_memories {
+            let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = usize::try_from(mem_offset).unwrap();
+
+            let new_ptr = unsafe { NonNull::new_unchecked(base_ptr.add(mem_offset)) };
+
+            out.push(new_ptr.cast());
+        }
+        out
+    }
+
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
     /// # Safety
@@ -789,6 +830,8 @@ impl InstanceHandle {
     /// safety.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
+        instance_ptr: NonNull<u8>,
+        offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
@@ -798,6 +841,7 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
+        let instance_ptr = instance_ptr.cast::<Instance>().as_ptr();
         // TODO: investigate `vmctx_tables` and `vmctx_memories`: both of these
         // appear to be dropped in this function which may cause memory problems
         // depending on the ownership of the types in the `PrimaryMap`.
@@ -810,22 +854,11 @@ impl InstanceHandle {
             .collect::<PrimaryMap<LocalTableIndex, _>>()
             .into_boxed_slice();
 
-        let vmctx_memories = finished_memories
-            .values()
-            .map(|m| {
-                let vmmemory_ptr = m.as_ref().vmmemory();
-                vmmemory_ptr.as_ref().clone()
-            })
-            .collect::<PrimaryMap<LocalMemoryIndex, _>>()
-            .into_boxed_slice();
-
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
             .collect::<PrimaryMap<LocalGlobalIndex, _>>()
             .into_boxed_slice();
-
-        let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, &module);
 
         let passive_data = RefCell::new(module.passive_data.clone());
 
@@ -843,18 +876,14 @@ impl InstanceHandle {
                 signal_handler: Cell::new(None),
                 vmctx: VMContext {},
             };
-            let layout = instance.alloc_layout();
-            #[allow(clippy::cast_ptr_alignment)]
-            let instance_ptr = alloc::alloc(layout) as *mut Instance;
-            if instance_ptr.is_null() {
-                alloc::handle_alloc_error(layout);
-            }
             ptr::write(instance_ptr, instance);
             Self {
                 instance: instance_ptr,
             }
         };
         let instance = handle.instance();
+
+        // split this into two steps
 
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
@@ -884,13 +913,15 @@ impl InstanceHandle {
         ptr::copy(
             vmctx_tables.values().as_slice().as_ptr(),
             instance.tables_ptr() as *mut VMTableDefinition,
-            vmctx_tables.len(),
+            dbg!(vmctx_tables.len()),
         );
-        ptr::copy(
+        // these should already be set, add asserts here?
+        dbg!(&*instance.memories_ptr());
+        /*ptr::copy(
             vmctx_memories.values().as_slice().as_ptr(),
             instance.memories_ptr() as *mut VMMemoryDefinition,
-            vmctx_memories.len(),
-        );
+            dbg!(vmctx_memories.len()),
+        );*/
         ptr::copy(
             vmctx_globals.values().as_slice().as_ptr(),
             instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
@@ -1067,7 +1098,7 @@ impl InstanceHandle {
     /// usage of this handle after this function is called.
     pub unsafe fn dealloc(&self) {
         let instance = self.instance();
-        let layout = instance.alloc_layout();
+        let layout = Instance::alloc_layout(&instance.offsets);
         ptr::drop_in_place(self.instance);
         alloc::dealloc(self.instance.cast(), layout);
     }
