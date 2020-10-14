@@ -131,9 +131,11 @@ test-llvm = [
 
 test-native = [
     "native",
+    "test-generator/test-native",
 ]
 test-jit = [
     "jit",
+    "test-generator/test-jit",
 ]
 
 # Disable trap asserts in the WAST tests. This is useful for running the tests in a

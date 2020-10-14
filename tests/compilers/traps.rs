@@ -37,6 +37,7 @@ fn test_trap_return() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(feature = "test-singlepass", ignore)]
 fn test_trap_trace() -> Result<()> {
@@ -117,6 +118,7 @@ fn test_trap_trace_cb() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(feature = "test-singlepass", ignore)]
 fn test_trap_stack_overflow() -> Result<()> {
@@ -148,6 +150,7 @@ fn test_trap_stack_overflow() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
 fn trap_display_pretty() -> Result<()> {
@@ -181,6 +184,7 @@ RuntimeError: unreachable
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
 fn trap_display_multi_module() -> Result<()> {
@@ -386,6 +390,7 @@ fn mismatched_arguments() -> Result<()> {
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
 fn call_signature_mismatch() -> Result<()> {
@@ -417,6 +422,7 @@ RuntimeError: indirect call type mismatch
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 #[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
 fn start_trap_pretty() -> Result<()> {
@@ -449,6 +455,7 @@ RuntimeError: unreachable
     Ok(())
 }
 
+#[cfg(not(feature = "test-no-traps"))]
 #[test]
 fn present_after_module_drop() -> Result<()> {
     let store = get_store();

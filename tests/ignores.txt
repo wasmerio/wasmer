@@ -22,6 +22,10 @@ singlepass on windows # Singlepass is not yet supported on Windows
 cranelift::spec::skip_stack_guard_page on darwin
 llvm::spec::skip_stack_guard_page on darwin
 
+# TODO: traps in native engine
+cranelift::spec::linking on native
+llvm::spec::linking on native
+
 # Frontends
 
 ## WASI
