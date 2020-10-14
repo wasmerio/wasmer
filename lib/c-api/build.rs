@@ -197,6 +197,10 @@ fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
 /// Create a fresh new `Builder`, already pre-configured.
 fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
     Builder::new()
+        .with_config(cbindgen::Config {
+            sort_by: cbindgen::SortKey::Name,
+            ..cbindgen::Config::default()
+        })
         .with_language(language)
         .with_crate(crate_dir)
         .with_include_guard(include_guard)
@@ -357,6 +361,8 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
     builder
         .exclude_item("wasi_config_arg")
         .exclude_item("wasi_config_env")
+        .exclude_item("wasi_config_mapdir")
+        .exclude_item("wasi_config_preopen_dir")
         .exclude_item("wasi_config_inherit_stderr")
         .exclude_item("wasi_config_inherit_stdin")
         .exclude_item("wasi_config_inherit_stdout")
@@ -374,10 +380,12 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_get_start_function")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t")
-        .exclude_item("wasm_instance_get_vmctx_ptr")
-        .exclude_item("wasmer_compiler_t")
-        .exclude_item("wasmer_engine_t")
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
+        .exclude_item("wasm_instance_get_vmctx_ptr")
+        .exclude_item("wasm_module_name")
+        .exclude_item("wasm_module_set_name")
+        .exclude_item("wasmer_compiler_t")
+        .exclude_item("wasmer_engine_t")
         .exclude_item("wat2wasm")
 }

@@ -182,14 +182,14 @@ impl Instance {
     /// Return the indexed `VMTableDefinition`.
     #[allow(dead_code)]
     fn table(&self, index: LocalTableIndex) -> VMTableDefinition {
-        unsafe { self.table_ptr(index).as_ref().clone() }
+        unsafe { *self.table_ptr(index).as_ref() }
     }
 
     #[allow(dead_code)]
     /// Updates the value for a defined table to `VMTableDefinition`.
     fn set_table(&self, index: LocalTableIndex, table: &VMTableDefinition) {
         unsafe {
-            *self.table_ptr(index).as_ptr() = table.clone();
+            *self.table_ptr(index).as_ptr() = *table;
         }
     }
 
@@ -210,20 +210,20 @@ impl Instance {
             self.memory(local_index)
         } else {
             let import = self.imported_memory(index);
-            unsafe { import.definition.as_ref().clone() }
+            unsafe { *import.definition.as_ref() }
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
     fn memory(&self, index: LocalMemoryIndex) -> VMMemoryDefinition {
-        unsafe { self.memory_ptr(index).as_ref().clone() }
+        unsafe { *self.memory_ptr(index).as_ref() }
     }
 
     #[allow(dead_code)]
     /// Set the indexed memory to `VMMemoryDefinition`.
     fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
         unsafe {
-            *self.memory_ptr(index).as_ptr() = mem.clone();
+            *self.memory_ptr(index).as_ptr() = *mem;
         }
     }
 
@@ -1174,7 +1174,7 @@ unsafe fn get_memory_slice<'instance>(
         instance.memory(local_memory_index)
     } else {
         let import = instance.imported_memory(init.location.memory_index);
-        import.definition.as_ref().clone()
+        *import.definition.as_ref()
     };
     slice::from_raw_parts_mut(memory.base, memory.current_length.try_into().unwrap())
 }

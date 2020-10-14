@@ -14,8 +14,27 @@ use wasmer::*;
 use wasmer_compiler::CompilerConfig;
 
 #[derive(Debug, Clone, StructOpt)]
-/// The compiler options
+/// The compiler and engine options
 pub struct StoreOptions {
+    #[structopt(flatten)]
+    compiler: CompilerOptions,
+
+    /// Use JIT Engine.
+    #[structopt(long, conflicts_with_all = &["native", "object_file"])]
+    jit: bool,
+
+    /// Use Native Engine.
+    #[structopt(long, conflicts_with_all = &["jit", "object_file"])]
+    native: bool,
+
+    /// Use ObjectFile Engine.
+    #[structopt(long, conflicts_with_all = &["jit", "native"])]
+    object_file: bool,
+}
+
+#[derive(Debug, Clone, StructOpt)]
+/// The compiler options
+pub struct CompilerOptions {
     /// Use Singlepass compiler.
     #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
@@ -36,19 +55,7 @@ pub struct StoreOptions {
     #[structopt(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
-    /// Use JIT Engine.
-    #[structopt(long, conflicts_with_all = &["native", "object_file"])]
-    jit: bool,
-
-    /// Use Native Engine.
-    #[structopt(long, conflicts_with_all = &["jit", "object_file"])]
-    native: bool,
-
-    /// Use ObjectFile Engine.
-    #[structopt(long, conflicts_with_all = &["jit", "native"])]
-    object_file: bool,
-
-    /// The deprecated backend flag - Please not use
+    /// The deprecated backend flag - Please do not use
     #[structopt(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
     backend: Option<String>,
 
@@ -56,80 +63,8 @@ pub struct StoreOptions {
     features: WasmFeatures,
 }
 
-/// The compiler used for the store
-#[derive(Debug, PartialEq, Eq)]
-pub enum CompilerType {
-    /// Singlepass compiler
-    Singlepass,
-    /// Cranelift compiler
-    Cranelift,
-    /// LLVM compiler
-    LLVM,
-    /// Headless compiler
-    Headless,
-}
-
-impl CompilerType {
-    /// Return all enabled compilers
-    pub fn enabled() -> Vec<CompilerType> {
-        vec![
-            #[cfg(feature = "singlepass")]
-            Self::Singlepass,
-            #[cfg(feature = "cranelift")]
-            Self::Cranelift,
-            #[cfg(feature = "llvm")]
-            Self::LLVM,
-        ]
-    }
-}
-
-impl ToString for CompilerType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::Singlepass => "singlepass".to_string(),
-            Self::Cranelift => "cranelift".to_string(),
-            Self::LLVM => "llvm".to_string(),
-            Self::Headless => "headless".to_string(),
-        }
-    }
-}
-
-impl FromStr for CompilerType {
-    type Err = Error;
-    fn from_str(s: &str) -> Result<Self> {
-        match s {
-            "singlepass" => Ok(Self::Singlepass),
-            "cranelift" => Ok(Self::Cranelift),
-            "llvm" => Ok(Self::LLVM),
-            "headless" => Ok(Self::Headless),
-            backend => bail!("The `{}` compiler does not exist.", backend),
-        }
-    }
-}
-
-/// The engine used for the store
-#[derive(Debug, PartialEq, Eq)]
-pub enum EngineType {
-    /// JIT Engine
-    JIT,
-    /// Native Engine
-    Native,
-    /// Object File Engine
-    ObjectFile,
-}
-
-impl ToString for EngineType {
-    fn to_string(&self) -> String {
-        match self {
-            Self::JIT => "jit".to_string(),
-            Self::Native => "native".to_string(),
-            Self::ObjectFile => "objectfile".to_string(),
-        }
-    }
-}
-
-#[cfg(all(feature = "compiler", feature = "engine"))]
-impl StoreOptions {
+#[cfg(feature = "compiler")]
+impl CompilerOptions {
     fn get_compiler(&self) -> Result<CompilerType> {
         if self.cranelift {
             Ok(CompilerType::Cranelift)
@@ -161,7 +96,7 @@ impl StoreOptions {
         }
     }
 
-    /// Get the Target architecture
+    /// Get the enaled Wasm features.
     pub fn get_features(&self, mut features: Features) -> Result<Features> {
         if self.features.threads || self.features.all {
             features.threads(true);
@@ -179,6 +114,63 @@ impl StoreOptions {
             features.reference_types(true);
         }
         Ok(features)
+    }
+
+    /// Gets the Store for a given target and engine.
+    pub fn get_store_for_target_and_engine(
+        &self,
+        target: Target,
+        engine_type: EngineType,
+    ) -> Result<(Store, CompilerType)> {
+        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let engine = self.get_engine_by_type(target, compiler_config, engine_type)?;
+        let store = Store::new(&*engine);
+        Ok((store, compiler_type))
+    }
+
+    fn get_engine_by_type(
+        &self,
+        target: Target,
+        compiler_config: Box<dyn CompilerConfig>,
+        engine_type: EngineType,
+    ) -> Result<Box<dyn Engine + Send + Sync>> {
+        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
+        let engine: Box<dyn Engine + Send + Sync> = match engine_type {
+            #[cfg(feature = "jit")]
+            EngineType::JIT => Box::new(
+                wasmer_engine_jit::JIT::new(&*compiler_config)
+                    .features(features)
+                    .target(target)
+                    .engine(),
+            ),
+            #[cfg(feature = "native")]
+            EngineType::Native => {
+                let mut compiler_config = compiler_config;
+                Box::new(
+                    wasmer_engine_native::Native::new(&mut *compiler_config)
+                        .target(target)
+                        .features(features)
+                        .engine(),
+                )
+            }
+            #[cfg(feature = "object-file")]
+            EngineType::ObjectFile => {
+                let mut compiler_config = compiler_config;
+                Box::new(
+                    wasmer_engine_object_file::ObjectFile::new(&mut *compiler_config)
+                        .target(target)
+                        .features(features)
+                        .engine(),
+                )
+            }
+            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            engine => bail!(
+                "The `{}` engine is not included in this binary.",
+                engine.to_string()
+            ),
+        };
+
+        Ok(engine)
     }
 
     /// Get the Compiler Config for the current options
@@ -315,7 +307,82 @@ impl StoreOptions {
         #[allow(unreachable_code)]
         Ok((compiler_config, compiler))
     }
+}
 
+/// The compiler used for the store
+#[derive(Debug, PartialEq, Eq)]
+pub enum CompilerType {
+    /// Singlepass compiler
+    Singlepass,
+    /// Cranelift compiler
+    Cranelift,
+    /// LLVM compiler
+    LLVM,
+    /// Headless compiler
+    Headless,
+}
+
+impl CompilerType {
+    /// Return all enabled compilers
+    pub fn enabled() -> Vec<CompilerType> {
+        vec![
+            #[cfg(feature = "singlepass")]
+            Self::Singlepass,
+            #[cfg(feature = "cranelift")]
+            Self::Cranelift,
+            #[cfg(feature = "llvm")]
+            Self::LLVM,
+        ]
+    }
+}
+
+impl ToString for CompilerType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::Singlepass => "singlepass".to_string(),
+            Self::Cranelift => "cranelift".to_string(),
+            Self::LLVM => "llvm".to_string(),
+            Self::Headless => "headless".to_string(),
+        }
+    }
+}
+
+impl FromStr for CompilerType {
+    type Err = Error;
+    fn from_str(s: &str) -> Result<Self> {
+        match s {
+            "singlepass" => Ok(Self::Singlepass),
+            "cranelift" => Ok(Self::Cranelift),
+            "llvm" => Ok(Self::LLVM),
+            "headless" => Ok(Self::Headless),
+            backend => bail!("The `{}` compiler does not exist.", backend),
+        }
+    }
+}
+
+/// The engine used for the store
+#[derive(Debug, PartialEq, Eq, Clone, Copy)]
+pub enum EngineType {
+    /// JIT Engine
+    JIT,
+    /// Native Engine
+    Native,
+    /// Object File Engine
+    ObjectFile,
+}
+
+impl ToString for EngineType {
+    fn to_string(&self) -> String {
+        match self {
+            Self::JIT => "jit".to_string(),
+            Self::Native => "native".to_string(),
+            Self::ObjectFile => "objectfile".to_string(),
+        }
+    }
+}
+
+#[cfg(all(feature = "compiler", feature = "engine"))]
+impl StoreOptions {
     /// Gets the store for the host target, with the engine name and compiler name selected
     pub fn get_store(&self) -> Result<(Store, EngineType, CompilerType)> {
         let target = Target::default();
@@ -327,7 +394,7 @@ impl StoreOptions {
         &self,
         target: Target,
     ) -> Result<(Store, EngineType, CompilerType)> {
-        let (compiler_config, compiler_type) = self.get_compiler_config()?;
+        let (compiler_config, compiler_type) = self.compiler.get_compiler_config()?;
         let (engine, engine_type) = self.get_engine_with_compiler(target, compiler_config)?;
         let store = Store::new(&*engine);
         Ok((store, engine_type, compiler_type))
@@ -339,41 +406,10 @@ impl StoreOptions {
         compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
-        let features = self.get_features(compiler_config.default_features_for_target(&target))?;
-        let engine: Box<dyn Engine + Send + Sync> = match engine_type {
-            #[cfg(feature = "jit")]
-            EngineType::JIT => Box::new(
-                wasmer_engine_jit::JIT::new(&*compiler_config)
-                    .features(features)
-                    .target(target)
-                    .engine(),
-            ),
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                let mut compiler_config = compiler_config;
-                Box::new(
-                    wasmer_engine_native::Native::new(&mut *compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
-            #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                let mut compiler_config = compiler_config;
-                Box::new(
-                    wasmer_engine_object_file::ObjectFile::new(&mut *compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
-            engine => bail!(
-                "The `{}` engine is not included in this binary.",
-                engine.to_string()
-            ),
-        };
+        let engine = self
+            .compiler
+            .get_engine_by_type(target, compiler_config, engine_type)?;
+
         Ok((engine, engine_type))
     }
 }

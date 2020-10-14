@@ -82,6 +82,10 @@ build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,object-file,cranelift,wasi,system-libffi
+
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,llvm,wasi
@@ -90,16 +94,26 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: $(foreach compiler,$(compilers),test-$(compiler)-jit) test-packages test-examples test-deprecated
 
-test-singlepass:
-	cargo test --release $(compiler_features) --features "test-singlepass"
+# Singlepass and native engine don't work together, this rule does nothing.
+test-singlepass-native:
+	@:
 
-test-cranelift:
-	cargo test --release $(compiler_features) --features "test-cranelift"
+test-singlepass-jit:
+	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
 
-test-llvm:
-	cargo test --release $(compiler_features) --features "test-llvm"
+test-cranelift-native:
+	cargo test --release $(compiler_features) --features "test-cranelift test-native"
+
+test-cranelift-jit:
+	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
+
+test-llvm-native:
+	cargo test --release $(compiler_features) --features "test-llvm test-native"
+
+test-llvm-jit:
+	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
 test-packages:
 	cargo test -p wasmer --release
@@ -117,6 +131,10 @@ test-capi-singlepass: build-capi-singlepass
 test-capi-cranelift: build-capi-cranelift
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
+
+test-capi-cranelift-system-libffi: build-capi-cranelift-system-libffi
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
 
 test-capi-llvm: build-capi-llvm
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -166,7 +184,9 @@ package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/doc/index.md package/include/README.md
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/doc/deprecated/index.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
 	cp target/release/wasmer_c_api.lib package/lib
@@ -203,6 +223,9 @@ else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
+
+# command for simulating installing Wasmer without wapm.
+package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

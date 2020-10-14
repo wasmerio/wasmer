@@ -21,6 +21,15 @@ pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externt
 #[no_mangle]
 pub unsafe extern "C" fn wasm_externtype_delete(_et: Option<Box<wasm_externtype_t>>) {}
 
+#[no_mangle]
+pub extern "C" fn wasm_externtype_copy(
+    wasm_externtype: &wasm_externtype_t,
+) -> Box<wasm_externtype_t> {
+    Box::new(wasm_externtype_t {
+        inner: wasm_externtype.inner.clone(),
+    })
+}
+
 impl From<ExternType> for wasm_externtype_t {
     fn from(other: ExternType) -> Self {
         Self { inner: other }

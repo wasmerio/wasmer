@@ -83,10 +83,8 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valt
 pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valkind_t {
-    if valtype.is_null() {
-        // TODO: handle error
-        panic!("wasm_valtype_kind: argument is null pointer");
-    }
-    return (*valtype).valkind as wasm_valkind_t;
+pub unsafe extern "C" fn wasm_valtype_kind(valtype: Option<&wasm_valtype_t>) -> wasm_valkind_t {
+    valtype
+        .expect("`wasm_valtype_kind: argument is a null pointer")
+        .valkind as wasm_valkind_t
 }

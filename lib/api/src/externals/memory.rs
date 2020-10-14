@@ -34,12 +34,12 @@ impl Memory {
     /// This function will construct the `Memory` using the store [`Tunables`].
     ///
     /// [`Tunables`]: crate::tunables::Tunables
-    pub fn new(store: &Store, ty: MemoryType) -> Result<Memory, MemoryError> {
+    pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_memory(&ty, &style, None)?;
 
-        Ok(Memory {
+        Ok(Self {
             store: store.clone(),
             memory,
         })
@@ -148,15 +148,15 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Memory {
-        Memory {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+        Self {
             store: store.clone(),
             memory: wasmer_export.from,
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
-    pub fn same(&self, other: &Memory) -> bool {
+    pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.memory, &other.memory)
     }
 }
