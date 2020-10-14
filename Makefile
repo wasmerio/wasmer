@@ -13,21 +13,24 @@ compilers :=
 ifeq ($(ARCH), x86_64)
 	# In X64, Cranelift is enabled
 	compilers += cranelift
-	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
 		# Singlepass doesn't work yet on Windows
 		compilers += singlepass
-		# Autodetect LLVM from llvm-config
-		ifneq (, $(shell which llvm-config))
-			LLVM_VERSION := $(shell llvm-config --version)
-			# If findstring is not empty, then it have found the value
-			ifneq (, $(findstring 10,$(LLVM_VERSION)))
-				compilers += llvm
-			endif
-		else
-			ifneq (, $(shell which llvm-config-10))
-				compilers += llvm
-			endif
+	endif
+endif
+
+# LLVM could be enabled if not in Windows
+ifneq ($(OS), Windows_NT)
+	# Autodetect LLVM from llvm-config
+	ifneq (, $(shell which llvm-config))
+		LLVM_VERSION := $(shell llvm-config --version)
+		# If findstring is not empty, then it have found the value
+		ifneq (, $(findstring 10,$(LLVM_VERSION)))
+			compilers += llvm
+		endif
+	else
+		ifneq (, $(shell which llvm-config-10))
+			compilers += llvm
 		endif
 	endif
 endif
