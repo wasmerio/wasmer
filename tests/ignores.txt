@@ -26,6 +26,9 @@ llvm::spec::skip_stack_guard_page on darwin
 cranelift::spec::linking on native
 llvm::spec::linking on native
 
+# https://github.com/wasmerio/wasmer/issues/1722
+llvm::spec::skip_stack_guard_page on native
+
 # Frontends
 
 ## WASI

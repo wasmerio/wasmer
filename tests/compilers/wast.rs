@@ -67,7 +67,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     // specifies which element is uninitialized, but our traps don't
     // shepherd that information out.
     wast.allow_trap_message("uninitialized element 2", "uninitialized element");
-    if cfg!(feature = "test-native") {
+    if compiler == "cranelift" && cfg!(feature = "test-native") {
         wast.allow_trap_message("call stack exhausted", "out of bounds memory access");
         wast.allow_trap_message("indirect call type mismatch", "call stack exhausted");
         wast.allow_trap_message("integer divide by zero", "call stack exhausted");
