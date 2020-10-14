@@ -59,8 +59,9 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         features.simd(true);
     }
-    #[cfg(feature = "test-singlepass")]
-    features.multi_value(false);
+    if cfg!(feature = "test-singlepass") {
+        features.multi_value(false);
+    }
     let store = get_store(features, try_nan_canonicalization);
     let mut wast = Wast::new_with_spectest(store);
     // `bulk-memory-operations/bulk.wast` checks for a message that
@@ -76,6 +77,9 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
         wast.allow_trap_message("undefined element", "call stack exhausted");
         wast.allow_trap_message("uninitialized element", "call stack exhausted");
         wast.allow_trap_message("unreachable", "call stack exhausted");
+    }
+    if cfg!(feature = "coverage") {
+        wast.disable_assert_and_exhaustion();
     }
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.

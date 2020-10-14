@@ -27,6 +27,9 @@ pub struct Wast {
     store: Store,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
+    /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
+    /// See https://github.com/wasmerio/wasmer/issues/1550 for more info
+    disable_assert_trap_exhaustion: bool,
 }
 
 impl Wast {
@@ -41,6 +44,7 @@ impl Wast {
             current_is_allowed_failure: false,
             instances: HashMap::new(),
             fail_fast: true,
+            disable_assert_trap_exhaustion: false,
         }
     }
 
@@ -56,6 +60,11 @@ impl Wast {
     pub fn allow_trap_message(&mut self, expected: &str, allowed: &str) {
         self.match_trap_messages
             .insert(expected.into(), allowed.into());
+    }
+
+    /// Do not run any code in assert_trap or assert_exhaustion.
+    pub fn disable_assert_and_exhaustion(&mut self) {
+        self.disable_assert_trap_exhaustion = true;
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
@@ -165,27 +174,26 @@ impl Wast {
                 let result = self.perform_execute(exec);
                 self.assert_return(result, &results)?;
             }
-            #[cfg(not(feature = "test-no-traps"))]
             AssertTrap {
                 span: _,
                 exec,
                 message,
             } => {
-                let result = self.perform_execute(exec);
-                self.assert_trap(result, message)?;
+                if !self.disable_assert_trap_exhaustion {
+                    let result = self.perform_execute(exec);
+                    self.assert_trap(result, message)?;
+                }
             }
-            #[cfg(not(feature = "test-no-traps"))]
             AssertExhaustion {
                 span: _,
                 call,
                 message,
             } => {
-                let result = self.perform_invoke(call);
-                self.assert_trap(result, message)?;
+                if !self.disable_assert_trap_exhaustion {
+                    let result = self.perform_invoke(call);
+                    self.assert_trap(result, message)?;
+                }
             }
-            // See https://github.com/wasmerio/wasmer/issues/1550 for more info
-            #[cfg(feature = "test-no-traps")]
-            AssertTrap { .. } | AssertExhaustion { .. } => {}
             AssertInvalid {
                 span: _,
                 mut module,
