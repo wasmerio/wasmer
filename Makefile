@@ -9,18 +9,14 @@ else
 endif
 
 # Which compilers we build. These have dependencies that may not on the system.
-compilers :=
+compilers := cranelift
 
 # Which engines we test. We always build all engines.
-engines :=
+engines := jit
 
 ifeq ($(ARCH), x86_64)
-	engines += jit
-	# In X64, Cranelift is enabled
-	compilers += cranelift
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
-		engines += native
 		# Singlepass doesn't work yet on Windows
 		compilers += singlepass
 		# Autodetect LLVM from llvm-config
@@ -35,11 +31,10 @@ ifeq ($(ARCH), x86_64)
 				compilers += llvm
 			endif
 		endif
-	endif
-endif
 
-ifeq ($(ARCH), aarch64)
-	engines += native
+		# Native engine doesn't work yet on Windows
+		engines += native
+	endif
 endif
 
 compilers := $(filter-out ,$(compilers))

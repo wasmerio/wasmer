@@ -38,7 +38,14 @@ fn test_trap_return() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-native"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn test_trap_trace() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -118,7 +125,14 @@ fn test_trap_trace_cb() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-native"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn test_trap_stack_overflow() -> Result<()> {
     let store = get_store();
     let wat = r#"
@@ -153,7 +167,8 @@ fn test_trap_stack_overflow() -> Result<()> {
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native"
+        feature = "test-native",
+        target_arch = "aarch64",
     ),
     ignore
 )]
@@ -193,7 +208,8 @@ RuntimeError: unreachable
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native"
+        feature = "test-native",
+        target_arch = "aarch64",
     ),
     ignore
 )]
@@ -443,7 +459,8 @@ RuntimeError: indirect call type mismatch
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native"
+        feature = "test-native",
+        target_arch = "aarch64",
     ),
     ignore
 )]
