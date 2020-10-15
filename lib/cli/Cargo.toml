@@ -45,6 +45,7 @@ cfg-if = "0.1"
 # For debug feature
 fern = { version = "0.6", features = ["colored"], optional = true }
 log = { version = "0.4", optional = true }
+tempfile = "3"
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

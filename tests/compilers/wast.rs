@@ -59,10 +59,14 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         features.simd(true);
     }
-    #[cfg(feature = "test-singlepass")]
-    features.multi_value(false);
+    if cfg!(feature = "test-singlepass") {
+        features.multi_value(false);
+    }
     let store = get_store(features, try_nan_canonicalization);
     let mut wast = Wast::new_with_spectest(store);
+    if cfg!(feature = "coverage") {
+        wast.disable_assert_and_exhaustion();
+    }
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[
