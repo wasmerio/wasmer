@@ -7,3 +7,7 @@ publish = false
 [dependencies]
 anyhow = "1.0"
 target-lexicon = "0.10"
+
+[features]
+test-native = []
+test-jit = []
