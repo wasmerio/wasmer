@@ -43,7 +43,7 @@ impl Table {
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let table = tunables
-            .create_table(&ty, &style, None)
+            .create_host_table(&ty, &style)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();

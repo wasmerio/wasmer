@@ -134,8 +134,31 @@ unsafe impl Send for LinearTable {}
 unsafe impl Sync for LinearTable {}
 
 impl LinearTable {
-    /// Create a new table instance with specified minimum and maximum number of elements.
-    pub fn new(
+    /// Create a new linear table instance with specified minimum and maximum number of elements.
+    ///
+    /// This creates a `LinearTable` with metadata owned by a VM, pointed to by
+    /// `vm_table_location`: this can be used to create a local table.
+    pub fn new(table: &TableType, style: &TableStyle) -> Result<Self, String> {
+        unsafe { Self::new_inner(table, style, None) }
+    }
+
+    /// Create a new linear table instance with specified minimum and maximum number of elements.
+    ///
+    /// This creates a `LinearTable` with metadata owned by a VM, pointed to by
+    /// `vm_table_location`: this can be used to create a local table.
+    ///
+    /// # Safety
+    /// - `vm_table_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        table: &TableType,
+        style: &TableStyle,
+        vm_table_location: NonNull<VMTableDefinition>,
+    ) -> Result<Self, String> {
+        Self::new_inner(table, style, Some(vm_table_location))
+    }
+
+    /// Create a new `LinearTable` with either self-owned or VM owned metadata.
+    unsafe fn new_inner(
         table: &TableType,
         style: &TableStyle,
         vm_table_location: Option<NonNull<VMTableDefinition>>,
@@ -163,7 +186,7 @@ impl LinearTable {
                 table: *table,
                 style: style.clone(),
                 vm_table_definition: if let Some(table_loc) = vm_table_location {
-                    unsafe {
+                    {
                         let mut ptr = table_loc.clone();
                         let td = ptr.as_mut();
                         td.base = base as _;

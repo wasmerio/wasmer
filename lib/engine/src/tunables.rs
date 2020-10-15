@@ -20,28 +20,40 @@ pub trait Tunables {
     /// Construct a `TableStyle` for the provided `TableType`
     fn table_style(&self, table: &TableType) -> TableStyle;
 
-    /// Create a memory given a memory type
-    ///
-    /// `vm_definition_location` should either point to a valid memory location
-    /// in VM memory or be `None` to indicate that the metadata for the memory
-    /// should be owned by the host.
-    fn create_memory(
+    /// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
+    fn create_host_memory(
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: Option<NonNull<VMMemoryDefinition>>,
     ) -> Result<Arc<dyn Memory>, MemoryError>;
 
-    /// Create a memory given a memory type.
+    /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
     ///
-    /// `vm_definition_location` should either point to a valid memory location
-    /// in VM memory or be `None` to indicate that the metadata for the table
-    /// should be owned by the host.
-    fn create_table(
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Arc<dyn Memory>, MemoryError>;
+
+    /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    fn create_host_table(
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: Option<NonNull<VMTableDefinition>>,
+    ) -> Result<Arc<dyn Table>, String>;
+
+    /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<Arc<dyn Table>, String>;
 
     /// Create a global with an unset value.
@@ -50,7 +62,7 @@ pub trait Tunables {
     }
 
     /// Allocate memory for just the memories of the current module.
-    fn create_memories(
+    unsafe fn create_memories(
         &self,
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
@@ -66,7 +78,7 @@ pub trait Tunables {
             // TODO: error handling
             let mdl = memory_definition_locations[index];
             memories.push(
-                self.create_memory(ty, style, Some(mdl))
+                self.create_vm_memory(ty, style, mdl)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }
@@ -74,7 +86,7 @@ pub trait Tunables {
     }
 
     /// Allocate memory for just the tables of the current module.
-    fn create_tables(
+    unsafe fn create_tables(
         &self,
         module: &ModuleInfo,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
@@ -90,7 +102,7 @@ pub trait Tunables {
             let style = &table_styles[ti];
             let tdl = table_definition_locations[index];
             tables.push(
-                self.create_table(ty, style, Some(tdl))
+                self.create_vm_table(ty, style, tdl)
                     .map_err(LinkError::Resource)?,
             );
         }

@@ -177,7 +177,30 @@ struct WasmMmap {
 
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
-    pub fn new(
+    ///
+    /// This creates a `LinearMemory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
+    pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
+        unsafe { Self::new_internal(memory, style, None) }
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `LinearMemory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Self, MemoryError> {
+        Self::new_internal(memory, style, Some(vm_memory_location))
+    }
+
+    /// Build a `LinearMemory` with either self-owned or VM owned metadata.
+    unsafe fn new_internal(
         memory: &MemoryType,
         style: &MemoryStyle,
         vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
@@ -243,7 +266,7 @@ impl LinearMemory {
             offset_guard_size: offset_guard_bytes,
             needs_signal_handlers,
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
-                unsafe {
+                {
                     let mut ptr = mem_loc.clone();
                     let md = ptr.as_mut();
                     md.base = base_ptr;

@@ -88,28 +88,52 @@ impl BaseTunables for Tunables {
         TableStyle::CallerChecksSignature
     }
 
-    /// Create a memory given a [`MemoryType`] and a [`MemoryStyle`].
-    fn create_memory(
+    /// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
+    fn create_host_memory(
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
-        vm_definition_location: Option<NonNull<VMMemoryDefinition>>,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::new(
+        Ok(Arc::new(LinearMemory::new(&ty, &style)?))
+    }
+
+    /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Arc<dyn Memory>, MemoryError> {
+        Ok(Arc::new(LinearMemory::from_definition(
             &ty,
             &style,
             vm_definition_location,
         )?))
     }
 
-    /// Create a table given a [`TableType`] and a [`TableStyle`].
-    fn create_table(
+    /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    fn create_host_table(
         &self,
         ty: &TableType,
         style: &TableStyle,
-        vm_definition_location: Option<NonNull<VMTableDefinition>>,
     ) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::new(
+        Ok(Arc::new(LinearTable::new(&ty, &style)?))
+    }
+
+    /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid location in VM memory.
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::from_definition(
             &ty,
             &style,
             vm_definition_location,
