@@ -1,6 +1,6 @@
 use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
-use super::super::types::{wasm_functype_t, wasm_valkind_enum};
+use super::super::types::{wasm_functype_t, wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t};
 use std::convert::TryInto;
 use std::ffi::c_void;
@@ -153,4 +153,9 @@ pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().results().len()
+}
+
+#[no_mangle]
+pub extern "C" fn wasm_func_type(func: &wasm_func_t) -> Box<wasm_functype_t> {
+    Box::new(wasm_functype_t::new(func.inner.ty().clone()))
 }
