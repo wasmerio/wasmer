@@ -22,8 +22,9 @@ singlepass on windows # Singlepass is not yet supported on Windows
 cranelift::spec::skip_stack_guard_page on darwin
 llvm::spec::skip_stack_guard_page on darwin
 
-# TODO: traps in native engine
+# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift::spec::linking on native
+# TODO(https://github.com/wasmerio/wasmer/pull/1710): Library is dropped too soon.
 llvm::spec::linking on native
 
 # https://github.com/wasmerio/wasmer/issues/1722
