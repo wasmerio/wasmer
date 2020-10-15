@@ -182,6 +182,35 @@ example.
 
    </details>
 
+### Basic Usage
+
+10. Tables, explains how to use Wasm Tables from the Wasmer API.
+
+   _Keywords_: basic, table, call_indirect
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example table --release --features "cranelift"
+   ```
+
+   </details>
+   
+11. Memories, explains how to use Wasm Memories from the Wasmer API.
+    Memory example is a work in progress.
+
+   _Keywords_: basic, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example memory --release --features "cranelift"
+   ```
+
+   </details>
+
 [engine-jit]: ./engine_jit.rs
 [engine-native]: ./engine_native.rs
 [engine-headless]: ./engine_headless.rs
