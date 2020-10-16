@@ -24,8 +24,6 @@ llvm::spec::skip_stack_guard_page on darwin
 
 # TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
 cranelift::spec::linking on native
-# TODO(https://github.com/wasmerio/wasmer/pull/1710): Library is dropped too soon.
-llvm::spec::linking on native
 
 # https://github.com/wasmerio/wasmer/issues/1722
 llvm::spec::skip_stack_guard_page on native

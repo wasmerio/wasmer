@@ -495,7 +495,6 @@ RuntimeError: unreachable
 }
 
 #[test]
-#[cfg_attr(feature = "test-native", ignore)]
 fn present_after_module_drop() -> Result<()> {
     let store = get_store();
     let module = Module::new(&store, r#"(func (export "foo") unreachable)"#)?;
