@@ -464,6 +464,11 @@ impl LibCall {
             Self::FloorF64 => "wasmer_f64_floor",
             Self::NearestF32 => "wasmer_f32_nearest",
             Self::NearestF64 => "wasmer_f64_nearest",
+            // We have to do this because mac requires a leading `_` and it's not
+            // a normal function, it's a static variable, so we have to do it manually.
+            #[cfg(macos)]
+            Self::Probestack => "_wasmer_probestack",
+            #[cfg(not(macos))]
             Self::Probestack => "wasmer_probestack",
             Self::RaiseTrap => "wasmer_raise_trap",
             Self::TruncF32 => "wasmer_f32_trunc",
