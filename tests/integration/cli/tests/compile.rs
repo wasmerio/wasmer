@@ -92,8 +92,6 @@ fn run_c_compile(
 
     let output = Command::new(c_compiler)
         .current_dir(current_dir)
-        .arg("-x")
-        .arg("c")
         .arg("-O2")
         .arg("-c")
         .arg(path_to_c_src)
