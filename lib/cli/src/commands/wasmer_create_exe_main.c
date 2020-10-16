@@ -9,6 +9,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+#define own
+
 // TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
@@ -158,11 +160,21 @@ int main(int argc, char* argv[]) {
   wasi_env_set_instance(wasi_env, instance);
   #endif
   
-  void* vmctx = wasm_instance_get_vmctx_ptr(instance);
-  wasm_val_t* inout[2] = { NULL, NULL };
-  
-  // We're able to call our compiled function directly through a trampoline.
-  wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
+  #ifdef WASI
+  own wasm_func_t* start_function = wasi_get_start_function(instance);
+  if (!start_function) {
+    fprintf(stderr, "`_start` function not found\n");
+    print_wasmer_error();
+    return -1;
+  }
+  own wasm_trap_t* trap = wasm_func_call(start_function, NULL, NULL);
+  if (trap) {
+    fprintf(stderr, "Trap is not NULL: TODO:\n");
+    return -1;
+  }
+  #endif
+
+  // TODO: handle non-WASI start (maybe with invoke?)
   
   wasm_instance_delete(instance);
   wasm_module_delete(module);
