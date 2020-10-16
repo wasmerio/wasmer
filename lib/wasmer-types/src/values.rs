@@ -8,10 +8,14 @@ use crate::types::Type;
 /// produce.
 #[derive(Clone, PartialEq)]
 pub enum Value<T> {
-    /// A 32-bit integer
+    /// A 32-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I32(i32),
 
-    /// A 64-bit integer
+    /// A 64-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I64(i64),
 
     /// A 32-bit float.
@@ -175,9 +179,23 @@ impl<T> From<i32> for Value<T> {
     }
 }
 
+impl<T> From<u32> for Value<T> {
+    fn from(val: u32) -> Self {
+        // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
+        Self::I32(val as i32)
+    }
+}
+
 impl<T> From<i64> for Value<T> {
     fn from(val: i64) -> Self {
         Self::I64(val)
+    }
+}
+
+impl<T> From<u64> for Value<T> {
+    fn from(val: u64) -> Self {
+        // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
+        Self::I64(val as i64)
     }
 }
 
@@ -204,3 +222,46 @@ impl<T> From<ExternRef> for Value<T> {
 //         Self::FuncRef(val)
 //     }
 // }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_value_i32_from_u32() {
+        let bytes = [0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+    }
+
+    #[test]
+    fn test_value_i64_from_u64() {
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+    }
+}

@@ -129,9 +129,18 @@ test-llvm = [
     "llvm",
 ]
 
-# Disable trap asserts in the WAST tests. This is useful for running the tests in a
-# context where signal handling is a problem, such as tarpaulin for code coverage.
-test-no-traps = ["wasmer-wast/test-no-traps"]
+test-native = [
+    "native",
+    "test-generator/test-native",
+]
+test-jit = [
+    "jit",
+    "test-generator/test-jit",
+]
+
+# Specifies that we're running in coverage testing mode. This disables tests
+# that raise signals because that interferes with tarpaulin.
+coverage = []
 
 [[bench]]
 name = "static_and_dynamic_functions"

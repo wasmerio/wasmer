@@ -87,6 +87,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
+#[cfg(not(target_arch = "aarch64"))]
 fn test_engine_native() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }

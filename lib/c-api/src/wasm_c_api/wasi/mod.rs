@@ -76,6 +76,63 @@ pub unsafe extern "C" fn wasi_config_arg(config: &mut wasi_config_t, arg: *const
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasi_config_preopen_dir(
+    config: &mut wasi_config_t,
+    dir: *const c_char,
+) -> bool {
+    let dir_cstr = CStr::from_ptr(dir);
+    let dir_bytes = dir_cstr.to_bytes();
+    let dir_str = match std::str::from_utf8(dir_bytes) {
+        Ok(dir_str) => dir_str,
+        Err(e) => {
+            update_last_error(e);
+            return false;
+        }
+    };
+
+    if let Err(e) = config.state_builder.preopen_dir(dir_str) {
+        update_last_error(e);
+        return false;
+    }
+
+    true
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasi_config_mapdir(
+    config: &mut wasi_config_t,
+    alias: *const c_char,
+    dir: *const c_char,
+) -> bool {
+    let alias_cstr = CStr::from_ptr(alias);
+    let alias_bytes = alias_cstr.to_bytes();
+    let alias_str = match std::str::from_utf8(alias_bytes) {
+        Ok(alias_str) => alias_str,
+        Err(e) => {
+            update_last_error(e);
+            return false;
+        }
+    };
+
+    let dir_cstr = CStr::from_ptr(dir);
+    let dir_bytes = dir_cstr.to_bytes();
+    let dir_str = match std::str::from_utf8(dir_bytes) {
+        Ok(dir_str) => dir_str,
+        Err(e) => {
+            update_last_error(e);
+            return false;
+        }
+    };
+
+    if let Err(e) = config.state_builder.map_dir(alias_str, dir_str) {
+        update_last_error(e);
+        return false;
+    }
+
+    true
+}
+
+#[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
     config.inherit_stdout = true;
 }

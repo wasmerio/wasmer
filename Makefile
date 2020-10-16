@@ -8,11 +8,13 @@ else
 	UNAME_S := 
 endif
 
-compilers :=
+# Which compilers we build. These have dependencies that may not on the system.
+compilers := cranelift
+
+# Which engines we test. We always build all engines.
+engines := jit
 
 ifeq ($(ARCH), x86_64)
-	# In X64, Cranelift is enabled
-	compilers += cranelift
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
 		# Singlepass doesn't work yet on Windows
@@ -29,10 +31,14 @@ ifeq ($(ARCH), x86_64)
 				compilers += llvm
 			endif
 		endif
+
+		# Native engine doesn't work yet on Windows
+		engines += native
 	endif
 endif
 
 compilers := $(filter-out ,$(compilers))
+engines := $(filter-out ,$(engines))
 
 ifneq ($(OS), Windows_NT)
 	bold := $(shell tput bold)
@@ -94,16 +100,26 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: $(foreach engine,$(engines),$(foreach compiler,$(compilers),test-$(compiler)-$(engine))) test-packages test-examples test-deprecated
 
-test-singlepass:
-	cargo test --release $(compiler_features) --features "test-singlepass"
+# Singlepass and native engine don't work together, this rule does nothing.
+test-singlepass-native:
+	@:
 
-test-cranelift:
-	cargo test --release $(compiler_features) --features "test-cranelift"
+test-singlepass-jit:
+	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
 
-test-llvm:
-	cargo test --release $(compiler_features) --features "test-llvm"
+test-cranelift-native:
+	cargo test --release $(compiler_features) --features "test-cranelift test-native"
+
+test-cranelift-jit:
+	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
+
+test-llvm-native:
+	cargo test --release $(compiler_features) --features "test-llvm test-native"
+
+test-llvm-jit:
+	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
 test-packages:
 	cargo test -p wasmer --release
@@ -175,6 +191,7 @@ package-capi:
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/doc/deprecated/index.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
@@ -212,6 +229,9 @@ else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
+
+# command for simulating installing Wasmer without wapm.
+package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #
