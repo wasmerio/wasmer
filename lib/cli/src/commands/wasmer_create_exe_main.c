@@ -136,7 +136,7 @@ int main(int argc, char* argv[]) {
   wasm_module_imports(module, &import_types);
 
   wasm_extern_vec_t imports;
-  wasm_extern_vec_new_uninitialized(&imports, import_type.size);
+  wasm_extern_vec_new_uninitialized(&imports, import_types.size);
   wasm_importtype_vec_delete(&import_types);
   
   #ifdef WASI
