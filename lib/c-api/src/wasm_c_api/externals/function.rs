@@ -150,7 +150,7 @@ pub unsafe extern "C" fn wasm_func_call(
                 .collect::<Result<Vec<Val>, _>>()
                 .expect("Argument conversion failed")
         })
-        .unwrap_or_else(|| Vec::new());
+        .unwrap_or_default();
 
     match func.inner.call(&params) {
         Ok(wasm_results) => {
