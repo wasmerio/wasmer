@@ -72,6 +72,15 @@ pub enum AsyncOneshotOperation<'a> {
         sockaddr_ptr: WasmPtr<u8, Array>,
         sockaddr_size: u32,
     },
+
+    DnsLookup {
+        memory: &'a Memory,
+        name: &'a str,
+        family: i16,
+        output_ptr: WasmPtr<u128, Array>,
+        output_count_ptr: WasmPtr<u32>,
+        output_size: u32,
+    },
 }
 
 /// An asynchronous stream operation.

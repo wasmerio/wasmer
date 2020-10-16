@@ -2878,6 +2878,44 @@ pub fn wasio_socket_recv(
 }
 
 #[cfg(feature = "wasio")]
+pub fn wasio_dns_lookup(
+    env: &mut WasiEnv,
+    name: WasmPtr<u8, Array>,
+    name_len: u32,
+    family: i16,
+    output_ptr: WasmPtr<u128, Array>,
+    output_count_ptr: WasmPtr<u32>,
+    output_size: u32,
+    user_context: UserContext,
+    cancellation_token: WasmPtr<CancellationToken>,
+) -> __wasi_errno_t {
+    debug!("wasi::wasio_dns_lookup");
+    let (memory, mut state) = env.get_memory_and_wasi_state(0);
+    let state = &mut *state;
+    let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
+
+    let name = wasi_try!(name.deref(memory, 0, name_len));
+    let name = unsafe {
+        std::mem::transmute::<&[Cell<u8>], &[u8]>(name)
+    };
+    let name = wasi_try!(std::str::from_utf8(name).map_err(|_| __WASI_EINVAL));
+
+    let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
+        AsyncOneshotOperation::DnsLookup {
+            memory,
+            name,
+            family,
+            output_ptr,
+            output_count_ptr,
+            output_size,
+        },
+        user_context
+    ));
+    cancellation_token_cell.set(ct);
+    __WASI_ESUCCESS
+}
+
+#[cfg(feature = "wasio")]
 fn prepare_wasio<F: FnOnce(&mut WasiState) -> R, R>(state: &mut WasiState, f: F) -> R {
     wasio::executor::make_current(
         state.wasio_executor.clone(),

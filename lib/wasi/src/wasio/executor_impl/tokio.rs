@@ -425,6 +425,49 @@ impl Executor for TokioExecutor {
                     user_context
                 ));
             }
+            AsyncOneshotOperation::DnsLookup { memory, name, family, output_ptr, output_count_ptr, output_size } => {
+                let name = format!("{}:0", name);
+                let memory = memory.clone();
+
+                return Ok(self.spawn_oneshot(
+                    async move {
+                        loop {
+                            let results = match tokio::net::lookup_host(&name).await {
+                                Ok(x) => x,
+                                Err(e) => break from_tokio_error(e), 
+                            };
+                            let output = match output_ptr.deref(&memory, 0, output_size) {
+                                Ok(x) => x,
+                                Err(e) => break e,
+                            };
+                            let output_count = match output_count_ptr.deref(&memory) {
+                                Ok(x) => x,
+                                Err(e) => break e,
+                            };
+                            let mut count: u32 = 0;
+                            for addr in results {
+                                if count == output_size {
+                                    break;
+                                }
+                                match addr {
+                                    SocketAddr::V4(x) if family == AF_INET as _ => {
+                                        output[count as usize].set(u32::from(*x.ip()) as u128);
+                                        count += 1;
+                                    }
+                                    SocketAddr::V6(x) if family == AF_INET6 as _ => {
+                                        output[count as usize].set(u128::from(*x.ip()));
+                                        count += 1;
+                                    }
+                                    _ => {}
+                                }
+                            }
+                            output_count.set(count);
+                            break 0;
+                        }
+                    },
+                    user_context
+                ));
+            }
         };
         self.local_completion
             .borrow_mut()

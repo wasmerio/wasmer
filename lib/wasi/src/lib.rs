@@ -268,6 +268,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "socket_recv" => Function::new_native_with_env(store, env.clone(), wasio_socket_recv),
             "socket_local_addr" => Function::new_native_with_env(store, env.clone(), wasio_socket_local_addr),
             "socket_remote_addr" => Function::new_native_with_env(store, env.clone(), wasio_socket_remote_addr),
+            "dns_lookup" => Function::new_native_with_env(store, env.clone(), wasio_dns_lookup),
         },
     }
 }
@@ -338,6 +339,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "socket_recv" => Function::new_native_with_env(store, env.clone(), wasio_socket_recv),
             "socket_local_addr" => Function::new_native_with_env(store, env.clone(), wasio_socket_local_addr),
             "socket_remote_addr" => Function::new_native_with_env(store, env.clone(), wasio_socket_remote_addr),
+            "dns_lookup" => Function::new_native_with_env(store, env.clone(), wasio_dns_lookup),
         },
     }
 }
