@@ -23,7 +23,6 @@ typetag = "0.1"
 [features]
 default = ["wat"]
 wat = ["wasmer/wat"]
-test-no-traps = [] 
 
 [badges]
 maintenance = { status = "actively-developed" }

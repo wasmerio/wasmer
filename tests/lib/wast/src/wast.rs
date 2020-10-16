@@ -18,12 +18,18 @@ pub struct Wast {
     instances: HashMap<String, Instance>,
     /// Allowed failures (ideally this should be empty)
     allowed_instantiation_failures: HashSet<String>,
+    /// If the (expected from .wast, actual) message pair is in this list,
+    /// treat the strings as matching.
+    match_trap_messages: HashMap<String, String>,
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
     /// The wasm Store
     store: Store,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
     pub fail_fast: bool,
+    /// A flag indicating that assert_trap and assert_exhaustion should be skipped.
+    /// See https://github.com/wasmerio/wasmer/issues/1550 for more info
+    disable_assert_trap_exhaustion: bool,
 }
 
 impl Wast {
@@ -34,18 +40,31 @@ impl Wast {
             store,
             import_object,
             allowed_instantiation_failures: HashSet::new(),
+            match_trap_messages: HashMap::new(),
             current_is_allowed_failure: false,
             instances: HashMap::new(),
             fail_fast: true,
+            disable_assert_trap_exhaustion: false,
         }
     }
 
-    /// A list of instantiation failures to allow
+    /// A list of instantiation failures to allow.
     pub fn allow_instantiation_failures(&mut self, failures: &[&str]) {
         for &failure_str in failures.iter() {
             self.allowed_instantiation_failures
                 .insert(failure_str.to_string());
         }
+    }
+
+    /// A list of alternative messages to permit for a trap failure.
+    pub fn allow_trap_message(&mut self, expected: &str, allowed: &str) {
+        self.match_trap_messages
+            .insert(expected.into(), allowed.into());
+    }
+
+    /// Do not run any code in assert_trap or assert_exhaustion.
+    pub fn disable_assert_and_exhaustion(&mut self) {
+        self.disable_assert_trap_exhaustion = true;
     }
 
     /// Construct a new instance of `Wast` with the spectests imports.
@@ -123,7 +142,7 @@ impl Wast {
             Ok(values) => bail!("expected trap, got {:?}", values),
             Err(t) => format!("{}", t),
         };
-        if Self::matches_message_assert_trap(expected, &actual) {
+        if self.matches_message_assert_trap(expected, &actual) {
             return Ok(());
         }
         bail!("expected '{}', got '{}'", expected, actual)
@@ -155,27 +174,26 @@ impl Wast {
                 let result = self.perform_execute(exec);
                 self.assert_return(result, &results)?;
             }
-            #[cfg(not(feature = "test-no-traps"))]
             AssertTrap {
                 span: _,
                 exec,
                 message,
             } => {
-                let result = self.perform_execute(exec);
-                self.assert_trap(result, message)?;
+                if !self.disable_assert_trap_exhaustion {
+                    let result = self.perform_execute(exec);
+                    self.assert_trap(result, message)?;
+                }
             }
-            #[cfg(not(feature = "test-no-traps"))]
             AssertExhaustion {
                 span: _,
                 call,
                 message,
             } => {
-                let result = self.perform_invoke(call);
-                self.assert_trap(result, message)?;
+                if !self.disable_assert_trap_exhaustion {
+                    let result = self.perform_invoke(call);
+                    self.assert_trap(result, message)?;
+                }
             }
-            // See https://github.com/wasmerio/wasmer/issues/1550 for more info
-            #[cfg(feature = "test-no-traps")]
-            AssertTrap { .. } | AssertExhaustion { .. } => {}
             AssertInvalid {
                 span: _,
                 mut module,
@@ -406,12 +424,13 @@ impl Wast {
     }
 
     // Checks if the `assert_trap` message matches the expected one
-    fn matches_message_assert_trap(expected: &str, actual: &str) -> bool {
+    fn matches_message_assert_trap(&self, expected: &str, actual: &str) -> bool {
         actual.contains(expected)
-            // `bulk-memory-operations/bulk.wast` checks for a message that
-            // specifies which element is uninitialized, but our traps don't
-            // shepherd that information out.
-            || (expected.contains("uninitialized element 2") && actual.contains("uninitialized element"))
+            || self
+                .match_trap_messages
+                .get(expected)
+                .map(|alternative| actual.contains(alternative))
+                .unwrap_or(false)
     }
 }
 

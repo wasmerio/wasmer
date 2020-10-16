@@ -47,6 +47,13 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let host = Triple::host().to_string();
+    let engine = if cfg!(feature = "test-native") {
+        Some("native")
+    } else if cfg!(feature = "test-jit") {
+        Some("jit")
+    } else {
+        None
+    };
     for line in reader.lines() {
         let line = line.unwrap();
         // If the line has a `#` we discard all the content that comes after
@@ -75,8 +82,10 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         }
 
         // We skip the ignore if doesn't apply to the current
-        // host target
-        if target.map(|t| !host.contains(&t)).unwrap_or(false) {
+        // host target or engine
+        if target.clone().map(|t| !host.contains(&t)).unwrap_or(false)
+            && target.clone() != engine.map(str::to_string)
+        {
             continue;
         }
 

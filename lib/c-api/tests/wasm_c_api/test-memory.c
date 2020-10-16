@@ -62,6 +62,66 @@ int main(int argc, const char *argv[]) {
   wasm_memorytype_delete(memtype3);
   wasm_memory_delete(memory3);
 
+  // =====================
+  wasm_limits_t limits4 = {
+    .min = 0x7FFFFFFF,
+    .max = 0x7FFFFFFF,
+  };
+  own wasm_memorytype_t* memtype4 = wasm_memorytype_new(&limits4);
+  own wasm_memory_t* memory4 = wasm_memory_new(store, memtype4);
+  assert(memory4 == NULL);
+  error = get_wasmer_error();
+  printf("Found error string: %s\n", error);
+  assert(0 == strcmp("The minimum requested (2147483647 pages) memory is greater than the maximum allowed memory (65536 pages)", error));
+  free(error);
+
+  wasm_memorytype_delete(memtype4);
+
+  // =====================
+  wasm_limits_t limits5 = {
+    .min = 0x7FFFFFFF,
+    .max = 0x0FFFFFFF,
+  };
+  own wasm_memorytype_t* memtype5 = wasm_memorytype_new(&limits5);
+  own wasm_memory_t* memory5 = wasm_memory_new(store, memtype5);
+  assert(memory5 == NULL);
+  error = get_wasmer_error();
+  printf("Found error string: %s\n", error);
+  assert(0 == strcmp("The minimum requested (2147483647 pages) memory is greater than the maximum allowed memory (65536 pages)", error));
+  free(error);
+
+  wasm_memorytype_delete(memtype5);
+
+  // =====================
+  wasm_limits_t limits6 = {
+    .min = 15,
+    .max = 10,
+  };
+  own wasm_memorytype_t* memtype6 = wasm_memorytype_new(&limits6);
+  own wasm_memory_t* memory6 = wasm_memory_new(store, memtype6);
+  assert(memory6 == NULL);
+  error = get_wasmer_error();
+  printf("Found error string: %s\n", error);
+  assert(0 == strcmp("The memory is invalid because the maximum (10 pages) is less than the minimum (15 pages)", error));
+  free(error);
+
+  wasm_memorytype_delete(memtype6);
+
+  // =====================
+  wasm_limits_t limits7 = {
+    .min = 0x7FFFFFFF,
+    .max = 10,
+  };
+  own wasm_memorytype_t* memtype7 = wasm_memorytype_new(&limits7);
+  own wasm_memory_t* memory7 = wasm_memory_new(store, memtype7);
+  assert(memory7 == NULL);
+  error = get_wasmer_error();
+  printf("Found error string: %s\n", error);
+  assert(0 == strcmp("The minimum requested (2147483647 pages) memory is greater than the maximum allowed memory (65536 pages)", error));
+  free(error);
+
+  wasm_memorytype_delete(memtype7);
+
   printf("Shutting down...\n");
   wasm_store_delete(store);
   wasm_engine_delete(engine);
