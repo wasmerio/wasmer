@@ -30,7 +30,8 @@ int main() {
         wasm_store_t* store = wasm_store_new(engine);
 
         wasm_module_t* module = wasmer_object_file_engine_new(store, "qjs.wasm");
-        if (! module) {
+
+        if (!module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();
                 return -1;
@@ -45,6 +46,7 @@ int main() {
         wasi_config_arg(wasi_config, "--eval");
         wasi_config_arg(wasi_config, js_string);
         wasi_env_t* wasi_env = wasi_env_new(wasi_config);
+
         if (!wasi_env) {
                 printf("> Error building WASI env!\n");
                 print_wasmer_error();
@@ -53,19 +55,23 @@ int main() {
 
         wasm_importtype_vec_t import_types;
         wasm_module_imports(module, &import_types);
-        int num_imports = import_types.size;
-        wasm_extern_t** imports = (wasm_extern_t**) malloc(num_imports * sizeof(wasm_extern_t*));
+
+        wasm_extern_vec_t imports;
+        wasm_extern_vec_new_uninitialized(&imports, import_types.size);
+
         wasm_importtype_vec_delete(&import_types);
         
-        bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
+        bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+
         if (!get_imports_result) {
                 printf("> Error getting WASI imports!\n");
                 print_wasmer_error();
                 return 1;
         }
 
-        wasm_instance_t* instance = wasm_instance_new(store, module, (const wasm_extern_t* const*) imports, NULL);
-        if (! instance) {
+        wasm_instance_t* instance = wasm_instance_new(store, module, &imports, NULL);
+
+        if (!instance) {
                 printf("Failed to create instance\n");
                 print_wasmer_error();
                 return -1;
@@ -81,9 +87,11 @@ int main() {
         // We're able to call our compiled function directly through a trampoline.
         wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
 
+        wasm_extern_vec_delete(&imports);
         wasm_instance_delete(instance);
         wasm_module_delete(module);
         wasm_store_delete(store);
         wasm_engine_delete(engine);
+
         return 0;
 }
