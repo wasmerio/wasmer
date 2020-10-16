@@ -29,8 +29,8 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
           mkdir -p /opt/llvm-10
           tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+          echo '/opt/llvm-10/bin' >> $GITHUB_PATH
+          echo 'LLVM_SYS_100_PREFIX=/opt/llvm-10' >> $GITHUB_ENV
       - name: Generate Coverage Report
         run: |
           cargo install cargo-tarpaulin

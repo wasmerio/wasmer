@@ -108,7 +108,10 @@ pub unsafe extern "C" fn wasm_module_serialize(
 ) {
     let byte_vec = match module.inner.serialize() {
         Ok(byte_vec) => byte_vec,
-        Err(_) => return,
+        Err(err) => {
+            crate::error::update_last_error(err);
+            return;
+        }
     };
     *out_ptr = byte_vec.into();
 }

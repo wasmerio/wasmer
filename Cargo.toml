@@ -131,9 +131,11 @@ test-llvm = [
 
 test-native = [
     "native",
+    "test-generator/test-native",
 ]
 test-jit = [
     "jit",
+    "test-generator/test-jit",
 ]
 
 # Specifies that we're running in coverage testing mode. This disables tests

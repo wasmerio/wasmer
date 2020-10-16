@@ -8,11 +8,13 @@ else
 	UNAME_S := 
 endif
 
-compilers :=
+# Which compilers we build. These have dependencies that may not on the system.
+compilers := cranelift
+
+# Which engines we test. We always build all engines.
+engines := jit
 
 ifeq ($(ARCH), x86_64)
-	# In X64, Cranelift is enabled
-	compilers += cranelift
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
 		# Singlepass doesn't work yet on Windows
@@ -29,10 +31,14 @@ ifeq ($(ARCH), x86_64)
 				compilers += llvm
 			endif
 		endif
+
+		# Native engine doesn't work yet on Windows
+		engines += native
 	endif
 endif
 
 compilers := $(filter-out ,$(compilers))
+engines := $(filter-out ,$(engines))
 
 ifneq ($(OS), Windows_NT)
 	bold := $(shell tput bold)
@@ -94,7 +100,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)-jit) test-packages test-examples test-deprecated
+test: $(foreach engine,$(engines),$(foreach compiler,$(compilers),test-$(compiler)-$(engine))) test-packages test-examples test-deprecated
 
 # Singlepass and native engine don't work together, this rule does nothing.
 test-singlepass-native:
