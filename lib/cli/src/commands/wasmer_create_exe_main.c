@@ -135,6 +135,7 @@ int main(int argc, char* argv[]) {
   wasm_importtype_vec_t import_types;
   wasm_module_imports(module, &import_types);
 
+  wasm_extern_vec_t imports;
   wasm_extern_vec_new_uninitialized(&imports, import_type.size);
   wasm_importtype_vec_delete(&import_types);
   
@@ -150,7 +151,8 @@ int main(int argc, char* argv[]) {
   #endif
   
   wasm_instance_t* instance = wasm_instance_new(store, module, &imports, NULL);
-  if (! instance) {
+
+  if (!instance) {
     fprintf(stderr, "Failed to create instance\n");
     print_wasmer_error();
     return -1;
