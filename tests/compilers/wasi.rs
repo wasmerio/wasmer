@@ -1,6 +1,6 @@
 #![cfg(all(feature = "compiler", feature = "engine"))]
 
-use crate::utils::get_compiler;
+use crate::utils::get_store;
 use std::fs::File;
 use std::io::Read;
 use wasmer::Store;
@@ -25,8 +25,7 @@ pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Resu
         "Running wasi wast `{}` with the {} compiler",
         wast_path, compiler
     );
-    let compiler_config = get_compiler(true);
-    let store = Store::new(&JIT::new(&compiler_config).engine());
+    let store = get_store(true);
 
     let source = {
         let mut out = String::new();
