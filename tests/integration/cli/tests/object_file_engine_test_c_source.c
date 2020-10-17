@@ -9,6 +9,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+#define own
+
 #ifdef __cplusplus
 }
 #endif
@@ -73,13 +75,19 @@ int main() {
         wasi_env_set_instance(wasi_env, instance);
         
         // WASI is now set up.
-
-        void* vmctx = wasm_instance_get_vmctx_ptr(instance);
-        wasm_val_t* inout[2] = { NULL, NULL };
+        own wasm_func_t* start_function = wasi_get_start_function(instance);
+        if (!start_function) {
+                fprintf(stderr, "`_start` function not found\n");
+                print_wasmer_error();
+                return -1;
+        }
 
         fflush(stdout);
-        // We're able to call our compiled function directly through a trampoline.
-        wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
+        own wasm_trap_t* trap = wasm_func_call(start_function, NULL, NULL);
+        if (trap) {
+                fprintf(stderr, "Trap is not NULL: TODO:\n");
+                return -1;
+        }
 
         wasm_instance_delete(instance);
         wasm_module_delete(module);
