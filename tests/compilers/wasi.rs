@@ -3,9 +3,6 @@
 use crate::utils::get_store;
 use std::fs::File;
 use std::io::Read;
-use wasmer::Store;
-#[cfg(feature = "jit")]
-use wasmer_engine_jit::JIT;
 use wasmer_wast::WasiTest;
 
 // The generated tests (from build.rs) look like:
