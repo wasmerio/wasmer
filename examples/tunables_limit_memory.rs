@@ -1,9 +1,8 @@
 use std::sync::Arc;
 use wasmer::{
     imports, wat2wasm, Instance, Memory, MemoryError, MemoryType, Module, Pages, Store, TableType,
-    Tunables as BaseTunables,
+    Target, Tunables as BaseTunables,
 };
-use wasmer_compiler::Target;
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine::Tunables;
 use wasmer_engine_jit::JIT;
