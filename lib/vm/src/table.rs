@@ -204,6 +204,20 @@ impl LinearTable {
             }),
         }
     }
+
+    /// Get the `VMTableDefinition`.
+    ///
+    /// # Safety
+    /// - You must ensure that you have mutually exclusive access before calling
+    ///   this function. You can get this by locking the `vec` mutex.
+    unsafe fn get_vm_table_definition(&self) -> NonNull<VMTableDefinition> {
+        match &self.vm_table_definition {
+            VMTableDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMTableDefinitionOwnership::HostOwned(boxed_ptr) => {
+                NonNull::new_unchecked(boxed_ptr.get())
+            }
+        }
+    }
 }
 
 impl Table for LinearTable {
@@ -219,11 +233,10 @@ impl Table for LinearTable {
 
     /// Returns the number of allocated elements.
     fn size(&self) -> u32 {
+        // TODO: investigate this function for race conditions
         unsafe {
-            let td = match &self.vm_table_definition {
-                VMTableDefinitionOwnership::HostOwned(ptr) => &*ptr.get(),
-                VMTableDefinitionOwnership::VMOwned(ptr) => &ptr.as_ref(),
-            };
+            let td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_ref();
             td.current_elements
         }
     }
@@ -247,10 +260,8 @@ impl Table for LinearTable {
 
         // update table definition
         unsafe {
-            let td = match &self.vm_table_definition {
-                VMTableDefinitionOwnership::HostOwned(ptr) => &mut *ptr.get(),
-                VMTableDefinitionOwnership::VMOwned(ptr) => &mut *ptr.clone().as_ptr(),
-            };
+            let mut td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_mut();
             td.current_elements = new_len;
             td.base = vec.as_mut_ptr() as _;
         }
@@ -285,13 +296,6 @@ impl Table for LinearTable {
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     fn vmtable(&self) -> NonNull<VMTableDefinition> {
         let _vec_guard = self.vec.lock().unwrap();
-        match &self.vm_table_definition {
-            VMTableDefinitionOwnership::HostOwned(ptr) => {
-                let ptr = ptr.as_ref() as *const UnsafeCell<VMTableDefinition>
-                    as *const VMTableDefinition as *mut VMTableDefinition;
-                unsafe { NonNull::new_unchecked(ptr) }
-            }
-            VMTableDefinitionOwnership::VMOwned(ptr) => *ptr,
-        }
+        unsafe { self.get_vm_table_definition() }
     }
 }

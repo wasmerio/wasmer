@@ -285,6 +285,20 @@ impl LinearMemory {
             style: style.clone(),
         })
     }
+
+    /// Get the `VMMemoryDefinition`.
+    ///
+    /// # Safety
+    /// - You must ensure that you have mutually exclusive access before calling
+    ///   this function. You can get this by locking the `mmap` mutex.
+    unsafe fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
+        match &self.vm_memory_definition {
+            VMMemoryDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
+                NonNull::new_unchecked(boxed_ptr.get())
+            }
+        }
+    }
 }
 
 impl Memory for LinearMemory {
@@ -300,11 +314,10 @@ impl Memory for LinearMemory {
 
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages {
+        // TODO: investigate this function for race conditions
         unsafe {
-            let md = match &self.vm_memory_definition {
-                VMMemoryDefinitionOwnership::HostOwned(ptr) => &*ptr.get(),
-                VMMemoryDefinitionOwnership::VMOwned(ptr) => &ptr.as_ref(),
-            };
+            let md_ptr = self.get_vm_memory_definition();
+            let md = md_ptr.as_ref();
             Bytes::from(md.current_length).into()
         }
     }
@@ -384,10 +397,8 @@ impl Memory for LinearMemory {
 
         // update memory definition
         unsafe {
-            let md = match &self.vm_memory_definition {
-                VMMemoryDefinitionOwnership::HostOwned(ptr) => &mut *ptr.get(),
-                VMMemoryDefinitionOwnership::VMOwned(ptr) => &mut *ptr.clone().as_ptr(),
-            };
+            let mut md_ptr = self.get_vm_memory_definition();
+            let md = md_ptr.as_mut();
             md.current_length = new_pages.bytes().0.try_into().unwrap();
             md.base = mmap.alloc.as_mut_ptr() as _;
         }
@@ -398,14 +409,6 @@ impl Memory for LinearMemory {
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let _mmap_guard = self.mmap.lock().unwrap();
-        match &self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::HostOwned(ptr) => {
-                let ptr = ptr.as_ref() as *const UnsafeCell<VMMemoryDefinition>
-                    as *const VMMemoryDefinition
-                    as *mut VMMemoryDefinition;
-                unsafe { NonNull::new_unchecked(ptr) }
-            }
-            VMMemoryDefinitionOwnership::VMOwned(ptr) => *ptr,
-        }
+        unsafe { self.get_vm_memory_definition() }
     }
 }
