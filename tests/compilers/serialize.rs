@@ -4,7 +4,7 @@ use wasmer::*;
 
 #[test]
 fn test_serialize() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -20,7 +20,7 @@ fn test_serialize() -> Result<()> {
 
 #[test]
 fn test_deserialize() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $name
             (import "host" "sum_part" (func (param i32 i64 i32 f32 f64) (result i64)))

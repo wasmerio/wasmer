@@ -6286,6 +6286,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
+                )?;
                 let store = self.builder.build_store(effective_address, value);
                 self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
@@ -6299,6 +6306,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i64_ptr_ty,
                     offset,
                     8,
+                )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
                 )?;
                 let store = self.builder.build_store(effective_address, value);
                 self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
@@ -6315,6 +6329,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     4,
                 )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
+                )?;
                 let store = self.builder.build_store(effective_address, v);
                 self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
@@ -6330,6 +6351,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     8,
                 )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
+                )?;
                 let store = self.builder.build_store(effective_address, v);
                 self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
             }
@@ -6344,6 +6372,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i128_ptr_ty,
                     offset,
                     16,
+                )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
                 )?;
                 let store = self.builder.build_store(effective_address, v);
                 self.annotate_user_memaccess(memory_index, memarg, 1, store)?;
@@ -6603,6 +6638,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     1,
                 )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
+                )?;
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i8_ty, "");
@@ -6620,6 +6662,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     offset,
                     2,
                 )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
+                )?;
                 let narrow_value =
                     self.builder
                         .build_int_truncate(value, self.intrinsics.i16_ty, "");
@@ -6636,6 +6685,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     self.intrinsics.i32_ptr_ty,
                     offset,
                     4,
+                )?;
+                let dead_load = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    dead_load.as_instruction_value().unwrap(),
                 )?;
                 let narrow_value =
                     self.builder

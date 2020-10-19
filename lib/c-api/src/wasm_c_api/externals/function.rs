@@ -176,3 +176,8 @@ pub unsafe extern "C" fn wasm_func_param_arity(func: &wasm_func_t) -> usize {
 pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
     func.inner.ty().results().len()
 }
+
+#[no_mangle]
+pub extern "C" fn wasm_func_type(func: &wasm_func_t) -> Box<wasm_functype_t> {
+    Box::new(wasm_functype_t::new(func.inner.ty().clone()))
+}
