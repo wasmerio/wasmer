@@ -3,6 +3,7 @@ mod global;
 mod memory;
 mod table;
 
+use crate::wasm_c_api::traits::UninitDefault;
 pub use function::*;
 pub use global::*;
 pub use memory::*;
@@ -16,6 +17,14 @@ pub struct wasm_extern_t {
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,
     pub(crate) inner: Extern,
+}
+
+unsafe impl UninitDefault for wasm_extern_t {
+    unsafe fn uninit_default(mem: *mut Self) {
+        let zeroed_memory = std::mem::MaybeUninit::zeroed().as_ptr();
+        (*mem).instance = None;
+        std::ptr::copy(zeroed_memory, mem, 1);
+    }
 }
 
 wasm_declare_boxed_vec!(extern);

@@ -1,4 +1,5 @@
 use super::{wasm_externtype_t, wasm_name_t};
+use crate::wasm_c_api::traits::UninitDefault;
 use std::ptr::NonNull;
 use wasmer::ExportType;
 
@@ -9,7 +10,20 @@ pub struct wasm_exporttype_t {
 
     /// If `true`, `name` and `extern_type` will be dropped by
     /// `wasm_exporttype_t::drop`.
+    // TODO: use an enum instead with owned and non-owned values so that this
+    // type can't be misused.
     owns_fields: bool,
+}
+
+unsafe impl UninitDefault for wasm_exporttype_t {
+    unsafe fn uninit_default(mem: *mut Self) {
+        let uninit = Self {
+            name: NonNull::dangling(),
+            extern_type: NonNull::dangling(),
+            owns_fields: false,
+        };
+        std::ptr::copy(&uninit, mem, 1);
+    }
 }
 
 wasm_declare_boxed_vec!(exporttype);

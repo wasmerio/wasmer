@@ -23,6 +23,15 @@ pub struct wasm_val_t {
     pub of: wasm_val_inner,
 }
 
+impl Default for wasm_val_t {
+    fn default() -> Self {
+        Self {
+            kind: 0, // i32
+            of: wasm_val_inner { int32_t: 0 },
+        }
+    }
+}
+
 wasm_declare_vec!(val);
 
 impl Clone for wasm_val_t {

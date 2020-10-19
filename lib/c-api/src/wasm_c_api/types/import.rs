@@ -1,4 +1,5 @@
 use super::{wasm_externtype_t, wasm_name_t};
+use crate::wasm_c_api::traits::UninitDefault;
 use std::ptr::NonNull;
 use wasmer::ImportType;
 
@@ -8,6 +9,17 @@ pub struct wasm_importtype_t {
     pub(crate) module: NonNull<wasm_name_t>,
     pub(crate) name: NonNull<wasm_name_t>,
     pub(crate) extern_type: NonNull<wasm_externtype_t>,
+}
+
+unsafe impl UninitDefault for wasm_importtype_t {
+    unsafe fn uninit_default(mem: *mut Self) {
+        let uninit = Self {
+            module: NonNull::dangling(),
+            name: NonNull::dangling(),
+            extern_type: NonNull::dangling(),
+        };
+        std::ptr::copy(&uninit, mem, 1);
+    }
 }
 
 wasm_declare_boxed_vec!(importtype);

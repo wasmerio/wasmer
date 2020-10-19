@@ -78,13 +78,25 @@ macro_rules! wasm_declare_vec {
                 ::std::mem::forget(bytes);
             }
 
+            // #[allow(unused_imports)]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
-                let pointer = bytes.as_mut_ptr();
-                (*out).data = pointer;
-                (*out).size = length;
-                ::std::mem::forget(bytes);
+                /*use crate::wasm_c_api::traits::UninitDefault;
+                use ::std::mem::MaybeUninit;
+
+                let mut vec: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
+                vec.set_len(length);
+                let ptr = vec.as_mut_ptr();
+                for i in 0..length {
+                    [<wasm_ $name _t>]::uninit_default(ptr.add(i));
+                }
+
+                *out = vec.into();
+                */
+
+                let mut vec: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
+                vec.set_len(length);
+                *out = vec.into();
             }
 
 
@@ -143,6 +155,7 @@ macro_rules! wasm_declare_boxed_vec {
             }
 
             // TODO: investigate possible memory leak on `init` (owned pointer)
+            // TODO: figure out ownership with init pointer...
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *const *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
@@ -156,13 +169,20 @@ macro_rules! wasm_declare_boxed_vec {
                 ::std::mem::forget(bytes);
             }
 
+            #[allow(unused_imports)]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
-                let pointer = bytes.as_mut_ptr();
-                (*out).data = pointer;
-                (*out).size = length;
-                ::std::mem::forget(bytes);
+                use crate::wasm_c_api::traits::UninitDefault;
+                use ::std::mem::MaybeUninit;
+                let mut vec: Vec<Box<[<wasm_ $name _t>]>> = Vec::with_capacity(length);
+                for _ in 0..length {
+                    let memory: Box<MaybeUninit<[<wasm_ $name _t>]>> = Box::new(std::mem::MaybeUninit::uninit());
+                    let ptr: *mut MaybeUninit<[<wasm_ $name _t>]> = Box::into_raw(memory);
+                    let ptr: *mut [<wasm_ $name _t>] = ptr as _;
+                    [<wasm_ $name _t>]::uninit_default(ptr);
+                    vec.push(Box::from_raw(ptr));
+                }
+                *out = vec.into();
             }
 
             #[no_mangle]

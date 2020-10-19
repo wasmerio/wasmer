@@ -33,3 +33,6 @@ pub mod wasmer;
 
 #[cfg(feature = "wat")]
 pub mod wat;
+
+/// cbindgen:ignore
+pub(crate) mod traits;
