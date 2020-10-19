@@ -59,3 +59,8 @@ pub unsafe extern "C" fn wasm_global_same(
 ) -> bool {
     wasm_global1.inner.same(&wasm_global2.inner)
 }
+
+#[no_mangle]
+pub extern "C" fn wasm_global_type(wasm_global: &wasm_global_t) -> Box<wasm_globaltype_t> {
+    Box::new(wasm_globaltype_t::new(wasm_global.inner.ty().clone()))
+}

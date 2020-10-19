@@ -147,7 +147,7 @@ void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
 bool wasi_get_imports(const wasm_store_t *store,
                       const wasm_module_t *module,
                       const wasi_env_t *wasi_env,
-                      wasm_extern_t **imports);
+                      wasm_extern_vec_t *imports);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)

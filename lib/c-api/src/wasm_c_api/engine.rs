@@ -87,6 +87,7 @@ pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: was
 }
 
 /// cbindgen:ignore
+#[allow(non_camel_case_types)]
 pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
@@ -170,6 +171,7 @@ pub extern "C" fn wasm_engine_new_with_config(
     // TODO: return useful error messages in failure branches
     cfg_if! {
         if #[cfg(feature = "compiler")] {
+            #[allow(unused_mut)]
             let mut compiler_config: Box<dyn CompilerConfig> = match config.compiler {
                 wasmer_compiler_t::CRANELIFT => {
                     cfg_if! {
