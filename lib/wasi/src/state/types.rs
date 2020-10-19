@@ -215,18 +215,18 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
 /// Trait needed to get downcasting from `WasiFile` to work.
 pub trait Upcastable {
-    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any;
-    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any;
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
 }
 
 impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     #[inline]
-    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any {
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any {
         self
     }
     #[inline]
-    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any {
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any {
         self
     }
     #[inline]
@@ -237,11 +237,11 @@ impl<T: Any + fmt::Debug + 'static> Upcastable for T {
 
 impl dyn WasiFile + 'static {
     #[inline]
-    pub fn downcast_ref<T: 'static>(self: &'_ Self) -> Option<&'_ T> {
+    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
         self.upcast_any_ref().downcast_ref::<T>()
     }
     #[inline]
-    pub fn downcast_mut<T: 'static>(self: &'_ mut Self) -> Option<&'_ mut T> {
+    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
         self.upcast_any_mut().downcast_mut::<T>()
     }
 }

@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0-alpha02.1"
+target_version = "1.0.0-alpha4"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -36,13 +36,18 @@ dep_graph = {
     "wasmer-engine-jit": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
     "wasmer-engine-native": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
                                  "wasmer-object"]),
+    "wasmer-engine-object-file": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
+                                      "wasmer-object"]),
     "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
                    "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-jit",
-                   "wasmer-engine-native", "wasmer-types"]),
+                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types"]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
+    "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
+                         "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-jit",
+                         "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-wasi", "wasmer-types"]),
 }
 
 # where each crate is located in the `lib` directory
@@ -59,11 +64,13 @@ location = {
     "wasmer-engine": "engine",
     "wasmer-engine-jit": "engine-jit",
     "wasmer-engine-native": "engine-native",
+    "wasmer-engine-object-file": "engine-object-file",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
     "wasmer-emscripten": "emscripten",
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
+    "wasmer-c-api": "c-api",
 }
 
 no_dry_run = False
@@ -116,11 +123,11 @@ def main():
         else:
             print("`{}` was already published!".format(crate))
             continue
-        # sleep for 10 seconds between crates to ensure the crates.io index has time to update
+        # sleep for 16 seconds between crates to ensure the crates.io index has time to update
         # this can be optimized with knowledge of our dep graph via toposort; we can even publish
         # crates in parallel; however this is out of scope for the first version of this script
-        print("Sleeping for 10 seconds to allow the `crates.io` index to update...")
-        time.sleep(10)
+        print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
+        time.sleep(16)
         
 
 if __name__ == "__main__":

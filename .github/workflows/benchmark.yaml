@@ -16,7 +16,7 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.45.0
+            rust: 1.46.0
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -35,7 +35,7 @@ jobs:
         # that are needed during the build process. Additionally, this works
         # around a bug in the 'cache' action that causes directories outside of
         # the workspace dir to be saved/restored incorrectly.
-        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
+        run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
       - name: Cache
         uses: actions/cache@master
         with:
@@ -56,8 +56,8 @@ jobs:
           curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
           mkdir -p /opt/llvm-10
           tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
+          echo '/opt/llvm-10/bin' >> $GITHUB_PATH
+          echo 'name=LLVM_SYS_100_PREFIX=/opt/llvm-10' >> $GITHUB_ENV
       - name: Install Python
         uses: actions/setup-python@v2
         with:

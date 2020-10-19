@@ -1,105 +1,173 @@
-// This header file is for Wasmer APIs intended to be used with the standard Wasm C API.
+// The Wasmer C/C++ header file compatible with the `wasm-c-api` standard API.
+
+#if !defined(WASMER_WASM_H_MACROS)
+
+#define WASMER_WASM_H_MACROS
+
+// Define the `ARCH_X86_X64` constant.
+#if defined(MSVC) && defined(_M_AMD64)
+#  define ARCH_X86_64
+#elif (defined(GCC) || defined(__GNUC__) || defined(__clang__)) && defined(__x86_64__)
+#  define ARCH_X86_64
+#endif
+
+// Compatibility with non-Clang compilers.
+#if !defined(__has_attribute)
+#  define __has_attribute(x) 0
+#endif
+
+// Compatibility with non-Clang compilers.
+#if !defined(__has_declspec_attribute)
+#  define __has_declspec_attribute(x) 0
+#endif
+
+// Define the `DEPRECATED` macro.
+#if defined(GCC) || defined(__GNUC__) || __has_attribute(deprecated)
+#  define DEPRECATED(message) __attribute__((deprecated(message)))
+#elif defined(MSVC) || __has_declspec_attribute(deprecated)
+#  define DEPRECATED(message) __declspec(deprecated(message))
+#endif
+
+// The `jit` feature has been enabled for this build.
+#define WASMER_JIT_ENABLED
+
+// The `compiler` feature has been enabled for this build.
+#define WASMER_COMPILER_ENABLED
+
+// The `wasi` feature has been enabled for this build.
+#define WASMER_WASI_ENABLED
+
+#endif // WASMER_WASM_H_MACROS
+
+
+//
+// OK, here we go. The code below is automatically generated.
+//
+
 
 #ifndef WASMER_WASM_H
 #define WASMER_WASM_H
 
+#include <stdarg.h>
+#include <stdbool.h>
 #include <stdint.h>
+#include <stdlib.h>
 #include "wasm.h"
 
-#define own
+/**
+ * this can be a wasmer-specific type with wasmer-specific functions for manipulating it
+ */
+typedef enum {
+  CRANELIFT = 0,
+  LLVM = 1,
+  SINGLEPASS = 2,
+} wasmer_compiler_t;
 
-// In order to use WASI, we need a `wasi_env_t`, but first we need to configure it with
-// a `wasi_config_t`.
-//
-// We get a `wasi_config_t` by building it with the `wasi_config_new` function and
-// from there we can set arguments, environment variables, and standard file behavior.
-// Then we can call `wasi_env_new` with the `wasi_config_t` and get a `wasi_env_t`.
-//
-// Once we have a `wasi_env_t` we must:
-// - set it up with `wasi_env_set_memory` to expose a memory to the WASI host functions
-// - call `wasi_get_imports` to get an array of imports needed to instantiate the Wasm module.
+typedef enum {
+  JIT = 0,
+  NATIVE = 1,
+  OBJECT_FILE = 2,
+} wasmer_engine_t;
 
-// Used to build a `wasi_env_t`.
+#if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_config_t wasi_config_t;
-// This type is passed to the WASI host functions owns the data core to the
-// functioning of WASI.
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_env_t wasi_env_t;
+#endif
 
-// The version of WASI to use.
-typedef uint32_t wasi_version_t;
+#if defined(WASMER_WASI_ENABLED)
+typedef struct wasi_version_t wasi_version_t;
+#endif
 
-enum {
-  WASI_VERSION_LATEST = 0,
-  WASI_VERSION_SNAPSHOT0 = 1,
-  WASI_VERSION_SNAPSHOT1 = 2,
-  WASI_VERSION_INVALID = ~0
-};
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_arg(wasi_config_t *config, const char *arg);
+#endif
 
-// Create a `wasi_config_t`.
-//
-// Takes as an argument the name of the Wasm program to execute (will show up
-// as argv[0] to the Wasm program).
-own wasi_config_t* wasi_config_new(const char* program_name);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
+#endif
 
-// Add an argument to be passed to the Wasi program.
-void wasi_config_arg(wasi_config_t*, const char* arg);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stderr(wasi_config_t *config);
+#endif
 
-// Add an environment variable to be passed to the Wasi program.
-void wasi_config_env(wasi_config_t*, const char* key, const char* value);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stdin(wasi_config_t *config);
+#endif
 
-// Have the WASI program print directly to stdout
-void wasi_config_inherit_stdout(wasi_config_t*);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_inherit_stdout(wasi_config_t *config);
+#endif
 
-// Have the WASI program print directly to stderr
-void wasi_config_inherit_stderr(wasi_config_t*);
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_config_mapdir(wasi_config_t *config, const char *alias, const char *dir);
+#endif
 
-// Have the WASI program read directly to stdin
-//void wasi_config_inherit_stdin(wasi_config_t*);
+#if defined(WASMER_WASI_ENABLED)
+wasi_config_t *wasi_config_new(const char *program_name);
+#endif
 
-// Create a `wasi_env_t`.
-own wasi_env_t* wasi_env_new(own wasi_config_t*);
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_config_preopen_dir(wasi_config_t *config, const char *dir);
+#endif
 
-// Delete the `wasi_env_t`, used to clean up all the resources used by WASI.
-void wasi_env_delete(own wasi_env_t*);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_env_delete(wasi_env_t *_state);
+#endif
 
-// Get an array of imports that can be used to instantiate the given module.
-bool wasi_get_imports(wasm_store_t* store,
-                      const wasm_module_t* module,
-                      wasi_env_t* wasi_env,
-                      wasm_extern_t** imports);
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Takes ownership over the `wasi_config_t`.
+ */
+wasi_env_t *wasi_env_new(wasi_config_t *config);
+#endif
 
-// Set up the `wasi_env_t` so that the WASI host functions can access WASI's memory.
-// Returns whether or not it succeeded.
-bool wasi_env_set_instance(wasi_env_t*, const wasm_instance_t*);
+#if defined(WASMER_WASI_ENABLED)
+intptr_t wasi_env_read_stderr(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+#endif
 
-// Set the memory in the `wasi_env_t` so that the WASI host functions can access WASI's memory.
-// Returns whether or not it succeeded.
-void wasi_env_set_memory(wasi_env_t*, const wasm_memory_t*);
+#if defined(WASMER_WASI_ENABLED)
+intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+#endif
 
-// Read from WASI's buffered stdout if stdout has not been inherited with
-// `wasi_config_inherit_stdout`.
-size_t wasi_env_read_stdout(wasi_env_t* env,
-                            char* buffer,
-                            size_t buffer_len);
+#if defined(WASMER_WASI_ENABLED)
+bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
+#endif
 
-// Read from WASI's buffered stderr if stdout has not been inherited with
-// `wasi_config_inherit_stderr`.
-size_t wasi_env_read_stderr(wasi_env_t* env,
-                            char* buffer,
-                            size_t buffer_len);
+#if defined(WASMER_WASI_ENABLED)
+void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
+#endif
 
-// Get the version of WASI needed by the given Wasm module.
-wasi_version_t wasi_get_wasi_version(wasm_module_t*);
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Takes ownership of `wasi_env_t`.
+ */
+bool wasi_get_imports(const wasm_store_t *store,
+                      const wasm_module_t *module,
+                      const wasi_env_t *wasi_env,
+                      wasm_extern_vec_t *imports);
+#endif
 
-// Get the start function which initializes the WASI state and calls main.
-//
-// The start function takes 0 arguments and returns 0 values.
-own wasm_func_t* wasi_get_start_function(wasm_instance_t*);
+#if defined(WASMER_WASI_ENABLED)
+wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
+#endif
 
-// Delete a `wasm_extern_t` allocated by the API.
-void wasm_extern_delete(own wasm_extern_t*);
+#if defined(WASMER_WASI_ENABLED)
+wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
+#endif
 
-// TODO: figure out if we can do less duplication.
+void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
+
+void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
+
+void *wasm_instance_get_vmctx_ptr(const wasm_instance_t *instance);
+
+void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
+
+bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
+
 /**
  * Gets the length in bytes of the last error if any.
  *
@@ -108,7 +176,7 @@ void wasm_extern_delete(own wasm_extern_t*);
  *
  * See `wasmer_last_error_message()` to get a full example.
  */
-int wasmer_last_error_length();
+int wasmer_last_error_length(void);
 
 /**
  * Gets the last error message if any into the provided buffer
@@ -140,6 +208,14 @@ int wasmer_last_error_length();
  * }
  * ```
  */
-int wasmer_last_error_message(char* buffer, int length);
+int wasmer_last_error_message(char *buffer, int length);
+
+/**
+ * Parses in-memory bytes as either the WAT format, or a binary Wasm
+ * module. This is wasmer-specific.
+ *
+ * In case of failure, `wat2wasm` returns `NULL`.
+ */
+wasm_byte_vec_t *wat2wasm(const wasm_byte_vec_t *wat);
 
 #endif /* WASMER_WASM_H */

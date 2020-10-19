@@ -3,7 +3,7 @@
     missing_docs,
     trivial_numeric_casts,
     unused_extern_crates,
-    intra_doc_link_resolution_failure
+    broken_intra_doc_links
 )]
 #![warn(unused_import_braces)]
 #![cfg_attr(
@@ -70,8 +70,8 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, InstantiationError, LinkError, NamedResolver,
-    NamedResolverChain, Resolver, RuntimeError, SerializeError,
+    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, InstantiationError, LinkError,
+    NamedResolver, NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
     Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,

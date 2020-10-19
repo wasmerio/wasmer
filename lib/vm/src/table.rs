@@ -143,7 +143,7 @@ impl LinearTable {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: Mutex::new(vec),
                 maximum: table.maximum,
-                table: table.clone(),
+                table: *table,
                 style: style.clone(),
                 vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
                     base: base as _,

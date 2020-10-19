@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-workspace"
-version = "1.0.0-alpha3"
+version = "1.0.0-alpha4"
 description = "Wasmer workspace"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,18 +10,19 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "1.0.0-alpha3", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "1.0.0-alpha3", path = "lib/compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0-alpha3", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0-alpha3", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0-alpha3", path = "lib/compiler-llvm", optional = true }
-wasmer-engine = { version = "1.0.0-alpha3", path = "lib/engine" }
-wasmer-engine-jit = { version = "1.0.0-alpha3", path = "lib/engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-alpha3", path = "lib/engine-native", optional = true }
-wasmer-wasi = { version = "1.0.0-alpha3", path = "lib/wasi", optional = true }
-wasmer-wast = { version = "1.0.0-alpha3", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.0-alpha3", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.0-alpha3", path = "lib/wasmer-types" }
+wasmer = { version = "1.0.0-alpha4", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "1.0.0-alpha4", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "1.0.0-alpha4", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.0-alpha4", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.0-alpha4", path = "lib/compiler-llvm", optional = true }
+wasmer-engine = { version = "1.0.0-alpha4", path = "lib/engine" }
+wasmer-engine-jit = { version = "1.0.0-alpha4", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.0-alpha4", path = "lib/engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha4", path = "lib/engine-object-file", optional = true }
+wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
+wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
+wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
 cfg-if = "0.1"
 
 [workspace]
@@ -38,12 +39,14 @@ members = [
     "lib/engine",
     "lib/engine-jit",
     "lib/engine-native",
+    "lib/engine-object-file",
     "lib/object",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
     "lib/wasmer-types",
     "tests/lib/wast",
+    "tests/integration/cli",
 ]
 exclude = [
     "lib/deprecated",
@@ -72,6 +75,7 @@ default = [
     "wast",
     "jit",
     "native",
+    "object-file",
     "cache",
     "wasi",
     # "emscripten",
@@ -85,6 +89,10 @@ native = [
     "wasmer-engine-native",
     "engine",
 ]
+object-file = [
+    "wasmer-engine-object-file",
+    "engine",
+]
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
@@ -94,7 +102,8 @@ compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler",
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -120,13 +129,27 @@ test-llvm = [
     "llvm",
 ]
 
-# Disable trap asserts in the WAST tests. This is useful for running the tests in a
-# context where signal handling is a problem, such as tarpaulin for code coverage.
-test-no-traps = ["wasmer-wast/test-no-traps"]
+test-native = [
+    "native",
+    "test-generator/test-native",
+]
+test-jit = [
+    "jit",
+    "test-generator/test-jit",
+]
+
+# Specifies that we're running in coverage testing mode. This disables tests
+# that raise signals because that interferes with tarpaulin.
+coverage = []
 
 [[bench]]
 name = "static_and_dynamic_functions"
 harness = false
+
+[[example]]
+name = "early-exit"
+path = "examples/early_exit.rs"
+required-features = ["cranelift"]
 
 [[example]]
 name = "engine-jit"

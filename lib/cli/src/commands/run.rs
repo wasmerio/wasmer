@@ -77,14 +77,10 @@ impl Run {
             logging::set_up_logging().unwrap();
         }
         self.inner_execute().with_context(|| {
-            let compilers = CompilerType::enabled()
-                .iter()
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
             format!(
                 "failed to run `{}`{}",
                 self.path.display(),
-                if compilers.is_empty() {
+                if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {
                     ""

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-alpha3"
+version = "1.0.0-alpha4"
 description = "LLVM compiler for Wasmer WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "compiler", "llvm"]
@@ -12,9 +12,9 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha3", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha3" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha4" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4" }
 target-lexicon = { version = "0.10", default-features = false }
 smallvec = "1"
 goblin = "0.2"
