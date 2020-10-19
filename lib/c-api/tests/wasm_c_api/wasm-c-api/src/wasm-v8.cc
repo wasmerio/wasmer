@@ -229,6 +229,7 @@ DEFINE_VEC(Global, ownvec, GLOBAL)
 DEFINE_VEC(Table, ownvec, TABLE)
 DEFINE_VEC(Memory, ownvec, MEMORY)
 DEFINE_VEC(Extern, ownvec, EXTERN)
+DEFINE_VEC(Extern*, vec, EXTERN)
 DEFINE_VEC(Val, vec, VAL)
 
 #endif  // #ifdef WASM_API_DEBUG
@@ -1257,7 +1258,7 @@ auto Trap::message() const -> Message {
 
   auto message = v8::Exception::CreateMessage(isolate, impl(this)->v8_object());
   v8::String::Utf8Value string(isolate, message->Get());
-  return vec<byte_t>::make(std::string(*string));
+  return vec<byte_t>::make_nt(std::string(*string));
 }
 
 auto Trap::origin() const -> own<Frame> {
@@ -1687,7 +1688,7 @@ auto Func::result_arity() const -> size_t {
   return wasm_v8::func_type_result_arity(impl(this)->v8_object());
 }
 
-auto Func::call(const Val args[], Val results[]) const -> own<Trap> {
+auto Func::call(const vec<Val>& args, vec<Val>& results) const -> own<Trap> {
   auto func = impl(this);
   auto store = func->store();
   auto isolate = store->isolate();
@@ -1754,17 +1755,17 @@ void FuncData::v8_callback(const v8::FunctionCallbackInfo<v8::Value>& info) {
   assert(param_types.size() == info.Length());
 
   // TODO: cache params and result arrays per thread.
-  auto args = std::unique_ptr<Val[]>(new Val[param_types.size()]);
-  auto results = std::unique_ptr<Val[]>(new Val[result_types.size()]);
+  auto args = vec<Val>::make_uninitialized(param_types.size());
+  auto results = vec<Val>::make_uninitialized(result_types.size());
   for (size_t i = 0; i < param_types.size(); ++i) {
     args[i] = v8_to_val(store, info[i], param_types[i].get());
   }
 
   own<Trap> trap;
   if (self->kind == CALLBACK_WITH_ENV) {
-    trap = self->callback_with_env(self->env, args.get(), results.get());
+    trap = self->callback_with_env(self->env, args, results);
   } else {
-    trap = self->callback(args.get(), results.get());
+    trap = self->callback(args, results);
   }
 
   if (trap) {
@@ -2019,7 +2020,7 @@ auto Instance::copy() const -> own<Instance> {
 }
 
 auto Instance::make(
-  Store* store_abs, const Module* module_abs, const Extern* const imports[],
+  Store* store_abs, const Module* module_abs, const vec<Extern*>& imports,
   own<Trap>* trap
 ) -> own<Instance> {
   auto store = impl(store_abs);

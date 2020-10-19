@@ -39,7 +39,7 @@ macro_rules! mvr_test {
             #[test]
             #[cfg_attr(any(feature = "test-cranelift", feature="test-singlepass"), ignore)]
             fn native() -> anyhow::Result<()> {
-                let store = get_store();
+                let store = get_store(false);
                 let module = get_module(&store)?;
                 let instance = wasmer::Instance::new(
                     &module,
@@ -65,7 +65,7 @@ macro_rules! mvr_test {
             #[test]
             #[cfg_attr(feature="test-singlepass", ignore)]
             fn dynamic() -> anyhow::Result<()> {
-                let store = get_store();
+                let store = get_store(false);
                 let module = get_module(&store)?;
                 let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
                 let instance = wasmer::Instance::new(

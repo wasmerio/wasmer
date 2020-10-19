@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 auto neg_callback(
-  const wasm::Val args[], wasm::Val results[]
+  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   results[0] = wasm::Val(-args[0].i32());
@@ -51,8 +51,8 @@ void check(bool success) {
 auto call(
   const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2
 ) -> wasm::Val {
-  wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
-  wasm::Val results[1];
+  auto args = wasm::vec<wasm::Val>::make(std::move(arg1), std::move(arg2));
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (func->call(args, results)) {
     std::cout << "> Error on result, expected return" << std::endl;
     exit(1);
@@ -61,8 +61,8 @@ auto call(
 }
 
 void check_trap(const wasm::Func* func, wasm::Val&& arg1, wasm::Val&& arg2) {
-  wasm::Val args[2] = {std::move(arg1), std::move(arg2)};
-  wasm::Val results[1];
+  auto args = wasm::vec<wasm::Val>::make(std::move(arg1), std::move(arg2));
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (! func->call(args, results)) {
     std::cout << "> Error on result, expected trap" << std::endl;
     exit(1);
@@ -100,7 +100,8 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  auto instance = wasm::Instance::make(store, module.get(), nullptr);
+  auto imports = wasm::vec<wasm::Extern*>::make();
+  auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
     exit(1);

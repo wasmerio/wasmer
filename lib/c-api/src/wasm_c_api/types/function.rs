@@ -17,6 +17,14 @@ impl wasm_functype_t {
             unreachable!("data corruption: `wasm_functype_t` does not contain a function")
         }
     }
+
+    pub(crate) fn new(function_type: FunctionType) -> Self {
+        Self {
+            extern_: wasm_externtype_t {
+                inner: ExternType::Function(function_type),
+            },
+        }
+    }
 }
 
 wasm_declare_vec!(functype);
@@ -52,10 +60,9 @@ unsafe fn wasm_functype_new_inner(
         .map(Into::into)
         .collect::<Vec<_>>();
 
-    let extern_ = wasm_externtype_t {
-        inner: ExternType::Function(FunctionType::new(params, results)),
-    };
-    Some(Box::new(wasm_functype_t { extern_ }))
+    Some(Box::new(wasm_functype_t::new(FunctionType::new(
+        params, results,
+    ))))
 }
 
 #[no_mangle]

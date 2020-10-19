@@ -60,7 +60,7 @@ struct borrowed_vec {
 
 // Vectors
 
-#define WASM_DEFINE_VEC_BASE(name, Name, vec, ptr_or_none) \
+#define WASM_DEFINE_VEC_BASE(name, Name, vec, plainvec, ptr_or_none) \
   static_assert( \
     sizeof(wasm_##name##_vec_t) == sizeof(vec<Name>), \
     "C/C++ incompatibility" \
@@ -85,6 +85,14 @@ struct borrowed_vec {
   extern "C++" inline auto hide_##name##_vec(const vec<Name>::elem_type* v) \
   -> wasm_##name##_t ptr_or_none const* { \
     return reinterpret_cast<wasm_##name##_t ptr_or_none const*>(v); \
+  } \
+  extern "C++" inline auto reveal_##name##_vec(wasm_##name##_vec_t* v) \
+  -> plainvec<Name*>* { \
+    return reinterpret_cast<plainvec<Name*>*>(v); \
+  } \
+  extern "C++" inline auto reveal_##name##_vec(const wasm_##name##_vec_t* v) \
+  -> const plainvec<Name*>* { \
+    return reinterpret_cast<const plainvec<Name*>*>(v); \
   } \
   extern "C++" inline auto reveal_##name##_vec(wasm_##name##_t ptr_or_none* v) \
   -> vec<Name>::elem_type* { \
@@ -134,7 +142,7 @@ struct borrowed_vec {
 
 // Vectors with no ownership management of elements
 #define WASM_DEFINE_VEC_PLAIN(name, Name) \
-  WASM_DEFINE_VEC_BASE(name, Name, vec, ) \
+  WASM_DEFINE_VEC_BASE(name, Name, vec, vec, ) \
   \
   void wasm_##name##_vec_new( \
     wasm_##name##_vec_t* out, \
@@ -156,7 +164,7 @@ struct borrowed_vec {
 
 // Vectors that own their elements
 #define WASM_DEFINE_VEC_OWN(name, Name) \
-  WASM_DEFINE_VEC_BASE(name, Name, ownvec, *) \
+  WASM_DEFINE_VEC_BASE(name, Name, ownvec, vec, *) \
   \
   void wasm_##name##_vec_new( \
     wasm_##name##_vec_t* out, \
@@ -620,7 +628,7 @@ inline auto borrow_val(const wasm_val_t* v) -> borrowed_val {
 }  // extern "C++"
 
 
-WASM_DEFINE_VEC_BASE(val, Val, vec, )
+WASM_DEFINE_VEC_BASE(val, Val, vec, vec, )
 
 void wasm_val_vec_new(
   wasm_val_vec_t* out, size_t size, wasm_val_t const data[]
@@ -771,7 +779,9 @@ WASM_DEFINE_REF(func, Func)
 
 extern "C++" {
 
-auto wasm_callback(void* env, const Val args[], Val results[]) -> own<Trap> {
+auto wasm_callback(
+  void* env, const vec<Val>& args, vec<Val>& results
+) -> own<Trap> {
   auto f = reinterpret_cast<wasm_func_callback_t>(env);
   return adopt_trap(f(hide_val_vec(args), hide_val_vec(results)));
 }
@@ -783,7 +793,7 @@ struct wasm_callback_env_t {
 };
 
 auto wasm_callback_with_env(
-  void* env, const Val args[], Val results[]
+  void* env, const vec<Val>& args, vec<Val>& results
 ) -> own<Trap> {
   auto t = static_cast<wasm_callback_env_t*>(env);
   return adopt_trap(t->callback(t->env, hide_val_vec(args), hide_val_vec(results)));
@@ -826,9 +836,11 @@ size_t wasm_func_result_arity(const wasm_func_t* func) {
 }
 
 wasm_trap_t* wasm_func_call(
-  const wasm_func_t* func, const wasm_val_t args[], wasm_val_t results[]
+  const wasm_func_t* func, const wasm_val_vec_t* args, wasm_val_vec_t* results
 ) {
-  return release_trap(func->call(reveal_val_vec(args), reveal_val_vec(results)));
+  auto args_ = borrow_val_vec(args);
+  auto results_ = borrow_val_vec(results);
+  return release_trap(func->call(args_.it, results_.it));
 }
 
 
@@ -995,12 +1007,13 @@ WASM_DEFINE_REF(instance, Instance)
 wasm_instance_t* wasm_instance_new(
   wasm_store_t* store,
   const wasm_module_t* module,
-  const wasm_extern_t* const imports[],
+  const wasm_extern_vec_t* imports,
   wasm_trap_t** trap
 ) {
   own<Trap> error;
-  auto instance = release_instance(Instance::make(store, module,
-    reinterpret_cast<const Extern* const*>(imports), &error));
+  auto imports_ = reveal_extern_vec(imports);
+  auto instance =
+    release_instance(Instance::make(store, module, *imports_, &error));
   if (trap) *trap = hide_trap(error.release());
   return instance;
 }
