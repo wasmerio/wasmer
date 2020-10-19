@@ -115,7 +115,7 @@ fn run_c_compile(
 
 #[test]
 fn object_file_engine_works() -> anyhow::Result<()> {
-    let temp_dir = tempfile::tempdir()?;
+    let temp_dir = tempfile::tempdir().context("Making a temp dir")?;
     let operating_dir: PathBuf = temp_dir.path().to_owned();
 
     let wasm_path = operating_dir.join(object_file_engine_test_wasm_path());

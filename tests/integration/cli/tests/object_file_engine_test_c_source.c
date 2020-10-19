@@ -60,7 +60,6 @@ int main() {
 
   wasm_extern_vec_t imports;
   wasm_extern_vec_new_uninitialized(&imports, import_types.size);
-
   wasm_importtype_vec_delete(&import_types);
         
   bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
@@ -79,7 +78,7 @@ int main() {
     return -1;
   }
   wasi_env_set_instance(wasi_env, instance);
-        
+
   // WASI is now set up.
   own wasm_func_t* start_function = wasi_get_start_function(instance);
   if (!start_function) {
@@ -89,13 +88,15 @@ int main() {
   }
 
   fflush(stdout);
-  own wasm_trap_t* trap = wasm_func_call(start_function, NULL, NULL);
+
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  own wasm_trap_t* trap = wasm_func_call(start_function, &args, &results);
   if (trap) {
     fprintf(stderr, "Trap is not NULL: TODO:\n");
     return -1;
   }
 
-  wasm_extern_vec_delete(&imports);
   wasm_instance_delete(instance);
   wasm_module_delete(module);
   wasm_store_delete(store);

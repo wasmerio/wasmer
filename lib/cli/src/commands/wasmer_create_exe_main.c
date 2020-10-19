@@ -171,7 +171,10 @@ int main(int argc, char* argv[]) {
     print_wasmer_error();
     return -1;
   }
-  own wasm_trap_t* trap = wasm_func_call(start_function, NULL, NULL);
+
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  own wasm_trap_t* trap = wasm_func_call(start_function, &args, &results);
   if (trap) {
     fprintf(stderr, "Trap is not NULL: TODO:\n");
     return -1;
