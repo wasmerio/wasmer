@@ -9,6 +9,7 @@
 
 ### Added
 
+- [#1736](https://github.com/wasmerio/wasmer/pull/1736) Implement `wasm_global_type` in the Wasm C API.
 - [#1699](https://github.com/wasmerio/wasmer/pull/1699) Update `wasm.h` to its latest version.
 - [#1685](https://github.com/wasmerio/wasmer/pull/1685) Implement `wasm_exporttype_delete` in the Wasm C API.
 - [#1725](https://github.com/wasmerio/wasmer/pull/1725) Implement `wasm_func_type` in the Wasm C API.

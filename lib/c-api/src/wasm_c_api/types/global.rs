@@ -20,6 +20,14 @@ impl wasm_globaltype_t {
             );
         }
     }
+
+    pub(crate) fn new(global_type: GlobalType) -> Self {
+        Self {
+            extern_: wasm_externtype_t {
+                inner: ExternType::Global(global_type),
+            },
+        }
+    }
 }
 
 wasm_declare_vec!(globaltype);
@@ -42,11 +50,10 @@ unsafe fn wasm_globaltype_new_inner(
     mutability: wasm_mutability_t,
 ) -> Option<Box<wasm_globaltype_t>> {
     let me: wasm_mutability_enum = mutability.try_into().ok()?;
-    let gd = Box::new(wasm_globaltype_t {
-        extern_: wasm_externtype_t {
-            inner: ExternType::Global(GlobalType::new((*valtype).into(), me.into())),
-        },
-    });
+    let gd = Box::new(wasm_globaltype_t::new(GlobalType::new(
+        (*valtype).into(),
+        me.into(),
+    )));
     wasm_valtype_delete(Some(valtype));
 
     Some(gd)
