@@ -23,6 +23,8 @@ pub struct wasm_val_t {
     pub of: wasm_val_inner,
 }
 
+wasm_declare_vec!(val);
+
 impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
         wasm_val_t {

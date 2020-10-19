@@ -35,7 +35,7 @@ auto operator<<(std::ostream& out, const wasm::Val& val) -> std::ostream& {
 
 // A function to be called from Wasm code.
 auto print_callback(
-  const wasm::Val args[], wasm::Val results[]
+  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl << "> " << args[0] << std::endl;
   results[0] = args[0].copy();
@@ -45,7 +45,7 @@ auto print_callback(
 
 // A function closure.
 auto closure_callback(
-  void* env, const wasm::Val args[], wasm::Val results[]
+  void* env, const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   auto i = *reinterpret_cast<int*>(env);
   std::cout << "Calling back closure..." << std::endl;
@@ -103,7 +103,8 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  wasm::Extern* imports[] = {print_func.get(), closure_func.get()};
+  auto imports = wasm::vec<wasm::Extern*>::make(
+    print_func.get(), closure_func.get());
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -121,8 +122,8 @@ void run() {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  wasm::Val args[] = {wasm::Val::i32(3), wasm::Val::i32(4)};
-  wasm::Val results[1];
+  auto args = wasm::vec<wasm::Val>::make(wasm::Val::i32(3), wasm::Val::i32(4));
+  auto results = wasm::vec<wasm::Val>::make_uninitialized(1);
   if (run_func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
