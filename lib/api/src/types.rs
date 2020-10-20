@@ -78,7 +78,7 @@ impl ValFuncRef for Val {
             // are converted to use the trampolines with static signatures).
             kind: wasmer_vm::VMFunctionKind::Static,
             vmctx: item.vmctx,
-            trampoline: None,
+            call_trampoline: None,
         };
         let f = Function::from_export(store, export);
         Self::FuncRef(f)

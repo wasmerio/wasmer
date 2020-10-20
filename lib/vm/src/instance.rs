@@ -301,7 +301,7 @@ impl Instance {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
                 };
-                let trampoline = Some(self.function_call_trampolines[*sig_index]);
+                let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
@@ -312,7 +312,7 @@ impl Instance {
                     kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
-                    trampoline,
+                    call_trampoline,
                 }
                 .into()
             }

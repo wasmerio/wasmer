@@ -95,7 +95,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
-                trampoline: None,
+                call_trampoline: None,
             },
         }
     }
@@ -145,7 +145,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
-                trampoline: None,
+                call_trampoline: None,
             },
         }
     }
@@ -187,7 +187,7 @@ impl Function {
                 vmctx,
                 signature,
                 kind: VMFunctionKind::Static,
-                trampoline: None,
+                call_trampoline: None,
             },
         }
     }
@@ -241,7 +241,7 @@ impl Function {
                 kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
-                trampoline: None,
+                call_trampoline: None,
             },
         }
     }
@@ -355,7 +355,7 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        if let Some(trampoline) = wasmer_export.trampoline {
+        if let Some(trampoline) = wasmer_export.call_trampoline {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),

@@ -69,7 +69,7 @@ where
             vmctx: other.vmctx,
             signature,
             kind: other.arg_kind,
-            trampoline: None,
+            call_trampoline: None,
         }
     }
 }
@@ -89,7 +89,7 @@ where
                 vmctx: other.vmctx,
                 signature,
                 kind: other.arg_kind,
-                trampoline: None,
+                call_trampoline: None,
             },
         }
     }
