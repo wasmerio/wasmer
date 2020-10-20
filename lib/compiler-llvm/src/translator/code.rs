@@ -1,5 +1,5 @@
 use super::{
-    abi,
+    abi::{Abi, X86_64SystemV},
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
@@ -57,6 +57,7 @@ fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
 pub struct FuncTranslator {
     ctx: Context,
     target_machine: TargetMachine,
+    abi: Box<dyn Abi>,
 }
 
 impl FuncTranslator {
@@ -64,6 +65,7 @@ impl FuncTranslator {
         Self {
             ctx: Context::create(),
             target_machine,
+            abi: Box::new(X86_64SystemV {}),
         }
     }
 
@@ -99,7 +101,9 @@ impl FuncTranslator {
             .unwrap();
 
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
-        let (func_type, func_attrs) = abi::func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
+        let (func_type, func_attrs) =
+            self.abi
+                .func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in &func_attrs {
@@ -203,7 +207,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder),
+            ctx: CtxType::new(wasm_module, &func, &cache_builder, &self.abi),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -211,6 +215,7 @@ impl FuncTranslator {
             module_translation,
             wasm_module,
             symbol_registry,
+            abi: &self.abi,
         };
         fcg.ctx.add_func(
             func_index,
@@ -1171,7 +1176,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             .map(|(v, i)| self.apply_pending_canonicalization(v, i));
         if wasm_fn_type.results().is_empty() {
             self.builder.build_return(None);
-        } else if abi::is_sret(wasm_fn_type)? {
+        } else if self.abi.is_sret(wasm_fn_type)? {
             let sret = self
                 .function
                 .get_first_param()
@@ -1198,7 +1203,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             self.builder.build_return(None);
         } else {
             self.builder
-                .build_return(Some(&abi::pack_values_for_register_return(
+                .build_return(Some(&self.abi.pack_values_for_register_return(
                     &self.intrinsics,
                     &self.builder,
                     &results.collect::<Vec<_>>(),
@@ -1318,6 +1323,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
+    abi: &'a Box<dyn Abi>,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
@@ -2138,7 +2144,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             _ => *v,
                         });
 
-                let params = abi::args_to_call(
+                let params = self.abi.args_to_call(
                     &self.alloca_builder,
                     func_type,
                     callee_vmctx.into_pointer_value(),
@@ -2186,7 +2192,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                self.abi
+                    .rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
                     .iter()
                     .for_each(|ret| self.state.push1(*ret));
             }
@@ -2357,7 +2364,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.position_at_end(continue_block);
 
                 let (llvm_func_type, llvm_func_attrs) =
-                    abi::func_type_to_llvm(&self.context, &self.intrinsics, func_type)?;
+                    self.abi
+                        .func_type_to_llvm(&self.context, &self.intrinsics, func_type)?;
 
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 
@@ -2381,7 +2389,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                             _ => *v,
                         });
 
-                let params = abi::args_to_call(
+                let params = self.abi.args_to_call(
                     &self.alloca_builder,
                     func_type,
                     ctx_ptr.into_pointer_value(),
@@ -2436,7 +2444,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
                 */
 
-                abi::rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
+                self.abi
+                    .rets_from_call(&self.builder, &self.intrinsics, call_site, func_type)
                     .iter()
                     .for_each(|ret| self.state.push1(*ret));
             }

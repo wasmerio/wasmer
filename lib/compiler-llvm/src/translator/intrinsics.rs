@@ -4,7 +4,7 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
-use super::abi;
+use super::abi::Abi;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,
@@ -536,6 +536,7 @@ pub struct CtxType<'ctx, 'a> {
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
+    abi: &'a Box<dyn Abi>,
 
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
@@ -553,12 +554,14 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         wasm_module: &'a WasmerCompilerModule,
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
+        abi: &'a Box<dyn Abi>,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
-            ctx_ptr_value: abi::get_vmctx_ptr_param(func_value),
+            ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
 
             wasm_module,
             cache_builder,
+            abi,
 
             cached_memories: HashMap::new(),
             cached_tables: HashMap::new(),
@@ -937,7 +940,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Vacant(entry) => {
                 debug_assert!(module.get_function(function_name).is_none());
                 let (llvm_func_type, llvm_func_attrs) =
-                    abi::func_type_to_llvm(context, intrinsics, func_type)?;
+                    self.abi.func_type_to_llvm(context, intrinsics, func_type)?;
                 let func =
                     module.add_function(function_name, llvm_func_type, Some(Linkage::External));
                 for (attr, attr_loc) in &llvm_func_attrs {
@@ -970,7 +973,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             Entry::Occupied(entry) => entry.into_mut(),
             Entry::Vacant(entry) => {
                 let (llvm_func_type, llvm_func_attrs) =
-                    abi::func_type_to_llvm(context, intrinsics, func_type)?;
+                    self.abi.func_type_to_llvm(context, intrinsics, func_type)?;
                 debug_assert!(wasm_module.local_func_index(function_index).is_none());
                 let offset = offsets.vmctx_vmfunction_import(function_index);
                 let offset = intrinsics.i32_ty.const_int(offset.into(), false);
