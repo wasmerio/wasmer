@@ -1,6 +1,6 @@
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
-use crate::translator::abi::{Abi, X86_64SystemV};
+use crate::translator::abi::{get_abi, Abi};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
@@ -27,10 +27,11 @@ const FUNCTION_SECTION: &str = "__TEXT,wasmer_trmpl"; // Needs to be between 1 a
 
 impl FuncTrampoline {
     pub fn new(target_machine: TargetMachine) -> Self {
+        let abi = get_abi(&target_machine);
         Self {
             ctx: Context::create(),
             target_machine,
-            abi: Box::new(X86_64SystemV {}),
+            abi,
         }
     }
 

@@ -1,5 +1,5 @@
 use super::{
-    abi::{Abi, X86_64SystemV},
+    abi::{get_abi, Abi},
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
@@ -62,10 +62,11 @@ pub struct FuncTranslator {
 
 impl FuncTranslator {
     pub fn new(target_machine: TargetMachine) -> Self {
+        let abi = get_abi(&target_machine);
         Self {
             ctx: Context::create(),
             target_machine,
-            abi: Box::new(X86_64SystemV {}),
+            abi,
         }
     }
 
@@ -207,7 +208,7 @@ impl FuncTranslator {
             state,
             function: func,
             locals: params_locals,
-            ctx: CtxType::new(wasm_module, &func, &cache_builder, &self.abi),
+            ctx: CtxType::new(wasm_module, &func, &cache_builder, &*self.abi),
             unreachable_depth: 0,
             memory_styles,
             _table_styles,
@@ -215,7 +216,7 @@ impl FuncTranslator {
             module_translation,
             wasm_module,
             symbol_registry,
-            abi: &self.abi,
+            abi: &*self.abi,
         };
         fcg.ctx.add_func(
             func_index,
@@ -1323,7 +1324,7 @@ pub struct LLVMFunctionCodeGenerator<'ctx, 'a> {
     module_translation: &'a ModuleTranslationState,
     wasm_module: &'a ModuleInfo,
     symbol_registry: &'a dyn SymbolRegistry,
-    abi: &'a Box<dyn Abi>,
+    abi: &'a dyn Abi,
 }
 
 impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {

@@ -536,7 +536,7 @@ pub struct CtxType<'ctx, 'a> {
 
     wasm_module: &'a WasmerCompilerModule,
     cache_builder: &'a Builder<'ctx>,
-    abi: &'a Box<dyn Abi>,
+    abi: &'a dyn Abi,
 
     cached_memories: HashMap<MemoryIndex, MemoryCache<'ctx>>,
     cached_tables: HashMap<TableIndex, TableCache<'ctx>>,
@@ -554,7 +554,7 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         wasm_module: &'a WasmerCompilerModule,
         func_value: &FunctionValue<'ctx>,
         cache_builder: &'a Builder<'ctx>,
-        abi: &'a Box<dyn Abi>,
+        abi: &'a dyn Abi,
     ) -> CtxType<'ctx, 'a> {
         CtxType {
             ctx_ptr_value: abi.get_vmctx_ptr_param(func_value),
