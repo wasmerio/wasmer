@@ -25,16 +25,16 @@ pub unsafe extern "C" fn wasm_memory_delete(_memory: Option<Box<wasm_memory_t>>)
 
 // TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_copy(wasm_memory: &wasm_memory_t) -> Box<wasm_memory_t> {
+pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_memory_t> {
     // do shallow copy
     Box::new(wasm_memory_t {
-        inner: wasm_memory.inner.clone(),
+        inner: memory.inner.clone(),
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_type(_memory_ptr: &wasm_memory_t) -> *mut wasm_memorytype_t {
-    todo!("wasm_memory_type")
+pub unsafe extern "C" fn wasm_memory_type(memory: &wasm_memory_t) -> Box<wasm_memorytype_t> {
+    Box::new(wasm_memorytype_t::new(memory.inner.ty().clone()))
 }
 
 // get a raw pointer into bytes
