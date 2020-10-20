@@ -108,6 +108,18 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
     #[derive(Clone)]
     struct Env(Rc<RefCell<i32>>);
 
+    impl std::ops::Deref for Env {
+        type Target = Rc<RefCell<i32>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl WasmerEnv for Env {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
+
     // Native static host function that returns a tuple.
     {
         let env = Env(Rc::new(RefCell::new(100)));
@@ -174,6 +186,18 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
 
     #[derive(Clone)]
     struct Env(Rc<RefCell<i32>>);
+
+    impl std::ops::Deref for Env {
+        type Target = Rc<RefCell<i32>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl WasmerEnv for Env {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
 
     let env = Env(Rc::new(RefCell::new(100)));
     let f = Function::new_with_env(

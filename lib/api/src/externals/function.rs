@@ -126,7 +126,7 @@ impl Function {
     pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized + crate::WasmerPostInstantiate + 'static,
+        Env: Sized + crate::WasmerEnv + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: RefCell::new(env),
@@ -230,7 +230,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized + crate::WasmerPostInstantiate + 'static,
+        Env: Sized + crate::WasmerEnv + 'static,
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();

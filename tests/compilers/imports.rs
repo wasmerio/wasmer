@@ -86,7 +86,22 @@ fn dynamic_function_with_env() -> Result<()> {
     let store = get_store(false);
     let module = get_module(&store)?;
 
-    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    #[derive(Clone)]
+    struct Env(Arc<AtomicUsize>);
+
+    impl std::ops::Deref for Env {
+        type Target = Arc<AtomicUsize>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl WasmerEnv for Env {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
+
+    let env: Env = Env(Arc::new(AtomicUsize::new(0)));
     Instance::new(
         &module,
         &imports! {
@@ -203,25 +218,40 @@ fn static_function_with_env() -> Result<()> {
     let store = get_store(false);
     let module = get_module(&store)?;
 
-    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    #[derive(Clone)]
+    struct Env(Arc<AtomicUsize>);
+
+    impl std::ops::Deref for Env {
+        type Target = Arc<AtomicUsize>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    impl WasmerEnv for Env {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
+
+    let env: Env = Env(Arc::new(AtomicUsize::new(0)));
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>| {
+                "0" => Function::new_native_with_env(&store, env.clone(), |env: &mut Env| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                 }),
-                "1" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32| -> i32 {
+                "1" => Function::new_native_with_env(&store, env.clone(), |env: &mut Env, x: i32| -> i32 {
                     assert_eq!(x, 0);
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     1
                 }),
-                "2" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32, y: i64| {
+                "2" => Function::new_native_with_env(&store, env.clone(), |env: &mut Env, x: i32, y: i64| {
                     assert_eq!(x, 2);
                     assert_eq!(y, 3);
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                 }),
-                "3" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, a: i32, b: i64, c: i32, d: f32, e: f64| {
+                "3" => Function::new_native_with_env(&store, env.clone(), |env: &mut Env, a: i32, b: i64, c: i32, d: f32, e: f64| {
                     assert_eq!(a, 100);
                     assert_eq!(b, 200);
                     assert_eq!(c, 300);

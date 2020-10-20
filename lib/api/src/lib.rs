@@ -124,7 +124,7 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 // TODO: rename everything, all names are throw-away names
 
 /// Prototype trait for finishing envs.
-pub trait WasmerPostInstantiate {
+pub trait WasmerEnv {
     /// The function that Wasmer will call on your type to let it finish
     /// instantiating.
     fn finish(&mut self, instance: &Instance);

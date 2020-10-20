@@ -54,7 +54,7 @@ pub struct WasiEnv {
     memory: *mut Memory,
 }
 
-impl wasmer::WasmerPostInstantiate for WasiEnv {
+impl wasmer::WasmerEnv for WasiEnv {
     fn finish(&mut self, instance: &wasmer::Instance) {
         dbg!("in Wasi::Finish");
         let memory = instance.exports.get_memory("memory").unwrap();
