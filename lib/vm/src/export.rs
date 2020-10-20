@@ -30,7 +30,9 @@ pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
-    pub vmctx: *mut VMContext,
+    pub vmctx: crate::vmcontext::FunctionExtraData,
+    /// temp code to set vmctx for host functions
+    pub function_ptr: usize,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)

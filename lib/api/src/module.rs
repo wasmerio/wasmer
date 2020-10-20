@@ -261,9 +261,18 @@ impl Module {
     pub(crate) fn instantiate(
         &self,
         resolver: &dyn Resolver,
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<
+        (
+            InstanceHandle,
+            Vec<(
+                fn(*mut std::ffi::c_void, *const std::ffi::c_void),
+                *mut std::ffi::c_void,
+            )>,
+        ),
+        InstantiationError,
+    > {
         unsafe {
-            let instance_handle =
+            let (instance_handle, thunks) =
                 self.artifact
                     .instantiate(self.store.tunables(), resolver, Box::new(()))?;
 
@@ -274,7 +283,7 @@ impl Module {
             // instance tables.
             self.artifact.finish_instantiation(&instance_handle)?;
 
-            Ok(instance_handle)
+            Ok((instance_handle, thunks))
         }
     }
 

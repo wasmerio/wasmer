@@ -11,8 +11,8 @@ use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
-    VMTrampoline,
+    FunctionExtraData, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -85,7 +85,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = FunctionExtraData {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -94,6 +96,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
+                function_ptr: 0,
                 signature: ty.clone(),
             },
         }
@@ -134,7 +137,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = FunctionExtraData {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -143,6 +148,8 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
+                // TODO:
+                function_ptr: 0,
                 signature: ty.clone(),
             },
         }
@@ -174,7 +181,9 @@ impl Function {
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
+        let vmctx = FunctionExtraData {
+            host_env: std::ptr::null_mut() as *mut _,
+        };
         let signature = function.ty();
 
         Self {
@@ -184,6 +193,8 @@ impl Function {
                 address,
                 vmctx,
                 signature,
+                // TODO:
+                function_ptr: 0,
                 kind: VMFunctionKind::Static,
             },
         }
@@ -216,7 +227,7 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized + 'static,
+        Env: Sized + crate::WasmerPostInstantiate + 'static,
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
@@ -227,7 +238,11 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let vmctx = FunctionExtraData {
+            host_env: Box::into_raw(box_env) as *mut _,
+        };
+        let function_ptr = Env::finish as usize;
+        dbg!(function_ptr);
         let signature = function.ty();
 
         Self {
@@ -237,6 +252,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Static,
                 vmctx,
+                function_ptr,
                 signature,
             },
         }

@@ -56,7 +56,9 @@ impl ValFuncRef for Val {
             Self::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                vmctx: ptr::null_mut(),
+                vmctx: wasmer_vm::FunctionExtraData {
+                    host_env: ptr::null_mut(),
+                },
             },
             Self::FuncRef(f) => f.checked_anyfunc(),
             _ => return Err(RuntimeError::new("val is not funcref")),
@@ -74,6 +76,8 @@ impl ValFuncRef for Val {
         let export = wasmer_vm::ExportFunction {
             address: item.func_ptr,
             signature,
+            // TODO:
+            function_ptr: 0,
             // All functions in tables are already Static (as dynamic functions
             // are converted to use the trampolines with static signatures).
             kind: wasmer_vm::VMFunctionKind::Static,

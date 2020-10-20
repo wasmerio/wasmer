@@ -73,7 +73,7 @@ impl Instance {
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
 
-        let handle = module.instantiate(resolver)?;
+        let (handle, thunks) = module.instantiate(resolver)?;
 
         let exports = module
             .exports()
@@ -85,11 +85,20 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        Ok(Self {
+        let instance = Self {
             handle,
             module: module.clone(),
             exports,
-        })
+        };
+
+        for (func, env) in thunks.iter() {
+            dbg!(func, env);
+            unsafe {
+                func(*env, (&instance) as *const _ as *const _);
+            }
+        }
+
+        Ok(instance)
     }
 
     /// Gets the [`Module`] associated with this instance.

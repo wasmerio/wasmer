@@ -51,7 +51,25 @@ pub enum WasiError {
 #[derive(Debug, Clone)]
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
-    memory: Arc<WasiMemory>,
+    memory: *mut Memory,
+}
+
+impl wasmer::WasmerPostInstantiate for WasiEnv {
+    fn finish(&mut self, instance: &wasmer::Instance) {
+        dbg!("in Wasi::Finish");
+        let memory = instance.exports.get_memory("memory").unwrap();
+        unsafe {
+            let heap_ptr = Box::into_raw(Box::new(memory.clone()));
+            self.memory = heap_ptr;
+        }
+    }
+
+    fn free(&mut self) {
+        unsafe {
+            Box::from_raw(self.memory);
+            self.memory = std::ptr::null_mut();
+        }
+    }
 }
 
 /// Wrapper type around `Memory` used to delay initialization of the memory.
@@ -140,7 +158,7 @@ impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
-            memory: Arc::new(WasiMemory::new()),
+            memory: std::ptr::null_mut(),
         }
     }
 
@@ -154,9 +172,9 @@ impl WasiEnv {
     }
 
     /// Set the memory
-    pub fn set_memory(&mut self, memory: Memory) -> bool {
+    /*pub fn set_memory(&mut self, memory: Memory) -> bool {
         self.memory.set_memory(memory)
-    }
+    }*/
 
     /// Get the WASI state
     pub fn state(&self) -> MutexGuard<WasiState> {
@@ -170,7 +188,8 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory.get_memory().expect("The expected Memory is not attached to the `WasiEnv`. Did you forgot to call wasi_env.set_memory(...)?")
+        dbg!("Getting memory", &self.memory);
+        unsafe { &*self.memory }
     }
 
     pub(crate) fn get_memory_and_wasi_state(

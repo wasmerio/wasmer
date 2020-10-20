@@ -58,7 +58,7 @@ impl Wasi {
         let import_object = wasi_env.import_object(&module)?;
         let instance = Instance::new(&module, &import_object)?;
 
-        wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
+        //wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
 
         let start = instance.exports.get_function("_start")?;
         let result = start.call(&[]);

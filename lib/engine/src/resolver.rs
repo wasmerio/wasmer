@@ -167,7 +167,9 @@ pub fn resolve_imports(
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    vmctx: f.vmctx,
+                    extra_data: f.vmctx,
+                    // TODO:
+                    function_ptr: f.function_ptr,
                 });
             }
             Export::Table(ref t) => {

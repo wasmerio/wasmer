@@ -118,3 +118,17 @@ pub use wasmer_engine_native::{Native, NativeArtifact, NativeEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
+
+// --------------------------------------------------------------
+// TODO: put this in a proper location, just prototyping for now:
+// TODO: rename everything, all names are throw-away names
+
+/// Prototype trait for finishing envs.
+pub trait WasmerPostInstantiate {
+    /// The function that Wasmer will call on your type to let it finish
+    /// instantiating.
+    fn finish(&mut self, instance: &Instance);
+
+    /// Frees memory written to `self` so it can be dropped without any memory leaks.
+    fn free(&mut self);
+}

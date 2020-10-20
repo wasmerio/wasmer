@@ -291,13 +291,19 @@ impl Instance {
         match export {
             ExportIndex::Function(index) => {
                 let sig_index = &self.module.functions[*index];
-                let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
-                {
-                    (self.functions[def_index].0 as *const _, self.vmctx_ptr())
-                } else {
-                    let import = self.imported_function(*index);
-                    (import.body, import.vmctx)
-                };
+                let (address, vmctx, function_ptr) =
+                    if let Some(def_index) = self.module.local_func_index(*index) {
+                        (
+                            self.functions[def_index].0 as *const _,
+                            crate::vmcontext::FunctionExtraData {
+                                vmctx: self.vmctx_ptr(),
+                            },
+                            0,
+                        )
+                    } else {
+                        let import = self.imported_function(*index);
+                        (import.body, import.extra_data, import.function_ptr)
+                    };
                 let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
@@ -308,6 +314,7 @@ impl Instance {
                     kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
+                    function_ptr,
                 }
                 .into()
             }
@@ -365,28 +372,34 @@ impl Instance {
             None => return Ok(()),
         };
 
-        let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
+        let (callee_address, callee_extra_data) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
                 let body = self
                     .functions
                     .get(local_index)
                     .expect("function index is out of bounds")
                     .0;
-                (body as *const _, self.vmctx_ptr())
+                (
+                    body as *const _,
+                    crate::FunctionExtraData {
+                        vmctx: self.vmctx_ptr(),
+                    },
+                )
             }
             None => {
                 assert_lt!(start_index.index(), self.module.num_imported_functions);
                 let import = self.imported_function(start_index);
-                (import.body, import.vmctx)
+                (import.body, import.extra_data)
             }
         };
 
         // Make the call.
         unsafe {
-            catch_traps(callee_vmctx, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
-                    callee_address,
-                )(callee_vmctx)
+            catch_traps(callee_extra_data, || {
+                mem::transmute::<
+                    *const VMFunctionBody,
+                    unsafe extern "C" fn(crate::FunctionExtraData),
+                >(callee_address)(callee_extra_data)
             })
         }
     }
@@ -556,10 +569,15 @@ impl Instance {
         let type_index = self.signature_id(sig);
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+            (
+                self.functions[def_index].0 as *const _,
+                crate::FunctionExtraData {
+                    vmctx: self.vmctx_ptr(),
+                },
+            )
         } else {
             let import = self.imported_function(index);
-            (import.body, import.vmctx)
+            (import.body, import.extra_data)
         };
         VMCallerCheckedAnyfunc {
             func_ptr,

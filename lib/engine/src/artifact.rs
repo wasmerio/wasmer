@@ -86,7 +86,16 @@ pub trait Artifact: Send + Sync + Upcastable {
         tunables: &dyn Tunables,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
-    ) -> Result<InstanceHandle, InstantiationError> {
+    ) -> Result<
+        (
+            InstanceHandle,
+            Vec<(
+                fn(*mut std::ffi::c_void, *const std::ffi::c_void),
+                *mut std::ffi::c_void,
+            )>,
+        ),
+        InstantiationError,
+    > {
         self.preinstantiate()?;
 
         let module = self.module();
@@ -98,6 +107,19 @@ pub trait Artifact: Send + Sync + Upcastable {
             self.table_styles(),
         )
         .map_err(InstantiationError::Link)?;
+
+        let mut thunks = vec![];
+        // ------------
+        for func in imports.functions.values() {
+            unsafe {
+                let finish: fn(*mut std::ffi::c_void, instance: *const std::ffi::c_void) =
+                    std::mem::transmute(func.function_ptr);
+                dbg!(func.extra_data.host_env);
+                thunks.push((finish, func.extra_data.host_env));
+            }
+        }
+        // ------------
+
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles())
             .map_err(InstantiationError::Link)?
@@ -113,7 +135,7 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         self.register_frame_info();
 
-        InstanceHandle::new(
+        let handle = InstanceHandle::new(
             module,
             self.finished_functions().clone(),
             finished_memories,
@@ -123,7 +145,8 @@ pub trait Artifact: Send + Sync + Upcastable {
             self.signatures().clone(),
             host_state,
         )
-        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+        .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
+        Ok((handle, thunks))
     }
 
     /// Finishes the instantiation of a just created `InstanceHandle`.
