@@ -2340,10 +2340,11 @@ pub fn poll_oneoff(
         let mut in_events = vec![];
         let mut total_ns_slept = 0;
 
+        let mut shortest_timeout_ms: i32 = 1000;
+
         for sub in subscription_array.iter() {
             let s: WasiSubscription = wasi_try!(sub.get().try_into());
             let mut peb = PollEventBuilder::new();
-            let mut ns_to_sleep = 0;
 
             let fd = match s.event_type {
                 EventType::Read(__wasi_subscription_fs_readwrite_t { fd }) => {
@@ -2375,9 +2376,10 @@ pub fn poll_oneoff(
                 }
                 EventType::Clock(clock_info) => {
                     if clock_info.clock_id == __WASI_CLOCK_REALTIME {
-                        // this is a hack
-                        // TODO: do this properly
-                        ns_to_sleep = clock_info.timeout;
+                        let sleep_ms = clock_info.timeout / 1000000;
+                        if sleep_ms < shortest_timeout_ms as _ {
+                            shortest_timeout_ms = sleep_ms as _;
+                        }
                         clock_subs.push(clock_info);
                         None
                     } else {
@@ -2429,16 +2431,7 @@ pub fn poll_oneoff(
                 };
                 fds.push(wasi_file_ref);
             } else {
-                // Unconditionally sleeping here for the max time period makes things slow. Maybe
-                // refactor the entire `poll_oneoff` function to use WASIO?
-                /*
-                let remaining_ns = ns_to_sleep as i64 - total_ns_slept as i64;
-                if remaining_ns > 0 {
-                    debug!("Sleeping for {} nanoseconds", remaining_ns);
-                    let duration = std::time::Duration::from_nanos(remaining_ns as u64);
-                    std::thread::sleep(duration);
-                    total_ns_slept += remaining_ns;
-                }*/
+                // Timer. Already handled.
             }
         }
         let mut seen_events = vec![Default::default(); in_events.len()];
@@ -2447,7 +2440,8 @@ pub fn poll_oneoff(
         wasi_try!(poll(
             fds.as_slice(),
             in_events.as_slice(),
-            seen_events.as_mut_slice()
+            seen_events.as_mut_slice(),
+            shortest_timeout_ms
         )
         .map_err(|e| e.into_wasi_err()));
 

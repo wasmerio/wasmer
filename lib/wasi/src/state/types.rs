@@ -375,6 +375,7 @@ pub(crate) fn poll(
     selfs: &[&dyn WasiFile],
     events: &[PollEventSet],
     seen_events: &mut [PollEventSet],
+    timeout_ms: i32,
 ) -> Result<u32, WasiFsError> {
     if !(selfs.len() == events.len() && events.len() == seen_events.len()) {
         return Err(WasiFsError::InvalidInput);
@@ -389,7 +390,7 @@ pub(crate) fn poll(
             revents: 0,
         })
         .collect::<Vec<_>>();
-    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, 1) };
+    let result = unsafe { libc::poll(fds.as_mut_ptr(), selfs.len() as _, timeout_ms) };
 
     if result < 0 {
         // TODO: check errno and return value
@@ -408,6 +409,7 @@ pub(crate) fn poll(
     _selfs: &[&dyn WasiFile],
     _events: &[PollEventSet],
     _seen_events: &mut [PollEventSet],
+    _timeout_ms: i32,
 ) -> Result<(), WasiFsError> {
     unimplemented!("HostFile::poll in WasiFile is not implemented for non-Unix-like targets yet");
 }
