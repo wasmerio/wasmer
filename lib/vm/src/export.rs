@@ -37,7 +37,7 @@ pub struct ExportFunction {
     pub kind: VMFunctionKind,
     /// Address of the function call trampoline owned by the same VMContext that owns the VMFunctionBody.
     /// May be None when the function is an host-function (FunctionType == Dynamic or vmctx == nullptr).
-    pub trampoline: Option<VMTrampoline>,
+    pub call_trampoline: Option<VMTrampoline>,
 }
 
 /// # Safety
