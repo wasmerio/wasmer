@@ -18,6 +18,14 @@ impl wasm_memorytype_t {
             );
         }
     }
+
+    pub(crate) fn new(memory_type: MemoryType) -> Self {
+        Self {
+            extern_: wasm_externtype_t {
+                inner: ExternType::Memory(memory_type),
+            },
+        }
+    }
 }
 
 wasm_declare_vec!(memorytype);
@@ -42,11 +50,9 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
         Some(Pages(limits.max as _))
     };
 
-    Box::new(wasm_memorytype_t {
-        extern_: wasm_externtype_t {
-            inner: ExternType::Memory(MemoryType::new(min_pages, max_pages, false)),
-        },
-    })
+    Box::new(wasm_memorytype_t::new(MemoryType::new(
+        min_pages, max_pages, false,
+    )))
 }
 
 #[no_mangle]
