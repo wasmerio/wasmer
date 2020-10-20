@@ -18,7 +18,7 @@ use wasmer_vm::{
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
-    // The trampoline to do the call
+    // Address of the trampoline to do the call.
     pub(crate) trampoline: VMTrampoline,
 }
 
@@ -98,6 +98,7 @@ impl Function {
                 vmctx,
                 function_ptr: None,
                 signature: ty.clone(),
+                call_trampoline: None,
             },
         }
     }
@@ -153,6 +154,7 @@ impl Function {
                 vmctx,
                 function_ptr,
                 signature: ty.clone(),
+                call_trampoline: None,
             },
         }
     }
@@ -199,6 +201,7 @@ impl Function {
                 // param but also marks itself as not having an env
                 function_ptr: None,
                 kind: VMFunctionKind::Static,
+                call_trampoline: None,
             },
         }
     }
@@ -258,6 +261,7 @@ impl Function {
                 vmctx,
                 function_ptr,
                 signature,
+                call_trampoline: None,
             },
         }
     }
@@ -371,15 +375,20 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let vmsignature = store.engine().register_signature(&wasmer_export.signature);
-        let trampoline = store
-            .engine()
-            .function_call_trampoline(vmsignature)
-            .expect("Can't get call trampoline for the function");
-        Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
-            exported: wasmer_export,
+        if let Some(trampoline) = wasmer_export.call_trampoline {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
+                exported: wasmer_export,
+            }
+        } else {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Host(HostFunctionDefinition {
+                    has_env: !wasmer_export.vmctx.is_null(),
+                }),
+                exported: wasmer_export,
+            }
         }
     }
 

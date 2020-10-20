@@ -13,7 +13,7 @@ use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
     VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
-    VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
@@ -84,6 +84,9 @@ pub(crate) struct Instance {
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+
+    /// Pointers to function call trampolines in executable memory.
+    function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
@@ -324,6 +327,7 @@ impl Instance {
                         let initializer = self.imported_function_env_initializer(*index);
                         (import.body, import.extra_data, initializer)
                     };
+                let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
@@ -335,6 +339,7 @@ impl Instance {
                     signature,
                     vmctx,
                     function_ptr,
+                    call_trampoline,
                 }
                 .into()
             }
@@ -829,6 +834,7 @@ impl InstanceHandle {
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+        finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
@@ -879,6 +885,7 @@ impl InstanceHandle {
                 tables: finished_tables,
                 globals: finished_globals,
                 functions: finished_functions,
+                function_call_trampolines: finished_function_call_trampolines,
                 passive_elements: Default::default(),
                 passive_data,
                 host_state,

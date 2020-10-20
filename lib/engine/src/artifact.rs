@@ -13,6 +13,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FunctionBodyPtr, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -54,8 +55,12 @@ pub trait Artifact: Send + Sync + Upcastable {
     /// ready to be run.
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>;
 
+    /// Returns the function call trampolines allocated in memory of this
+    /// `Artifact`, ready to be run.
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline>;
+
     /// Returns the dynamic function trampolines allocated in memory
-    /// for this `Artifact`, ready to be run.
+    /// of this `Artifact`, ready to be run.
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr>;
 
     /// Returns the associated VM signatures for this `Artifact`.
@@ -133,6 +138,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         let handle = InstanceHandle::new(
             module,
             self.finished_functions().clone(),
+            self.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
             finished_globals,

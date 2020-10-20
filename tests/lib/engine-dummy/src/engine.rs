@@ -5,9 +5,7 @@ use std::sync::Arc;
 use wasmer_compiler::{CompileError, Features, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::FunctionType;
-use wasmer_vm::{
-    SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
-};
+use wasmer_vm::{SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex};
 
 extern "C" fn dummy_trampoline(
     _context: *mut VMContext,
@@ -56,11 +54,6 @@ impl Engine for DummyEngine {
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         self.signatures.lookup(sig)
-    }
-
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, _sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        Some(dummy_trampoline)
     }
 
     #[cfg(feature = "compiler")]

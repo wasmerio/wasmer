@@ -382,7 +382,6 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_version_t")
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
-        .exclude_item("wasm_instance_get_vmctx_ptr")
         .exclude_item("wasm_module_name")
         .exclude_item("wasm_module_set_name")
         .exclude_item("wasmer_compiler_t")

@@ -1,16 +1,9 @@
 //! Wasmer-specific extensions to the Wasm C API.
 
-use super::instance::wasm_instance_t;
 use super::module::wasm_module_t;
 use super::types::wasm_name_t;
-use std::ffi::c_void;
 use std::str;
 use std::sync::Arc;
-
-#[no_mangle]
-pub unsafe extern "C" fn wasm_instance_get_vmctx_ptr(instance: &wasm_instance_t) -> *mut c_void {
-    instance.inner.vmctx_ptr() as _
-}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_name(module: &wasm_module_t, out: &mut wasm_name_t) {

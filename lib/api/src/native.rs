@@ -72,6 +72,7 @@ where
             // TODO:
             function_ptr: None,
             kind: other.arg_kind,
+            call_trampoline: None,
         }
     }
 }
@@ -93,6 +94,7 @@ where
                 // TODO:
                 function_ptr: None,
                 kind: other.arg_kind,
+                call_trampoline: None,
             },
         }
     }

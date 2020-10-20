@@ -162,8 +162,6 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
-void *wasm_instance_get_vmctx_ptr(const wasm_instance_t *instance);
-
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);

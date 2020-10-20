@@ -7,7 +7,7 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_compiler::{CompileError, Target};
 use wasmer_types::FunctionType;
-use wasmer_vm::{VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::VMSharedSignatureIndex;
 
 /// A unimplemented Wasmer `Engine`.
 ///
@@ -24,9 +24,6 @@ pub trait Engine {
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;
-
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline>;
 
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError>;
