@@ -7,6 +7,7 @@
 
 ## **[Unreleased]**
 
+- [#1710](https://github.com/wasmerio/wasmer/pull/1710) Memory for function call trampolines is now owned by the Artifact.
 ### Added
 
 - [#1741](https://github.com/wasmerio/wasmer/pull/1741) Implement `wasm_memory_type` in the Wasm C API.
