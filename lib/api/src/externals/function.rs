@@ -385,7 +385,7 @@ impl Function {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    has_env: !wasmer_export.vmctx.is_null(),
+                    has_env: !unsafe { wasmer_export.vmctx.host_env.is_null() },
                 }),
                 exported: wasmer_export,
             }
