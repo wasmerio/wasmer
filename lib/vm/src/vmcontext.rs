@@ -47,10 +47,6 @@ pub struct VMFunctionImport {
 
     /// A pointer to the `VMContext` that owns the function or host data.
     pub extra_data: FunctionExtraData,
-
-    /// temporary hack
-    /// Only used by host env
-    pub function_ptr: usize,
 }
 
 #[cfg(test)]

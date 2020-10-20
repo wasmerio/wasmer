@@ -188,7 +188,6 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        dbg!("Getting memory", &self.memory);
         unsafe { &*self.memory }
     }
 

@@ -109,7 +109,7 @@ impl VMOffsets {
     ///
     /// [`VMFunctionImport`]: crate::vmcontext::VMFunctionImport
     pub fn size_of_vmfunction_import(&self) -> u8 {
-        3 * self.pointer_size
+        2 * self.pointer_size
     }
 }
 

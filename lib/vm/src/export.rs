@@ -32,7 +32,7 @@ pub struct ExportFunction {
     /// Pointer to the containing `VMContext`.
     pub vmctx: crate::vmcontext::FunctionExtraData,
     /// temp code to set vmctx for host functions
-    pub function_ptr: usize,
+    pub function_ptr: Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)

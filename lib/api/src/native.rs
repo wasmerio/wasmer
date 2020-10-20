@@ -70,7 +70,7 @@ where
             vmctx: other.vmctx,
             signature,
             // TODO:
-            function_ptr: 0,
+            function_ptr: None,
             kind: other.arg_kind,
         }
     }
@@ -91,7 +91,7 @@ where
                 vmctx: other.vmctx,
                 signature,
                 // TODO:
-                function_ptr: 0,
+                function_ptr: None,
                 kind: other.arg_kind,
             },
         }

@@ -125,6 +125,9 @@ pub fn resolve_imports(
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
+    // TODO: account for imported functions without env / from other Wasm instances
+    let mut host_function_env_initializers =
+        PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
@@ -168,9 +171,9 @@ pub fn resolve_imports(
                 function_imports.push(VMFunctionImport {
                     body: address,
                     extra_data: f.vmctx,
-                    // TODO:
-                    function_ptr: f.function_ptr,
                 });
+
+                host_function_env_initializers.push(f.function_ptr);
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
@@ -224,6 +227,7 @@ pub fn resolve_imports(
 
     Ok(Imports::new(
         function_imports,
+        host_function_env_initializers,
         table_imports,
         memory_imports,
         global_imports,

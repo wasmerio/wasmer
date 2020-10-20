@@ -96,7 +96,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
-                function_ptr: 0,
+                function_ptr: None,
                 signature: ty.clone(),
             },
         }
@@ -126,7 +126,7 @@ impl Function {
     pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized + 'static,
+        Env: Sized + crate::WasmerPostInstantiate + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: RefCell::new(env),
@@ -140,6 +140,9 @@ impl Function {
         let vmctx = FunctionExtraData {
             host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
         };
+        // TODO: look into removing transmute by changing API type signatures
+        let function_ptr = Some(unsafe { std::mem::transmute::<fn(_, _), fn(_, _)>(Env::finish) });
+        //dbg!(function_ptr);
 
         Self {
             store: store.clone(),
@@ -148,8 +151,7 @@ impl Function {
                 address,
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
-                // TODO:
-                function_ptr: 0,
+                function_ptr,
                 signature: ty.clone(),
             },
         }
@@ -193,8 +195,9 @@ impl Function {
                 address,
                 vmctx,
                 signature,
-                // TODO:
-                function_ptr: 0,
+                // TODO: figure out what's going on in this function: it takes an `Env`
+                // param but also marks itself as not having an env
+                function_ptr: None,
                 kind: VMFunctionKind::Static,
             },
         }
@@ -241,8 +244,9 @@ impl Function {
         let vmctx = FunctionExtraData {
             host_env: Box::into_raw(box_env) as *mut _,
         };
-        let function_ptr = Env::finish as usize;
-        dbg!(function_ptr);
+        // TODO: look into removing transmute by changing API type signatures
+        let function_ptr = Some(unsafe { std::mem::transmute::<fn(_, _), fn(_, _)>(Env::finish) });
+        //dbg!(function_ptr as usize);
         let signature = function.ty();
 
         Self {

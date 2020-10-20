@@ -77,7 +77,8 @@ impl ValFuncRef for Val {
             address: item.func_ptr,
             signature,
             // TODO:
-            function_ptr: 0,
+            // figure out if we ever need a value here: need testing with complicated import patterns
+            function_ptr: None,
             // All functions in tables are already Static (as dynamic functions
             // are converted to use the trampolines with static signatures).
             kind: wasmer_vm::VMFunctionKind::Static,

@@ -73,7 +73,7 @@ impl Instance {
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
 
-        let (handle, thunks) = module.instantiate(resolver)?;
+        let handle = module.instantiate(resolver)?;
 
         let exports = module
             .exports()
@@ -91,11 +91,10 @@ impl Instance {
             exports,
         };
 
-        for (func, env) in thunks.iter() {
-            dbg!(func, env);
-            unsafe {
-                func(*env, (&instance) as *const _ as *const _);
-            }
+        unsafe {
+            instance
+                .handle
+                .initialize_host_envs(&instance as *const _ as *const _);
         }
 
         Ok(instance)

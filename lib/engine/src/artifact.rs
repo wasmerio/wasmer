@@ -86,16 +86,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         tunables: &dyn Tunables,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
-    ) -> Result<
-        (
-            InstanceHandle,
-            Vec<(
-                fn(*mut std::ffi::c_void, *const std::ffi::c_void),
-                *mut std::ffi::c_void,
-            )>,
-        ),
-        InstantiationError,
-    > {
+    ) -> Result<InstanceHandle, InstantiationError> {
         self.preinstantiate()?;
 
         let module = self.module();
@@ -110,13 +101,17 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         let mut thunks = vec![];
         // ------------
-        for func in imports.functions.values() {
-            unsafe {
-                let finish: fn(*mut std::ffi::c_void, instance: *const std::ffi::c_void) =
-                    std::mem::transmute(func.function_ptr);
-                dbg!(func.extra_data.host_env);
-                thunks.push((finish, func.extra_data.host_env));
-            }
+        for (func_init, func) in imports
+            .host_function_env_initializers
+            .values()
+            .cloned()
+            .zip(imports.functions.values())
+        {
+            let host_env = unsafe {
+                //dbg!(func.extra_data.host_env);
+                func.extra_data.host_env
+            };
+            thunks.push((func_init, host_env));
         }
         // ------------
 
@@ -144,9 +139,10 @@ pub trait Artifact: Send + Sync + Upcastable {
             imports,
             self.signatures().clone(),
             host_state,
+            thunks,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
-        Ok((handle, thunks))
+        Ok(handle)
     }
 
     /// Finishes the instantiation of a just created `InstanceHandle`.
