@@ -6,7 +6,7 @@ use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
 
 // this example is a work in progress:
-// TODO: clean it up and comment it
+// TODO: clean it up and comment it https://github.com/wasmerio/wasmer/issues/1749
 
 fn main() -> anyhow::Result<()> {
     let wasm_bytes = wat2wasm(
