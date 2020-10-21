@@ -236,6 +236,11 @@ pub(crate) struct DynamicCtx {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
 }
 
+impl new::wasmer::WasmerEnv for DynamicCtx {
+    fn finish(&mut self, _instance: &new::wasmer::Instance) {}
+    fn free(&mut self) {}
+}
+
 impl DynamicFunc {
     /// Create a new `DynamicFunc`.
     pub fn new<F>(signature: &FuncSig, func: F) -> Self

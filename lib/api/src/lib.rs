@@ -132,3 +132,12 @@ pub trait WasmerEnv {
     /// Frees memory written to `self` so it can be dropped without any memory leaks.
     fn free(&mut self);
 }
+
+impl<T: WasmerEnv> WasmerEnv for &'static mut T {
+    fn finish(&mut self, instance: &Instance) {
+        (*self).finish(instance)
+    }
+    fn free(&mut self) {
+        (*self).free()
+    }
+}

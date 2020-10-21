@@ -159,10 +159,6 @@ int main(int argc, char* argv[]) {
     print_wasmer_error();
     return -1;
   }
-
-  #ifdef WASI
-  wasi_env_set_instance(wasi_env, instance);
-  #endif
   
   #ifdef WASI
   own wasm_func_t* start_function = wasi_get_start_function(instance);

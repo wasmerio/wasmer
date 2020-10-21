@@ -1,4 +1,5 @@
 use crate::module::ModuleInfo;
+use crate::new;
 use std::{ffi::c_void, ptr};
 
 /// The context of the currently running WebAssembly instance.
@@ -36,6 +37,11 @@ pub struct Ctx {
     /// when the context is destructed, e.g. when an `Instance`
     /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
+}
+
+impl new::wasmer::WasmerEnv for Ctx {
+    fn finish(&mut self, _instance: &new::wasmer::Instance) {}
+    fn free(&mut self) {}
 }
 
 impl Ctx {

@@ -639,6 +639,11 @@ pub(crate) struct LegacyEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
 }
 
+impl wasmer::WasmerEnv for LegacyEnv {
+    fn finish(&mut self, _instance: &wasmer::Instance) {}
+    fn free(&mut self) {}
+}
+
 impl LegacyEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
         self.instance_ptr

@@ -92,8 +92,17 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     // TODO: handle null pointers?
     let func_sig = ft.sig();
     let num_rets = func_sig.results().len();
+
+    #[repr(transparent)]
+    struct WrapperEnv(*mut c_void);
+
+    impl wasmer::WasmerEnv for WrapperEnv {
+        fn finish(&mut self, _instance: &wasmer::Instance) {}
+        fn free(&mut self) {}
+    }
+
     let inner_callback =
-        move |env: &mut *mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+        move |env: &mut WrapperEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
             let processed_args: wasm_val_vec_t = args
                 .into_iter()
                 .map(TryInto::try_into)
@@ -110,7 +119,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             ]
             .into();
 
-            let _traps = callback(*env, &processed_args, &mut results);
+            let _traps = callback(env.0, &processed_args, &mut results);
             // TODO: do something with `traps`
 
             let processed_results = results
@@ -124,7 +133,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             Ok(processed_results)
         };
 
-    let function = Function::new_with_env(&store.inner, &func_sig, env, inner_callback);
+    let function = Function::new_with_env(&store.inner, &func_sig, WrapperEnv(env), inner_callback);
 
     Some(Box::new(wasm_func_t {
         instance: None,
