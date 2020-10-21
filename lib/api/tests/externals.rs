@@ -210,6 +210,11 @@ fn function_new_env() -> Result<()> {
     let store = Store::default();
     #[derive(Clone)]
     struct MyEnv {};
+    impl WasmerEnv for MyEnv {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
+
     let my_env = MyEnv {};
     let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &mut MyEnv| {});
     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
@@ -273,6 +278,10 @@ fn function_new_dynamic_env() -> Result<()> {
     #[derive(Clone)]
     struct MyEnv {};
     let my_env = MyEnv {};
+    impl WasmerEnv for MyEnv {
+        fn finish(&mut self, _instance: &Instance) {}
+        fn free(&mut self) {}
+    }
 
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new_with_env(

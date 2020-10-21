@@ -108,12 +108,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv, Instance};
     /// # let store = Store::default();
     ///
     /// struct Env {
     ///   multiplier: i32,
     /// };
+    /// impl WasmerEnv for Env {
+    ///     fn finish(&mut self, _instance: &Instance) {}
+    ///     fn free(&mut self) {}
+    /// }
     /// let env = Env { multiplier: 2 };
     ///
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -214,12 +218,16 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Store, Function};
+    /// # use wasmer::{Store, Function, WasmerEnv, Instance};
     /// # let store = Store::default();
     ///
     /// struct Env {
     ///   multiplier: i32,
     /// };
+    /// impl WasmerEnv for Env {
+    ///     fn finish(&mut self, _instance: &Instance) {}
+    ///     fn free(&mut self) {}
+    /// }
     /// let env = Env { multiplier: 2 };
     ///
     /// fn sum_and_multiply(env: &mut Env, a: i32, b: i32) -> i32 {
