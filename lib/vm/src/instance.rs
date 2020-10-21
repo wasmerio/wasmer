@@ -767,7 +767,7 @@ impl InstanceHandle {
     /// Allocates an instance for use with `InstanceHandle::new`.
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
-    /// memory.
+    /// memory buffer pointed to by the instance pointer.
     pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
 
@@ -788,6 +788,10 @@ impl InstanceHandle {
     ///
     /// This function lets us create `Memory` objects on the host with backing
     /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the offsets in
+    ///   `offsets` point to valid locations in memory.
     pub unsafe fn memory_definition_locations(
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
@@ -812,6 +816,10 @@ impl InstanceHandle {
     ///
     /// This function lets us create `Table` objects on the host with backing
     /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the offsets in
+    ///   `offsets` point to valid locations in memory.
     pub unsafe fn table_definition_locations(
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
@@ -853,7 +861,7 @@ impl InstanceHandle {
     ///    `Instance`.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
-    /// - The memory at `instance.memories_ptr()` must be initialized with adta for
+    /// - The memory at `instance.memories_ptr()` must be initialized with data for
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
@@ -898,8 +906,6 @@ impl InstanceHandle {
             }
         };
         let instance = handle.instance();
-
-        // split this into two steps
 
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),

@@ -115,7 +115,7 @@ pub struct LinearTable {
     vm_table_definition: VMTableDefinitionOwnership,
 }
 
-/// A type to help manage who is responsible for the backing table of them
+/// A type to help manage who is responsible for the backing table of the
 /// `VMTableDefinition`.
 #[derive(Debug)]
 enum VMTableDefinitionOwnership {

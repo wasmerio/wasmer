@@ -100,7 +100,8 @@ impl BaseTunables for Tunables {
     /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
     ///
     /// # Safety
-    /// - `vm_definition_location` must point to a valid location in VM memory.
+    /// - `vm_definition_location` must point to a valid, owned `VMMemoryDefinition`,
+    ///   for example in `VMContext`.
     unsafe fn create_vm_memory(
         &self,
         ty: &MemoryType,
@@ -126,7 +127,8 @@ impl BaseTunables for Tunables {
     /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
     ///
     /// # Safety
-    /// - `vm_definition_location` must point to a valid location in VM memory.
+    /// - `vm_definition_location` must point to a valid, owned `VMTableDefinition`,
+    ///   for example in `VMContext`.
     unsafe fn create_vm_table(
         &self,
         ty: &TableType,

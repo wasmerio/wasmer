@@ -149,7 +149,7 @@ example.
 
    </details>
 
-### Exports
+### Externals
    
 8. [**Exported function**][exported-function], explains how to get and
    how to call an exported function. They come in 2 flavors: dynamic,
@@ -165,10 +165,38 @@ example.
    ```
 
    </details>
+   
+9. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
+
+   _Keywords_: basic, table, call_indirect
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example table --release --features "cranelift"
+   ```
+
+   </details>
+   
+10. [**Memory**][memory], explains how to use Wasm Memories from
+    the Wasmer API.  Memory example is a work in progress.
+
+   _Keywords_: basic, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example memory --release --features "cranelift"
+   ```
+
+   </details>
+
 
 ### Integrations
 
-9. [**WASI**][wasi], explains how to use the [WebAssembly System
+11. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
@@ -182,35 +210,6 @@ example.
 
    </details>
 
-### Basic Usage
-
-10. Tables, explains how to use Wasm Tables from the Wasmer API.
-
-   _Keywords_: basic, table, call_indirect
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example table --release --features "cranelift"
-   ```
-
-   </details>
-   
-11. Memories, explains how to use Wasm Memories from the Wasmer API.
-    Memory example is a work in progress.
-
-   _Keywords_: basic, memory
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example memory --release --features "cranelift"
-   ```
-
-   </details>
-
 [engine-jit]: ./engine_jit.rs
 [engine-native]: ./engine_native.rs
 [engine-headless]: ./engine_headless.rs
@@ -220,6 +219,8 @@ example.
 [cross-compilation]: ./engine_cross_compilation.rs
 [exported-function]: ./exports_function.rs
 [wasi]: ./wasi.rs
+[table]: ./table.rs
+[memory]: ./memory.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm

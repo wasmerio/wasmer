@@ -17,7 +17,6 @@ fn main() -> anyhow::Result<()> {
   (type $set_at_t (func (param i32) (param i32)))
 
   (memory $mem 1)
-  ;;(import "env" "memory" (memory $mem 1))
 
   (func $get_at (type $get_at_t) (param $idx i32) (result i32)
     (i32.load (local.get $idx)))
@@ -40,12 +39,7 @@ fn main() -> anyhow::Result<()> {
     let store = Store::new(&JIT::new(&Cranelift::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
-    //let memory = Memory::new(&store, MemoryType::new(1, None, false))?;
-    let import_object = imports! {
-        /*"env" => {
-            "memory" => memory,
-        }*/
-    };
+    let import_object = imports! {};
     // And instantiate it with no imports.
     let instance = Instance::new(&module, &import_object)?;
 
@@ -82,8 +76,6 @@ fn main() -> anyhow::Result<()> {
     let result = get_at.call(mem_addr)?;
     assert_eq!(result, val);
     // -------------
-
-    //let result = get_at.call(page_size * 1028 - 4)?;
 
     Ok(())
 }

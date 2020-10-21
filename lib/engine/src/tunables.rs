@@ -75,7 +75,6 @@ pub trait Tunables {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
-            // TODO: error handling
             let mdl = memory_definition_locations[index];
             memories.push(
                 self.create_vm_memory(ty, style, mdl)
@@ -95,7 +94,6 @@ pub trait Tunables {
         let num_imports = module.num_imported_tables;
         let mut tables: PrimaryMap<LocalTableIndex, _> =
             PrimaryMap::with_capacity(module.tables.len() - num_imports);
-        // TODO: error handling
         for index in num_imports..module.tables.len() {
             let ti = TableIndex::new(index);
             let ty = &module.tables[ti];
