@@ -100,7 +100,7 @@ build-capi-llvm:
 # Testing #
 ###########
 
-test: $(foreach engine,$(engines),$(foreach compiler,$(compilers),test-$(compiler)-$(engine))) test-packages test-examples test-deprecated
+test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 # Singlepass and native engine don't work together, this rule does nothing.
 test-singlepass-native:
@@ -120,6 +120,12 @@ test-llvm-native:
 
 test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
+
+test-singlepass: $(foreach engine,$(engines),test-singlepass-$(engine))
+
+test-cranelift: $(foreach engine,$(engines),test-cranelift-$(engine))
+
+test-llvm: $(foreach engine,$(engines),test-llvm-$(engine))
 
 test-packages:
 	cargo test -p wasmer --release
