@@ -20,12 +20,15 @@ use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_vm::{FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex};
+use wasmer_vm::{
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
+};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
@@ -150,7 +153,7 @@ impl JITArtifact {
     ) -> Result<Self, CompileError> {
         let (
             finished_functions,
-            _finished_function_call_trampolines,
+            finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             custom_sections,
         ) = inner_jit.allocate(
@@ -201,6 +204,8 @@ impl JITArtifact {
         inner_jit.publish_eh_frame(eh_frame)?;
 
         let finished_functions = finished_functions.into_boxed_slice();
+        let finished_function_call_trampolines =
+            finished_function_call_trampolines.into_boxed_slice();
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
@@ -208,6 +213,7 @@ impl JITArtifact {
         Ok(Self {
             serializable,
             finished_functions,
+            finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
@@ -268,6 +274,10 @@ impl Artifact for JITArtifact {
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
     }
 
     // TODO: return *const instead of *mut
