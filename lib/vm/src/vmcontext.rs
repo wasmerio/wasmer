@@ -15,19 +15,30 @@ use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
 
-/// We stop lying about what this daat is
-/// TODO:
+/// Union representing the first parameter passed when calling a function.
+///
+/// It may either be a pointer to the [`VMContext`] if it's a Wasm function
+/// or a pointer to arbitrary data controlled by the host if it's a host function.
 #[derive(Copy, Clone)]
 pub union VMFunctionExtraData {
-    /// Wasm function, it has a real VMContext:
+    /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
-    /// Host functions can have custom environments
+    /// Host functions can have custom environments.
     pub host_env: *mut std::ffi::c_void,
+}
+
+impl VMFunctionExtraData {
+    /// Check whether the pointer stored is null or not.
+    pub fn is_null(&self) -> bool {
+        unsafe { self.host_env.is_null() }
+    }
 }
 
 impl std::fmt::Debug for VMFunctionExtraData {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "FunctionExtarData union")
+        f.debug_struct("VMFunctionExtraData")
+            .field("vmctx_or_hostenv", unsafe { &self.host_env })
+            .finish()
     }
 }
 

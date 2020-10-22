@@ -373,8 +373,7 @@ impl Function {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    // TOOD: make safe function on this union to check for null
-                    has_env: !unsafe { wasmer_export.vmctx.host_env.is_null() },
+                    has_env: !wasmer_export.vmctx.is_null(),
                 }),
                 exported: wasmer_export,
             }
