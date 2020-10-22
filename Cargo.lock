@@ -2311,6 +2311,17 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-derive"
+version = "1.0.0-alpha4"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
+ "wasmer",
+]
+
+[[package]]
 name = "wasmer-emscripten"
 version = "1.0.0-alpha4"
 dependencies = [

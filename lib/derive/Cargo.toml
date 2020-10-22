@@ -1,0 +1,18 @@
+[package]
+name = "wasmer-derive"
+version = "1.0.0-alpha4"
+description = "Wasmer derive macros"
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+edition = "2018"
+
+[lib]
+proc-macro = true
+
+[dependencies]
+syn = { version = "1", features = ["full"] }
+quote = "1"
+proc-macro2 = "1"
+proc-macro-error = "1.0.0"
+wasmer = { path = "../api", version = "1.0.0-alpha4" }

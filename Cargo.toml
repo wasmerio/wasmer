@@ -35,6 +35,7 @@ members = [
     "lib/compiler-cranelift",
     "lib/compiler-singlepass",
     "lib/compiler-llvm",
+    "lib/derive",
     "lib/emscripten",
     "lib/engine",
     "lib/engine-jit",
