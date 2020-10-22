@@ -15,29 +15,6 @@ use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
 
-/// We stop lying about what this daat is
-/// TODO:
-#[derive(Copy, Clone)]
-pub union FunctionExtraData {
-    /// Wasm function, it has a real VMContext:
-    pub vmctx: *mut VMContext,
-    /// Host functions can have custom environments
-    pub host_env: *mut std::ffi::c_void,
-}
-
-impl std::fmt::Debug for FunctionExtraData {
-    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        write!(f, "FunctionExtarData union")
-    }
-}
-
-impl std::cmp::PartialEq for FunctionExtraData {
-    fn eq(&self, rhs: &Self) -> bool {
-        // TODO
-        false
-    }
-}
-
 /// An imported function.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -46,7 +23,7 @@ pub struct VMFunctionImport {
     pub body: *const VMFunctionBody,
 
     /// A pointer to the `VMContext` that owns the function or host data.
-    pub extra_data: FunctionExtraData,
+    pub vmctx: *mut VMContext,
 }
 
 #[cfg(test)]
@@ -69,7 +46,7 @@ mod test_vmfunction_import {
             usize::from(offsets.vmfunction_import_body())
         );
         assert_eq!(
-            offset_of!(VMFunctionImport, extra_data),
+            offset_of!(VMFunctionImport, vmctx),
             usize::from(offsets.vmfunction_import_vmctx())
         );
     }
@@ -752,7 +729,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext`.
-    pub vmctx: FunctionExtraData,
+    pub vmctx: *mut VMContext,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
@@ -791,9 +768,7 @@ impl Default for VMCallerCheckedAnyfunc {
         Self {
             func_ptr: ptr::null_mut(),
             type_index: Default::default(),
-            vmctx: FunctionExtraData {
-                vmctx: ptr::null_mut(),
-            },
+            vmctx: ptr::null_mut(),
         }
     }
 }

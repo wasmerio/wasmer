@@ -17,8 +17,7 @@ use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, W
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, FunctionExtraData, VMContext, VMDynamicFunctionContext, VMFunctionBody,
-    VMFunctionKind,
+    ExportFunction, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -27,7 +26,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
     address: *const VMFunctionBody,
-    vmctx: FunctionExtraData,
+    vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
@@ -43,7 +42,7 @@ where
     pub(crate) fn new(
         store: Store,
         address: *const VMFunctionBody,
-        vmctx: FunctionExtraData,
+        vmctx: *mut VMContext,
         arg_kind: VMFunctionKind,
         definition: FunctionDefinition,
     ) -> Self {
@@ -170,7 +169,7 @@ macro_rules! impl_native_traits {
                         match self.arg_kind {
                             VMFunctionKind::Static => {
                                 let results = catch_unwind(AssertUnwindSafe(|| unsafe {
-                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( FunctionExtraData, $( $x, )*) -> Rets::CStruct>(self.address);
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
                                     // We always pass the vmctx
                                     f( self.vmctx, $( $x, )* )
                                 })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;
@@ -180,16 +179,12 @@ macro_rules! impl_native_traits {
                                 let params_list = [ $( $x.to_native().to_value() ),* ];
                                 let results = if !has_env {
                                     type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
-                                    unsafe {
-                                        let ctx = self.vmctx.host_env as *mut VMContextWithoutEnv;
-                                        (*ctx).ctx.call(&params_list)?
-                                    }
+                                    let ctx = self.vmctx as *mut VMContextWithoutEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
                                 } else {
                                     type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
-                                    unsafe {
-                                        let ctx = self.vmctx.host_env as *mut VMContextWithEnv;
-                                        (*ctx).ctx.call(&params_list)?
-                                    }
+                                    let ctx = self.vmctx as *mut VMContextWithEnv;
+                                    unsafe { (*ctx).ctx.call(&params_list)? }
                                 };
                                 let mut rets_list_array = Rets::empty_array();
                                 let mut_rets = rets_list_array.as_mut() as *mut [i128] as *mut i128;

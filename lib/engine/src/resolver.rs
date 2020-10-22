@@ -170,7 +170,7 @@ pub fn resolve_imports(
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    extra_data: f.vmctx,
+                    vmctx: f.vmctx,
                 });
 
                 host_function_env_initializers.push(f.function_ptr);

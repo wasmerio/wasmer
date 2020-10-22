@@ -56,9 +56,7 @@ impl ValFuncRef for Val {
             Self::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                vmctx: wasmer_vm::FunctionExtraData {
-                    host_env: ptr::null_mut(),
-                },
+                vmctx: ptr::null_mut(),
             },
             Self::FuncRef(f) => f.checked_anyfunc(),
             _ => return Err(RuntimeError::new("val is not funcref")),

@@ -30,7 +30,7 @@ pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
-    pub vmctx: crate::vmcontext::FunctionExtraData,
+    pub vmctx: *mut VMContext,
     /// temp code to set vmctx for host functions
     pub function_ptr: Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
     /// The function type, used for compatibility checking.

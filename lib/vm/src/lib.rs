@@ -48,10 +48,10 @@ pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableStyle};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
-    FunctionExtraData, VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext,
-    VMDynamicFunctionContext, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
-    VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition,
-    VMTableImport, VMTrampoline,
+    VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 
