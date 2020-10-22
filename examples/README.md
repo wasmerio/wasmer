@@ -150,8 +150,23 @@ example.
    </details>
 
 ### Exports
+
+8. [**Exported global**][exported-global], explains how to work with
+   exported globals: get/set their value, have information about their 
+   type.
    
-8. [**Exported function**][exported-function], explains how to get and
+   _Keywords_: export, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-globals --release --features "cranelift"
+   ```
+
+   </details>
+   
+9. [**Exported function**][exported-function], explains how to get and
    how to call an exported function. They come in 2 flavors: dynamic,
    and “static”/native. The pros and cons are discussed briefly.
    
@@ -166,9 +181,25 @@ example.
 
    </details>
 
+### Imports
+
+10. [**Imported global**][imported-global], explains how to work with
+   imported globals: create globals, import them, get/set their value.
+   
+   _Keywords_: import, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example imported-globals --release --features "cranelift"
+   ```
+
+   </details>
+
 ### Integrations
 
-9. [**WASI**][wasi], explains how to use the [WebAssembly System
+11. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
@@ -189,7 +220,9 @@ example.
 [compiler-cranelift]: ./compiler_cranelift.rs
 [compiler-llvm]: ./compiler_llvm.rs
 [cross-compilation]: ./engine_cross_compilation.rs
+[exported-global]: ./exports_global.rs
 [exported-function]: ./exports_function.rs
+[imported-global]: imports_global.rs
 [wasi]: ./wasi.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
