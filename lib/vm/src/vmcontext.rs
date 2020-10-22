@@ -15,6 +15,28 @@ use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
 
+/// We stop lying about what this daat is
+/// TODO:
+#[derive(Copy, Clone)]
+pub union VMFunctionExtraData {
+    /// Wasm function, it has a real VMContext:
+    pub vmctx: *mut VMContext,
+    /// Host functions can have custom environments
+    pub host_env: *mut std::ffi::c_void,
+}
+
+impl std::fmt::Debug for VMFunctionExtraData {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        write!(f, "FunctionExtarData union")
+    }
+}
+
+impl std::cmp::PartialEq for VMFunctionExtraData {
+    fn eq(&self, rhs: &Self) -> bool {
+        unsafe { self.host_env as usize == rhs.host_env as usize }
+    }
+}
+
 /// An imported function.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
@@ -22,8 +44,8 @@ pub struct VMFunctionImport {
     /// A pointer to the imported function body.
     pub body: *const VMFunctionBody,
 
-    /// A pointer to the `VMContext` that owns the function.
-    pub vmctx: *mut VMContext,
+    /// A pointer to the `VMContext` that owns the function or host env data.
+    pub extra_data: VMFunctionExtraData,
 }
 
 #[cfg(test)]
@@ -46,7 +68,7 @@ mod test_vmfunction_import {
             usize::from(offsets.vmfunction_import_body())
         );
         assert_eq!(
-            offset_of!(VMFunctionImport, vmctx),
+            offset_of!(VMFunctionImport, extra_data),
             usize::from(offsets.vmfunction_import_vmctx())
         );
     }
@@ -728,8 +750,8 @@ pub struct VMCallerCheckedAnyfunc {
     pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
-    /// Function `VMContext`.
-    pub vmctx: *mut VMContext,
+    /// Function `VMContext` or host env.
+    pub vmctx: VMFunctionExtraData,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
@@ -768,7 +790,9 @@ impl Default for VMCallerCheckedAnyfunc {
         Self {
             func_ptr: ptr::null_mut(),
             type_index: Default::default(),
-            vmctx: ptr::null_mut(),
+            vmctx: VMFunctionExtraData {
+                vmctx: ptr::null_mut(),
+            },
         }
     }
 }

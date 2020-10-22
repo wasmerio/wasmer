@@ -11,8 +11,8 @@ use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
-    VMTrampoline,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionExtraData,
+    VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -85,7 +85,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = VMFunctionExtraData {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -135,7 +137,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = VMFunctionExtraData {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -176,7 +180,9 @@ impl Function {
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
+        let vmctx = VMFunctionExtraData {
+            host_env: std::ptr::null_mut() as *mut _,
+        };
         let signature = function.ty();
 
         Self {
@@ -230,7 +236,9 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let vmctx = VMFunctionExtraData {
+            host_env: Box::into_raw(box_env) as *mut _,
+        };
         let signature = function.ty();
 
         Self {
@@ -365,7 +373,8 @@ impl Function {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    has_env: !wasmer_export.vmctx.is_null(),
+                    // TOOD: make safe function on this union to check for null
+                    has_env: !unsafe { wasmer_export.vmctx.host_env.is_null() },
                 }),
                 exported: wasmer_export,
             }
