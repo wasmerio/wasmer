@@ -18,7 +18,6 @@ void print_wasmer_error()
     printf("Error str: `%s`\n", error_str);
 }
 
-
 int main(int argc, const char* argv[]) {
   // Initialize.
   printf("Initializing...\n");
@@ -71,18 +70,22 @@ int main(int argc, const char* argv[]) {
   printf("Instantiating module...\n");
   wasm_importtype_vec_t import_types;
   wasm_module_imports(module, &import_types);
-  int num_imports = import_types.size;
-  wasm_extern_t** imports = malloc(num_imports * sizeof(wasm_extern_t*));
+
+  wasm_extern_vec_t imports;
+  wasm_extern_vec_new_uninitialized(&imports, import_types.size);
   wasm_importtype_vec_delete(&import_types);
 
-  bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
+  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+
   if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");
     print_wasmer_error();
     return 1;
   }
+
   own wasm_instance_t* instance =
-    wasm_instance_new(store, module, (const wasm_extern_t *const *) imports, NULL);
+    wasm_instance_new(store, module, &imports, NULL);
+
   if (!instance) {
     printf("> Error instantiating module!\n");
     print_wasmer_error();
@@ -114,7 +117,11 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   printf("Evaluating \"%s\"\n", js_string);
-  if (wasm_func_call(run_func, NULL, NULL)) {
+
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t res = WASM_EMPTY_VEC;
+
+  if (wasm_func_call(run_func, &args, &res)) {
     printf("> Error calling function!\n");
     return 1;
   }
@@ -131,12 +138,7 @@ int main(int argc, const char* argv[]) {
   printf("\n");
 
   wasm_extern_vec_delete(&exports);
-
-  // NEEDS REVIEW:
-  for(int i = 0; i < num_imports; ++i) {
-     wasm_extern_delete(imports[i]);
-  }
-  free(imports);
+  wasm_extern_vec_delete(&imports);
 
   // Shut down.
   printf("Shutting down...\n");

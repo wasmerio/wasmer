@@ -5,7 +5,7 @@
 mod capture_files;
 
 use super::{
-    externals::{wasm_extern_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
@@ -300,7 +300,7 @@ pub unsafe extern "C" fn wasi_get_imports(
     store: &wasm_store_t,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
-    imports: *mut *mut wasm_extern_t,
+    imports: &mut wasm_extern_vec_t,
 ) -> bool {
     wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
 }
@@ -310,7 +310,7 @@ unsafe fn wasi_get_imports_inner(
     store: &wasm_store_t,
     module: &wasm_module_t,
     wasi_env: &wasi_env_t,
-    imports: *mut *mut wasm_extern_t,
+    imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
     let store = &store.inner;
 
@@ -322,22 +322,28 @@ unsafe fn wasi_get_imports_inner(
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 
-    for (i, it) in module.inner.imports().enumerate() {
-        let export = c_try!(import_object
-            .resolve_by_name(it.module(), it.name())
-            .ok_or_else(|| CApiError {
-                msg: format!(
-                    "Failed to resolve import \"{}\" \"{}\"",
-                    it.module(),
-                    it.name()
-                ),
-            }));
-        let inner = Extern::from_export(store, export);
-        *imports.add(i) = Box::into_raw(Box::new(wasm_extern_t {
-            instance: None,
-            inner,
-        }));
-    }
+    *imports = module
+        .inner
+        .imports()
+        .map(|import_type| {
+            let export = c_try!(import_object
+                .resolve_by_name(import_type.module(), import_type.name())
+                .ok_or_else(|| CApiError {
+                    msg: format!(
+                        "Failed to resolve import \"{}\" \"{}\"",
+                        import_type.module(),
+                        import_type.name()
+                    ),
+                }));
+            let inner = Extern::from_export(store, export);
+
+            Some(Box::new(wasm_extern_t {
+                instance: None,
+                inner,
+            }))
+        })
+        .collect::<Option<Vec<_>>>()?
+        .into();
 
     Some(())
 }

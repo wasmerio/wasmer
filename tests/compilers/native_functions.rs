@@ -8,7 +8,7 @@ use wasmer::*;
 
 #[test]
 fn native_function_works_for_wasm() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"(module
         (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
         (func (export "add") (param i32 i32) (result i32)
@@ -52,7 +52,7 @@ fn native_function_works_for_wasm() -> Result<()> {
 
 #[test]
 fn static_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store();
+    let store = get_store(false);
 
     fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         (d * 4.0, c * 3.0, b * 2, a * 1)
@@ -83,7 +83,7 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 
 #[test]
 fn static_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store();
+    let store = get_store(false);
 
     fn f(env: &mut Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
         assert_eq!(*env.0.borrow(), 100);
@@ -143,7 +143,7 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
 
 #[test]
 fn dynamic_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store();
+    let store = get_store(false);
 
     let f = Function::new(
         &store,
@@ -170,7 +170,7 @@ fn dynamic_host_function_without_env() -> anyhow::Result<()> {
 
 #[test]
 fn dynamic_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store();
+    let store = get_store(false);
 
     #[derive(Clone)]
     struct Env(Rc<RefCell<i32>>);

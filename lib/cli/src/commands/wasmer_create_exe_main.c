@@ -9,6 +9,8 @@ extern "C" {
 #include <stdio.h>
 #include <stdlib.h>
 
+#define own
+
 // TODO: make this define templated so that the Rust code can toggle it on/off
 #define WASI
 
@@ -134,21 +136,25 @@ int main(int argc, char* argv[]) {
   
   wasm_importtype_vec_t import_types;
   wasm_module_imports(module, &import_types);
-  int num_imports = import_types.size;
-  wasm_extern_t** imports = (wasm_extern_t**) malloc(num_imports * sizeof(wasm_extern_t*));
+
+  wasm_extern_vec_t imports;
+  wasm_extern_vec_new_uninitialized(&imports, import_types.size);
   wasm_importtype_vec_delete(&import_types);
   
   #ifdef WASI
-  bool get_imports_result = wasi_get_imports(store, module, wasi_env, imports);
+  bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+
   if (!get_imports_result) {
     fprintf(stderr, "Error getting WASI imports!\n");
     print_wasmer_error();
+
     return 1;
   }
   #endif
   
-  wasm_instance_t* instance = wasm_instance_new(store, module, (const wasm_extern_t* const*) imports, NULL);
-  if (! instance) {
+  wasm_instance_t* instance = wasm_instance_new(store, module, &imports, NULL);
+
+  if (!instance) {
     fprintf(stderr, "Failed to create instance\n");
     print_wasmer_error();
     return -1;
@@ -158,11 +164,24 @@ int main(int argc, char* argv[]) {
   wasi_env_set_instance(wasi_env, instance);
   #endif
   
-  void* vmctx = wasm_instance_get_vmctx_ptr(instance);
-  wasm_val_t* inout[2] = { NULL, NULL };
-  
-  // We're able to call our compiled function directly through a trampoline.
-  wasmer_trampoline_function_call__1(vmctx, wasmer_function__1, &inout);
+  #ifdef WASI
+  own wasm_func_t* start_function = wasi_get_start_function(instance);
+  if (!start_function) {
+    fprintf(stderr, "`_start` function not found\n");
+    print_wasmer_error();
+    return -1;
+  }
+
+  wasm_val_vec_t args = WASM_EMPTY_VEC;
+  wasm_val_vec_t results = WASM_EMPTY_VEC;
+  own wasm_trap_t* trap = wasm_func_call(start_function, &args, &results);
+  if (trap) {
+    fprintf(stderr, "Trap is not NULL: TODO:\n");
+    return -1;
+  }
+  #endif
+
+  // TODO: handle non-WASI start (maybe with invoke?)
   
   wasm_instance_delete(instance);
   wasm_module_delete(module);

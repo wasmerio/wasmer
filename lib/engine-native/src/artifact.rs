@@ -19,9 +19,7 @@ use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolReg
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
-use wasmer_engine::{
-    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
-};
+use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -42,9 +40,8 @@ use wasmer_vm::{
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
-    #[allow(dead_code)]
-    library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
@@ -324,14 +321,17 @@ impl NativeArtifact {
         sharedobject_path: PathBuf,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
+        let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: None,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -367,14 +367,17 @@ impl NativeArtifact {
             }
         }
 
-        // Retrieve function call trampolines (for all signatures in the module)
-        for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
+        // Retrieve function call trampolines
+        let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
+        for sig_index in metadata.compile_info.module.signatures.keys() {
             let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                engine_inner.add_trampoline(&func_type, *trampoline);
+                let raw = *trampoline.into_raw();
+                finished_function_call_trampolines.push(raw);
             }
         }
 
@@ -418,21 +421,23 @@ impl NativeArtifact {
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = engine_inner.signatures();
             metadata
                 .compile_info
                 .module
                 .signatures
                 .values()
-                .map(|sig| signature_registry.register(sig))
+                .map(|sig| engine_inner.signatures().register(sig))
                 .collect::<PrimaryMap<_, _>>()
         };
+
+        engine_inner.add_library(lib);
 
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -571,6 +576,10 @@ impl Artifact for NativeArtifact {
         &self.finished_functions
     }
 
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
+    }
+
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }
@@ -580,11 +589,6 @@ impl Artifact for NativeArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        if self.library.is_none() {
-            return Err(InstantiationError::Link(LinkError::Trap(
-                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
-            )));
-        }
         Ok(())
     }
 
