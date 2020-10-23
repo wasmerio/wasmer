@@ -46,6 +46,9 @@ endif
 
 ifeq ($(ARCH), aarch64)
 	test_compilers_engines += cranelift-jit
+	ifneq (, $(findstring llvm,$(compilers)))
+		test_compilers_engines += llvm-native
+	endif
 endif
 
 compilers := $(filter-out ,$(compilers))

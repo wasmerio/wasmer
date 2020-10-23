@@ -59,7 +59,7 @@ impl SymbolRegistry for ShortNames {
             Ok(v) => v,
             Err(_) => return None,
         };
-        match ty.chars().nth(0).unwrap() {
+        match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
             't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
@@ -267,7 +267,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &mut ShortNames {},
+                        &ShortNames {},
                     )
                 },
             )
