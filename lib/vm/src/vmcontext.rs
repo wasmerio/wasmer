@@ -909,8 +909,6 @@ impl VMBuiltinFunctionsArray {
 /// The struct here is empty, as the sizes of these fields are dynamic, and
 /// we can't describe them in Rust's type system. Sufficient memory is
 /// allocated at runtime.
-///
-/// TODO: We could move the globals into the `vmctx` allocation too.
 #[derive(Debug)]
 #[repr(C, align(16))] // align 16 since globals are aligned to that and contained inside
 pub struct VMContext {}
