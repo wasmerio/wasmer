@@ -197,7 +197,7 @@ example.
 
 ### Imports
 
-10. [**Imported global**][imported-global], explains how to work with
+11. [**Imported global**][imported-global], explains how to work with
    imported globals: create globals, import them, get/set their value.
    
    _Keywords_: import, global.
@@ -211,7 +211,7 @@ example.
 
    </details>
 
-11. [**Imported function**][imported-function], explains how to define 
+12. [**Imported function**][imported-function], explains how to define 
    an imported function. They come in 2 flavors: dynamic,
    and “static”/native.
    
@@ -228,7 +228,7 @@ example.
 
 ### Integrations
 
-12. [**WASI**][wasi], explains how to use the [WebAssembly System
+13. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
