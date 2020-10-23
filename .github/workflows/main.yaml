@@ -41,9 +41,9 @@ jobs:
         build: [linux, macos, windows, linux-aarch64]
         include:
           - build: linux
-            os: ubuntu-latest
+            os: ubuntu-18.04
             rust: 1.46.0
-            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1910_Release.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
             # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
             run_integration_tests: true
@@ -70,6 +70,12 @@ jobs:
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+        if: matrix.os == 'ubuntu-18.04'
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
