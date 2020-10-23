@@ -300,14 +300,6 @@ impl FuncTrampoline {
         let builder = context.create_builder();
         builder.position_at_end(entry_block);
 
-        /*
-        // TODO: remove debugging
-        builder.build_call(
-            intrinsics.debug_trap,
-            &[],
-            "");
-        */
-
         let (callee_vmctx_ptr, func_ptr, args_rets_ptr) =
             match *trampoline_func.get_params().as_slice() {
                 [callee_vmctx_ptr, func_ptr, args_rets_ptr] => (
