@@ -4,7 +4,7 @@
 //!
 //! [llvm-intrinsics]: https://llvm.org/docs/LangRef.html#intrinsic-functions
 
-use super::abi::Abi;
+use crate::abi::Abi;
 use inkwell::{
     attributes::{Attribute, AttributeLoc},
     builder::Builder,

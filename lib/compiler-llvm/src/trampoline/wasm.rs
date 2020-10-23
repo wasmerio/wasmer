@@ -1,6 +1,6 @@
+use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
-use crate::translator::abi::{get_abi, Abi};
 use crate::translator::intrinsics::{type_to_llvm, type_to_llvm_ptr, Intrinsics};
 use inkwell::{
     attributes::{Attribute, AttributeLoc},

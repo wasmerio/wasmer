@@ -1,5 +1,4 @@
 use super::{
-    abi::{get_abi, Abi},
     intrinsics::{
         tbaa_label, type_to_llvm, CtxType, FunctionCache, GlobalCache, Intrinsics, MemoryCache,
     },
@@ -22,6 +21,7 @@ use inkwell::{
 };
 use smallvec::SmallVec;
 
+use crate::abi::{get_abi, Abi};
 use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
