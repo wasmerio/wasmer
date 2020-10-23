@@ -197,6 +197,11 @@ path = "examples/exports_global.rs"
 required-features = ["cranelift"]
 
 [[example]]
+name = "imported-function"
+path = "examples/imports_function.rs"
+required-features = ["cranelift"]
+
+[[example]]
 name = "imported-global"
 path = "examples/imports_global.rs"
 required-features = ["cranelift"]
