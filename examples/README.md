@@ -181,6 +181,20 @@ example.
 
    </details>
 
+10. [**Exported memory**][exported-memory], explains how to read from 
+    and write to exported memory.
+   
+   _Keywords_: export, memory.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-memory --release --features "cranelift"
+   ```
+
+   </details>
+
 ### Imports
 
 10. [**Imported global**][imported-global], explains how to work with
@@ -237,6 +251,7 @@ example.
 [cross-compilation]: ./engine_cross_compilation.rs
 [exported-global]: ./exports_global.rs
 [exported-function]: ./exports_function.rs
+[exported-memory]: ./exports_memory.rs
 [imported-global]: ./imports_global.rs
 [imported-function]: ./imports_function.rs
 [wasi]: ./wasi.rs
