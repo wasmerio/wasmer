@@ -8,37 +8,48 @@ else
 	UNAME_S := 
 endif
 
-# Which compilers we build. These have dependencies that may not on the system.
+# Which compilers we build. These have dependencies that may not be on the system.
 compilers := cranelift
 
-# Which engines we test. We always build all engines.
-engines := jit
+# In the form "$(compiler)-$(engine)" which compiler+engine combinations to test
+# in `make test`.
+test_compilers_engines :=
 
-ifeq ($(ARCH), x86_64)
-	# LLVM could be enabled if not in Windows
-	ifneq ($(OS), Windows_NT)
-		# Singlepass doesn't work yet on Windows
-		compilers += singlepass
-		# Autodetect LLVM from llvm-config
-		ifneq (, $(shell which llvm-config))
-			LLVM_VERSION := $(shell llvm-config --version)
-			# If findstring is not empty, then it have found the value
-			ifneq (, $(findstring 10,$(LLVM_VERSION)))
-				compilers += llvm
-			endif
-		else
-			ifneq (, $(shell which llvm-config-10))
-				compilers += llvm
-			endif
-		endif
-
-		# Native engine doesn't work yet on Windows
-		engines += native
+# Autodetect LLVM from llvm-config
+ifneq (, $(shell which llvm-config))
+	LLVM_VERSION := $(shell llvm-config --version)
+	# If findstring is not empty, then it have found the value
+	ifneq (, $(findstring 10,$(LLVM_VERSION)))
+		compilers += llvm
+	endif
+else
+	ifneq (, $(shell which llvm-config-10))
+		compilers += llvm
 	endif
 endif
 
+ifeq ($(ARCH), x86_64)
+	test_compilers_engines += cranelift-jit
+	# LLVM could be enabled if not in Windows
+	ifneq ($(OS), Windows_NT)
+		# Native engine doesn't work on Windows yet.
+		test_compilers_engines += cranelift-native
+		# Singlepass doesn't work yet on Windows.
+		compilers += singlepass
+		# Singlepass doesn't work with the native engine.
+		test_compilers_engines += singlepass-jit
+		ifneq (, $(findstring llvm,$(compilers)))
+			test_compilers_engines += llvm-jit llvm-native
+		endif
+	endif
+endif
+
+ifeq ($(ARCH), aarch64)
+	test_compilers_engines += cranelift-jit
+endif
+
 compilers := $(filter-out ,$(compilers))
-engines := $(filter-out ,$(engines))
+test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
 ifneq ($(OS), Windows_NT)
 	bold := $(shell tput bold)
@@ -102,9 +113,8 @@ build-capi-llvm:
 
 test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
-# Singlepass and native engine don't work together, this rule does nothing.
 test-singlepass-native:
-	@:
+	cargo test --release $(compiler_features) --features "test-singlepass test-native"
 
 test-singlepass-jit:
 	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
@@ -121,11 +131,11 @@ test-llvm-native:
 test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
-test-singlepass: $(foreach engine,$(engines),test-singlepass-$(engine))
+test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
 
-test-cranelift: $(foreach engine,$(engines),test-cranelift-$(engine))
+test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
 
-test-llvm: $(foreach engine,$(engines),test-llvm-$(engine))
+test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(test_compilers_engines)),test-$(llvm_engine))
 
 test-packages:
 	cargo test -p wasmer --release
