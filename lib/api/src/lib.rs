@@ -36,6 +36,8 @@ mod tunables;
 mod types;
 mod utils;
 
+pub use wasmer_derive::WasmerEnv;
+
 pub mod internals {
     //! We use the internals module for exporting types that are only
     //! intended to use in internal crates such as the compatibility crate
@@ -141,3 +143,95 @@ impl<T: WasmerEnv> WasmerEnv for &'static mut T {
         (*self).free()
     }
 }
+
+// TODO: iterate on names
+// TODO: do we want to use mutex/atomics here? like old WASI solution
+/// Lazily init an item
+pub struct InitAfterInstance<T: Sized> {
+    /// The data to be initialized
+    data: std::mem::MaybeUninit<T>,
+    /// Whether or not the data has been initialized
+    initialized: bool,
+}
+
+impl<T> InitAfterInstance<T> {
+    /// Creates an unitialized value.
+    pub fn new() -> Self {
+        Self {
+            data: std::mem::MaybeUninit::uninit(),
+            initialized: false,
+        }
+    }
+
+    /// # Safety
+    /// - The data must be initialized first
+    pub unsafe fn get_unchecked(&self) -> &T {
+        &*self.data.as_ptr()
+    }
+
+    /// Get the inner data.
+    pub fn get_ref(&self) -> Option<&T> {
+        if !self.initialized {
+            None
+        } else {
+            Some(unsafe { self.get_unchecked() })
+        }
+    }
+
+    /// TOOD: review
+    pub fn initialize(&mut self, value: T) -> bool {
+        if self.initialized {
+            return false;
+        }
+        unsafe {
+            self.data.as_mut_ptr().write(value);
+        }
+        self.initialized = true;
+        true
+    }
+}
+
+impl<T: std::fmt::Debug> std::fmt::Debug for InitAfterInstance<T> {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("InitAfterInstance")
+            .field("data", &self.get_ref())
+            .finish()
+    }
+}
+
+impl<T: Clone> Clone for InitAfterInstance<T> {
+    fn clone(&self) -> Self {
+        if let Some(inner) = self.get_ref() {
+            Self {
+                data: std::mem::MaybeUninit::new(inner.clone()),
+                initialized: true,
+            }
+        } else {
+            Self {
+                data: std::mem::MaybeUninit::uninit(),
+                initialized: false,
+            }
+        }
+    }
+}
+
+impl<T> Drop for InitAfterInstance<T> {
+    fn drop(&mut self) {
+        if self.initialized {
+            unsafe {
+                let ptr = self.data.as_mut_ptr();
+                std::ptr::drop_in_place(ptr);
+            };
+        }
+    }
+}
+
+impl<T> Default for InitAfterInstance<T> {
+    fn default() -> Self {
+        Self::new()
+    }
+}
+
+unsafe impl<T: Send> Send for InitAfterInstance<T> {}
+// I thought we could opt out of sync..., look into this
+// unsafe impl<T> !Sync for InitWithInstance<T> {}

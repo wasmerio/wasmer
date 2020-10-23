@@ -22,10 +22,14 @@ fn impl_wasmer_env_for_struct(
     data: &DataStruct,
     _attrs: &[Attribute],
 ) -> TokenStream {
-    let impl_inner = derive_struct_fields(data);
+    let (trait_methods, helper_methods) = derive_struct_fields(data);
     quote! {
         impl ::wasmer::WasmerEnv for #name {
-            #impl_inner
+            #trait_methods
+        }
+
+        impl #name {
+            #helper_methods
         }
     }
 }
@@ -57,15 +61,17 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
     }*/
 }
 
-fn derive_struct_fields(data: &DataStruct) -> TokenStream {
+fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut finish = vec![];
     let mut free = vec![];
-    let mut assign_tokens = vec![];
+    let mut helpers = vec![];
+    //let mut assign_tokens = vec![];
     let mut touched_fields = vec![];
     match data.fields {
         Fields::Named(ref fields) => {
             for f in fields.named.iter() {
                 let name = f.ident.as_ref().unwrap();
+                let top_level_ty: &Type = &f.ty;
                 touched_fields.push(name.clone());
                 let mut wasmer_attr = None;
                 for attr in &f.attrs {
@@ -76,36 +82,82 @@ fn derive_struct_fields(data: &DataStruct) -> TokenStream {
                 }
 
                 if let Some(wasmer_attr) = wasmer_attr {
+                    let inner_type = match top_level_ty {
+                        Type::Path(TypePath {
+                            path: Path { segments, .. },
+                            ..
+                        }) => {
+                            if let Some(PathSegment { ident, arguments }) = segments.last() {
+                                let ident_str = ident.to_string();
+                                if ident != "InitAfterInstance" {
+                                    // TODO:
+                                    panic!(
+                                        "Only the `InitAfterInstance` type is supported right now"
+                                    );
+                                }
+                                if let PathArguments::AngleBracketed(
+                                    AngleBracketedGenericArguments { args, .. },
+                                ) = arguments
+                                {
+                                    // TODO: proper error handling
+                                    assert_eq!(args.len(), 1);
+                                    if let GenericArgument::Type(Type::Path(TypePath {
+                                        path: Path { segments, .. },
+                                        ..
+                                    })) = &args[0]
+                                    {
+                                        if let PathSegment {
+                                            ident,
+                                            ..
+                                        } = segments.last().expect("there must be at least one segment; TODO: error handling") {
+                                            ident
+                                        } else {
+                                            panic!("unknown type found inside `InitAfterInstance`");
+                                        }
+                                    } else {
+                                        panic!("unrecognized type in first generic position on `InitAfterInstance`");
+                                    }
+                                } else {
+                                    panic!("Expected a generic parameter on `InitAfterInstance`");
+                                }
+                            } else {
+                                panic!("Wrong type of type found");
+                            }
+                        }
+                        _ => todo!("Unrecognized/unsupported type"),
+                    };
+                    let name_ref_str = format!("{}_ref", name);
+                    let name_ref = syn::Ident::new(&name_ref_str, name.span());
+                    let helper_tokens = quote_spanned! {f.span()=>
+                        pub fn #name_ref(&self) -> &#inner_type {
+                            unsafe { self.#name.get_unchecked() }
+                        }
+                    };
+                    helpers.push(helper_tokens);
                     match wasmer_attr {
                         WasmerAttr::Export { identifier, ty } => match ty {
                             ExportAttr::Function {} => todo!(),
                             ExportAttr::Memory {} => {
                                 let finish_tokens = quote_spanned! {f.span()=>
                                         let #name = instance.exports.get_memory(#identifier).unwrap();
-                                        let #name = Box::into_raw(Box::new(#name.clone()));
+                                        self.#name.initialize(#name.clone());
                                 };
                                 finish.push(finish_tokens);
                                 let free_tokens = quote_spanned! {f.span()=>
-                                    let _ = Box::from_raw(self.#name);
-                                    self.#name = ::std::ptr::null_mut();
                                 };
                                 free.push(free_tokens);
                             }
                         },
                     }
-                    assign_tokens.push(quote! {
-                        self.#name = #name;
-                    });
                 }
             }
         }
         _ => todo!(),
     }
 
-    quote! {
+    let trait_methods = quote! {
         fn finish(&mut self, instance: &::wasmer::Instance) {
             #(#finish)*
-            #(#assign_tokens)*
         }
 
         fn free(&mut self) {
@@ -113,5 +165,11 @@ fn derive_struct_fields(data: &DataStruct) -> TokenStream {
                 #(#free)*
             }
         }
-    }
+    };
+
+    let helper_methods = quote! {
+        #(#helpers)*
+    };
+
+    (trait_methods, helper_methods)
 }
