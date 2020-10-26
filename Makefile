@@ -94,21 +94,29 @@ build-docs-capi:
 # We use cranelift as the default backend for the capi for now
 build-capi: build-capi-cranelift
 
-build-capi-singlepass:
+build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,singlepass,wasi
 
-build-capi-cranelift:
+build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
+build-capi-cranelift-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,object-file,cranelift,wasi
+
 build-capi-cranelift-system-libffi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,cranelift,wasi,system-libffi
+		--no-default-features --features wat,jit,native,object-file,cranelift,wasi,system-libffi
 
-build-capi-llvm:
+build-capi-llvm-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,object-file,llvm,wasi
+
+build-capi-llvm-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,object-file,llvm,wasi
 
 ###########
 # Testing #
@@ -149,23 +157,35 @@ test-packages:
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-cli --release
 
-test-capi-singlepass: build-capi-singlepass
+# The test-capi rules depend on the build-capi rules to build the .a files to
+# link the tests against. cargo test doesn't know that the tests will be running
+# cmake + make to build programs whose dependencies cargo isn't aware of.
+
+test-capi-singlepass-jit: build-capi-singlepass-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,singlepass,wasi -- --nocapture
 
-test-capi-cranelift: build-capi-cranelift
+test-capi-cranelift-jit: build-capi-cranelift-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
 
-test-capi-cranelift-system-libffi: build-capi-cranelift-system-libffi
+test-capi-cranelift-native: build-capi-cranelift-native
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,cranelift,wasi -- --nocapture
+
+test-capi-cranelift-jit-system-libffi:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
 
-test-capi-llvm: build-capi-llvm
+test-capi-llvm-jit:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,llvm,wasi -- --nocapture
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
+test-capi-llvm-native:
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,llvm,wasi -- --nocapture
+
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) $(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
