@@ -328,33 +328,15 @@ impl WasiStateBuilder {
                 }
             }
         }
+
         for env in self.envs.iter() {
-            let mut eq_seen = false;
-            for b in env.iter() {
-                match *b {
-                    b'=' => {
-                        if eq_seen {
-                            return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                                format!(
-                                    "found '=' in env var string \"{}\" (key=value)",
-                                    std::str::from_utf8(env)
-                                        .unwrap_or("Inner error: env var is invalid_utf8!")
-                                ),
-                            ));
-                        }
-                        eq_seen = true;
-                    }
-                    0 => {
-                        return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                            format!(
-                                "found nul byte in env var string \"{}\" (key=value)",
-                                std::str::from_utf8(env)
-                                    .unwrap_or("Inner error: env var is invalid_utf8!")
-                            ),
-                        ));
-                    }
-                    _ => (),
-                }
+            if env.iter().find(|&&ch| ch == 0).is_some() {
+                return Err(WasiStateCreationError::EnvironmentVariableFormatError(
+                    format!(
+                        "found nul byte in env var string \"{}\" (key=value)",
+                        std::str::from_utf8(env).unwrap_or("Inner error: env var is invalid_utf8!")
+                    ),
+                ));
             }
         }
 
