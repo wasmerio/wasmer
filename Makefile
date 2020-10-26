@@ -92,7 +92,7 @@ build-docs-capi:
 	cd lib/c-api/ && doxygen doxyfile
 
 # We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift
+build-capi: build-capi-cranelift-jit
 
 build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
