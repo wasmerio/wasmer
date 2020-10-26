@@ -93,7 +93,7 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
     /// Add an environment variable pair.
-    /// Environment variable keys and values must not contain the byte `=` (0x3d)
+    /// Environment variable keys must not contain the byte `=` (0x3d)
     /// or nul (0x0).
     pub fn env<Key, Value>(&mut self, key: Key, value: Value) -> &mut Self
     where
@@ -130,7 +130,7 @@ impl WasiStateBuilder {
     }
 
     /// Add multiple environment variable pairs.
-    /// Keys and values must not contain the `=` (0x3d) or nul (0x0) byte.
+    /// Keys must not contain the `=` (0x3d) or nul (0x0) byte.
     pub fn envs<I, Key, Value>(&mut self, env_pairs: I) -> &mut Self
     where
         I: IntoIterator<Item = (Key, Value)>,
