@@ -126,12 +126,52 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 // TODO: rename everything, all names are throw-away names
 
 /// Prototype trait for finishing envs.
+/// # Examples
+///
+/// This trait can be derived like so:
+///
+/// ```
+/// # use wasmer::{WasmerEnv, InitAfterInstance, Memory};
+///
+/// #[derive(WasmerEnv)]
+/// pub struct MyEnvWithNoInstanceData {
+///     non_instance_data: u8,
+/// }
+///
+/// #[derive(WasmerEnv)]
+/// pub struct MyEnvWithInstanceData {
+///     non_instance_data: u8,
+///     #[wasmer(export("memory"))]
+///     memory: InitAfterInstance<Memory>,
+/// }
+///
+/// ```
+///
+/// This trait can also be implemented manually:
+/// ```
+/// # use wasmer::{WasmerEnv, InitAfterInstance, Memory, Instance};
+/// pub struct MyEnv {
+///    memory: InitAfterInstance<Memory>,
+/// }
+///
+/// impl WasmerEnv for MyEnv {
+///     fn finish(&mut self, instance: &Instance) {
+///         let memory = instance.exports.get_memory("memory").unwrap();
+///         self.memory.initialize(memory.clone());
+///     }
+///     fn free(&mut self) {}
+/// }
+/// ```
 pub trait WasmerEnv {
     /// The function that Wasmer will call on your type to let it finish
-    /// instantiating.
+    /// setting up the environment with data from the `Instance`.
+    ///
+    /// This function is called after `Instance` is created but before it is
+    /// returned to the user via `Instance::new`.
     fn finish(&mut self, instance: &Instance);
 
     /// Frees memory written to `self` so it can be dropped without any memory leaks.
+    // TODO: review, this is unused by the macro currently, do we want to do anything with this?
     fn free(&mut self);
 }
 

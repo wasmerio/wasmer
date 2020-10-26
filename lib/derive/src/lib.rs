@@ -2,7 +2,7 @@ extern crate proc_macro;
 
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site, proc_macro_error, set_dummy};
-use quote::{format_ident, quote, quote_spanned};
+use quote::{format_ident, quote, quote_spanned, ToTokens};
 use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, *};
 
 mod parse;
@@ -72,6 +72,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
             for f in fields.named.iter() {
                 let name = f.ident.as_ref().unwrap();
                 let top_level_ty: &Type = &f.ty;
+                dbg!(top_level_ty);
                 touched_fields.push(name.clone());
                 let mut wasmer_attr = None;
                 for attr in &f.attrs {
@@ -82,50 +83,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 }
 
                 if let Some(wasmer_attr) = wasmer_attr {
-                    let inner_type = match top_level_ty {
-                        Type::Path(TypePath {
-                            path: Path { segments, .. },
-                            ..
-                        }) => {
-                            if let Some(PathSegment { ident, arguments }) = segments.last() {
-                                let ident_str = ident.to_string();
-                                if ident != "InitAfterInstance" {
-                                    // TODO:
-                                    panic!(
-                                        "Only the `InitAfterInstance` type is supported right now"
-                                    );
-                                }
-                                if let PathArguments::AngleBracketed(
-                                    AngleBracketedGenericArguments { args, .. },
-                                ) = arguments
-                                {
-                                    // TODO: proper error handling
-                                    assert_eq!(args.len(), 1);
-                                    if let GenericArgument::Type(Type::Path(TypePath {
-                                        path: Path { segments, .. },
-                                        ..
-                                    })) = &args[0]
-                                    {
-                                        if let PathSegment {
-                                            ident,
-                                            ..
-                                        } = segments.last().expect("there must be at least one segment; TODO: error handling") {
-                                            ident
-                                        } else {
-                                            panic!("unknown type found inside `InitAfterInstance`");
-                                        }
-                                    } else {
-                                        panic!("unrecognized type in first generic position on `InitAfterInstance`");
-                                    }
-                                } else {
-                                    panic!("Expected a generic parameter on `InitAfterInstance`");
-                                }
-                            } else {
-                                panic!("Wrong type of type found");
-                            }
-                        }
-                        _ => todo!("Unrecognized/unsupported type"),
-                    };
+                    let inner_type = get_identifier(top_level_ty);
                     let name_ref_str = format!("{}_ref", name);
                     let name_ref = syn::Ident::new(&name_ref_str, name.span());
                     let helper_tokens = quote_spanned! {f.span()=>
@@ -172,4 +130,48 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     };
 
     (trait_methods, helper_methods)
+}
+
+// TODO: name this something that makes sense
+fn get_identifier(ty: &Type) -> TokenStream {
+    match ty {
+        Type::Path(TypePath {
+            path: Path { segments, .. },
+            ..
+        }) => {
+            if let Some(PathSegment { ident, arguments }) = segments.last() {
+                let ident_str = ident.to_string();
+                if ident != "InitAfterInstance" {
+                    // TODO:
+                    panic!("Only the `InitAfterInstance` type is supported right now");
+                }
+                if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
+                    args, ..
+                }) = arguments
+                {
+                    // TODO: proper error handling
+                    assert_eq!(args.len(), 1);
+                    if let GenericArgument::Type(Type::Path(TypePath {
+                        path: Path { segments, .. },
+                        ..
+                    })) = &args[0]
+                    {
+                        segments
+                            .last()
+                            .expect("there must be at least one segment; TODO: error handling")
+                            .to_token_stream()
+                    } else {
+                        panic!(
+                            "unrecognized type in first generic position on `InitAfterInstance`"
+                        );
+                    }
+                } else {
+                    panic!("Expected a generic parameter on `InitAfterInstance`");
+                }
+            } else {
+                panic!("Wrong type of type found");
+            }
+        }
+        _ => todo!("Unrecognized/unsupported type"),
+    }
 }

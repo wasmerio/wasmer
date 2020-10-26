@@ -31,7 +31,12 @@ pub struct ExportFunction {
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: *mut VMContext,
-    /// temp code to set vmctx for host functions
+    /// Function pointer to `WasmerEnv::finish(&mut self, instance: &Instance)`.
+    ///
+    /// This function is called to finish setting up the environment after
+    /// we create the `api::Instance`.
+    // META: if you have a better idea of how to get this function to where it
+    // needs to be, please let me know.
     pub function_ptr: Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
