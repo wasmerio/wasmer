@@ -490,17 +490,21 @@ mod test {
 
     #[test]
     fn env_var_errors() {
+        // `a=b` means key is `a` and value is `b`, which is OK.
+        // `a=b=c` means key is `a` and value is `b=c`, which is OK too.
         let output = create_wasi_state("test_prog")
-            .env("HOM=E", "/home/home")
+            .env("HOME", "/home/home=foo")
             .build();
+
         match output {
-            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
-            _ => assert!(false),
+            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(false),
+            _ => assert!(true),
         }
 
         let output = create_wasi_state("test_prog")
             .env("HOME\0", "/home/home")
             .build();
+
         match output {
             Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
             _ => assert!(false),
