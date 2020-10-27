@@ -68,7 +68,7 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         match trap {
             Trap::User(error) => {
-                match error.downcast::<RuntimeError>() {
+                match error.downcast::<Self>() {
                     // The error is already a RuntimeError, we return it directly
                     Ok(runtime_error) => *runtime_error,
                     Err(e) => Self::new_with_trace(

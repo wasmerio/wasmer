@@ -1,17 +1,3 @@
-  # Uncomment this once LLVM toolchain is added to the CI
-  # docs:
-  #   name: Docs
-  #   runs-on: ubuntu-latest
-  #   steps:
-  #     - name: Install Rust
-  #       uses: actions-rs/toolchain@v1
-  #       with:
-  #         profile: minimal
-  #         toolchain: 1.45.0
-  #         override: true
-  #         components: rustfmt, clippy
-  #     - run: make doc-local
-
 name: core tests
 
 env:
@@ -23,30 +9,73 @@ on:
       - 'master'
       - 'staging'
       - 'trying'
+    tags:
+      # this is _not_ a regex, see: https://docs.github.com/en/actions/reference/workflow-syntax-for-github-actions#filter-pattern-cheat-sheet
+      - '[0-9]+.[0-9]+.[0-9]+*'
 jobs:
+  setup:
+    name: Set up
+    runs-on: ubuntu-latest
+    outputs:
+      VERSION: ${{ steps.setup.outputs.VERSION }}
+      DOING_RELEASE: ${{ steps.setup.outputs.DOING_RELEASE }}
+    steps:
+      - name: Set up env vars
+        id: setup
+        shell: bash
+        run: |
+          VERSION=${GITHUB_REF/refs\/tags\//}
+          echo ::set-output name=VERSION::${VERSION}
+          DOING_RELEASE=$(echo $VERSION | grep -c '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' || true)
+          echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
+          echo $VERSION
+          echo $DOING_RELEASE
+
   test:
     name: Test on ${{ matrix.build }}
     runs-on: ${{ matrix.os }}
+    needs: setup
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows]
+        build: [linux, macos, windows, linux-aarch64]
         include:
           - build: linux
-            os: ubuntu-latest
-            rust: 1.45.0
+            os: ubuntu-18.04
+            rust: 1.46.0
+            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
+            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            artifact_name: 'wasmer-linux-amd64'
+            run_integration_tests: true
           - build: macos
             os: macos-latest
-            rust: 1.45.0
+            rust: 1.46.0
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
+            artifact_name: 'wasmer-macos-amd64'
+            run_integration_tests: true
           - build: windows
             os: windows-latest
-            rust: 1.45.0
+            rust: 1.46.0
+            artifact_name: 'wasmer-windows-amd64'
+            run_integration_tests: true
+          - build: linux-aarch64
+            os: [self-hosted, linux, ARM64]
+            rust: 1.46.0
+            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
+            artifact_name: 'wasmer-linux-aarch64'
+            run_integration_tests: false
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+        if: matrix.os == 'ubuntu-18.04'
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
@@ -58,7 +87,7 @@ jobs:
         # that are needed during the build process. Additionally, this works
         # around a bug in the 'cache' action that causes directories outside of
         # the workspace dir to be saved/restored incorrectly.
-        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
+        run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
       - name: Cache
         uses: actions/cache@master
         with:
@@ -80,40 +109,34 @@ jobs:
       #     key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       # - name: Install sccache
       #   run: |
-      #     echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
+      #     echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
       #     cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
       # - name: Start sccache
       #   run: |
       #     ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
       #     ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
-      #     echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
+      #     echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install llvm
+        shell: cmd
+        run: |
+          choco install llvm
         # run: |
         #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
         #   7z x llvm-installer.exe -oC:/llvm-10
-        #   echo ::add-path::C:/llvm-10/bin
-        #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
-        #   echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
-      - name: Install LLVM (macOS)
-        if: matrix.os == 'macos-latest'
+        #   echo C:/llvm-10/bin >> $GITHUB_PATH
+        #   echo "LLVM_SYS_100_PREFIX=C:/llvm-10" >> $GITHUB_ENV
+        #   echo "LIBCLANG_PATH=C:/llvm-10/bin/libclang.dll" >> $GITHUB_ENV
+      - name: Install LLVM (Unix)
+        if: matrix.os != 'windows-latest'
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz -L -o llvm.tar.xz
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
-          echo "::add-path::${{ env.LLVM_DIR }}/bin"
-          echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
+          echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
-      - name: Install LLVM (Linux)
-        if: matrix.os == 'ubuntu-latest'
-        run: |
-          curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz -L -o llvm.tar.xz
-          mkdir -p /opt/llvm-10
-          tar xf llvm.tar.xz --strip-components=1 -C /opt/llvm-10
-          echo ::add-path::/opt/llvm-10/bin
-          echo ::set-env name=LLVM_SYS_100_PREFIX::/opt/llvm-10
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
@@ -121,7 +144,7 @@ jobs:
       - name: Build and Test C API
         run: |
           make build-capi
-          make test-capi-cranelift
+          make test-capi
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
         run: make build-capi
@@ -129,9 +152,95 @@ jobs:
       - name: Build Wasmer binary
         run: |
           make build-wasmer
-          # TODO: build wapm
-          # make build-wapm
+      - name: Build Wapm binary
+        run: |
+          make build-wapm
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer for integration tests
+        run: make package-without-wapm-for-integration-tests
+        if: needs.setup.outputs.DOING_RELEASE != '1'
+      - name: Package Wasmer
+        run: |
           make package
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Run integration tests (Windows)
+        shell: cmd
+        run: |
+          call refreshenv
+          set WASMER_DIR=%CD%\package
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os == 'windows-latest'
+      - name: Run integration tests (Unix)
+        run: |
+          export WASMER_DIR=`pwd`/package
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+
+  release:
+    needs: [setup, test]
+    runs-on: ubuntu-latest
+    if: needs.setup.outputs.DOING_RELEASE == '1'
+    steps:
+      - name: Download the Artifacts
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: ${{ needs.setup.outputs.VERSION }}
+          release_name: Release ${{ needs.setup.outputs.VERSION }}
+          draft: true
+          prerelease: false
+      - name: Upload Release Asset Windows
+        id: upload-release-asset-windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          asset_path: artifacts/wasmer-windows-amd64/wasmer-windows.exe
+          asset_name: wasmer-windows.exe
+          asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Linux amd64
+        id: upload-release-asset-linux-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-amd64/wasmer-linux-amd64.tar.gz
+          asset_name: wasmer-linux-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac
+        id: upload-release-asset-mac
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-amd64.tar.gz
+          asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Linux aarch64
+        id: upload-release-asset-linux-aarch64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer-linux-aarch64.tar.gz
+          asset_name: wasmer-linux-aarch64.tar.gz
+          asset_content_type: application/gzip
 
   audit:
     name: Audit
@@ -145,7 +254,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-audit
           key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
       - run: |
-          echo "::add-path::${{ runner.tool_cache }}/cargo-audit/bin"
+          echo "${{ runner.tool_cache }}/cargo-audit/bin" >> $GITHUB_PATH
       - run: |
           cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
           cargo audit

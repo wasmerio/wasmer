@@ -20,7 +20,7 @@ fn retrieve_alias_pathbuf(alias: &str, real_dir: &str) -> Result<(String, PathBu
     } else {
         bail!("Directory \"{}\" does not exist", &real_dir);
     }
-    return Ok((alias.to_string(), pb));
+    Ok((alias.to_string(), pb))
 }
 
 /// Parses a mapdir from a string

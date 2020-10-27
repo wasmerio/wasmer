@@ -36,20 +36,20 @@ impl Extern {
     /// Return the undelying type of the inner `Extern`.
     pub fn ty(&self) -> ExternType {
         match self {
-            Extern::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Extern::Memory(ft) => ExternType::Memory(*ft.ty()),
-            Extern::Table(tt) => ExternType::Table(*tt.ty()),
-            Extern::Global(gt) => ExternType::Global(*gt.ty()),
+            Self::Function(ft) => ExternType::Function(ft.ty().clone()),
+            Self::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Self::Table(tt) => ExternType::Table(*tt.ty()),
+            Self::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
     /// Create an `Extern` from an `Export`.
-    pub fn from_export(store: &Store, export: Export) -> Extern {
+    pub fn from_export(store: &Store, export: Export) -> Self {
         match export {
-            Export::Function(f) => Extern::Function(Function::from_export(store, f)),
-            Export::Memory(m) => Extern::Memory(Memory::from_export(store, m)),
-            Export::Global(g) => Extern::Global(Global::from_export(store, g)),
-            Export::Table(t) => Extern::Table(Table::from_export(store, t)),
+            Export::Function(f) => Self::Function(Function::from_export(store, f)),
+            Export::Memory(m) => Self::Memory(Memory::from_export(store, m)),
+            Export::Global(g) => Self::Global(Global::from_export(store, g)),
+            Export::Table(t) => Self::Table(Table::from_export(store, t)),
         }
     }
 }
@@ -57,14 +57,14 @@ impl Extern {
 impl<'a> Exportable<'a> for Extern {
     fn to_export(&self) -> Export {
         match self {
-            Extern::Function(f) => f.to_export(),
-            Extern::Global(g) => g.to_export(),
-            Extern::Memory(m) => m.to_export(),
-            Extern::Table(t) => t.to_export(),
+            Self::Function(f) => f.to_export(),
+            Self::Global(g) => g.to_export(),
+            Self::Memory(m) => m.to_export(),
+            Self::Table(t) => t.to_export(),
         }
     }
 
-    fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {
+    fn get_self_from_extern(_extern: &'a Self) -> Result<&'a Self, ExportError> {
         // Since this is already an extern, we can just return it.
         Ok(_extern)
     }
@@ -73,10 +73,10 @@ impl<'a> Exportable<'a> for Extern {
 impl StoreObject for Extern {
     fn comes_from_same_store(&self, store: &Store) -> bool {
         let my_store = match self {
-            Extern::Function(f) => f.store(),
-            Extern::Global(g) => g.store(),
-            Extern::Memory(m) => m.store(),
-            Extern::Table(t) => t.store(),
+            Self::Function(f) => f.store(),
+            Self::Global(g) => g.store(),
+            Self::Memory(m) => m.store(),
+            Self::Table(t) => t.store(),
         };
         Store::same(my_store, store)
     }
@@ -99,24 +99,24 @@ impl fmt::Debug for Extern {
 
 impl From<Function> for Extern {
     fn from(r: Function) -> Self {
-        Extern::Function(r)
+        Self::Function(r)
     }
 }
 
 impl From<Global> for Extern {
     fn from(r: Global) -> Self {
-        Extern::Global(r)
+        Self::Global(r)
     }
 }
 
 impl From<Memory> for Extern {
     fn from(r: Memory) -> Self {
-        Extern::Memory(r)
+        Self::Memory(r)
     }
 }
 
 impl From<Table> for Extern {
     fn from(r: Table) -> Self {
-        Extern::Table(r)
+        Self::Table(r)
     }
 }

@@ -4,7 +4,7 @@
 use crate::global::Global;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
-use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind};
+use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind, VMTrampoline};
 use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
@@ -35,6 +35,9 @@ pub struct ExportFunction {
     pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)
     pub kind: VMFunctionKind,
+    /// Address of the function call trampoline owned by the same VMContext that owns the VMFunctionBody.
+    /// May be None when the function is an host-function (FunctionType == Dynamic or vmctx == nullptr).
+    pub call_trampoline: Option<VMTrampoline>,
 }
 
 /// # Safety

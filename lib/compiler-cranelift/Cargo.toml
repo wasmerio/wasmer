@@ -1,21 +1,21 @@
 [package]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0-alpha01.0"
+version = "1.0.0-alpha4"
+description = "Cranelift compiler for Wasmer WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler", "cranelift"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
-description = "Standalone environment support for WebAsssembly code in Cranelift"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 repository = "https://github.com/wasmerio/wasmer"
 documentation = "https://docs.rs/wasmer-compiler-cranelift/"
-categories = ["wasm"]
-keywords = ["webassembly", "wasm", "compiler", "cranelift"]
+license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", features = ["translator"], default-features = false }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0", default-features = false, features = ["std"] }
-cranelift-codegen = { version = "0.65", default-features = false }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha4" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4", default-features = false, features = ["std"] }
+cranelift-codegen = { version = "0.65", default-features = false, features = ["x86", "arm64"] }
 cranelift-frontend = { version = "0.65", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.8", optional = true }

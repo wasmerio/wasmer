@@ -35,7 +35,7 @@ pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
 #[derive(Default)]
 pub struct WasiStateBuilder {
     args: Vec<Vec<u8>>,
-    envs: Vec<Vec<u8>>,
+    envs: Vec<(Vec<u8>, Vec<u8>)>,
     preopens: Vec<PreopenedDir>,
     #[allow(clippy::type_complexity)]
     setup_fs_fn: Option<Box<dyn Fn(&mut WasiFs) -> Result<(), String> + Send>>,
@@ -93,85 +93,68 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
     /// Add an environment variable pair.
-    /// Environment variable keys and values must not contain the byte `=` (0x3d)
-    /// or nul (0x0).
+    ///
+    /// Both the key and value of an environment variable must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
     pub fn env<Key, Value>(&mut self, key: Key, value: Value) -> &mut Self
     where
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        let key_b = key.as_ref();
-        let val_b = value.as_ref();
-
-        let length = key_b.len() + val_b.len() + 1;
-        let mut byte_vec = Vec::with_capacity(length);
-
-        byte_vec.extend_from_slice(&key_b);
-        byte_vec.push(b'=');
-        byte_vec.extend_from_slice(&val_b);
-
-        self.envs.push(byte_vec);
+        self.envs
+            .push((key.as_ref().to_vec(), value.as_ref().to_vec()));
 
         self
     }
 
     /// Add an argument.
+    ///
     /// Arguments must not contain the nul (0x0) byte
     pub fn arg<Arg>(&mut self, arg: Arg) -> &mut Self
     where
         Arg: AsRef<[u8]>,
     {
-        let arg_b = arg.as_ref();
-        let mut byte_vec = Vec::with_capacity(arg_b.len());
-        byte_vec.extend_from_slice(&arg_b);
-        self.args.push(byte_vec);
+        self.args.push(arg.as_ref().to_vec());
 
         self
     }
 
     /// Add multiple environment variable pairs.
-    /// Keys and values must not contain the `=` (0x3d) or nul (0x0) byte.
+    ///
+    /// Both the key and value of the environment variables must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
     pub fn envs<I, Key, Value>(&mut self, env_pairs: I) -> &mut Self
     where
         I: IntoIterator<Item = (Key, Value)>,
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        for (key, value) in env_pairs {
-            let key_b = key.as_ref();
-            let val_b = value.as_ref();
-
-            let length = key_b.len() + val_b.len() + 1;
-            let mut byte_vec = Vec::with_capacity(length);
-
-            byte_vec.extend_from_slice(&key_b);
-            byte_vec.push(b'=');
-            byte_vec.extend_from_slice(&val_b);
-
-            self.envs.push(byte_vec);
-        }
+        env_pairs.into_iter().for_each(|(key, value)| {
+            self.env(key, value);
+        });
 
         self
     }
 
     /// Add multiple arguments.
+    ///
     /// Arguments must not contain the nul (0x0) byte
     pub fn args<I, Arg>(&mut self, args: I) -> &mut Self
     where
         I: IntoIterator<Item = Arg>,
         Arg: AsRef<[u8]>,
     {
-        for arg in args {
-            let arg_b = arg.as_ref();
-            let mut byte_vec = Vec::with_capacity(arg_b.len());
-            byte_vec.extend_from_slice(&arg_b);
-            self.args.push(byte_vec);
-        }
+        args.into_iter().for_each(|arg| {
+            self.arg(arg);
+        });
 
         self
     }
 
     /// Preopen a directory
+    ///
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
     pub fn preopen_dir<FilePath>(
@@ -217,7 +200,8 @@ impl WasiStateBuilder {
         Ok(self)
     }
 
-    /// Preopen a directory
+    /// Preopen a directory.
+    ///
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
     pub fn preopen_dirs<I, FilePath>(
@@ -328,33 +312,50 @@ impl WasiStateBuilder {
                 }
             }
         }
-        for env in self.envs.iter() {
-            let mut eq_seen = false;
-            for b in env.iter() {
-                match *b {
-                    b'=' => {
-                        if eq_seen {
-                            return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                                format!(
-                                    "found '=' in env var string \"{}\" (key=value)",
-                                    std::str::from_utf8(env)
-                                        .unwrap_or("Inner error: env var is invalid_utf8!")
-                                ),
-                            ));
-                        }
-                        eq_seen = true;
-                    }
-                    0 => {
-                        return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                            format!(
-                                "found nul byte in env var string \"{}\" (key=value)",
-                                std::str::from_utf8(env)
-                                    .unwrap_or("Inner error: env var is invalid_utf8!")
-                            ),
-                        ));
-                    }
-                    _ => (),
+
+        enum InvalidCharacter {
+            Nul,
+            Equal,
+        }
+
+        for (env_key, env_value) in self.envs.iter() {
+            match env_key.iter().find_map(|&ch| {
+                if ch == 0 {
+                    Some(InvalidCharacter::Nul)
+                } else if ch == b'=' {
+                    Some(InvalidCharacter::Equal)
+                } else {
+                    None
                 }
+            }) {
+                Some(InvalidCharacter::Nul) => {
+                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(
+                        format!(
+                            "found nul byte in env var key \"{}\" (key=value)",
+                            String::from_utf8_lossy(env_key)
+                        ),
+                    ))
+                }
+
+                Some(InvalidCharacter::Equal) => {
+                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(
+                        format!(
+                            "found equal sign in env var key \"{}\" (key=value)",
+                            String::from_utf8_lossy(env_key)
+                        ),
+                    ))
+                }
+
+                None => (),
+            }
+
+            if env_value.iter().find(|&&ch| ch == 0).is_some() {
+                return Err(WasiStateCreationError::EnvironmentVariableFormatError(
+                    format!(
+                        "found nul byte in env var value \"{}\" (key=value)",
+                        String::from_utf8_lossy(env_value)
+                    ),
+                ));
             }
         }
 
@@ -386,7 +387,18 @@ impl WasiStateBuilder {
         Ok(WasiState {
             fs: wasi_fs,
             args: self.args.clone(),
-            envs: self.envs.clone(),
+            envs: self
+                .envs
+                .iter()
+                .map(|(key, value)| {
+                    let mut env = Vec::with_capacity(key.len() + value.len() + 1);
+                    env.extend_from_slice(&key);
+                    env.push(b'=');
+                    env.extend_from_slice(&value);
+
+                    env
+                })
+                .collect(),
         })
     }
 
@@ -438,6 +450,9 @@ impl PreopenDirBuilder {
 
     /// Make this preopened directory appear to the WASI program as `alias`
     pub fn alias(&mut self, alias: &str) -> &mut Self {
+        // We mount at preopened dirs at `/` by default and multiple `/` in a row
+        // are equal to a single `/`.
+        let alias = alias.trim_start_matches('/');
         self.alias = Some(alias.to_string());
 
         self
@@ -505,21 +520,41 @@ mod test {
 
     #[test]
     fn env_var_errors() {
-        let output = create_wasi_state("test_prog")
-            .env("HOM=E", "/home/home")
-            .build();
-        match output {
-            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
-            _ => assert!(false),
-        }
+        // `=` in the key is invalid.
+        assert!(
+            create_wasi_state("test_prog")
+                .env("HOM=E", "/home/home")
+                .build()
+                .is_err(),
+            "equal sign in key must be invalid"
+        );
 
-        let output = create_wasi_state("test_prog")
-            .env("HOME\0", "/home/home")
-            .build();
-        match output {
-            Err(WasiStateCreationError::EnvironmentVariableFormatError(_)) => assert!(true),
-            _ => assert!(false),
-        }
+        // `\0` in the key is invalid.
+        assert!(
+            create_wasi_state("test_prog")
+                .env("HOME\0", "/home/home")
+                .build()
+                .is_err(),
+            "nul in key must be invalid"
+        );
+
+        // `=` in the value is valid.
+        assert!(
+            create_wasi_state("test_prog")
+                .env("HOME", "/home/home=home")
+                .build()
+                .is_ok(),
+            "equal sign in the value must be valid"
+        );
+
+        // `\0` in the value is invalid.
+        assert!(
+            create_wasi_state("test_prog")
+                .env("HOME", "/home/home\0")
+                .build()
+                .is_err(),
+            "nul in value must be invalid"
+        );
     }
 
     #[test]

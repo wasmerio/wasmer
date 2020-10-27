@@ -1,18 +1,18 @@
 [package]
 name = "wasmer-object"
-version = "1.0.0-alpha01.0"
-authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
+version = "1.0.0-alpha4"
 description = "Wasmer Native Object generator"
-license = "MIT OR Apache-2.0 WITH LLVM-exception"
 categories = ["wasm"]
-keywords = ["webassembly", "wasm"]
+keywords = ["wasm", "webassembly"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha01.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha01.0", default-features = false, features = [
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4", default-features = false, features = [
     "std",
     "translator"
 ] }

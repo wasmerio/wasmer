@@ -8,31 +8,51 @@ else
 	UNAME_S := 
 endif
 
-compilers :=
+# Which compilers we build. These have dependencies that may not be on the system.
+compilers := cranelift
+
+# In the form "$(compiler)-$(engine)" which compiler+engine combinations to test
+# in `make test`.
+test_compilers_engines :=
+
+# Autodetect LLVM from llvm-config
+ifneq (, $(shell which llvm-config))
+	LLVM_VERSION := $(shell llvm-config --version)
+	# If findstring is not empty, then it have found the value
+	ifneq (, $(findstring 10,$(LLVM_VERSION)))
+		compilers += llvm
+	endif
+else
+	ifneq (, $(shell which llvm-config-10))
+		compilers += llvm
+	endif
+endif
 
 ifeq ($(ARCH), x86_64)
-	# In X64, Cranelift is enabled
-	compilers += cranelift
+	test_compilers_engines += cranelift-jit
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
-		# Singlepass doesn't work yet on Windows
+		# Native engine doesn't work on Windows yet.
+		test_compilers_engines += cranelift-native
+		# Singlepass doesn't work yet on Windows.
 		compilers += singlepass
-		# Autodetect LLVM from llvm-config
-		ifneq (, $(shell which llvm-config))
-			LLVM_VERSION := $(shell llvm-config --version)
-			# If findstring is not empty, then it have found the value
-			ifneq (, $(findstring 10,$(LLVM_VERSION)))
-				compilers += llvm
-			endif
-		else
-			ifneq (, $(shell which llvm-config-10))
-				compilers += llvm
-			endif
+		# Singlepass doesn't work with the native engine.
+		test_compilers_engines += singlepass-jit
+		ifneq (, $(findstring llvm,$(compilers)))
+			test_compilers_engines += llvm-jit llvm-native
 		endif
 	endif
 endif
 
+ifeq ($(ARCH), aarch64)
+	test_compilers_engines += cranelift-jit
+	ifneq (, $(findstring llvm,$(compilers)))
+		test_compilers_engines += llvm-native
+	endif
+endif
+
 compilers := $(filter-out ,$(compilers))
+test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
 ifneq ($(OS), Windows_NT)
 	bold := $(shell tput bold)
@@ -72,20 +92,31 @@ build-docs-capi:
 	cd lib/c-api/ && doxygen doxyfile
 
 # We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift
+build-capi: build-capi-cranelift-jit
 
-build-capi-singlepass:
+build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,singlepass,wasi
+		--no-default-features --features wat,jit,object-file,singlepass,wasi
 
-build-capi-cranelift:
+build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,cranelift,wasi
+		--no-default-features --features wat,jit,object-file,cranelift,wasi
 
-build-capi-llvm:
+build-capi-cranelift-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,llvm,wasi
+		--no-default-features --features wat,native,object-file,cranelift,wasi
 
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,native,object-file,cranelift,wasi,system-libffi
+
+build-capi-llvm-jit:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,object-file,llvm,wasi
+
+build-capi-llvm-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,object-file,llvm,wasi
 
 ###########
 # Testing #
@@ -93,14 +124,29 @@ build-capi-llvm:
 
 test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
-test-singlepass:
-	cargo test --release $(compiler_features) --features "test-singlepass"
+test-singlepass-native:
+	cargo test --release $(compiler_features) --features "test-singlepass test-native"
 
-test-cranelift:
-	cargo test --release $(compiler_features) --features "test-cranelift"
+test-singlepass-jit:
+	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
 
-test-llvm:
-	cargo test --release $(compiler_features) --features "test-llvm"
+test-cranelift-native:
+	cargo test --release $(compiler_features) --features "test-cranelift test-native"
+
+test-cranelift-jit:
+	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
+
+test-llvm-native:
+	cargo test --release $(compiler_features) --features "test-llvm test-native"
+
+test-llvm-jit:
+	cargo test --release $(compiler_features) --features "test-llvm test-jit"
+
+test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
+
+test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
+
+test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(test_compilers_engines)),test-$(llvm_engine))
 
 test-packages:
 	cargo test -p wasmer --release
@@ -109,20 +155,37 @@ test-packages:
 	cargo test -p wasmer-wasi --release
 	cargo test -p wasmer-object --release
 	cargo test -p wasmer-engine-native --release --no-default-features
+	cargo test -p wasmer-cli --release
 
-test-capi-singlepass: build-capi-singlepass
+# The test-capi rules depend on the build-capi rules to build the .a files to
+# link the tests against. cargo test doesn't know that the tests will be running
+# cmake + make to build programs whose dependencies cargo isn't aware of.
+
+test-capi-singlepass-jit: build-capi-singlepass-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,singlepass,wasi -- --nocapture
+		--no-default-features --features wat,jit,singlepass,wasi -- --nocapture
 
-test-capi-cranelift: build-capi-cranelift
+test-capi-cranelift-jit: build-capi-cranelift-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,cranelift,wasi -- --nocapture
+		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
 
-test-capi-llvm: build-capi-llvm
+test-capi-cranelift-native: build-capi-cranelift-native
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features jit,llvm,wasi -- --nocapture
+		--no-default-features --features wat,native,cranelift,wasi -- --nocapture
 
-test-capi: test-capi-singlepass test-capi-cranelift test-capi-llvm
+test-capi-cranelift-jit-system-libffi:
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
+
+test-capi-llvm-jit:
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,llvm,wasi -- --nocapture
+
+test-capi-llvm-native:
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,llvm,wasi -- --nocapture
+
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) $(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -135,12 +198,16 @@ test-deprecated:
 	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release
 	cargo test --manifest-path lib/deprecated/runtime/Cargo.toml -p wasmer-runtime --release --examples
 
+test-integration:
+	cargo test -p wasmer-integration-tests-cli
+
 #############
 # Packaging #
 #############
 
 package-wapm:
 	mkdir -p "package/bin"
+	cp ./wapm-cli/target/release/wapm package/bin/
 ifeq ($(OS), Windows_NT)
 	echo ""
 else
@@ -156,28 +223,27 @@ else
 	cp target/release/wasmer package/bin/
 endif
 
-# Comment out WAPM for now to speed up release process.
-# cp ./wapm-cli/target/release/wapm package/bin/
-# # Create the wax binary as symlink to wapm
-# cd package/bin/ && ln -sf wapm wax && chmod +x wax
+
 
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
 	cp lib/c-api/wasmer.h* package/include
-	cp lib/c-api/doc/index.md package/include/README.md
+	cp lib/c-api/wasmer_wasm.h* package/include
+	cp lib/c-api/wasm.h* package/include
+	cp lib/c-api/doc/deprecated/index.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
 	cp target/release/wasmer_c_api.lib package/lib
 else
 ifeq ($(UNAME_S), Darwin)
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
-	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
 else
 	cp target/release/libwasmer_c_api.so package/lib/libwasmer.so
-	# cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
+	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif
 
@@ -202,6 +268,9 @@ else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
 endif
+
+# command for simulating installing Wasmer without wapm.
+package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

@@ -13,6 +13,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FunctionBodyPtr, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -21,7 +22,7 @@ use wasmer_vm::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync {
+pub trait Artifact: Send + Sync + Upcastable {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 
@@ -54,8 +55,12 @@ pub trait Artifact: Send + Sync {
     /// ready to be run.
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>;
 
+    /// Returns the function call trampolines allocated in memory of this
+    /// `Artifact`, ready to be run.
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline>;
+
     /// Returns the dynamic function trampolines allocated in memory
-    /// for this `Artifact`, ready to be run.
+    /// of this `Artifact`, ready to be run.
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr>;
 
     /// Returns the associated VM signatures for this `Artifact`.
@@ -116,6 +121,7 @@ pub trait Artifact: Send + Sync {
         InstanceHandle::new(
             module,
             self.finished_functions().clone(),
+            self.finished_function_call_trampolines().clone(),
             finished_memories,
             finished_tables,
             finished_globals,
@@ -135,7 +141,6 @@ pub trait Artifact: Send + Sync {
         &self,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
-        let is_bulk_memory: bool = self.features().bulk_memory;
         let data_initializers = self
             .data_initializers()
             .iter()
@@ -145,7 +150,44 @@ pub trait Artifact: Send + Sync {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(is_bulk_memory, &data_initializers)
+            .finish_instantiation(&data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
+    }
+}
+
+// Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
+/// Trait needed to get downcasting from `WasiFile` to work.
+pub trait Upcastable {
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
+}
+
+impl<T: Any + Send + Sync + 'static> Upcastable for T {
+    #[inline]
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any {
+        self
+    }
+    #[inline]
+    fn upcast_any_box(self: Box<Self>) -> Box<dyn Any> {
+        self
+    }
+}
+
+impl dyn Artifact + 'static {
+    /// Try to downcast the artifact into a given type.
+    #[inline]
+    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
+        self.upcast_any_ref().downcast_ref::<T>()
+    }
+
+    /// Try to downcast the artifact into a given type mutably.
+    #[inline]
+    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
+        self.upcast_any_mut().downcast_mut::<T>()
     }
 }

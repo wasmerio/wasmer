@@ -23,17 +23,41 @@ pub struct Global {
 
 impl Global {
     /// Create a new `Global` with the initial value [`Val`].
-    pub fn new(store: &Store, val: Val) -> Global {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Mutability, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// assert_eq!(g.get(), Value::I32(1));
+    /// assert_eq!(g.ty().mutability, Mutability::Const);
+    /// ```
+    pub fn new(store: &Store, val: Val) -> Self {
         Self::from_value(store, val, Mutability::Const).unwrap()
     }
 
     /// Create a mutable `Global` with the initial value [`Val`].
-    pub fn new_mut(store: &Store, val: Val) -> Global {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Mutability, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new_mut(&store, Value::I32(1));
+    ///
+    /// assert_eq!(g.get(), Value::I32(1));
+    /// assert_eq!(g.ty().mutability, Mutability::Var);
+    /// ```
+    pub fn new_mut(store: &Store, val: Val) -> Self {
         Self::from_value(store, val, Mutability::Var).unwrap()
     }
 
     /// Create a `Global` with the initial value [`Val`] and the provided [`Mutability`].
-    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Global, RuntimeError> {
+    fn from_value(store: &Store, val: Val, mutability: Mutability) -> Result<Self, RuntimeError> {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
@@ -47,34 +71,103 @@ impl Global {
                 .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
 
-        Ok(Global {
+        Ok(Self {
             store: store.clone(),
             global: Arc::new(global),
         })
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Mutability, Store, Type, Value, GlobalType};
+    /// # let store = Store::default();
+    /// #
+    /// let c = Global::new(&store, Value::I32(1));
+    /// let v = Global::new_mut(&store, Value::I64(1));
+    ///
+    /// assert_eq!(c.ty(), &GlobalType::new(Type::I32, Mutability::Const));
+    /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
+    /// ```
     pub fn ty(&self) -> &GlobalType {
         self.global.ty()
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// assert_eq!(g.store(), &store);
+    /// ```
     pub fn store(&self) -> &Store {
         &self.store
     }
 
     /// Retrieves the current value [`Val`] that the Global has.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// assert_eq!(g.get(), Value::I32(1));
+    /// ```
     pub fn get(&self) -> Val {
         self.global.get()
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
     ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new_mut(&store, Value::I32(1));
+    ///
+    /// assert_eq!(g.get(), Value::I32(1));
+    ///
+    /// g.set(Value::I32(2));
+    ///
+    /// assert_eq!(g.get(), Value::I32(2));
+    /// ```
+    ///
     /// # Errors
     ///
-    /// This function will error if:
-    /// * The global is not mutable
-    /// * The type of the `Val` doesn't matches the Global type.
+    /// Trying to mutate a immutable global will raise an error:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// g.set(Value::I32(2)).unwrap();
+    /// ```
+    ///
+    /// Trying to set a value of a incompatible type will raise an error:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// // This results in an error: `RuntimeError`.
+    /// g.set(Value::I64(2)).unwrap();
+    /// ```
     pub fn set(&self, val: Val) -> Result<(), RuntimeError> {
         if !val.comes_from_same_store(&self.store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
@@ -87,15 +180,26 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Global {
-        Global {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+        Self {
             store: store.clone(),
-            global: wasmer_export.from.clone(),
+            global: wasmer_export.from,
         }
     }
 
     /// Returns whether or not these two globals refer to the same data.
-    pub fn same(&self, other: &Global) -> bool {
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Global, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let g = Global::new(&store, Value::I32(1));
+    ///
+    /// assert!(g.same(&g));
+    /// ```
+    pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.global, &other.global)
     }
 }

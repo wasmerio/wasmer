@@ -77,3 +77,16 @@ unsafe impl Send for FunctionBodyPtr {}
 /// # Safety
 /// TODO:
 unsafe impl Sync for FunctionBodyPtr {}
+
+/// Pointers to section data.
+#[derive(Clone, Copy, Debug)]
+#[repr(transparent)]
+pub struct SectionBodyPtr(pub *const u8);
+
+impl std::ops::Deref for SectionBodyPtr {
+    type Target = *const u8;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}

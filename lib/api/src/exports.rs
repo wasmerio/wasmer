@@ -14,16 +14,37 @@ use wasmer_vm::Export;
 ///
 /// [`Instance`]: crate::Instance
 ///
-/// ```ignore
-/// # let my_instance = Instance::new(...);
+/// # Examples
 ///
+/// ## Incompatible export type
+///
+/// ```should_panic
+/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # let store = Store::default();
+/// # let wasm_bytes = wat2wasm(r#"
+/// # (module
+/// #   (global $one (export "glob") f32 (f32.const 1)))
+/// # "#.as_bytes()).unwrap();
+/// # let module = Module::new(&store, wasm_bytes).unwrap();
+/// # let import_object = imports! {};
+/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// #
 /// // This results with an error: `ExportError::IncompatibleType`.
-/// let missing_import: &Global = my_instance.exports.get("func")?;
-/// let missing_import = my_instance.exports.get_global("func")?;
+/// let export = instance.exports.get_function("glob").unwrap();
+/// ```
 ///
+/// ## Missing export
+///
+/// ```should_panic
+/// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value, ExportError};
+/// # let store = Store::default();
+/// # let wasm_bytes = wat2wasm("(module)".as_bytes()).unwrap();
+/// # let module = Module::new(&store, wasm_bytes).unwrap();
+/// # let import_object = imports! {};
+/// # let instance = Instance::new(&module, &import_object).unwrap();
+/// #
 /// // This results with an error: `ExportError::Missing`.
-/// let missing_import: &Function = my_instance.exports.get("unknown")?;
-/// let missing_import = my_instance.exports.get_function("unknown")?;
+/// let export = instance.exports.get_function("unknown").unwrap();
 /// ```
 #[derive(Error, Debug)]
 pub enum ExportError {
@@ -51,7 +72,7 @@ impl Exports {
 
     /// Creates a new `Exports` with capacity `n`.
     pub fn with_capacity(n: usize) -> Self {
-        Exports {
+        Self {
             map: Arc::new(IndexMap::with_capacity(n)),
         }
     }
@@ -224,7 +245,7 @@ where
 impl FromIterator<(String, Extern)> for Exports {
     fn from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self {
         // TODO: Move into IndexMap collect
-        let mut exports = Exports::new();
+        let mut exports = Self::new();
         for (name, extern_) in iter {
             exports.insert(name, extern_);
         }

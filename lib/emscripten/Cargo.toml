@@ -1,12 +1,12 @@
 [package]
 name = "wasmer-emscripten"
-version = "1.0.0-alpha01.0"
-description = "Wasmer runtime emscripten implementation library"
-license = "MIT"
-authors = ["The Wasmer Engineering Team <engineering@wasmer.io>"]
+version = "1.0.0-alpha4"
+description = "Emscripten implementation library for Wasmer WebAssembly runtime"
+categories = ["wasm", "os"]
+keywords = ["wasm", "webassembly", "abi", "emscripten", "posix"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
-keywords = ["wasm", "webassembly", "ABI", "emscripten", "posix"]
-categories = ["wasm"]
+license = "MIT"
 readme = "README.md"
 edition = "2018"
 
@@ -16,7 +16,7 @@ lazy_static = "1.4"
 libc = "^0.2.69"
 log = "0.4"
 time = "0.1"
-wasmer = { path = "../api", version = "1.0.0-alpha01.0", default-features = false }
+wasmer = { path = "../api", version = "1.0.0-alpha4", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 getrandom = "0.1"

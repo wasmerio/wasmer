@@ -38,7 +38,7 @@ impl Table {
     /// This function will construct the `Table` using the store [`Tunables`].
     ///
     /// [`Tunables`]: crate::tunables::Tunables
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
+    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
@@ -51,7 +51,7 @@ impl Table {
             set_table_item(table.as_ref(), i, item.clone())?;
         }
 
-        Ok(Table {
+        Ok(Self {
             store: store.clone(),
             table,
         })
@@ -117,9 +117,9 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
-        dst_table: &Table,
+        dst_table: &Self,
         dst_index: u32,
-        src_table: &Table,
+        src_table: &Self,
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
@@ -139,8 +139,8 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Table {
-        Table {
+    pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Self {
+        Self {
             store: store.clone(),
             table: wasmer_export.from,
         }

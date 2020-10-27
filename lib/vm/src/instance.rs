@@ -13,7 +13,7 @@ use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
     VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
-    VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
@@ -84,6 +84,9 @@ pub(crate) struct Instance {
 
     /// Pointers to functions in executable memory.
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+
+    /// Pointers to function call trampolines in executable memory.
+    function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
@@ -182,13 +185,13 @@ impl Instance {
     /// Return the indexed `VMTableDefinition`.
     #[allow(dead_code)]
     fn table(&self, index: LocalTableIndex) -> VMTableDefinition {
-        unsafe { self.table_ptr(index).as_ref().clone() }
+        unsafe { *self.table_ptr(index).as_ref() }
     }
 
     /// Updates the value for a defined table to `VMTableDefinition`.
     fn set_table(&self, index: LocalTableIndex, table: &VMTableDefinition) {
         unsafe {
-            *self.table_ptr(index).as_ptr() = table.clone();
+            *self.table_ptr(index).as_ptr() = *table;
         }
     }
 
@@ -209,19 +212,19 @@ impl Instance {
             self.memory(local_index)
         } else {
             let import = self.imported_memory(index);
-            unsafe { import.definition.as_ref().clone() }
+            unsafe { *import.definition.as_ref() }
         }
     }
 
     /// Return the indexed `VMMemoryDefinition`.
     fn memory(&self, index: LocalMemoryIndex) -> VMMemoryDefinition {
-        unsafe { self.memory_ptr(index).as_ref().clone() }
+        unsafe { *self.memory_ptr(index).as_ref() }
     }
 
     /// Set the indexed memory to `VMMemoryDefinition`.
     fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
         unsafe {
-            *self.memory_ptr(index).as_ptr() = mem.clone();
+            *self.memory_ptr(index).as_ptr() = *mem;
         }
     }
 
@@ -298,6 +301,7 @@ impl Instance {
                     let import = self.imported_function(*index);
                     (import.body, import.vmctx)
                 };
+                let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
                 ExportFunction {
                     address,
@@ -308,6 +312,7 @@ impl Instance {
                     kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
+                    call_trampoline,
                 }
                 .into()
             }
@@ -791,6 +796,7 @@ impl InstanceHandle {
     pub unsafe fn new(
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+        finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
         finished_memories: BoxedSlice<LocalMemoryIndex, Arc<dyn Memory>>,
         finished_tables: BoxedSlice<LocalTableIndex, Arc<dyn Table>>,
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
@@ -805,7 +811,7 @@ impl InstanceHandle {
             .values()
             .map(|t| {
                 let vmtable_ptr = t.vmtable();
-                vmtable_ptr.as_ref().clone()
+                *vmtable_ptr.as_ref()
             })
             .collect::<PrimaryMap<LocalTableIndex, _>>()
             .into_boxed_slice();
@@ -814,7 +820,7 @@ impl InstanceHandle {
             .values()
             .map(|m| {
                 let vmmemory_ptr = m.as_ref().vmmemory();
-                vmmemory_ptr.as_ref().clone()
+                *vmmemory_ptr.as_ref()
             })
             .collect::<PrimaryMap<LocalMemoryIndex, _>>()
             .into_boxed_slice();
@@ -837,6 +843,7 @@ impl InstanceHandle {
                 tables: finished_tables,
                 globals: finished_globals,
                 functions: finished_functions,
+                function_call_trampolines: finished_function_call_trampolines,
                 passive_elements: Default::default(),
                 passive_data,
                 host_state,
@@ -919,17 +926,10 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
-        is_bulk_memory: bool,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
-        // Check initializer bounds before initializing anything. Only do this
-        // when bulk memory is disabled, since the bulk memory proposal changes
-        // instantiation such that the intermediate results of failed
-        // initializations are visible.
-        if !is_bulk_memory {
-            check_table_init_bounds(self.instance())?;
-            check_memory_init_bounds(self.instance(), data_initializers)?;
-        }
+        check_table_init_bounds(self.instance())?;
+        check_memory_init_bounds(self.instance(), data_initializers)?;
 
         // Apply the initializers.
         initialize_tables(self.instance())?;
@@ -1143,7 +1143,7 @@ unsafe fn get_memory_slice<'instance>(
         instance.memory(local_memory_index)
     } else {
         let import = instance.imported_memory(init.location.memory_index);
-        import.definition.as_ref().clone()
+        *import.definition.as_ref()
     };
     slice::from_raw_parts_mut(memory.base, memory.current_length.try_into().unwrap())
 }

@@ -35,7 +35,7 @@
 
 * **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift...).
 
-* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows) and *chipset*.
+* **Universal**. You can run Wasmer in any *platform* (macOS, Linux and Windows) and *chipset*.
 
 * **Standards compliant**. The runtime passes [official WebAssembly test
   suite](https://github.com/WebAssembly/testsuite) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
@@ -171,7 +171,7 @@ Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosys
 
 ## Community
 
-Wasmer has an amazing community developers and contributors. Welcome, please join us! 👋
+Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
 
 ### Channels
 

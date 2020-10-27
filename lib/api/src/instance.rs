@@ -5,7 +5,7 @@ use crate::store::Store;
 use crate::InstantiationError;
 use std::fmt;
 use wasmer_engine::Resolver;
-use wasmer_vm::InstanceHandle;
+use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
 /// instance of a WebAssembly [`Module`].
@@ -70,7 +70,7 @@ impl Instance {
     /// Those are, as defined by the spec:
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
-    pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Instance, InstantiationError> {
+    pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
 
         let handle = module.instantiate(resolver)?;
@@ -85,7 +85,7 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        Ok(Instance {
+        Ok(Self {
             handle,
             module: module.clone(),
             exports,
@@ -100,6 +100,11 @@ impl Instance {
     /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {
         self.module.store()
+    }
+
+    #[doc(hidden)]
+    pub fn vmctx_ptr(&self) -> *mut VMContext {
+        self.handle.vmctx_ptr()
     }
 }
 

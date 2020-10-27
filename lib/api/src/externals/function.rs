@@ -18,7 +18,7 @@ use wasmer_vm::{
 /// A function defined in the Wasm module
 #[derive(Clone, PartialEq)]
 pub struct WasmFunctionDefinition {
-    // The trampoline to do the call
+    // Address of the trampoline to do the call.
     pub(crate) trampoline: VMTrampoline,
 }
 
@@ -64,7 +64,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # let store = Store::default();
-    ///
+    /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
     /// let f = Function::new(&store, &signature, |args| {
@@ -95,6 +95,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
+                call_trampoline: None,
             },
         }
     }
@@ -106,7 +107,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # let store = Store::default();
-    ///
+    /// #
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -144,6 +145,7 @@ impl Function {
                 kind: VMFunctionKind::Dynamic,
                 vmctx,
                 signature: ty.clone(),
+                call_trampoline: None,
             },
         }
     }
@@ -158,7 +160,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function};
     /// # let store = Store::default();
-    ///
+    /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
@@ -185,6 +187,7 @@ impl Function {
                 vmctx,
                 signature,
                 kind: VMFunctionKind::Static,
+                call_trampoline: None,
             },
         }
     }
@@ -199,7 +202,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function};
     /// # let store = Store::default();
-    ///
+    /// #
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -238,10 +241,28 @@ impl Function {
                 kind: VMFunctionKind::Static,
                 vmctx,
                 signature,
+                call_trampoline: None,
             },
         }
     }
+
     /// Returns the [`FunctionType`] of the `Function`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
+    /// assert_eq!(f.ty().results(), vec![Type::I32]);
+    /// ```
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature
     }
@@ -321,22 +342,74 @@ impl Function {
     }
 
     /// Returns the number of parameters that this function takes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.param_arity(), 2);
+    /// ```
     pub fn param_arity(&self) -> usize {
         self.ty().params().len()
     }
 
     /// Returns the number of results this function produces.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.result_arity(), 1);
+    /// ```
     pub fn result_arity(&self) -> usize {
         self.ty().results().len()
     }
 
-    /// Call the [`Function`] function.
+    /// Call the `Function` function.
     ///
     /// Depending on where the Function is defined, it will call it.
     /// 1. If the function is defined inside a WebAssembly, it will call the trampoline
     ///    for the function signature.
     /// 2. If the function is defined in the host (in a native way), it will
     ///    call the trampoline.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
 
@@ -351,15 +424,20 @@ impl Function {
     }
 
     pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        let vmsignature = store.engine().register_signature(&wasmer_export.signature);
-        let trampoline = store
-            .engine()
-            .function_call_trampoline(vmsignature)
-            .expect("Can't get call trampoline for the function");
-        Self {
-            store: store.clone(),
-            definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
-            exported: wasmer_export,
+        if let Some(trampoline) = wasmer_export.call_trampoline {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
+                exported: wasmer_export,
+            }
+        } else {
+            Self {
+                store: store.clone(),
+                definition: FunctionDefinition::Host(HostFunctionDefinition {
+                    has_env: !wasmer_export.vmctx.is_null(),
+                }),
+                exported: wasmer_export,
+            }
         }
     }
 
@@ -376,7 +454,80 @@ impl Function {
     }
 
     /// Transform this WebAssembly function into a function with the
-    /// native ABI. See `NativeFunc` to learn more.
+    /// native ABI. See [`NativeFunc`] to learn more.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
+    ///
+    /// assert_eq!(sum_native.call(1, 2).unwrap(), 3);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the `Args` generic parameter does not match the exported function
+    /// an error will be raised:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// // This results in an error: `RuntimeError`
+    /// let sum_native = sum.native::<(i64, i64), i32>().unwrap();
+    /// ```
+    ///
+    /// If the `Rets` generic parameter does not match the exported function
+    /// an error will be raised:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// // This results in an error: `RuntimeError`
+    /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
+    /// ```
     pub fn native<'a, Args, Rets>(&self) -> Result<NativeFunc<'a, Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
@@ -560,9 +711,9 @@ mod inner {
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
     ///
-    /// This trait should ideally be splitted into two traits:
+    /// This trait should ideally be split into two traits:
     /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
-    /// non-negligeable complexity in the `WasmTypeList`
+    /// non-negligible complexity in the `WasmTypeList`
     /// implementation.
     pub unsafe trait FromToNativeWasmType: Copy
     where
@@ -597,24 +748,33 @@ mod inner {
 
                     #[inline]
                     fn from_native(native: Self::Native) -> Self {
-                        native.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($native_type),
-                            "` to `",
-                            stringify!($type),
-                            "`)",
-                        ))
+                        native as Self
                     }
 
                     #[inline]
                     fn to_native(self) -> Self::Native {
-                        self.try_into().expect(concat!(
-                            "out of range type conversion attempt (tried to convert `",
-                            stringify!($type),
-                            "` to `",
-                            stringify!($native_type),
-                            "`)",
-                        ))
+                        self as Self::Native
+                    }
+                }
+            )*
+        };
+    }
+
+    macro_rules! from_to_native_wasm_type_same_size {
+        ( $( $type:ty => $native_type:ty ),* ) => {
+            $(
+                #[allow(clippy::use_self)]
+                unsafe impl FromToNativeWasmType for $type {
+                    type Native = $native_type;
+
+                    #[inline]
+                    fn from_native(native: Self::Native) -> Self {
+                        Self::from_ne_bytes(Self::Native::to_ne_bytes(native))
+                    }
+
+                    #[inline]
+                    fn to_native(self) -> Self::Native {
+                        Self::Native::from_ne_bytes(Self::to_ne_bytes(self))
                     }
                 }
             )*
@@ -625,7 +785,10 @@ mod inner {
         i8 => i32,
         u8 => i32,
         i16 => i32,
-        u16 => i32,
+        u16 => i32
+    );
+
+    from_to_native_wasm_type_same_size!(
         i32 => i32,
         u32 => i32,
         i64 => i64,
@@ -641,16 +804,7 @@ mod inner {
         #[test]
         fn test_to_native() {
             assert_eq!(7i8.to_native(), 7i32);
-        }
-
-        #[test]
-        #[should_panic(
-            expected = "out of range type conversion attempt (tried to convert `u32` to `i32`)"
-        )]
-        fn test_to_native_panics() {
-            use std::{i32, u32};
-
-            assert_eq!(u32::MAX.to_native(), i32::MAX);
+            assert_eq!(u32::MAX.to_native(), -1);
         }
     }
 

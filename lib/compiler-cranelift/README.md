@@ -7,7 +7,7 @@ This crate contains a compiler implementation based on Cranelift.
 First, add this crate into your `Cargo.toml` dependencies:
 
 ```toml
-wasmer-compiler-cranelift = "1.0.0-alpha.1"
+wasmer-compiler-cranelift = "1.0.0-alpha"
 ```
 
 And then:

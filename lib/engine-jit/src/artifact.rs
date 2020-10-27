@@ -6,7 +6,6 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
-use crate::unwind::UnwindRegistry;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
@@ -21,13 +20,15 @@ use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
     TableIndex,
 };
-use wasmer_vm::{FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex};
+use wasmer_vm::{
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
+};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct JITArtifact {
-    _unwind_registry: Arc<UnwindRegistry>,
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
@@ -150,20 +151,18 @@ impl JITArtifact {
         inner_jit: &mut JITEngineInner,
         serializable: SerializableModule,
     ) -> Result<Self, CompileError> {
-        let mut unwind_registry = UnwindRegistry::new();
         let (
             finished_functions,
-            _finished_function_call_trampolines,
+            finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
+            custom_sections,
         ) = inner_jit.allocate(
-            &mut unwind_registry,
             &serializable.compile_info.module,
             &serializable.compilation.function_bodies,
             &serializable.compilation.function_call_trampolines,
             &serializable.compilation.dynamic_function_trampolines,
+            &serializable.compilation.custom_sections,
         )?;
-        let custom_sections =
-            inner_jit.allocate_custom_sections(&serializable.compilation.custom_sections)?;
 
         link_module(
             &serializable.compile_info.module,
@@ -194,7 +193,7 @@ impl JITArtifact {
                     .len();
                 let eh_frame_section_pointer = custom_sections[debug.eh_frame];
                 Some(unsafe {
-                    std::slice::from_raw_parts(eh_frame_section_pointer, eh_frame_section_size)
+                    std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)
                 })
             }
             None => None,
@@ -202,24 +201,19 @@ impl JITArtifact {
         // Make all code compiled thus far executable.
         inner_jit.publish_compiled_code();
 
-        unwind_registry.publish(eh_frame).map_err(|e| {
-            CompileError::Resource(format!("Error while publishing the unwind code: {}", e))
-        })?;
-
-        let unwind_registry = Arc::new(unwind_registry);
-        // Save the unwind registry into CodeMemory, so it can survive longer than
-        // the Module.
-        inner_jit.publish_unwind_registry(unwind_registry.clone());
+        inner_jit.publish_eh_frame(eh_frame)?;
 
         let finished_functions = finished_functions.into_boxed_slice();
+        let finished_function_call_trampolines =
+            finished_function_call_trampolines.into_boxed_slice();
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
 
         Ok(Self {
-            _unwind_registry: unwind_registry,
             serializable,
             finished_functions,
+            finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
@@ -280,6 +274,10 @@ impl Artifact for JITArtifact {
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
     }
 
     // TODO: return *const instead of *mut
