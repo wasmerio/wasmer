@@ -23,7 +23,6 @@ wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
-wasmer-vm = { version = "1.0.0-alpha4", path = "lib/vm" }
 cfg-if = "0.1"
 
 [workspace]
