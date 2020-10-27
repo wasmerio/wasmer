@@ -23,6 +23,7 @@ wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
+wasmer-vm = { version = "1.0.0-alpha4", path = "lib/vm" }
 cfg-if = "0.1"
 
 [workspace]
@@ -209,6 +210,11 @@ required-features = ["cranelift"]
 [[example]]
 name = "imported-global"
 path = "examples/imports_global.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "tunables-limit-memory"
+path = "examples/tunables_limit_memory.rs"
 required-features = ["cranelift"]
 
 [[example]]

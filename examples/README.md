@@ -256,9 +256,26 @@ example.
 
    </details>
 
+### Tunables
+
+15. **Limit memory**, explains how to use Tunables to limit the
+   size of an exported Wasm Memories
+
+   _Keywords_: basic, tunables, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example tunables-limit-memory --release --features "cranelift"
+   ```
+
+   </details>
+
+
 ### Integrations
 
-15. [**WASI**][wasi], explains how to use the [WebAssembly System
+16. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
