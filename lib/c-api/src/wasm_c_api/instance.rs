@@ -46,8 +46,6 @@ pub unsafe extern "C" fn wasm_instance_new(
                 let mut traps: Vec<*mut wasm_trap_t> = Vec::with_capacity(1);
                 traps.push(Box::into_raw(trap));
 
-                debug_assert!(traps.len() == traps.capacity());
-
                 let pointer = traps.as_mut_ptr();
                 mem::forget(traps);
 
