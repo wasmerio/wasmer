@@ -93,8 +93,10 @@ fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> 
 // return stdout somehow, it's unclear what that API should look like)
 impl WasiStateBuilder {
     /// Add an environment variable pair.
-    /// Environment variable keys must not contain the byte `=` (0x3d)
-    /// or nul (0x0).
+    ///
+    /// Both the key and value of an environment variable must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
     pub fn env<Key, Value>(&mut self, key: Key, value: Value) -> &mut Self
     where
         Key: AsRef<[u8]>,
@@ -107,6 +109,7 @@ impl WasiStateBuilder {
     }
 
     /// Add an argument.
+    ///
     /// Arguments must not contain the nul (0x0) byte
     pub fn arg<Arg>(&mut self, arg: Arg) -> &mut Self
     where
@@ -118,7 +121,10 @@ impl WasiStateBuilder {
     }
 
     /// Add multiple environment variable pairs.
-    /// Keys must not contain the `=` (0x3d) or nul (0x0) byte.
+    ///
+    /// Both the key and value of the environment variables must not
+    /// contain a nul byte (`0x0`), and the key must not contain the
+    /// `=` byte (`0x3d`).
     pub fn envs<I, Key, Value>(&mut self, env_pairs: I) -> &mut Self
     where
         I: IntoIterator<Item = (Key, Value)>,
@@ -133,6 +139,7 @@ impl WasiStateBuilder {
     }
 
     /// Add multiple arguments.
+    ///
     /// Arguments must not contain the nul (0x0) byte
     pub fn args<I, Arg>(&mut self, args: I) -> &mut Self
     where
@@ -147,6 +154,7 @@ impl WasiStateBuilder {
     }
 
     /// Preopen a directory
+    ///
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
     pub fn preopen_dir<FilePath>(
@@ -192,7 +200,8 @@ impl WasiStateBuilder {
         Ok(self)
     }
 
-    /// Preopen a directory
+    /// Preopen a directory.
+    ///
     /// This opens the given directory at the virtual root, `/`, and allows
     /// the WASI module to read and write to the given directory.
     pub fn preopen_dirs<I, FilePath>(
