@@ -181,6 +181,7 @@ example.
 
    </details>
 
+
 10. [**Exported memory**][exported-memory], explains how to read from 
     and write to exported memory.
    
@@ -226,9 +227,38 @@ example.
 
    </details>
 
+### Externs
+
+13. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
+
+   _Keywords_: basic, table, call_indirect
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example table --release --features "cranelift"
+   ```
+
+   </details>
+   
+14. [**Memory**][memory], explains how to use Wasm Memories from
+    the Wasmer API.  Memory example is a work in progress.
+
+   _Keywords_: basic, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example memory --release --features "cranelift"
+   ```
+
+   </details>
+
 ### Integrations
 
-13. [**WASI**][wasi], explains how to use the [WebAssembly System
+15. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
@@ -255,6 +285,8 @@ example.
 [imported-global]: ./imports_global.rs
 [imported-function]: ./imports_function.rs
 [wasi]: ./wasi.rs
+[table]: ./table.rs
+[memory]: ./memory.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
