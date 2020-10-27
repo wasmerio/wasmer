@@ -34,6 +34,15 @@ impl Memory {
     /// This function will construct the `Memory` using the store [`Tunables`].
     ///
     /// [`Tunables`]: crate::tunables::Tunables
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    /// ```
     pub fn new(store: &Store, ty: MemoryType) -> Result<Self, MemoryError> {
         let tunables = store.tunables();
         let style = tunables.memory_style(&ty);
@@ -46,11 +55,34 @@ impl Memory {
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let mt = MemoryType::new(1, None, false);
+    /// let m = Memory::new(&store, mt).unwrap();
+    ///
+    /// assert_eq!(m.ty(), &mt);
+    /// ```
     pub fn ty(&self) -> &MemoryType {
         self.memory.ty()
     }
 
     /// Returns the [`Store`] where the `Memory` belongs.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    ///
+    /// assert_eq!(m.store(), &store);
+    /// ```
     pub fn store(&self) -> &Store {
         &self.store
     }
@@ -92,16 +124,51 @@ impl Memory {
     }
 
     /// Returns the size (in [`Pages`]) of the `Memory`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    ///
+    /// assert_eq!(m.size(), Pages(1));
+    /// ```
     pub fn size(&self) -> Pages {
         self.memory.size()
     }
 
-    /// Grow memory by the specified amount of WebAssembly [`Pages`].
+    /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
+    /// the previous memory size.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, Some(3), false)).unwrap();
+    /// let p = m.grow(2).unwrap();
+    ///
+    /// assert_eq!(p, Pages(1));
+    /// assert_eq!(m.size(), Pages(3));
+    /// ```
     ///
     /// # Errors
     ///
     /// Returns an error if memory can't be grown by the specified amount
     /// of pages.
+    ///
+    /// ```should_panic
+    /// # use wasmer::{Memory, MemoryType, Pages, Store, Type, Value, WASM_MAX_PAGES};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, Some(1), false)).unwrap();
+    ///
+    /// // This results in an error: `MemoryError::CouldNotGrow`.
+    /// let s = m.grow(1).unwrap();
+    /// ```
     pub fn grow<IntoPages>(&self, delta: IntoPages) -> Result<Pages, MemoryError>
     where
         IntoPages: Into<Pages>,
@@ -155,7 +222,18 @@ impl Memory {
         }
     }
 
-    /// Returns whether or not these two globals refer to the same data.
+    /// Returns whether or not these two memories refer to the same data.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Memory, MemoryType, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// let m = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+    ///
+    /// assert!(m.same(&m));
+    /// ```
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.memory, &other.memory)
     }
