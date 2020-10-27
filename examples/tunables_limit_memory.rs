@@ -1,12 +1,15 @@
+use std::ptr::NonNull;
 use std::sync::Arc;
+
 use wasmer::{
-    imports, wat2wasm, Instance, Memory, MemoryError, MemoryType, Module, Pages, Store, TableType,
-    Target, Tunables as BaseTunables,
+    imports,
+    vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
+    wat2wasm, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
+    Tunables as BaseTunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine::Tunables;
 use wasmer_engine_jit::JIT;
-use wasmer_vm::{Memory as MemoryTrait, MemoryStyle, Table, TableStyle};
 
 /// A custom tunables that allows you to set a memory limit
 struct LimitingTunables {
@@ -25,6 +28,28 @@ impl LimitingTunables {
             base: BaseTunables::for_target(target),
         }
     }
+
+    /// Takes in input type as requested by the guest and returns a
+    /// limited memory type that is ready for processing.
+    fn adjust_memory(&self, requested: &MemoryType) -> Result<MemoryType, MemoryError> {
+        if requested.minimum > self.max_memory {
+            return Err(MemoryError::Generic(
+                "Minimum of requested memory exceeds the allowed memory limit".to_string(),
+            ));
+        }
+
+        if let Some(max) = requested.maximum {
+            if max > self.max_memory {
+                return Err(MemoryError::Generic(
+                    "Maximum of requested memory exceeds the allowed memory limit".to_string(),
+                ));
+            }
+        }
+
+        let mut adjusted = requested.clone();
+        adjusted.maximum = Some(self.max_memory);
+        Ok(adjusted)
+    }
 }
 
 impl Tunables for LimitingTunables {
@@ -42,39 +67,53 @@ impl Tunables for LimitingTunables {
         self.base.table_style(table)
     }
 
-    /// Create a memory given a memory type
+    /// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
     ///
     /// The requested memory type is validated, adjusted to the limited and then passed to base.
-    fn create_memory(
+    fn create_host_memory(
         &self,
-        requested: &MemoryType,
+        ty: &MemoryType,
         style: &MemoryStyle,
-    ) -> Result<Arc<dyn MemoryTrait>, MemoryError> {
-        if requested.minimum > self.max_memory {
-            return Err(MemoryError::Generic(
-                "Minimum of requested memory exceeds the allowed memory limit".to_string(),
-            ));
-        }
-
-        if let Some(max) = requested.maximum {
-            if max > self.max_memory {
-                return Err(MemoryError::Generic(
-                    "Maximum of requested memory exceeds the allowed memory limit".to_string(),
-                ));
-            }
-        }
-
-        let mut adjusted = requested.clone();
-        adjusted.maximum = Some(self.max_memory);
-
-        self.base.create_memory(&adjusted, style)
+    ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
+        let adjusted = self.adjust_memory(ty)?;
+        self.base.create_host_memory(&adjusted, style)
     }
 
-    /// Create a memory given a memory type
+    /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
     ///
     /// Delegated to base.
-    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
-        self.base.create_table(ty, style)
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
+        let adjusted = self.adjust_memory(ty)?;
+        self.base
+            .create_vm_memory(&adjusted, style, vm_definition_location)
+    }
+
+    /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// Delegated to base.
+    fn create_host_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+    ) -> Result<Arc<dyn vm::Table>, String> {
+        self.base.create_host_table(ty, style)
+    }
+
+    /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// Delegated to base.
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<Arc<dyn vm::Table>, String> {
+        self.base.create_vm_table(ty, style, vm_definition_location)
     }
 }
 
