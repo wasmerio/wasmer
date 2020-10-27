@@ -23,6 +23,7 @@
 
 ### Changed
 
+- [#1772](https://github.com/wasmerio/wasmer/pull/1772) Remove lifetime parameter from `NativeFunc`.
 - [#1762](https://github.com/wasmerio/wasmer/pull/1762) Allow the `=` sign in a WASI environment variable value.
 
 ### Fixed

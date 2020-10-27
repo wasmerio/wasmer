@@ -528,7 +528,7 @@ impl Function {
     /// // This results in an error: `RuntimeError`
     /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
     /// ```
-    pub fn native<'a, Args, Rets>(&self) -> Result<NativeFunc<'a, Args, Rets>, RuntimeError>
+    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
