@@ -8,7 +8,10 @@ use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
 use wasmer_engine_object_file::ObjectFile;
 
-/// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
+/// Kind of compilers that can be used by the engines.
+///
+/// This is a Wasmer-specific type with Wasmer-specific functions for
+/// manipulating it.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum wasmer_compiler_t {
@@ -33,6 +36,10 @@ impl Default for wasmer_compiler_t {
     }
 }
 
+/// Kind of engines that can be used by the store.
+///
+/// This is a Wasmer-specific type with Wasmer-specific functions for
+/// manipulating it.
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 #[allow(non_camel_case_types)]
@@ -58,8 +65,9 @@ impl Default for wasmer_engine_t {
     }
 }
 
+/// A configuration holds the compiler and the engine used by the store.
+///
 /// cbindgen:ignore
-/// this can be a wasmer-specific type with wasmer-specific functions for manipulating it
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct wasm_config_t {
@@ -67,12 +75,15 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
 }
 
+/// Create a new Wasmer configuration.
+///
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::new(wasm_config_t::default())
 }
 
+/// Configure the compiler to use.
 #[no_mangle]
 pub extern "C" fn wasm_config_set_compiler(
     config: &mut wasm_config_t,
@@ -81,13 +92,17 @@ pub extern "C" fn wasm_config_set_compiler(
     config.compiler = compiler;
 }
 
+/// Configure the engine to use.
 #[no_mangle]
 pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
     config.engine = engine;
 }
 
+/// An engine is used by the store to drive the compilation and the
+/// execution of a WebAssembly module.
+///
 /// cbindgen:ignore
-#[allow(non_camel_case_types)]
+#[repr(C)]
 pub struct wasm_engine_t {
     pub(crate) inner: Arc<dyn Engine + Send + Sync>,
 }
@@ -112,6 +127,7 @@ fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
 
 cfg_if! {
     if #[cfg(all(feature = "jit", feature = "compiler"))] {
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
@@ -121,6 +137,7 @@ cfg_if! {
     }
     else if #[cfg(feature = "jit")] {
         // Headless JIT
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
@@ -128,6 +145,7 @@ cfg_if! {
         }
     }
     else if #[cfg(all(feature = "native", feature = "compiler"))] {
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
@@ -136,6 +154,7 @@ cfg_if! {
         }
     }
     else if #[cfg(feature = "native")] {
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::headless().engine());
@@ -145,6 +164,7 @@ cfg_if! {
     // There are currently no uses of the object-file engine + compiler from the C API.
     // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
     else if #[cfg(feature = "object-file")] {
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::headless().engine());
@@ -152,6 +172,7 @@ cfg_if! {
         }
     }
     else {
+        /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             unimplemented!("The JITEngine is not attached; You might want to recompile `wasmer_c_api` with `--feature jit`");
