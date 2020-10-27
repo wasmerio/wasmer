@@ -156,6 +156,8 @@ test-packages:
 	cargo test -p wasmer-object --release
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-cli --release
+	cargo test -p wasmer-cache --release
+	cargo test -p wasmer-engine --release
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
 # link the tests against. cargo test doesn't know that the tests will be running

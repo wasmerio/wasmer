@@ -239,7 +239,7 @@ pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
 /// ```
 /// # fn chainable_test<A, B>(imports1: A, imports2: B)
 /// # where A: NamedResolver + Sized,
-/// #       B: Namedresolver + Sized,
+/// #       B: NamedResolver + Sized,
 /// # {
 /// // override duplicates with imports from `imports2`
 /// imports1.chain_front(imports2);

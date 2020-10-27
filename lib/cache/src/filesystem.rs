@@ -22,10 +22,10 @@ use wasmer::{DeserializeError, Module, SerializeError, Store};
 ///     let mut fs_cache = FileSystemCache::new("some/directory/goes/here")?;
 ///
 ///     // Compute a key for a given WebAssembly binary
-///     let hash = Hash::generate(bytes);
+///     let key = Hash::generate(bytes);
 ///
 ///     // Store a module into the cache given a key
-///     fs_cache.store(key, module.clone())?;
+///     fs_cache.store(key, module)?;
 ///
 ///     Ok(())
 /// }
