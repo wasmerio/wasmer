@@ -130,7 +130,7 @@ fn table_grow() -> Result<()> {
 #[test]
 #[ignore]
 fn table_copy() -> Result<()> {
-    // table copy test not yet implemented
+    // TODO: table copy test not yet implemented
     Ok(())
 }
 
@@ -326,11 +326,9 @@ fn native_function_works() -> Result<()> {
     let result = native_function.call();
     assert!(result.is_ok());
 
-    // TODO:
-    /*let function = Function::new_native(&store, |a: i32| -> i32 { a + 1 });
+    let function = Function::new_native(&store, |a: i32| -> i32 { a + 1 });
     let native_function: NativeFunc<i32, i32> = function.native().unwrap();
-    assert!(native_function.call(3).unwrap(), 4);
-    */
+    assert_eq!(native_function.call(3).unwrap(), 4);
 
     fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
         (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
@@ -343,15 +341,39 @@ fn native_function_works() -> Result<()> {
     let native_function: NativeFunc<(), i32> = function.native().unwrap();
     assert_eq!(native_function.call().unwrap(), 1);
 
-    // TODO:
-    /*let function = Function::new_native(&store, |_a: i32| {});
+    let function = Function::new_native(&store, |_a: i32| {});
     let native_function: NativeFunc<i32, ()> = function.native().unwrap();
-    assert!(native_function.call(4).is_ok());*/
+    assert!(native_function.call(4).is_ok());
 
-    // TODO:
-    /*let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
     let native_function: NativeFunc<(), (i32, i64, f32, f64)> = function.native().unwrap();
     assert_eq!(native_function.call().unwrap(), (1, 2, 3.0, 4.0));
-    */
+
+    Ok(())
+}
+
+#[test]
+fn function_outlives_instance() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+  (type $sum_t (func (param i32 i32) (result i32)))
+  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    i32.add)
+  (export "sum" (func $sum_f)))
+"#;
+
+    let f = {
+        let module = Module::new(&store, wat)?;
+        let instance = Instance::new(&module, &imports! {})?;
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("sum")?;
+
+        assert_eq!(f.call(4, 5)?, 9);
+        f
+    };
+
+    assert_eq!(f.call(4, 5)?, 9);
+
     Ok(())
 }

@@ -60,7 +60,8 @@ pub unsafe extern "C" fn wasm_func_new(
 
         if !trap.is_null() {
             let trap: Box<wasm_trap_t> = Box::from_raw(trap);
-            RuntimeError::raise(Box::new(trap.inner));
+
+            return Err(trap.inner);
         }
 
         let processed_results = results
@@ -119,8 +120,13 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             ]
             .into();
 
-            let _traps = callback(env.0, &processed_args, &mut results);
-            // TODO: do something with `traps`
+            let trap = callback(env.0, &processed_args, &mut results);
+
+            if !trap.is_null() {
+                let trap: Box<wasm_trap_t> = Box::from_raw(trap);
+
+                return Err(trap.inner);
+            }
 
             let processed_results = results
                 .into_slice()

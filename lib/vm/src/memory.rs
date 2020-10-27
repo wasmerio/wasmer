@@ -135,12 +135,34 @@ pub struct LinearMemory {
     offset_guard_size: usize,
 
     /// The owned memory definition used by the generated code
-    vm_memory_definition: Box<UnsafeCell<VMMemoryDefinition>>,
+    vm_memory_definition: VMMemoryDefinitionOwnership,
 
     // Records whether we're using a bounds-checking strategy which requires
     // handlers to catch trapping accesses.
     pub(crate) needs_signal_handlers: bool,
 }
+
+/// A type to help manage who is responsible for the backing memory of them
+/// `VMMemoryDefinition`.
+#[derive(Debug)]
+enum VMMemoryDefinitionOwnership {
+    /// The `VMMemoryDefinition` is owned by the `Instance` and we should use
+    /// its memory. This is how a local memory that's exported should be stored.
+    VMOwned(NonNull<VMMemoryDefinition>),
+    /// The `VMMemoryDefinition` is owned by the host and we should manage its
+    /// memory. This is how an imported memory that doesn't come from another
+    /// Wasm module should be stored.
+    HostOwned(Box<UnsafeCell<VMMemoryDefinition>>),
+}
+
+/// We must implement this because of `VMMemoryDefinitionOwnership::VMOwned`.
+/// This is correct because synchronization of memory accesses is controlled
+/// by the VM.
+// REVIEW: I don't believe ^; this probably shouldn't be `Send`...
+// mutations from other threads into this data could be a problem, but we probably
+// don't want to use atomics for this in the generated code.
+// TODO:
+unsafe impl Send for LinearMemory {}
 
 /// This is correct because all internal mutability is protected by a mutex.
 unsafe impl Sync for LinearMemory {}
@@ -155,7 +177,34 @@ struct WasmMmap {
 
 impl LinearMemory {
     /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `LinearMemory` with owned metadata: this can be used to create a memory
+    /// that will be imported into Wasm modules.
     pub fn new(memory: &MemoryType, style: &MemoryStyle) -> Result<Self, MemoryError> {
+        unsafe { Self::new_internal(memory, style, None) }
+    }
+
+    /// Create a new linear memory instance with specified minimum and maximum number of wasm pages.
+    ///
+    /// This creates a `LinearMemory` with metadata owned by a VM, pointed to by
+    /// `vm_memory_location`: this can be used to create a local memory.
+    ///
+    /// # Safety
+    /// - `vm_memory_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Self, MemoryError> {
+        Self::new_internal(memory, style, Some(vm_memory_location))
+    }
+
+    /// Build a `LinearMemory` with either self-owned or VM owned metadata.
+    unsafe fn new_internal(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
+    ) -> Result<Self, MemoryError> {
         if memory.minimum > Pages::max_value() {
             return Err(MemoryError::MinimumMemoryTooLarge {
                 min_requested: memory.minimum,
@@ -210,18 +259,45 @@ impl LinearMemory {
         };
 
         let base_ptr = mmap.alloc.as_mut_ptr();
+        let mem_length = memory.minimum.bytes().0.try_into().unwrap();
         Ok(Self {
             mmap: Mutex::new(mmap),
             maximum: memory.maximum,
             offset_guard_size: offset_guard_bytes,
             needs_signal_handlers,
-            vm_memory_definition: Box::new(UnsafeCell::new(VMMemoryDefinition {
-                base: base_ptr,
-                current_length: memory.minimum.bytes().0.try_into().unwrap(),
-            })),
+            vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
+                {
+                    let mut ptr = mem_loc.clone();
+                    let md = ptr.as_mut();
+                    md.base = base_ptr;
+                    md.current_length = mem_length;
+                }
+                VMMemoryDefinitionOwnership::VMOwned(mem_loc)
+            } else {
+                VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
+                    VMMemoryDefinition {
+                        base: base_ptr,
+                        current_length: mem_length,
+                    },
+                )))
+            },
             memory: *memory,
             style: style.clone(),
         })
+    }
+
+    /// Get the `VMMemoryDefinition`.
+    ///
+    /// # Safety
+    /// - You must ensure that you have mutually exclusive access before calling
+    ///   this function. You can get this by locking the `mmap` mutex.
+    unsafe fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
+        match &self.vm_memory_definition {
+            VMMemoryDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
+                NonNull::new_unchecked(boxed_ptr.get())
+            }
+        }
     }
 }
 
@@ -238,9 +314,11 @@ impl Memory for LinearMemory {
 
     /// Returns the number of allocated wasm pages.
     fn size(&self) -> Pages {
+        // TODO: investigate this function for race conditions
         unsafe {
-            let ptr = self.vm_memory_definition.get();
-            Bytes::from((*ptr).current_length).into()
+            let md_ptr = self.get_vm_memory_definition();
+            let md = md_ptr.as_ref();
+            Bytes::from(md.current_length).into()
         }
     }
 
@@ -316,9 +394,11 @@ impl Memory for LinearMemory {
         }
 
         mmap.size = new_pages;
+
         // update memory definition
         unsafe {
-            let md = &mut *self.vm_memory_definition.get();
+            let mut md_ptr = self.get_vm_memory_definition();
+            let md = md_ptr.as_mut();
             md.current_length = new_pages.bytes().0.try_into().unwrap();
             md.base = mmap.alloc.as_mut_ptr() as _;
         }
@@ -329,8 +409,6 @@ impl Memory for LinearMemory {
     /// Return a `VMMemoryDefinition` for exposing the memory to compiled wasm code.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition> {
         let _mmap_guard = self.mmap.lock().unwrap();
-        let ptr = self.vm_memory_definition.as_ref() as *const UnsafeCell<VMMemoryDefinition>
-            as *const VMMemoryDefinition as *mut VMMemoryDefinition;
-        unsafe { NonNull::new_unchecked(ptr) }
+        unsafe { self.get_vm_memory_definition() }
     }
 }

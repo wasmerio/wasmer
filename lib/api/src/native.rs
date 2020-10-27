@@ -22,19 +22,19 @@ use wasmer_vm::{
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
-pub struct NativeFunc<'a, Args = (), Rets = ()> {
+pub struct NativeFunc<Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
     address: *const VMFunctionBody,
     vmctx: *mut VMContext,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
-    _phantom: PhantomData<(&'a (), Args, Rets)>,
+    _phantom: PhantomData<(Args, Rets)>,
 }
 
-unsafe impl<'a, Args, Rets> Send for NativeFunc<'a, Args, Rets> {}
+unsafe impl<Args, Rets> Send for NativeFunc<Args, Rets> {}
 
-impl<'a, Args, Rets> NativeFunc<'a, Args, Rets>
+impl<Args, Rets> NativeFunc<Args, Rets>
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -57,12 +57,12 @@ where
     }
 }
 
-impl<'a, Args, Rets> From<&NativeFunc<'a, Args, Rets>> for ExportFunction
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: &NativeFunc<'a, Args, Rets>) -> Self {
+    fn from(other: &NativeFunc<Args, Rets>) -> Self {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             address: other.address,
@@ -76,12 +76,12 @@ where
     }
 }
 
-impl<'a, Args, Rets> From<NativeFunc<'a, Args, Rets>> for Function
+impl<Args, Rets> From<NativeFunc<Args, Rets>> for Function
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn from(other: NativeFunc<'a, Args, Rets>) -> Self {
+    fn from(other: NativeFunc<Args, Rets>) -> Self {
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             store: other.store,
@@ -102,7 +102,7 @@ where
 macro_rules! impl_native_traits {
     (  $( $x:ident ),* ) => {
         #[allow(unused_parens, non_snake_case)]
-        impl<'a $( , $x )*, Rets> NativeFunc<'a, ( $( $x ),* ), Rets>
+        impl<$( $x , )* Rets> NativeFunc<( $( $x ),* ), Rets>
         where
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,

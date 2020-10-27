@@ -1,11 +1,15 @@
 use crate::{MemoryType, Pages, TableType};
 use std::cmp::min;
+use std::ptr::NonNull;
 use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
 use wasmer_engine::Tunables as BaseTunables;
 use wasmer_vm::MemoryError;
-use wasmer_vm::{LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle};
+use wasmer_vm::{
+    LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
+    VMTableDefinition,
+};
 
 /// Tunable parameters for WebAssembly compilation.
 #[derive(Clone)]
@@ -82,8 +86,8 @@ impl BaseTunables for Tunables {
         TableStyle::CallerChecksSignature
     }
 
-    /// Create a memory given a [`MemoryType`] and a [`MemoryStyle`].
-    fn create_memory(
+    /// Create a memory owned by the host given a [`MemoryType`] and a [`MemoryStyle`].
+    fn create_host_memory(
         &self,
         ty: &MemoryType,
         style: &MemoryStyle,
@@ -91,8 +95,48 @@ impl BaseTunables for Tunables {
         Ok(Arc::new(LinearMemory::new(&ty, &style)?))
     }
 
-    /// Create a table given a [`TableType`] and a [`TableStyle`].
-    fn create_table(&self, ty: &TableType, style: &TableStyle) -> Result<Arc<dyn Table>, String> {
+    /// Create a memory owned by the VM given a [`MemoryType`] and a [`MemoryStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid, owned `VMMemoryDefinition`,
+    ///   for example in `VMContext`.
+    unsafe fn create_vm_memory(
+        &self,
+        ty: &MemoryType,
+        style: &MemoryStyle,
+        vm_definition_location: NonNull<VMMemoryDefinition>,
+    ) -> Result<Arc<dyn Memory>, MemoryError> {
+        Ok(Arc::new(LinearMemory::from_definition(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
+    }
+
+    /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
+    fn create_host_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+    ) -> Result<Arc<dyn Table>, String> {
         Ok(Arc::new(LinearTable::new(&ty, &style)?))
+    }
+
+    /// Create a table owned by the VM given a [`TableType`] and a [`TableStyle`].
+    ///
+    /// # Safety
+    /// - `vm_definition_location` must point to a valid, owned `VMTableDefinition`,
+    ///   for example in `VMContext`.
+    unsafe fn create_vm_table(
+        &self,
+        ty: &TableType,
+        style: &TableStyle,
+        vm_definition_location: NonNull<VMTableDefinition>,
+    ) -> Result<Arc<dyn Table>, String> {
+        Ok(Arc::new(LinearTable::from_definition(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 }

@@ -26,7 +26,7 @@ pub trait Resolver {
     ///
     /// The index is useful because some WebAssembly modules may rely on that
     /// for resolving ambiguity in their imports. Such as:
-    /// ```
+    /// ```ignore
     /// (module
     ///   (import "" "" (func))
     ///   (import "" "" (func (param i32) (result i32)))
@@ -243,9 +243,10 @@ pub struct NamedResolverChain<A: NamedResolver, B: NamedResolver> {
 /// A trait for chaining resolvers together.
 ///
 /// ```
+/// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
 /// # fn chainable_test<A, B>(imports1: A, imports2: B)
 /// # where A: NamedResolver + Sized,
-/// #       B: Namedresolver + Sized,
+/// #       B: NamedResolver + Sized,
 /// # {
 /// // override duplicates with imports from `imports2`
 /// imports1.chain_front(imports2);
@@ -257,9 +258,10 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// This will cause the second resolver to override the first.
     ///
     /// ```
+    /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
     /// # fn chainable_test<A, B>(imports1: A, imports2: B)
     /// # where A: NamedResolver + Sized,
-    /// #       B: Namedresolver + Sized,
+    /// #       B: NamedResolver + Sized,
     /// # {
     /// // override duplicates with imports from `imports2`
     /// imports1.chain_front(imports2);
@@ -277,9 +279,10 @@ pub trait ChainableNamedResolver: NamedResolver + Sized {
     /// This will cause the first resolver to override the second.
     ///
     /// ```
+    /// # use wasmer_engine::{ChainableNamedResolver, NamedResolver};
     /// # fn chainable_test<A, B>(imports1: A, imports2: B)
     /// # where A: NamedResolver + Sized,
-    /// #       B: Namedresolver + Sized,
+    /// #       B: NamedResolver + Sized,
     /// # {
     /// // override duplicates with imports from `imports1`
     /// imports1.chain_back(imports2);
