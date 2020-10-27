@@ -1,5 +1,4 @@
 use crate::ObjectFileArtifact;
-use std::collections::HashMap;
 use std::io::Read;
 use std::path::Path;
 use std::sync::{Arc, Mutex};
@@ -10,7 +9,7 @@ use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
 use wasmer_types::FunctionType;
-use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex};
 
 /// A WebAssembly `ObjectFile` Engine.
 #[derive(Clone)]
@@ -28,7 +27,6 @@ impl ObjectFileEngine {
         Self {
             inner: Arc::new(Mutex::new(ObjectFileEngineInner {
                 compiler: Some(compiler),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 features,
@@ -58,7 +56,6 @@ impl ObjectFileEngine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
             })),
@@ -110,11 +107,6 @@ impl Engine for ObjectFileEngine {
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.inner();
         compiler.signatures().lookup(sig)
-    }
-
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.inner().trampoline(sig)
     }
 
     /// Validates a WebAssembly module
@@ -180,8 +172,6 @@ pub struct ObjectFileEngineInner {
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,
-    /// Pointers to trampoline functions used to enter particular signatures
-    trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -235,18 +225,5 @@ impl ObjectFileEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
-    }
-
-    /// Gets the trampoline pre-registered for a particular signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.trampolines.get(&sig).cloned()
-    }
-
-    pub(crate) fn add_trampoline(&mut self, func_type: &FunctionType, trampoline: VMTrampoline) {
-        let index = self.signatures.register(&func_type);
-        // We always use (for now) the latest trampoline compiled
-        // TODO: we need to deallocate trampolines as the compiled modules
-        // where they belong become unallocated.
-        self.trampolines.insert(index, trampoline);
     }
 }

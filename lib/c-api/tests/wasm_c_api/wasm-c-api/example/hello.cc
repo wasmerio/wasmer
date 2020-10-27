@@ -9,7 +9,7 @@
 
 // A function to be called from Wasm code.
 auto hello_callback(
-  const wasm::Val args[], wasm::Val results[]
+  const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   std::cout << "Calling back..." << std::endl;
   std::cout << "> Hello world!" << std::endl;
@@ -55,7 +55,7 @@ void run() {
 
   // Instantiate.
   std::cout << "Instantiating module..." << std::endl;
-  wasm::Extern* imports[] = {hello_func.get()};
+  auto imports = wasm::vec<wasm::Extern*>::make(hello_func.get());
   auto instance = wasm::Instance::make(store, module.get(), imports);
   if (!instance) {
     std::cout << "> Error instantiating module!" << std::endl;
@@ -73,7 +73,9 @@ void run() {
 
   // Call.
   std::cout << "Calling export..." << std::endl;
-  if (run_func->call()) {
+  auto args = wasm::vec<wasm::Val>::make();
+  auto results = wasm::vec<wasm::Val>::make();
+  if (run_func->call(args, results)) {
     std::cout << "> Error calling function!" << std::endl;
     exit(1);
   }

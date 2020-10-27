@@ -22,6 +22,27 @@ singlepass on windows # Singlepass is not yet supported on Windows
 cranelift::spec::skip_stack_guard_page on darwin
 llvm::spec::skip_stack_guard_page on darwin
 
+# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
+cranelift::spec::linking on native
+
+# https://github.com/wasmerio/wasmer/issues/1722
+llvm::spec::skip_stack_guard_page on native
+
+# Cranelift on arm failures
+cranelift::spec::align on aarch64
+cranelift::spec::memory_trap on aarch64
+cranelift::spec::simd::simd_bit_shift on aarch64
+cranelift::spec::simd::simd_boolean on aarch64
+cranelift::spec::simd::simd_const on aarch64
+cranelift::spec::simd::simd_i16x8_arith on aarch64
+cranelift::spec::simd::simd_i16x8_sat_arith on aarch64
+cranelift::spec::simd::simd_i32x4_arith on aarch64
+cranelift::spec::simd::simd_i64x2_arith on aarch64
+cranelift::spec::simd::simd_i8x16_arith on aarch64
+cranelift::spec::simd::simd_i8x16_sat_arith on aarch64
+cranelift::spec::simd::simd_lane on aarch64
+cranelift::spec::skip_stack_guard_page on aarch64
+
 # Frontends
 
 ## WASI

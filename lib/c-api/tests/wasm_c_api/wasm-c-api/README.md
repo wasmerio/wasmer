@@ -94,6 +94,7 @@ Currently, known implementations of this API are included in
 * V8 natively (both C and C++)
 * Wabt (only C?)
 * Wasmtime (only C?)
+* [Wasmer](https://github.com/wasmerio/wasmer/tree/master/lib/c-api) (only C, C++ coming soon)
 
 
 ### TODO

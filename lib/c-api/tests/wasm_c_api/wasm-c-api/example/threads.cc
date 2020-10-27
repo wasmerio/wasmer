@@ -10,7 +10,7 @@ const int N_REPS = 3;
 
 // A function to be called from Wasm code.
 auto callback(
-  void* env, const wasm::Val args[], wasm::Val results[]
+  void* env, const wasm::vec<wasm::Val>& args, wasm::vec<wasm::Val>& results
 ) -> wasm::own<wasm::Trap> {
   assert(args[0].kind() == wasm::ValKind::I32);
   std::lock_guard<std::mutex> lock(*reinterpret_cast<std::mutex*>(env));
@@ -53,7 +53,7 @@ void run(
       store, global_type.get(), wasm::Val::i32(i));
 
     // Instantiate.
-    wasm::Extern* imports[] = {func.get(), global.get()};
+    auto imports = wasm::vec<wasm::Extern*>::make(func.get(), global.get());
     auto instance = wasm::Instance::make(store, module.get(), imports);
     if (!instance) {
       std::lock_guard<std::mutex> lock(*mutex);
@@ -71,7 +71,8 @@ void run(
     auto run_func = exports[0]->func();
 
     // Call.
-    run_func->call();
+    auto empty = wasm::vec<wasm::Val>::make();
+    run_func->call(empty, empty);
   }
 }
 

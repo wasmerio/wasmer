@@ -149,9 +149,24 @@ example.
 
    </details>
 
-### Externals
+### Exports
+
+8. [**Exported global**][exported-global], explains how to work with
+   exported globals: get/set their value, have information about their 
+   type.
    
-8. [**Exported function**][exported-function], explains how to get and
+   _Keywords_: export, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-globals --release --features "cranelift"
+   ```
+
+   </details>
+   
+9. [**Exported function**][exported-function], explains how to get and
    how to call an exported function. They come in 2 flavors: dynamic,
    and “static”/native. The pros and cons are discussed briefly.
    
@@ -165,8 +180,56 @@ example.
    ```
 
    </details>
+
+
+10. [**Exported memory**][exported-memory], explains how to read from 
+    and write to exported memory.
    
-9. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
+   _Keywords_: export, memory.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-memory --release --features "cranelift"
+   ```
+
+   </details>
+
+### Imports
+
+11. [**Imported global**][imported-global], explains how to work with
+   imported globals: create globals, import them, get/set their value.
+   
+   _Keywords_: import, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example imported-globals --release --features "cranelift"
+   ```
+
+   </details>
+
+12. [**Imported function**][imported-function], explains how to define 
+   an imported function. They come in 2 flavors: dynamic,
+   and “static”/native.
+   
+   _Keywords_: import, function, dynamic, static, native.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example imported-function --release --features "cranelift"
+   ```
+
+   </details>
+
+### Externs
+
+13. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
 
    _Keywords_: basic, table, call_indirect
 
@@ -179,7 +242,7 @@ example.
 
    </details>
    
-10. [**Memory**][memory], explains how to use Wasm Memories from
+14. [**Memory**][memory], explains how to use Wasm Memories from
     the Wasmer API.  Memory example is a work in progress.
 
    _Keywords_: basic, memory
@@ -193,10 +256,9 @@ example.
 
    </details>
 
-
 ### Integrations
 
-11. [**WASI**][wasi], explains how to use the [WebAssembly System
+15. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
@@ -217,7 +279,11 @@ example.
 [compiler-cranelift]: ./compiler_cranelift.rs
 [compiler-llvm]: ./compiler_llvm.rs
 [cross-compilation]: ./engine_cross_compilation.rs
+[exported-global]: ./exports_global.rs
 [exported-function]: ./exports_function.rs
+[exported-memory]: ./exports_memory.rs
+[imported-global]: ./imports_global.rs
+[imported-function]: ./imports_function.rs
 [wasi]: ./wasi.rs
 [table]: ./table.rs
 [memory]: ./memory.rs

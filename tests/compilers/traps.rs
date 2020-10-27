@@ -5,7 +5,7 @@ use wasmer::*;
 
 #[test]
 fn test_trap_return() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module
         (func $hello (import "" "hello"))
@@ -38,9 +38,16 @@ fn test_trap_return() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(feature = "test-singlepass", ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn test_trap_trace() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $hello_mod
             (func (export "run") (call $hello))
@@ -76,7 +83,7 @@ fn test_trap_trace() -> Result<()> {
 
 #[test]
 fn test_trap_trace_cb() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $hello_mod
             (import "" "throw" (func $throw))
@@ -118,9 +125,16 @@ fn test_trap_trace_cb() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(feature = "test-singlepass", ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn test_trap_stack_overflow() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $rec_mod
             (func $run (export "run") (call $run))
@@ -149,9 +163,17 @@ fn test_trap_stack_overflow() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-llvm",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn trap_display_pretty() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -182,9 +204,17 @@ RuntimeError: unreachable
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-llvm",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn trap_display_multi_module() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $a
             (func $die unreachable)
@@ -236,7 +266,7 @@ RuntimeError: unreachable
 
 #[test]
 fn trap_start_function_import() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -269,7 +299,7 @@ fn trap_start_function_import() -> Result<()> {
 
 #[test]
 fn rust_panic_import() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let binary = r#"
         (module $a
             (import "" "foo" (func $foo))
@@ -314,7 +344,7 @@ fn rust_panic_import() -> Result<()> {
 
 #[test]
 fn rust_panic_start_function() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let binary = r#"
         (module $a
             (import "" "" (func $foo))
@@ -359,7 +389,7 @@ fn rust_panic_start_function() -> Result<()> {
 
 #[test]
 fn mismatched_arguments() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let binary = r#"
         (module $a
             (func (export "foo") (param i32))
@@ -387,9 +417,16 @@ fn mismatched_arguments() -> Result<()> {
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-llvm",
+        feature = "test-native"
+    ),
+    ignore
+)]
 fn call_signature_mismatch() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let binary = r#"
         (module $a
             (func $foo
@@ -418,9 +455,17 @@ RuntimeError: indirect call type mismatch
 }
 
 #[test]
-#[cfg_attr(any(feature = "test-singlepass", feature = "test-llvm"), ignore)]
+#[cfg_attr(
+    any(
+        feature = "test-singlepass",
+        feature = "test-llvm",
+        feature = "test-native",
+        target_arch = "aarch64",
+    ),
+    ignore
+)]
 fn start_trap_pretty() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (module $m
             (func $die unreachable)
@@ -451,7 +496,7 @@ RuntimeError: unreachable
 
 #[test]
 fn present_after_module_drop() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = Module::new(&store, r#"(func (export "foo") unreachable)"#)?;
     let instance = Instance::new(&module, &imports! {})?;
     let func: Function = instance.exports.get_function("foo")?.clone();

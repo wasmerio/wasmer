@@ -131,9 +131,11 @@ test-llvm = [
 
 test-native = [
     "native",
+    "test-generator/test-native",
 ]
 test-jit = [
     "jit",
+    "test-generator/test-jit",
 ]
 
 # Specifies that we're running in coverage testing mode. This disables tests
@@ -187,6 +189,26 @@ required-features = ["llvm"]
 [[example]]
 name = "exported-function"
 path = "examples/exports_function.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "exported-global"
+path = "examples/exports_global.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "exported-memory"
+path = "examples/exports_memory.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function"
+path = "examples/imports_function.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-global"
+path = "examples/imports_global.rs"
 required-features = ["cranelift"]
 
 [[example]]
