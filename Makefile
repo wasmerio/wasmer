@@ -94,15 +94,35 @@ build-docs-capi:
 # We use cranelift as the default backend for the capi for now
 build-capi: build-capi-cranelift-jit
 
+build-capi-singlepass:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,native,object-file,singlepass,wasi
+
 build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,singlepass,wasi
+		--no-default-features --features wat,jit,singlepass,wasi
+
+build-capi-singlepass-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,singlepass,wasi
+
+build-capi-singlepass-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,object-file,singlepass,wasi
+
+build-capi-cranelift:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,native,object-file,cranelift,wasi
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,cranelift,wasi
+		--no-default-features --features wat,jit,cranelift,wasi
 
 build-capi-cranelift-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,native,cranelift,wasi
+
+build-capi-cranelift-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,native,object-file,cranelift,wasi
 
@@ -110,13 +130,21 @@ build-capi-cranelift-system-libffi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,native,object-file,cranelift,wasi,system-libffi
 
+build-capi-llvm:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,jit,native,object-file,llvm,wasi
+
 build-capi-llvm-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,llvm,wasi
+		--no-default-features --features wat,jit,llvm,wasi
 
 build-capi-llvm-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,native,object-file,llvm,wasi
+		--no-default-features --features wat,native,llvm,wasi
+
+build-capi-llvm-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features wat,object-file,llvm,wasi
 
 ###########
 # Testing #
