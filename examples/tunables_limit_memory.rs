@@ -5,27 +5,30 @@ use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
     wat2wasm, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
-    Tunables as BaseTunables,
+    Tunables as ReferenceTunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine::Tunables;
 use wasmer_engine_jit::JIT;
 
-/// A custom tunables that allows you to set a memory limit
-struct LimitingTunables {
+/// A custom tunables that allows you to set a memory limit.
+///
+/// After adjusting the memory limits, it delegates all other logic
+/// to the base tunables.
+struct LimitingTunables<T: Tunables> {
     /// The maxium a linear memory is allowed to be (in Wasm pages, 65 KiB each).
     /// Since Wasmer ensures there is only none or one memory, this is practically
     /// an upper limit for the guest memory.
     max_memory: Pages,
     /// The base implementation we delegate all the logic to
-    base: BaseTunables,
+    base: T,
 }
 
-impl LimitingTunables {
-    pub fn for_target(target: &Target, limit: Pages) -> Self {
+impl<T: Tunables> LimitingTunables<T> {
+    pub fn new(base: T, limit: Pages) -> Self {
         Self {
             max_memory: limit,
-            base: BaseTunables::for_target(target),
+            base,
         }
     }
 
@@ -52,7 +55,7 @@ impl LimitingTunables {
     }
 }
 
-impl Tunables for LimitingTunables {
+impl<T: Tunables> Tunables for LimitingTunables<T> {
     /// Construct a `MemoryStyle` for the provided `MemoryType`
     ///
     /// Delegated to base.
@@ -132,8 +135,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Here is where the fun begins
 
-    let target = Target::default(); // TODO: should this use engine.target(), which is private?
-    let tunables = LimitingTunables::for_target(&target, Pages(24));
+    let base = ReferenceTunables::for_target(&Target::default());
+    let tunables = LimitingTunables::new(base, Pages(24));
 
     // Create a store, that holds the engine and our custom tunables
     let store = Store::new_with_tunables(&engine, tunables);
