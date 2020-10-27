@@ -334,7 +334,7 @@ impl WasiStateBuilder {
                 return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                     format!(
                         "found nul byte in env var string \"{}\" (key=value)",
-                        std::str::from_utf8(env).unwrap_or("Inner error: env var is invalid_utf8!")
+                        String::from_utf8_lossy(env)
                     ),
                 ));
             }
