@@ -71,7 +71,8 @@ impl BaseTunables for Tunables {
         let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
         if maximum <= self.static_memory_bound {
             MemoryStyle::Static {
-                bound: maximum,
+                // Bound can be larger than the maximum for performance reasons
+                bound: self.static_memory_bound,
                 offset_guard_size: self.static_memory_offset_guard_size,
             }
         } else {
@@ -177,7 +178,7 @@ mod tests {
                 bound,
                 offset_guard_size,
             } => {
-                assert_eq!(bound, Pages(16));
+                assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
             }
             s => panic!("Unexpected memory style: {:?}", s),
