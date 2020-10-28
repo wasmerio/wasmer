@@ -71,7 +71,7 @@ impl BaseTunables for Tunables {
         let maximum = memory.maximum.unwrap_or_else(Pages::max_value);
         if maximum <= self.static_memory_bound {
             MemoryStyle::Static {
-                bound: self.static_memory_bound,
+                bound: maximum,
                 offset_guard_size: self.static_memory_offset_guard_size,
             }
         } else {
@@ -138,5 +138,49 @@ impl BaseTunables for Tunables {
             &style,
             vm_definition_location,
         )?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn memory_style() {
+        let tunables = Tunables {
+            static_memory_bound: Pages(2048),
+            static_memory_offset_guard_size: 128,
+            dynamic_memory_offset_guard_size: 256,
+        };
+
+        // No maximum
+        let requested = MemoryType::new(3, None, true);
+        let style = tunables.memory_style(&requested);
+        match style {
+            MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
+            s => panic!("Unexpected memory style: {:?}", s),
+        }
+
+        // Large maximum
+        let requested = MemoryType::new(3, Some(5_000_000), true);
+        let style = tunables.memory_style(&requested);
+        match style {
+            MemoryStyle::Dynamic { offset_guard_size } => assert_eq!(offset_guard_size, 256),
+            s => panic!("Unexpected memory style: {:?}", s),
+        }
+
+        // Small maximum
+        let requested = MemoryType::new(3, Some(16), true);
+        let style = tunables.memory_style(&requested);
+        match style {
+            MemoryStyle::Static {
+                bound,
+                offset_guard_size,
+            } => {
+                assert_eq!(bound, Pages(16));
+                assert_eq!(offset_guard_size, 128);
+            }
+            s => panic!("Unexpected memory style: {:?}", s),
+        }
     }
 }
