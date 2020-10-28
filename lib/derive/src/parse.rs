@@ -11,20 +11,38 @@ pub enum WasmerAttr {
 }
 
 pub enum ExportAttr {
-    //  TODO:
-    Function {},
-    Memory {},
+    NativeFunc,
+    EverythingElse,
 }
 
 struct ExportExpr {
     name: LitStr,
+    ty: ExportAttr,
 }
 
 impl Parse for ExportExpr {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
-        Ok(Self {
-            name: input.parse::<LitStr>()?,
-        })
+        if input.peek(LitStr) {
+            Ok(Self {
+                name: input.parse::<LitStr>()?,
+                ty: ExportAttr::EverythingElse,
+            })
+        } else {
+            let ident: Ident = input.parse()?;
+            let ident_str = ident.to_string();
+
+            if ident_str.as_str() == "native_func" {
+                let inner;
+                let _ = parenthesized!(inner in input);
+                let name = inner.parse::<LitStr>()?;
+                Ok(Self {
+                    name,
+                    ty: ExportAttr::NativeFunc,
+                })
+            } else {
+                panic!("Todo abort here");
+            }
+        }
     }
 }
 
@@ -40,9 +58,10 @@ impl Parse for WasmerAttrInner {
                 let export_expr;
                 let _: token::Paren = parenthesized!(export_expr in input);
 
+                let expr = export_expr.parse::<ExportExpr>()?;
                 WasmerAttr::Export {
-                    identifier: export_expr.parse::<ExportExpr>()?.name,
-                    ty: ExportAttr::Memory {},
+                    identifier: expr.name,
+                    ty: expr.ty,
                 }
             }
             _ => return Err(input.error(format!("Unexpected identifier {}", ident_str))),

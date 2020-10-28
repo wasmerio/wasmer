@@ -94,10 +94,19 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                     helpers.push(helper_tokens);
                     match wasmer_attr {
                         WasmerAttr::Export { identifier, ty } => match ty {
-                            ExportAttr::Function {} => todo!(),
-                            ExportAttr::Memory {} => {
+                            ExportAttr::NativeFunc {} => {
                                 let finish_tokens = quote_spanned! {f.span()=>
-                                        let #name = instance.exports.get_memory(#identifier).unwrap();
+                                        let #name: #inner_type = instance.exports.get_native_function(#identifier).unwrap();
+                                        self.#name.initialize(#name);
+                                };
+                                finish.push(finish_tokens);
+                                let free_tokens = quote_spanned! {f.span()=>
+                                };
+                                free.push(free_tokens);
+                            }
+                            ExportAttr::EverythingElse {} => {
+                                let finish_tokens = quote_spanned! {f.span()=>
+                                        let #name: &#inner_type = instance.exports.get(#identifier).unwrap();
                                         self.#name.initialize(#name.clone());
                                 };
                                 finish.push(finish_tokens);
