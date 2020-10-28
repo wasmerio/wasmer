@@ -8179,7 +8179,6 @@ impl<'a> FuncGen<'a> {
                     .into_iter()
                     .map(|(offset, code)| TrapInformation {
                         code_offset: offset as u32,
-                        source_loc: Default::default(),
                         trap_code: code,
                     })
                     .collect(),
