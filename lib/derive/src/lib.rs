@@ -51,7 +51,9 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
     });
 
     match &input.data {
-        Data::Struct(ds) => impl_wasmer_env_for_struct(struct_name, ds, &input.generics, &input.attrs),
+        Data::Struct(ds) => {
+            impl_wasmer_env_for_struct(struct_name, ds, &input.generics, &input.attrs)
+        }
         _ => todo!(),
     }
     /*match input.data {
@@ -74,8 +76,9 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
         Fields::Named(ref fields) => {
             for f in fields.named.iter() {
                 let name = f.ident.as_ref().unwrap();
+                let name_str = name.to_string();
                 let top_level_ty: &Type = &f.ty;
-                dbg!(top_level_ty);
+                //dbg!(top_level_ty);
                 touched_fields.push(name.clone());
                 let mut wasmer_attr = None;
                 for attr in &f.attrs {
@@ -96,28 +99,32 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                     };
                     helpers.push(helper_tokens);
                     match wasmer_attr {
-                        WasmerAttr::Export { identifier, ty } => match ty {
-                            ExportAttr::NativeFunc {} => {
-                                let finish_tokens = quote_spanned! {f.span()=>
-                                        let #name: #inner_type = instance.exports.get_native_function(#identifier).unwrap();
-                                        self.#name.initialize(#name);
-                                };
-                                finish.push(finish_tokens);
-                                let free_tokens = quote_spanned! {f.span()=>
-                                };
-                                free.push(free_tokens);
-                            }
-                            ExportAttr::EverythingElse {} => {
-                                let finish_tokens = quote_spanned! {f.span()=>
-                                        let #name: &#inner_type = instance.exports.get(#identifier).unwrap();
-                                        self.#name.initialize(#name.clone());
-                                };
-                                finish.push(finish_tokens);
-                                let free_tokens = quote_spanned! {f.span()=>
-                                };
-                                free.push(free_tokens);
-                            }
-                        },
+                        WasmerAttr::Export { identifier, .. } => {
+                            let item_name =
+                                identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
+                            /*match ty {
+                                ExportAttr::NativeFunc {} => {
+                                    let finish_tokens = quote_spanned! {f.span()=>
+                                            let #name: #inner_type = instance.exports.get_native_function(#item_name).unwrap();
+                                            self.#name.initialize(#name);
+                                    };
+                                    finish.push(finish_tokens);
+                                    let free_tokens = quote_spanned! {f.span()=>
+                                    };
+                                    free.push(free_tokens);
+                                }
+                                ExportAttr::EverythingElse {} => {*/
+                                    let finish_tokens = quote_spanned! {f.span()=>
+                                            let #name: #inner_type = instance.exports.get_with_generics(#item_name).unwrap();
+                                            self.#name.initialize(#name);
+                                    };
+                                    finish.push(finish_tokens);
+                                    let free_tokens = quote_spanned! {f.span()=>
+                                    };
+                                    free.push(free_tokens);
+                                //}
+                            //}
+                        }
                     }
                 }
             }

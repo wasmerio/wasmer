@@ -150,6 +150,19 @@ impl Exports {
             .map_err(|_| ExportError::IncompatibleType)
     }
 
+    /// Hack to get this working with nativefunc too
+    pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T: ExportableWithGenerics<'a, Args, Rets>,
+    {
+        match self.map.get(name) {
+            None => Err(ExportError::Missing(name.to_string())),
+            Some(extern_) => T::get_self_from_extern_with_generics(extern_),
+        }
+    }
+
     /// Get an export as an `Extern`.
     pub fn get_extern(&self, name: &str) -> Option<&Extern> {
         self.map.get(name)
@@ -282,3 +295,32 @@ pub trait Exportable<'a>: Sized {
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 }
+
+/// Hack to make macros work well
+pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
+    /// Get it with generics
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+    /*where
+    Args: WasmTypeList,
+    Rets: WasmTypeList;*/
+}
+
+impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
+        T::get_self_from_extern(_extern).map(|i| i.clone())
+    }
+}
+
+/*
+impl<'a, Args, Rets> ExportableWithGenerics<'a> for T {
+    fn get_self_from_extern_with_generics<Args, Rets>(
+        _extern: &'a Extern,
+    ) -> Result<&'a Self, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+    {
+        T::get_self_from_extern(_extern)
+    }
+}
+*/

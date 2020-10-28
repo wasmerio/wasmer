@@ -201,6 +201,17 @@ macro_rules! impl_native_traits {
 
             }
         }
+
+        impl<'a, $( $x, )* Rets> crate::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for NativeFunc<( $( $x ),* ), Rets>
+        where
+            $( $x: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+        {
+            fn get_self_from_extern_with_generics(_extern: &crate::externals::Extern) -> Result<Self, crate::exports::ExportError> {
+                use crate::exports::Exportable;
+                crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::exports::ExportError::IncompatibleType)
+            }
+        }
     };
 }
 
