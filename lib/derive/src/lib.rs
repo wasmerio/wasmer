@@ -20,15 +20,18 @@ pub fn derive_wasmer_env(input: proc_macro::TokenStream) -> proc_macro::TokenStr
 fn impl_wasmer_env_for_struct(
     name: &Ident,
     data: &DataStruct,
+    generics: &Generics,
     _attrs: &[Attribute],
 ) -> TokenStream {
     let (trait_methods, helper_methods) = derive_struct_fields(data);
+    let lifetimes_and_generics = generics.params.clone();
+    let where_clause = generics.where_clause.clone();
     quote! {
-        impl ::wasmer::WasmerEnv for #name {
+        impl < #lifetimes_and_generics > ::wasmer::WasmerEnv for #name < #lifetimes_and_generics > #where_clause{
             #trait_methods
         }
 
-        impl #name {
+        impl < #lifetimes_and_generics > #name < #lifetimes_and_generics > #where_clause {
             #helper_methods
         }
     }
@@ -48,7 +51,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
     });
 
     match &input.data {
-        Data::Struct(ds) => impl_wasmer_env_for_struct(struct_name, ds, &input.attrs),
+        Data::Struct(ds) => impl_wasmer_env_for_struct(struct_name, ds, &input.generics, &input.attrs),
         _ => todo!(),
     }
     /*match input.data {
