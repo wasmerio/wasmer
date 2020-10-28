@@ -108,12 +108,11 @@ impl binemit::TrapSink for TrapSink {
     fn trap(
         &mut self,
         code_offset: binemit::CodeOffset,
-        source_loc: ir::SourceLoc,
+        _source_loc: ir::SourceLoc,
         trap_code: ir::TrapCode,
     ) {
         self.traps.push(TrapInformation {
             code_offset,
-            source_loc: SourceLoc::new(source_loc.bits()),
             // TODO: Translate properly environment Trapcode into cranelift IR
             trap_code: translate_ir_trapcode(trap_code),
         });
