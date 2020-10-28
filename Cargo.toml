@@ -212,6 +212,11 @@ path = "examples/imports_global.rs"
 required-features = ["cranelift"]
 
 [[example]]
+name = "tunables-limit-memory"
+path = "examples/tunables_limit_memory.rs"
+required-features = ["cranelift"]
+
+[[example]]
 name = "wasi"
 path = "examples/wasi.rs"
 required-features = ["cranelift", "wasi"]
