@@ -1560,6 +1560,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I8x16Abs
         | Operator::I16x8Abs
         | Operator::I32x4Abs
+        | Operator::I32x4DotI16x8S
         | Operator::I8x16NarrowI16x8S { .. }
         | Operator::I8x16NarrowI16x8U { .. }
         | Operator::I16x8NarrowI32x4S { .. }
