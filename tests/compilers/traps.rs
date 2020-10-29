@@ -288,7 +288,9 @@ fn trap_start_function_import() -> Result<()> {
     .err()
     .unwrap();
     match err {
-        InstantiationError::Link(_) => panic!("It should be a start error"),
+        InstantiationError::Link(_) | InstantiationError::HostEnvInitialization(_) => {
+            panic!("It should be a start error")
+        }
         InstantiationError::Start(err) => {
             assert_eq!(err.message(), "user trap");
         }

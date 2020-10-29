@@ -1148,15 +1148,32 @@ impl InstanceHandle {
         unsafe { &*(self.instance as *const Instance) }
     }
 
-    /// TODO: document this
     /// Initializes the host environments.
-    pub unsafe fn initialize_host_envs(&self, instance_ptr: *const std::ffi::c_void) {
+    ///
+    /// # Safety
+    /// - This function should only be called once (TODO: we can enforce this by draining the vec...)
+    /// - This function must be called with the correct `Err` type parameter: the error type is not
+    ///   visible to code in `wasmer_vm`, so it's the caller's responsibility to ensure these
+    ///   functions are called with the correct type.
+    pub unsafe fn initialize_host_envs<Err: Sized>(
+        &self,
+        instance_ptr: *const std::ffi::c_void,
+    ) -> Result<(), Err> {
         for (func, env) in self.instance().import_initializers.iter() {
             if let Some(f) = func {
+                // transmute our function pointer into one with the correct error type
+                let f = std::mem::transmute::<
+                    &fn(
+                        *mut std::ffi::c_void,
+                        *const std::ffi::c_void,
+                    ) -> Result<(), *mut std::ffi::c_void>,
+                    &fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), Err>,
+                >(f);
                 dbg!(f, env);
-                f(*env, instance_ptr);
+                f(*env, instance_ptr)?;
             }
         }
+        Ok(())
     }
 
     /// Deallocates memory associated with this instance.

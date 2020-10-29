@@ -69,6 +69,12 @@ impl From<wasmer_engine::InstantiationError> for InstantiationError {
     }
 }
 
+impl From<HostEnvInitError> for InstantiationError {
+    fn from(other: HostEnvInitError) -> Self {
+        Self::HostEnvInitialization(other)
+    }
+}
+
 impl Instance {
     /// Creates a new `Instance` from a WebAssembly [`Module`] and a
     /// set of imports resolved by the [`Resolver`].
@@ -127,7 +133,7 @@ impl Instance {
         unsafe {
             instance
                 .handle
-                .initialize_host_envs(&instance as *const _ as *const _);
+                .initialize_host_envs::<HostEnvInitError>(&instance as *const _ as *const _)?;
         }
 
         Ok(instance)

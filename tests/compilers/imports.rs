@@ -97,7 +97,9 @@ fn dynamic_function_with_env() -> Result<()> {
     }
 
     impl WasmerEnv for Env {
-        fn finish(&mut self, _instance: &Instance) {}
+        fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
+            Ok(())
+        }
         fn free(&mut self) {}
     }
 
@@ -229,7 +231,9 @@ fn static_function_with_env() -> Result<()> {
     }
 
     impl WasmerEnv for Env {
-        fn finish(&mut self, _instance: &Instance) {}
+        fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
+            Ok(())
+        }
         fn free(&mut self) {}
     }
 

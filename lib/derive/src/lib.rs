@@ -163,9 +163,9 @@ fn get_identifier(ty: &Type) -> TokenStream {
         }) => {
             if let Some(PathSegment { ident, arguments }) = segments.last() {
                 let ident_str = ident.to_string();
-                if ident != "InitAfterInstance" {
+                if ident != "LazyInit" {
                     // TODO:
-                    panic!("Only the `InitAfterInstance` type is supported right now");
+                    panic!("Only the `LazyInit` type is supported right now");
                 }
                 if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                     args, ..
@@ -183,12 +183,10 @@ fn get_identifier(ty: &Type) -> TokenStream {
                             .expect("there must be at least one segment; TODO: error handling")
                             .to_token_stream()
                     } else {
-                        panic!(
-                            "unrecognized type in first generic position on `InitAfterInstance`"
-                        );
+                        panic!("unrecognized type in first generic position on `LazyInit`");
                     }
                 } else {
-                    panic!("Expected a generic parameter on `InitAfterInstance`");
+                    panic!("Expected a generic parameter on `LazyInit`");
                 }
             } else {
                 panic!("Wrong type of type found");

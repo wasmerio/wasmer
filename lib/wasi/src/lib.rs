@@ -29,9 +29,7 @@ pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
-use wasmer::{
-    imports, Function, ImportObject, InitAfterInstance, Memory, Module, Store, WasmerEnv,
-};
+use wasmer::{imports, Function, ImportObject, LazyInit, Memory, Module, Store, WasmerEnv};
 
 use std::sync::{Arc, Mutex, MutexGuard};
 
@@ -50,14 +48,14 @@ pub enum WasiError {
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
     #[wasmer(export)]
-    memory: InitAfterInstance<Memory>,
+    memory: LazyInit<Memory>,
 }
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
-            memory: InitAfterInstance::new(),
+            memory: LazyInit::new(),
         }
     }
 

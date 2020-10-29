@@ -150,7 +150,7 @@ impl From<ExportError> for HostEnvInitError {
 /// This trait can be derived like so:
 ///
 /// ```
-/// # use wasmer::{WasmerEnv, InitAfterInstance, Memory};
+/// # use wasmer::{WasmerEnv, LazyInit, Memory};
 ///
 /// #[derive(WasmerEnv)]
 /// pub struct MyEnvWithNoInstanceData {
@@ -161,16 +161,16 @@ impl From<ExportError> for HostEnvInitError {
 /// pub struct MyEnvWithInstanceData {
 ///     non_instance_data: u8,
 ///     #[wasmer(export("memory"))]
-///     memory: InitAfterInstance<Memory>,
+///     memory: LazyInit<Memory>,
 /// }
 ///
 /// ```
 ///
 /// This trait can also be implemented manually:
 /// ```
-/// # use wasmer::{WasmerEnv, InitAfterInstance, Memory, Instance};
+/// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance};
 /// pub struct MyEnv {
-///    memory: InitAfterInstance<Memory>,
+///    memory: LazyInit<Memory>,
 /// }
 ///
 /// impl WasmerEnv for MyEnv {
@@ -206,14 +206,14 @@ impl<T: WasmerEnv> WasmerEnv for &'static mut T {
 // TODO: iterate on names
 // TODO: do we want to use mutex/atomics here? like old WASI solution
 /// Lazily init an item
-pub struct InitAfterInstance<T: Sized> {
+pub struct LazyInit<T: Sized> {
     /// The data to be initialized
     data: std::mem::MaybeUninit<T>,
     /// Whether or not the data has been initialized
     initialized: bool,
 }
 
-impl<T> InitAfterInstance<T> {
+impl<T> LazyInit<T> {
     /// Creates an unitialized value.
     pub fn new() -> Self {
         Self {
@@ -250,15 +250,15 @@ impl<T> InitAfterInstance<T> {
     }
 }
 
-impl<T: std::fmt::Debug> std::fmt::Debug for InitAfterInstance<T> {
+impl<T: std::fmt::Debug> std::fmt::Debug for LazyInit<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("InitAfterInstance")
+        f.debug_struct("LazyInit")
             .field("data", &self.get_ref())
             .finish()
     }
 }
 
-impl<T: Clone> Clone for InitAfterInstance<T> {
+impl<T: Clone> Clone for LazyInit<T> {
     fn clone(&self) -> Self {
         if let Some(inner) = self.get_ref() {
             Self {
@@ -274,7 +274,7 @@ impl<T: Clone> Clone for InitAfterInstance<T> {
     }
 }
 
-impl<T> Drop for InitAfterInstance<T> {
+impl<T> Drop for LazyInit<T> {
     fn drop(&mut self) {
         if self.initialized {
             unsafe {
@@ -285,12 +285,12 @@ impl<T> Drop for InitAfterInstance<T> {
     }
 }
 
-impl<T> Default for InitAfterInstance<T> {
+impl<T> Default for LazyInit<T> {
     fn default() -> Self {
         Self::new()
     }
 }
 
-unsafe impl<T: Send> Send for InitAfterInstance<T> {}
+unsafe impl<T: Send> Send for LazyInit<T> {}
 // I thought we could opt out of sync..., look into this
 // unsafe impl<T> !Sync for InitWithInstance<T> {}
