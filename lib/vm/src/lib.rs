@@ -61,10 +61,10 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 /// A safe wrapper around `VMFunctionBody`
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct FunctionBodyPtr(pub *mut [VMFunctionBody]);
+pub struct FunctionBodyPtr(pub *const [VMFunctionBody]);
 
 impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *mut [VMFunctionBody];
+    type Target = *const [VMFunctionBody];
 
     fn deref(&self) -> &Self::Target {
         &self.0
