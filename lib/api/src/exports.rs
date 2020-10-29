@@ -296,31 +296,18 @@ pub trait Exportable<'a>: Sized {
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
 }
 
-/// Hack to make macros work well
+/// A trait for accessing exports (like [`Exportable`]) but it takes generic
+/// `Args` and `Rets` parameters so that `NativeFunc` can be accessed directly
+/// as well.
 pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
-    /// Get it with generics
+    /// Get an export with the given generics.
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
-    /*where
-    Args: WasmTypeList,
-    Rets: WasmTypeList;*/
 }
 
+/// We implement it for all concrete [`Exportable`] types (that are `Clone`)
+/// with empty `Args` and `Rets`.
 impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
     fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
         T::get_self_from_extern(_extern).map(|i| i.clone())
     }
 }
-
-/*
-impl<'a, Args, Rets> ExportableWithGenerics<'a> for T {
-    fn get_self_from_extern_with_generics<Args, Rets>(
-        _extern: &'a Extern,
-    ) -> Result<&'a Self, ExportError>
-    where
-        Args: WasmTypeList,
-        Rets: WasmTypeList,
-    {
-        T::get_self_from_extern(_extern)
-    }
-}
-*/

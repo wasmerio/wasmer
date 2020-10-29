@@ -6,7 +6,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-pub use new::wasmer::{HostFunction, WasmTypeList};
+pub use new::wasmer::{HostFunction, WasmTypeList, WasmerEnv};
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone)]
@@ -232,13 +232,9 @@ use std::{
 /// Initially, it holds an empty `vm::Ctx`, but it is replaced by the
 /// `vm::Ctx` from `instance::PreInstance` in
 /// `module::Module::instantiate`.
+#[derive(WasmerEnv)]
 pub(crate) struct DynamicCtx {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
-}
-
-impl new::wasmer::WasmerEnv for DynamicCtx {
-    fn finish(&mut self, _instance: &new::wasmer::Instance) {}
-    fn free(&mut self) {}
 }
 
 impl DynamicFunc {

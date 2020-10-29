@@ -83,8 +83,6 @@ impl<'a> WasiTest<'a> {
         let (mut env, _tempdirs) = self.create_wasi_env()?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
-        let memory: &Memory = instance.exports.get("memory")?;
-        //env.set_memory(memory.clone());
 
         let start = instance.exports.get_function("_start")?;
         // TODO: handle errors here when the error fix gets shipped

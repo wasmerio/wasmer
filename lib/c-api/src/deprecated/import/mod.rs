@@ -21,7 +21,7 @@ use std::collections::HashMap;
 use wasmer::{
     ChainableNamedResolver, Exports, Extern, Function, FunctionType, Global, ImportObject,
     ImportObjectIterator, ImportType, Memory, Module, NamedResolver, RuntimeError, Table, Val,
-    ValType,
+    ValType, WasmerEnv,
 };
 
 #[repr(C)]
@@ -634,14 +634,9 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
 }
 
 /// struct used to pass in context to functions (which must be back-patched)
-#[derive(Debug, Default)]
+#[derive(Debug, Default, WasmerEnv)]
 pub(crate) struct LegacyEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
-}
-
-impl wasmer::WasmerEnv for LegacyEnv {
-    fn finish(&mut self, _instance: &wasmer::Instance) {}
-    fn free(&mut self) {}
 }
 
 impl LegacyEnv {

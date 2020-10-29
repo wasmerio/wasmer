@@ -98,7 +98,9 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     struct WrapperEnv(*mut c_void);
 
     impl wasmer::WasmerEnv for WrapperEnv {
-        fn finish(&mut self, _instance: &wasmer::Instance) {}
+        fn finish(&mut self, _instance: &wasmer::Instance) -> Result<(), wasmer::HostEnvInitError> {
+            Ok(())
+        }
         fn free(&mut self) {}
     }
 

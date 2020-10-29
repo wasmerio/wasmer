@@ -1169,7 +1169,6 @@ impl InstanceHandle {
                     ) -> Result<(), *mut std::ffi::c_void>,
                     &fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), Err>,
                 >(f);
-                dbg!(f, env);
                 f(*env, instance_ptr)?;
             }
         }
