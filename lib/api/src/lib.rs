@@ -150,7 +150,7 @@ impl From<ExportError> for HostEnvInitError {
 /// This trait can be derived like so:
 ///
 /// ```
-/// # use wasmer::{WasmerEnv, LazyInit, Memory};
+/// # use wasmer::{WasmerEnv, LazyInit, Memory, NativeFunc};
 ///
 /// #[derive(WasmerEnv)]
 /// pub struct MyEnvWithNoInstanceData {
@@ -162,21 +162,24 @@ impl From<ExportError> for HostEnvInitError {
 ///     non_instance_data: u8,
 ///     #[wasmer(export)]
 ///     memory: LazyInit<Memory>,
+///     #[wasmer(export(name = "real_name"))]
+///     func: LazyInit<NativeFunc<(i32, i32), i32>>,
 /// }
 ///
 /// ```
 ///
 /// This trait can also be implemented manually:
 /// ```
-/// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance};
+/// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance, HostEnvInitError};
 /// pub struct MyEnv {
 ///    memory: LazyInit<Memory>,
 /// }
 ///
 /// impl WasmerEnv for MyEnv {
-///     fn finish(&mut self, instance: &Instance) {
+///     fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
 ///         let memory = instance.exports.get_memory("memory").unwrap();
 ///         self.memory.initialize(memory.clone());
+///         Ok(())
 ///     }
 ///     fn free(&mut self) {}
 /// }
@@ -203,7 +206,6 @@ impl<T: WasmerEnv> WasmerEnv for &'static mut T {
     }
 }
 
-// TODO: iterate on names
 // TODO: do we want to use mutex/atomics here? like old WASI solution
 /// Lazily init an item
 pub struct LazyInit<T: Sized> {

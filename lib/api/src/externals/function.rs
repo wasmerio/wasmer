@@ -107,16 +107,13 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv, Instance};
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
     /// # let store = Store::default();
     /// #
+    /// #[derive(WasmerEnv)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
-    /// impl WasmerEnv for Env {
-    ///     fn finish(&mut self, _instance: &Instance) {}
-    ///     fn free(&mut self) {}
-    /// }
     /// let env = Env { multiplier: 2 };
     ///
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
@@ -146,7 +143,6 @@ impl Function {
         let function_ptr = Some(unsafe {
             std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
         });
-        //dbg!(function_ptr);
 
         Self {
             store: store.clone(),
@@ -215,16 +211,13 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Store, Function, WasmerEnv, Instance};
+    /// # use wasmer::{Store, Function, WasmerEnv};
     /// # let store = Store::default();
     /// #
+    /// #[derive(WasmerEnv)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
-    /// impl WasmerEnv for Env {
-    ///     fn finish(&mut self, _instance: &Instance) {}
-    ///     fn free(&mut self) {}
-    /// }
     /// let env = Env { multiplier: 2 };
     ///
     /// fn sum_and_multiply(env: &mut Env, a: i32, b: i32) -> i32 {
@@ -254,7 +247,6 @@ impl Function {
         let function_ptr = Some(unsafe {
             std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
         });
-        //dbg!(function_ptr as usize);
         let signature = function.ty();
 
         Self {
