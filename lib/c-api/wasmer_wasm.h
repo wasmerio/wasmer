@@ -131,11 +131,11 @@ intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_le
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
+bool wasi_env_set_instance(wasi_env_t *_env, const wasm_instance_t *_instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
+void wasi_env_set_memory(wasi_env_t *_env, const wasm_memory_t *_memory);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)

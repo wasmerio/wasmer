@@ -2,8 +2,9 @@ use crate::exports::Exports;
 use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
-use crate::InstantiationError;
+use crate::{HostEnvInitError, LinkError, RuntimeError};
 use std::fmt;
+use thiserror::Error;
 use wasmer_engine::Resolver;
 use wasmer_vm::{InstanceHandle, VMContext};
 
@@ -33,6 +34,38 @@ mod send_test {
     #[test]
     fn instance_is_send() {
         assert!(is_send::<Instance>());
+    }
+}
+
+/// An error while instantiating a module.
+///
+/// This is not a common WebAssembly error, however
+/// we need to differentiate from a `LinkError` (an error
+/// that happens while linking, on instantiation), a
+/// Trap that occurs when calling the WebAssembly module
+/// start function, and an error when initializing the user's
+/// host environments.
+#[derive(Error, Debug)]
+pub enum InstantiationError {
+    /// A linking ocurred during instantiation.
+    #[error(transparent)]
+    Link(LinkError),
+
+    /// A runtime error occured while invoking the start function
+    #[error(transparent)]
+    Start(RuntimeError),
+
+    /// Error occurred when initializing the host environment.
+    #[error(transparent)]
+    HostEnvInitialization(HostEnvInitError),
+}
+
+impl From<wasmer_engine::InstantiationError> for InstantiationError {
+    fn from(other: wasmer_engine::InstantiationError) -> Self {
+        match other {
+            wasmer_engine::InstantiationError::Link(e) => Self::Link(e),
+            wasmer_engine::InstantiationError::Start(e) => Self::Start(e),
+        }
     }
 }
 

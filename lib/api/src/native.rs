@@ -202,6 +202,7 @@ macro_rules! impl_native_traits {
             }
         }
 
+        #[allow(unused_parens)]
         impl<'a, $( $x, )* Rets> crate::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for NativeFunc<( $( $x ),* ), Rets>
         where
             $( $x: FromToNativeWasmType, )*

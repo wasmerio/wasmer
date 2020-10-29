@@ -56,7 +56,7 @@ pub use crate::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
-pub use crate::instance::Instance;
+pub use crate::instance::{Instance, InstantiationError};
 pub use crate::module::Module;
 pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
@@ -76,8 +76,8 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, InstantiationError, LinkError,
-    NamedResolver, NamedResolverChain, Resolver, RuntimeError, SerializeError,
+    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, LinkError, NamedResolver,
+    NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
     Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
@@ -129,6 +129,21 @@ pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 // TODO: put this in a proper location, just prototyping for now:
 // TODO: rename everything, all names are throw-away names
 
+use thiserror::Error;
+/// An error while initializing the user supplied host env with the `WasmerEnv` trait.
+#[derive(Error, Debug)]
+#[error("Host env initialization error: {0}")]
+pub enum HostEnvInitError {
+    /// An error occurred when accessing an export
+    Export(ExportError),
+}
+
+impl From<ExportError> for HostEnvInitError {
+    fn from(other: ExportError) -> Self {
+        Self::Export(other)
+    }
+}
+
 /// Prototype trait for finishing envs.
 /// # Examples
 ///
@@ -172,7 +187,7 @@ pub trait WasmerEnv {
     ///
     /// This function is called after `Instance` is created but before it is
     /// returned to the user via `Instance::new`.
-    fn finish(&mut self, instance: &Instance);
+    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError>;
 
     /// Frees memory written to `self` so it can be dropped without any memory leaks.
     // TODO: review, this is unused by the macro currently, do we want to do anything with this?
@@ -180,7 +195,7 @@ pub trait WasmerEnv {
 }
 
 impl<T: WasmerEnv> WasmerEnv for &'static mut T {
-    fn finish(&mut self, instance: &Instance) {
+    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
         (*self).finish(instance)
     }
     fn free(&mut self) {

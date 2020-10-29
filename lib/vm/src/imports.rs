@@ -14,8 +14,12 @@ pub struct Imports {
     /// Initializers for host function environments. This is split out from `functions`
     /// because the generated code never needs to touch this and the extra wasted
     /// space may affect Wasm runtime performance due to increased cache pressure.
-    pub host_function_env_initializers:
-        BoxedSlice<FunctionIndex, Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>>,
+    pub host_function_env_initializers: BoxedSlice<
+        FunctionIndex,
+        Option<
+            fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
+        >,
+    >,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -33,7 +37,12 @@ impl Imports {
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
         host_function_env_initializers: PrimaryMap<
             FunctionIndex,
-            Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
+            Option<
+                fn(
+                    *mut std::ffi::c_void,
+                    *const std::ffi::c_void,
+                ) -> Result<(), *mut std::ffi::c_void>,
+            >,
         >,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,

@@ -2,12 +2,12 @@ extern crate proc_macro;
 
 use proc_macro2::{Span, TokenStream};
 use proc_macro_error::{abort, abort_call_site, proc_macro_error, set_dummy};
-use quote::{format_ident, quote, quote_spanned, ToTokens};
-use syn::{punctuated::Punctuated, spanned::Spanned, token::Comma, *};
+use quote::{quote, quote_spanned, ToTokens};
+use syn::{spanned::Spanned, token::Comma, *};
 
 mod parse;
 
-use crate::parse::{ExportAttr, WasmerAttr};
+use crate::parse::WasmerAttr;
 
 #[proc_macro_derive(WasmerEnv, attributes(wasmer))]
 #[proc_macro_error]
@@ -84,8 +84,10 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 for attr in &f.attrs {
                     // if / filter
                     let tokens = attr.tokens.clone();
-                    wasmer_attr = Some(syn::parse2(tokens).unwrap());
-                    break;
+                    if let Ok(attr) = syn::parse2(tokens) {
+                        wasmer_attr = Some(attr);
+                        break;
+                    }
                 }
 
                 if let Some(wasmer_attr) = wasmer_attr {
@@ -103,26 +105,26 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                             let item_name =
                                 identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
                             /*match ty {
-                                ExportAttr::NativeFunc {} => {
-                                    let finish_tokens = quote_spanned! {f.span()=>
-                                            let #name: #inner_type = instance.exports.get_native_function(#item_name).unwrap();
-                                            self.#name.initialize(#name);
-                                    };
-                                    finish.push(finish_tokens);
-                                    let free_tokens = quote_spanned! {f.span()=>
-                                    };
-                                    free.push(free_tokens);
-                                }
-                                ExportAttr::EverythingElse {} => {*/
-                                    let finish_tokens = quote_spanned! {f.span()=>
-                                            let #name: #inner_type = instance.exports.get_with_generics(#item_name).unwrap();
-                                            self.#name.initialize(#name);
-                                    };
-                                    finish.push(finish_tokens);
-                                    let free_tokens = quote_spanned! {f.span()=>
-                                    };
-                                    free.push(free_tokens);
-                                //}
+                            ExportAttr::NativeFunc {} => {
+                                let finish_tokens = quote_spanned! {f.span()=>
+                                        let #name: #inner_type = instance.exports.get_native_function(#item_name).unwrap();
+                                        self.#name.initialize(#name);
+                                };
+                                finish.push(finish_tokens);
+                                let free_tokens = quote_spanned! {f.span()=>
+                                };
+                                free.push(free_tokens);
+                            }
+                            ExportAttr::EverythingElse {} => {*/
+                            let finish_tokens = quote_spanned! {f.span()=>
+                                    let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
+                                    self.#name.initialize(#name);
+                            };
+                            finish.push(finish_tokens);
+                            let free_tokens = quote_spanned! {f.span()=>
+                            };
+                            free.push(free_tokens);
+                            //}
                             //}
                         }
                     }
@@ -133,8 +135,9 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     }
 
     let trait_methods = quote! {
-        fn finish(&mut self, instance: &::wasmer::Instance) {
+        fn finish(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
+            Ok(())
         }
 
         fn free(&mut self) {

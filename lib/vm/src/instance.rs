@@ -110,7 +110,9 @@ pub(crate) struct Instance {
     ///
     /// Be sure to test with serialize/deserialize and imported functions from other Wasm modules.
     import_initializers: Vec<(
-        Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
+        Option<
+            fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
+        >,
         *mut std::ffi::c_void,
     )>,
 
@@ -159,7 +161,9 @@ impl Instance {
     fn imported_function_env_initializer(
         &self,
         index: FunctionIndex,
-    ) -> Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)> {
+    ) -> Option<
+        fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
+    > {
         self.import_initializers[index.as_u32() as usize].0
     }
 
@@ -907,7 +911,12 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
         import_initializers: Vec<(
-            Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
+            Option<
+                fn(
+                    *mut std::ffi::c_void,
+                    *const std::ffi::c_void,
+                ) -> Result<(), *mut std::ffi::c_void>,
+            >,
             *mut std::ffi::c_void,
         )>,
     ) -> Result<Self, Trap> {

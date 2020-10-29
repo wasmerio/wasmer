@@ -11,18 +11,11 @@ pub enum WasmerAttr {
         /// The identifier is an override, otherwise we use the field name as the name
         /// to lookup in `instance.exports`.
         identifier: Option<LitStr>,
-        ty: ExportAttr,
     },
-}
-
-pub enum ExportAttr {
-    NativeFunc,
-    EverythingElse,
 }
 
 struct ExportExpr {
     name: Option<LitStr>,
-    ty: ExportAttr,
 }
 
 struct ExportOptions {
@@ -58,34 +51,13 @@ impl Parse for ExportOptions {
 impl Parse for ExportExpr {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let name;
-        let ty;
-        /*
-        // check for native_func(
-        if input.peek(Ident) && input.peek2(token::Paren) {
-            let ident: Ident = input.parse()?;
-            let ident_str = ident.to_string();
-            if ident_str.as_str() == "native_func" {
-                let inner;
-                let _ = parenthesized!(inner in input);
-                let options = inner.parse::<ExportOptions>()?;
-                name = options.name;
-                ty = ExportAttr::NativeFunc;
-            } else {
-                panic!("Unrecognized attribute `{}` followed by `(`. Expected `native_func`",
-                 &ident_str);
-            }
-        } 
-        
-        // check for inner attribute
-        else */ if input.peek(Ident) {
+        if input.peek(Ident) {
             let options = input.parse::<ExportOptions>()?;
             name = options.name;
-            ty = ExportAttr::EverythingElse;
         } else {
             name = None;
-            ty = ExportAttr::EverythingElse;
         }
-        Ok(Self { name, ty })
+        Ok(Self { name })
     }
 }
 
@@ -99,19 +71,16 @@ impl Parse for WasmerAttrInner {
         let out = match ident_str.as_str() {
             "export" => {
                 let export_expr;
-                let (name, ty) = if input.peek(token::Paren) {
+                let name = if input.peek(token::Paren) {
                     let _: token::Paren = parenthesized!(export_expr in input);
 
                     let expr = export_expr.parse::<ExportExpr>()?;
-                    (expr.name, expr.ty)
+                    expr.name
                 } else {
-                    (None, ExportAttr::EverythingElse)
+                    None
                 };
 
-                WasmerAttr::Export {
-                    identifier: name,
-                    ty,
-                }
+                WasmerAttr::Export { identifier: name }
             }
             _ => return Err(input.error(format!("Unexpected identifier {}", ident_str))),
         };

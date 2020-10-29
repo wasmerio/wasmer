@@ -143,7 +143,9 @@ impl Function {
         let address = std::ptr::null() as *const VMFunctionBody;
         let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
         // TODO: look into removing transmute by changing API type signatures
-        let function_ptr = Some(unsafe { std::mem::transmute::<fn(_, _), fn(_, _)>(Env::finish) });
+        let function_ptr = Some(unsafe {
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
+        });
         //dbg!(function_ptr);
 
         Self {
@@ -249,7 +251,9 @@ impl Function {
         let box_env = Box::new(env);
         let vmctx = Box::into_raw(box_env) as *mut VMContext;
         // TODO: look into removing transmute by changing API type signatures
-        let function_ptr = Some(unsafe { std::mem::transmute::<fn(_, _), fn(_, _)>(Env::finish) });
+        let function_ptr = Some(unsafe {
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
+        });
         //dbg!(function_ptr as usize);
         let signature = function.ty();
 

@@ -37,7 +37,10 @@ pub struct ExportFunction {
     /// we create the `api::Instance`.
     // META: if you have a better idea of how to get this function to where it
     // needs to be, please let me know.
-    pub function_ptr: Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void)>,
+    pub function_ptr: Option<
+        // TODO: review the return value here...
+        fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
+    >,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (it defines how it's the signature that provided `address` have)

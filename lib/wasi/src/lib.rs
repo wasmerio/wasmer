@@ -33,10 +33,6 @@ use wasmer::{
     imports, Function, ImportObject, InitAfterInstance, Memory, Module, Store, WasmerEnv,
 };
 
-use std::cell::UnsafeCell;
-use std::fmt;
-use std::mem::MaybeUninit;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// This is returned in `RuntimeError`.
@@ -53,37 +49,8 @@ pub enum WasiError {
 #[derive(Debug, Clone, WasmerEnv)]
 pub struct WasiEnv {
     state: Arc<Mutex<WasiState>>,
-    #[wasmer(export("memory"))]
+    #[wasmer(export)]
     memory: InitAfterInstance<Memory>,
-}
-/*
-impl wasmer::WasmerEnv for WasiEnv {
-    fn finish(&mut self, instance: &wasmer::Instance) {
-        dbg!("in Wasi::Finish");
-        let memory = instance.exports.get_memory("memory").unwrap();
-        self.memory.initialize(memory.clone());
-    }
-
-    fn free(&mut self) {}
-}*/
-
-/// Wrapper type around `Memory` used to delay initialization of the memory.
-///
-/// The `initialized` field is used to indicate if it's safe to read `memory` as `Memory`.
-///
-/// The `mutate_lock` is used to prevent access from multiple threads during initialization.
-struct WasiMemory {
-    initialized: AtomicBool,
-    memory: UnsafeCell<MaybeUninit<Memory>>,
-    mutate_lock: Mutex<()>,
-}
-
-impl fmt::Debug for WasiMemory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WasiMemory")
-            .field("initialized", &self.initialized)
-            .finish()
-    }
 }
 
 impl WasiEnv {
@@ -102,11 +69,6 @@ impl WasiEnv {
             wasi_version,
         ))
     }
-
-    /// Set the memory
-    /*pub fn set_memory(&mut self, memory: Memory) -> bool {
-        self.memory.set_memory(memory)
-    }*/
 
     /// Get the WASI state
     pub fn state(&self) -> MutexGuard<WasiState> {
