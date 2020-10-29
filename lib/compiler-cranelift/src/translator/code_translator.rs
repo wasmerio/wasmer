@@ -581,7 +581,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)?)
         }
-        Operator::MemorySize { mem, mem_byte } => {
+        Operator::MemorySize { mem, mem_byte: _ } => {
             let heap_index = MemoryIndex::from_u32(*mem);
             let heap = state.get_heap(builder.func, *mem, environ)?;
             state.push1(environ.translate_memory_size(builder.cursor(), heap_index, heap)?);
@@ -1579,8 +1579,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::F32x4Floor
         | Operator::F32x4Trunc
         | Operator::F32x4Nearest
-        | Operator::F32x4Ceil
-        | Operator::F32x4Floor
         | Operator::F64x2Ceil
         | Operator::F64x2Floor
         | Operator::F64x2Trunc
@@ -1589,7 +1587,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::F32x4PMax
         | Operator::F64x2PMin
         | Operator::F64x2PMax
-        => {
+        | Operator::V128Load32Zero { .. }
+        | Operator::V128Load64Zero { .. } => {
             return Err(wasm_unsupported!("proposed SIMD operator {:?}", op));
         }
 
