@@ -32,7 +32,11 @@ impl Parse for ExportOptions {
                 name = Some(input.parse::<LitStr>()?);
             }
             otherwise => {
-                abort!(ident, "Unrecognized argument in export options: expected `name` found `{}`", otherwise);
+                abort!(
+                    ident,
+                    "Unrecognized argument in export options: expected `name` found `{}`",
+                    otherwise
+                );
             }
         }
 
@@ -74,9 +78,11 @@ impl Parse for WasmerAttrInner {
 
                 WasmerAttr::Export { identifier: name }
             }
-            otherwise => {
-                abort!(ident, "Unexpected identifier `{}`. Expected `export`.", otherwise)
-            }
+            otherwise => abort!(
+                ident,
+                "Unexpected identifier `{}`. Expected `export`.",
+                otherwise
+            ),
         };
         Ok(WasmerAttrInner(out))
     }

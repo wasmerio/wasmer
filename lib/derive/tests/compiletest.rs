@@ -1,4 +1,4 @@
-// file is a modified version of  https://github.com/AltSysrq/proptest/blob/proptest-derive/proptest-derive/tests/compiletest.rs 
+// file is a modified version of  https://github.com/AltSysrq/proptest/blob/proptest-derive/proptest-derive/tests/compiletest.rs
 
 // Original copyright and license:
 // Copyright 2018 The proptest developers
@@ -35,12 +35,14 @@ fn run_mode(src: &'static str, mode: &'static str) {
 
     // Uncomment this if you have the "multiple crates named `wasmer` issue". Massively slows
     // down test iteration though...
-    //config.clean_rmeta();
+    config.clean_rmeta();
 
     ct::run_tests(&config);
 }
 
 #[test]
+#[ignore] // ignored by default because it needs to essentially run `cargo clean` to work correctly
+          // and that's really, really slow
 fn compile_test() {
     run_mode("compile-fail", "compile-fail");
 }

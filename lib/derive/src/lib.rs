@@ -1,6 +1,6 @@
 extern crate proc_macro;
 
-use proc_macro2::{TokenStream};
+use proc_macro2::TokenStream;
 use proc_macro_error::{abort, proc_macro_error, set_dummy};
 use quote::{quote, quote_spanned, ToTokens};
 use syn::{spanned::Spanned, *};
@@ -124,7 +124,10 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 }
             }
         }
-        _ => abort!(data.fields, "Only named fields are supported by `WasmerEnv` right now"),
+        _ => abort!(
+            data.fields,
+            "Only named fields are supported by `WasmerEnv` right now"
+        ),
     }
 
     let trait_methods = quote! {
@@ -157,7 +160,10 @@ fn get_identifier(ty: &Type) -> TokenStream {
             if let Some(PathSegment { ident, arguments }) = segments.last() {
                 let ident_str = ident.to_string();
                 if ident != "LazyInit" {
-                    abort!(ident, "WasmerEnv derive expects all `exports` to be wrapped in `LazyInit`");
+                    abort!(
+                        ident,
+                        "WasmerEnv derive expects all `exports` to be wrapped in `LazyInit`"
+                    );
                 }
                 if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                     args, ..
@@ -175,7 +181,10 @@ fn get_identifier(ty: &Type) -> TokenStream {
                             .expect("there must be at least one segment; TODO: error handling")
                             .to_token_stream()
                     } else {
-                        abort!(&args[0], "unrecognized type in first generic position on `LazyInit`");
+                        abort!(
+                            &args[0],
+                            "unrecognized type in first generic position on `LazyInit`"
+                        );
                     }
                 } else {
                     abort!(arguments, "Expected a generic parameter on `LazyInit`");
