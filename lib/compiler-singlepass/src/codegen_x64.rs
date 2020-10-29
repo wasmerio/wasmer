@@ -6304,9 +6304,13 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_label(after);
             }
             Operator::BrTable { ref table } => {
-                let (targets, default_target) = table.read_table().map_err(|e| CodegenError {
-                    message: format!("BrTable read_table: {:?}", e),
-                })?;
+                let mut targets = table
+                    .targets()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| CodegenError {
+                        message: format!("BrTable read_table: {:?}", e),
+                    })?;
+                let default_target = targets.pop().unwrap().0;
                 let cond = self.pop_value_released();
                 let table_label = self.assembler.get_label();
                 let mut table: Vec<DynamicLabel> = vec![];
@@ -6334,7 +6338,7 @@ impl<'a> FuncGen<'a> {
                 );
                 self.assembler.emit_jmp_location(Location::GPR(GPR::RDX));
 
-                for target in targets.iter() {
+                for (target, _) in targets.iter() {
                     let label = self.assembler.get_label();
                     self.assembler.emit_label(label);
                     table.push(label);

@@ -13,7 +13,7 @@ use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmparser::Validator;
+use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
@@ -59,12 +59,17 @@ pub trait Compiler {
         data: &'data [u8],
     ) -> Result<(), CompileError> {
         let mut validator = Validator::new();
-        validator
-            .wasm_bulk_memory(features.bulk_memory)
-            .wasm_threads(features.threads)
-            .wasm_reference_types(features.reference_types)
-            .wasm_multi_value(features.multi_value)
-            .wasm_simd(features.simd);
+        let wasm_features = WasmFeatures {
+            bulk_memory: features.bulk_memory,
+            threads: features.threads,
+            reference_types: features.reference_types,
+            multi_value: features.multi_value,
+            simd: features.simd,
+            tail_call: features.tail_call,
+            module_linking: features.module_linking,
+            deterministic_only: false,
+        };
+        validator.wasm_features(wasm_features);
         validator
             .validate_all(data)
             .map_err(|e| CompileError::Validate(format!("{}", e)))?;

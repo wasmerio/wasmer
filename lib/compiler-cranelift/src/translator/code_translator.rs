@@ -386,9 +386,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::BrIf { relative_depth } => translate_br_if(*relative_depth, builder, state),
         Operator::BrTable { table } => {
-            let (depths, default) = table.read_table().map_err(to_wasm_error)?;
+            let mut depths = table
+                .targets()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(to_wasm_error)?;
+            let default = depths.pop().unwrap().0;
             let mut min_depth = default;
-            for depth in &*depths {
+            for (depth, _) in &*depths {
                 if *depth < min_depth {
                     min_depth = *depth;
                 }
@@ -406,7 +410,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let mut data = JumpTableData::with_capacity(depths.len());
             if jump_args_count == 0 {
                 // No jump arguments
-                for depth in &*depths {
+                for (depth, _) in &*depths {
                     let block = {
                         let i = state.control_stack.len() - 1 - (*depth as usize);
                         let frame = &mut state.control_stack[i];
@@ -429,7 +433,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let return_count = jump_args_count;
                 let mut dest_block_sequence = vec![];
                 let mut dest_block_map = HashMap::new();
-                for depth in &*depths {
+                for (depth, _) in &*depths {
                     let branch_block = match dest_block_map.entry(*depth as usize) {
                         hash_map::Entry::Occupied(entry) => *entry.get(),
                         hash_map::Entry::Vacant(entry) => {
@@ -1052,9 +1056,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::RefFunc { function_index } => {
             state.push1(environ.translate_ref_func(builder.cursor(), *function_index)?);
         }
-        Operator::AtomicNotify { .. }
-        | Operator::I32AtomicWait { .. }
-        | Operator::I64AtomicWait { .. }
+        Operator::MemoryAtomicNotify { .. }
+        | Operator::MemoryAtomicWait32 { .. }
+        | Operator::MemoryAtomicWait64 { .. }
         | Operator::I32AtomicLoad { .. }
         | Operator::I64AtomicLoad { .. }
         | Operator::I32AtomicLoad8U { .. }

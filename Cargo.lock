@@ -2527,9 +2527,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.59.0"
+version = "0.60.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a950e6a618f62147fd514ff445b2a0b53120d382751960797f85f058c7eda9b9"
+checksum = "c2d5790a08f11f3d6b5767f6c49152df74b215e3dc5a38147713c4f6a05aac7f"
 
 [[package]]
 name = "wast"

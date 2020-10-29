@@ -18,6 +18,10 @@ pub struct Features {
     pub bulk_memory: bool,
     /// Multi Value proposal should be enabled
     pub multi_value: bool,
+    /// Tail call proposal should be enabled
+    pub tail_call: bool,
+    /// Module Linking proposal should be enabled
+    pub module_linking: bool,
 }
 
 impl Features {
@@ -31,6 +35,8 @@ impl Features {
             bulk_memory: true,
             // Multivalue should be on by default
             multi_value: true,
+            tail_call: false,
+            module_linking: false,
         }
     }
 
@@ -136,6 +142,43 @@ impl Features {
         self.multi_value = enable;
         self
     }
+
+    /// Configures whether the WebAssembly tail-call proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly tail-call proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature gates tail-call functions in WebAssembly.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/tail-call
+    pub fn tail_call(&mut self, enable: bool) -> &mut Self {
+        self.tail_call = enable;
+        self
+    }
+
+    /// Configures whether the WebAssembly tail-call proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly tail-call proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature allows WebAssembly modules to define, import and
+    /// export modules and instances.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/webassembly/module-linking
+    pub fn module_linking(&mut self, enable: bool) -> &mut Self {
+        self.module_linking = enable;
+        self
+    }
 }
 
 impl Default for Features {
@@ -158,6 +201,8 @@ mod test_features {
                 simd: false,
                 bulk_memory: true,
                 multi_value: true,
+                tail_call: false,
+                module_linking: false,
             }
         );
     }
@@ -208,5 +253,19 @@ mod test_features {
             .bulk_memory(false);
         assert!(!features.bulk_memory);
         assert!(!features.reference_types);
+    }
+
+    #[test]
+    fn enable_tail_call() {
+        let mut features = Features::new();
+        features.tail_call(true);
+        assert!(features.tail_call);
+    }
+
+    #[test]
+    fn enable_module_linking() {
+        let mut features = Features::new();
+        features.module_linking(true);
+        assert!(features.module_linking);
     }
 }

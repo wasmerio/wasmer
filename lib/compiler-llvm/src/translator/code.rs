@@ -1541,7 +1541,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let (label_depths, default_depth) = table.read_table().map_err(to_wasm_error)?;
+                let mut label_depths = table
+                    .targets()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(to_wasm_error)?;
+                let default_depth = label_depths.pop().unwrap().0;
 
                 let index = self.state.pop1()?;
 
@@ -1561,7 +1565,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let cases: Vec<_> = label_depths
                     .iter()
                     .enumerate()
-                    .map(|(case_index, &depth)| {
+                    .map(|(case_index, &(depth, _))| {
                         let frame_result: Result<&ControlFrame, CompileError> =
                             self.state.frame_at_depth(depth);
                         let frame = match frame_result {
