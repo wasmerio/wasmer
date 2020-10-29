@@ -59,22 +59,21 @@ impl Engine for DummyEngine {
     #[cfg(feature = "compiler")]
     /// Validates a WebAssembly module
     fn validate(&self, binary: &[u8]) -> Result<(), CompileError> {
-        use wasmer_compiler::wasmparser::{
-            validate, OperatorValidatorConfig, ValidatingParserConfig,
-        };
+        use wasmer_compiler::wasmparser::Validator;
 
         let features = self.features();
-        let config = ValidatingParserConfig {
-            operator_config: OperatorValidatorConfig {
-                enable_threads: features.threads,
-                enable_reference_types: features.reference_types,
-                enable_bulk_memory: features.bulk_memory,
-                enable_simd: features.simd,
-                enable_tail_call: false,
-                enable_multi_value: features.multi_value,
-            },
-        };
-        validate(binary, Some(config)).map_err(|e| CompileError::Validate(format!("{}", e)))
+        let mut validator = Validator::new();
+        validator
+            .wasm_bulk_memory(features.bulk_memory)
+            .wasm_threads(features.threads)
+            .wasm_reference_types(features.reference_types)
+            .wasm_multi_value(features.multi_value)
+            .wasm_simd(features.simd);
+
+        validator
+            .validate_all(binary)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        Ok(())
     }
 
     #[cfg(not(feature = "compiler"))]

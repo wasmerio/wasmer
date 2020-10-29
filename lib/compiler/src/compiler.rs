@@ -13,7 +13,7 @@ use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
+use wasmparser::Validator;
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
@@ -58,17 +58,17 @@ pub trait Compiler {
         features: &Features,
         data: &'data [u8],
     ) -> Result<(), CompileError> {
-        let config = ValidatingParserConfig {
-            operator_config: OperatorValidatorConfig {
-                enable_threads: features.threads,
-                enable_reference_types: features.reference_types,
-                enable_bulk_memory: features.bulk_memory,
-                enable_tail_call: false,
-                enable_simd: features.simd,
-                enable_multi_value: features.multi_value,
-            },
-        };
-        validate(data, Some(config)).map_err(|e| CompileError::Validate(format!("{}", e)))
+        let mut validator = Validator::new();
+        validator
+            .wasm_bulk_memory(features.bulk_memory)
+            .wasm_threads(features.threads)
+            .wasm_reference_types(features.reference_types)
+            .wasm_multi_value(features.multi_value)
+            .wasm_simd(features.simd);
+        validator
+            .validate_all(data)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        Ok(())
     }
 
     /// Compiles a parsed module.

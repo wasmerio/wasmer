@@ -26,12 +26,11 @@ use wasmer_types::{
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
 use wasmparser::{
-    self, CodeSectionReader, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems,
-    ElementKind, ElementSectionReader, Export, ExportSectionReader, ExternalKind,
-    FuncType as WPFunctionType, FunctionSectionReader, GlobalSectionReader,
-    GlobalType as WPGlobalType, ImportSectionEntryType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Naming, NamingReader, Operator,
-    TableSectionReader, TypeSectionReader,
+    self, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems, ElementKind,
+    ElementSectionReader, Export, ExportSectionReader, ExternalKind, FuncType as WPFunctionType,
+    FunctionSectionReader, GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionEntryType,
+    ImportSectionReader, MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader,
+    Naming, NamingReader, Operator, TableSectionReader, TypeDef, TypeSectionReader,
 };
 
 /// Helper function translating wasmparser types to Wasm Type.
@@ -61,25 +60,29 @@ pub fn parse_type_section(
     environ.reserve_signatures(count)?;
 
     for entry in types {
-        let WPFunctionType { params, returns } = entry.map_err(to_wasm_error)?;
-        let sig_params: Vec<Type> = params
-            .iter()
-            .map(|ty| {
-                wptype_to_type(*ty)
-                    .expect("only numeric types are supported in function signatures")
-            })
-            .collect();
-        let sig_returns: Vec<Type> = returns
-            .iter()
-            .map(|ty| {
-                wptype_to_type(*ty)
-                    .expect("only numeric types are supported in function signatures")
-            })
-            .collect();
-        let sig = FunctionType::new(sig_params, sig_returns);
-        environ.declare_signature(sig)?;
-        module_translation_state.wasm_types.push((params, returns));
+        if let Ok(TypeDef::Func(WPFunctionType { params, returns })) = entry {
+            let sig_params: Vec<Type> = params
+                .iter()
+                .map(|ty| {
+                    wptype_to_type(*ty)
+                        .expect("only numeric types are supported in function signatures")
+                })
+                .collect();
+            let sig_returns: Vec<Type> = returns
+                .iter()
+                .map(|ty| {
+                    wptype_to_type(*ty)
+                        .expect("only numeric types are supported in function signatures")
+                })
+                .collect();
+            let sig = FunctionType::new(sig_params, sig_returns);
+            environ.declare_signature(sig)?;
+            module_translation_state.wasm_types.push((params, returns));
+        } else {
+            unimplemented!("module linking not implemented yet")
+        }
     }
+
     Ok(())
 }
 
@@ -100,8 +103,11 @@ pub fn parse_import_section<'data>(
                 environ.declare_func_import(
                     SignatureIndex::from_u32(sig),
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
+            }
+            ImportSectionEntryType::Module(_sig) | ImportSectionEntryType::Instance(_sig) => {
+                unimplemented!("module linking not implemented yet")
             }
             ImportSectionEntryType::Memory(WPMemoryType {
                 limits: ref memlimits,
@@ -114,7 +120,7 @@ pub fn parse_import_section<'data>(
                         shared,
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
             ImportSectionEntryType::Global(ref ty) => {
@@ -124,7 +130,7 @@ pub fn parse_import_section<'data>(
                         mutability: ty.mutable.into(),
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
             ImportSectionEntryType::Table(ref tab) => {
@@ -135,7 +141,7 @@ pub fn parse_import_section<'data>(
                         maximum: tab.limits.maximum,
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
         }
@@ -281,6 +287,9 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
+            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
+                unimplemented!("module linking not implemented yet")
+            }
         }
     }
 
@@ -355,25 +364,6 @@ pub fn parse_element_section<'data>(
             }
             ElementKind::Declared => return Err(wasm_unsupported!("element kind declared")),
         }
-    }
-    Ok(())
-}
-
-/// Parses the Code section of the wasm module.
-pub fn parse_code_section<'data>(
-    code: CodeSectionReader<'data>,
-    module_translation_state: &ModuleTranslationState,
-    environ: &mut ModuleEnvironment<'data>,
-) -> WasmResult<()> {
-    for body in code {
-        let mut reader = body.map_err(to_wasm_error)?.get_binary_reader();
-        let size = reader.bytes_remaining();
-        let offset = reader.original_position();
-        environ.define_function_body(
-            module_translation_state,
-            reader.read_bytes(size).map_err(to_wasm_error)?,
-            offset,
-        )?;
     }
     Ok(())
 }

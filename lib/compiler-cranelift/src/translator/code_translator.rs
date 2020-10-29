@@ -1043,7 +1043,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             translate_fcmp(FloatCC::LessThanOrEqual, builder, state)
         }
         Operator::RefNull { ty: _ } => state.push1(builder.ins().null(environ.reference_type())),
-        Operator::RefIsNull { ty: _ } => {
+        Operator::RefIsNull => {
             let arg = state.pop1();
             let val = builder.ins().is_null(arg);
             let val_int = builder.ins().bint(I32, val);
@@ -1567,7 +1567,10 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I32x4WidenLowI16x8S { .. }
         | Operator::I32x4WidenHighI16x8S { .. }
         | Operator::I32x4WidenLowI16x8U { .. }
-        | Operator::I32x4WidenHighI16x8U { .. } => {
+        | Operator::I32x4WidenHighI16x8U { .. }
+        | Operator::I8x16Bitmask
+        | Operator::I16x8Bitmask
+        | Operator::I32x4Bitmask => {
             return Err(wasm_unsupported!("proposed SIMD operator {:?}", op));
         }
 

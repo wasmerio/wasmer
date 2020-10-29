@@ -1,4 +1,3 @@
-use crate::sourceloc::SourceLoc;
 use crate::CodeOffset;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
