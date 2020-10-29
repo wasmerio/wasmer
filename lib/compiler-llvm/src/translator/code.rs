@@ -1110,21 +1110,13 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
     }
 
     fn trap_if_misaligned(&self, memarg: &MemoryImmediate, ptr: PointerValue<'ctx>) {
-        let align = match memarg.flags & 3 {
-            0 => {
-                return; /* No alignment to check. */
-            }
-            1 => 2,
-            2 => 4,
-            3 => 8,
-            _ => unreachable!("this match is fully covered"),
-        };
+        let align = memarg.align;
         let value = self
             .builder
             .build_ptr_to_int(ptr, self.intrinsics.i64_ty, "");
         let and = self.builder.build_and(
             value,
-            self.intrinsics.i64_ty.const_int(align - 1, false),
+            self.intrinsics.i64_ty.const_int((align - 1).into(), false),
             "misaligncheck",
         );
         let aligned =
@@ -9250,8 +9242,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.state.push1(old);
             }
 
-            Operator::MemoryGrow { reserved } => {
-                let memory_index = MemoryIndex::from_u32(reserved);
+            Operator::MemoryGrow { mem, mem_byte: _ } => {
+                let memory_index = MemoryIndex::from_u32(mem);
                 let delta = self.state.pop1()?;
                 let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
                 let grow = self.builder.build_call(
@@ -9261,15 +9253,15 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         delta,
                         self.intrinsics
                             .i32_ty
-                            .const_int(reserved.into(), false)
+                            .const_int(mem.into(), false)
                             .as_basic_value_enum(),
                     ],
                     "",
                 );
                 self.state.push1(grow.try_as_basic_value().left().unwrap());
             }
-            Operator::MemorySize { reserved } => {
-                let memory_index = MemoryIndex::from_u32(reserved);
+            Operator::MemorySize { mem, mem_byte: _ } => {
+                let memory_index = MemoryIndex::from_u32(mem);
                 let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
                 let size = self.builder.build_call(
                     size_fn_ptr,
@@ -9277,7 +9269,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         vmctx.as_basic_value_enum(),
                         self.intrinsics
                             .i32_ty
-                            .const_int(reserved.into(), false)
+                            .const_int(mem.into(), false)
                             .as_basic_value_enum(),
                     ],
                     "",

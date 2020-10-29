@@ -22,6 +22,10 @@ pub struct Features {
     pub tail_call: bool,
     /// Module Linking proposal should be enabled
     pub module_linking: bool,
+    /// Multi Memory proposal should be enabled
+    pub multi_memory: bool,
+    /// 64-bit Memory proposal should be enabled
+    pub memory64: bool,
 }
 
 impl Features {
@@ -37,6 +41,8 @@ impl Features {
             multi_value: true,
             tail_call: false,
             module_linking: false,
+            multi_memory: false,
+            memory64: false,
         }
     }
 
@@ -179,6 +185,44 @@ impl Features {
         self.module_linking = enable;
         self
     }
+
+    /// Configures whether the WebAssembly multi-memory proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly multi-memory proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature adds the ability to use multiple memories within a
+    /// single Wasm module.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/WebAssembly/multi-memory
+    pub fn multi_memory(&mut self, enable: bool) -> &mut Self {
+        self.multi_memory = enable;
+        self
+    }
+
+    /// Configures whether the WebAssembly 64-bit memory proposal will
+    /// be enabled.
+    ///
+    /// The [WebAssembly 64-bit memory proposal][proposal] is not
+    /// currently fully standardized and is undergoing development.
+    /// Support for this feature can be enabled through this method for
+    /// appropriate WebAssembly modules.
+    ///
+    /// This feature gates support for linear memory of sizes larger than
+    /// 2^32 bits.
+    ///
+    /// This is `false` by default.
+    ///
+    /// [proposal]: https://github.com/WebAssembly/memory64
+    pub fn memory64(&mut self, enable: bool) -> &mut Self {
+        self.memory64 = enable;
+        self
+    }
 }
 
 impl Default for Features {
@@ -203,6 +247,8 @@ mod test_features {
                 multi_value: true,
                 tail_call: false,
                 module_linking: false,
+                multi_memory: false,
+                memory64: false,
             }
         );
     }
@@ -267,5 +313,19 @@ mod test_features {
         let mut features = Features::new();
         features.module_linking(true);
         assert!(features.module_linking);
+    }
+
+    #[test]
+    fn enable_multi_memory() {
+        let mut features = Features::new();
+        features.multi_memory(true);
+        assert!(features.multi_memory);
+    }
+
+    #[test]
+    fn enable_memory64() {
+        let mut features = Features::new();
+        features.memory64(true);
+        assert!(features.memory64);
     }
 }

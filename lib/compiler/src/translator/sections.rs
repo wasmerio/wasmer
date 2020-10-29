@@ -109,7 +109,7 @@ pub fn parse_import_section<'data>(
             ImportSectionEntryType::Module(_sig) | ImportSectionEntryType::Instance(_sig) => {
                 unimplemented!("module linking not implemented yet")
             }
-            ImportSectionEntryType::Memory(WPMemoryType {
+            ImportSectionEntryType::Memory(WPMemoryType::M32 {
                 limits: ref memlimits,
                 shared,
             }) => {
@@ -122,6 +122,9 @@ pub fn parse_import_section<'data>(
                     module_name,
                     field_name.unwrap_or_default(),
                 )?;
+            }
+            ImportSectionEntryType::Memory(WPMemoryType::M64 { .. }) => {
+                unimplemented!("64bit memory not implemented yet")
             }
             ImportSectionEntryType::Global(ref ty) => {
                 environ.declare_global_import(
@@ -200,11 +203,16 @@ pub fn parse_memory_section(
 
     for entry in memories {
         let memory = entry.map_err(to_wasm_error)?;
-        environ.declare_memory(MemoryType {
-            minimum: Pages(memory.limits.initial),
-            maximum: memory.limits.maximum.map(Pages),
-            shared: memory.shared,
-        })?;
+        match memory {
+            WPMemoryType::M32 { limits, shared } => {
+                environ.declare_memory(MemoryType {
+                    minimum: Pages(limits.initial),
+                    maximum: limits.maximum.map(Pages),
+                    shared: shared,
+                })?;
+            }
+            WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),
+        }
     }
 
     Ok(())

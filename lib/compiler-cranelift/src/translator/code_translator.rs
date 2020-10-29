@@ -573,17 +573,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * Memory management is handled by environment. It is usually translated into calls to
          * special functions.
          ************************************************************************************/
-        Operator::MemoryGrow { reserved } => {
+        Operator::MemoryGrow { mem, mem_byte: _ } => {
             // The WebAssembly MVP only supports one linear memory, but we expect the reserved
             // argument to be a memory index.
-            let heap_index = MemoryIndex::from_u32(*reserved);
-            let heap = state.get_heap(builder.func, *reserved, environ)?;
+            let heap_index = MemoryIndex::from_u32(*mem);
+            let heap = state.get_heap(builder.func, *mem, environ)?;
             let val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)?)
         }
-        Operator::MemorySize { reserved } => {
-            let heap_index = MemoryIndex::from_u32(*reserved);
-            let heap = state.get_heap(builder.func, *reserved, environ)?;
+        Operator::MemorySize { mem, mem_byte } => {
+            let heap_index = MemoryIndex::from_u32(*mem);
+            let heap = state.get_heap(builder.func, *mem, environ)?;
             state.push1(environ.translate_memory_size(builder.cursor(), heap_index, heap)?);
         }
         /******************************* Load instructions ***********************************
@@ -591,117 +591,117 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * The memory base address is provided by the environment.
          ************************************************************************************/
         Operator::I32Load8U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload8, I32, builder, state, environ)?;
         }
         Operator::I32Load16U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload16, I32, builder, state, environ)?;
         }
         Operator::I32Load8S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload8, I32, builder, state, environ)?;
         }
         Operator::I32Load16S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload16, I32, builder, state, environ)?;
         }
         Operator::I64Load8U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload8, I64, builder, state, environ)?;
         }
         Operator::I64Load16U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload16, I64, builder, state, environ)?;
         }
         Operator::I64Load8S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload8, I64, builder, state, environ)?;
         }
         Operator::I64Load16S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload16, I64, builder, state, environ)?;
         }
         Operator::I64Load32S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload32, I64, builder, state, environ)?;
         }
         Operator::I64Load32U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload32, I64, builder, state, environ)?;
         }
         Operator::I32Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I32, builder, state, environ)?;
         }
         Operator::F32Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, F32, builder, state, environ)?;
         }
         Operator::I64Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I64, builder, state, environ)?;
         }
         Operator::F64Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, F64, builder, state, environ)?;
         }
         Operator::V128Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I8X16, builder, state, environ)?;
         }
         Operator::I16x8Load8x8S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload8x8(flags, base, offset);
             state.push1(loaded);
         }
         Operator::I16x8Load8x8U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload8x8(flags, base, offset);
             state.push1(loaded);
         }
         Operator::I32x4Load16x4S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload16x4(flags, base, offset);
             state.push1(loaded);
         }
         Operator::I32x4Load16x4U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload16x4(flags, base, offset);
             state.push1(loaded);
         }
         Operator::I64x2Load32x2S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload32x2(flags, base, offset);
             state.push1(loaded);
         }
         Operator::I64x2Load32x2U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload32x2(flags, base, offset);
@@ -712,42 +712,42 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * The memory base address is provided by the environment.
          ************************************************************************************/
         Operator::I32Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::F32Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::F64Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Store, builder, state, environ)?;
         }
         Operator::I32Store8 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store8 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore8, builder, state, environ)?;
         }
         Operator::I32Store16 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store16 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore16, builder, state, environ)?;
         }
         Operator::I64Store32 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore32, builder, state, environ)?;
         }
         Operator::V128Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Store, builder, state, environ)?;
         }
@@ -1125,7 +1125,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::AtomicFence { .. } => {
             return Err(wasm_unsupported!("proposed thread operator {:?}", op));
         }
-        Operator::MemoryCopy => {
+        Operator::MemoryCopy { .. } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory indices specified are
             // zero.
@@ -1136,7 +1136,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_memory_copy(builder.cursor(), heap_index, heap, dest, src, len)?;
         }
-        Operator::MemoryFill => {
+        Operator::MemoryFill { .. } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory index specified is
             // zero.
@@ -1147,7 +1147,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_memory_fill(builder.cursor(), heap_index, heap, dest, val, len)?;
         }
-        Operator::MemoryInit { segment } => {
+        Operator::MemoryInit { segment, mem: _ } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory index specified is
             // zero.
@@ -1267,16 +1267,16 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(splatted)
         }
         Operator::V8x16LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::V16x8LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::V32x4LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::V64x2LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             // TODO: For spec compliance, this is initially implemented as a combination of `load +
             // splat` but could be implemented eventually as a single instruction (`load_splat`).

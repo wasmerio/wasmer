@@ -67,6 +67,8 @@ pub trait Compiler {
             simd: features.simd,
             tail_call: features.tail_call,
             module_linking: features.module_linking,
+            multi_memory: features.multi_memory,
+            memory64: features.memory64,
             deterministic_only: false,
         };
         validator.wasm_features(wasm_features);
