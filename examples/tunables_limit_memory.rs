@@ -15,43 +15,52 @@ use wasmer_engine_jit::JIT;
 ///
 /// After adjusting the memory limits, it delegates all other logic
 /// to the base tunables.
-struct LimitingTunables<T: Tunables> {
+pub struct LimitingTunables<T: Tunables> {
     /// The maxium a linear memory is allowed to be (in Wasm pages, 65 KiB each).
     /// Since Wasmer ensures there is only none or one memory, this is practically
     /// an upper limit for the guest memory.
-    max_memory: Pages,
+    limit: Pages,
     /// The base implementation we delegate all the logic to
     base: T,
 }
 
 impl<T: Tunables> LimitingTunables<T> {
     pub fn new(base: T, limit: Pages) -> Self {
-        Self {
-            max_memory: limit,
-            base,
-        }
+        Self { limit, base }
     }
 
-    /// Takes in input type as requested by the guest and returns a
-    /// limited memory type that is ready for processing.
-    fn adjust_memory(&self, requested: &MemoryType) -> Result<MemoryType, MemoryError> {
-        if requested.minimum > self.max_memory {
+    /// Takes in input memory type as requested by the guest and sets
+    /// a maximum if missing. The resulting memory type is final if
+    /// valid. However, this can produce invalid types, such that
+    /// validate_memory must be called before creating the memory.
+    fn adjust_memory(&self, requested: &MemoryType) -> MemoryType {
+        let mut adjusted = requested.clone();
+        if requested.maximum.is_none() {
+            adjusted.maximum = Some(self.limit);
+        }
+        adjusted
+    }
+
+    /// Ensures the a given memory type does not exceed the memory limit.
+    /// Call this after adjusting the memory.
+    fn validate_memory(&self, ty: &MemoryType) -> Result<(), MemoryError> {
+        if ty.minimum > self.limit {
             return Err(MemoryError::Generic(
-                "Minimum of requested memory exceeds the allowed memory limit".to_string(),
+                "Minimum exceeds the allowed memory limit".to_string(),
             ));
         }
 
-        if let Some(max) = requested.maximum {
-            if max > self.max_memory {
+        if let Some(max) = ty.maximum {
+            if max > self.limit {
                 return Err(MemoryError::Generic(
-                    "Maximum of requested memory exceeds the allowed memory limit".to_string(),
+                    "Maximum exceeds the allowed memory limit".to_string(),
                 ));
             }
+        } else {
+            return Err(MemoryError::Generic("Maximum unset".to_string()));
         }
 
-        let mut adjusted = requested.clone();
-        adjusted.maximum = Some(self.max_memory);
-        Ok(adjusted)
+        Ok(())
     }
 }
 
@@ -60,7 +69,8 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
     ///
     /// Delegated to base.
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
-        self.base.memory_style(memory)
+        let adjusted = self.adjust_memory(memory);
+        self.base.memory_style(&adjusted)
     }
 
     /// Construct a `TableStyle` for the provided `TableType`
@@ -78,7 +88,8 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         ty: &MemoryType,
         style: &MemoryStyle,
     ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
-        let adjusted = self.adjust_memory(ty)?;
+        let adjusted = self.adjust_memory(ty);
+        self.validate_memory(&adjusted)?;
         self.base.create_host_memory(&adjusted, style)
     }
 
@@ -91,7 +102,8 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
-        let adjusted = self.adjust_memory(ty)?;
+        let adjusted = self.adjust_memory(ty);
+        self.validate_memory(&adjusted)?;
         self.base
             .create_vm_memory(&adjusted, style, vm_definition_location)
     }
