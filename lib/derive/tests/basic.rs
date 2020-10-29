@@ -1,3 +1,5 @@
+#![allow(dead_code)]
+
 use wasmer::{Function, Global, LazyInit, Memory, NativeFunc, Table, WasmerEnv};
 
 #[derive(WasmerEnv)]
@@ -62,7 +64,6 @@ struct MyEnvWithLifetime<'a> {
 
 #[test]
 fn test_derive_with_attribute() {
-    //use wasmer::WasmerEnv;
     assert!(impls_wasmer_env::<MyEnvWithMemory>());
     assert!(impls_wasmer_env::<MyEnvWithFuncs>());
     assert!(impls_wasmer_env::<MyEnvWithEverything>());

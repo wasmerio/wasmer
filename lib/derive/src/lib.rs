@@ -1,16 +1,16 @@
 extern crate proc_macro;
 
-use proc_macro2::{Span, TokenStream};
-use proc_macro_error::{abort, abort_call_site, proc_macro_error, set_dummy};
+use proc_macro2::{TokenStream};
+use proc_macro_error::{abort, proc_macro_error, set_dummy};
 use quote::{quote, quote_spanned, ToTokens};
-use syn::{spanned::Spanned, token::Comma, *};
+use syn::{spanned::Spanned, *};
 
 mod parse;
 
 use crate::parse::WasmerAttr;
 
-#[proc_macro_derive(WasmerEnv, attributes(wasmer))]
 #[proc_macro_error]
+#[proc_macro_derive(WasmerEnv, attributes(wasmer))]
 pub fn derive_wasmer_env(input: proc_macro::TokenStream) -> proc_macro::TokenStream {
     let input: DeriveInput = syn::parse(input).unwrap();
     let gen = impl_wasmer_env(&input);
@@ -43,7 +43,8 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
 
     set_dummy(quote! {
         impl ::wasmer::WasmerEnv for #struct_name {
-            fn finish(&mut self, instance: &::wasmer::Instance) {
+            fn finish(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
+                Ok(())
             }
             fn free(&mut self) {
             }
@@ -78,15 +79,21 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 let name = f.ident.as_ref().unwrap();
                 let name_str = name.to_string();
                 let top_level_ty: &Type = &f.ty;
-                //dbg!(top_level_ty);
                 touched_fields.push(name.clone());
                 let mut wasmer_attr = None;
                 for attr in &f.attrs {
                     // if / filter
-                    let tokens = attr.tokens.clone();
-                    if let Ok(attr) = syn::parse2(tokens) {
-                        wasmer_attr = Some(attr);
-                        break;
+                    if attr.path.is_ident(&Ident::new("wasmer", attr.span())) {
+                        let tokens = attr.tokens.clone();
+                        match syn::parse2(tokens) {
+                            Ok(attr) => {
+                                wasmer_attr = Some(attr);
+                                break;
+                            }
+                            Err(e) => {
+                                abort!(attr, "Failed to parse `wasmer` attribute: {}", e);
+                            }
+                        }
                     }
                 }
 
@@ -104,18 +111,6 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                         WasmerAttr::Export { identifier, .. } => {
                             let item_name =
                                 identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
-                            /*match ty {
-                            ExportAttr::NativeFunc {} => {
-                                let finish_tokens = quote_spanned! {f.span()=>
-                                        let #name: #inner_type = instance.exports.get_native_function(#item_name).unwrap();
-                                        self.#name.initialize(#name);
-                                };
-                                finish.push(finish_tokens);
-                                let free_tokens = quote_spanned! {f.span()=>
-                                };
-                                free.push(free_tokens);
-                            }
-                            ExportAttr::EverythingElse {} => {*/
                             let finish_tokens = quote_spanned! {f.span()=>
                                     let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
                                     self.#name.initialize(#name);
@@ -124,14 +119,12 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                             let free_tokens = quote_spanned! {f.span()=>
                             };
                             free.push(free_tokens);
-                            //}
-                            //}
                         }
                     }
                 }
             }
         }
-        _ => todo!(),
+        _ => abort!(data.fields, "Only named fields are supported by `WasmerEnv` right now"),
     }
 
     let trait_methods = quote! {
@@ -164,8 +157,7 @@ fn get_identifier(ty: &Type) -> TokenStream {
             if let Some(PathSegment { ident, arguments }) = segments.last() {
                 let ident_str = ident.to_string();
                 if ident != "LazyInit" {
-                    // TODO:
-                    panic!("Only the `LazyInit` type is supported right now");
+                    abort!(ident, "WasmerEnv derive expects all `exports` to be wrapped in `LazyInit`");
                 }
                 if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
                     args, ..
@@ -183,15 +175,15 @@ fn get_identifier(ty: &Type) -> TokenStream {
                             .expect("there must be at least one segment; TODO: error handling")
                             .to_token_stream()
                     } else {
-                        panic!("unrecognized type in first generic position on `LazyInit`");
+                        abort!(&args[0], "unrecognized type in first generic position on `LazyInit`");
                     }
                 } else {
-                    panic!("Expected a generic parameter on `LazyInit`");
+                    abort!(arguments, "Expected a generic parameter on `LazyInit`");
                 }
             } else {
-                panic!("Wrong type of type found");
+                abort!(segments, "Unknown type found");
             }
         }
-        _ => todo!("Unrecognized/unsupported type"),
+        _ => abort!(ty, "Unrecognized/unsupported type"),
     }
 }

@@ -1,9 +1,8 @@
-use proc_macro2::Span;
-use proc_macro_error::{abort, ResultExt};
+use proc_macro_error::abort;
 use syn::{
     parenthesized,
     parse::{Parse, ParseStream},
-    token, Expr, Ident, LitStr, Token,
+    token, Ident, LitStr, Token,
 };
 
 pub enum WasmerAttr {
@@ -26,15 +25,14 @@ impl Parse for ExportOptions {
         let ident = input.parse::<Ident>()?;
         let _ = input.parse::<Token![=]>()?;
         let ident_str = ident.to_string();
-        let mut name = None;
+        let name;
 
         match ident_str.as_str() {
             "name" => {
                 name = Some(input.parse::<LitStr>()?);
             }
-            _ => {
-                // TODO: better handle errors here
-                panic!("Unrecognized argument in export options");
+            otherwise => {
+                abort!(ident, "Unrecognized argument in export options: expected `name` found `{}`", otherwise);
             }
         }
 
@@ -42,12 +40,6 @@ impl Parse for ExportOptions {
     }
 }
 
-// parsing either:
-// Inner | NativeFunc
-//
-// Inner:
-// - Nothing
-// - `name = "name"`
 impl Parse for ExportExpr {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let name;
@@ -82,7 +74,9 @@ impl Parse for WasmerAttrInner {
 
                 WasmerAttr::Export { identifier: name }
             }
-            _ => return Err(input.error(format!("Unexpected identifier {}", ident_str))),
+            otherwise => {
+                abort!(ident, "Unexpected identifier `{}`. Expected `export`.", otherwise)
+            }
         };
         Ok(WasmerAttrInner(out))
     }

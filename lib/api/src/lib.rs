@@ -160,7 +160,7 @@ impl From<ExportError> for HostEnvInitError {
 /// #[derive(WasmerEnv)]
 /// pub struct MyEnvWithInstanceData {
 ///     non_instance_data: u8,
-///     #[wasmer(export("memory"))]
+///     #[wasmer(export)]
 ///     memory: LazyInit<Memory>,
 /// }
 ///
