@@ -85,13 +85,13 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `Rets`, respectively for the parameters and the results. If
     // those values don't match the exported function signature, an
     // error will be raised.
-    let sum = sum.native::<(i32, i32), i32>()?;
+    let sum_native = sum.native::<(i32, i32), i32>()?;
 
     println!("Calling `sum` function (natively)...");
     // Let's call the `sum` exported function. The parameters are
     // statically typed Rust values of type `i32` and `i32`. The
     // result, in this case particular case, in a unit of type `i32`.
-    let result = sum.call(1, 2)?;
+    let result = sum_native.call(1, 2)?;
 
     println!("Results: {:?}", result);
     assert_eq!(result, 3);
