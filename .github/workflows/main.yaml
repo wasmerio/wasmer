@@ -187,10 +187,10 @@ jobs:
           ls target/release
           alias wasmer=target/release/wasmer
           ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
-          ./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
           mkdir cross
           cp qjs_mac_from_linux.wjit cross
-          cp qjs_win_from_linux.wjit cross
+          #cp qjs_win_from_linux.wjit cross
           cp target/release/wasmer cross
       - name: Cross compile from Mac
         if: matrix.os == 'macos-latest'
@@ -199,18 +199,18 @@ jobs:
           ls target/release
           alias wasmer=target/release/wasmer
           ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
-          ./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
           mkdir cross
           cp qjs_linux_from_mac.wjit cross
-          cp qjs_win_from_mac.wjit cross
+          #cp qjs_win_from_mac.wjit cross
           cp target/release/wasmer cross
       - name: Cross compile from Windows
         if: matrix.os == 'windows-latest'
         shell: bash
         run: |
           alias wasmer=target/release/wasmer
-          wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
-          wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
+          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
+          ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
           mkdir cross
           cp qjs_linux_from_win.wjit cross
           cp qjs_mac_from_win.wjit cross
@@ -255,23 +255,23 @@ jobs:
           wasmer run artifacts/cross/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           
-  test-cross-compile-on-win:
-    needs: [setup, test]
-    runs-on: windows-latest
-    steps:
-      - name: Download Wasmer
-        uses: actions/download-artifact@v2
-        with:
-          path: artifacts
-      - name: Run it
-        shell: bash
-        run: |
-          alias wasmer=artifacts/cross/cross_compiled_from_win/wasmer.exe
-          wasmer run artifacts/cross/cross_compiled_from_linux/win_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+  #test-cross-compile-on-win:
+  #  needs: [setup, test]
+  #  runs-on: windows-latest
+  #  steps:
+  #    - name: Download Wasmer
+  #      uses: actions/download-artifact@v2
+  #      with:
+  #        path: artifacts
+  #    - name: Run it
+  #      shell: bash
+  #      run: |
+  #        alias wasmer=artifacts/cross/cross_compiled_from_win/wasmer.exe
+  #        wasmer run artifacts/cross/cross_compiled_from_linux/win_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+  #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   release:
-    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac, test-cross-compile-on-win]
+    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
