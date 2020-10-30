@@ -6,10 +6,9 @@ use thiserror::Error;
 use wasmer_types::{GlobalType, Mutability, Type, Value};
 
 #[derive(Debug)]
-/// TODO: figure out a decent name for this thing
 pub struct Global {
     ty: GlobalType,
-    // this box may be unnecessary
+    // TODO: this box may be unnecessary
     vm_global_definition: Box<UnsafeCell<VMGlobalDefinition>>,
     // used to synchronize gets/sets
     lock: Mutex<()>,
