@@ -167,7 +167,7 @@ pub unsafe extern "C" fn wasm_func_call(
                 .expect("Results conversion failed");
 
             // `results` is an uninitialized vector. Set a new value.
-            if results.size == 0 || results.data.is_null() {
+            if results.is_uninitialized() {
                 *results = vals.into();
             }
             // `results` is an initialized but empty vector. Fill it
