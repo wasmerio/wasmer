@@ -6,6 +6,7 @@ use thiserror::Error;
 use wasmer_types::{GlobalType, Mutability, Type, Value};
 
 #[derive(Debug)]
+/// A Global instance
 pub struct Global {
     ty: GlobalType,
     // TODO: this box may be unnecessary
