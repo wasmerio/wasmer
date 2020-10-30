@@ -5,7 +5,7 @@ use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
 use std::mem;
 use std::sync::Arc;
-use wasmer::{Extern, Instance};
+use wasmer::{Extern, Instance, InstantiationError};
 
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
@@ -17,8 +17,7 @@ pub unsafe extern "C" fn wasm_instance_new(
     _store: &wasm_store_t,
     module: &wasm_module_t,
     imports: &wasm_extern_vec_t,
-    // own
-    _traps: *mut *mut wasm_trap_t,
+    traps: *mut *mut wasm_trap_t,
 ) -> Option<Box<wasm_instance_t>> {
     let wasm_module = &module.inner;
     let module_imports = wasm_module.imports();
@@ -32,7 +31,23 @@ pub unsafe extern "C" fn wasm_instance_new(
         .cloned()
         .collect();
 
-    let instance = Arc::new(c_try!(Instance::new(wasm_module, &resolver)));
+    let instance = match Instance::new(wasm_module, &resolver) {
+        Ok(instance) => Arc::new(instance),
+
+        Err(InstantiationError::Link(link_error)) => {
+            crate::error::update_last_error(link_error);
+
+            return None;
+        }
+
+        Err(InstantiationError::Start(runtime_error)) => {
+            let trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+            *traps = Box::into_raw(trap);
+
+            return None;
+        }
+    };
+
     Some(Box::new(wasm_instance_t { inner: instance }))
 }
 

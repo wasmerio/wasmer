@@ -11,7 +11,7 @@ add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
 #add_executable(wasm-c-api-multi wasm-c-api/example/multi.c)
 add_executable(wasm-c-api-reflect wasm-c-api/example/reflect.c)
 add_executable(wasm-c-api-serialize wasm-c-api/example/serialize.c)
-#add_executable(wasm-c-api-start wasm-c-api/example/start.c)
+add_executable(wasm-c-api-start wasm-c-api/example/start.c)
 #add_executable(wasm-c-api-table wasm-c-api/example/table.c)
 #add_executable(wasm-c-api-threads wasm-c-api/example/threads.c)
 add_executable(wasm-c-api-trap wasm-c-api/example/trap.c)
@@ -106,12 +106,12 @@ add_test(NAME wasm-c-api-serialize
          WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 )
 
-#target_link_libraries(wasm-c-api-start general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-start PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-start
-#         COMMAND wasm-c-api-start
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
-#)
+target_link_libraries(wasm-c-api-start general ${WASMER_LIB})
+target_compile_options(wasm-c-api-start PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-start
+         COMMAND wasm-c-api-start
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
 
 #target_link_libraries(wasm-c-api-table general ${WASMER_LIB})
 #target_compile_options(wasm-c-api-table PRIVATE ${COMPILER_OPTIONS})
