@@ -237,6 +237,9 @@ jobs:
           path: artifacts
       - name: Run it
         run: |
+          ls artifacts
+          ls artifacts/cross
+          ls artifacts/cross/cross_compiled_from_linux
           alias wasmer=artifacts/cross/cross_compiled_from_linux/wasmer
           cp artifacts/cross/cross_compiled_from_linux/wasmer .
           ./wasmer run artifacts/cross/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
