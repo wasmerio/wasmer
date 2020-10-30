@@ -238,11 +238,8 @@ jobs:
           path: artifacts
       - name: Run it
         run: |
-          ls artifacts
-          ls artifacts
-          ls artifacts/cross_compiled_from_linux
-          alias wasmer=artifacts/cross_compiled_from_linux/wasmer
           cp artifacts/cross_compiled_from_linux/wasmer .
+          chmod +x wasmer
           ./wasmer run artifacts/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           #wasmer run artifacts/cross/cross_compiled_from_win/linux_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
@@ -257,8 +254,8 @@ jobs:
           path: artifacts
       - name: Run it
         run: |
-          alias wasmer=artifacts/cross_compiled_from_mac/wasmer
           cp artifacts/cross_compiled_from_mac/wasmer .
+          chmod +x wasmer
           ./wasmer run artifacts/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           #wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           
