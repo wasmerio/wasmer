@@ -46,17 +46,20 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
             # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos
             os: macos-latest
             rust: 1.46.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-macos-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: windows
             os: windows-latest
             rust: 1.46.0
             artifact_name: 'wasmer-windows-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
@@ -140,15 +143,16 @@ jobs:
       - name: Set up dependencies for Mac OS
         run: brew install automake
         if: matrix.os == 'macos-latest'
-      - run: make test
-      - name: Build and Test C API
-        run: |
-          make build-capi
-          make test-capi
-        if: matrix.os != 'windows-latest'
-      - name: Build C API on Windows
-        run: make build-capi
-        if: matrix.os == 'windows-latest'
+        # speed up iteration:
+    #  - run: make test
+    #  - name: Build and Test C API
+    #    run: |
+    #      make build-capi
+    #      make test-capi
+    #    if: matrix.os != 'windows-latest'
+    #  - name: Build C API on Windows
+    #    run: make build-capi
+    #    if: matrix.os == 'windows-latest'
       - name: Build Wasmer binary
         run: |
           make build-wasmer
@@ -175,6 +179,42 @@ jobs:
           export WASMER_DIR=`pwd`/package
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+      - name: Cross compile from Linux
+        if: matrix.os == 'ubuntu-latest'
+        run: |
+          alias wasmer=target/release/wasmer
+          wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
+          wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
+          mkdir cross
+          cp qjs_mac_from_linux.wjit cross
+          cp qjs_win_from_linux.wjit cross
+          cp target/release/wasmer cross
+      - name: Cross compile from Mac
+        if: matrix.os == 'macos-latest'
+        run: |
+          alias wasmer=target/release/wasmer
+          wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
+          wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
+          mkdir cross
+          cp qjs_linux_from_mac.wjit cross
+          cp qjs_win_from_mac.wjit cross
+          cp target/release/wasmer cross
+      - name: Cross compile from Windows
+        if: matrix.os == 'windows-latest'
+        shell: bash
+        run: |
+          alias wasmer=target/release/wasmer
+          wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
+          wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
+          mkdir cross
+          cp qjs_linux_from_win.wjit cross
+          cp qjs_mac_from_win.wjit cross
+          cp target/release/wasmer.exe cross
+      - name: Upload Cross Compiled Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.cross_compiled_artifact_name }}
+          path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         if: needs.setup.outputs.DOING_RELEASE == '1'
@@ -182,8 +222,51 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist
 
-  release:
+  test-cross-compile-on-linux:
     needs: [setup, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Wasmer
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Run it
+        run: |
+          alias wasmer=artifacts/cross/cross_compiled_from_linux/wasmer
+          wasmer run artifacts/cross/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          wasmer run artifacts/cross/cross_compiled_from_win/linux_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+
+  test-cross-compile-on-mac:
+    needs: [setup, test]
+    runs-on: macos-latest
+    steps:
+      - name: Download Wasmer
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Run it
+        run: |
+          alias wasmer=artifacts/cross/cross_compiled_from_mac/wasmer
+          wasmer run artifacts/cross/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          
+  test-cross-compile-on-win:
+    needs: [setup, test]
+    runs-on: windows-latest
+    steps:
+      - name: Download Wasmer
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Run it
+        shell: bash
+        run: |
+          alias wasmer=artifacts/cross/cross_compiled_from_win/wasmer.exe
+          wasmer run artifacts/cross/cross_compiled_from_linux/win_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+
+  release:
+    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
