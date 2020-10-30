@@ -49,7 +49,7 @@ use wasmer_compiler::{to_wasm_error, WasmResult};
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 
-// Clippy warns about "align: _" but its important to document that the flags field is ignored
+// Clippy warns about "align: _" but its important to document that the align field is ignored
 #[cfg_attr(
     feature = "cargo-clippy",
     allow(clippy::unneeded_field_pattern, clippy::cognitive_complexity)
