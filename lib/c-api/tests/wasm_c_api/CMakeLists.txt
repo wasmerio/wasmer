@@ -4,7 +4,7 @@ project (WasmerWasmCApiTests)
 # Examples as tests from the `wasm-c-api` repository.
 add_executable(wasm-c-api-callback wasm-c-api/example/callback.c)
 #add_executable(wasm-c-api-finalize wasm-c-api/example/finalize.c)
-#add_executable(wasm-c-api-global wasm-c-api/example/global.c)
+add_executable(wasm-c-api-global wasm-c-api/example/global.c)
 add_executable(wasm-c-api-hello wasm-c-api/example/hello.c)
 #add_executable(wasm-c-api-hostref wasm-c-api/example/hostref.c)
 #add_executable(wasm-c-api-memory wasm-c-api/example/memory.c)
@@ -57,12 +57,12 @@ add_test(NAME wasm-c-api-callback
 #         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
 #)
 
-#target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
-#target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
-#add_test(NAME wasm-c-api-global
-#         COMMAND wasm-c-api-global
-#         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
-#)
+target_link_libraries(wasm-c-api-global general ${WASMER_LIB})
+target_compile_options(wasm-c-api-global PRIVATE ${COMPILER_OPTIONS})
+add_test(NAME wasm-c-api-global
+         COMMAND wasm-c-api-global
+         WORKING_DIRECTORY ${CMAKE_CURRENT_SOURCE_DIR}/wasm-c-api/example/
+)
 
 target_link_libraries(wasm-c-api-hello general ${WASMER_LIB})
 target_compile_options(wasm-c-api-hello PRIVATE ${COMPILER_OPTIONS})
