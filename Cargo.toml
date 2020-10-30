@@ -23,7 +23,7 @@ wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
-cfg-if = "0.1"
+cfg-if = "1.0"
 
 [workspace]
 members = [
@@ -57,7 +57,7 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
 anyhow = "1.0"
 glob = "0.3"
-rustc_version = "0.2"
+rustc_version = "0.3"
 
 [dev-dependencies]
 anyhow = "1.0"

@@ -29,7 +29,7 @@ wasmer-wasi = { version = "1.0.0-alpha4", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.0-alpha4", path = "../wasmer-types" }
 cfg-if = "0.1"
 lazy_static = "1"
-libc = { version = "^0.2.69", default-features = false }
+libc = { version = "^0.2", default-features = false }
 libffi = { version = "0.9" }
 serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"

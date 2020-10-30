@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4" }
 region = "2.2"
-libc = { version = "^0.2.69", default-features = false }
+libc = { version = "^0.2", default-features = false }
 memoffset = "0.5"
 indexmap = { version = "1.4", features = ["serde-1"] }
 thiserror = "1.0"
