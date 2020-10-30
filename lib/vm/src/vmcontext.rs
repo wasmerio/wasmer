@@ -116,20 +116,20 @@ mod test_vmfunction_body {
     }
 }
 
-/// A function kind.
+/// A function kind is a calling convention into and out of wasm code.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
-    /// A function is static when its address matches the signature:
-    /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
+    /// A static function has the native signature:
+    /// extern "C" (vmctx, arg1, arg2...) -> (result1, result2, ...)
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, natively
     /// 2. In the WebAssembly file
     Static,
 
-    /// A function is dynamic when its address matches the signature:
-    /// (ctx, &[Type]) -> Vec<Type>
+    /// A dynamic function has the native signature:
+    /// extern "C" (ctx, &[Value]) -> Vec<Value>
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, dynamically
