@@ -228,6 +228,7 @@ jobs:
           path: dist
 
   test-cross-compile-on-linux:
+    name: Test cross-compile on linux
     needs: [setup, test]
     runs-on: ubuntu-latest
     steps:
@@ -238,14 +239,15 @@ jobs:
       - name: Run it
         run: |
           ls artifacts
-          ls artifacts/cross
-          ls artifacts/cross/cross_compiled_from_linux
-          alias wasmer=artifacts/cross/cross_compiled_from_linux/wasmer
-          cp artifacts/cross/cross_compiled_from_linux/wasmer .
-          ./wasmer run artifacts/cross/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          ls artifacts
+          ls artifacts/cross_compiled_from_linux
+          alias wasmer=artifacts/cross_compiled_from_linux/wasmer
+          cp artifacts/cross_compiled_from_linux/wasmer .
+          ./wasmer run artifacts/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           #wasmer run artifacts/cross/cross_compiled_from_win/linux_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   test-cross-compile-on-mac:
+    name: Test cross-compile on macos
     needs: [setup, test]
     runs-on: macos-latest
     steps:
@@ -255,9 +257,9 @@ jobs:
           path: artifacts
       - name: Run it
         run: |
-          alias wasmer=artifacts/cross/cross_compiled_from_mac/wasmer
-          cp artifacts/cross/cross_compiled_from_mac/wasmer .
-          ./wasmer run artifacts/cross/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          alias wasmer=artifacts/cross_compiled_from_mac/wasmer
+          cp artifacts/cross_compiled_from_mac/wasmer .
+          ./wasmer run artifacts/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           #wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           
   #test-cross-compile-on-win:

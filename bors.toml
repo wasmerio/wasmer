@@ -4,7 +4,9 @@ status = [
     "Test on linux",
     "Test on linux-aarch64",
     "Test on macos",
-    "Test on windows"
+    "Test on windows",
+    "Test cross-compile on Linux",
+    "Test cross-compile on Mac",
 ]
 required_approvals = 1
 timeout_sec = 7200
