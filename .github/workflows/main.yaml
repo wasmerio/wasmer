@@ -204,17 +204,17 @@ jobs:
           cp qjs_linux_from_mac.wjit cross
           #cp qjs_win_from_mac.wjit cross
           cp target/release/wasmer cross
-      - name: Cross compile from Windows
-        if: matrix.os == 'windows-latest'
-        shell: bash
-        run: |
-          alias wasmer=target/release/wasmer
-          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
-          ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
-          mkdir cross
-          cp qjs_linux_from_win.wjit cross
-          cp qjs_mac_from_win.wjit cross
-          cp target/release/wasmer.exe cross
+      #- name: Cross compile from Windows
+      #  if: matrix.os == 'windows-latest'
+      #  shell: bash
+      #  run: |
+      #    alias wasmer=target/release/wasmer
+      #    ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
+      #    ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
+      #    mkdir cross
+      #    cp qjs_linux_from_win.wjit cross
+      #    cp qjs_mac_from_win.wjit cross
+      #    cp target/release/wasmer.exe cross
       - name: Upload Cross Compiled Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -238,8 +238,9 @@ jobs:
       - name: Run it
         run: |
           alias wasmer=artifacts/cross/cross_compiled_from_linux/wasmer
-          wasmer run artifacts/cross/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          wasmer run artifacts/cross/cross_compiled_from_win/linux_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          cp artifacts/cross/cross_compiled_from_linux/wasmer .
+          ./wasmer run artifacts/cross/cross_compiled_from_mac/linux_from_mac.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          #wasmer run artifacts/cross/cross_compiled_from_win/linux_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   test-cross-compile-on-mac:
     needs: [setup, test]
@@ -252,8 +253,9 @@ jobs:
       - name: Run it
         run: |
           alias wasmer=artifacts/cross/cross_compiled_from_mac/wasmer
-          wasmer run artifacts/cross/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-          wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          cp artifacts/cross/cross_compiled_from_mac/wasmer .
+          ./wasmer run artifacts/cross/cross_compiled_from_linux/mac_from_linux.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          #wasmer run artifacts/cross/cross_compiled_from_win/mac_from_win.wjit -- "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
           
   #test-cross-compile-on-win:
   #  needs: [setup, test]
