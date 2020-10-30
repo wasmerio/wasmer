@@ -64,6 +64,16 @@ macro_rules! wasm_declare_vec {
                 }
             }
 
+            impl [<wasm_ $name _vec_t>] {
+                pub unsafe fn into_slice_mut(&self) -> Option<&mut [[<wasm_ $name _t>]]>{
+                    if self.data.is_null() {
+                        return None;
+                    }
+
+                    Some(::std::slice::from_raw_parts_mut(self.data, self.size))
+                }
+            }
+
             // TODO: investigate possible memory leak on `init` (owned pointer)
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
