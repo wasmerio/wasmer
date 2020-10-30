@@ -1,4 +1,8 @@
 //! Wasmer API
+#![doc(
+    html_logo_url = "https://github.com/wasmerio.png?size=200",
+    html_favicon_url = "https://wasmer.io/static/icons/favicon.ico"
+)]
 #![deny(
     missing_docs,
     trivial_numeric_casts,
@@ -77,7 +81,17 @@ pub use wasmer_types::{
     Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
+
+// TODO: should those be moved into wasmer::vm as well?
 pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
+pub mod vm {
+    //! We use the vm module for re-exporting wasmer-vm types
+
+    pub use wasmer_vm::{
+        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition, VMTableDefinition,
+    };
+}
+
 #[cfg(feature = "wat")]
 pub use wat::parse_bytes as wat2wasm;
 

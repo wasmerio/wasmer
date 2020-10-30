@@ -23,7 +23,7 @@ wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
-cfg-if = "0.1"
+cfg-if = "1.0"
 
 [workspace]
 members = [
@@ -57,7 +57,7 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
 anyhow = "1.0"
 glob = "0.3"
-rustc_version = "0.2"
+rustc_version = "0.3"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -192,6 +192,41 @@ path = "examples/exports_function.rs"
 required-features = ["cranelift"]
 
 [[example]]
+name = "exported-global"
+path = "examples/exports_global.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "exported-memory"
+path = "examples/exports_memory.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function"
+path = "examples/imports_function.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-global"
+path = "examples/imports_global.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "tunables-limit-memory"
+path = "examples/tunables_limit_memory.rs"
+required-features = ["cranelift"]
+
+[[example]]
 name = "wasi"
 path = "examples/wasi.rs"
 required-features = ["cranelift", "wasi"]
+
+[[example]]
+name = "table"
+path = "examples/table.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "memory"
+path = "examples/memory.rs"
+required-features = ["cranelift"]

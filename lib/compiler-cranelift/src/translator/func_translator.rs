@@ -176,12 +176,9 @@ fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
     let mut next_local = num_params;
     let local_count = reader.read_local_count().map_err(to_wasm_error)?;
 
-    let mut locals_total = 0;
     for _ in 0..local_count {
         builder.set_srcloc(cur_srcloc(reader));
-        let (count, ty) = reader
-            .read_local_decl(&mut locals_total)
-            .map_err(to_wasm_error)?;
+        let (count, ty) = reader.read_local_decl().map_err(to_wasm_error)?;
         declare_locals(builder, count, ty, &mut next_local, environ)?;
     }
 

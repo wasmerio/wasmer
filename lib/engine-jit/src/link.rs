@@ -81,7 +81,7 @@ pub fn link_module(
             apply_relocation(body, r, allocated_functions, jt_offsets, allocated_sections);
         }
     }
-    for (i, function_relocs) in function_relocations.into_iter() {
+    for (i, function_relocs) in function_relocations.iter() {
         let fatptr: *const [VMFunctionBody] = allocated_functions[i].0;
         let body = fatptr as *const VMFunctionBody as usize;
         for r in function_relocs {

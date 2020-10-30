@@ -2,17 +2,8 @@
 singlepass::spec::multi_value
 singlepass::spec::simd
 
-## SIMD in Cranelift 0.65 is not fully supported
-cranelift::spec::simd::simd_conversions
-cranelift::spec::simd::simd_f32x4
-cranelift::spec::simd::simd_f64x2
+## SIMD in Cranelift 0.67 has a small bug
 cranelift::spec::simd::simd_f64x2_arith
-cranelift::spec::simd::simd_i16x8_arith2
-cranelift::spec::simd::simd_i32x4_arith2
-cranelift::spec::simd::simd_i8x16_arith2
-cranelift::spec::simd::simd_load
-cranelift::spec::simd::simd_splat
-
 
 singlepass on windows # Singlepass is not yet supported on Windows
 

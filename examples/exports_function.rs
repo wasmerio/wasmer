@@ -98,7 +98,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Much nicer, isn't it?
     //
-    // Those two API exist because they addres different needs. The
+    // Those two API exist because they address different needs. The
     // former has a more dynamic approach, while the second has a more
     // static approach.
 
