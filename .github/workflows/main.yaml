@@ -218,7 +218,7 @@ jobs:
       - name: Upload Cross Compiled Artifacts
         uses: actions/upload-artifact@v2
         with:
-          name: ${{ matrix.cross_compiled_artifact_name }}
+          name: ${{ matrix.cross_compilation_artifact_name }}
           path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
