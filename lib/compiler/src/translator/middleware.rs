@@ -99,7 +99,7 @@ impl<'a> MiddlewareBinaryReader<'a> {
     }
 
     /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self, locals_total: &mut usize) -> WpResult<(u32, Type)> {
+    pub fn read_local_decl(&mut self) -> WpResult<(u32, Type)> {
         let count = self.state.inner.read_var_u32()?;
         let ty = self.state.inner.read_type()?;
         Ok((count, ty))

@@ -69,7 +69,7 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect();
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
@@ -82,10 +82,7 @@ impl Compiler for SinglepassCompiler {
                 let mut locals = vec![];
                 let num_locals = reader.read_local_count().map_err(to_compile_error)?;
                 for _ in 0..num_locals {
-                    let mut counter = 0;
-                    let (count, ty) = reader
-                        .read_local_decl(&mut counter)
-                        .map_err(to_compile_error)?;
+                    let (count, ty) = reader.read_local_decl().map_err(to_compile_error)?;
                     for _ in 0..count {
                         locals.push(ty);
                     }
