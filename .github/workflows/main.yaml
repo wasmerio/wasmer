@@ -181,7 +181,8 @@ jobs:
       #    make test-integration
       #  if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Cross compile from Linux
-        if: matrix.os == 'ubuntu-latest'
+        if: matrix.os == 'ubuntu-18.04'
+        shell: bash
         run: |
           alias wasmer=target/release/wasmer
           wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
@@ -192,6 +193,7 @@ jobs:
           cp target/release/wasmer cross
       - name: Cross compile from Mac
         if: matrix.os == 'macos-latest'
+        shell: bash
         run: |
           alias wasmer=target/release/wasmer
           wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
