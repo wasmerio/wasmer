@@ -184,9 +184,10 @@ jobs:
         if: matrix.os == 'ubuntu-18.04'
         shell: bash
         run: |
+          ls target/release
           alias wasmer=target/release/wasmer
-          wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
-          wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
+          ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
+          ./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
           mkdir cross
           cp qjs_mac_from_linux.wjit cross
           cp qjs_win_from_linux.wjit cross
@@ -195,9 +196,10 @@ jobs:
         if: matrix.os == 'macos-latest'
         shell: bash
         run: |
+          ls target/release
           alias wasmer=target/release/wasmer
-          wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
-          wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
+          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
+          ./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
           mkdir cross
           cp qjs_linux_from_mac.wjit cross
           cp qjs_win_from_mac.wjit cross
