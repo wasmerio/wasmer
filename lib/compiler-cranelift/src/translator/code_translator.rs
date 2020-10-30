@@ -386,9 +386,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::BrIf { relative_depth } => translate_br_if(*relative_depth, builder, state),
         Operator::BrTable { table } => {
-            let (depths, default) = table.read_table().map_err(to_wasm_error)?;
+            let mut depths = table
+                .targets()
+                .collect::<Result<Vec<_>, _>>()
+                .map_err(to_wasm_error)?;
+            let default = depths.pop().unwrap().0;
             let mut min_depth = default;
-            for depth in &*depths {
+            for (depth, _) in &*depths {
                 if *depth < min_depth {
                     min_depth = *depth;
                 }
@@ -406,7 +410,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let mut data = JumpTableData::with_capacity(depths.len());
             if jump_args_count == 0 {
                 // No jump arguments
-                for depth in &*depths {
+                for (depth, _) in &*depths {
                     let block = {
                         let i = state.control_stack.len() - 1 - (*depth as usize);
                         let frame = &mut state.control_stack[i];
@@ -429,7 +433,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 let return_count = jump_args_count;
                 let mut dest_block_sequence = vec![];
                 let mut dest_block_map = HashMap::new();
-                for depth in &*depths {
+                for (depth, _) in &*depths {
                     let branch_block = match dest_block_map.entry(*depth as usize) {
                         hash_map::Entry::Occupied(entry) => *entry.get(),
                         hash_map::Entry::Vacant(entry) => {
@@ -569,17 +573,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * Memory management is handled by environment. It is usually translated into calls to
          * special functions.
          ************************************************************************************/
-        Operator::MemoryGrow { reserved } => {
+        Operator::MemoryGrow { mem, mem_byte: _ } => {
             // The WebAssembly MVP only supports one linear memory, but we expect the reserved
             // argument to be a memory index.
-            let heap_index = MemoryIndex::from_u32(*reserved);
-            let heap = state.get_heap(builder.func, *reserved, environ)?;
+            let heap_index = MemoryIndex::from_u32(*mem);
+            let heap = state.get_heap(builder.func, *mem, environ)?;
             let val = state.pop1();
             state.push1(environ.translate_memory_grow(builder.cursor(), heap_index, heap, val)?)
         }
-        Operator::MemorySize { reserved } => {
-            let heap_index = MemoryIndex::from_u32(*reserved);
-            let heap = state.get_heap(builder.func, *reserved, environ)?;
+        Operator::MemorySize { mem, mem_byte: _ } => {
+            let heap_index = MemoryIndex::from_u32(*mem);
+            let heap = state.get_heap(builder.func, *mem, environ)?;
             state.push1(environ.translate_memory_size(builder.cursor(), heap_index, heap)?);
         }
         /******************************* Load instructions ***********************************
@@ -587,117 +591,117 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * The memory base address is provided by the environment.
          ************************************************************************************/
         Operator::I32Load8U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload8, I32, builder, state, environ)?;
         }
         Operator::I32Load16U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload16, I32, builder, state, environ)?;
         }
         Operator::I32Load8S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload8, I32, builder, state, environ)?;
         }
         Operator::I32Load16S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload16, I32, builder, state, environ)?;
         }
         Operator::I64Load8U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload8, I64, builder, state, environ)?;
         }
         Operator::I64Load16U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload16, I64, builder, state, environ)?;
         }
         Operator::I64Load8S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload8, I64, builder, state, environ)?;
         }
         Operator::I64Load16S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload16, I64, builder, state, environ)?;
         }
         Operator::I64Load32S {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Sload32, I64, builder, state, environ)?;
         }
         Operator::I64Load32U {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Uload32, I64, builder, state, environ)?;
         }
         Operator::I32Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I32, builder, state, environ)?;
         }
         Operator::F32Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, F32, builder, state, environ)?;
         }
         Operator::I64Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I64, builder, state, environ)?;
         }
         Operator::F64Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, F64, builder, state, environ)?;
         }
         Operator::V128Load {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_load(*offset, ir::Opcode::Load, I8X16, builder, state, environ)?;
         }
-        Operator::I16x8Load8x8S {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load8x8S {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload8x8(flags, base, offset);
             state.push1(loaded);
         }
-        Operator::I16x8Load8x8U {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load8x8U {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload8x8(flags, base, offset);
             state.push1(loaded);
         }
-        Operator::I32x4Load16x4S {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load16x4S {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload16x4(flags, base, offset);
             state.push1(loaded);
         }
-        Operator::I32x4Load16x4U {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load16x4U {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload16x4(flags, base, offset);
             state.push1(loaded);
         }
-        Operator::I64x2Load32x2S {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load32x2S {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().sload32x2(flags, base, offset);
             state.push1(loaded);
         }
-        Operator::I64x2Load32x2U {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load32x2U {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             let (flags, base, offset) = prepare_load(*offset, 8, builder, state, environ)?;
             let loaded = builder.ins().uload32x2(flags, base, offset);
@@ -708,42 +712,42 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          * The memory base address is provided by the environment.
          ************************************************************************************/
         Operator::I32Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::F32Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::F64Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Store, builder, state, environ)?;
         }
         Operator::I32Store8 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store8 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore8, builder, state, environ)?;
         }
         Operator::I32Store16 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         }
         | Operator::I64Store16 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore16, builder, state, environ)?;
         }
         Operator::I64Store32 {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Istore32, builder, state, environ)?;
         }
         Operator::V128Store {
-            memarg: MemoryImmediate { flags: _, offset },
+            memarg: MemoryImmediate { offset, .. },
         } => {
             translate_store(*offset, ir::Opcode::Store, builder, state, environ)?;
         }
@@ -1043,7 +1047,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             translate_fcmp(FloatCC::LessThanOrEqual, builder, state)
         }
         Operator::RefNull { ty: _ } => state.push1(builder.ins().null(environ.reference_type())),
-        Operator::RefIsNull { ty: _ } => {
+        Operator::RefIsNull => {
             let arg = state.pop1();
             let val = builder.ins().is_null(arg);
             let val_int = builder.ins().bint(I32, val);
@@ -1052,9 +1056,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::RefFunc { function_index } => {
             state.push1(environ.translate_ref_func(builder.cursor(), *function_index)?);
         }
-        Operator::AtomicNotify { .. }
-        | Operator::I32AtomicWait { .. }
-        | Operator::I64AtomicWait { .. }
+        Operator::MemoryAtomicNotify { .. }
+        | Operator::MemoryAtomicWait32 { .. }
+        | Operator::MemoryAtomicWait64 { .. }
         | Operator::I32AtomicLoad { .. }
         | Operator::I64AtomicLoad { .. }
         | Operator::I32AtomicLoad8U { .. }
@@ -1121,7 +1125,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::AtomicFence { .. } => {
             return Err(wasm_unsupported!("proposed thread operator {:?}", op));
         }
-        Operator::MemoryCopy => {
+        Operator::MemoryCopy { .. } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory indices specified are
             // zero.
@@ -1132,7 +1136,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_memory_copy(builder.cursor(), heap_index, heap, dest, src, len)?;
         }
-        Operator::MemoryFill => {
+        Operator::MemoryFill { .. } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory index specified is
             // zero.
@@ -1143,7 +1147,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let dest = state.pop1();
             environ.translate_memory_fill(builder.cursor(), heap_index, heap, dest, val, len)?;
         }
-        Operator::MemoryInit { segment } => {
+        Operator::MemoryInit { segment, mem: _ } => {
             // The WebAssembly MVP only supports one linear memory and
             // wasmparser will ensure that the memory index specified is
             // zero.
@@ -1262,17 +1266,17 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let splatted = builder.ins().splat(type_of(op), state.pop1());
             state.push1(splatted)
         }
-        Operator::V8x16LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+        Operator::V128Load8Splat {
+            memarg: MemoryImmediate { offset, .. },
         }
-        | Operator::V16x8LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+        | Operator::V128Load16Splat {
+            memarg: MemoryImmediate { offset, .. },
         }
-        | Operator::V32x4LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+        | Operator::V128Load32Splat {
+            memarg: MemoryImmediate { offset, .. },
         }
-        | Operator::V64x2LoadSplat {
-            memarg: MemoryImmediate { flags: _, offset },
+        | Operator::V128Load64Splat {
+            memarg: MemoryImmediate { offset, .. },
         } => {
             // TODO: For spec compliance, this is initially implemented as a combination of `load +
             // splat` but could be implemented eventually as a single instruction (`load_splat`).
@@ -1323,7 +1327,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let vector = optionally_bitcast_vector(vector, type_of(op), builder);
             state.push1(builder.ins().insertlane(vector, replacement, *lane))
         }
-        Operator::V8x16Shuffle { lanes, .. } => {
+        Operator::I8x16Shuffle { lanes, .. } => {
             let (a, b) = pop2_with_bitcast(state, I8X16, builder);
             let lanes = ConstantData::from(lanes.as_ref());
             let mask = builder.func.dfg.immediates.push(lanes);
@@ -1334,7 +1338,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // to WASM using the less specific v128 type for certain operations and more specific
             // types (e.g. i8x16) for others.
         }
-        Operator::V8x16Swizzle => {
+        Operator::I8x16Swizzle => {
             let (a, b) = pop2_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().swizzle(I8X16, a, b))
         }
@@ -1342,11 +1346,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().iadd(a, b))
         }
-        Operator::I8x16AddSaturateS | Operator::I16x8AddSaturateS => {
+        Operator::I8x16AddSatS | Operator::I16x8AddSatS => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().sadd_sat(a, b))
         }
-        Operator::I8x16AddSaturateU | Operator::I16x8AddSaturateU => {
+        Operator::I8x16AddSatU | Operator::I16x8AddSatU => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().uadd_sat(a, b))
         }
@@ -1354,11 +1358,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().isub(a, b))
         }
-        Operator::I8x16SubSaturateS | Operator::I16x8SubSaturateS => {
+        Operator::I8x16SubSatS | Operator::I16x8SubSatS => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().ssub_sat(a, b))
         }
-        Operator::I8x16SubSaturateU | Operator::I16x8SubSaturateU => {
+        Operator::I8x16SubSatU | Operator::I16x8SubSatU => {
             let (a, b) = pop2_with_bitcast(state, type_of(op), builder);
             state.push1(builder.ins().usub_sat(a, b))
         }
@@ -1556,6 +1560,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I8x16Abs
         | Operator::I16x8Abs
         | Operator::I32x4Abs
+        | Operator::I32x4DotI16x8S
         | Operator::I8x16NarrowI16x8S { .. }
         | Operator::I8x16NarrowI16x8U { .. }
         | Operator::I16x8NarrowI32x4S { .. }
@@ -1567,7 +1572,24 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::I32x4WidenLowI16x8S { .. }
         | Operator::I32x4WidenHighI16x8S { .. }
         | Operator::I32x4WidenLowI16x8U { .. }
-        | Operator::I32x4WidenHighI16x8U { .. } => {
+        | Operator::I32x4WidenHighI16x8U { .. }
+        | Operator::I8x16Bitmask
+        | Operator::I16x8Bitmask
+        | Operator::I32x4Bitmask
+        | Operator::F32x4Ceil
+        | Operator::F32x4Floor
+        | Operator::F32x4Trunc
+        | Operator::F32x4Nearest
+        | Operator::F64x2Ceil
+        | Operator::F64x2Floor
+        | Operator::F64x2Trunc
+        | Operator::F64x2Nearest
+        | Operator::F32x4PMin
+        | Operator::F32x4PMax
+        | Operator::F64x2PMin
+        | Operator::F64x2PMax
+        | Operator::V128Load32Zero { .. }
+        | Operator::V128Load64Zero { .. } => {
             return Err(wasm_unsupported!("proposed SIMD operator {:?}", op));
         }
 
@@ -1967,9 +1989,9 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::V128Xor
         | Operator::V128Bitselect => I8X16, // default type representing V128
 
-        Operator::V8x16Shuffle { .. }
+        Operator::I8x16Shuffle { .. }
         | Operator::I8x16Splat
-        | Operator::V8x16LoadSplat { .. }
+        | Operator::V128Load8Splat { .. }
         | Operator::I8x16ExtractLaneS { .. }
         | Operator::I8x16ExtractLaneU { .. }
         | Operator::I8x16ReplaceLane { .. }
@@ -1990,11 +2012,11 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I8x16ShrS
         | Operator::I8x16ShrU
         | Operator::I8x16Add
-        | Operator::I8x16AddSaturateS
-        | Operator::I8x16AddSaturateU
+        | Operator::I8x16AddSatS
+        | Operator::I8x16AddSatU
         | Operator::I8x16Sub
-        | Operator::I8x16SubSaturateS
-        | Operator::I8x16SubSaturateU
+        | Operator::I8x16SubSatS
+        | Operator::I8x16SubSatU
         | Operator::I8x16MinS
         | Operator::I8x16MinU
         | Operator::I8x16MaxS
@@ -2002,7 +2024,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I8x16RoundingAverageU => I8X16,
 
         Operator::I16x8Splat
-        | Operator::V16x8LoadSplat { .. }
+        | Operator::V128Load16Splat { .. }
         | Operator::I16x8ExtractLaneS { .. }
         | Operator::I16x8ExtractLaneU { .. }
         | Operator::I16x8ReplaceLane { .. }
@@ -2023,11 +2045,11 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8ShrS
         | Operator::I16x8ShrU
         | Operator::I16x8Add
-        | Operator::I16x8AddSaturateS
-        | Operator::I16x8AddSaturateU
+        | Operator::I16x8AddSatS
+        | Operator::I16x8AddSatU
         | Operator::I16x8Sub
-        | Operator::I16x8SubSaturateS
-        | Operator::I16x8SubSaturateU
+        | Operator::I16x8SubSatS
+        | Operator::I16x8SubSatU
         | Operator::I16x8MinS
         | Operator::I16x8MinU
         | Operator::I16x8MaxS
@@ -2036,7 +2058,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8Mul => I16X8,
 
         Operator::I32x4Splat
-        | Operator::V32x4LoadSplat { .. }
+        | Operator::V128Load32Splat { .. }
         | Operator::I32x4ExtractLane { .. }
         | Operator::I32x4ReplaceLane { .. }
         | Operator::I32x4Eq
@@ -2066,7 +2088,7 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::F32x4ConvertI32x4U => I32X4,
 
         Operator::I64x2Splat
-        | Operator::V64x2LoadSplat { .. }
+        | Operator::V128Load64Splat { .. }
         | Operator::I64x2ExtractLane { .. }
         | Operator::I64x2ReplaceLane { .. }
         | Operator::I64x2Neg

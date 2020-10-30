@@ -1316,17 +1316,7 @@ impl<'a> FuncGen<'a> {
         self.machine.release_temp_gpr(tmp_bound);
         self.machine.release_temp_gpr(tmp_base);
 
-        let align = match memarg.flags & 3 {
-            0 => 1,
-            1 => 2,
-            2 => 4,
-            3 => 8,
-            _ => {
-                return Err(CodegenError {
-                    message: "emit_memory_op align: unreachable value".to_string(),
-                })
-            }
-        };
+        let align = memarg.align;
         if check_alignment && align != 1 {
             let tmp_aligncheck = self.machine.acquire_temp_gpr().unwrap();
             self.assembler.emit_mov(
@@ -1336,7 +1326,7 @@ impl<'a> FuncGen<'a> {
             );
             self.assembler.emit_and(
                 Size::S64,
-                Location::Imm32(align - 1),
+                Location::Imm32((align - 1).into()),
                 Location::GPR(tmp_aligncheck),
             );
             self.assembler
@@ -5615,8 +5605,8 @@ impl<'a> FuncGen<'a> {
                 // TODO: Re-enable interrupt signal check without branching
             }
             Operator::Nop => {}
-            Operator::MemorySize { reserved } => {
-                let memory_index = MemoryIndex::new(reserved as usize);
+            Operator::MemorySize { mem, mem_byte: _ } => {
+                let memory_index = MemoryIndex::new(mem as usize);
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Memory(
@@ -5653,8 +5643,8 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
-            Operator::MemoryGrow { reserved } => {
-                let memory_index = MemoryIndex::new(reserved as usize);
+            Operator::MemoryGrow { mem, mem_byte: _ } => {
+                let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
 
                 self.machine.release_locations_only_regs(&[param_pages]);
@@ -6304,9 +6294,13 @@ impl<'a> FuncGen<'a> {
                 self.assembler.emit_label(after);
             }
             Operator::BrTable { ref table } => {
-                let (targets, default_target) = table.read_table().map_err(|e| CodegenError {
-                    message: format!("BrTable read_table: {:?}", e),
-                })?;
+                let mut targets = table
+                    .targets()
+                    .collect::<Result<Vec<_>, _>>()
+                    .map_err(|e| CodegenError {
+                        message: format!("BrTable read_table: {:?}", e),
+                    })?;
+                let default_target = targets.pop().unwrap().0;
                 let cond = self.pop_value_released();
                 let table_label = self.assembler.get_label();
                 let mut table: Vec<DynamicLabel> = vec![];
@@ -6334,7 +6328,7 @@ impl<'a> FuncGen<'a> {
                 );
                 self.assembler.emit_jmp_location(Location::GPR(GPR::RDX));
 
-                for target in targets.iter() {
+                for (target, _) in targets.iter() {
                     let label = self.assembler.get_label();
                     self.assembler.emit_label(label);
                     table.push(label);
