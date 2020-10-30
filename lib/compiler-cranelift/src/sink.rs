@@ -124,6 +124,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
     match trap {
         ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
         ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
+        ir::TrapCode::HeapMisaligned => TrapCode::HeapMisaligned,
         ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
         ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
         ir::TrapCode::BadSignature => TrapCode::BadSignature,
