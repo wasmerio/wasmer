@@ -503,84 +503,153 @@ impl VMGlobalDefinition {
         }
     }
 
-    /// Return a reference to the value as an i32.
-    pub fn as_i32(&self) -> &i32 {
-        unsafe { &self.storage.as_i32 }
+    /// Return the value as an i32.
+    ///
+    /// If this is not an I32 typed global it is unspecified what value is returned.
+    pub fn to_i32(&self) -> i32 {
+        unsafe { self.storage.as_i32 }
     }
 
     /// Return a mutable reference to the value as an i32.
-    pub fn as_i32_mut(&mut self) -> &mut i32 {
-        unsafe { &mut self.storage.as_i32 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_i32_mut(&mut self) -> &mut i32 {
+        &mut self.storage.as_i32
     }
 
-    /// Return a reference to the value as a u32.
-    pub fn as_u32(&self) -> &u32 {
-        unsafe { &self.storage.as_u32 }
+    /// Return a reference to the value as an u32.
+    ///
+    /// If this is not an I32 typed global it is unspecified what value is returned.
+    pub fn to_u32(&self) -> u32 {
+        unsafe { self.storage.as_u32 }
     }
 
     /// Return a mutable reference to the value as an u32.
-    pub fn as_u32_mut(&mut self) -> &mut u32 {
-        unsafe { &mut self.storage.as_u32 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_u32_mut(&mut self) -> &mut u32 {
+        &mut self.storage.as_u32
     }
 
     /// Return a reference to the value as an i64.
-    pub fn as_i64(&self) -> &i64 {
-        unsafe { &self.storage.as_i64 }
+    ///
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_i64(&self) -> i64 {
+        unsafe { self.storage.as_i64 }
     }
 
     /// Return a mutable reference to the value as an i64.
-    pub fn as_i64_mut(&mut self) -> &mut i64 {
-        unsafe { &mut self.storage.as_i64 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_i64_mut(&mut self) -> &mut i64 {
+        &mut self.storage.as_i64
     }
 
     /// Return a reference to the value as an u64.
-    pub fn as_u64(&self) -> &u64 {
-        unsafe { &self.storage.as_u64 }
+    ///
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_u64(&self) -> u64 {
+        unsafe { self.storage.as_u64 }
     }
 
     /// Return a mutable reference to the value as an u64.
-    pub fn as_u64_mut(&mut self) -> &mut u64 {
-        unsafe { &mut self.storage.as_u64 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I64 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_u64_mut(&mut self) -> &mut u64 {
+        &mut self.storage.as_u64
     }
 
     /// Return a reference to the value as an f32.
-    pub fn as_f32(&self) -> &f32 {
-        unsafe { &self.storage.as_f32 }
+    ///
+    /// If this is not an F32 typed global it is unspecified what value is returned.
+    pub fn to_f32(&self) -> f32 {
+        unsafe { self.storage.as_f32 }
     }
 
     /// Return a mutable reference to the value as an f32.
-    pub fn as_f32_mut(&mut self) -> &mut f32 {
-        unsafe { &mut self.storage.as_f32 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has F32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_f32_mut(&mut self) -> &mut f32 {
+        &mut self.storage.as_f32
     }
 
     /// Return a reference to the value as an f64.
-    pub fn as_f64(&self) -> &f64 {
-        unsafe { &self.storage.as_f64 }
+    ///
+    /// If this is not an F64 typed global it is unspecified what value is returned.
+    pub fn to_f64(&self) -> f64 {
+        unsafe { self.storage.as_f64 }
     }
 
     /// Return a mutable reference to the value as an f64.
-    pub fn as_f64_mut(&mut self) -> &mut f64 {
-        unsafe { &mut self.storage.as_f64 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has F64 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_f64_mut(&mut self) -> &mut f64 {
+        &mut self.storage.as_f64
     }
 
     /// Return a reference to the value as an u128.
-    pub fn as_u128(&self) -> &u128 {
-        unsafe { &self.storage.as_u128 }
+    ///
+    /// If this is not an V128 typed global it is unspecified what value is returned.
+    pub fn to_u128(&self) -> u128 {
+        unsafe { self.storage.as_u128 }
     }
 
     /// Return a mutable reference to the value as an u128.
-    pub fn as_u128_mut(&mut self) -> &mut u128 {
-        unsafe { &mut self.storage.as_u128 }
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has V128 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_u128_mut(&mut self) -> &mut u128 {
+        &mut self.storage.as_u128
     }
 
-    /// Return a reference to the value as u128 bits.
-    pub fn as_u128_bits(&self) -> &[u8; 16] {
-        unsafe { &self.storage.bytes }
+    /// Return a reference to the value as bytes.
+    pub fn to_bytes(&self) -> [u8; 16] {
+        unsafe { self.storage.bytes }
     }
 
-    /// Return a mutable reference to the value as u128 bits.
-    pub fn as_u128_bits_mut(&mut self) -> &mut [u8; 16] {
-        unsafe { &mut self.storage.bytes }
+    /// Return a mutable reference to the value as bytes.
+    ///
+    /// # Safety
+    ///
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8; 16] {
+        &mut self.storage.bytes
     }
 }
 

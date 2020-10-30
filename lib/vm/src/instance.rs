@@ -1163,9 +1163,9 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     if let Some(base) = init.location.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1216,9 +1216,9 @@ fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
     if let Some(base) = init.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1317,7 +1317,7 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
                 GlobalInit::F32Const(x) => *(*to).as_f32_mut() = *x,
                 GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
-                GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
+                GlobalInit::V128Const(x) => *(*to).as_bytes_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
                     let from: VMGlobalDefinition =
                         if let Some(def_x) = module.local_global_index(*x) {
