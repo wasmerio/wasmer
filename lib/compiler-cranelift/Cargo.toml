@@ -15,18 +15,19 @@ edition = "2018"
 wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4", features = ["translator"], default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.0-alpha4" }
 wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4", default-features = false, features = ["std"] }
-cranelift-codegen = { version = "0.65", default-features = false, features = ["x86", "arm64"] }
-cranelift-frontend = { version = "0.65", default-features = false }
+cranelift-codegen = { version = "0.67", default-features = false, features = ["x86", "arm64"] }
+cranelift-frontend = { version = "0.67", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.8", optional = true }
 rayon = "1.3"
 serde = { version = "1.0", features = ["derive"] }
 more-asserts = "0.2"
 gimli = { version = "0.21", optional = true }
+smallvec = "1.0.0"
 
 [dev-dependencies]
-target-lexicon = { version = "0.10", default-features = false }
-cranelift-codegen = { version = "0.65", features = ["enable-serde", "all-arch"] }
+target-lexicon = { version = "0.11", default-features = false }
+cranelift-codegen = { version = "0.67", features = ["enable-serde", "all-arch"] }
 lazy_static = "1.4"
 
 [badges]
@@ -35,6 +36,6 @@ maintenance = { status = "actively-developed" }
 [features]
 default = ["std", "enable-serde", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
-enable-serde = ["wasmer-compiler/enable-serde", "cranelift-codegen/enable-serde", "wasmer-types/enable-serde"]
+enable-serde = ["wasmer-compiler/enable-serde", "wasmer-types/enable-serde"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]

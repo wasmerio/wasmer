@@ -184,10 +184,7 @@ impl FuncTranslator {
         let mut locals = vec![];
         let num_locals = reader.read_local_count().map_err(to_wasm_error)?;
         for _ in 0..num_locals {
-            let mut counter = 0;
-            let (count, ty) = reader
-                .read_local_decl(&mut counter)
-                .map_err(to_wasm_error)?;
+            let (count, ty) = reader.read_local_decl().map_err(to_wasm_error)?;
             let ty = wptype_to_type(ty).map_err(to_compile_error)?;
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
