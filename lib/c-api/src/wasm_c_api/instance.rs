@@ -41,19 +41,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         }
 
         Err(InstantiationError::Start(runtime_error)) => {
-            let pointer = {
-                let trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
-                let mut traps: Vec<*mut wasm_trap_t> = Vec::with_capacity(1);
-                traps.push(Box::into_raw(trap));
-                traps.shrink_to_fit();
-
-                let pointer = traps.as_mut_ptr();
-                mem::forget(traps);
-
-                pointer
-            };
-
-            *traps = *pointer;
+            let trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+            *traps = Box::into_raw(trap);
 
             return None;
         }
