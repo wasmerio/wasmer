@@ -1,7 +1,4 @@
-use wasmer::{
-    imports, wat2wasm, Extern, Function, Instance, Memory, MemoryType, Module, NativeFunc, Pages,
-    Store, Table, TableType, Type, Value,
-};
+use wasmer::{imports, wat2wasm, Instance, Module, NativeFunc, Pages, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
 
@@ -64,6 +61,7 @@ fn main() -> anyhow::Result<()> {
     let page_size = 0x1_0000;
     let result = get_at.call(page_size * 3 - 4)?;
     memory.grow(1025)?;
+    assert_eq!(result, 123456);
     assert_eq!(memory.size(), Pages::from(1028));
     set_at.call(page_size * 1027 - 4, 123456)?;
     let result = get_at.call(page_size * 1027 - 4)?;

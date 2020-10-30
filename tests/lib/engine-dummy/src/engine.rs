@@ -7,6 +7,7 @@ use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::FunctionType;
 use wasmer_vm::{SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex};
 
+#[allow(dead_code)]
 extern "C" fn dummy_trampoline(
     _context: *mut VMContext,
     _body: *const VMFunctionBody,
