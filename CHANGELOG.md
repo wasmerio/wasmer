@@ -8,8 +8,10 @@
 ## **[Unreleased]**
 
 - [#1710](https://github.com/wasmerio/wasmer/pull/1710) Memory for function call trampolines is now owned by the Artifact.
+
 ### Added
 
+- [#1761](https://github.com/wasmerio/wasmer/pull/1761) Implement the `wasm_trap_t**` argument of `wasm_instance_new` in the Wasm C API.
 - [#1687](https://github.com/wasmerio/wasmer/pull/1687) Add basic table example; fix ownership of local memory and local table metadata in the VM.
 - [#1751](https://github.com/wasmerio/wasmer/pull/1751) Implement `wasm_trap_t` inside a function declared with `wasm_func_new_with_env` in the Wasm C API.
 - [#1741](https://github.com/wasmerio/wasmer/pull/1741) Implement `wasm_memory_type` in the Wasm C API.
