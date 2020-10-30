@@ -87,21 +87,26 @@ impl Memory {
         &self.store
     }
 
-    /// TODO: document this function.
+    /// Retrieve a slice of the memory contents.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
+    /// Until the returned slice is dropped, it is undefined behaviour to
+    /// modify the memory contents in any way including by calling a wasm
+    /// function that writes to the memory or by resizing the memory.
     pub unsafe fn data_unchecked(&self) -> &[u8] {
         self.data_unchecked_mut()
     }
 
-    /// TODO: document this function, it's trivial to cause UB/break soundness with this
-    /// method.
+    /// Retrieve a mutable slice of the memory contents.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
+    /// This method provides interior mutability without an UnsafeCell. Until
+    /// the returned value is dropped, it is undefined behaviour to read or
+    /// write to the pointed-to memory in any way except through this slice,
+    /// including by calling a wasm function that reads the memory contents or
+    /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
         let definition = self.memory.vmmemory();
