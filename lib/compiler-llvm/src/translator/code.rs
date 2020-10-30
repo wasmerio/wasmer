@@ -7188,6 +7188,54 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
+            Operator::V128Load32Zero { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i32_ptr_ty,
+                    offset,
+                    4,
+                )?;
+                let elem = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    elem.as_instruction_value().unwrap(),
+                )?;
+                let res = self.builder.build_int_z_extend(
+                    elem.into_int_value(),
+                    self.intrinsics.i128_ty,
+                    "",
+                );
+                self.state.push1(res);
+            }
+            Operator::V128Load64Zero { ref memarg } => {
+                let offset = self.state.pop1()?.into_int_value();
+                let memory_index = MemoryIndex::from_u32(0);
+                let effective_address = self.resolve_memory_ptr(
+                    memory_index,
+                    memarg,
+                    self.intrinsics.i64_ptr_ty,
+                    offset,
+                    8,
+                )?;
+                let elem = self.builder.build_load(effective_address, "");
+                self.annotate_user_memaccess(
+                    memory_index,
+                    memarg,
+                    1,
+                    elem.as_instruction_value().unwrap(),
+                )?;
+                let res = self.builder.build_int_z_extend(
+                    elem.into_int_value(),
+                    self.intrinsics.i128_ty,
+                    "",
+                );
+                self.state.push1(res);
+            }
             Operator::V128Load8Splat { ref memarg } => {
                 let offset = self.state.pop1()?.into_int_value();
                 let memory_index = MemoryIndex::from_u32(0);
