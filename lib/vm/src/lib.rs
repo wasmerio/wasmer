@@ -49,7 +49,7 @@ pub use crate::table::{LinearTable, Table, TableStyle};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFunctionBody, VMFunctionExtraData, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
+    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
     VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition,
     VMTableImport, VMTrampoline,
 };

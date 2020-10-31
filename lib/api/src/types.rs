@@ -56,7 +56,7 @@ impl ValFuncRef for Val {
             Self::ExternRef(ExternRef::Null) => wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                vmctx: wasmer_vm::VMFunctionExtraData {
+                vmctx: wasmer_vm::VMFunctionEnvironment {
                     host_env: ptr::null_mut(),
                 },
             },

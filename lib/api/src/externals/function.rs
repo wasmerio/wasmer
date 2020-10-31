@@ -11,7 +11,7 @@ use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionExtraData,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
     VMFunctionKind, VMTrampoline,
 };
 
@@ -85,7 +85,7 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionExtraData {
+        let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
         };
 
@@ -137,7 +137,7 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionExtraData {
+        let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
         };
 
@@ -180,7 +180,7 @@ impl Function {
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = VMFunctionExtraData {
+        let vmctx = VMFunctionEnvironment {
             host_env: std::ptr::null_mut() as *mut _,
         };
         let signature = function.ty();
@@ -236,7 +236,7 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = VMFunctionExtraData {
+        let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(box_env) as *mut _,
         };
         let signature = function.ty();

@@ -20,29 +20,29 @@ use std::u32;
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
 #[derive(Copy, Clone)]
-pub union VMFunctionExtraData {
+pub union VMFunctionEnvironment {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
     /// Host functions can have custom environments.
     pub host_env: *mut std::ffi::c_void,
 }
 
-impl VMFunctionExtraData {
+impl VMFunctionEnvironment {
     /// Check whether the pointer stored is null or not.
     pub fn is_null(&self) -> bool {
         unsafe { self.host_env.is_null() }
     }
 }
 
-impl std::fmt::Debug for VMFunctionExtraData {
+impl std::fmt::Debug for VMFunctionEnvironment {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("VMFunctionExtraData")
+        f.debug_struct("VMFunctionEnvironment")
             .field("vmctx_or_hostenv", unsafe { &self.host_env })
             .finish()
     }
 }
 
-impl std::cmp::PartialEq for VMFunctionExtraData {
+impl std::cmp::PartialEq for VMFunctionEnvironment {
     fn eq(&self, rhs: &Self) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
     }
@@ -56,7 +56,7 @@ pub struct VMFunctionImport {
     pub body: *const VMFunctionBody,
 
     /// A pointer to the `VMContext` that owns the function or host env data.
-    pub extra_data: VMFunctionExtraData,
+    pub environment: VMFunctionEnvironment,
 }
 
 #[cfg(test)]
@@ -79,7 +79,7 @@ mod test_vmfunction_import {
             usize::from(offsets.vmfunction_import_body())
         );
         assert_eq!(
-            offset_of!(VMFunctionImport, extra_data),
+            offset_of!(VMFunctionImport, environment),
             usize::from(offsets.vmfunction_import_vmctx())
         );
     }
@@ -762,7 +762,7 @@ pub struct VMCallerCheckedAnyfunc {
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
     /// Function `VMContext` or host env.
-    pub vmctx: VMFunctionExtraData,
+    pub vmctx: VMFunctionEnvironment,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
@@ -801,7 +801,7 @@ impl Default for VMCallerCheckedAnyfunc {
         Self {
             func_ptr: ptr::null_mut(),
             type_index: Default::default(),
-            vmctx: VMFunctionExtraData {
+            vmctx: VMFunctionEnvironment {
                 vmctx: ptr::null_mut(),
             },
         }

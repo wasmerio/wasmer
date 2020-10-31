@@ -17,7 +17,7 @@ use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, W
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionExtraData, VMFunctionKind,
+    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -26,7 +26,7 @@ pub struct NativeFunc<'a, Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
     address: *const VMFunctionBody,
-    vmctx: VMFunctionExtraData,
+    vmctx: VMFunctionEnvironment,
     arg_kind: VMFunctionKind,
     // exported: ExportFunction,
     _phantom: PhantomData<(&'a (), Args, Rets)>,
@@ -42,7 +42,7 @@ where
     pub(crate) fn new(
         store: Store,
         address: *const VMFunctionBody,
-        vmctx: VMFunctionExtraData,
+        vmctx: VMFunctionEnvironment,
         arg_kind: VMFunctionKind,
         definition: FunctionDefinition,
     ) -> Self {
@@ -165,7 +165,7 @@ macro_rules! impl_native_traits {
                         match self.arg_kind {
                             VMFunctionKind::Static => {
                                 let results = catch_unwind(AssertUnwindSafe(|| unsafe {
-                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( VMFunctionExtraData, $( $x, )*) -> Rets::CStruct>(self.address);
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( VMFunctionEnvironment, $( $x, )*) -> Rets::CStruct>(self.address);
                                     // We always pass the vmctx
                                     f( self.vmctx, $( $x, )* )
                                 })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;

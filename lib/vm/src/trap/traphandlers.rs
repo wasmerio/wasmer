@@ -6,7 +6,7 @@
 
 use super::trapcode::TrapCode;
 use crate::instance::{InstanceHandle, SignalHandler};
-use crate::vmcontext::{VMFunctionBody, VMFunctionExtraData, VMTrampoline};
+use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
 use std::any::Any;
 use std::cell::Cell;
@@ -429,13 +429,13 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    vmctx: VMFunctionExtraData,
+    vmctx: VMFunctionEnvironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<_, extern "C" fn(VMFunctionExtraData, *const VMFunctionBody, *mut u8)>(
+        mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec)
     })
@@ -447,7 +447,7 @@ pub unsafe fn wasmer_call_trampoline(
 /// # Safety
 ///
 /// Highly unsafe since `closure` won't have any destructors run.
-pub unsafe fn catch_traps<F>(vmctx: VMFunctionExtraData, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(vmctx: VMFunctionEnvironment, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
 {
@@ -481,7 +481,7 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    vmctx: VMFunctionExtraData,
+    vmctx: VMFunctionEnvironment,
     mut closure: F,
 ) -> Result<R, Trap>
 where
@@ -501,7 +501,7 @@ pub struct CallThreadState {
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Option<*const CallThreadState>,
-    vmctx: VMFunctionExtraData,
+    vmctx: VMFunctionEnvironment,
     handling_trap: Cell<bool>,
 }
 
@@ -518,7 +518,7 @@ enum UnwindReason {
 }
 
 impl CallThreadState {
-    fn new(vmctx: VMFunctionExtraData) -> Self {
+    fn new(vmctx: VMFunctionEnvironment) -> Self {
         Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,
