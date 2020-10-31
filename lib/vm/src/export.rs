@@ -4,7 +4,7 @@
 use crate::global::Global;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
-use crate::vmcontext::{VMContext, VMFunctionBody, VMFunctionKind, VMTrampoline};
+use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
 use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
@@ -30,7 +30,7 @@ pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
-    pub vmctx: *mut VMContext,
+    pub vmctx: VMFunctionEnvironment,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (specifies the calling convention for the function).

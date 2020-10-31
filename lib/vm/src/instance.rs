@@ -11,9 +11,10 @@ use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
-    VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
@@ -298,10 +299,15 @@ impl Instance {
                 let sig_index = &self.module.functions[*index];
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
-                    (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+                    (
+                        self.functions[def_index].0 as *const _,
+                        VMFunctionEnvironment {
+                            vmctx: self.vmctx_ptr(),
+                        },
+                    )
                 } else {
                     let import = self.imported_function(*index);
-                    (import.body, import.vmctx)
+                    (import.body, import.environment)
                 };
                 let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
@@ -379,19 +385,24 @@ impl Instance {
                     .get(local_index)
                     .expect("function index is out of bounds")
                     .0;
-                (body as *const _, self.vmctx_ptr())
+                (
+                    body as *const _,
+                    VMFunctionEnvironment {
+                        vmctx: self.vmctx_ptr(),
+                    },
+                )
             }
             None => {
                 assert_lt!(start_index.index(), self.module.num_imported_functions);
                 let import = self.imported_function(start_index);
-                (import.body, import.vmctx)
+                (import.body, import.environment)
             }
         };
 
         // Make the call.
         unsafe {
             catch_traps(callee_vmctx, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -553,10 +564,15 @@ impl Instance {
         let type_index = self.signature_id(sig);
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+            (
+                self.functions[def_index].0 as *const _,
+                VMFunctionEnvironment {
+                    vmctx: self.vmctx_ptr(),
+                },
+            )
         } else {
             let import = self.imported_function(index);
-            (import.body, import.vmctx)
+            (import.body, import.environment)
         };
         VMCallerCheckedAnyfunc {
             func_ptr,
