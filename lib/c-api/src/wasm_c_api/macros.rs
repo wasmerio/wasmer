@@ -56,11 +56,23 @@ macro_rules! wasm_declare_vec {
 
             impl [<wasm_ $name _vec_t>] {
                 pub unsafe fn into_slice(&self) -> Option<&[[<wasm_ $name _t>]]>{
-                    if self.data.is_null() {
+                    if self.is_uninitialized() {
                         return None;
                     }
 
                     Some(::std::slice::from_raw_parts(self.data, self.size))
+                }
+
+                pub unsafe fn into_slice_mut(&mut self) -> Option<&mut [[<wasm_ $name _t>]]>{
+                    if self.is_uninitialized() {
+                        return None;
+                    }
+
+                    Some(::std::slice::from_raw_parts_mut(self.data, self.size))
+                }
+
+                pub fn is_uninitialized(&self) -> bool {
+                    self.data.is_null()
                 }
             }
 
