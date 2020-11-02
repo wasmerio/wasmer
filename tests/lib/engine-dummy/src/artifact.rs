@@ -15,8 +15,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext,
-    VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// Serializable struct for the artifact
