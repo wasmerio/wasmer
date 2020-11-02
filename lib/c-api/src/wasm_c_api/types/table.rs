@@ -25,14 +25,15 @@ impl wasm_tabletype_t {
     }
 }
 
+const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
     // own
     valtype: Box<wasm_valtype_t>,
     limits: &wasm_limits_t,
 ) -> Box<wasm_tabletype_t> {
-    // TODO: investigate if `0` is in fact a sentinel value here
-    let max_elements = if limits.max == 0 {
+    let max_elements = if limits.max == LIMITS_MAX_SENTINEL {
         None
     } else {
         Some(limits.max as _)
@@ -58,9 +59,10 @@ pub unsafe extern "C" fn wasm_tabletype_limits(
     tabletype: &wasm_tabletype_t,
 ) -> *const wasm_limits_t {
     let tt = tabletype.as_tabletype();
+
     Box::into_raw(Box::new(wasm_limits_t {
         min: tt.minimum as _,
-        max: tt.maximum.unwrap_or(0),
+        max: tt.maximum.unwrap_or(LIMITS_MAX_SENTINEL),
     }))
 }
 
