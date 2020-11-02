@@ -1,5 +1,12 @@
-//! This example shows how the host can terminate execution of Wasm early from
-//! inside a host function called by the Wasm.
+//! There are cases where you may want to interrupt this synchronous execution of the WASM module
+//! while the it is calling a host function. This can be useful for saving resources, and not
+//! returning back to the guest WASM for execution, when you already know the WASM execution will
+//! fail, or no longer be needed.
+//!
+//! In this example, we will run a WASM module that calls the imported host function
+//! interrupt_execution. This host function will immediately stop executing the WebAssembly module.
+//!
+//! You can run the example directly by executing in Wasmer root:
 //!
 //! ```shell
 //! cargo run --example early-exit --release --features "cranelift"
@@ -73,15 +80,17 @@ fn main() -> anyhow::Result<()> {
 
     // Here we go.
     //
-    // The Wasm module exports a function called `sum`. We'll use this function
-    // as our entrypoint.
-    let run_func: NativeFunc<(i32, i32), i32> =
-        instance.exports.get_native_function("run").unwrap();
+    // Get the `run` function which we'll use as our entrypoint.
+    println!("Calling `run` function...");
+    let run_func: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("run")?;
 
     // When we call a function it can either succeed or fail. We expect it to fail.
     match run_func.call(1, 7) {
         Ok(result) => {
-            bail!("Expected early termination with `ExitCode`, found: {}", result);
+            bail!(
+                "Expected early termination with `ExitCode`, found: {}",
+                result
+            );
         }
         // In case of a failure, which we expect, we attempt to downcast the error into the error
         // type that we were expecting.
