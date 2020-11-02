@@ -12,3 +12,47 @@ pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t) -> Option<Box<wasm_byte
 
     Some(Box::new(result))
 }
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_wat2wasm() {
+        (assert_c! {
+            #include <assert.h>
+            #include "wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t *engine = wasm_engine_new();
+                wasm_store_t *store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat = {
+                    .data = "(module)",
+                    .size = 8,
+                };
+                wasm_byte_vec_t *wasm = wat2wasm(&wat);
+
+                assert(wasm);
+                assert(wasm->size == 8);
+                assert(
+                    wasm->data[0] == 0 &&
+                        wasm->data[1] == 'a' &&
+                        wasm->data[2] == 's' &&
+                        wasm->data[3] == 'm' &&
+                        wasm->data[4] == 1 &&
+                        wasm->data[5] == 0 &&
+                        wasm->data[6] == 0 &&
+                        wasm->data[7] == 0
+                );
+
+                wasm_byte_vec_delete(wasm);
+
+                return 0;
+            }
+        })
+        .success()
+        .no_stdout()
+        .no_stderr();
+    }
+}

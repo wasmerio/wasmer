@@ -61,6 +61,7 @@ fn main() {
 
     build_wasm_c_api_headers(&crate_dir, &out_dir);
     build_wasmer_headers(&crate_dir, &out_dir);
+    build_inline_c_env_vars();
 }
 
 /// Build the header files for the `wasm_c_api` API.
@@ -388,4 +389,20 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_compiler_t")
         .exclude_item("wasmer_engine_t")
         .exclude_item("wat2wasm")
+}
+
+fn build_inline_c_env_vars() {
+    let mut shared_object_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    shared_object_dir.pop(); // removes `c-api`
+    shared_object_dir.pop(); // removes `lib`
+    shared_object_dir.push("target");
+    shared_object_dir.push(env::var("PROFILE").unwrap());
+    let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    println!(
+        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L}",
+        I = include_dir,
+        L = shared_object_dir.as_path().to_string_lossy()
+    );
+    println!("cargo:rustc-env=INLINE_C_RS_LDFLAGS=-lwasmer_c_api");
 }
