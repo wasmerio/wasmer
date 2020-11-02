@@ -15,7 +15,7 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext,
     VMSharedSignatureIndex, VMTrampoline,
 };
 
@@ -135,11 +135,7 @@ impl DummyArtifact {
         // We prepare the pointers for the finished functions.
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = (0
             ..num_local_functions)
-            .map(|_| unsafe {
-                let func_pointer = std::slice::from_raw_parts(dummy_function as *const (), 0);
-                let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
-                FunctionBodyPtr(func_pointer)
-            })
+            .map(|_| FunctionBodyPtr(dummy_function as _))
             .collect::<PrimaryMap<_, _>>();
 
         // We prepare the pointers for the finished function call trampolines.
@@ -151,14 +147,7 @@ impl DummyArtifact {
         // We prepare the pointers for the finished dynamic function trampolines.
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> = (0
             ..metadata.module.num_imported_functions)
-            .map(|_| {
-                FunctionBodyPtr(unsafe {
-                    std::mem::transmute::<_, *mut [VMFunctionBody]>((
-                        dummy_function as *const (),
-                        0,
-                    ))
-                })
-            })
+            .map(|_| FunctionBodyPtr(dummy_function as _))
             .collect::<PrimaryMap<_, _>>();
 
         // Compute indices into the shared signature table.

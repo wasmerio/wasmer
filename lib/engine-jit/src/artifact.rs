@@ -32,6 +32,7 @@ pub struct JITArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
+    finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
 impl JITArtifact {
@@ -203,7 +204,16 @@ impl JITArtifact {
 
         inner_jit.publish_eh_frame(eh_frame)?;
 
-        let finished_functions = finished_functions.into_boxed_slice();
+        let finished_function_lengths = finished_functions
+            .values()
+            .map(|(_, len)| *len)
+            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
+            .into_boxed_slice();
+        let finished_functions = finished_functions
+            .values()
+            .map(|(ptr, _)| *ptr)
+            .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
+            .into_boxed_slice();
         let finished_function_call_trampolines =
             finished_function_call_trampolines.into_boxed_slice();
         let finished_dynamic_function_trampolines =
@@ -217,6 +227,7 @@ impl JITArtifact {
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
+            finished_function_lengths,
         })
     }
 
@@ -247,11 +258,18 @@ impl Artifact for JITArtifact {
             return;
         }
 
+        let finished_function_extents = self
+            .finished_functions
+            .values()
+            .copied()
+            .zip(self.finished_function_lengths.values().copied())
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
         let frame_infos = &self.serializable.compilation.function_frame_info;
-        let finished_functions = &self.finished_functions;
         *info = register_frame_info(
             self.serializable.compile_info.module.clone(),
-            finished_functions,
+            &finished_function_extents,
             frame_infos.clone(),
         );
     }

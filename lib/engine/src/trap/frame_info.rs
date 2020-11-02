@@ -227,18 +227,15 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: Arc<ModuleInfo>,
-    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, (FunctionBodyPtr, usize)>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (i, allocated) in finished_functions.iter() {
-        let (start, end) = unsafe {
-            let ptr = (***allocated).as_ptr();
-            let len = (***allocated).len();
-            (ptr as usize, ptr as usize + len)
-        };
+    for (i, (start, len)) in finished_functions.iter() {
+        let start = **start as usize;
+        let end = start + len;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
         let func = FunctionInfo {

@@ -58,13 +58,13 @@ pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// A safe wrapper around `VMFunctionBody`
+/// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct FunctionBodyPtr(pub *const [VMFunctionBody]);
+pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 
 impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *const [VMFunctionBody];
+    type Target = *const VMFunctionBody;
 
     fn deref(&self) -> &Self::Target {
         &self.0
