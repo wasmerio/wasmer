@@ -24,14 +24,14 @@ mod tests {
             #include "wasmer_wasm.h"
 
             int main() {
-                wasm_engine_t *engine = wasm_engine_new();
-                wasm_store_t *store = wasm_store_new(engine);
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat = {
                     .data = "(module)",
                     .size = 8,
                 };
-                wasm_byte_vec_t *wasm = wat2wasm(&wat);
+                wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 assert(wasm);
                 assert(wasm->size == 8);
@@ -47,12 +47,40 @@ mod tests {
                 );
 
                 wasm_byte_vec_delete(wasm);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
 
                 return 0;
             }
         })
-        .success()
-        .no_stdout()
-        .no_stderr();
+        .success();
+    }
+
+    #[test]
+    fn test_wat2wasm_failed() {
+        (assert_c! {
+            #include <assert.h>
+            #include "wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat = {
+                    .data = "(module",
+                    .size = 7,
+                };
+                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+
+                assert(!wasm);
+                assert(wasmer_last_error_length() > 0);
+
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
     }
 }
