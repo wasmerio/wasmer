@@ -52,6 +52,15 @@
 #include <stdlib.h>
 #include "wasm.h"
 
+// Wasmer-specific shortcut to quickly create a `wasm_byte_vec_t` from
+// a string.
+static inline void wasm_byte_vec_new_from_string(
+  wasm_byte_vec_t* out, const char* s
+) {
+  wasm_byte_vec_new(out, strlen(s), s);
+}
+
+
 /**
  * Kind of compilers that can be used by the engines.
  *
