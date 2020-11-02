@@ -72,10 +72,12 @@ impl std::ops::Deref for FunctionBodyPtr {
 }
 
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Send for FunctionBodyPtr {}
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Sync for FunctionBodyPtr {}
 
 /// Pointers to section data.
