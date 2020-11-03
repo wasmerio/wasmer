@@ -272,4 +272,84 @@ mod tests {
         })
         .success();
     }
+
+    #[test]
+    fn test_module_serialize() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasm_byte_vec_new_from_string(&wat, "(module)");
+                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+
+                wasm_module_t* module = wasm_module_new(store, wasm);
+                assert(module);
+
+                wasm_byte_vec_t serialized_module;
+                wasm_module_serialize(module, &serialized_module);
+                assert(serialized_module.size > 0);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&serialized_module);
+                wasm_byte_vec_delete(wasm);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_module_serialize_and_deserialize() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasm_byte_vec_new_from_string(
+                    &wat,
+                    "(module\n"
+                    "  (func (export \"function\") (param i32 i64))\n"
+                    "  (global (export \"global\") i32 (i32.const 7))\n"
+                    "  (table (export \"table\") 0 funcref)\n"
+                    "  (memory (export \"memory\") 1))"
+                );
+                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+
+                wasm_module_t* module = wasm_module_new(store, wasm);
+                assert(module);
+
+                wasm_byte_vec_t serialized_module;
+                wasm_module_serialize(module, &serialized_module);
+                assert(serialized_module.size > 0);
+
+                wasm_module_delete(module);
+                wasm_module_t* deserialized_module = wasm_module_deserialize(
+                    store,
+                    &serialized_module
+                );
+                wasm_byte_vec_delete(&serialized_module);
+                assert(deserialized_module);
+
+                wasm_exporttype_vec_t export_types;
+                wasm_module_exports(deserialized_module, &export_types);
+
+                assert(export_types.size == 4);
+
+                wasm_exporttype_vec_delete(&export_types);
+                wasm_module_delete(deserialized_module);
+                wasm_byte_vec_delete(wasm);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+            }
+        })
+        .success();
+    }
 }
