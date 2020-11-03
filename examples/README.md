@@ -191,7 +191,7 @@ example.
 ### Tunables
 
 1. **Limit memory**, explains how to use Tunables to limit the
-   size of an exported Wasm Memories
+   size of an exported Wasm memory
 
    _Keywords_: basic, tunables, memory
 
