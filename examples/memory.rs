@@ -1,6 +1,6 @@
 //! With Wasmer you'll be able to interact with guest module memory.
 //!
-//! This example illustrates the basics of the basics of interacting with Wasm module memory.:
+//! This example illustrates the basics of interacting with Wasm module memory.:
 //!
 //!   1. How to load a Wasm modules as bytes
 //!   2. How to compile the module
@@ -14,10 +14,10 @@
 //!
 //! Ready?
 
-use wasmer::{imports, wat2wasm, Instance, Module, NativeFunc, Pages, Store, Bytes};
+use std::mem;
+use wasmer::{imports, wat2wasm, Bytes, Instance, Module, NativeFunc, Pages, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
-use std::mem;
 
 // this example is a work in progress:
 // TODO: clean it up and comment it https://github.com/wasmerio/wasmer/issues/1749
@@ -99,7 +99,6 @@ fn main() -> anyhow::Result<()> {
     println!("Memory size: {:?}", result);
     assert_eq!(Pages::from(result as u32), memory.size());
 
-
     // Now that we know the size of our memory, it's time to see how wa
     // can change this.
     //
@@ -109,18 +108,12 @@ fn main() -> anyhow::Result<()> {
     // Here we are requesting two more pages for our memory.
     memory.grow(2)?;
     assert_eq!(memory.size(), Pages::from(3));
-
-    // From an `Instance` we can fetch any exported entities from the Wasm module.
-    // Each of these entities is covered in others examples.
-    //
-    // Here we are fetching the exported function. We won't go into details here
-    // as the main focus of this example is to show how to create an instance out
-    // of a Wasm module and have basic interactions with it.
+    assert_eq!(memory.data_size(), 65536 * 3);
 
     // Now that we know how to query and adjust the size of the memory,
     // let's see how wa can write to it or read from it.
     //
-    // We'll only focus on how to do this using exported function, the goal
+    // We'll only focus on how to do this using exported functions, the goal
     // is to show how to work with memory addresses. Here we'll use absolute
     // addresses to write and read a value.
     let mem_addr = 0x2220;
