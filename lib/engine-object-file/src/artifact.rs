@@ -319,12 +319,11 @@ impl ObjectFileArtifact {
 
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
-            let fp = usize::from_ne_bytes(byte_buffer);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 
             // TODO: we can read back the length here if we serialize it. This will improve debug output.
 
-            let fp = FunctionBodyPtr(fp as _);
             finished_functions.push(fp);
         }
 
@@ -360,11 +359,10 @@ impl ObjectFileArtifact {
         for _i in 0..num_dynamic_trampoline_functions {
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
-            let fp = usize::from_ne_bytes(byte_buffer);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 
             // TODO: we can read back the length here if we serialize it. This will improve debug output.
-            let fp = FunctionBodyPtr(fp as _);
 
             finished_dynamic_function_trampolines.push(fp);
         }
