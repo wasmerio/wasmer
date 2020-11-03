@@ -884,6 +884,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "inline-c"
+version = "0.1.0"
+dependencies = [
+ "cc",
+ "inline-c-macro",
+ "lazy_static",
+ "regex",
+ "target-lexicon",
+ "tempfile",
+]
+
+[[package]]
+name = "inline-c-macro"
+version = "0.1.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+]
+
+[[package]]
 name = "instant"
 version = "0.1.8"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2228,6 +2248,7 @@ version = "1.0.0-alpha4"
 dependencies = [
  "cbindgen",
  "cfg-if 0.1.10",
+ "inline-c",
  "lazy_static",
  "libc",
  "libffi",
