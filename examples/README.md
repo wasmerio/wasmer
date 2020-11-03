@@ -39,7 +39,7 @@ example.
 
 ### Basics
 
-1. [**Instantiating a module][instance], explains the basics of using Wasmer
+1. [**Instantiating a module**][instance], explains the basics of using Wasmer
    and how to create an instance out of a Wasm module.
    
    _Keywords_: instance, module.
@@ -53,7 +53,7 @@ example.
 
    </details>
 
-2. [**Handling errors][errors], explains the basics of interacting with
+2. [**Handling errors**][errors], explains the basics of interacting with
    Wasm module memory.
    
    _Keywords_: memory, module.
@@ -67,7 +67,7 @@ example.
 
    </details>
 
-3. [**Interacting with memory][memory], explains the basics of interacting with
+3. [**Interacting with memory**][memory], explains the basics of interacting with
    Wasm module memory.
    
    _Keywords_: memory, module.
