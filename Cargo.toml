@@ -240,3 +240,8 @@ required-features = ["cranelift"]
 name = "errors"
 path = "examples/errors.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function-env"
+path = "examples/imports_function_env.rs"
+required-features = ["cranelift"]
