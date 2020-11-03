@@ -123,8 +123,7 @@ mod tests {
     #[test]
     fn test_module_validate() {
         (assert_c! {
-            #include <assert.h>
-            #include "wasmer_wasm.h"
+            #include "tests/wasmer_wasm.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -149,8 +148,7 @@ mod tests {
     #[test]
     fn test_module_new() {
         (assert_c! {
-            #include <assert.h>
-            #include "wasmer_wasm.h"
+            #include "tests/wasmer_wasm.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -177,8 +175,7 @@ mod tests {
     fn test_module_exports() {
         (assert_c! {
             #include <string.h>
-            #include <assert.h>
-            #include "wasmer_wasm.h"
+            #include "tests/wasmer_wasm.h"
 
             void assert_exporttype_name(const wasm_exporttype_t* exporttype, const char* expected) {
                 assert(strncmp(wasm_exporttype_name(exporttype)->data, expected, strlen(expected)) == 0);

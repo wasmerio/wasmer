@@ -47,7 +47,6 @@
 #include <ostream>
 #include <new>
 
-
 #if defined(WASMER_WASI_ENABLED)
 enum class Version : uint8_t {
 #if defined(WASMER_WASI_ENABLED)

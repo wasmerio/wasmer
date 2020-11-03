@@ -46,7 +46,6 @@
 #include <stdint.h>
 #include <stdlib.h>
 
-
 #if defined(WASMER_WASI_ENABLED)
 enum Version {
 #if defined(WASMER_WASI_ENABLED)
