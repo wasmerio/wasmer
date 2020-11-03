@@ -1,5 +1,5 @@
-// This header file is used only for test purposes!
-
+// This header file is used only for test purposes! It is used by unit
+// test inside the `src/` directory for the moment.
 
 #include <assert.h>
 #include "../wasmer_wasm.h"
