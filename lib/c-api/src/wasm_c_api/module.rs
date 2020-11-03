@@ -212,7 +212,7 @@ mod tests {
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
 
-                    wasm_functype_t* func_type = wasm_externtype_as_functype(extern_type);
+                    wasm_functype_t* func_type = wasm_externtype_as_functype((wasm_externtype_t*) extern_type);
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
                     assert(func_params->size == 2);
@@ -230,7 +230,7 @@ mod tests {
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
 
-                    wasm_globaltype_t* global_type = wasm_externtype_as_globaltype(extern_type);
+                    wasm_globaltype_t* global_type = wasm_externtype_as_globaltype((wasm_externtype_t*) extern_type);
                     assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_I32);
                     assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
                 }
@@ -242,7 +242,7 @@ mod tests {
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
 
-                    wasm_tabletype_t* table_type = wasm_externtype_as_tabletype(extern_type);
+                    wasm_tabletype_t* table_type = wasm_externtype_as_tabletype((wasm_externtype_t*) extern_type);
                     assert(wasm_valtype_kind(wasm_tabletype_element(table_type)) == WASM_FUNCREF);
 
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
@@ -257,7 +257,7 @@ mod tests {
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
 
-                    wasm_memorytype_t* memory_type = wasm_externtype_as_memorytype(extern_type);
+                    wasm_memorytype_t* memory_type = wasm_externtype_as_memorytype((wasm_externtype_t*) extern_type);
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
                     assert(memory_limits->min == 1);
                     assert(memory_limits->max == wasm_limits_max_default);
