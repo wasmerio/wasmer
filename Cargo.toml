@@ -230,3 +230,18 @@ required-features = ["cranelift"]
 name = "memory"
 path = "examples/memory.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "instance"
+path = "examples/instance.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "errors"
+path = "examples/errors.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function-env"
+path = "examples/imports_function_env.rs"
+required-features = ["cranelift"]
