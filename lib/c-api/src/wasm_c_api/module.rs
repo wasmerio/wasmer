@@ -218,9 +218,11 @@ mod tests {
                     assert(func_params->size == 2);
                     assert(wasm_valtype_kind(func_params->data[0]) == WASM_I32);
                     assert(wasm_valtype_kind(func_params->data[1]) == WASM_I64);
+                    wasm_valtype_vec_delete((wasm_valtype_vec_t*) func_params);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
                     assert(func_results->size == 0);
+                    wasm_valtype_vec_delete((wasm_valtype_vec_t*) func_results);
                 }
 
                 {
@@ -322,9 +324,11 @@ mod tests {
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
                     assert(func_params->size == 0);
+                    wasm_valtype_vec_delete((wasm_valtype_vec_t*) func_params);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
                     assert(func_results->size == 0);
+                    wasm_valtype_vec_delete((wasm_valtype_vec_t*) func_results);
                 }
 
                 {
