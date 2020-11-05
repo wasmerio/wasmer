@@ -77,7 +77,6 @@ pub unsafe extern "C" fn wasm_functype_copy(
     Some(Box::new(funcsig.clone()))
 }
 
-// TODO: fix memory leak
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
     let mut valtypes = ft
@@ -97,7 +96,6 @@ pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wa
     out as *const _
 }
 
-// TODO: fix memory leak
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_results(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
     let mut valtypes = ft
