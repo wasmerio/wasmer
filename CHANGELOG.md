@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-alpha5 - 2020-11-06
+
 ### Added
 
 - [#1761](https://github.com/wasmerio/wasmer/pull/1761) Implement the `wasm_trap_t**` argument of `wasm_instance_new` in the Wasm C API.
