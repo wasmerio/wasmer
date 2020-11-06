@@ -14,6 +14,48 @@ pub struct wasm_module_t {
     pub(crate) inner: Arc<Module>,
 }
 
+/// A WebAssembly module contains stateless WebAssembly code that has
+/// already been compiled and can be instantiated multiple times.
+///
+/// Creates a new WebAssembly Module given the configuration
+/// in the store.
+///
+/// ## Security
+///
+/// Before the code is compiled, it will be validated using the store
+/// features.
+///
+/// # Examples
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///    
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&wat, "(module)");
+///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///    
+///     wasm_module_t* module = wasm_module_new(store, wasm);
+///    
+///     wasmer_assert(module);
+///    
+///     wasm_byte_vec_delete(wasm);
+///     wasm_module_delete(module);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///    
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
     store: &wasm_store_t,
@@ -166,6 +208,8 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
+
+                return 0;
             }
         })
         .success();
