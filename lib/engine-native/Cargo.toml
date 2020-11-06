@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-native"
-version = "1.0.0-alpha4"
+version = "1.0.0-alpha5"
 description = "Wasmer Native Engine"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine", "native"]
@@ -11,11 +11,11 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4" }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha4" }
-wasmer-engine = { path = "../engine", version = "1.0.0-alpha4" }
-wasmer-object = { path = "../object", version = "1.0.0-alpha4" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha5" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha5" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha5" }
+wasmer-engine = { path = "../engine", version = "1.0.0-alpha5" }
+wasmer-object = { path = "../object", version = "1.0.0-alpha5" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "0.1"
 tracing = "0.1"
