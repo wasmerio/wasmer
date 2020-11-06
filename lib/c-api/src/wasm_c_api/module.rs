@@ -130,7 +130,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(&wat, "(module)");
+                wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasmer_assert(wasm_module_validate(store, wasm));
@@ -155,7 +155,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(&wat, "(module)");
+                wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
@@ -185,7 +185,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(
+                wasmer_byte_vec_new_from_string(
                     &wat,
                     "(module\n"
                     "  (func (export \"function\") (param i32 i64))\n"
@@ -288,7 +288,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(
+                wasmer_byte_vec_new_from_string(
                     &wat,
                     "(module\n"
                     "  (import \"ns\" \"function\" (func))\n"
@@ -404,7 +404,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(&wat, "(module)");
+                wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
@@ -434,7 +434,7 @@ mod tests {
                 wasm_store_t* store = wasm_store_new(engine);
 
                 wasm_byte_vec_t wat;
-                wasm_byte_vec_new_from_string(
+                wasmer_byte_vec_new_from_string(
                     &wat,
                     "(module\n"
                     "  (func (export \"function\") (param i32 i64))\n"

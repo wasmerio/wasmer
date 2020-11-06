@@ -77,9 +77,9 @@ void _wasmer_assert_fail(const char* assertion, const char *file, unsigned int l
 #  endif
 #endif
 
-// Wasmer-specific shortcut to quickly create a `wasm_byte_vec_t` from
-// a string.
-static inline void wasm_byte_vec_new_from_string(
+// Helper to quickly create a `wasm_byte_vec_t` from a string, à la
+// `wasm_name_new_from_string`.
+static inline void wasmer_byte_vec_new_from_string(
   wasm_byte_vec_t* out, const char* s
 ) {
   wasm_byte_vec_new(out, strlen(s), s);

@@ -26,10 +26,8 @@ mod tests {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
 
-                wasm_byte_vec_t wat = {
-                    .data = "(module)",
-                    .size = 8,
-                };
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasmer_assert(wasm);
@@ -64,10 +62,8 @@ mod tests {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
 
-                wasm_byte_vec_t wat = {
-                    .data = "(module",
-                    .size = 7,
-                };
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasmer_assert(!wasm);
