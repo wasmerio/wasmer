@@ -176,10 +176,6 @@ mod tests {
         (assert_c! {
             #include "tests/wasmer_wasm.h"
 
-            void assert_exporttype_name(const wasm_exporttype_t* exporttype, const char* expected) {
-                wasmer_assert(strncmp(wasm_exporttype_name(exporttype)->data, expected, strlen(expected)) == 0);
-            }
-
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
                 wasm_store_t* store = wasm_store_new(engine);
@@ -206,7 +202,9 @@ mod tests {
 
                 {
                     wasm_exporttype_t* export_type = export_types.data[0];
-                    assert_exporttype_name(export_type, "function");
+
+                    const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+                    wasmer_assert_name(export_name, "function");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
@@ -226,7 +224,9 @@ mod tests {
 
                 {
                     wasm_exporttype_t* export_type = export_types.data[1];
-                    assert_exporttype_name(export_type, "global");
+
+                    const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+                    wasmer_assert_name(export_name, "global");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
@@ -238,7 +238,9 @@ mod tests {
 
                 {
                     wasm_exporttype_t* export_type = export_types.data[2];
-                    assert_exporttype_name(export_type, "table");
+
+                    const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+                    wasmer_assert_name(export_name, "table");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
@@ -253,7 +255,9 @@ mod tests {
 
                 {
                     wasm_exporttype_t* export_type = export_types.data[3];
-                    assert_exporttype_name(export_type, "memory");
+
+                    const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+                    wasmer_assert_name(export_name, "memory");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
@@ -278,10 +282,6 @@ mod tests {
     fn test_module_imports() {
         (assert_c! {
             #include "tests/wasmer_wasm.h"
-
-            void assert_importtype_name(const wasm_name_t* name, const char* expected) {
-                wasmer_assert(strncmp(name->data, expected, strlen(expected)) == 0);
-            }
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -310,10 +310,10 @@ mod tests {
                     const wasm_importtype_t* import_type = import_types.data[0];
 
                     const wasm_name_t* import_module = wasm_importtype_module(import_type);
-                    assert_importtype_name(import_module, "ns");
+                    wasmer_assert_name(import_module, "ns");
 
                     const wasm_name_t* import_name = wasm_importtype_name(import_type);
-                    assert_importtype_name(import_name, "function");
+                    wasmer_assert_name(import_name, "function");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
@@ -333,10 +333,10 @@ mod tests {
                     const wasm_importtype_t* import_type = import_types.data[1];
 
                     const wasm_name_t* import_module = wasm_importtype_module(import_type);
-                    assert_importtype_name(import_module, "ns");
+                    wasmer_assert_name(import_module, "ns");
 
                     const wasm_name_t* import_name = wasm_importtype_name(import_type);
-                    assert_importtype_name(import_name, "global");
+                    wasmer_assert_name(import_name, "global");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
@@ -350,10 +350,10 @@ mod tests {
                     const wasm_importtype_t* import_type = import_types.data[2];
 
                     const wasm_name_t* import_module = wasm_importtype_module(import_type);
-                    assert_importtype_name(import_module, "ns");
+                    wasmer_assert_name(import_module, "ns");
 
                     const wasm_name_t* import_name = wasm_importtype_name(import_type);
-                    assert_importtype_name(import_name, "table");
+                    wasmer_assert_name(import_name, "table");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
@@ -370,10 +370,10 @@ mod tests {
                     const wasm_importtype_t* import_type = import_types.data[3];
 
                     const wasm_name_t* import_module = wasm_importtype_module(import_type);
-                    assert_importtype_name(import_module, "ns");
+                    wasmer_assert_name(import_module, "ns");
 
                     const wasm_name_t* import_name = wasm_importtype_name(import_type);
-                    assert_importtype_name(import_name, "memory");
+                    wasmer_assert_name(import_name, "memory");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
                     wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);

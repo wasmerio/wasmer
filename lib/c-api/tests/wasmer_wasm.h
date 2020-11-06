@@ -77,6 +77,13 @@ void _wasmer_assert_fail(const char* assertion, const char *file, unsigned int l
 #  endif
 #endif
 
+
+// Assert that a `wasm_name_t` equals something.
+void wasmer_assert_name(const wasm_name_t* name, const char* expected) {
+  wasmer_assert(strncmp(name->data, expected, name->size) == 0);
+}
+
+
 // Helper to quickly create a `wasm_byte_vec_t` from a string, à la
 // `wasm_name_new_from_string`.
 static inline void wasmer_byte_vec_new_from_string(
