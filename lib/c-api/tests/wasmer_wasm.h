@@ -2,6 +2,7 @@
 // test inside the `src/` directory for the moment.
 
 #include <assert.h>
+#include <string.h>
 #include "../wasmer_wasm.h"
 
 // Wasmer-specific shortcut to quickly create a `wasm_byte_vec_t` from

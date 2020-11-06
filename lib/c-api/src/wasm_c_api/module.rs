@@ -174,7 +174,6 @@ mod tests {
     #[test]
     fn test_module_exports() {
         (assert_c! {
-            #include <string.h>
             #include "tests/wasmer_wasm.h"
 
             void assert_exporttype_name(const wasm_exporttype_t* exporttype, const char* expected) {
@@ -278,7 +277,6 @@ mod tests {
     #[test]
     fn test_module_imports() {
         (assert_c! {
-            #include <string.h>
             #include "tests/wasmer_wasm.h"
 
             void assert_importtype_name(const wasm_name_t* name, const char* expected) {
