@@ -31,6 +31,8 @@ void _wasmer_assert_fail(const char* assertion, const char *file, unsigned int l
     file,
     line
   );
+
+  exit(1);
 }
 
 // When possible, define assert so that it does not add extra
