@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0-alpha4"
+target_version = "1.0.0-alpha5"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
