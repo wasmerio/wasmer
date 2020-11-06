@@ -1,5 +1,6 @@
 #! /bin/sh
 
+# How to install `fd`: https://github.com/sharkdp/fd#installation
 : "${FD:=fd}"
 
 # A script to update the version of all the crates at the same time
