@@ -392,9 +392,16 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
 }
 
 fn build_inline_c_env_vars() {
+    use std::ffi::OsStr;
+
     let mut shared_object_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
-    shared_object_dir.pop(); // removes `c-api`
-    shared_object_dir.pop(); // removes `lib`
+
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("c-api")));
+    shared_object_dir.pop();
+
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("lib")));
+    shared_object_dir.pop();
+
     shared_object_dir.push("target");
     shared_object_dir.push(env::var("PROFILE").unwrap());
     let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
