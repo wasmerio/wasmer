@@ -207,12 +207,12 @@ impl JITArtifact {
 
         let finished_function_lengths = finished_functions
             .values()
-            .map(|(_, len)| *len)
+            .map(|extent| extent.length)
             .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
             .into_boxed_slice();
         let finished_functions = finished_functions
             .values()
-            .map(|(ptr, _)| *ptr)
+            .map(|extent| extent.ptr)
             .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
             .into_boxed_slice();
         let finished_function_call_trampolines =

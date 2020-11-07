@@ -5,20 +5,21 @@ use wasmer_compiler::{
     JumpTable, JumpTableOffsets, Relocation, RelocationKind, RelocationTarget, Relocations,
     SectionIndex,
 };
+use wasmer_engine::FunctionExtent;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
-use wasmer_vm::{FunctionBodyPtr, SectionBodyPtr};
+use wasmer_vm::SectionBodyPtr;
 
 fn apply_relocation(
     body: usize,
     r: &Relocation,
-    allocated_functions: &PrimaryMap<LocalFunctionIndex, (FunctionBodyPtr, usize)>,
+    allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
 ) {
     let target_func_address: usize = match r.reloc_target {
-        RelocationTarget::LocalFunc(index) => *allocated_functions[index].0 as usize,
+        RelocationTarget::LocalFunc(index) => *allocated_functions[index].ptr as usize,
         RelocationTarget::LibCall(libcall) => libcall.function_pointer(),
         RelocationTarget::CustomSection(custom_section) => {
             *allocated_sections[custom_section] as usize
@@ -28,7 +29,7 @@ fn apply_relocation(
                 .get(func_index)
                 .and_then(|ofs| ofs.get(JumpTable::new(jt.index())))
                 .expect("func jump table");
-            *allocated_functions[func_index].0 as usize + offset as usize
+            *allocated_functions[func_index].ptr as usize + offset as usize
         }
     };
 
@@ -65,7 +66,7 @@ fn apply_relocation(
 /// required relocations and jump tables.
 pub fn link_module(
     _module: &ModuleInfo,
-    allocated_functions: &PrimaryMap<LocalFunctionIndex, (FunctionBodyPtr, usize)>,
+    allocated_functions: &PrimaryMap<LocalFunctionIndex, FunctionExtent>,
     jt_offsets: &PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
     function_relocations: Relocations,
     allocated_sections: &PrimaryMap<SectionIndex, SectionBodyPtr>,
@@ -78,7 +79,7 @@ pub fn link_module(
         }
     }
     for (i, function_relocs) in function_relocations.iter() {
-        let body = *allocated_functions[i].0 as usize;
+        let body = *allocated_functions[i].ptr as usize;
         for r in function_relocs {
             apply_relocation(body, r, allocated_functions, jt_offsets, allocated_sections);
         }
