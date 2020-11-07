@@ -68,16 +68,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let one = instance.exports.get_global("one")?;
     let some = instance.exports.get_global("some")?;
 
-    println!("Getting global type informations...");
+    println!("Getting globals types information...");
     // Let's get the globals types. The results are `GlobalType`s.
     let one_type = one.ty();
     let some_type = some.ty();
 
-    println!("one type: {:?} {:?}", one_type.mutability, one_type.ty);
+    println!("`one` type: {:?} {:?}", one_type.mutability, one_type.ty);
     assert_eq!(one_type.mutability, Mutability::Const);
     assert_eq!(one_type.ty, Type::F32);
 
-    println!("some type: {:?} {:?}", some_type.mutability, some_type.ty);
+    println!("`some` type: {:?} {:?}", some_type.mutability, some_type.ty);
     assert_eq!(some_type.mutability, Mutability::Var);
     assert_eq!(some_type.ty, Type::F32);
 
@@ -93,14 +93,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_function("get_one")?
         .native::<(), f32>()?;
 
-    let one_result = get_one.call()?;
-    let some_result = some.get();
+    let one_value = get_one.call()?;
+    let some_value = some.get();
 
-    println!("one value: {:?}", one_result);
-    assert_eq!(one_result, 1.0);
+    println!("`one` value: {:?}", one_value);
+    assert_eq!(one_value, 1.0);
 
-    println!("some value: {:?}", some_result);
-    assert_eq!(some_result, Value::F32(0.0));
+    println!("`some` value: {:?}", some_value);
+    assert_eq!(some_value, Value::F32(0.0));
 
     println!("Setting global values...");
     // Trying to set the value of a immutable global (`const`)
@@ -112,7 +112,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     );
 
     let one_result = one.get();
-    println!("one value after `set`: {:?}", one_result);
+    println!("`one` value after `set`: {:?}", one_result);
     assert_eq!(one_result, Value::F32(1.0));
 
     // Setting the values of globals can be done in two ways:
@@ -126,12 +126,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .native::<f32, ()>()?;
     set_some.call(21.0)?;
     let some_result = some.get();
-    println!("some value after `set_some`: {:?}", some_result);
+    println!("`some` value after `set_some`: {:?}", some_result);
     assert_eq!(some_result, Value::F32(21.0));
 
     some.set(Value::F32(42.0))?;
     let some_result = some.get();
-    println!("some value after `set`: {:?}", some_result);
+    println!("`some` value after `set`: {:?}", some_result);
     assert_eq!(some_result, Value::F32(42.0));
 
     Ok(())
