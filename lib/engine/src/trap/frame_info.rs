@@ -219,6 +219,16 @@ impl Drop for GlobalFrameInfoRegistration {
     }
 }
 
+/// Represents a continuous region of executable memory starting with a function
+/// entry point.
+pub struct FunctionExtent {
+    /// Entry point for normal entry of the function. All addresses in the
+    /// function lie after this address.
+    pub ptr: FunctionBodyPtr,
+    /// Length in bytes.
+    pub length: usize,
+}
+
 /// Registers a new compiled module's frame information.
 ///
 /// This function will register the `names` information for all of the
@@ -227,13 +237,20 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: Arc<ModuleInfo>,
-    finished_functions: &BoxedSlice<LocalFunctionIndex, (FunctionBodyPtr, usize)>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (i, (start, len)) in finished_functions.iter() {
+    for (
+        i,
+        FunctionExtent {
+            ptr: start,
+            length: len,
+        },
+    ) in finished_functions.iter()
+    {
         let start = **start as usize;
         let end = start + len;
         min = cmp::min(min, start);

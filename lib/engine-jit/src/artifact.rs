@@ -11,7 +11,8 @@ use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
-    register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    SerializeError,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
@@ -263,6 +264,7 @@ impl Artifact for JITArtifact {
             .values()
             .copied()
             .zip(self.finished_function_lengths.values().copied())
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
             .into_boxed_slice();
 
