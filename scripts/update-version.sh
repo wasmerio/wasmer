@@ -1,12 +1,17 @@
+#! /bin/sh
+
+# How to install `fd`: https://github.com/sharkdp/fd#installation
+: "${FD:=fd}"
+
 # A script to update the version of all the crates at the same time
 PREVIOUS_VERSION='1.0.0-alpha4'
 NEXT_VERSION='1.0.0-alpha5'
 
 # quick hack
-fd Cargo.toml --exec sed -i '' "s/version = \"$PREVIOUS_VERSION\"/version = \"$NEXT_VERSION\"/"
+${FD} Cargo.toml --exec sed -i '{}' -e "s/version = \"$PREVIOUS_VERSION\"/version = \"$NEXT_VERSION\"/"
 echo "manually check changes to Cargo.toml"
 
-fd wasmer.iss --exec sed -i '' "s/AppVersion=$PREVIOUS_VERSION/AppVersion=$NEXT_VERSION/"
+${FD} wasmer.iss --exec sed -i '{}' -e "s/AppVersion=$PREVIOUS_VERSION/AppVersion=$NEXT_VERSION/"
 echo "manually check changes to wasmer.iss"
 
 # Order to upload packages in
