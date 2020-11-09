@@ -406,10 +406,17 @@ fn build_inline_c_env_vars() {
     shared_object_dir.push(env::var("PROFILE").unwrap());
     let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
 
+    // The following options mean:
+    //
+    // * `-I`, add `include_dir` to include search path,
+    // * `-L`, add `shared_object_dir` to library search path,
+    // * `-D_DEBUG`, enable debug mode to enable `assert.h`.
     println!(
-        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L}",
+        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG",
         I = include_dir,
         L = shared_object_dir.as_path().to_string_lossy()
     );
+
+    // Add `-lwasmer_c_api` to the linker argument.
     println!("cargo:rustc-env=INLINE_C_RS_LDFLAGS=-lwasmer_c_api");
 }
