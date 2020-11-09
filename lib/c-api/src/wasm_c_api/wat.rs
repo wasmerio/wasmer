@@ -30,9 +30,9 @@ mod tests {
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
-                wasmer_assert(wasm);
-                wasmer_assert(wasm->size == 8);
-                wasmer_assert(
+                assert(wasm);
+                assert(wasm->size == 8);
+                assert(
                     wasm->data[0] == 0 &&
                         wasm->data[1] == 'a' &&
                         wasm->data[2] == 's' &&
@@ -66,8 +66,8 @@ mod tests {
                 wasmer_byte_vec_new_from_string(&wat, "(module");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
-                wasmer_assert(!wasm);
-                wasmer_assert(wasmer_last_error_length() > 0);
+                assert(!wasm);
+                assert(wasmer_last_error_length() > 0);
 
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);

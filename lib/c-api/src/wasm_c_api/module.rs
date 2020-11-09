@@ -43,7 +43,7 @@ pub struct wasm_module_t {
 ///    
 ///     wasm_module_t* module = wasm_module_new(store, wasm);
 ///    
-///     wasmer_assert(module);
+///     assert(module);
 ///    
 ///     wasm_byte_vec_delete(wasm);
 ///     wasm_module_delete(module);
@@ -175,7 +175,7 @@ mod tests {
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
-                wasmer_assert(wasm_module_validate(store, wasm));
+                assert(wasm_module_validate(store, wasm));
 
                 wasm_byte_vec_delete(wasm);
                 wasm_store_delete(store);
@@ -202,7 +202,7 @@ mod tests {
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
 
-                wasmer_assert(module);
+                assert(module);
 
                 wasm_byte_vec_delete(wasm);
                 wasm_module_delete(module);
@@ -237,12 +237,12 @@ mod tests {
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
 
-                wasmer_assert(module);
+                assert(module);
 
                 wasm_exporttype_vec_t export_types;
                 wasm_module_exports(module, &export_types);
 
-                wasmer_assert(export_types.size == 4);
+                assert(export_types.size == 4);
 
                 {
                     wasm_exporttype_t* export_type = export_types.data[0];
@@ -251,17 +251,17 @@ mod tests {
                     wasmer_assert_name(export_name, "function");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
 
                     wasm_functype_t* func_type = wasm_externtype_as_functype((wasm_externtype_t*) extern_type);
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
-                    wasmer_assert(func_params->size == 2);
-                    wasmer_assert(wasm_valtype_kind(func_params->data[0]) == WASM_I32);
-                    wasmer_assert(wasm_valtype_kind(func_params->data[1]) == WASM_I64);
+                    assert(func_params->size == 2);
+                    assert(wasm_valtype_kind(func_params->data[0]) == WASM_I32);
+                    assert(wasm_valtype_kind(func_params->data[1]) == WASM_I64);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
-                    wasmer_assert(func_results->size == 0);
+                    assert(func_results->size == 0);
                 }
 
                 {
@@ -271,11 +271,11 @@ mod tests {
                     wasmer_assert_name(export_name, "global");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
 
                     wasm_globaltype_t* global_type = wasm_externtype_as_globaltype((wasm_externtype_t*) extern_type);
-                    wasmer_assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_I32);
-                    wasmer_assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
+                    assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_I32);
+                    assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
                 }
 
                 {
@@ -285,14 +285,14 @@ mod tests {
                     wasmer_assert_name(export_name, "table");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
 
                     wasm_tabletype_t* table_type = wasm_externtype_as_tabletype((wasm_externtype_t*) extern_type);
-                    wasmer_assert(wasm_valtype_kind(wasm_tabletype_element(table_type)) == WASM_FUNCREF);
+                    assert(wasm_valtype_kind(wasm_tabletype_element(table_type)) == WASM_FUNCREF);
 
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
-                    wasmer_assert(table_limits->min == 0);
-                    wasmer_assert(table_limits->max == wasm_limits_max_default);
+                    assert(table_limits->min == 0);
+                    assert(table_limits->max == wasm_limits_max_default);
                 }
 
                 {
@@ -302,12 +302,12 @@ mod tests {
                     wasmer_assert_name(export_name, "memory");
 
                     const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
 
                     wasm_memorytype_t* memory_type = wasm_externtype_as_memorytype((wasm_externtype_t*) extern_type);
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
-                    wasmer_assert(memory_limits->min == 1);
-                    wasmer_assert(memory_limits->max == wasm_limits_max_default);
+                    assert(memory_limits->min == 1);
+                    assert(memory_limits->max == wasm_limits_max_default);
                 }
 
                 wasm_exporttype_vec_delete(&export_types);
@@ -341,12 +341,12 @@ mod tests {
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
-                wasmer_assert(module);
+                assert(module);
 
                 wasm_importtype_vec_t import_types;
                 wasm_module_imports(module, &import_types);
 
-                wasmer_assert(import_types.size == 4);
+                assert(import_types.size == 4);
 
                 {
                     const wasm_importtype_t* import_type = import_types.data[0];
@@ -358,15 +358,15 @@ mod tests {
                     wasmer_assert_name(import_name, "function");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
 
                     wasm_functype_t* func_type = wasm_externtype_as_functype((wasm_externtype_t*) extern_type);
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
-                    wasmer_assert(func_params->size == 0);
+                    assert(func_params->size == 0);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
-                    wasmer_assert(func_results->size == 0);
+                    assert(func_results->size == 0);
                 }
 
                 {
@@ -379,11 +379,11 @@ mod tests {
                     wasmer_assert_name(import_name, "global");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
 
                     wasm_globaltype_t* global_type = wasm_externtype_as_globaltype((wasm_externtype_t*) extern_type);
-                    wasmer_assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_F32);
-                    wasmer_assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
+                    assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_F32);
+                    assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
                 }
 
                 {
@@ -396,14 +396,14 @@ mod tests {
                     wasmer_assert_name(import_name, "table");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
 
                     wasm_tabletype_t* table_type = wasm_externtype_as_tabletype((wasm_externtype_t*) extern_type);
-                    wasmer_assert(wasm_valtype_kind(wasm_tabletype_element(table_type)) == WASM_FUNCREF);
+                    assert(wasm_valtype_kind(wasm_tabletype_element(table_type)) == WASM_FUNCREF);
 
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
-                    wasmer_assert(table_limits->min == 1);
-                    wasmer_assert(table_limits->max == 2);
+                    assert(table_limits->min == 1);
+                    assert(table_limits->max == 2);
                 }
 
                 {
@@ -416,12 +416,12 @@ mod tests {
                     wasmer_assert_name(import_name, "memory");
 
                     const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
-                    wasmer_assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
+                    assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
 
                     wasm_memorytype_t* memory_type = wasm_externtype_as_memorytype((wasm_externtype_t*) extern_type);
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
-                    wasmer_assert(memory_limits->min == 3);
-                    wasmer_assert(memory_limits->max == 4);
+                    assert(memory_limits->min == 3);
+                    assert(memory_limits->max == 4);
                 }
 
                 wasm_importtype_vec_delete(&import_types);
@@ -448,11 +448,11 @@ mod tests {
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
-                wasmer_assert(module);
+                assert(module);
 
                 wasm_byte_vec_t serialized_module;
                 wasm_module_serialize(module, &serialized_module);
-                wasmer_assert(serialized_module.size > 0);
+                assert(serialized_module.size > 0);
 
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&serialized_module);
@@ -485,11 +485,11 @@ mod tests {
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
-                wasmer_assert(module);
+                assert(module);
 
                 wasm_byte_vec_t serialized_module;
                 wasm_module_serialize(module, &serialized_module);
-                wasmer_assert(serialized_module.size > 0);
+                assert(serialized_module.size > 0);
 
                 wasm_module_delete(module);
                 wasm_module_t* deserialized_module = wasm_module_deserialize(
@@ -497,12 +497,12 @@ mod tests {
                     &serialized_module
                 );
                 wasm_byte_vec_delete(&serialized_module);
-                wasmer_assert(deserialized_module);
+                assert(deserialized_module);
 
                 wasm_exporttype_vec_t export_types;
                 wasm_module_exports(deserialized_module, &export_types);
 
-                wasmer_assert(export_types.size == 4);
+                assert(export_types.size == 4);
 
                 wasm_exporttype_vec_delete(&export_types);
                 wasm_module_delete(deserialized_module);
