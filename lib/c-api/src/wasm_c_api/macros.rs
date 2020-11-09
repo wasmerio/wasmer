@@ -17,6 +17,7 @@ macro_rules! wasm_declare_vec_inner {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -108,6 +109,7 @@ macro_rules! wasm_declare_vec {
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,

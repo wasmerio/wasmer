@@ -13,13 +13,13 @@ pub struct wasm_global_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
     store: &wasm_store_t,
-    gt: &wasm_globaltype_t,
+    global_type: &wasm_globaltype_t,
     val: &wasm_val_t,
 ) -> Option<Box<wasm_global_t>> {
-    let gt = gt.as_globaltype();
+    let global_type = &global_type.inner().global_type;
     let wasm_val = val.try_into().ok()?;
     let store = &store.inner;
-    let global = if gt.mutability.is_mutable() {
+    let global = if global_type.mutability.is_mutable() {
         Global::new_mut(store, wasm_val)
     } else {
         Global::new(store, wasm_val)

@@ -12,10 +12,10 @@ pub struct wasm_memory_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_new(
     store: &wasm_store_t,
-    mt: &wasm_memorytype_t,
+    memory_type: &wasm_memorytype_t,
 ) -> Option<Box<wasm_memory_t>> {
-    let md = mt.as_memorytype().clone();
-    let memory = c_try!(Memory::new(&store.inner, md));
+    let memory_type = memory_type.inner().memory_type.clone();
+    let memory = c_try!(Memory::new(&store.inner, memory_type));
 
     Some(Box::new(wasm_memory_t { inner: memory }))
 }
