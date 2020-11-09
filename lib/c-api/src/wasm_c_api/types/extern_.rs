@@ -84,8 +84,8 @@ impl From<&ExternType> for wasm_externtype_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_type(e: &wasm_extern_t) -> Box<wasm_externtype_t> {
-    Box::new(wasm_externtype_t::new(e.inner.ty()))
+pub unsafe extern "C" fn wasm_extern_type(r#extern: &wasm_extern_t) -> Box<wasm_externtype_t> {
+    Box::new(wasm_externtype_t::new(r#extern.inner.ty()))
 }
 
 #[no_mangle]
