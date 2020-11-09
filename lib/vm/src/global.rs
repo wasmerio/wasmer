@@ -69,11 +69,11 @@ impl Global {
         unsafe {
             let definition = &*self.vm_global_definition.get();
             match self.ty().ty {
-                Type::I32 => Value::I32(*definition.as_i32()),
-                Type::I64 => Value::I64(*definition.as_i64()),
-                Type::F32 => Value::F32(*definition.as_f32()),
-                Type::F64 => Value::F64(*definition.as_f64()),
-                Type::V128 => Value::V128(*definition.as_u128()),
+                Type::I32 => Value::I32(definition.to_i32()),
+                Type::I64 => Value::I64(definition.to_i64()),
+                Type::F32 => Value::F32(definition.to_f32()),
+                Type::F64 => Value::F64(definition.to_f64()),
+                Type::V128 => Value::V128(definition.to_u128()),
                 _ => unimplemented!("Global::get for {:?}", self.ty),
             }
         }
@@ -111,7 +111,7 @@ impl Global {
             Value::I64(i) => *definition.as_i64_mut() = i,
             Value::F32(f) => *definition.as_f32_mut() = f,
             Value::F64(f) => *definition.as_f64_mut() = f,
-            Value::V128(x) => *definition.as_u128_bits_mut() = x.to_ne_bytes(),
+            Value::V128(x) => *definition.as_bytes_mut() = x.to_ne_bytes(),
             _ => unimplemented!("Global::set for {:?}", val.ty()),
         }
         Ok(())

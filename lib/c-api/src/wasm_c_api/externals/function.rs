@@ -154,18 +154,34 @@ pub unsafe extern "C" fn wasm_func_call(
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<Val>, _>>()
-                .expect("Argument conversion failed")
+                .expect("Arguments conversion failed")
         })
         .unwrap_or_default();
 
     match func.inner.call(&params) {
         Ok(wasm_results) => {
-            *results = wasm_results
+            let vals = wasm_results
                 .into_iter()
                 .map(TryInto::try_into)
                 .collect::<Result<Vec<wasm_val_t>, _>>()
-                .expect("Argument conversion failed")
-                .into();
+                .expect("Results conversion failed");
+
+            // `results` is an uninitialized vector. Set a new value.
+            if results.is_uninitialized() {
+                *results = vals.into();
+            }
+            // `results` is an initialized but empty vector. Fill it
+            // item per item.
+            else {
+                let slice = results
+                    .into_slice_mut()
+                    .expect("`wasm_func_call`, results' size is greater than 0 but data is NULL");
+
+                for (result, value) in slice.iter_mut().zip(vals.iter()) {
+                    (*result).kind = value.kind;
+                    (*result).of = value.of;
+                }
+            }
 
             None
         }
