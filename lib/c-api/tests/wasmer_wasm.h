@@ -11,7 +11,7 @@
 
 // Assert that a `wasm_name_t` equals something.
 void wasmer_assert_name(const wasm_name_t* name, const char* expected) {
-  assert(strncmp(name->data, expected, name->size) == 0);
+  assert(name->size == strlen(expected) && strncmp(name->data, expected, name->size) == 0);
 }
 
 
