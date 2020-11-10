@@ -4,11 +4,23 @@ use wasmer::{ExternType, MemoryType, Pages};
 #[derive(Debug, Clone)]
 pub(crate) struct WasmMemoryType {
     pub(crate) memory_type: MemoryType,
+    limits: Box<wasm_limits_t>,
 }
 
 impl WasmMemoryType {
     pub(crate) fn new(memory_type: MemoryType) -> Self {
-        Self { memory_type }
+        let limits = Box::new(wasm_limits_t {
+            min: memory_type.minimum.0 as _,
+            max: memory_type
+                .maximum
+                .map(|max| max.0 as _)
+                .unwrap_or(LIMITS_MAX_SENTINEL),
+        });
+
+        Self {
+            memory_type,
+            limits,
+        }
     }
 }
 
@@ -65,19 +77,7 @@ pub struct wasm_limits_t {
 
 const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
 
-// TODO: fix memory leak
-// this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_limits(
-    memory_type: &wasm_memorytype_t,
-) -> *const wasm_limits_t {
-    let memory_type = memory_type.inner().memory_type;
-
-    Box::into_raw(Box::new(wasm_limits_t {
-        min: memory_type.minimum.0 as _,
-        max: memory_type
-            .maximum
-            .map(|max| max.0 as _)
-            .unwrap_or(LIMITS_MAX_SENTINEL),
-    }))
+pub unsafe extern "C" fn wasm_memorytype_limits(memory_type: &wasm_memorytype_t) -> &wasm_limits_t {
+    memory_type.inner().limits.as_ref()
 }
