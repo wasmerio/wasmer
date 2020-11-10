@@ -45,7 +45,6 @@ int main(int argc, const char* argv[]) {
   }
 
   wasm_byte_vec_delete(wasm);
-  wasm_byte_vec_delete(&wat);
 
   // All done.
   printf("Done.\n");
