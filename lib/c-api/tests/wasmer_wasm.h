@@ -1,8 +1,7 @@
 // This header file is used only for test purposes! It is used by unit
 // test inside the `src/` directory for the moment.
 
-#if !defined(TEST_WASMER_WASM)
-
+#ifndef TEST_WASMER_WASM
 #define TEST_WASMER_WASM
 
 #include <string.h>
