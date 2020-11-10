@@ -105,9 +105,11 @@ pub unsafe extern "C" fn wasm_module_exports(
     *out = exports.into();
 }
 
+// TODO: `out` is a memory leak here. `wasm_module_t` owns it.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
+    // own
     out: &mut wasm_importtype_vec_t,
 ) {
     let imports = module
@@ -441,7 +443,6 @@ mod tests {
                     wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
-                wasm_importtype_vec_delete(&import_types);
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(wasm);
                 wasm_byte_vec_delete(&wat);
