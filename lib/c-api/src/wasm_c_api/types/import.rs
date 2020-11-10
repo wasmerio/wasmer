@@ -53,7 +53,6 @@ impl From<ImportType> for wasm_importtype_t {
 
 impl From<&ImportType> for wasm_importtype_t {
     fn from(other: &ImportType) -> Self {
-        // TODO: double check that freeing String as `Vec<u8>` is valid
         let module = {
             let mut heap_str: Box<str> = other.module().to_string().into_boxed_str();
             let char_ptr = heap_str.as_mut_ptr();
@@ -67,7 +66,6 @@ impl From<&ImportType> for wasm_importtype_t {
             Box::new(module_inner)
         };
 
-        // TODO: double check that freeing String as `Vec<u8>` is valid
         let name = {
             let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
             let char_ptr = heap_str.as_mut_ptr();
