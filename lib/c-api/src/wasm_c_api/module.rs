@@ -45,6 +45,7 @@ pub struct wasm_module_t {
 ///     assert(module);
 ///    
 ///     wasm_byte_vec_delete(wasm);
+///     wasm_byte_vec_delete(&wat);
 ///     wasm_module_delete(module);
 ///     wasm_store_delete(store);
 ///     wasm_engine_delete(engine);
@@ -177,6 +178,7 @@ mod tests {
                 assert(wasm_module_validate(store, wasm));
 
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -203,6 +205,7 @@ mod tests {
                 assert(module);
 
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_module_delete(module);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -253,12 +256,12 @@ mod tests {
                     const wasm_functype_t* func_type = wasm_externtype_as_functype_const(extern_type);
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
-                    assert(func_params->size == 2);
+                    assert(func_params && func_params->size == 2);
                     assert(wasm_valtype_kind(func_params->data[0]) == WASM_I32);
                     assert(wasm_valtype_kind(func_params->data[1]) == WASM_I64);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
-                    assert(func_results->size == 0);
+                    assert(func_results && func_results->size == 0);
 
                     wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
@@ -317,6 +320,7 @@ mod tests {
 
                 wasm_exporttype_vec_delete(&export_types);
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_module_delete(module);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -368,10 +372,10 @@ mod tests {
                     const wasm_functype_t* func_type = wasm_externtype_as_functype_const(extern_type);
 
                     const wasm_valtype_vec_t* func_params = wasm_functype_params(func_type);
-                    assert(func_params->size == 0);
+                    assert(func_params && func_params->size == 0);
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
-                    assert(func_results->size == 0);
+                    assert(func_results && func_results->size == 0);
 
                     wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
@@ -440,6 +444,7 @@ mod tests {
                 wasm_importtype_vec_delete(&import_types);
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
             }
@@ -470,6 +475,7 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&serialized_module);
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
             }
@@ -520,6 +526,7 @@ mod tests {
                 wasm_exporttype_vec_delete(&export_types);
                 wasm_module_delete(deserialized_module);
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
             }

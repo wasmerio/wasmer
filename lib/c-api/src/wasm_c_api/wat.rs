@@ -44,6 +44,7 @@ mod tests {
                 );
 
                 wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
@@ -69,6 +70,7 @@ mod tests {
                 assert(!wasm);
                 assert(wasmer_last_error_length() > 0);
 
+                wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 
