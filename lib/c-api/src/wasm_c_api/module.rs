@@ -42,7 +42,6 @@ pub struct wasm_module_t {
 ///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
 ///    
 ///     wasm_module_t* module = wasm_module_new(store, wasm);
-///    
 ///     assert(module);
 ///    
 ///     wasm_byte_vec_delete(wasm);
@@ -201,7 +200,6 @@ mod tests {
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
-
                 assert(module);
 
                 wasm_byte_vec_delete(wasm);
@@ -236,7 +234,6 @@ mod tests {
                 wasm_byte_vec_t* wasm = wat2wasm(&wat);
 
                 wasm_module_t* module = wasm_module_new(store, wasm);
-
                 assert(module);
 
                 wasm_exporttype_vec_t export_types;
