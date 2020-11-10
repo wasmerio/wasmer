@@ -90,8 +90,7 @@ build-docs:
 
 build-docs-capi:
 	cd lib/c-api/ && doxygen doxyfile
-	RUSTDOCFLAGS="" \
-		cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,cranelift,wasi
+	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi
 
 # We use cranelift as the default backend for the capi for now
 build-capi: build-capi-cranelift-jit
