@@ -94,11 +94,11 @@ pub unsafe extern "C" fn wasm_extern_kind(r#extern: &wasm_extern_t) -> wasm_exte
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_externtype_delete(_et: Option<Box<wasm_externtype_t>>) {}
+pub unsafe extern "C" fn wasm_externtype_delete(_extern_type: Option<Box<wasm_externtype_t>>) {}
 
 #[no_mangle]
-pub extern "C" fn wasm_externtype_copy(externtype: &wasm_externtype_t) -> Box<wasm_externtype_t> {
-    Box::new(externtype.clone())
+pub extern "C" fn wasm_externtype_copy(extern_type: &wasm_externtype_t) -> Box<wasm_externtype_t> {
+    Box::new(extern_type.clone())
 }
 
 #[no_mangle]
