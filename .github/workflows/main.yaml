@@ -162,7 +162,6 @@ jobs:
       - name: Package Wasmer
         run: |
           make package
-        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -177,10 +176,10 @@ jobs:
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
-        if: needs.setup.outputs.DOING_RELEASE == '1'
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
+          retention-days: 3
 
   release:
     needs: [setup, test]
