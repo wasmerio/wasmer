@@ -105,7 +105,6 @@ pub unsafe extern "C" fn wasm_module_exports(
     *out = exports.into();
 }
 
-// TODO: `out` is a memory leak here. `wasm_module_t` owns it.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
@@ -378,8 +377,6 @@ mod tests {
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
                     assert(func_results && func_results->size == 0);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -397,8 +394,6 @@ mod tests {
                     const wasm_globaltype_t* global_type = wasm_externtype_as_globaltype_const(extern_type);
                     assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_F32);
                     assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -419,8 +414,6 @@ mod tests {
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
                     assert(table_limits->min == 1);
                     assert(table_limits->max == 2);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -439,10 +432,9 @@ mod tests {
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
                     assert(memory_limits->min == 3);
                     assert(memory_limits->max == 4);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
+                wasm_importtype_vec_delete(&import_types);
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(wasm);
                 wasm_byte_vec_delete(&wat);
