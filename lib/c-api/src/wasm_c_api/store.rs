@@ -10,11 +10,12 @@ pub struct wasm_store_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_new(
-    wasm_engine_ptr: Option<NonNull<wasm_engine_t>>,
+    engine: Option<NonNull<wasm_engine_t>>,
 ) -> Option<Box<wasm_store_t>> {
-    let wasm_engine_ptr = wasm_engine_ptr?;
-    let wasm_engine = wasm_engine_ptr.as_ref();
-    let store = Store::new(&*wasm_engine.inner);
+    let engine = engine?;
+    let engine = engine.as_ref();
+
+    let store = Store::new(&*engine.inner);
 
     Some(Box::new(wasm_store_t { inner: store }))
 }
