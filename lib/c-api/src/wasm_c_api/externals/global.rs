@@ -12,10 +12,14 @@ pub struct wasm_global_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
-    store: &wasm_store_t,
-    global_type: &wasm_globaltype_t,
-    val: &wasm_val_t,
+    store: Option<&wasm_store_t>,
+    global_type: Option<&wasm_globaltype_t>,
+    val: Option<&wasm_val_t>,
 ) -> Option<Box<wasm_global_t>> {
+    let store = store?;
+    let global_type = global_type?;
+    let val = val?;
+
     let global_type = &global_type.inner().global_type;
     let wasm_val = val.try_into().ok()?;
     let store = &store.inner;
