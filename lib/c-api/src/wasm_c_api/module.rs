@@ -58,12 +58,14 @@ pub struct wasm_module_t {
 /// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
-    store: &wasm_store_t,
-    bytes: &wasm_byte_vec_t,
+    store: Option<&wasm_store_t>,
+    bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    // TODO: review lifetime of byte slice
-    let wasm_byte_slice: &[u8] = slice::from_raw_parts_mut(bytes.data, bytes.size);
-    let module = c_try!(Module::from_binary(&store.inner, wasm_byte_slice));
+    let store = store?;
+    let bytes = bytes?;
+
+    let bytes = bytes.into_slice()?;
+    let module = c_try!(Module::from_binary(&store.inner, bytes));
 
     Some(Box::new(wasm_module_t {
         inner: Arc::new(module),
