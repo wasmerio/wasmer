@@ -51,6 +51,34 @@ fn native_function_works_for_wasm() -> Result<()> {
 }
 
 #[test]
+fn closure_host_function_without_env() -> anyhow::Result<()> {
+    let wat = r#"(module
+        (import "console" "log" (func $log (param i32)))
+        (func (export "main")
+          i32.const 42
+          call $log
+        )
+    )"#;
+    let store = get_store(false);
+    let module = Module::new(&store, wat)?;
+    let state = 1337;
+    let import_object = imports! {
+        "console" => {
+            "log" => Function::new_native(&store, move |_: i32| {
+                println!("{}", state);
+            })
+        }
+    };
+    let instance = Instance::new(&module, &import_object)?;
+    let main: NativeFunc<(), ()> = instance
+        .exports
+        .get_native_function("main")?;
+    main.call()?;
+    assert!(false);
+    Ok(())
+}
+
+#[test]
 fn static_host_function_without_env() -> anyhow::Result<()> {
     let store = get_store(false);
 

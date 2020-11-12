@@ -178,10 +178,21 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
+        let host_env: *mut std::ffi::c_void = if std::mem::size_of::<F>() != 0 {
+            println!("ITS A CLOSURE {}", std::mem::size_of::<F>());
+            // `F` is a closure _with_ a captured environment.
+            // func.cast()
+            &func as *const _ as *mut _
+            // Box::into_raw(Box::new(*(func as *const std::ffi::c_void)))
+        } else {
+            // `F` is a closure _without_ a captured environment.
+            std::ptr::null_mut() as *mut _
+        };
+
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
         let vmctx = VMFunctionEnvironment {
-            host_env: std::ptr::null_mut() as *mut _,
+            host_env,
         };
         let signature = function.ty();
 
