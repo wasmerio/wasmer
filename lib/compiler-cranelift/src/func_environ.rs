@@ -11,7 +11,9 @@ use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Signature};
 use cranelift_codegen::isa::TargetFrontendConfig;
+use cranelift_frontend::FunctionBuilder;
 use std::convert::TryFrom;
+use wasmer_compiler::wasmparser::Type;
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
@@ -538,10 +540,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_grow(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: TableIndex,
-        _: ir::Value,
-        _: ir::Value,
+        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        _table_index: TableIndex,
+        _table: ir::Table,
+        _delta: ir::Value,
+        _init_value: ir::Value,
     ) -> WasmResult<ir::Value> {
         Err(WasmError::Unsupported(
             "the `table.grow` instruction is not supported yet".into(),
@@ -550,9 +553,10 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_get(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: TableIndex,
-        _: ir::Value,
+        _builder: &mut FunctionBuilder,
+        _table_index: TableIndex,
+        _table: ir::Table,
+        _index: ir::Value,
     ) -> WasmResult<ir::Value> {
         Err(WasmError::Unsupported(
             "the `table.get` instruction is not supported yet".into(),
@@ -561,10 +565,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_set(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: TableIndex,
-        _: ir::Value,
-        _: ir::Value,
+        _builder: &mut FunctionBuilder,
+        _table_index: TableIndex,
+        _table: ir::Table,
+        _value: ir::Value,
+        _index: ir::Value,
     ) -> WasmResult<()> {
         Err(WasmError::Unsupported(
             "the `table.set` instruction is not supported yet".into(),
@@ -573,21 +578,56 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_fill(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: TableIndex,
-        _: ir::Value,
-        _: ir::Value,
-        _: ir::Value,
+        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        _table_index: TableIndex,
+        _dst: ir::Value,
+        _val: ir::Value,
+        _len: ir::Value,
     ) -> WasmResult<()> {
         Err(WasmError::Unsupported(
             "the `table.fill` instruction is not supported yet".into(),
         ))
     }
 
+    fn translate_ref_null(
+        &mut self,
+        mut pos: cranelift_codegen::cursor::FuncCursor,
+        ty: Type,
+    ) -> WasmResult<ir::Value> {
+        Ok(match ty {
+            Type::FuncRef => pos.ins().iconst(self.pointer_type(), 0),
+            // Type::ExternRef => pos.ins().null(self.reference_type(ty)),
+            _ => {
+                return Err(WasmError::Unsupported(
+                    "`ref.null T` that is not a `funcref`".into(),
+                ));
+            }
+        })
+    }
+
+    fn translate_ref_is_null(
+        &mut self,
+        mut pos: cranelift_codegen::cursor::FuncCursor,
+        value: ir::Value,
+    ) -> WasmResult<ir::Value> {
+        let bool_is_null = match pos.func.dfg.value_type(value) {
+            // `externref`
+            ty if ty.is_ref() => pos.ins().is_null(value),
+            // `funcref`
+            ty if ty == self.pointer_type() => {
+                pos.ins()
+                    .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0)
+            }
+            _ => unreachable!(),
+        };
+
+        Ok(pos.ins().bint(ir::types::I32, bool_is_null))
+    }
+
     fn translate_ref_func(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: u32,
+        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        _func_index: FunctionIndex,
     ) -> WasmResult<ir::Value> {
         Err(WasmError::Unsupported(
             "the `ref.func` instruction is not supported yet".into(),
@@ -596,17 +636,17 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_custom_global_get(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: GlobalIndex,
+        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        _index: GlobalIndex,
     ) -> WasmResult<ir::Value> {
         unreachable!("we don't make any custom globals")
     }
 
     fn translate_custom_global_set(
         &mut self,
-        _: cranelift_codegen::cursor::FuncCursor<'_>,
-        _: GlobalIndex,
-        _: ir::Value,
+        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        _index: GlobalIndex,
+        _value: ir::Value,
     ) -> WasmResult<()> {
         unreachable!("we don't make any custom globals")
     }
@@ -771,7 +811,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         match self.table_styles[table_index] {
             TableStyle::CallerChecksSignature => {
                 let sig_id_size = self.offsets.size_of_vmshared_signature_index();
-                let sig_id_type = Type::int(u16::from(sig_id_size) * 8).unwrap();
+                let sig_id_type = ir::Type::int(u16::from(sig_id_size) * 8).unwrap();
                 let vmctx = self.vmctx(pos.func);
                 let base = pos.ins().global_value(pointer_type, vmctx);
                 let offset =
@@ -897,24 +937,22 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
     fn translate_memory_copy(
         &mut self,
         mut pos: FuncCursor,
-        memory_index: MemoryIndex,
-        _heap: ir::Heap,
+        src_index: MemoryIndex,
+        _src_heap: ir::Heap,
+        _dst_index: MemoryIndex,
+        _dst_heap: ir::Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
     ) -> WasmResult<()> {
-        let (func_sig, memory_index, func_idx) =
-            self.get_memory_copy_func(&mut pos.func, memory_index);
+        let (func_sig, src_index, func_idx) = self.get_memory_copy_func(&mut pos.func, src_index);
 
-        let memory_index_arg = pos.ins().iconst(I32, memory_index as i64);
+        let src_index_arg = pos.ins().iconst(I32, src_index as i64);
 
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
-        pos.ins().call_indirect(
-            func_sig,
-            func_addr,
-            &[vmctx, memory_index_arg, dst, src, len],
-        );
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, src_index_arg, dst, src, len]);
 
         Ok(())
     }
@@ -981,8 +1019,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_size(
         &mut self,
-        _pos: FuncCursor,
-        _index: TableIndex,
+        mut _pos: FuncCursor,
+        _table_index: TableIndex,
         _table: ir::Table,
     ) -> WasmResult<ir::Value> {
         Err(WasmError::Unsupported(
@@ -1063,5 +1101,32 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             .call_indirect(func_sig, func_addr, &[vmctx, elem_index_arg]);
 
         Ok(())
+    }
+
+    fn translate_atomic_wait(
+        &mut self,
+        _pos: FuncCursor,
+        _index: MemoryIndex,
+        _heap: ir::Heap,
+        _addr: ir::Value,
+        _expected: ir::Value,
+        _timeout: ir::Value,
+    ) -> WasmResult<ir::Value> {
+        Err(WasmError::Unsupported(
+            "wasm atomics (fn translate_atomic_wait)".to_string(),
+        ))
+    }
+
+    fn translate_atomic_notify(
+        &mut self,
+        _pos: FuncCursor,
+        _index: MemoryIndex,
+        _heap: ir::Heap,
+        _addr: ir::Value,
+        _count: ir::Value,
+    ) -> WasmResult<ir::Value> {
+        Err(WasmError::Unsupported(
+            "wasm atomics (fn translate_atomic_notify)".to_string(),
+        ))
     }
 }

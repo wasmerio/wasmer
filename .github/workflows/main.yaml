@@ -143,8 +143,8 @@ jobs:
       - run: make test
       - name: Build and Test C API
         run: |
+          make test-capi
           make build-capi
-          make test-capi-cranelift
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
         run: make build-capi

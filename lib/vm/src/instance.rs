@@ -11,9 +11,10 @@ use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
-    VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
@@ -188,6 +189,7 @@ impl Instance {
         unsafe { *self.table_ptr(index).as_ref() }
     }
 
+    #[allow(dead_code)]
     /// Updates the value for a defined table to `VMTableDefinition`.
     fn set_table(&self, index: LocalTableIndex, table: &VMTableDefinition) {
         unsafe {
@@ -221,6 +223,7 @@ impl Instance {
         unsafe { *self.memory_ptr(index).as_ref() }
     }
 
+    #[allow(dead_code)]
     /// Set the indexed memory to `VMMemoryDefinition`.
     fn set_memory(&self, index: LocalMemoryIndex, mem: &VMMemoryDefinition) {
         unsafe {
@@ -296,10 +299,15 @@ impl Instance {
                 let sig_index = &self.module.functions[*index];
                 let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
                 {
-                    (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+                    (
+                        self.functions[def_index].0 as *const _,
+                        VMFunctionEnvironment {
+                            vmctx: self.vmctx_ptr(),
+                        },
+                    )
                 } else {
                     let import = self.imported_function(*index);
-                    (import.body, import.vmctx)
+                    (import.body, import.environment)
                 };
                 let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
@@ -377,19 +385,24 @@ impl Instance {
                     .get(local_index)
                     .expect("function index is out of bounds")
                     .0;
-                (body as *const _, self.vmctx_ptr())
+                (
+                    body as *const _,
+                    VMFunctionEnvironment {
+                        vmctx: self.vmctx_ptr(),
+                    },
+                )
             }
             None => {
                 assert_lt!(start_index.index(), self.module.num_imported_functions);
                 let import = self.imported_function(start_index);
-                (import.body, import.vmctx)
+                (import.body, import.environment)
             }
         };
 
         // Make the call.
         unsafe {
             catch_traps(callee_vmctx, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
                 )(callee_vmctx)
             })
@@ -452,11 +465,6 @@ impl Instance {
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()));
         let result = mem.grow(delta.into());
 
-        // Keep current the VMContext pointers used by compiled wasm code.
-        let memory_ptr = self.memories[memory_index].vmmemory();
-        let vmmemory = unsafe { memory_ptr.as_ref() };
-        self.set_memory(memory_index, vmmemory);
-
         result
     }
 
@@ -511,11 +519,6 @@ impl Instance {
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
             .grow(delta);
 
-        // Keep current the VMContext pointers used by compiled wasm code.
-        let table_ptr = self.tables[table_index].vmtable();
-        let vmtable = unsafe { table_ptr.as_ref() };
-        self.set_table(table_index, vmtable);
-
         result
     }
 
@@ -543,11 +546,11 @@ impl Instance {
             .set(index, val)
     }
 
-    fn alloc_layout(&self) -> Layout {
-        let size = mem::size_of_val(self)
-            .checked_add(usize::try_from(self.offsets.size_of_vmctx()).unwrap())
+    fn alloc_layout(offsets: &VMOffsets) -> Layout {
+        let size = mem::size_of::<Self>()
+            .checked_add(usize::try_from(offsets.size_of_vmctx()).unwrap())
             .unwrap();
-        let align = mem::align_of_val(self);
+        let align = mem::align_of::<Self>();
         Layout::from_size_align(size, align).unwrap()
     }
 
@@ -561,10 +564,15 @@ impl Instance {
         let type_index = self.signature_id(sig);
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+            (
+                self.functions[def_index].0 as *const _,
+                VMFunctionEnvironment {
+                    vmctx: self.vmctx_ptr(),
+                },
+            )
         } else {
             let import = self.imported_function(index);
-            (import.body, import.vmctx)
+            (import.body, import.environment)
         };
         VMCallerCheckedAnyfunc {
             func_ptr,
@@ -777,6 +785,82 @@ pub struct InstanceHandle {
 unsafe impl Send for InstanceHandle {}
 
 impl InstanceHandle {
+    /// Allocates an instance for use with `InstanceHandle::new`.
+    ///
+    /// Returns the instance pointer and the [`VMOffsets`] that describe the
+    /// memory buffer pointed to by the instance pointer.
+    pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
+        let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
+
+        let layout = Instance::alloc_layout(&offsets);
+
+        #[allow(clippy::cast_ptr_alignment)]
+        let instance_ptr = unsafe { alloc::alloc(layout) as *mut Instance };
+        let ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
+            ptr.cast()
+        } else {
+            alloc::handle_alloc_error(layout);
+        };
+
+        (ptr, offsets)
+    }
+
+    /// Get the locations of where the local `VMMemoryDefinition`s should be stored.
+    ///
+    /// This function lets us create `Memory` objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the offsets in
+    ///   `offsets` point to valid locations in memory.
+    pub unsafe fn memory_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMMemoryDefinition>> {
+        let num_memories = offsets.num_local_memories;
+        let num_memories = usize::try_from(num_memories).unwrap();
+        let mut out = Vec::with_capacity(num_memories);
+        // TODO: better encapsulate this logic, this shouldn't be duplicated
+        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+        for i in 0..num_memories {
+            let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = usize::try_from(mem_offset).unwrap();
+
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
+
+            out.push(new_ptr.cast());
+        }
+        out
+    }
+
+    /// Get the locations of where the `VMTableDefinition`s should be stored.
+    ///
+    /// This function lets us create `Table` objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the offsets in
+    ///   `offsets` point to valid locations in memory.
+    pub unsafe fn table_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMTableDefinition>> {
+        let num_tables = offsets.num_local_tables;
+        let num_tables = usize::try_from(num_tables).unwrap();
+        let mut out = Vec::with_capacity(num_tables);
+        // TODO: better encapsulate this logic, this shouldn't be duplicated
+        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+        for i in 0..num_tables {
+            let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = usize::try_from(table_offset).unwrap();
+
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
+
+            out.push(new_ptr.cast());
+        }
+        out
+    }
+
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
     ///
     /// # Safety
@@ -792,8 +876,18 @@ impl InstanceHandle {
     /// internally if you'd like to do so. If possible it's recommended to use
     /// the `wasmer` crate API rather than this type since that is vetted for
     /// safety.
+    ///
+    /// However the following must be taken care of before calling this function:
+    /// - `instance_ptr` must point to valid memory sufficiently large for there
+    ///    `Instance`.
+    /// - The memory at `instance.tables_ptr()` must be initialized with data for
+    ///   all the local tables.
+    /// - The memory at `instance.memories_ptr()` must be initialized with data for
+    ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
+        instance_ptr: NonNull<u8>,
+        offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -804,34 +898,13 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
-        // TODO: investigate `vmctx_tables` and `vmctx_memories`: both of these
-        // appear to be dropped in this function which may cause memory problems
-        // depending on the ownership of the types in the `PrimaryMap`.
-        let vmctx_tables = finished_tables
-            .values()
-            .map(|t| {
-                let vmtable_ptr = t.vmtable();
-                *vmtable_ptr.as_ref()
-            })
-            .collect::<PrimaryMap<LocalTableIndex, _>>()
-            .into_boxed_slice();
-
-        let vmctx_memories = finished_memories
-            .values()
-            .map(|m| {
-                let vmmemory_ptr = m.as_ref().vmmemory();
-                *vmmemory_ptr.as_ref()
-            })
-            .collect::<PrimaryMap<LocalMemoryIndex, _>>()
-            .into_boxed_slice();
+        let instance_ptr = instance_ptr.cast::<Instance>().as_ptr();
 
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
             .collect::<PrimaryMap<LocalGlobalIndex, _>>()
             .into_boxed_slice();
-
-        let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, &module);
 
         let passive_data = RefCell::new(module.passive_data.clone());
 
@@ -850,12 +923,6 @@ impl InstanceHandle {
                 signal_handler: Cell::new(None),
                 vmctx: VMContext {},
             };
-            let layout = instance.alloc_layout();
-            #[allow(clippy::cast_ptr_alignment)]
-            let instance_ptr = alloc::alloc(layout) as *mut Instance;
-            if instance_ptr.is_null() {
-                alloc::handle_alloc_error(layout);
-            }
             ptr::write(instance_ptr, instance);
             Self {
                 instance: instance_ptr,
@@ -888,16 +955,9 @@ impl InstanceHandle {
             instance.imported_globals_ptr() as *mut VMGlobalImport,
             imports.globals.len(),
         );
-        ptr::copy(
-            vmctx_tables.values().as_slice().as_ptr(),
-            instance.tables_ptr() as *mut VMTableDefinition,
-            vmctx_tables.len(),
-        );
-        ptr::copy(
-            vmctx_memories.values().as_slice().as_ptr(),
-            instance.memories_ptr() as *mut VMMemoryDefinition,
-            vmctx_memories.len(),
-        );
+        // these should already be set, add asserts here? for:
+        // - instance.tables_ptr() as *mut VMTableDefinition
+        // - instance.memories_ptr() as *mut VMMemoryDefinition
         ptr::copy(
             vmctx_globals.values().as_slice().as_ptr(),
             instance.globals_ptr() as *mut NonNull<VMGlobalDefinition>,
@@ -1074,7 +1134,7 @@ impl InstanceHandle {
     /// usage of this handle after this function is called.
     pub unsafe fn dealloc(&self) {
         let instance = self.instance();
-        let layout = instance.alloc_layout();
+        let layout = Instance::alloc_layout(&instance.offsets);
         ptr::drop_in_place(self.instance);
         alloc::dealloc(self.instance.cast(), layout);
     }
@@ -1119,9 +1179,9 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     if let Some(base) = init.location.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1172,9 +1232,9 @@ fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
     if let Some(base) = init.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1273,7 +1333,7 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
                 GlobalInit::F32Const(x) => *(*to).as_f32_mut() = *x,
                 GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
-                GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
+                GlobalInit::V128Const(x) => *(*to).as_bytes_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
                     let from: VMGlobalDefinition =
                         if let Some(def_x) = module.local_global_index(*x) {

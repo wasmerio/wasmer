@@ -28,18 +28,6 @@ int main()
     printf("Serialized module pointer: %p\n", serialized_module_bytes.bytes);
     printf("Serialized module length: %d\n", serialized_module_bytes.bytes_len);
     assert(serialized_module_bytes.bytes != NULL);
-    assert(serialized_module_bytes.bytes_len > 11);
-    assert(serialized_module_bytes.bytes[0] == '\0');
-    assert(serialized_module_bytes.bytes[1] == 'w');
-    assert(serialized_module_bytes.bytes[2] == 'a');
-    assert(serialized_module_bytes.bytes[3] == 's');
-    assert(serialized_module_bytes.bytes[4] == 'm');
-    assert(serialized_module_bytes.bytes[5] == 'e');
-    assert(serialized_module_bytes.bytes[6] == 'r');
-    assert(serialized_module_bytes.bytes[7] == '-');
-    assert(serialized_module_bytes.bytes[8] == 'j');
-    assert(serialized_module_bytes.bytes[9] == 'i');
-    assert(serialized_module_bytes.bytes[10] == 't');
 
     wasmer_module_t *module_two = NULL;
     wasmer_result_t unserialize_result = wasmer_module_deserialize(&module_two, serialized_module);

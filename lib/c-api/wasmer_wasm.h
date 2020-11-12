@@ -29,9 +29,6 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
-// The `jit` feature has been enabled for this build.
-#define WASMER_JIT_ENABLED
-
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -56,7 +53,10 @@
 #include "wasm.h"
 
 /**
- * this can be a wasmer-specific type with wasmer-specific functions for manipulating it
+ * Kind of compilers that can be used by the engines.
+ *
+ * This is a Wasmer-specific type with Wasmer-specific functions for
+ * manipulating it.
  */
 typedef enum {
   CRANELIFT = 0,
@@ -64,6 +64,12 @@ typedef enum {
   SINGLEPASS = 2,
 } wasmer_compiler_t;
 
+/**
+ * Kind of engines that can be used by the store.
+ *
+ * This is a Wasmer-specific type with Wasmer-specific functions for
+ * manipulating it.
+ */
 typedef enum {
   JIT = 0,
   NATIVE = 1,
@@ -159,8 +165,14 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
+/**
+ * Configure the compiler to use.
+ */
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
 
+/**
+ * Configure the engine to use.
+ */
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);

@@ -280,7 +280,6 @@ impl Artifact for JITArtifact {
         &self.finished_function_call_trampolines
     }
 
-    // TODO: return *const instead of *mut
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }

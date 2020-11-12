@@ -11,8 +11,8 @@ use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext, VMFunctionBody, VMFunctionKind,
-    VMTrampoline,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
+    VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -64,7 +64,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # let store = Store::default();
-    ///
+    /// #
     /// let signature = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     ///
     /// let f = Function::new(&store, &signature, |args| {
@@ -85,7 +85,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = VMFunctionEnvironment {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -107,7 +109,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
     /// # let store = Store::default();
-    ///
+    /// #
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -135,7 +137,9 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = Box::into_raw(Box::new(dynamic_ctx)) as *mut VMContext;
+        let vmctx = VMFunctionEnvironment {
+            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        };
 
         Self {
             store: store.clone(),
@@ -160,7 +164,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function};
     /// # let store = Store::default();
-    ///
+    /// #
     /// fn sum(a: i32, b: i32) -> i32 {
     ///     a + b
     /// }
@@ -176,7 +180,9 @@ impl Function {
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = std::ptr::null_mut() as *mut _ as *mut VMContext;
+        let vmctx = VMFunctionEnvironment {
+            host_env: std::ptr::null_mut() as *mut _,
+        };
         let signature = function.ty();
 
         Self {
@@ -202,7 +208,7 @@ impl Function {
     /// ```
     /// # use wasmer::{Store, Function};
     /// # let store = Store::default();
-    ///
+    /// #
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -230,7 +236,9 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = Box::into_raw(box_env) as *mut _ as *mut VMContext;
+        let vmctx = VMFunctionEnvironment {
+            host_env: Box::into_raw(box_env) as *mut _,
+        };
         let signature = function.ty();
 
         Self {
@@ -245,7 +253,24 @@ impl Function {
             },
         }
     }
+
     /// Returns the [`FunctionType`] of the `Function`.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.ty().params(), vec![Type::I32, Type::I32]);
+    /// assert_eq!(f.ty().results(), vec![Type::I32]);
+    /// ```
     pub fn ty(&self) -> &FunctionType {
         &self.exported.signature
     }
@@ -325,22 +350,74 @@ impl Function {
     }
 
     /// Returns the number of parameters that this function takes.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.param_arity(), 2);
+    /// ```
     pub fn param_arity(&self) -> usize {
         self.ty().params().len()
     }
 
     /// Returns the number of results this function produces.
+    ///
+    /// # Example
+    ///
+    /// ```
+    /// # use wasmer::{Function, Store, Type};
+    /// # let store = Store::default();
+    /// #
+    /// fn sum(a: i32, b: i32) -> i32 {
+    ///     a + b
+    /// }
+    ///
+    /// let f = Function::new_native(&store, sum);
+    ///
+    /// assert_eq!(f.result_arity(), 1);
+    /// ```
     pub fn result_arity(&self) -> usize {
         self.ty().results().len()
     }
 
-    /// Call the [`Function`] function.
+    /// Call the `Function` function.
     ///
     /// Depending on where the Function is defined, it will call it.
     /// 1. If the function is defined inside a WebAssembly, it will call the trampoline
     ///    for the function signature.
     /// 2. If the function is defined in the host (in a native way), it will
     ///    call the trampoline.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
+    /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
         let mut results = vec![Val::null(); self.result_arity()];
 
@@ -385,8 +462,81 @@ impl Function {
     }
 
     /// Transform this WebAssembly function into a function with the
-    /// native ABI. See `NativeFunc` to learn more.
-    pub fn native<'a, Args, Rets>(&self) -> Result<NativeFunc<'a, Args, Rets>, RuntimeError>
+    /// native ABI. See [`NativeFunc`] to learn more.
+    ///
+    /// # Examples
+    ///
+    /// ```
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    /// let sum_native = sum.native::<(i32, i32), i32>().unwrap();
+    ///
+    /// assert_eq!(sum_native.call(1, 2).unwrap(), 3);
+    /// ```
+    ///
+    /// # Errors
+    ///
+    /// If the `Args` generic parameter does not match the exported function
+    /// an error will be raised:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// // This results in an error: `RuntimeError`
+    /// let sum_native = sum.native::<(i64, i64), i32>().unwrap();
+    /// ```
+    ///
+    /// If the `Rets` generic parameter does not match the exported function
+    /// an error will be raised:
+    ///
+    /// ```should_panic
+    /// # use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, Type, Value};
+    /// # let store = Store::default();
+    /// # let wasm_bytes = wat2wasm(r#"
+    /// # (module
+    /// #   (func (export "sum") (param $x i32) (param $y i32) (result i32)
+    /// #     local.get $x
+    /// #     local.get $y
+    /// #     i32.add
+    /// #   ))
+    /// # "#.as_bytes()).unwrap();
+    /// # let module = Module::new(&store, wasm_bytes).unwrap();
+    /// # let import_object = imports! {};
+    /// # let instance = Instance::new(&module, &import_object).unwrap();
+    /// #
+    /// let sum = instance.exports.get_function("sum").unwrap();
+    ///
+    /// // This results in an error: `RuntimeError`
+    /// let sum_native = sum.native::<(i32, i32), i64>().unwrap();
+    /// ```
+    pub fn native<Args, Rets>(&self) -> Result<NativeFunc<Args, Rets>, RuntimeError>
     where
         Args: WasmTypeList,
         Rets: WasmTypeList,
@@ -569,9 +719,9 @@ mod inner {
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
     ///
-    /// This trait should ideally be splitted into two traits:
+    /// This trait should ideally be split into two traits:
     /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
-    /// non-negligeable complexity in the `WasmTypeList`
+    /// non-negligible complexity in the `WasmTypeList`
     /// implementation.
     pub unsafe trait FromToNativeWasmType: Copy
     where
