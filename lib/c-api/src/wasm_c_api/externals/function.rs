@@ -32,11 +32,14 @@ pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
-    store: &wasm_store_t,
-    function_type: &wasm_functype_t,
-    callback: wasm_func_callback_t,
+    store: Option<&wasm_store_t>,
+    function_type: Option<&wasm_functype_t>,
+    callback: Option<wasm_func_callback_t>,
 ) -> Option<Box<wasm_func_t>> {
-    // TODO: handle null pointers?
+    let store = store?;
+    let function_type = function_type?;
+    let callback = callback?;
+
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
