@@ -60,7 +60,6 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,
-    // TODO: review types on wasm_declare_vec, handle the optional pointer part properly
     out: &mut wasm_extern_vec_t,
 ) {
     let instance = &instance.inner;
@@ -73,6 +72,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
             } else {
                 None
             };
+
             Box::into_raw(Box::new(wasm_extern_t {
                 instance: Some(Arc::clone(instance)),
                 inner: r#extern.clone(),
@@ -83,6 +83,6 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
     out.size = extern_vec.len();
     out.data = extern_vec.as_mut_ptr();
-    // TODO: double check that the destructor will work correctly here
+
     mem::forget(extern_vec);
 }
