@@ -43,8 +43,8 @@ is owned by the caller.
 
 The `wasm.h` header does not say anything about null pointer. The
 behavior we agreed on in that passing a null pointer where it is not
-expected (i.e. no where) will make the function to return null too
-without any error.
+expected (i.e. everywhere) will make the function to return null too
+with no error.
 
 ### Rust Pattern
 
