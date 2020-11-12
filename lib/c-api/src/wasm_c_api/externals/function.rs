@@ -150,10 +150,13 @@ pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_call(
-    func: &wasm_func_t,
-    args: &wasm_val_vec_t,
+    func: Option<&wasm_func_t>,
+    args: Option<&wasm_val_vec_t>,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>> {
+    let func = func?;
+    let args = args?;
+
     let params = args
         .into_slice()
         .map(|slice| {
