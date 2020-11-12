@@ -14,11 +14,14 @@ pub struct wasm_instance_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
-    _store: &wasm_store_t,
-    module: &wasm_module_t,
-    imports: &wasm_extern_vec_t,
+    _store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    imports: Option<&wasm_extern_vec_t>,
     traps: *mut *mut wasm_trap_t,
 ) -> Option<Box<wasm_instance_t>> {
+    let module = module?;
+    let imports = imports?;
+
     let wasm_module = &module.inner;
     let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
