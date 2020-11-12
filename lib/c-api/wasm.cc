@@ -10,66 +10,54 @@ using namespace wasm;
 
 class WASM_API_EXTERN WasmerConfig : public Config {
 public:
-  WasmerConfig() : Config{} {}
-
-  static WasmerConfig *from(void *base) {
-    return reinterpret_cast<WasmerConfig *>(base);
+  static WasmerConfig *from(Config *base) {
+    return static_cast<WasmerConfig *>(base);
   }
 
 private:
   // TODO: custom config state
 };
 
-Config::~Config() {}
+void Config::destroy() { delete WasmerConfig::from(this); }
 
-void Config::operator delete(void *ptr) { delete WasmerConfig::from(ptr); }
-
-auto Config::make() -> own<Config> { return make_own(new WasmerConfig); }
+auto Config::make() -> own<Config> { return own<Config>(new WasmerConfig); }
 
 // TODO: add custom config calls
 
 class WASM_API_EXTERN WasmerEngine : public Engine {
 public:
-  WasmerEngine() : Engine{} {}
-
-  static WasmerEngine *from(void *base) {
-    return reinterpret_cast<WasmerEngine *>(base);
+  static WasmerEngine *from(Engine *base) {
+    return static_cast<WasmerEngine *>(base);
   }
 
 private:
   // TODO: wasmer engine
 };
 
-Engine::~Engine() {}
-
-void Engine::operator delete(void *ptr) { delete WasmerEngine::from(ptr); }
+void Engine::destroy() { delete WasmerEngine::from(this); }
 
 auto Engine::make(own<Config> &&config) -> own<Engine> {
-  return make_own(new WasmerEngine);
+  return own<Engine>(new WasmerEngine);
 }
 
 class WASM_API_EXTERN WasmerStore : public Store {
 public:
-  WasmerStore() : Store{} {}
-
-  static WasmerStore *from(void *base) {
-    return reinterpret_cast<WasmerStore *>(base);
+  static WasmerStore *from(Store *base) {
+    return static_cast<WasmerStore *>(base);
   }
 
 private:
   // TODO: wasmer store
 };
 
-Store::~Store() {}
-
-void Store::operator delete(void *ptr) { delete WasmerStore::from(ptr); }
+void Store::destroy() { delete WasmerStore::from(this); }
 
 class WASM_API_EXTERN WasmerValType : public ValType {
 public:
   explicit WasmerValType(ValKind m_kind) : ValType{}, m_kind(m_kind) {}
 
   auto copy() const -> own<ValType> {
-    return make_own(new WasmerValType(kind()));
+    return own<ValType>(new WasmerValType(kind()));
   }
 
   auto kind() const -> ValKind { return m_kind; }
@@ -77,21 +65,19 @@ public:
   static const WasmerValType *from(const ValType *base) {
     return static_cast<const WasmerValType *>(base);
   }
-  static WasmerValType *from(void *base) {
-    return reinterpret_cast<WasmerValType *>(base);
+  static WasmerValType *from(ValType *base) {
+    return static_cast<WasmerValType *>(base);
   }
 
 private:
   ValKind m_kind;
 };
 
-ValType::~ValType() {}
-
 auto ValType::make(ValKind kind) -> own<ValType> {
-  return make_own(new WasmerValType(kind));
+  return own<ValType>(new WasmerValType(kind));
 }
 
-void ValType::operator delete(void *ptr) { delete WasmerValType::from(ptr); }
+void ValType::destroy() { delete WasmerValType::from(this); }
 
 auto ValType::copy() const -> own<ValType> {
   return WasmerValType::from(this)->copy();
@@ -170,19 +156,25 @@ static wasm_valtype_t *cxx_valtype_to_c_valtype(const ValType *val_type) {
 class WasmerFuncType : public FuncType {
 public:
   explicit WasmerFuncType(const wasm_functype_t *m_func_type)
-      : FuncType{}, m_func_type(const_cast<wasm_functype_t *>(m_func_type)),
+      : m_func_type(const_cast<wasm_functype_t *>(m_func_type)),
         m_params(c_vec_to_cxx_ownvec<ValType>(wasm_functype_params(m_func_type),
                                               c_valtype_to_cxx_ownvaltype)),
         m_results(c_vec_to_cxx_ownvec<ValType>(
             wasm_functype_results(m_func_type), c_valtype_to_cxx_ownvaltype)) {}
   ~WasmerFuncType() { wasm_functype_delete(m_func_type); }
 
+  void destroy() { delete this; }
+
   auto copy() const -> own<FuncType> {
-    return make_own(new WasmerFuncType(wasm_functype_copy(m_func_type)));
+    return own<FuncType>(new WasmerFuncType(wasm_functype_copy(m_func_type)));
   }
 
   auto params() const -> const ownvec<ValType> & { return m_params; }
   auto results() const -> const ownvec<ValType> & { return m_results; }
+
+  static WasmerFuncType *from(FuncType *base) {
+    return static_cast<WasmerFuncType *>(base);
+  }
 
   static const WasmerFuncType *from(const FuncType *base) {
     return static_cast<const WasmerFuncType *>(base);
@@ -194,7 +186,7 @@ private:
   ownvec<ValType> m_results;
 };
 
-FuncType::~FuncType() {}
+void FuncType::destroy() { WasmerFuncType::from(this)->destroy(); }
 
 auto FuncType::copy() const -> own<FuncType> {
   return WasmerFuncType::from(this)->copy();
@@ -229,16 +221,15 @@ wasm_mutability_t cxx_mutability_to_c_mutability(Mutability mutability) {
 class WASM_API_EXTERN WasmerGlobalType : public GlobalType {
 public:
   explicit WasmerGlobalType(const wasm_globaltype_t *m_global_type)
-      : GlobalType{},
-        m_global_type(const_cast<wasm_globaltype_t *>(m_global_type)),
+      : m_global_type(const_cast<wasm_globaltype_t *>(m_global_type)),
         m_valtype(
             c_valtype_to_cxx_ownvaltype(wasm_globaltype_content(m_global_type))
                 .release()) {}
 
   explicit WasmerGlobalType(own<ValType> &&m_valtype, Mutability mutability)
-      : GlobalType{}, m_global_type(wasm_globaltype_new(
-                          cxx_valtype_to_c_valtype(m_valtype.get()),
-                          cxx_mutability_to_c_mutability(mutability))),
+      : m_global_type(
+            wasm_globaltype_new(cxx_valtype_to_c_valtype(m_valtype.get()),
+                                cxx_mutability_to_c_mutability(mutability))),
         m_valtype(m_valtype.release()) {}
 
   ~WasmerGlobalType() {
@@ -246,8 +237,11 @@ public:
     delete WasmerValType::from(m_valtype);
   }
 
+  void destroy() { delete this; }
+
   auto copy() const -> own<GlobalType> {
-    return make_own(new WasmerGlobalType(wasm_globaltype_copy(m_global_type)));
+    return own<GlobalType>(
+        new WasmerGlobalType(wasm_globaltype_copy(m_global_type)));
   }
 
   auto content() const -> const ValType * { return m_valtype; }
@@ -260,16 +254,20 @@ public:
     return static_cast<const WasmerGlobalType *>(base);
   }
 
+  static WasmerGlobalType *from(GlobalType *base) {
+    return static_cast<WasmerGlobalType *>(base);
+  }
+
 private:
   wasm_globaltype_t *m_global_type;
   ValType *m_valtype;
 };
 
-GlobalType::~GlobalType() {}
+void GlobalType::destroy() { WasmerGlobalType::from(this)->destroy(); }
 
 auto GlobalType::make(own<ValType> &&valtype, Mutability mutability)
     -> own<GlobalType> {
-  return make_own(new WasmerGlobalType(std::move(valtype), mutability));
+  return own<GlobalType>(new WasmerGlobalType(std::move(valtype), mutability));
 }
 
 auto GlobalType::copy() const -> own<GlobalType> {
@@ -293,8 +291,11 @@ public:
 
   ~WasmerExternType() { wasm_externtype_delete(m_extern_type); }
 
+  void destroy() { delete this; }
+
   auto copy() const -> own<ExternType> {
-    return make_own(new WasmerExternType(wasm_externtype_copy(m_extern_type)));
+    return own<ExternType>(
+        new WasmerExternType(wasm_externtype_copy(m_extern_type)));
   }
 
   auto kind() const -> ExternKind {
@@ -326,18 +327,13 @@ public:
   static WasmerExternType *from(ExternType *base) {
     return static_cast<WasmerExternType *>(base);
   }
-  static WasmerExternType *from(void *base) {
-    return reinterpret_cast<WasmerExternType *>(base);
-  }
 
 private:
   wasm_externtype_t *m_extern_type;
 };
 
-ExternType::~ExternType() {}
-
-void ExternType::operator delete(void *ptr) {
-  delete WasmerExternType::from(ptr);
+void ExternType::destroy() {
+  WasmerExternType::from(this)->destroy();
 }
 
 auto ExternType::copy() const -> own<ExternType> {
