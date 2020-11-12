@@ -103,5 +103,6 @@ transfered anywhere (see [the Ownerships Section][#ownerships]).
 `const *T` translates to Rust as `&T`, it's a reference.
 
 Note: It could translate to `Option<NonNull<T>>` and then we could
-call `x?.as_ref()` to get a `&T`. Whether we should use this pattern
-in all the codebase is still under discussion.
+call `x?.as_ref()` to get a `&T`. It could also translate to
+`Option<&T>`. Whether we should use such patterns in all the codebase
+is still under discussion.
