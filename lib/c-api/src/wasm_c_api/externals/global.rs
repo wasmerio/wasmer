@@ -37,23 +37,23 @@ pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>)
 
 // TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_copy(wasm_global: &wasm_global_t) -> Box<wasm_global_t> {
+pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
     Box::new(wasm_global_t {
-        inner: wasm_global.inner.clone(),
+        inner: global.inner.clone(),
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_get(wasm_global: &wasm_global_t, out: &mut wasm_val_t) {
-    let value = wasm_global.inner.get();
+pub unsafe extern "C" fn wasm_global_get(global: &wasm_global_t, out: &mut wasm_val_t) {
+    let value = global.inner.get();
     *out = value.try_into().unwrap();
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_set(wasm_global: &mut wasm_global_t, val: &wasm_val_t) {
+pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
     let value: Val = val.try_into().unwrap();
-    wasm_global.inner.set(value);
+    global.inner.set(value);
 }
 
 #[no_mangle]
@@ -65,6 +65,6 @@ pub unsafe extern "C" fn wasm_global_same(
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_global_type(wasm_global: &wasm_global_t) -> Box<wasm_globaltype_t> {
-    Box::new(wasm_globaltype_t::new(wasm_global.inner.ty().clone()))
+pub extern "C" fn wasm_global_type(global: &wasm_global_t) -> Box<wasm_globaltype_t> {
+    Box::new(wasm_globaltype_t::new(global.inner.ty().clone()))
 }
