@@ -5,7 +5,6 @@ use super::types::{
 };
 use crate::error::update_last_error;
 use std::ptr::NonNull;
-use std::slice;
 use std::sync::Arc;
 use wasmer::Module;
 
@@ -77,13 +76,24 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_validate(
-    store: &wasm_store_t,
-    bytes: &wasm_byte_vec_t,
+    store: Option<&wasm_store_t>,
+    bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
-    // TODO: review lifetime of byte slice.
-    let wasm_byte_slice: &[u8] = slice::from_raw_parts(bytes.data, bytes.size);
+    let store = match store {
+        Some(store) => store,
+        None => return false,
+    };
+    let bytes = match bytes {
+        Some(bytes) => bytes,
+        None => return false,
+    };
 
-    if let Err(error) = Module::validate(&store.inner, wasm_byte_slice) {
+    let bytes = match bytes.into_slice() {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+
+    if let Err(error) = Module::validate(&store.inner, bytes) {
         update_last_error(error);
 
         false
