@@ -11,9 +11,12 @@ pub struct wasm_memory_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_new(
-    store: &wasm_store_t,
-    memory_type: &wasm_memorytype_t,
+    store: Option<&wasm_store_t>,
+    memory_type: Option<&wasm_memorytype_t>,
 ) -> Option<Box<wasm_memory_t>> {
+    let store = store?;
+    let memory_type = memory_type?;
+
     let memory_type = memory_type.inner().memory_type.clone();
     let memory = c_try!(Memory::new(&store.inner, memory_type));
 
@@ -33,8 +36,12 @@ pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_me
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_type(memory: &wasm_memory_t) -> Box<wasm_memorytype_t> {
-    Box::new(wasm_memorytype_t::new(memory.inner.ty().clone()))
+pub unsafe extern "C" fn wasm_memory_type(
+    memory: Option<&wasm_memory_t>,
+) -> Option<Box<wasm_memorytype_t>> {
+    let memory = memory?;
+
+    Some(Box::new(wasm_memorytype_t::new(memory.inner.ty().clone())))
 }
 
 // get a raw pointer into bytes
