@@ -11,9 +11,7 @@ wasm_declare_boxed_vec!(exporttype);
 
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_new(
-    // own
     name: Option<Box<wasm_name_t>>,
-    // own
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_exporttype_t>> {
     Some(Box::new(wasm_exporttype_t {

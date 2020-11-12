@@ -57,7 +57,6 @@ wasm_declare_vec!(tabletype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
-    // own
     valtype: Option<Box<wasm_valtype_t>>,
     limits: &wasm_limits_t,
 ) -> Option<Box<wasm_tabletype_t>> {

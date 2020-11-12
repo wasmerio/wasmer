@@ -50,7 +50,6 @@ wasm_declare_vec!(globaltype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_new(
-    // own
     valtype: Option<Box<wasm_valtype_t>>,
     mutability: wasm_mutability_t,
 ) -> Option<Box<wasm_globaltype_t>> {

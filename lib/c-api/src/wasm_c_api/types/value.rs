@@ -76,6 +76,7 @@ impl From<ValType> for wasm_valtype_t {
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valtype_t>> {
     let kind_enum = kind.try_into().ok()?;
     let valtype = wasm_valtype_t { valkind: kind_enum };
+
     Some(Box::new(valtype))
 }
 
