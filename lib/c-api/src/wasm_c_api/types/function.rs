@@ -93,10 +93,8 @@ wasm_declare_vec!(functype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
-    // own
-    params: Option<NonNull<wasm_valtype_vec_t>>,
-    // own
-    results: Option<NonNull<wasm_valtype_vec_t>>,
+    params: Option<Box<wasm_valtype_vec_t>>,
+    results: Option<Box<wasm_valtype_vec_t>>,
 ) -> Option<Box<wasm_functype_t>> {
     let params = params?;
     let results = results?;
