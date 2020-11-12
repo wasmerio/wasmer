@@ -105,6 +105,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
+    // own
     out: &mut wasm_exporttype_vec_t,
 ) {
     let exports = module

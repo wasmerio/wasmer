@@ -60,6 +60,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,
+    // own
     out: &mut wasm_extern_vec_t,
 ) {
     let instance = &instance.inner;

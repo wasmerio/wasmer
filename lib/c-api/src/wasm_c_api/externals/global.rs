@@ -45,7 +45,11 @@ pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_gl
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_get(global: &wasm_global_t, out: &mut wasm_val_t) {
+pub unsafe extern "C" fn wasm_global_get(
+    global: &wasm_global_t,
+    // own
+    out: &mut wasm_val_t,
+) {
     let value = global.inner.get();
     *out = value.try_into().unwrap();
 }
