@@ -1,7 +1,6 @@
 use super::{wasm_externtype_t, wasm_name_t};
 use wasmer::ImportType;
 
-// TODO: improve ownership in `importtype_t` (can we safely use `Box<wasm_name_t>` here?)
 #[allow(non_camel_case_types)]
 pub struct wasm_importtype_t {
     module: Box<wasm_name_t>,
