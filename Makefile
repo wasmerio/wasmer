@@ -61,10 +61,12 @@ ifneq ($(OS), Windows_NT)
 endif
 
 
-$(info Available compilers: $(bold)$(green)${compilers}$(reset))
-
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
+
+$(info Available compilers: $(bold)$(green)${compilers}$(reset))
+$(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
+$(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
 
 
 ############
@@ -192,6 +194,8 @@ test-packages:
 # link the tests against. cargo test doesn't know that the tests will be running
 # cmake + make to build programs whose dependencies cargo isn't aware of.
 
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) #$(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
+
 test-capi-singlepass-jit: build-capi-singlepass-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,jit,singlepass,wasi -- --nocapture
@@ -215,8 +219,6 @@ test-capi-llvm-jit:
 test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features wat,native,llvm,wasi -- --nocapture
-
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) $(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
