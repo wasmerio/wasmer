@@ -2343,7 +2343,7 @@ name = "wasmer-c-api"
 version = "1.0.0-alpha5"
 dependencies = [
  "cbindgen",
- "cfg-if 0.1.10",
+ "cfg-if 1.0.0",
  "inline-c",
  "lazy_static",
  "libc",
