@@ -3,7 +3,7 @@ use super::types::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
     wasm_importtype_vec_t,
 };
-use crate::error::update_last_error;
+use crate::error::{update_last_error, CApiError};
 use std::sync::Arc;
 use wasmer::Module;
 
@@ -141,7 +141,10 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     // TODO: read config from store and use that to decide which compiler to use
 
     let byte_slice = if bytes.is_null() || (&*bytes).into_slice().is_none() {
-        // TODO: error handling here
+        update_last_error(CApiError {
+            msg: "`bytes` is null or represents an empty slice".to_string(),
+        });
+
         return None;
     } else {
         (&*bytes).into_slice().unwrap()
