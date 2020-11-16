@@ -7,6 +7,14 @@
 
 ## **[Unreleased]**
 
+### Added
+
+- [#1649](https://github.com/wasmerio/wasmer/pull/1649) Add outline of migration to 1.0.0 docs.
+
+### Changed
+
+### Fixed
+
 ## 1.0.0-alpha5 - 2020-11-06
 
 ### Added
