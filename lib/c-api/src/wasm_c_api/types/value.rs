@@ -60,6 +60,12 @@ wasm_declare_boxed_vec!(valtype);
 
 impl From<wasm_valtype_t> for ValType {
     fn from(other: wasm_valtype_t) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&wasm_valtype_t> for ValType {
+    fn from(other: &wasm_valtype_t) -> Self {
         other.valkind.into()
     }
 }
