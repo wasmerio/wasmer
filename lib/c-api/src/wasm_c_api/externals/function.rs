@@ -7,6 +7,7 @@ use std::ffi::c_void;
 use std::sync::Arc;
 use wasmer::{Function, Instance, RuntimeError, Val};
 
+#[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasm_func_t {
     pub(crate) inner: Function,
@@ -32,11 +33,14 @@ pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
-    store: &wasm_store_t,
-    function_type: &wasm_functype_t,
-    callback: wasm_func_callback_t,
+    store: Option<&wasm_store_t>,
+    function_type: Option<&wasm_functype_t>,
+    callback: Option<wasm_func_callback_t>,
 ) -> Option<Box<wasm_func_t>> {
-    // TODO: handle null pointers?
+    let store = store?;
+    let function_type = function_type?;
+    let callback = callback?;
+
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
@@ -84,13 +88,16 @@ pub unsafe extern "C" fn wasm_func_new(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new_with_env(
-    store: &wasm_store_t,
-    function_type: &wasm_functype_t,
-    callback: wasm_func_callback_with_env_t,
+    store: Option<&wasm_store_t>,
+    function_type: Option<&wasm_functype_t>,
+    callback: Option<wasm_func_callback_with_env_t>,
     env: *mut c_void,
     finalizer: wasm_env_finalizer_t,
 ) -> Option<Box<wasm_func_t>> {
-    // TODO: handle null pointers?
+    let store = store?;
+    let function_type = function_type?;
+    let callback = callback?;
+
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
     let inner_callback =
@@ -143,10 +150,13 @@ pub unsafe extern "C" fn wasm_func_delete(_func: Option<Box<wasm_func_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_call(
-    func: &wasm_func_t,
-    args: &wasm_val_vec_t,
+    func: Option<&wasm_func_t>,
+    args: Option<&wasm_val_vec_t>,
     results: &mut wasm_val_vec_t,
 ) -> Option<Box<wasm_trap_t>> {
+    let func = func?;
+    let args = args?;
+
     let params = args
         .into_slice()
         .map(|slice| {
@@ -200,6 +210,8 @@ pub unsafe extern "C" fn wasm_func_result_arity(func: &wasm_func_t) -> usize {
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_func_type(func: &wasm_func_t) -> Box<wasm_functype_t> {
-    Box::new(wasm_functype_t::new(func.inner.ty().clone()))
+pub extern "C" fn wasm_func_type(func: Option<&wasm_func_t>) -> Option<Box<wasm_functype_t>> {
+    let func = func?;
+
+    Some(Box::new(wasm_functype_t::new(func.inner.ty().clone())))
 }

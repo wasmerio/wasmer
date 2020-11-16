@@ -1,6 +1,7 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
+use crate::error::update_last_error;
 use std::convert::TryInto;
 use wasmer::{Global, Val};
 
@@ -12,10 +13,14 @@ pub struct wasm_global_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_new(
-    store: &wasm_store_t,
-    global_type: &wasm_globaltype_t,
-    val: &wasm_val_t,
+    store: Option<&wasm_store_t>,
+    global_type: Option<&wasm_globaltype_t>,
+    val: Option<&wasm_val_t>,
 ) -> Option<Box<wasm_global_t>> {
+    let store = store?;
+    let global_type = global_type?;
+    let val = val?;
+
     let global_type = &global_type.inner().global_type;
     let wasm_val = val.try_into().ok()?;
     let store = &store.inner;
@@ -33,23 +38,32 @@ pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>)
 
 // TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_copy(wasm_global: &wasm_global_t) -> Box<wasm_global_t> {
+pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
     Box::new(wasm_global_t {
-        inner: wasm_global.inner.clone(),
+        inner: global.inner.clone(),
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_get(wasm_global: &wasm_global_t, out: &mut wasm_val_t) {
-    let value = wasm_global.inner.get();
+pub unsafe extern "C" fn wasm_global_get(
+    global: &wasm_global_t,
+    // own
+    out: &mut wasm_val_t,
+) {
+    let value = global.inner.get();
     *out = value.try_into().unwrap();
 }
 
+/// Note: This function returns nothing by design but it can raise an
+/// error if setting a new value fails.
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_set(wasm_global: &mut wasm_global_t, val: &wasm_val_t) {
+pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
     let value: Val = val.try_into().unwrap();
-    wasm_global.inner.set(value);
+
+    if let Err(e) = global.inner.set(value) {
+        update_last_error(e);
+    }
 }
 
 #[no_mangle]
@@ -61,6 +75,6 @@ pub unsafe extern "C" fn wasm_global_same(
 }
 
 #[no_mangle]
-pub extern "C" fn wasm_global_type(wasm_global: &wasm_global_t) -> Box<wasm_globaltype_t> {
-    Box::new(wasm_globaltype_t::new(wasm_global.inner.ty().clone()))
+pub extern "C" fn wasm_global_type(global: &wasm_global_t) -> Box<wasm_globaltype_t> {
+    Box::new(wasm_globaltype_t::new(global.inner.ty().clone()))
 }

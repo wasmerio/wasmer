@@ -919,9 +919,9 @@ dependencies = [
 
 [[package]]
 name = "inline-c"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "05127e24c27c04b35e108635f2fe846e48152333bae2be0eab57a5e6f00dfd14"
+checksum = "6acf1564e52050c9f7102e87951265c4c8012873181998be24640cb6b5e3f77c"
 dependencies = [
  "assert_cmd",
  "cc",
@@ -2187,9 +2187,9 @@ checksum = "56dee185309b50d1f11bfedef0fe6d036842e3fb77413abef29f8f8d1c5d4c1c"
 
 [[package]]
 name = "unicode-segmentation"
-version = "1.6.0"
+version = "1.7.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e83e153d1053cbb5a118eeff7fd5be06ed99153f00dbcd8ae310c5fb2b22edc0"
+checksum = "db8716a166f290ff49dabc18b44aa407cb7c6dbe1aa0971b44b8a24b0ca35aae"
 
 [[package]]
 name = "unicode-width"

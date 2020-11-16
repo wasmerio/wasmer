@@ -8,11 +8,17 @@ use wasmer::{ExternType, GlobalType};
 #[derive(Debug, Clone)]
 pub(crate) struct WasmGlobalType {
     pub(crate) global_type: GlobalType,
+    content: Box<wasm_valtype_t>,
 }
 
 impl WasmGlobalType {
     pub(crate) fn new(global_type: GlobalType) -> Self {
-        Self { global_type }
+        let content = Box::new(global_type.ty.into());
+
+        Self {
+            global_type,
+            content,
+        }
     }
 }
 
@@ -44,7 +50,6 @@ wasm_declare_vec!(globaltype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_new(
-    // own
     valtype: Option<Box<wasm_valtype_t>>,
     mutability: wasm_mutability_t,
 ) -> Option<Box<wasm_globaltype_t>> {
@@ -70,13 +75,9 @@ pub unsafe extern "C" fn wasm_globaltype_mutability(
     wasm_mutability_enum::from(global_type.inner().global_type.mutability).into()
 }
 
-// TODO: fix memory leak
-// this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_content(
     global_type: &wasm_globaltype_t,
-) -> *const wasm_valtype_t {
-    let global_type = global_type.inner().global_type;
-
-    Box::into_raw(Box::new(global_type.ty.into()))
+) -> &wasm_valtype_t {
+    global_type.inner().content.as_ref()
 }

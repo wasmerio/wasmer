@@ -3,9 +3,8 @@ use super::types::{
     wasm_byte_vec_t, wasm_exporttype_t, wasm_exporttype_vec_t, wasm_importtype_t,
     wasm_importtype_vec_t,
 };
-use crate::error::update_last_error;
+use crate::error::{update_last_error, CApiError};
 use std::ptr::NonNull;
-use std::slice;
 use std::sync::Arc;
 use wasmer::Module;
 
@@ -58,12 +57,14 @@ pub struct wasm_module_t {
 /// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
-    store: &wasm_store_t,
-    bytes: &wasm_byte_vec_t,
+    store: Option<&wasm_store_t>,
+    bytes: Option<&wasm_byte_vec_t>,
 ) -> Option<Box<wasm_module_t>> {
-    // TODO: review lifetime of byte slice
-    let wasm_byte_slice: &[u8] = slice::from_raw_parts_mut(bytes.data, bytes.size);
-    let module = c_try!(Module::from_binary(&store.inner, wasm_byte_slice));
+    let store = store?;
+    let bytes = bytes?;
+
+    let bytes = bytes.into_slice()?;
+    let module = c_try!(Module::from_binary(&store.inner, bytes));
 
     Some(Box::new(wasm_module_t {
         inner: Arc::new(module),
@@ -75,13 +76,24 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_validate(
-    store: &wasm_store_t,
-    bytes: &wasm_byte_vec_t,
+    store: Option<&wasm_store_t>,
+    bytes: Option<&wasm_byte_vec_t>,
 ) -> bool {
-    // TODO: review lifetime of byte slice.
-    let wasm_byte_slice: &[u8] = slice::from_raw_parts(bytes.data, bytes.size);
+    let store = match store {
+        Some(store) => store,
+        None => return false,
+    };
+    let bytes = match bytes {
+        Some(bytes) => bytes,
+        None => return false,
+    };
 
-    if let Err(error) = Module::validate(&store.inner, wasm_byte_slice) {
+    let bytes = match bytes.into_slice() {
+        Some(bytes) => bytes,
+        None => return false,
+    };
+
+    if let Err(error) = Module::validate(&store.inner, bytes) {
         update_last_error(error);
 
         false
@@ -93,6 +105,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
+    // own
     out: &mut wasm_exporttype_vec_t,
 ) {
     let exports = module
@@ -108,6 +121,7 @@ pub unsafe extern "C" fn wasm_module_exports(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
+    // own
     out: &mut wasm_importtype_vec_t,
 ) {
     let imports = module
@@ -128,7 +142,10 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     // TODO: read config from store and use that to decide which compiler to use
 
     let byte_slice = if bytes.is_null() || (&*bytes).into_slice().is_none() {
-        // TODO: error handling here
+        update_last_error(CApiError {
+            msg: "`bytes` is null or represents an empty slice".to_string(),
+        });
+
         return None;
     } else {
         (&*bytes).into_slice().unwrap()
@@ -262,8 +279,6 @@ mod tests {
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
                     assert(func_results && func_results->size == 0);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -278,8 +293,6 @@ mod tests {
                     const wasm_globaltype_t* global_type = wasm_externtype_as_globaltype_const(extern_type);
                     assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_I32);
                     assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -297,8 +310,6 @@ mod tests {
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
                     assert(table_limits->min == 0);
                     assert(table_limits->max == wasm_limits_max_default);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -314,8 +325,6 @@ mod tests {
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
                     assert(memory_limits->min == 1);
                     assert(memory_limits->max == wasm_limits_max_default);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 wasm_exporttype_vec_delete(&export_types);
@@ -376,8 +385,6 @@ mod tests {
 
                     const wasm_valtype_vec_t* func_results = wasm_functype_results(func_type);
                     assert(func_results && func_results->size == 0);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -395,8 +402,6 @@ mod tests {
                     const wasm_globaltype_t* global_type = wasm_externtype_as_globaltype_const(extern_type);
                     assert(wasm_valtype_kind(wasm_globaltype_content(global_type)) == WASM_F32);
                     assert(wasm_globaltype_mutability(global_type) == WASM_CONST);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -417,8 +422,6 @@ mod tests {
                     const wasm_limits_t* table_limits = wasm_tabletype_limits(table_type);
                     assert(table_limits->min == 1);
                     assert(table_limits->max == 2);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 {
@@ -437,8 +440,6 @@ mod tests {
                     const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
                     assert(memory_limits->min == 3);
                     assert(memory_limits->max == 4);
-
-                    wasm_externtype_delete((wasm_externtype_t*) extern_type);
                 }
 
                 wasm_importtype_vec_delete(&import_types);

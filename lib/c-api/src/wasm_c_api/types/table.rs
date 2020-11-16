@@ -11,11 +11,23 @@ const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
 #[derive(Debug, Clone)]
 pub(crate) struct WasmTableType {
     pub(crate) table_type: TableType,
+    limits: Box<wasm_limits_t>,
+    content: Box<wasm_valtype_t>,
 }
 
 impl WasmTableType {
     pub(crate) fn new(table_type: TableType) -> Self {
-        Self { table_type }
+        let limits = Box::new(wasm_limits_t {
+            min: table_type.minimum as _,
+            max: table_type.maximum.unwrap_or(LIMITS_MAX_SENTINEL),
+        });
+        let content = Box::new(table_type.ty.into());
+
+        Self {
+            table_type,
+            limits,
+            content,
+        }
     }
 }
 
@@ -45,7 +57,6 @@ wasm_declare_vec!(tabletype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
-    // own
     valtype: Option<Box<wasm_valtype_t>>,
     limits: &wasm_limits_t,
 ) -> Option<Box<wasm_tabletype_t>> {
@@ -66,29 +77,14 @@ pub unsafe extern "C" fn wasm_tabletype_new(
     Some(table_type)
 }
 
-// TODO: fix memory leak
-// this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_tabletype_limits(
-    table_type: &wasm_tabletype_t,
-) -> *const wasm_limits_t {
-    let table_type = table_type.inner().table_type;
-
-    Box::into_raw(Box::new(wasm_limits_t {
-        min: table_type.minimum as _,
-        max: table_type.maximum.unwrap_or(LIMITS_MAX_SENTINEL),
-    }))
+pub unsafe extern "C" fn wasm_tabletype_limits(table_type: &wasm_tabletype_t) -> &wasm_limits_t {
+    table_type.inner().limits.as_ref()
 }
 
-// TODO: fix memory leak
-// this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_tabletype_element(
-    table_type: &wasm_tabletype_t,
-) -> *const wasm_valtype_t {
-    let table_type = table_type.inner().table_type;
-
-    Box::into_raw(Box::new(table_type.ty.into()))
+pub unsafe extern "C" fn wasm_tabletype_element(table_type: &wasm_tabletype_t) -> &wasm_valtype_t {
+    table_type.inner().content.as_ref()
 }
 
 #[no_mangle]
