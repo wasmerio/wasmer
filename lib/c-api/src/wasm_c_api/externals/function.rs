@@ -33,11 +33,11 @@ pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
     store: &wasm_store_t,
-    ft: &wasm_functype_t,
+    function_type: &wasm_functype_t,
     callback: wasm_func_callback_t,
 ) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
-    let func_sig = ft.sig();
+    let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
     let inner_callback = move |args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
@@ -85,13 +85,13 @@ pub unsafe extern "C" fn wasm_func_new(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new_with_env(
     store: &wasm_store_t,
-    ft: &wasm_functype_t,
+    function_type: &wasm_functype_t,
     callback: wasm_func_callback_with_env_t,
     env: *mut c_void,
     finalizer: wasm_env_finalizer_t,
 ) -> Option<Box<wasm_func_t>> {
     // TODO: handle null pointers?
-    let func_sig = ft.sig();
+    let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
     let inner_callback =
         move |env: &mut *mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {

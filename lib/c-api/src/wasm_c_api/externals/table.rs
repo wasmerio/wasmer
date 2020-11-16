@@ -11,12 +11,12 @@ pub struct wasm_table_t {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_new(
     store: &wasm_store_t,
-    tt: &wasm_tabletype_t,
+    table_type: &wasm_tabletype_t,
     init: *const wasm_ref_t,
 ) -> Option<Box<wasm_table_t>> {
-    let tt = tt.as_tabletype().clone();
+    let table_type = table_type.inner().table_type.clone();
     let init_val = todo!("get val from init somehow");
-    let table = c_try!(Table::new(&store.inner, tt, init_val));
+    let table = c_try!(Table::new(&store.inner, table_type, init_val));
 
     Some(Box::new(wasm_table_t { inner: table }))
 }

@@ -1,28 +1,90 @@
-use super::{wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_t};
+use super::{wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_t, WasmExternType};
 use std::mem;
 use std::ptr::NonNull;
 use wasmer::{ExternType, FunctionType, ValType};
 
+#[derive(Debug)]
+pub(crate) struct WasmFunctionType {
+    pub(crate) function_type: FunctionType,
+    params: Box<wasm_valtype_vec_t>,
+    results: Box<wasm_valtype_vec_t>,
+}
+
+impl WasmFunctionType {
+    pub(crate) fn new(function_type: FunctionType) -> Self {
+        let params = {
+            let mut valtypes = function_type
+                .params()
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .map(Box::new)
+                .map(Box::into_raw)
+                .collect::<Vec<*mut wasm_valtype_t>>();
+
+            let valtypes_vec = Box::new(wasm_valtype_vec_t {
+                size: valtypes.len(),
+                data: valtypes.as_mut_ptr(),
+            });
+
+            mem::forget(valtypes);
+
+            valtypes_vec
+        };
+        let results = {
+            let mut valtypes = function_type
+                .results()
+                .iter()
+                .cloned()
+                .map(Into::into)
+                .map(Box::new)
+                .map(Box::into_raw)
+                .collect::<Vec<*mut wasm_valtype_t>>();
+
+            let valtypes_vec = Box::new(wasm_valtype_vec_t {
+                size: valtypes.len(),
+                data: valtypes.as_mut_ptr(),
+            });
+
+            mem::forget(valtypes);
+
+            valtypes_vec
+        };
+
+        Self {
+            function_type,
+            params,
+            results,
+        }
+    }
+}
+
+impl Clone for WasmFunctionType {
+    fn clone(&self) -> Self {
+        Self::new(self.function_type.clone())
+    }
+}
+
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct wasm_functype_t {
-    pub(crate) extern_: wasm_externtype_t,
+    pub(crate) extern_type: wasm_externtype_t,
 }
 
 impl wasm_functype_t {
-    pub(crate) fn sig(&self) -> &FunctionType {
-        if let ExternType::Function(ref f) = self.extern_.inner {
-            f
-        } else {
-            unreachable!("data corruption: `wasm_functype_t` does not contain a function")
+    pub(crate) fn new(function_type: FunctionType) -> Self {
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Function(function_type)),
         }
     }
 
-    pub(crate) fn new(function_type: FunctionType) -> Self {
-        Self {
-            extern_: wasm_externtype_t {
-                inner: ExternType::Function(function_type),
-            },
+    pub(crate) fn inner(&self) -> &WasmFunctionType {
+        match &self.extern_type.inner {
+            WasmExternType::Function(wasm_function_type) => &wasm_function_type,
+            _ => {
+                unreachable!("Data corruption: `wasm_functype_t` does not contain a function type")
+            }
         }
     }
 }
@@ -36,24 +98,18 @@ pub unsafe extern "C" fn wasm_functype_new(
     // own
     results: Option<NonNull<wasm_valtype_vec_t>>,
 ) -> Option<Box<wasm_functype_t>> {
-    wasm_functype_new_inner(params?, results?)
-}
+    let params = params?;
+    let results = results?;
 
-unsafe fn wasm_functype_new_inner(
-    // own
-    params: NonNull<wasm_valtype_vec_t>,
-    // own
-    results: NonNull<wasm_valtype_vec_t>,
-) -> Option<Box<wasm_functype_t>> {
-    let params = params.as_ref();
-    let results = results.as_ref();
     let params: Vec<ValType> = params
+        .as_ref()
         .into_slice()?
         .iter()
         .map(|ptr| **ptr)
         .map(Into::into)
         .collect::<Vec<_>>();
     let results: Vec<ValType> = results
+        .as_ref()
         .into_slice()?
         .iter()
         .map(|ptr| **ptr)
@@ -66,53 +122,29 @@ unsafe fn wasm_functype_new_inner(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_delete(_ft: Option<Box<wasm_functype_t>>) {}
+pub unsafe extern "C" fn wasm_functype_delete(_function_type: Option<Box<wasm_functype_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_copy(
-    arg: Option<NonNull<wasm_functype_t>>,
+    function_type: Option<NonNull<wasm_functype_t>>,
 ) -> Option<Box<wasm_functype_t>> {
-    let arg = arg?;
-    let funcsig = arg.as_ref();
-    Some(Box::new(funcsig.clone()))
+    let function_type = function_type?;
+
+    Some(Box::new(wasm_functype_t::new(
+        function_type.as_ref().inner().function_type.clone(),
+    )))
 }
 
-// TODO: fix memory leak
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_params(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
-    let mut valtypes = ft
-        .sig()
-        .params()
-        .iter()
-        .cloned()
-        .map(Into::into)
-        .map(Box::new)
-        .map(Box::into_raw)
-        .collect::<Vec<*mut wasm_valtype_t>>();
-    let out = Box::into_raw(Box::new(wasm_valtype_vec_t {
-        size: valtypes.len(),
-        data: valtypes.as_mut_ptr(),
-    }));
-    mem::forget(valtypes);
-    out as *const _
+pub unsafe extern "C" fn wasm_functype_params(
+    function_type: &wasm_functype_t,
+) -> *const wasm_valtype_vec_t {
+    function_type.inner().params.as_ref() as *const _
 }
 
-// TODO: fix memory leak
 #[no_mangle]
-pub unsafe extern "C" fn wasm_functype_results(ft: &wasm_functype_t) -> *const wasm_valtype_vec_t {
-    let mut valtypes = ft
-        .sig()
-        .results()
-        .iter()
-        .cloned()
-        .map(Into::into)
-        .map(Box::new)
-        .map(Box::into_raw)
-        .collect::<Vec<*mut wasm_valtype_t>>();
-    let out = Box::into_raw(Box::new(wasm_valtype_vec_t {
-        size: valtypes.len(),
-        data: valtypes.as_mut_ptr(),
-    }));
-    mem::forget(valtypes);
-    out as *const _
+pub unsafe extern "C" fn wasm_functype_results(
+    function_type: &wasm_functype_t,
+) -> *const wasm_valtype_vec_t {
+    function_type.inner().results.as_ref() as *const _
 }

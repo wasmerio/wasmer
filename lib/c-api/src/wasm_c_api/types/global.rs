@@ -1,31 +1,41 @@
 use super::{
-    wasm_externtype_t, wasm_mutability_enum, wasm_mutability_t, wasm_valtype_delete, wasm_valtype_t,
+    wasm_externtype_t, wasm_mutability_enum, wasm_mutability_t, wasm_valtype_delete,
+    wasm_valtype_t, WasmExternType,
 };
 use std::convert::TryInto;
 use wasmer::{ExternType, GlobalType};
 
+#[derive(Debug, Clone)]
+pub(crate) struct WasmGlobalType {
+    pub(crate) global_type: GlobalType,
+}
+
+impl WasmGlobalType {
+    pub(crate) fn new(global_type: GlobalType) -> Self {
+        Self { global_type }
+    }
+}
+
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct wasm_globaltype_t {
-    pub(crate) extern_: wasm_externtype_t,
+    pub(crate) extern_type: wasm_externtype_t,
 }
 
 impl wasm_globaltype_t {
-    pub(crate) fn as_globaltype(&self) -> &GlobalType {
-        if let ExternType::Global(ref g) = self.extern_.inner {
-            g
-        } else {
-            unreachable!(
-                "Data corruption detected: `wasm_globaltype_t` does not contain a `GlobalType`"
-            );
+    pub(crate) fn new(global_type: GlobalType) -> Self {
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Global(global_type)),
         }
     }
 
-    pub(crate) fn new(global_type: GlobalType) -> Self {
-        Self {
-            extern_: wasm_externtype_t {
-                inner: ExternType::Global(global_type),
-            },
+    pub(crate) fn inner(&self) -> &WasmGlobalType {
+        match &self.extern_type.inner {
+            WasmExternType::Global(wasm_global_type) => &wasm_global_type,
+            _ => {
+                unreachable!("Data corruption: `wasm_globaltype_t` does not contain a global type")
+            }
         }
     }
 }
@@ -38,41 +48,35 @@ pub unsafe extern "C" fn wasm_globaltype_new(
     valtype: Option<Box<wasm_valtype_t>>,
     mutability: wasm_mutability_t,
 ) -> Option<Box<wasm_globaltype_t>> {
-    wasm_globaltype_new_inner(valtype?, mutability)
+    let valtype = valtype?;
+    let mutability: wasm_mutability_enum = mutability.try_into().ok()?;
+    let global_type = Box::new(wasm_globaltype_t::new(GlobalType::new(
+        (*valtype).into(),
+        mutability.into(),
+    )));
+
+    wasm_valtype_delete(Some(valtype));
+
+    Some(global_type)
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_globaltype_delete(_globaltype: Option<Box<wasm_globaltype_t>>) {}
-
-unsafe fn wasm_globaltype_new_inner(
-    // own
-    valtype: Box<wasm_valtype_t>,
-    mutability: wasm_mutability_t,
-) -> Option<Box<wasm_globaltype_t>> {
-    let me: wasm_mutability_enum = mutability.try_into().ok()?;
-    let gd = Box::new(wasm_globaltype_t::new(GlobalType::new(
-        (*valtype).into(),
-        me.into(),
-    )));
-    wasm_valtype_delete(Some(valtype));
-
-    Some(gd)
-}
+pub unsafe extern "C" fn wasm_globaltype_delete(_global_type: Option<Box<wasm_globaltype_t>>) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_mutability(
-    globaltype: &wasm_globaltype_t,
+    global_type: &wasm_globaltype_t,
 ) -> wasm_mutability_t {
-    let gt = globaltype.as_globaltype();
-    wasm_mutability_enum::from(gt.mutability).into()
+    wasm_mutability_enum::from(global_type.inner().global_type.mutability).into()
 }
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_content(
-    globaltype: &wasm_globaltype_t,
+    global_type: &wasm_globaltype_t,
 ) -> *const wasm_valtype_t {
-    let gt = globaltype.as_globaltype();
-    Box::into_raw(Box::new(gt.ty.into()))
+    let global_type = global_type.inner().global_type;
+
+    Box::into_raw(Box::new(global_type.ty.into()))
 }

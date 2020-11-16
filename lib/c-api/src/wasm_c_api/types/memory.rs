@@ -1,49 +1,46 @@
-use super::wasm_externtype_t;
+use super::{wasm_externtype_t, WasmExternType};
 use wasmer::{ExternType, MemoryType, Pages};
 
-// opaque type wrapping `MemoryType`
+#[derive(Debug, Clone)]
+pub(crate) struct WasmMemoryType {
+    pub(crate) memory_type: MemoryType,
+}
+
+impl WasmMemoryType {
+    pub(crate) fn new(memory_type: MemoryType) -> Self {
+        Self { memory_type }
+    }
+}
+
 #[allow(non_camel_case_types)]
-#[derive(Clone, Debug)]
+#[derive(Debug)]
+#[repr(transparent)]
 pub struct wasm_memorytype_t {
-    pub(crate) extern_: wasm_externtype_t,
+    pub(crate) extern_type: wasm_externtype_t,
 }
 
 impl wasm_memorytype_t {
-    pub(crate) fn as_memorytype(&self) -> &MemoryType {
-        if let ExternType::Memory(ref mt) = self.extern_.inner {
-            mt
-        } else {
-            unreachable!(
-                "Data corruption detected: `wasm_memorytype_t` does not contain a `MemoryType`"
-            );
+    pub(crate) fn new(memory_type: MemoryType) -> Self {
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Memory(memory_type)),
         }
     }
 
-    pub(crate) fn new(memory_type: MemoryType) -> Self {
-        Self {
-            extern_: wasm_externtype_t {
-                inner: ExternType::Memory(memory_type),
-            },
+    pub(crate) fn inner(&self) -> &WasmMemoryType {
+        match &self.extern_type.inner {
+            WasmExternType::Memory(wasm_memory_type) => &wasm_memory_type,
+            _ => {
+                unreachable!("Data corruption: `wasm_memorytype_t` does not contain a memory type")
+            }
         }
     }
 }
 
 wasm_declare_vec!(memorytype);
 
-#[allow(non_camel_case_types)]
-#[derive(Copy, Clone, Debug)]
-#[repr(C)]
-pub struct wasm_limits_t {
-    pub(crate) min: u32,
-    pub(crate) max: u32,
-}
-
-const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
-
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
-    // u32::max_value() is a sentinel value for no max specified
     let max_pages = if limits.max == LIMITS_MAX_SENTINEL {
         None
     } else {
@@ -56,17 +53,29 @@ pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_delete(_memorytype: Option<Box<wasm_memorytype_t>>) {}
+pub unsafe extern "C" fn wasm_memorytype_delete(_memory_type: Option<Box<wasm_memorytype_t>>) {}
+
+#[allow(non_camel_case_types)]
+#[derive(Copy, Clone, Debug)]
+#[repr(C)]
+pub struct wasm_limits_t {
+    pub(crate) min: u32,
+    pub(crate) max: u32,
+}
+
+const LIMITS_MAX_SENTINEL: u32 = u32::max_value();
 
 // TODO: fix memory leak
 // this function leaks memory because the returned limits pointer is not owned
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memorytype_limits(mt: &wasm_memorytype_t) -> *const wasm_limits_t {
-    let md = mt.as_memorytype();
+pub unsafe extern "C" fn wasm_memorytype_limits(
+    memory_type: &wasm_memorytype_t,
+) -> *const wasm_limits_t {
+    let memory_type = memory_type.inner().memory_type;
 
     Box::into_raw(Box::new(wasm_limits_t {
-        min: md.minimum.0 as _,
-        max: md
+        min: memory_type.minimum.0 as _,
+        max: memory_type
             .maximum
             .map(|max| max.0 as _)
             .unwrap_or(LIMITS_MAX_SENTINEL),

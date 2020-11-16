@@ -6,10 +6,6 @@ use wasmer::ExportType;
 pub struct wasm_exporttype_t {
     name: NonNull<wasm_name_t>,
     extern_type: NonNull<wasm_externtype_t>,
-
-    /// If `true`, `name` and `extern_type` will be dropped by
-    /// `wasm_exporttype_t::drop`.
-    owns_fields: bool,
 }
 
 wasm_declare_boxed_vec!(exporttype);
@@ -19,11 +15,7 @@ pub extern "C" fn wasm_exporttype_new(
     name: NonNull<wasm_name_t>,
     extern_type: NonNull<wasm_externtype_t>,
 ) -> Box<wasm_exporttype_t> {
-    Box::new(wasm_exporttype_t {
-        name,
-        extern_type,
-        owns_fields: false,
-    })
+    Box::new(wasm_exporttype_t { name, extern_type })
 }
 
 #[no_mangle]
@@ -33,27 +25,13 @@ pub extern "C" fn wasm_exporttype_name(et: &'static wasm_exporttype_t) -> &'stat
 
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_type(
-    et: &'static wasm_exporttype_t,
+    export_type: &'static wasm_exporttype_t,
 ) -> &'static wasm_externtype_t {
-    unsafe { et.extern_type.as_ref() }
+    unsafe { export_type.extern_type.as_ref() }
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_delete(_exporttype: Option<Box<wasm_exporttype_t>>) {}
-
-impl Drop for wasm_exporttype_t {
-    fn drop(&mut self) {
-        if self.owns_fields {
-            // SAFETY: `owns_fields` is set to `true` only in
-            // `wasm_exporttype_t::from(&ExportType)`, where the data
-            // are leaked properly and won't be freed somewhere else.
-            unsafe {
-                let _ = Box::from_raw(self.name.as_ptr());
-                let _ = Box::from_raw(self.extern_type.as_ptr());
-            }
-        }
-    }
-}
 
 impl From<ExportType> for wasm_exporttype_t {
     fn from(other: ExportType) -> Self {
@@ -81,10 +59,6 @@ impl From<&ExportType> for wasm_exporttype_t {
             unsafe { NonNull::new_unchecked(Box::into_raw(Box::new(extern_type))) }
         };
 
-        wasm_exporttype_t {
-            name,
-            extern_type,
-            owns_fields: true,
-        }
+        wasm_exporttype_t { name, extern_type }
     }
 }
