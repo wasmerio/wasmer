@@ -68,10 +68,10 @@ pub unsafe extern "C" fn wasm_val_copy(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_delete(val: Option<&wasm_val_t>) {
-    if let Some(v_inner) = val {
+pub unsafe extern "C" fn wasm_val_delete(val: Option<Box<wasm_val_t>>) {
+    if let Some(val) = val {
         // TODO: figure out where wasm_val is allocated first...
-        let _ = Box::from_raw(v_inner);
+        let _ = val;
     }
 }
 
