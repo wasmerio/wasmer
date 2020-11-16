@@ -221,6 +221,8 @@ impl Drop for GlobalFrameInfoRegistration {
 
 /// Represents a continuous region of executable memory starting with a function
 /// entry point.
+#[derive(Debug)]
+#[repr(C)]
 pub struct FunctionExtent {
     /// Entry point for normal entry of the function. All addresses in the
     /// function lie after this address.
