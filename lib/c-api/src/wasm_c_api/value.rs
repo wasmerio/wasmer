@@ -1,7 +1,6 @@
 use super::types::{wasm_ref_t, wasm_valkind_enum};
 use crate::error::{update_last_error, CApiError};
 use std::convert::{TryFrom, TryInto};
-use std::ptr::NonNull;
 use wasmer::Val;
 
 #[allow(non_camel_case_types)]
@@ -69,10 +68,10 @@ pub unsafe extern "C" fn wasm_val_copy(
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_delete(val: Option<NonNull<wasm_val_t>>) {
+pub unsafe extern "C" fn wasm_val_delete(val: Option<&wasm_val_t>) {
     if let Some(v_inner) = val {
         // TODO: figure out where wasm_val is allocated first...
-        let _ = Box::from_raw(v_inner.as_ptr());
+        let _ = Box::from_raw(v_inner);
     }
 }
 

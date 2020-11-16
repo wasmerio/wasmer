@@ -1,5 +1,4 @@
 use super::engine::wasm_engine_t;
-use std::ptr::NonNull;
 use wasmer::Store;
 
 /// Opaque wrapper around `Store`
@@ -10,11 +9,9 @@ pub struct wasm_store_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_store_new(
-    engine: Option<NonNull<wasm_engine_t>>,
+    engine: Option<&wasm_engine_t>,
 ) -> Option<Box<wasm_store_t>> {
     let engine = engine?;
-    let engine = engine.as_ref();
-
     let store = Store::new(&*engine.inner);
 
     Some(Box::new(wasm_store_t { inner: store }))

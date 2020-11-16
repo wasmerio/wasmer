@@ -1,6 +1,5 @@
 use super::{wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_t, WasmExternType};
 use std::mem;
-use std::ptr::NonNull;
 use wasmer::{ExternType, FunctionType, ValType};
 
 #[derive(Debug)]
@@ -124,12 +123,12 @@ pub unsafe extern "C" fn wasm_functype_delete(_function_type: Option<Box<wasm_fu
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_copy(
-    function_type: Option<NonNull<wasm_functype_t>>,
+    function_type: Option<&wasm_functype_t>,
 ) -> Option<Box<wasm_functype_t>> {
     let function_type = function_type?;
 
     Some(Box::new(wasm_functype_t::new(
-        function_type.as_ref().inner().function_type.clone(),
+        function_type.inner().function_type.clone(),
     )))
 }
 
