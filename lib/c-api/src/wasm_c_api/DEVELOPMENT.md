@@ -39,6 +39,16 @@ By reading the code, it is clear that `wasm_importtype_new` takes the
 ownership for `module`, `name`, and `extern_type`, and that the result
 is owned by the caller.
 
+## `const *T`
+
+A constant pointer can be interpreted in C as an immutable
+pointer. Without the `own` annotation, it means the ownership is not
+transfered anywhere (see [the Ownerships Section][#ownerships]).
+
+### Rust Pattern
+
+`const *T` translates to Rust as `&T`, it's a reference.
+
 ## Null Pointer
 
 The `wasm.h` header does not say anything about null pointer. The
@@ -92,17 +102,6 @@ It returns `None` if the value is `None`, otherwise it unwraps the
 Because the function returns `Option<Box<T>>`, `None` represents a
 null pointer.
 
-## `const *T`
-
-A constant pointer can be interpreted in C as an immutable
-pointer. Without the `own` annotation, it means the ownership is not
-transfered anywhere (see [the Ownerships Section][#ownerships]).
-
-### Rust Pattern
-
-`const *T` translates to Rust as `&T`, it's a reference.
-
-Note: It could translate to `Option<NonNull<T>>` and then we could
-call `x?.as_ref()` to get a `&T`. It could also translate to
-`Option<&T>`. Whether we should use such patterns in all the codebase
-is still under discussion.
+Considering [the `const *T` Section][#const-t], if the pointer is not
+owned, we can either write `Option<NonNull<T>>` or `Option<&T>`. It
+has been decided to use the second pattern in all the codebase.
