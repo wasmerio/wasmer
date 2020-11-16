@@ -72,10 +72,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Calling `sum` function...");
     // Let's call the `sum` exported function. The parameters are a
     // slice of `Value`s. The results are a boxed slice of `Value`s.
-    let results = sum.call(&[Value::I32(1), Value::I32(2)])?;
+    let args = [Value::I32(1), Value::I32(2)];
+    let result = sum.call(&args)?;
 
-    println!("Results: {:?}", results);
-    assert_eq!(results.to_vec(), vec![Value::I32(3)]);
+    println!("Results: {:?}", result);
+    assert_eq!(result.to_vec(), vec![Value::I32(3)]);
 
     // That was fun. But what if we can get rid of the `Value`s? Well,
     // that's possible with the `NativeFunction` API. The function
@@ -85,20 +86,20 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // `Rets`, respectively for the parameters and the results. If
     // those values don't match the exported function signature, an
     // error will be raised.
-    let sum = sum.native::<(i32, i32), i32>()?;
+    let sum_native = sum.native::<(i32, i32), i32>()?;
 
     println!("Calling `sum` function (natively)...");
     // Let's call the `sum` exported function. The parameters are
     // statically typed Rust values of type `i32` and `i32`. The
     // result, in this case particular case, in a unit of type `i32`.
-    let result = sum.call(1, 2)?;
+    let result = sum_native.call(3, 4)?;
 
     println!("Results: {:?}", result);
-    assert_eq!(result, 3);
+    assert_eq!(result, 7);
 
     // Much nicer, isn't it?
     //
-    // Those two API exist because they addres different needs. The
+    // Those two API exist because they address different needs. The
     // former has a more dynamic approach, while the second has a more
     // static approach.
 

@@ -95,7 +95,7 @@ impl Compiler for CraneliftCompiler {
         };
 
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
@@ -127,7 +127,7 @@ impl Compiler for CraneliftCompiler {
                 let mut code_buf: Vec<u8> = Vec::new();
                 let mut reloc_sink = RelocSink::new(module, func_index);
                 let mut trap_sink = TrapSink::new();
-                let mut stackmap_sink = binemit::NullStackmapSink {};
+                let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
                     .compile_and_emit(
                         &*isa,

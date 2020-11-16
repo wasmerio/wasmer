@@ -61,6 +61,7 @@ fn main() {
 
     build_wasm_c_api_headers(&crate_dir, &out_dir);
     build_wasmer_headers(&crate_dir, &out_dir);
+    build_inline_c_env_vars();
 }
 
 /// Build the header files for the `wasm_c_api` API.
@@ -388,4 +389,45 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_compiler_t")
         .exclude_item("wasmer_engine_t")
         .exclude_item("wat2wasm")
+}
+
+fn build_inline_c_env_vars() {
+    use std::ffi::OsStr;
+
+    let mut shared_object_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("c-api")));
+    shared_object_dir.pop();
+
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("lib")));
+    shared_object_dir.pop();
+
+    shared_object_dir.push("target");
+    shared_object_dir.push(env::var("PROFILE").unwrap());
+
+    let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
+    let include_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
+
+    // The following options mean:
+    //
+    // * `-I`, add `include_dir` to include search path,
+    // * `-L`, add `shared_object_dir` to library search path,
+    // * `-D_DEBUG`, enable debug mode to enable `assert.h`.
+    println!(
+        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG",
+        I = include_dir,
+        L = shared_object_dir.clone(),
+    );
+
+    println!(
+        "cargo:rustc-env=INLINE_C_RS_LDFLAGS={shared_object_dir}/{lib}",
+        shared_object_dir = shared_object_dir,
+        lib = if cfg!(target_os = "windows") {
+            "wasmer_c_api.dll".to_string()
+        } else if cfg!(target_os = "macos") {
+            "libwasmer_c_api.dylib".to_string()
+        } else {
+            "libwasmer_c_api.so".to_string()
+        }
+    );
 }

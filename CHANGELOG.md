@@ -7,9 +7,20 @@
 
 ## **[Unreleased]**
 
-- [#1710](https://github.com/wasmerio/wasmer/pull/1710) Memory for function call trampolines is now owned by the Artifact.
 ### Added
 
+- [#1649](https://github.com/wasmerio/wasmer/pull/1649) Add outline of migration to 1.0.0 docs.
+
+### Changed
+
+### Fixed
+
+## 1.0.0-alpha5 - 2020-11-06
+
+### Added
+
+- [#1761](https://github.com/wasmerio/wasmer/pull/1761) Implement the `wasm_trap_t**` argument of `wasm_instance_new` in the Wasm C API.
+- [#1687](https://github.com/wasmerio/wasmer/pull/1687) Add basic table example; fix ownership of local memory and local table metadata in the VM.
 - [#1751](https://github.com/wasmerio/wasmer/pull/1751) Implement `wasm_trap_t` inside a function declared with `wasm_func_new_with_env` in the Wasm C API.
 - [#1741](https://github.com/wasmerio/wasmer/pull/1741) Implement `wasm_memory_type` in the Wasm C API.
 - [#1736](https://github.com/wasmerio/wasmer/pull/1736) Implement `wasm_global_type` in the Wasm C API.
@@ -19,10 +30,26 @@
 - [#1715](https://github.com/wasmerio/wasmer/pull/1715) Register errors from `wasm_module_serialize` in the Wasm C API.
 - [#1709](https://github.com/wasmerio/wasmer/pull/1709) Implement `wasm_module_name` and `wasm_module_set_name` in the Wasm(er) C API.
 - [#1700](https://github.com/wasmerio/wasmer/pull/1700) Implement `wasm_externtype_copy` in the Wasm C API.
+- [#1785](https://github.com/wasmerio/wasmer/pull/1785) Add more examples on the Rust API.
+- [#1783](https://github.com/wasmerio/wasmer/pull/1783) Handle initialized but empty results in `wasm_func_call` in the Wasm C API.
+- [#1780](https://github.com/wasmerio/wasmer/pull/1780) Implement new SIMD zero-extend loads in compiler-llvm.
+- [#1754](https://github.com/wasmerio/wasmer/pull/1754) Implement aarch64 ABI for compiler-llvm.
+- [#1693](https://github.com/wasmerio/wasmer/pull/1693) Add `wasmer create-exe` subcommand.
+
+### Changed
+
+- [#1772](https://github.com/wasmerio/wasmer/pull/1772) Remove lifetime parameter from `NativeFunc`.
+- [#1762](https://github.com/wasmerio/wasmer/pull/1762) Allow the `=` sign in a WASI environment variable value.
+- [#1710](https://github.com/wasmerio/wasmer/pull/1710) Memory for function call trampolines is now owned by the Artifact.
+- [#1781](https://github.com/wasmerio/wasmer/pull/1781) Cranelift upgrade to 0.67.
+- [#1777](https://github.com/wasmerio/wasmer/pull/1777) Wasmparser update to 0.65.
+- [#1775](https://github.com/wasmerio/wasmer/pull/1775) Improve LimitingTunables implementation.
+- [#1720](https://github.com/wasmerio/wasmer/pull/1720) Autodetect llvm regardless of architecture.
 
 ### Fixed
 
 - [#1718](https://github.com/wasmerio/wasmer/pull/1718) Fix panic in the API in some situations when the memory's min bound was greater than the memory's max bound.
+- [#1731](https://github.com/wasmerio/wasmer/pull/1731) In compiler-llvm always load before store, to trigger any traps before any bytes are written.
 
 ## 1.0.0-alpha4 - 2020-10-08
 
@@ -35,6 +62,7 @@
 - [#1690](https://github.com/wasmerio/wasmer/pull/1690) Fix `wasm_memorytype_limits` where `min` and `max` represents pages, not bytes. Additionally, fixes the max limit sentinel value.
 - [#1671](https://github.com/wasmerio/wasmer/pull/1671) Fix probestack firing inappropriately, and sometimes over/under allocating stack.
 - [#1660](https://github.com/wasmerio/wasmer/pull/1660) Fix issue preventing map-dir aliases starting with `/` from working properly.
+- [#1624](https://github.com/wasmerio/wasmer/pull/1624) Add Value::I32/Value::I64 converters from unsigned ints.
 
 ### Changed
 - [#1682](https://github.com/wasmerio/wasmer/pull/1682) Improve error reporting when making a memory with invalid settings.
