@@ -17,6 +17,7 @@ macro_rules! wasm_declare_vec_inner {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -120,6 +121,7 @@ macro_rules! wasm_declare_vec {
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -182,7 +184,7 @@ macro_rules! wasm_declare_boxed_vec {
                 let vec = &mut *ptr;
                 if !vec.data.is_null() {
                     let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    let data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
+                    let _data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
                     vec.data = ::std::ptr::null_mut();
                     vec.size = 0;
                 }
