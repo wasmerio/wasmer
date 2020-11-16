@@ -15,6 +15,8 @@
 
 ### Fixed
 
+- [#1764](https://github.com/wasmerio/wasmer/pull/1764) Fix bug in WASI `path_rename` allowing renamed files to be 1 directory below a preopened directory.
+
 ## 1.0.0-alpha5 - 2020-11-06
 
 ### Added
