@@ -134,7 +134,7 @@ qjs >
 [js logo]: ./assets/languages/js.svg
 [js integration]: https://github.com/wasmerio/wasmer-js
 [`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
-[js docs]: https://docs.wasmer.io/wasmer-js/wasmer-js
+[js docs]: https://docs.wasmer.io/integrations/js/reference-api
 
 [ruby logo]: ./assets/languages/ruby.svg
 [ruby integration]: https://github.com/wasmerio/wasmer-ruby

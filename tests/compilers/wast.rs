@@ -84,7 +84,7 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[
-            "Validation error: multiple tables: tables count must be at most 1",
+            "Validation error: multiple tables",
             "Validation error: unknown memory 0",
             "Validation error: Invalid var_u32",
         ]);

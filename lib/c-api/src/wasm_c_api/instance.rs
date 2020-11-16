@@ -5,7 +5,7 @@ use super::trap::wasm_trap_t;
 use crate::ordered_resolver::OrderedResolver;
 use std::mem;
 use std::sync::Arc;
-use wasmer::{Extern, Instance};
+use wasmer::{Extern, Instance, InstantiationError};
 
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
@@ -14,12 +14,14 @@ pub struct wasm_instance_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
-    _store: &wasm_store_t,
-    module: &wasm_module_t,
-    imports: &wasm_extern_vec_t,
-    // own
-    _traps: *mut *mut wasm_trap_t,
+    _store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    imports: Option<&wasm_extern_vec_t>,
+    traps: *mut *mut wasm_trap_t,
 ) -> Option<Box<wasm_instance_t>> {
+    let module = module?;
+    let imports = imports?;
+
     let wasm_module = &module.inner;
     let module_imports = wasm_module.imports();
     let module_import_count = module_imports.len();
@@ -32,7 +34,23 @@ pub unsafe extern "C" fn wasm_instance_new(
         .cloned()
         .collect();
 
-    let instance = Arc::new(c_try!(Instance::new(wasm_module, &resolver)));
+    let instance = match Instance::new(wasm_module, &resolver) {
+        Ok(instance) => Arc::new(instance),
+
+        Err(InstantiationError::Link(link_error)) => {
+            crate::error::update_last_error(link_error);
+
+            return None;
+        }
+
+        Err(InstantiationError::Start(runtime_error)) => {
+            let trap: Box<wasm_trap_t> = Box::new(runtime_error.into());
+            *traps = Box::into_raw(trap);
+
+            return None;
+        }
+    };
+
     Some(Box::new(wasm_instance_t { inner: instance }))
 }
 
@@ -42,7 +60,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,
-    // TODO: review types on wasm_declare_vec, handle the optional pointer part properly
+    // own
     out: &mut wasm_extern_vec_t,
 ) {
     let instance = &instance.inner;
@@ -55,6 +73,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
             } else {
                 None
             };
+
             Box::into_raw(Box::new(wasm_extern_t {
                 instance: Some(Arc::clone(instance)),
                 inner: r#extern.clone(),
@@ -65,6 +84,6 @@ pub unsafe extern "C" fn wasm_instance_exports(
 
     out.size = extern_vec.len();
     out.data = extern_vec.as_mut_ptr();
-    // TODO: double check that the destructor will work correctly here
+
     mem::forget(extern_vec);
 }

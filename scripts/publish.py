@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0-alpha4"
+target_version = "1.0.0-alpha5"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -126,9 +126,12 @@ def main():
         # sleep for 16 seconds between crates to ensure the crates.io index has time to update
         # this can be optimized with knowledge of our dep graph via toposort; we can even publish
         # crates in parallel; however this is out of scope for the first version of this script
-        print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
-        time.sleep(16)
-        
+        if no_dry_run:
+            print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
+            time.sleep(16)
+        else:
+            print("In dry-run: not sleeping for crates.io to update.")
+
 
 if __name__ == "__main__":
     main()

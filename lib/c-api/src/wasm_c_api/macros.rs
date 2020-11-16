@@ -17,6 +17,7 @@ macro_rules! wasm_declare_vec_inner {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -56,11 +57,23 @@ macro_rules! wasm_declare_vec {
 
             impl [<wasm_ $name _vec_t>] {
                 pub unsafe fn into_slice(&self) -> Option<&[[<wasm_ $name _t>]]>{
-                    if self.data.is_null() {
+                    if self.is_uninitialized() {
                         return None;
                     }
 
                     Some(::std::slice::from_raw_parts(self.data, self.size))
+                }
+
+                pub unsafe fn into_slice_mut(&mut self) -> Option<&mut [[<wasm_ $name _t>]]>{
+                    if self.is_uninitialized() {
+                        return None;
+                    }
+
+                    Some(::std::slice::from_raw_parts_mut(self.data, self.size))
+                }
+
+                pub fn is_uninitialized(&self) -> bool {
+                    self.data.is_null()
                 }
             }
 
@@ -108,6 +121,7 @@ macro_rules! wasm_declare_vec {
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         paste::item! {
+            #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
@@ -170,7 +184,7 @@ macro_rules! wasm_declare_boxed_vec {
                 let vec = &mut *ptr;
                 if !vec.data.is_null() {
                     let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    let data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
+                    let _data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
                     vec.data = ::std::ptr::null_mut();
                     vec.size = 0;
                 }

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine"
-version = "1.0.0-alpha4"
+version = "1.0.0-alpha5"
 description = "Wasmer Engine abstraction"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine"]
@@ -11,10 +11,10 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha4" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha4" }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha4" }
-target-lexicon = { version = "0.10", default-features = false }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha5" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-alpha5" }
+wasmer-vm = { path = "../vm", version = "1.0.0-alpha5" }
+target-lexicon = { version = "0.11", default-features = false }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 backtrace = "0.3"
 rustc-demangle = "0.1"

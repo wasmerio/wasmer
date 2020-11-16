@@ -37,6 +37,173 @@ The examples are written in a difficulty/discovery order. Concepts that
 are explained in an example is not necessarily re-explained in a next
 example.
 
+### Basics
+
+1. [**Instantiating a module**][instance], explains the basics of using Wasmer
+   and how to create an instance out of a Wasm module.
+   
+   _Keywords_: instance, module.
+   
+   <details>
+    <summary><em>Execute the example</em></summary>
+
+    ```shell
+    $ cargo run --example instance --release --features "cranelift"
+    ```
+
+   </details>
+
+2. [**Handling errors**][errors], explains the basics of interacting with
+   Wasm module memory.
+   
+   _Keywords_: memory, module.
+   
+   <details>
+    <summary><em>Execute the example</em></summary>
+
+    ```shell
+    $ cargo run --example memory --release --features "cranelift"
+    ```
+
+   </details>
+
+3. [**Interacting with memory**][memory], explains the basics of interacting with
+   Wasm module memory.
+   
+   _Keywords_: memory, module.
+   
+   <details>
+    <summary><em>Execute the example</em></summary>
+
+    ```shell
+    $ cargo run --example memory --release --features "cranelift"
+    ```
+
+   </details>
+
+### Exports
+
+1. [**Exported global**][exported-global], explains how to work with
+   exported globals: get/set their value, have information about their 
+   type.
+   
+   _Keywords_: export, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-globals --release --features "cranelift"
+   ```
+
+   </details>
+   
+2. [**Exported function**][exported-function], explains how to get and
+   how to call an exported function. They come in 2 flavors: dynamic,
+   and “static”/native. The pros and cons are discussed briefly.
+   
+   _Keywords_: export, function, dynamic, static, native.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-function --release --features "cranelift"
+   ```
+
+   </details>
+
+
+3. [**Exported memory**][exported-memory], explains how to read from 
+    and write to exported memory.
+   
+   _Keywords_: export, memory.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example exported-memory --release --features "cranelift"
+   ```
+
+   </details>
+
+### Imports
+
+1. [**Imported global**][imported-global], explains how to work with
+   imported globals: create globals, import them, get/set their value.
+   
+   _Keywords_: import, global.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example imported-globals --release --features "cranelift"
+   ```
+
+   </details>
+
+2. [**Imported function**][imported-function], explains how to define 
+   an imported function. They come in 2 flavors: dynamic,
+   and “static”/native.
+   
+   _Keywords_: import, function, dynamic, static, native.
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example imported-function --release --features "cranelift"
+   ```
+
+   </details>
+
+### Externs
+
+1. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
+
+   _Keywords_: basic, table, call_indirect
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example table --release --features "cranelift"
+   ```
+
+   </details>
+   
+2. [**Memory**][memory], explains how to use Wasm Memories from
+   the Wasmer API.  Memory example is a work in progress.
+
+   _Keywords_: basic, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example memory --release --features "cranelift"
+   ```
+
+   </details>
+
+### Tunables
+
+1. **Limit memory**, explains how to use Tunables to limit the
+   size of an exported Wasm memory
+
+   _Keywords_: basic, tunables, memory
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example tunables-limit-memory --release --features "cranelift"
+   ```
+
+   </details>
+
 ### Engines
 
 1. [**JIT engine**][engine-jit], explains what an engine is, what the
@@ -107,7 +274,7 @@ example.
 
 ### Compilers
 
-5. [**Singlepass compiler**][compiler-singlepass], explains how to use
+1. [**Singlepass compiler**][compiler-singlepass], explains how to use
    the [`wasmer-compiler-singlepass`] compiler.
    
    _Keywords_: compiler, singlepass.
@@ -121,7 +288,7 @@ example.
 
    </details>
 
-6. [**Cranelift compiler**][compiler-cranelift], explains how to use
+2. [**Cranelift compiler**][compiler-cranelift], explains how to use
    the [`wasmer-compiler-cranelift`] compiler.
    
    _Keywords_: compiler, cranelift.
@@ -135,7 +302,7 @@ example.
 
    </details>
 
-7. [**LLVM compiler**][compiler-llvm], explains how to use the
+3. [**LLVM compiler**][compiler-llvm], explains how to use the
    [`wasmer-compiler-llvm`] compiler.
    
    _Keywords_: compiler, llvm.
@@ -149,116 +316,9 @@ example.
 
    </details>
 
-### Exports
-
-8. [**Exported global**][exported-global], explains how to work with
-   exported globals: get/set their value, have information about their 
-   type.
-   
-   _Keywords_: export, global.
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example exported-globals --release --features "cranelift"
-   ```
-
-   </details>
-   
-9. [**Exported function**][exported-function], explains how to get and
-   how to call an exported function. They come in 2 flavors: dynamic,
-   and “static”/native. The pros and cons are discussed briefly.
-   
-   _Keywords_: export, function, dynamic, static, native.
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example exported-function --release --features "cranelift"
-   ```
-
-   </details>
-
-
-10. [**Exported memory**][exported-memory], explains how to read from 
-    and write to exported memory.
-   
-   _Keywords_: export, memory.
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example exported-memory --release --features "cranelift"
-   ```
-
-   </details>
-
-### Imports
-
-11. [**Imported global**][imported-global], explains how to work with
-   imported globals: create globals, import them, get/set their value.
-   
-   _Keywords_: import, global.
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example imported-globals --release --features "cranelift"
-   ```
-
-   </details>
-
-12. [**Imported function**][imported-function], explains how to define 
-   an imported function. They come in 2 flavors: dynamic,
-   and “static”/native.
-   
-   _Keywords_: import, function, dynamic, static, native.
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example imported-function --release --features "cranelift"
-   ```
-
-   </details>
-
-### Externs
-
-13. [**Table**][table], explains how to use Wasm Tables from the Wasmer API.
-
-   _Keywords_: basic, table, call_indirect
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example table --release --features "cranelift"
-   ```
-
-   </details>
-   
-14. [**Memory**][memory], explains how to use Wasm Memories from
-    the Wasmer API.  Memory example is a work in progress.
-
-   _Keywords_: basic, memory
-
-   <details>
-   <summary><em>Execute the example</em></summary>
-
-   ```shell
-   $ cargo run --example memory --release --features "cranelift"
-   ```
-
-   </details>
-
 ### Integrations
 
-15. [**WASI**][wasi], explains how to use the [WebAssembly System
+1. [**WASI**][wasi], explains how to use the [WebAssembly System
    Interface][WASI] (WASI), i.e. the [`wasmer-wasi`] crate.
    
    _Keywords_: wasi, system, interface
@@ -284,6 +344,7 @@ example.
 [exported-memory]: ./exports_memory.rs
 [imported-global]: ./imports_global.rs
 [imported-function]: ./imports_function.rs
+[instance]: ./instance.rs
 [wasi]: ./wasi.rs
 [table]: ./table.rs
 [memory]: ./memory.rs

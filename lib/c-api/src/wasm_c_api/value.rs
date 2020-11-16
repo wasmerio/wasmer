@@ -1,6 +1,6 @@
 use super::types::{wasm_ref_t, wasm_valkind_enum};
+use crate::error::{update_last_error, CApiError};
 use std::convert::{TryFrom, TryInto};
-use std::ptr::NonNull;
 use wasmer::Val;
 
 #[allow(non_camel_case_types)]
@@ -35,25 +35,43 @@ impl Clone for wasm_val_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_copy(out_ptr: *mut wasm_val_t, val: &wasm_val_t) {
-    (*out_ptr).kind = val.kind;
-    (*out_ptr).of =
-        // TODO: handle this error
-        match val.kind.try_into().unwrap() {
-            wasm_valkind_enum::WASM_I32 => wasm_val_inner { int32_t: val.of.int32_t },
-            wasm_valkind_enum::WASM_I64 => wasm_val_inner { int64_t: val.of.int64_t },
-            wasm_valkind_enum::WASM_F32 => wasm_val_inner { float32_t: val.of.float32_t },
-            wasm_valkind_enum::WASM_F64 => wasm_val_inner { float64_t: val.of.float64_t },
+pub unsafe extern "C" fn wasm_val_copy(
+    // own
+    out: &mut wasm_val_t,
+    val: &wasm_val_t,
+) {
+    out.kind = val.kind;
+    out.of = match val.kind.try_into() {
+        Ok(kind) => match kind {
+            wasm_valkind_enum::WASM_I32 => wasm_val_inner {
+                int32_t: val.of.int32_t,
+            },
+            wasm_valkind_enum::WASM_I64 => wasm_val_inner {
+                int64_t: val.of.int64_t,
+            },
+            wasm_valkind_enum::WASM_F32 => wasm_val_inner {
+                float32_t: val.of.float32_t,
+            },
+            wasm_valkind_enum::WASM_F64 => wasm_val_inner {
+                float64_t: val.of.float64_t,
+            },
             wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
-        };
+        },
+
+        Err(e) => {
+            update_last_error(CApiError { msg: e.to_string() });
+
+            return;
+        }
+    };
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_val_delete(val: Option<NonNull<wasm_val_t>>) {
-    if let Some(v_inner) = val {
+pub unsafe extern "C" fn wasm_val_delete(val: Option<Box<wasm_val_t>>) {
+    if let Some(val) = val {
         // TODO: figure out where wasm_val is allocated first...
-        let _ = Box::from_raw(v_inner.as_ptr());
+        let _ = val;
     }
 }
 

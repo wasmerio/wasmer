@@ -12,7 +12,7 @@ use cranelift_codegen::ir::immediates::Offset32;
 use cranelift_codegen::ir::{self, InstBuilder};
 use cranelift_codegen::isa::TargetFrontendConfig;
 use cranelift_frontend::FunctionBuilder;
-use wasmer_compiler::wasmparser::Operator;
+use wasmer_compiler::wasmparser::{Operator, Type};
 use wasmer_compiler::WasmResult;
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 
@@ -229,8 +229,10 @@ pub trait FuncEnvironment: TargetEnvironment {
     fn translate_memory_copy(
         &mut self,
         pos: FuncCursor,
-        index: MemoryIndex,
-        heap: ir::Heap,
+        src_index: MemoryIndex,
+        src_heap: ir::Heap,
+        dst_index: MemoryIndex,
+        dst_heap: ir::Heap,
         dst: ir::Value,
         src: ir::Value,
         len: ir::Value,
@@ -283,6 +285,7 @@ pub trait FuncEnvironment: TargetEnvironment {
         &mut self,
         pos: FuncCursor,
         table_index: TableIndex,
+        table: ir::Table,
         delta: ir::Value,
         init_value: ir::Value,
     ) -> WasmResult<ir::Value>;
@@ -290,16 +293,18 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Translate a `table.get` WebAssembly instruction.
     fn translate_table_get(
         &mut self,
-        pos: FuncCursor,
+        builder: &mut FunctionBuilder,
         table_index: TableIndex,
+        table: ir::Table,
         index: ir::Value,
     ) -> WasmResult<ir::Value>;
 
     /// Translate a `table.set` WebAssembly instruction.
     fn translate_table_set(
         &mut self,
-        pos: FuncCursor,
+        builder: &mut FunctionBuilder,
         table_index: TableIndex,
+        table: ir::Table,
         value: ir::Value,
         index: ir::Value,
     ) -> WasmResult<()>;
@@ -344,8 +349,44 @@ pub trait FuncEnvironment: TargetEnvironment {
     /// Translate a `elem.drop` WebAssembly instruction.
     fn translate_elem_drop(&mut self, pos: FuncCursor, seg_index: u32) -> WasmResult<()>;
 
+    /// Translate a `ref.null T` WebAssembly instruction.
+    ///
+    /// By default, translates into a null reference type.
+    ///
+    /// Override this if you don't use Cranelift reference types for all Wasm
+    /// reference types (e.g. you use a raw pointer for `funcref`s) or if the
+    /// null sentinel is not a null reference type pointer for your type. If you
+    /// override this method, then you should also override
+    /// `translate_ref_is_null` as well.
+    fn translate_ref_null(&mut self, pos: FuncCursor, ty: Type) -> WasmResult<ir::Value>;
+    // {
+    //     let _ = ty;
+    //     Ok(pos.ins().null(self.reference_type(ty)))
+    // }
+
+    /// Translate a `ref.is_null` WebAssembly instruction.
+    ///
+    /// By default, assumes that `value` is a Cranelift reference type, and that
+    /// a null Cranelift reference type is the null value for all Wasm reference
+    /// types.
+    ///
+    /// If you override this method, you probably also want to override
+    /// `translate_ref_null` as well.
+    fn translate_ref_is_null(
+        &mut self,
+        mut pos: FuncCursor,
+        value: ir::Value,
+    ) -> WasmResult<ir::Value> {
+        let is_null = pos.ins().is_null(value);
+        Ok(pos.ins().bint(ir::types::I32, is_null))
+    }
+
     /// Translate a `ref.func` WebAssembly instruction.
-    fn translate_ref_func(&mut self, pos: FuncCursor, func_index: u32) -> WasmResult<ir::Value>;
+    fn translate_ref_func(
+        &mut self,
+        pos: FuncCursor,
+        func_index: FunctionIndex,
+    ) -> WasmResult<ir::Value>;
 
     /// Translate a `global.get` WebAssembly instruction at `pos` for a global
     /// that is custom.
@@ -363,6 +404,38 @@ pub trait FuncEnvironment: TargetEnvironment {
         global_index: GlobalIndex,
         val: ir::Value,
     ) -> WasmResult<()>;
+
+    /// Translate an `i32.atomic.wait` or `i64.atomic.wait` WebAssembly instruction.
+    /// The `index` provided identifies the linear memory containing the value
+    /// to wait on, and `heap` is the heap reference returned by `make_heap`
+    /// for the same index.  Whether the waited-on value is 32- or 64-bit can be
+    /// determined by examining the type of `expected`, which must be only I32 or I64.
+    ///
+    /// Returns an i32, which is negative if the helper call failed.
+    fn translate_atomic_wait(
+        &mut self,
+        pos: FuncCursor,
+        index: MemoryIndex,
+        heap: ir::Heap,
+        addr: ir::Value,
+        expected: ir::Value,
+        timeout: ir::Value,
+    ) -> WasmResult<ir::Value>;
+
+    /// Translate an `atomic.notify` WebAssembly instruction.
+    /// The `index` provided identifies the linear memory containing the value
+    /// to wait on, and `heap` is the heap reference returned by `make_heap`
+    /// for the same index.
+    ///
+    /// Returns an i64, which is negative if the helper call failed.
+    fn translate_atomic_notify(
+        &mut self,
+        pos: FuncCursor,
+        index: MemoryIndex,
+        heap: ir::Heap,
+        addr: ir::Value,
+        count: ir::Value,
+    ) -> WasmResult<ir::Value>;
 
     /// Emit code at the beginning of every wasm loop.
     ///

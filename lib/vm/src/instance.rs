@@ -11,9 +11,10 @@ use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
-    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody, VMFunctionImport,
-    VMFunctionKind, VMGlobalDefinition, VMGlobalImport, VMMemoryDefinition, VMMemoryImport,
-    VMSharedSignatureIndex, VMTableDefinition, VMTableImport, VMTrampoline,
+    VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
+    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
+    VMTrampoline,
 };
 use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
@@ -323,6 +324,9 @@ impl Instance {
                     if let Some(def_index) = self.module.local_func_index(*index) {
                         (
                             self.functions[def_index].0 as *const _,
+                            VMFunctionEnvironment {
+                                vmctx: self.vmctx_ptr(),
+                            },
                             self.vmctx_ptr(),
                             None,
                         )
@@ -408,19 +412,24 @@ impl Instance {
                     .get(local_index)
                     .expect("function index is out of bounds")
                     .0;
-                (body as *const _, self.vmctx_ptr())
+                (
+                    body as *const _,
+                    VMFunctionEnvironment {
+                        vmctx: self.vmctx_ptr(),
+                    },
+                )
             }
             None => {
                 assert_lt!(start_index.index(), self.module.num_imported_functions);
                 let import = self.imported_function(start_index);
-                (import.body, import.vmctx)
+                (import.body, import.environment)
             }
         };
 
         // Make the call.
         unsafe {
-            catch_traps(callee_extra_data, || {
-                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(*mut VMContext)>(
+            catch_traps(callee_vmctx, || {
+                mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
                 )(callee_extra_data)
             })
@@ -582,10 +591,15 @@ impl Instance {
         let type_index = self.signature_id(sig);
 
         let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (self.functions[def_index].0 as *const _, self.vmctx_ptr())
+            (
+                self.functions[def_index].0 as *const _,
+                VMFunctionEnvironment {
+                    vmctx: self.vmctx_ptr(),
+                },
+            )
         } else {
             let import = self.imported_function(index);
-            (import.body, import.vmctx)
+            (import.body, import.environment)
         };
         VMCallerCheckedAnyfunc {
             func_ptr,
@@ -1229,9 +1243,9 @@ fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usi
     if let Some(base) = init.location.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1282,9 +1296,9 @@ fn get_table_init_start(init: &TableInitializer, instance: &Instance) -> usize {
     if let Some(base) = init.base {
         let val = unsafe {
             if let Some(def_index) = instance.module.local_global_index(base) {
-                *instance.global(def_index).as_u32()
+                instance.global(def_index).to_u32()
             } else {
-                *instance.imported_global(base).definition.as_ref().as_u32()
+                instance.imported_global(base).definition.as_ref().to_u32()
             }
         };
         start += usize::try_from(val).unwrap();
@@ -1383,7 +1397,7 @@ fn initialize_globals(instance: &Instance) {
                 GlobalInit::I64Const(x) => *(*to).as_i64_mut() = *x,
                 GlobalInit::F32Const(x) => *(*to).as_f32_mut() = *x,
                 GlobalInit::F64Const(x) => *(*to).as_f64_mut() = *x,
-                GlobalInit::V128Const(x) => *(*to).as_u128_bits_mut() = *x.bytes(),
+                GlobalInit::V128Const(x) => *(*to).as_bytes_mut() = *x.bytes(),
                 GlobalInit::GetGlobal(x) => {
                     let from: VMGlobalDefinition =
                         if let Some(def_x) = module.local_global_index(*x) {
