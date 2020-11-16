@@ -134,14 +134,18 @@ pub unsafe extern "C" fn wasm_functype_copy(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_params(
-    function_type: &wasm_functype_t,
-) -> &wasm_valtype_vec_t {
-    function_type.inner().params.as_ref()
+    function_type: Option<&wasm_functype_t>,
+) -> Option<&wasm_valtype_vec_t> {
+    let function_type = function_type?;
+
+    Some(function_type.inner().params.as_ref())
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_results(
-    function_type: &wasm_functype_t,
-) -> &wasm_valtype_vec_t {
-    function_type.inner().results.as_ref()
+    function_type: Option<&wasm_functype_t>,
+) -> Option<&wasm_valtype_vec_t> {
+    let function_type = function_type?;
+
+    Some(function_type.inner().results.as_ref())
 }
