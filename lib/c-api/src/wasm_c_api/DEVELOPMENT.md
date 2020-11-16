@@ -2,7 +2,7 @@
 
 ## Ownerships
 
-The `wasm.h` header thankfully defines the `own` “annotation”. It
+The [`wasm.h`] header thankfully defines the [`own`] “annotation”. It
 specifies _who_ owns _what_. For example, in the following code:
 
 ```c
@@ -42,7 +42,7 @@ is owned by the caller.
 ## `const *T`
 
 A constant pointer can be interpreted in C as an immutable
-pointer. Without the `own` annotation, it means the ownership is not
+pointer. Without the [`own`] annotation, it means the ownership is not
 transfered anywhere (see [the Ownerships Section][#ownerships]).
 
 ### Rust Pattern
@@ -51,7 +51,7 @@ transfered anywhere (see [the Ownerships Section][#ownerships]).
 
 ## Null Pointer
 
-The `wasm.h` header does not say anything about null pointer. The
+The [`wasm.h`] header does not say anything about null pointer. The
 behavior we agreed on in that passing a null pointer where it is not
 expected (i.e. everywhere) will make the function to return null too
 with no error.
@@ -108,7 +108,7 @@ has been decided to use the second pattern in all the codebase.
 
 ## Destructors
 
-The `wasm.h` defines `wasm_*_delete` functions. It represents destructors.
+The [`wasm.h`] defines `wasm_*_delete` functions. It represents destructors.
 
 ## Rust Pattern
 
@@ -126,3 +126,7 @@ destructors”.
 
 The `Option` is here to handle the situation where a null pointer is
 passed to the destructor.
+
+
+[`own`](https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h#L46-L65)
+[`wasm.h`](https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h)
