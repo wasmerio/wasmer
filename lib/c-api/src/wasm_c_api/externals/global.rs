@@ -1,6 +1,7 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
+use crate::error::update_last_error;
 use std::convert::TryInto;
 use wasmer::{Global, Val};
 
@@ -54,10 +55,15 @@ pub unsafe extern "C" fn wasm_global_get(
     *out = value.try_into().unwrap();
 }
 
+/// Note: This function returns nothing by design but it can raise an
+/// error if setting a new value fails.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_set(global: &mut wasm_global_t, val: &wasm_val_t) {
     let value: Val = val.try_into().unwrap();
-    global.inner.set(value);
+
+    if let Err(e) = global.inner.set(value) {
+        update_last_error(e);
+    }
 }
 
 #[no_mangle]
