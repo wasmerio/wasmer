@@ -1,4 +1,6 @@
-use super::{wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_t, WasmExternType};
+use super::{
+    wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType,
+};
 use std::mem;
 use wasmer::{ExternType, FunctionType, ValType};
 
@@ -98,23 +100,23 @@ pub unsafe extern "C" fn wasm_functype_new(
     let params = params?;
     let results = results?;
 
-    let params: Vec<ValType> = params
-        .as_ref()
+    let params_as_valtype: Vec<ValType> = params
         .into_slice()?
-        .iter()
-        .map(|ptr| **ptr)
-        .map(Into::into)
+        .into_iter()
+        .map(|val| val.as_ref().into())
         .collect::<Vec<_>>();
-    let results: Vec<ValType> = results
-        .as_ref()
+    let results_as_valtype: Vec<ValType> = results
         .into_slice()?
         .iter()
-        .map(|ptr| **ptr)
-        .map(Into::into)
+        .map(|val| val.as_ref().into())
         .collect::<Vec<_>>();
 
+    wasm_valtype_vec_delete(Box::into_raw(params));
+    wasm_valtype_vec_delete(Box::into_raw(results));
+
     Some(Box::new(wasm_functype_t::new(FunctionType::new(
-        params, results,
+        params_as_valtype,
+        results_as_valtype,
     ))))
 }
 
