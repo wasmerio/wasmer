@@ -4,6 +4,7 @@ use super::types::{
     wasm_importtype_vec_t,
 };
 use crate::error::{update_last_error, CApiError};
+use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::Module;
 
@@ -137,7 +138,7 @@ pub unsafe extern "C" fn wasm_module_imports(
 pub unsafe extern "C" fn wasm_module_deserialize(
     store: &wasm_store_t,
     bytes: *const wasm_byte_vec_t,
-) -> Option<*const wasm_module_t> {
+) -> Option<NonNull<wasm_module_t>> {
     // TODO: read config from store and use that to decide which compiler to use
 
     let byte_slice = if bytes.is_null() || (&*bytes).into_slice().is_none() {
@@ -152,9 +153,11 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 
     let module = c_try!(Module::deserialize(&store.inner, byte_slice));
 
-    Some(Box::into_raw(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    })) as *const _)
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
+        wasm_module_t {
+            inner: Arc::new(module),
+        },
+    ))))
 }
 
 #[no_mangle]
