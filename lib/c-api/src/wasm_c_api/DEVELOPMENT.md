@@ -105,3 +105,24 @@ null pointer.
 Considering [the `const *T` Section][#const-t], if the pointer is not
 owned, we can either write `Option<NonNull<T>>` or `Option<&T>`. It
 has been decided to use the second pattern in all the codebase.
+
+## Destructors
+
+The `wasm.h` defines `wasm_*_delete` functions. It represents destructors.
+
+## Rust Pattern
+
+The destructors in Rust translate as follow:
+
+```rust
+#[no_mangle]
+pub unsafe extern "C" fn wasm_*_delete(_: Option<Box<wasm_*_t>>) {}
+```
+
+`Box<T>` will take the ownership of the value. It means that Rust will
+drop it automatically as soon as it goes out of the
+scope. Consequently, the “C destructors” really are the “Rust
+destructors”.
+
+The `Option` is here to handle the situation where a null pointer is
+passed to the destructor.
