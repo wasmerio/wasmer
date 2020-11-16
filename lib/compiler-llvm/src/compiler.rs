@@ -124,7 +124,7 @@ impl LLVMCompiler {
         compile_info
             .module
             .signatures
-            .into_iter()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
@@ -149,7 +149,7 @@ impl LLVMCompiler {
         compile_info
             .module
             .functions
-            .into_iter()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
@@ -248,7 +248,7 @@ impl Compiler for LLVMCompiler {
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(

@@ -3,7 +3,7 @@
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
-use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, SourceLoc, TrapInformation};
+use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex};
 use wasmer_vm::{ModuleInfo, TrapCode};
@@ -124,6 +124,7 @@ fn translate_ir_trapcode(trap: ir::TrapCode) -> TrapCode {
     match trap {
         ir::TrapCode::StackOverflow => TrapCode::StackOverflow,
         ir::TrapCode::HeapOutOfBounds => TrapCode::HeapAccessOutOfBounds,
+        ir::TrapCode::HeapMisaligned => TrapCode::HeapMisaligned,
         ir::TrapCode::TableOutOfBounds => TrapCode::TableAccessOutOfBounds,
         ir::TrapCode::IndirectCallToNull => TrapCode::IndirectCallToNull,
         ir::TrapCode::BadSignature => TrapCode::BadSignature,

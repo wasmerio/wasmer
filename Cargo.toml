@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-workspace"
-version = "1.0.0-alpha4"
+version = "1.0.0-alpha5"
 description = "Wasmer workspace"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,20 +10,20 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "1.0.0-alpha4", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "1.0.0-alpha4", path = "lib/compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0-alpha4", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0-alpha4", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0-alpha4", path = "lib/compiler-llvm", optional = true }
-wasmer-engine = { version = "1.0.0-alpha4", path = "lib/engine" }
-wasmer-engine-jit = { version = "1.0.0-alpha4", path = "lib/engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-alpha4", path = "lib/engine-native", optional = true }
-wasmer-engine-object-file = { version = "1.0.0-alpha4", path = "lib/engine-object-file", optional = true }
-wasmer-wasi = { version = "1.0.0-alpha4", path = "lib/wasi", optional = true }
-wasmer-wast = { version = "1.0.0-alpha4", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.0-alpha4", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.0-alpha4", path = "lib/wasmer-types" }
-cfg-if = "0.1"
+wasmer = { version = "1.0.0-alpha5", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "1.0.0-alpha5", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "1.0.0-alpha5", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.0-alpha5", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.0-alpha5", path = "lib/compiler-llvm", optional = true }
+wasmer-engine = { version = "1.0.0-alpha5", path = "lib/engine" }
+wasmer-engine-jit = { version = "1.0.0-alpha5", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.0-alpha5", path = "lib/engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha5", path = "lib/engine-object-file", optional = true }
+wasmer-wasi = { version = "1.0.0-alpha5", path = "lib/wasi", optional = true }
+wasmer-wast = { version = "1.0.0-alpha5", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "1.0.0-alpha5", path = "lib/cache", optional = true }
+wasmer-types = { version = "1.0.0-alpha5", path = "lib/wasmer-types" }
+cfg-if = "1.0"
 
 [workspace]
 members = [
@@ -57,7 +57,7 @@ test-generator = { path = "tests/lib/test-generator" }
 build-deps = "0.1.4"
 anyhow = "1.0"
 glob = "0.3"
-rustc_version = "0.2"
+rustc_version = "0.3"
 
 [dev-dependencies]
 anyhow = "1.0"
@@ -229,4 +229,19 @@ required-features = ["cranelift"]
 [[example]]
 name = "memory"
 path = "examples/memory.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "instance"
+path = "examples/instance.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "errors"
+path = "examples/errors.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "imported-function-env"
+path = "examples/imports_function_env.rs"
 required-features = ["cranelift"]

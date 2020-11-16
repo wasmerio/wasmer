@@ -6,7 +6,11 @@ use std::str;
 use std::sync::Arc;
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_name(module: &wasm_module_t, out: &mut wasm_name_t) {
+pub unsafe extern "C" fn wasm_module_name(
+    module: &wasm_module_t,
+    // own
+    out: &mut wasm_name_t,
+) {
     let name = match module.inner.name() {
         Some(name) => name,
         None => return,
@@ -18,7 +22,8 @@ pub unsafe extern "C" fn wasm_module_name(module: &wasm_module_t, out: &mut wasm
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_set_name(
     module: &mut wasm_module_t,
-    name: &wasm_name_t,
+    // own
+    name: Box<wasm_name_t>,
 ) -> bool {
     let name = match name.into_slice() {
         Some(name) => match str::from_utf8(name) {

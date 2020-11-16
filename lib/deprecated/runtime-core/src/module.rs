@@ -102,14 +102,14 @@ impl Module {
                                 // Properly drop the empty `vm::Ctx`
                                 // created by the host function.
                                 unsafe {
-                                    ptr::drop_in_place::<vm::Ctx>(function.vmctx as _);
+                                    ptr::drop_in_place::<vm::Ctx>(function.vmctx.host_env as _);
                                 }
 
                                 // Update the pointer to `VMContext`,
                                 // which is actually a `vm::Ctx`
                                 // pointer, to fallback on the
                                 // environment hack.
-                                function.vmctx = pre_instance.vmctx_ptr() as _;
+                                function.vmctx.host_env = pre_instance.vmctx_ptr() as _;
                             }
                             // `function` is a dynamic host function
                             // constructed with
@@ -147,13 +147,13 @@ impl Module {
                                     new::wasmer_vm::VMDynamicFunctionContext<
                                         VMDynamicFunctionWithEnv<DynamicCtx>,
                                     >,
-                                > = unsafe { Box::from_raw(function.vmctx as *mut _) };
+                                > = unsafe { Box::from_raw(function.vmctx.host_env as *mut _) };
 
                                 // Replace the environment by ours.
                                 vmctx.ctx.env.borrow_mut().vmctx = pre_instance.vmctx();
 
                                 // … without anyone noticing…
-                                function.vmctx = Box::into_raw(vmctx) as _;
+                                function.vmctx.host_env = Box::into_raw(vmctx) as _;
                             }
                         }
 

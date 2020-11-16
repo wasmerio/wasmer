@@ -94,13 +94,15 @@ impl<'a> MiddlewareBinaryReader<'a> {
     }
 
     /// Read a `count` indicating the number of times to call `read_local_decl`.
-    pub fn read_local_count(&mut self) -> WpResult<usize> {
-        self.state.inner.read_local_count()
+    pub fn read_local_count(&mut self) -> WpResult<u32> {
+        self.state.inner.read_var_u32()
     }
 
     /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self, locals_total: &mut usize) -> WpResult<(u32, Type)> {
-        self.state.inner.read_local_decl(locals_total)
+    pub fn read_local_decl(&mut self) -> WpResult<(u32, Type)> {
+        let count = self.state.inner.read_var_u32()?;
+        let ty = self.state.inner.read_type()?;
+        Ok((count, ty))
     }
 
     /// Reads the next available `Operator`.

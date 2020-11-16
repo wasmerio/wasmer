@@ -70,7 +70,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
     let multiply_native = Function::new_native(&store, multiply);
 
-    // Create an empty import object.
+    // Create an import object.
     let import_object = imports! {
         "env" => {
             "multiply_dynamic" => multiply_dynamic,
