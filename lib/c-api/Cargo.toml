@@ -40,7 +40,7 @@ paste = "0.1"
 # wasmer-wasm-c-api = { version = "1.0.0-alpha5", path = "crates/wasm-c-api" }
 
 [dev-dependencies]
-inline-c = { git = "https://github.com/Hywan/inline-c-rs", branch = "fix-linux-shared-object" }
+inline-c = "0.1.2"
 
 [features]
 default = [
