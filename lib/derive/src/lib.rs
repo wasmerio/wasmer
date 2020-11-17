@@ -69,72 +69,88 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut helpers = vec![];
     //let mut assign_tokens = vec![];
     let mut touched_fields = vec![];
-    match data.fields {
-        Fields::Named(ref fields) => {
-            for f in fields.named.iter() {
-                let name = f.ident.as_ref().unwrap();
-                let name_str = name.to_string();
-                let top_level_ty: &Type = &f.ty;
-                touched_fields.push(name.clone());
-                let mut wasmer_attr = None;
-                for attr in &f.attrs {
-                    // if / filter
-                    if attr.path.is_ident(&Ident::new("wasmer", attr.span())) {
-                        let tokens = attr.tokens.clone();
-                        match syn::parse2(tokens) {
-                            Ok(attr) => {
-                                wasmer_attr = Some(attr);
-                                break;
-                            }
-                            Err(e) => {
-                                abort!(attr, "Failed to parse `wasmer` attribute: {}", e);
-                            }
-                        }
+    let fields: Vec<Field> = match &data.fields {
+        Fields::Named(ref fields) => fields.named.iter().cloned().collect(),
+        Fields::Unit => vec![],
+        Fields::Unnamed(fields) => fields.unnamed.iter().cloned().collect(),
+    };
+    for (field_num, f) in fields.into_iter().enumerate() {
+        let name = f.ident.clone();
+        let top_level_ty: &Type = &f.ty;
+        touched_fields.push(name.clone());
+        let mut wasmer_attr = None;
+        for attr in &f.attrs {
+            // if / filter
+            if attr.path.is_ident(&Ident::new("wasmer", attr.span())) {
+                let tokens = attr.tokens.clone();
+                match syn::parse2(tokens) {
+                    Ok(attr) => {
+                        wasmer_attr = Some(attr);
+                        break;
                     }
-                }
-
-                if let Some(wasmer_attr) = wasmer_attr {
-                    let inner_type = get_identifier(top_level_ty);
-                    let name_ref_str = format!("{}_ref", name);
-                    let name_ref = syn::Ident::new(&name_ref_str, name.span());
-                    let name_ref_unchecked_str = format!("{}_ref_unchecked", name);
-                    let name_ref_unchecked = syn::Ident::new(&name_ref_unchecked_str, name.span());
-                    let helper_tokens = quote_spanned! {f.span()=>
-                        /// Get access to the underlying data.
-                        ///
-                        /// If `WasmerEnv::finish` has been called, this function will never
-                        /// return `None` unless the underlying data has been mutated manually.
-                        pub fn #name_ref(&self) -> Option<&#inner_type> {
-                            self.#name.get_ref()
-                        }
-                        /// Gets the item without checking if it's been initialized.
-                        ///
-                        /// # Safety
-                        /// `WasmerEnv::finish` must have been called on this function or
-                        /// this type manually initialized.
-                        pub unsafe fn #name_ref_unchecked(&self) -> &#inner_type {
-                            self.#name.get_unchecked()
-                        }
-                    };
-                    helpers.push(helper_tokens);
-                    match wasmer_attr {
-                        WasmerAttr::Export { identifier, .. } => {
-                            let item_name =
-                                identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
-                            let finish_tokens = quote_spanned! {f.span()=>
-                                    let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
-                                    self.#name.initialize(#name);
-                            };
-                            finish.push(finish_tokens);
-                        }
+                    Err(e) => {
+                        abort!(attr, "Failed to parse `wasmer` attribute: {}", e);
                     }
                 }
             }
         }
-        _ => abort!(
-            data.fields,
-            "Only named fields are supported by `WasmerEnv` right now"
-        ),
+
+        if let Some(wasmer_attr) = wasmer_attr {
+            let inner_type = get_identifier(top_level_ty);
+            if let Some(name) = &name {
+                let name_ref_str = format!("{}_ref", name);
+                let name_ref = syn::Ident::new(&name_ref_str, name.span());
+                let name_ref_unchecked_str = format!("{}_ref_unchecked", name);
+                let name_ref_unchecked = syn::Ident::new(&name_ref_unchecked_str, name.span());
+                let helper_tokens = quote_spanned! {f.span()=>
+                    /// Get access to the underlying data.
+                    ///
+                    /// If `WasmerEnv::finish` has been called, this function will never
+                    /// return `None` unless the underlying data has been mutated manually.
+                    pub fn #name_ref(&self) -> Option<&#inner_type> {
+                        self.#name.get_ref()
+                    }
+                    /// Gets the item without checking if it's been initialized.
+                    ///
+                    /// # Safety
+                    /// `WasmerEnv::finish` must have been called on this function or
+                    /// this type manually initialized.
+                    pub unsafe fn #name_ref_unchecked(&self) -> &#inner_type {
+                        self.#name.get_unchecked()
+                    }
+                };
+                helpers.push(helper_tokens);
+            }
+            match wasmer_attr {
+                WasmerAttr::Export { identifier, span } => {
+                    let finish_tokens = if let Some(name) = name {
+                        let name_str = name.to_string();
+                        let item_name =
+                            identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
+                        quote_spanned! {f.span()=>
+                                let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
+                                self.#name.initialize(#name);
+                        }
+                    } else {
+                        if let Some(identifier) = identifier {
+                            let local_var =
+                                Ident::new(&format!("field_{}", field_num), identifier.span());
+                            quote_spanned! {f.span()=>
+                                    let #local_var: #inner_type = instance.exports.get_with_generics(#identifier)?;
+                                    self.#field_num.initialize(#local_var);
+                            }
+                        } else {
+                            abort!(
+                    span,
+                    "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
+                );
+                        }
+                    };
+
+                    finish.push(finish_tokens);
+                }
+            }
+        }
     }
 
     let trait_methods = quote! {

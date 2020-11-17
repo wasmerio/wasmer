@@ -1,3 +1,4 @@
+use proc_macro2::Span;
 use proc_macro_error::abort;
 use syn::{
     parenthesized,
@@ -10,6 +11,7 @@ pub enum WasmerAttr {
         /// The identifier is an override, otherwise we use the field name as the name
         /// to lookup in `instance.exports`.
         identifier: Option<LitStr>,
+        span: Span,
     },
 }
 
@@ -64,6 +66,7 @@ impl Parse for WasmerAttrInner {
     fn parse(input: ParseStream<'_>) -> syn::Result<Self> {
         let ident: Ident = input.parse()?;
         let ident_str = ident.to_string();
+        let span = ident.span();
         let out = match ident_str.as_str() {
             "export" => {
                 let export_expr;
@@ -76,7 +79,10 @@ impl Parse for WasmerAttrInner {
                     None
                 };
 
-                WasmerAttr::Export { identifier: name }
+                WasmerAttr::Export {
+                    identifier: name,
+                    span,
+                }
             }
             otherwise => abort!(
                 ident,
