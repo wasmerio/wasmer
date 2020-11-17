@@ -55,7 +55,7 @@ impl Compiler for CraneliftCompiler {
         &self,
         target: &Target,
         compile_info: &CompileModuleInfo,
-        module_translation: &ModuleTranslationState,
+        module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         let isa = self.config().isa(target);
@@ -115,7 +115,7 @@ impl Compiler for CraneliftCompiler {
                 // }
 
                 func_translator.translate(
-                    module_translation,
+                    module_translation_state,
                     input.data,
                     input.module_offset,
                     &mut context.func,

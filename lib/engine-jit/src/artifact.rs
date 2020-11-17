@@ -83,7 +83,7 @@ impl JITArtifact {
         let compilation = compiler.compile_module(
             &jit.target(),
             &compile_info,
-            translation.module_translation.as_ref().unwrap(),
+            translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
