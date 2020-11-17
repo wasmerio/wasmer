@@ -97,9 +97,23 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                     let inner_type = get_identifier(top_level_ty);
                     let name_ref_str = format!("{}_ref", name);
                     let name_ref = syn::Ident::new(&name_ref_str, name.span());
+                    let name_ref_unchecked_str = format!("{}_ref_unchecked", name);
+                    let name_ref_unchecked = syn::Ident::new(&name_ref_unchecked_str, name.span());
                     let helper_tokens = quote_spanned! {f.span()=>
-                        pub fn #name_ref(&self) -> &#inner_type {
-                            unsafe { self.#name.get_unchecked() }
+                        /// Get access to the underlying data.
+                        ///
+                        /// If `WasmerEnv::finish` has been called, this function will never
+                        /// return `None` unless the underlying data has been mutated manually.
+                        pub fn #name_ref(&self) -> Option<&#inner_type> {
+                            self.#name.get_ref()
+                        }
+                        /// Gets the item without checking if it's been initialized.
+                        ///
+                        /// # Safety
+                        /// `WasmerEnv::finish` must have been called on this function or
+                        /// this type manually initialized.
+                        pub unsafe fn #name_ref_unchecked(&self) -> &#inner_type {
+                            self.#name.get_unchecked()
                         }
                     };
                     helpers.push(helper_tokens);

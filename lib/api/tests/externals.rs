@@ -379,7 +379,7 @@ fn function_outlives_instance() -> Result<()> {
 }
 
 #[test]
-fn manually_call_function() -> Result<()> {
+fn manually_generate_wasmer_env() -> Result<()> {
     let store = Store::default();
     #[derive(WasmerEnv)]
     struct MyEnv {

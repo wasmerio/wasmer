@@ -80,7 +80,7 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory_ref()
+        self.memory_ref().unwrap()
     }
 
     pub(crate) fn get_memory_and_wasi_state(
