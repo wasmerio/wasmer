@@ -377,3 +377,33 @@ fn function_outlives_instance() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn manually_call_function() -> Result<()> {
+    let store = Store::default();
+    #[derive(WasmerEnv)]
+    struct MyEnv {
+        val: u32,
+        memory: LazyInit<Memory>,
+    }
+
+    fn host_function(env: &mut MyEnv, arg1: u32, arg2: u32) -> u32 {
+        env.val + arg1 + arg2
+    }
+
+    let mut env = MyEnv {
+        val: 5,
+        memory: LazyInit::new(),
+    };
+
+    let result = host_function(&mut env, 7, 9);
+    assert_eq!(result, 21);
+
+    let memory = Memory::new(&store, MemoryType::new(0, None, false))?;
+    env.memory.initialize(memory);
+
+    let result = host_function(&mut env, 1, 2);
+    assert_eq!(result, 8);
+
+    Ok(())
+}
