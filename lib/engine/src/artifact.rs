@@ -113,7 +113,7 @@ pub trait Artifact: Send + Sync + Upcastable {
             .cloned()
             .zip(imports.functions.values())
         {
-            let host_env = func.vmctx as _;
+            let host_env = func.environment.host_env;
             thunks.push((func_init, host_env));
         }
         // ------------

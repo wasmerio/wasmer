@@ -191,7 +191,6 @@ impl From<ExportError> for HostEnvInitError {
 ///         self.memory.initialize(memory.clone());
 ///         Ok(())
 ///     }
-///     fn free(&mut self) {}
 /// }
 /// ```
 pub trait WasmerEnv {
@@ -201,18 +200,11 @@ pub trait WasmerEnv {
     /// This function is called after `Instance` is created but before it is
     /// returned to the user via `Instance::new`.
     fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError>;
-
-    /// Frees memory written to `self` so it can be dropped without any memory leaks.
-    // TODO: review, this is unused by the macro currently, do we want to do anything with this?
-    fn free(&mut self);
 }
 
 impl<T: WasmerEnv> WasmerEnv for &'static mut T {
     fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
         (*self).finish(instance)
-    }
-    fn free(&mut self) {
-        (*self).free()
     }
 }
 

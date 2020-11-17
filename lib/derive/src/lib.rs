@@ -38,15 +38,12 @@ fn impl_wasmer_env_for_struct(
 }
 
 fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
-    use syn::Data::*;
     let struct_name = &input.ident;
 
     set_dummy(quote! {
         impl ::wasmer::WasmerEnv for #struct_name {
             fn finish(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
                 Ok(())
-            }
-            fn free(&mut self) {
             }
         }
     });
@@ -69,7 +66,6 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
 
 fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut finish = vec![];
-    let mut free = vec![];
     let mut helpers = vec![];
     //let mut assign_tokens = vec![];
     let mut touched_fields = vec![];
@@ -116,9 +112,6 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                                     self.#name.initialize(#name);
                             };
                             finish.push(finish_tokens);
-                            let free_tokens = quote_spanned! {f.span()=>
-                            };
-                            free.push(free_tokens);
                         }
                     }
                 }
@@ -134,12 +127,6 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
         fn finish(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
             Ok(())
-        }
-
-        fn free(&mut self) {
-            unsafe {
-                #(#free)*
-            }
         }
     };
 
@@ -158,7 +145,6 @@ fn get_identifier(ty: &Type) -> TokenStream {
             ..
         }) => {
             if let Some(PathSegment { ident, arguments }) = segments.last() {
-                let ident_str = ident.to_string();
                 if ident != "LazyInit" {
                     abort!(
                         ident,

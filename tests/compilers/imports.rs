@@ -100,7 +100,6 @@ fn dynamic_function_with_env() -> Result<()> {
         fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
             Ok(())
         }
-        fn free(&mut self) {}
     }
 
     let env: Env = Env(Arc::new(AtomicUsize::new(0)));
@@ -234,7 +233,6 @@ fn static_function_with_env() -> Result<()> {
         fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
             Ok(())
         }
-        fn free(&mut self) {}
     }
 
     let env: Env = Env(Arc::new(AtomicUsize::new(0)));

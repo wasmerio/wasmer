@@ -119,7 +119,6 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
         fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
             Ok(())
         }
-        fn free(&mut self) {}
     }
 
     // Native static host function that returns a tuple.
@@ -200,7 +199,6 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
         fn finish(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
             Ok(())
         }
-        fn free(&mut self) {}
     }
 
     let env = Env(Rc::new(RefCell::new(100)));

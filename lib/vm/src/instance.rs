@@ -327,13 +327,12 @@ impl Instance {
                             VMFunctionEnvironment {
                                 vmctx: self.vmctx_ptr(),
                             },
-                            self.vmctx_ptr(),
                             None,
                         )
                     } else {
                         let import = self.imported_function(*index);
                         let initializer = self.imported_function_env_initializer(*index);
-                        (import.body, import.vmctx, initializer)
+                        (import.body, import.environment, initializer)
                     };
                 let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
@@ -405,7 +404,7 @@ impl Instance {
             None => return Ok(()),
         };
 
-        let (callee_address, callee_extra_data) = match self.module.local_func_index(start_index) {
+        let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
                 let body = self
                     .functions
@@ -431,7 +430,7 @@ impl Instance {
             catch_traps(callee_vmctx, || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
-                )(callee_extra_data)
+                )(callee_vmctx)
             })
         }
     }

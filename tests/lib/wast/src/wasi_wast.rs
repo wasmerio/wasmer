@@ -3,7 +3,7 @@ use serde::{Deserialize, Serialize};
 use std::fs::File;
 use std::io::{self, Read, Seek, Write};
 use std::path::PathBuf;
-use wasmer::{ImportObject, Instance, Memory, Module, Store};
+use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
     generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiFsError, WasiState,
@@ -80,7 +80,7 @@ impl<'a> WasiTest<'a> {
             out
         };
         let module = Module::new(&store, &wasm_bytes)?;
-        let (mut env, _tempdirs) = self.create_wasi_env()?;
+        let (env, _tempdirs) = self.create_wasi_env()?;
         let imports = self.get_imports(store, &module, env.clone())?;
         let instance = Instance::new(&module, &imports)?;
 
