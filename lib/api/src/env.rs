@@ -92,6 +92,12 @@ impl WasmerEnv for ::std::sync::atomic::AtomicU32 {}
 impl WasmerEnv for ::std::sync::atomic::AtomicI64 {}
 impl WasmerEnv for ::std::sync::atomic::AtomicUsize {}
 impl WasmerEnv for ::std::sync::atomic::AtomicIsize {}
+impl WasmerEnv for dyn ::std::any::Any {}
+impl<T: WasmerEnv> WasmerEnv for Box<T> {
+    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+        (&mut **self).init_with_instance(instance)
+    }
+}
 
 impl<T: WasmerEnv> WasmerEnv for &'static mut T {
     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
