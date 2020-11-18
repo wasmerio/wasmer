@@ -145,7 +145,9 @@ impl Function {
         };
         // TODO: look into removing transmute by changing API type signatures
         let function_ptr = Some(unsafe {
-            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
+                Env::init_with_instance,
+            )
         });
 
         Self {
@@ -253,7 +255,9 @@ impl Function {
         };
         // TODO: look into removing transmute by changing API type signatures
         let function_ptr = Some(unsafe {
-            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(Env::finish)
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
+                Env::init_with_instance,
+            )
         });
         let signature = function.ty();
 

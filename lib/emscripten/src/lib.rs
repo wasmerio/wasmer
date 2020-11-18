@@ -77,9 +77,9 @@ pub struct EmEnv {
 }
 
 impl WasmerEnv for EmEnv {
-    fn finish(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
+    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
         let mut ed = self.data.lock().unwrap();
-        ed.finish(instance)?;
+        ed.init_with_instance(instance)?;
         Ok(())
     }
 }

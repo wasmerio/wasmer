@@ -116,7 +116,10 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     }
 
     impl wasmer::WasmerEnv for WrapperEnv {
-        fn finish(&mut self, _instance: &wasmer::Instance) -> Result<(), wasmer::HostEnvInitError> {
+        fn init_with_instance(
+            &mut self,
+            _instance: &wasmer::Instance,
+        ) -> Result<(), wasmer::HostEnvInitError> {
             Ok(())
         }
     }

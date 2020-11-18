@@ -47,7 +47,7 @@ impl From<ExportError> for HostEnvInitError {
 /// }
 ///
 /// impl WasmerEnv for MyEnv {
-///     fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+///     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
 ///         let memory = instance.exports.get_memory("memory").unwrap();
 ///         self.memory.initialize(memory.clone());
 ///         Ok(())
@@ -60,7 +60,7 @@ pub trait WasmerEnv {
     ///
     /// This function is called after `Instance` is created but before it is
     /// returned to the user via `Instance::new`.
-    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+    fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
         Ok(())
     }
 }
@@ -94,8 +94,8 @@ impl WasmerEnv for ::std::sync::atomic::AtomicUsize {}
 impl WasmerEnv for ::std::sync::atomic::AtomicIsize {}
 
 impl<T: WasmerEnv> WasmerEnv for &'static mut T {
-    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
-        (*self).finish(instance)
+    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+        (*self).init_with_instance(instance)
     }
 }
 
