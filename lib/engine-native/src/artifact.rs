@@ -347,7 +347,7 @@ impl NativeArtifact {
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
+        for (function_local_index, _function_len) in metadata.function_body_lengths.iter() {
             let function_name =
                 metadata.symbol_to_name(Symbol::LocalFunction(function_local_index));
             unsafe {
@@ -356,14 +356,9 @@ impl NativeArtifact {
                 let func: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                let raw = *func.into_raw();
-                // The function pointer is a fat pointer, however this information
-                // is only used when retrieving the trap information which is not yet
-                // implemented in this engine.
-                let func_pointer =
-                    std::slice::from_raw_parts(raw as *const (), *function_len as usize);
-                let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_functions.push(FunctionBodyPtr(func_pointer));
+                finished_functions.push(FunctionBodyPtr(
+                    func.into_raw().into_raw() as *const VMFunctionBody
+                ));
             }
         }
 
@@ -397,11 +392,9 @@ impl NativeArtifact {
                 let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                let raw = *trampoline.into_raw();
-                let trampoline_pointer = std::slice::from_raw_parts(raw as *const (), 0);
-                let trampoline_pointer =
-                    trampoline_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_dynamic_function_trampolines.push(FunctionBodyPtr(trampoline_pointer));
+                finished_dynamic_function_trampolines.push(FunctionBodyPtr(
+                    trampoline.into_raw().into_raw() as *const VMFunctionBody,
+                ));
             }
         }
 

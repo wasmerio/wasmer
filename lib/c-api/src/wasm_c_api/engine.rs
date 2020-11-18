@@ -1,3 +1,4 @@
+use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer::Engine;
@@ -182,14 +183,24 @@ cfg_if! {
 
 /// cbindgen:ignore
 #[no_mangle]
-pub unsafe extern "C" fn wasm_engine_delete(_wasm_engine_address: Option<Box<wasm_engine_t>>) {}
+pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>) {}
 
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(
     config: Box<wasm_config_t>,
 ) -> Option<Box<wasm_engine_t>> {
-    // TODO: return useful error messages in failure branches
+    fn return_with_error<M>(msg: M) -> Option<Box<wasm_engine_t>>
+    where
+        M: ToString,
+    {
+        update_last_error(CApiError {
+            msg: msg.to_string(),
+        });
+
+        return None;
+    };
+
     cfg_if! {
         if #[cfg(feature = "compiler")] {
             #[allow(unused_mut)]
@@ -199,7 +210,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "cranelift")] {
                             Box::new(wasmer_compiler_cranelift::Cranelift::default())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `cranelift` feature.");
                         }
                     }
                 },
@@ -208,7 +219,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "llvm")] {
                             Box::new(wasmer_compiler_llvm::LLVM::default())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `llvm` feature.");
                         }
                     }
                 },
@@ -217,7 +228,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "singlepass")] {
                             Box::new(wasmer_compiler_singlepass::Singlepass::default())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `singlepass` feature.");
                         }
                     }
                 },
@@ -229,7 +240,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "jit")] {
                             Arc::new(JIT::new(&*compiler_config).engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `jit` feature.");
                         }
                     }
                 },
@@ -238,7 +249,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "native")] {
                             Arc::new(Native::new(&mut *compiler_config).engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
                         }
                     }
                 },
@@ -249,7 +260,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "object-file")] {
                             Arc::new(ObjectFile::headless().engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
                         }
                     }
                 },
@@ -262,7 +273,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "jit")] {
                             Arc::new(JIT::headless().engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `jit` feature.");
                         }
                     }
                 },
@@ -271,7 +282,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "native")] {
                             Arc::new(Native::headless().engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
                         }
                     }
                 },
@@ -280,7 +291,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                         if #[cfg(feature = "object-file")] {
                             Arc::new(ObjectFile::headless().engine())
                         } else {
-                            return None;
+                            return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
                         }
                     }
                 },

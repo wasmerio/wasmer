@@ -26,7 +26,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
           echo ::set-output name=VERSION::${VERSION}
-          DOING_RELEASE=$(echo $VERSION | grep -c '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' || true)
+          DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)?[0-9]*\)\?$' || true)
           echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
           echo $VERSION
           echo $DOING_RELEASE
@@ -143,8 +143,8 @@ jobs:
       - run: make test
       - name: Build and Test C API
         run: |
-          make build-capi
           make test-capi
+          make build-capi
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
         run: make build-capi
