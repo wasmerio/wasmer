@@ -32,6 +32,9 @@
 // The `jit` feature has been enabled for this build.
 #define WASMER_JIT_ENABLED
 
+// The `compiler` feature has been enabled for this build.
+#define WASMER_COMPILER_ENABLED
+
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
 

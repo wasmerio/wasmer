@@ -74,9 +74,9 @@ impl Default for wasmer_engine_t {
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct wasm_config_t {
+    engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
-    engine: wasmer_engine_t,
 }
 
 /// Create a new Wasmer configuration.
