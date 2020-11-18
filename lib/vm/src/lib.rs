@@ -58,13 +58,13 @@ pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// A safe wrapper around `VMFunctionBody`
+/// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct FunctionBodyPtr(pub *const [VMFunctionBody]);
+pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 
 impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *const [VMFunctionBody];
+    type Target = *const VMFunctionBody;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -72,10 +72,12 @@ impl std::ops::Deref for FunctionBodyPtr {
 }
 
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Send for FunctionBodyPtr {}
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Sync for FunctionBodyPtr {}
 
 /// Pointers to section data.

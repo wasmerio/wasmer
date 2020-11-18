@@ -7,7 +7,7 @@ use wasmer_compiler::Compiler;
 use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
-use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::Features;
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
@@ -193,7 +193,7 @@ impl JITEngineInner {
         custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
     ) -> Result<
         (
-            PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
+            PrimaryMap<LocalFunctionIndex, FunctionExtent>,
             PrimaryMap<SignatureIndex, VMTrampoline>,
             PrimaryMap<FunctionIndex, FunctionBodyPtr>,
             PrimaryMap<SectionIndex, SectionBodyPtr>,
@@ -228,7 +228,10 @@ impl JITEngineInner {
 
         let allocated_functions_result = allocated_functions
             .drain(0..functions.len())
-            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .map(|slice| FunctionExtent {
+                ptr: FunctionBodyPtr(slice.as_ptr()),
+                length: slice.len(),
+            })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
@@ -244,7 +247,7 @@ impl JITEngineInner {
 
         let allocated_dynamic_function_trampolines = allocated_functions
             .drain(..)
-            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
         let mut exec_iter = allocated_executable_sections.iter();

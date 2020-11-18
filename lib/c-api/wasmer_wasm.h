@@ -29,6 +29,9 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `jit` feature has been enabled for this build.
+#define WASMER_JIT_ENABLED
+
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -177,7 +180,7 @@ void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
-bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
+bool wasm_module_set_name(wasm_module_t *module, wasm_name_t *name);
 
 /**
  * Gets the length in bytes of the last error if any.
