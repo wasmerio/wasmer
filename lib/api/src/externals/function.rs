@@ -224,7 +224,7 @@ impl Function {
     /// #
     /// #[derive(WasmerEnv)]
     /// struct Env {
-    ///   multiplier: i32,
+    ///     multiplier: i32,
     /// };
     /// let env = Env { multiplier: 2 };
     ///
@@ -833,7 +833,20 @@ mod inner {
         #[test]
         fn test_to_native() {
             assert_eq!(7i8.to_native(), 7i32);
+            assert_eq!(7u8.to_native(), 7i32);
+            assert_eq!(7i16.to_native(), 7i32);
+            assert_eq!(7u16.to_native(), 7i32);
             assert_eq!(u32::MAX.to_native(), -1);
+        }
+
+        #[test]
+        fn test_to_native_same_size() {
+            assert_eq!(7i32.to_native(), 7i32);
+            assert_eq!(7u32.to_native(), 7i32);
+            assert_eq!(7i64.to_native(), 7i64);
+            assert_eq!(7u64.to_native(), 7i64);
+            assert_eq!(7f32.to_native(), 7f32);
+            assert_eq!(7f64.to_native(), 7f64);
         }
     }
 
