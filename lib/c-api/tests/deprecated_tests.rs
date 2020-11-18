@@ -3,6 +3,7 @@ mod test_c_helpers;
 use test_c_helpers::compile_with_cmake_and_run_test;
 
 #[test]
+#[cfg(feature = "deprecated")]
 fn test_deprecated_c_api() {
     let project_tests_dir = concat!(env!("CARGO_MANIFEST_DIR"), "/tests/deprecated/");
 

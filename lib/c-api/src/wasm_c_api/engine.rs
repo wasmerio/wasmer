@@ -13,6 +13,7 @@ use wasmer_engine_object_file::ObjectFile;
 ///
 /// This is a Wasmer-specific type with Wasmer-specific functions for
 /// manipulating it.
+#[cfg(feature = "compiler")]
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum wasmer_compiler_t {
@@ -21,6 +22,7 @@ pub enum wasmer_compiler_t {
     SINGLEPASS = 2,
 }
 
+#[cfg(feature = "compiler")]
 impl Default for wasmer_compiler_t {
     fn default() -> Self {
         cfg_if! {
@@ -72,8 +74,9 @@ impl Default for wasmer_engine_t {
 #[derive(Debug, Default)]
 #[repr(C)]
 pub struct wasm_config_t {
-    compiler: wasmer_compiler_t,
     engine: wasmer_engine_t,
+    #[cfg(feature = "compiler")]
+    compiler: wasmer_compiler_t,
 }
 
 /// Create a new Wasmer configuration.
@@ -85,6 +88,7 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 }
 
 /// Configure the compiler to use.
+#[cfg(feature = "compiler")]
 #[no_mangle]
 pub extern "C" fn wasm_config_set_compiler(
     config: &mut wasm_config_t,
@@ -190,6 +194,7 @@ pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>)
 pub extern "C" fn wasm_engine_new_with_config(
     config: Box<wasm_config_t>,
 ) -> Option<Box<wasm_engine_t>> {
+    #[allow(dead_code)]
     fn return_with_error<M>(msg: M) -> Option<Box<wasm_engine_t>>
     where
         M: ToString,
