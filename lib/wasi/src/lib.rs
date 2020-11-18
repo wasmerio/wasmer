@@ -50,7 +50,9 @@ pub enum WasiError {
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
 pub struct WasiEnv {
-    state: Arc<Mutex<WasiState>>,
+    /// Shared state of the WASI system. Manages all the data that the
+    /// executing WASI program can see.
+    pub state: Arc<Mutex<WasiState>>,
     memory: Arc<WasiMemory>,
 }
 
