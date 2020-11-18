@@ -60,49 +60,38 @@ pub trait WasmerEnv {
     ///
     /// This function is called after `Instance` is created but before it is
     /// returned to the user via `Instance::new`.
-    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError>;
+    fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+        Ok(())
+    }
 }
 
-macro_rules! impl_wasmer_env {
-    ($name:ty) => {
-        impl WasmerEnv for $name {
-            fn finish(
-                &mut self,
-                _instance: &crate::Instance,
-            ) -> Result<(), crate::HostEnvInitError> {
-                Ok(())
-            }
-        }
-    };
-}
-
-impl_wasmer_env!(u8);
-impl_wasmer_env!(i8);
-impl_wasmer_env!(u16);
-impl_wasmer_env!(i16);
-impl_wasmer_env!(u32);
-impl_wasmer_env!(i32);
-impl_wasmer_env!(u64);
-impl_wasmer_env!(i64);
-impl_wasmer_env!(u128);
-impl_wasmer_env!(i128);
-impl_wasmer_env!(f32);
-impl_wasmer_env!(f64);
-impl_wasmer_env!(usize);
-impl_wasmer_env!(isize);
-impl_wasmer_env!(char);
-impl_wasmer_env!(bool);
-impl_wasmer_env!(String);
-impl_wasmer_env!(::std::sync::atomic::AtomicBool);
-impl_wasmer_env!(::std::sync::atomic::AtomicI8);
-impl_wasmer_env!(::std::sync::atomic::AtomicU8);
-impl_wasmer_env!(::std::sync::atomic::AtomicI16);
-impl_wasmer_env!(::std::sync::atomic::AtomicU16);
-impl_wasmer_env!(::std::sync::atomic::AtomicI32);
-impl_wasmer_env!(::std::sync::atomic::AtomicU32);
-impl_wasmer_env!(::std::sync::atomic::AtomicI64);
-impl_wasmer_env!(::std::sync::atomic::AtomicUsize);
-impl_wasmer_env!(::std::sync::atomic::AtomicIsize);
+impl WasmerEnv for u8 {}
+impl WasmerEnv for i8 {}
+impl WasmerEnv for u16 {}
+impl WasmerEnv for i16 {}
+impl WasmerEnv for u32 {}
+impl WasmerEnv for i32 {}
+impl WasmerEnv for u64 {}
+impl WasmerEnv for i64 {}
+impl WasmerEnv for u128 {}
+impl WasmerEnv for i128 {}
+impl WasmerEnv for f32 {}
+impl WasmerEnv for f64 {}
+impl WasmerEnv for usize {}
+impl WasmerEnv for isize {}
+impl WasmerEnv for char {}
+impl WasmerEnv for bool {}
+impl WasmerEnv for String {}
+impl WasmerEnv for ::std::sync::atomic::AtomicBool {}
+impl WasmerEnv for ::std::sync::atomic::AtomicI8 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicU8 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicI16 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicU16 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicI32 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicU32 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicI64 {}
+impl WasmerEnv for ::std::sync::atomic::AtomicUsize {}
+impl WasmerEnv for ::std::sync::atomic::AtomicIsize {}
 
 impl<T: WasmerEnv> WasmerEnv for &'static mut T {
     fn finish(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
@@ -110,7 +99,6 @@ impl<T: WasmerEnv> WasmerEnv for &'static mut T {
     }
 }
 
-// TODO: do we want to use mutex/atomics here? like old WASI solution
 /// Lazily init an item
 pub struct LazyInit<T: Sized> {
     /// The data to be initialized
