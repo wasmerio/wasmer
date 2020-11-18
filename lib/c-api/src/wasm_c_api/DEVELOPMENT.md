@@ -128,5 +128,5 @@ The `Option` is here to handle the situation where a null pointer is
 passed to the destructor.
 
 
-[`own`](https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h#L46-L65)
-[`wasm.h`](https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h)
+[`own`]: https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h#L46-L65
+[`wasm.h`]: https://github.com/wasmerio/wasmer/blob/f548f268f2335693b97ad7ca08af72c320daf59a/lib/c-api/tests/wasm_c_api/wasm-c-api/include/wasm.h
