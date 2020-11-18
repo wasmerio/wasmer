@@ -124,7 +124,7 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        let instance = Self {
+        let mut instance = Self {
             handle,
             module: module.clone(),
             exports,

@@ -101,6 +101,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
 
+    #[derive(wasmer::WasmerEnv)]
     #[repr(C)]
     struct WrapperEnv {
         env: *mut c_void,
@@ -112,15 +113,6 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
             if let Some(finalizer) = self.finalizer {
                 unsafe { (finalizer)(self.env as _) }
             }
-        }
-    }
-
-    impl wasmer::WasmerEnv for WrapperEnv {
-        fn init_with_instance(
-            &mut self,
-            _instance: &wasmer::Instance,
-        ) -> Result<(), wasmer::HostEnvInitError> {
-            Ok(())
         }
     }
 

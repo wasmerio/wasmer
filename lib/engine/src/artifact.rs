@@ -105,18 +105,18 @@ pub trait Artifact: Send + Sync + Upcastable {
         )
         .map_err(InstantiationError::Link)?;
 
-        let mut thunks = vec![];
-        // ------------
-        for (func_init, func) in imports
+        // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
+        // to the envs to call it on.
+        let import_initializers: Vec<(_, _)> = imports
             .host_function_env_initializers
             .values()
             .cloned()
             .zip(imports.functions.values())
-        {
-            let host_env = func.environment.host_env;
-            thunks.push((func_init, host_env));
-        }
-        // ------------
+            .map(|(func_init, func)| {
+                let host_env = func.environment.host_env;
+                (func_init, host_env)
+            })
+            .collect();
 
         // Get pointers to where metadata about local memories should live in VM memory.
         let memory_definition_locations =
@@ -151,7 +151,7 @@ pub trait Artifact: Send + Sync + Upcastable {
             imports,
             self.signatures().clone(),
             host_state,
-            thunks,
+            import_initializers,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
         Ok(handle)

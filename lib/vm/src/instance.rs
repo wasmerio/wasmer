@@ -63,6 +63,13 @@ cfg_if::cfg_if! {
     }
 }
 
+/// This type holds thunks (delayed computations) for initializing the imported
+/// function's environments with the [`Instance`].
+pub(crate) type ImportInitializerThunks = Vec<(
+    Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>>,
+    *mut std::ffi::c_void,
+)>;
+
 /// A WebAssembly instance.
 ///
 /// This is repr(C) to ensure that the vmctx field is last.
@@ -104,19 +111,13 @@ pub(crate) struct Instance {
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
-    /// TODO: document this
-    /// Functions to initialize the host environments in the imports.
-    /// Do we want to drain this? There's probably no reason to keep this memory
-    /// around once we've used it.
+    /// Functions to initialize the host environments in the imports and pointers
+    /// to the environments.
+    /// These function pointers all come from `WasmerEnv::init_with_instance`.
     ///
+    /// TODO:
     /// Be sure to test with serialize/deserialize and imported functions from other Wasm modules.
-    import_initializers: Vec<(
-        Option<
-            fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
-        >,
-        *mut std::ffi::c_void,
-    )>,
-
+    import_initializers: ImportInitializerThunks,
     /// Additional context used by compiled wasm code. This field is last, and
     /// represents a dynamically-sized array that extends beyond the nominal
     /// end of the struct (similar to a flexible array member).
@@ -923,15 +924,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
-        import_initializers: Vec<(
-            Option<
-                fn(
-                    *mut std::ffi::c_void,
-                    *const std::ffi::c_void,
-                ) -> Result<(), *mut std::ffi::c_void>,
-            >,
-            *mut std::ffi::c_void,
-        )>,
+        import_initializers: ImportInitializerThunks,
     ) -> Result<Self, Trap> {
         let instance_ptr = instance_ptr.cast::<Instance>().as_ptr();
 
@@ -1164,27 +1157,30 @@ impl InstanceHandle {
     /// Initializes the host environments.
     ///
     /// # Safety
-    /// - This function should only be called once (TODO: we can enforce this by draining the vec...)
     /// - This function must be called with the correct `Err` type parameter: the error type is not
     ///   visible to code in `wasmer_vm`, so it's the caller's responsibility to ensure these
     ///   functions are called with the correct type.
     pub unsafe fn initialize_host_envs<Err: Sized>(
-        &self,
+        &mut self,
         instance_ptr: *const std::ffi::c_void,
     ) -> Result<(), Err> {
-        for (func, env) in self.instance().import_initializers.iter() {
-            if let Some(f) = func {
+        use std::ffi;
+        let instance = &mut *self.instance;
+        for (func, env) in instance.import_initializers.drain(..) {
+            if let Some(ref f) = func {
                 // transmute our function pointer into one with the correct error type
                 let f = std::mem::transmute::<
-                    &fn(
-                        *mut std::ffi::c_void,
-                        *const std::ffi::c_void,
-                    ) -> Result<(), *mut std::ffi::c_void>,
-                    &fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), Err>,
+                    &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), *mut ffi::c_void>,
+                    &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
                 >(f);
-                f(*env, instance_ptr)?;
+                f(env, instance_ptr)?;
             }
         }
+        // free memory
+        instance.import_initializers.shrink_to_fit();
+        // TODO: remove, just here to double check my work
+        assert_eq!(instance.import_initializers.capacity(), 0);
+        assert_eq!(instance.import_initializers.len(), 0);
         Ok(())
     }
 
