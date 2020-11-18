@@ -116,7 +116,7 @@ impl Run {
             if is_emscripten_module(&module) {
                 let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                let mut em_env = EmEnv::new();
+                let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
                 let mut instance = Instance::new(&module, &import_object)
@@ -132,8 +132,7 @@ impl Run {
                         self.path.to_str().unwrap()
                     },
                     self.args.iter().map(|arg| arg.as_str()).collect(),
-                    None,   //run.em_entrypoint.clone(),
-                    vec![], //mapped_dirs,
+                    None, //run.em_entrypoint.clone(),
                 )?;
                 return Ok(());
             }

@@ -15,6 +15,7 @@ wasmer-compiler = { version = "1.0.0-alpha5", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "1.0.0-alpha5", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "1.0.0-alpha5", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "1.0.0-alpha5", path = "lib/compiler-llvm", optional = true }
+wasmer-emscripten = { version = "1.0.0-alpha5", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "1.0.0-alpha5", path = "lib/engine" }
 wasmer-engine-jit = { version = "1.0.0-alpha5", path = "lib/engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-alpha5", path = "lib/engine-native", optional = true }
@@ -79,7 +80,7 @@ default = [
     "object-file",
     "cache",
     "wasi",
-    # "emscripten",
+    "emscripten",
 ]
 engine = []
 jit = [
@@ -97,7 +98,7 @@ object-file = [
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
-# emscripten = ["wasmer-emscripten"]
+emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer/compiler",

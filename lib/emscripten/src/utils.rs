@@ -124,8 +124,7 @@ pub unsafe fn copy_cstr_into_wasm(ctx: &mut EmEnv, cstr: *const c_char) -> u32 {
 
 pub unsafe fn allocate_on_stack<'a, T: Copy>(ctx: &'a mut EmEnv, count: u32) -> (u32, &'a mut [T]) {
     let offset = get_emscripten_data(ctx)
-        .stack_alloc
-        .as_ref()
+        .stack_alloc_ref()
         .unwrap()
         .call(count * (size_of::<T>() as u32))
         .unwrap();

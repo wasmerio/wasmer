@@ -143,7 +143,7 @@ impl<T> LazyInit<T> {
         }
     }
 
-    /// TOOD: review
+    /// Sets a value and marks the data as initialized.
     pub fn initialize(&mut self, value: T) -> bool {
         if self.initialized {
             return false;

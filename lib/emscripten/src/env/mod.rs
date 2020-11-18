@@ -19,14 +19,14 @@ use crate::{
 };
 
 use std::os::raw::c_int;
+use std::sync::MutexGuard;
 
 use crate::EmEnv;
 use wasmer::ValueType;
 
 pub fn call_malloc(ctx: &mut EmEnv, size: u32) -> u32 {
     get_emscripten_data(ctx)
-        .malloc
-        .as_ref()
+        .malloc_ref()
         .unwrap()
         .call(size)
         .unwrap()
@@ -38,7 +38,7 @@ pub fn call_malloc_with_cast<T: Copy, Ty>(ctx: &mut EmEnv, size: u32) -> WasmPtr
 }
 
 pub fn call_memalign(ctx: &mut EmEnv, alignment: u32, size: u32) -> u32 {
-    if let Some(memalign) = &get_emscripten_data(ctx).memalign {
+    if let Some(memalign) = &get_emscripten_data(ctx).memalign_ref() {
         memalign.call(alignment, size).unwrap()
     } else {
         panic!("Memalign is set to None");
@@ -47,15 +47,14 @@ pub fn call_memalign(ctx: &mut EmEnv, alignment: u32, size: u32) -> u32 {
 
 pub fn call_memset(ctx: &mut EmEnv, pointer: u32, value: u32, size: u32) -> u32 {
     get_emscripten_data(ctx)
-        .memset
-        .as_ref()
+        .memset_ref()
         .unwrap()
         .call(pointer, value, size)
         .unwrap()
 }
 
-pub(crate) fn get_emscripten_data<'a>(ctx: &'a mut EmEnv) -> &'a mut EmscriptenData<'static> {
-    unsafe { &mut **ctx.data }
+pub(crate) fn get_emscripten_data(ctx: &EmEnv) -> MutexGuard<EmscriptenData> {
+    ctx.data.lock().unwrap()
 }
 
 pub fn _getpagesize(_ctx: &mut EmEnv) -> u32 {

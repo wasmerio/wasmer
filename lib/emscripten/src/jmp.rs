@@ -62,8 +62,7 @@ impl Error for LongJumpRet {}
 pub fn _longjmp(ctx: &mut EmEnv, env_addr: i32, val: c_int) {
     let val = if val == 0 { 1 } else { val };
     get_emscripten_data(ctx)
-        .set_threw
-        .as_ref()
+        .set_threw_ref()
         .expect("set_threw is None")
         .call(env_addr, val)
         .expect("set_threw failed to call");

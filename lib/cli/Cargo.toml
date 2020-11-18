@@ -58,7 +58,7 @@ default = [
     "object-file",
     "cache",
     "wasi",
-    # "emscripten",
+    "emscripten",
 ]
 engine = []
 jit = [
