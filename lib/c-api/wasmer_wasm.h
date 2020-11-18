@@ -32,9 +32,6 @@
 // The `jit` feature has been enabled for this build.
 #define WASMER_JIT_ENABLED
 
-// The `compiler` feature has been enabled for this build.
-#define WASMER_COMPILER_ENABLED
-
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
 
@@ -55,6 +52,7 @@
 #include <stdlib.h>
 #include "wasm.h"
 
+#if defined(WASMER_COMPILER_ENABLED)
 /**
  * Kind of compilers that can be used by the engines.
  *
@@ -66,6 +64,7 @@ typedef enum {
   LLVM = 1,
   SINGLEPASS = 2,
 } wasmer_compiler_t;
+#endif
 
 /**
  * Kind of engines that can be used by the store.
@@ -168,10 +167,12 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
+#if defined(WASMER_COMPILER_ENABLED)
 /**
  * Configure the compiler to use.
  */
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
+#endif
 
 /**
  * Configure the engine to use.
