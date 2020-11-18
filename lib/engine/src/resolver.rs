@@ -125,7 +125,6 @@ pub fn resolve_imports(
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
-    // TODO: account for imported functions without env / from other Wasm instances
     let mut host_function_env_initializers =
         PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);

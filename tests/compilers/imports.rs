@@ -86,19 +86,13 @@ fn dynamic_function_with_env() -> Result<()> {
     let store = get_store(false);
     let module = get_module(&store)?;
 
-    #[derive(Clone)]
+    #[derive(WasmerEnv, Clone)]
     struct Env(Arc<AtomicUsize>);
 
     impl std::ops::Deref for Env {
         type Target = Arc<AtomicUsize>;
         fn deref(&self) -> &Self::Target {
             &self.0
-        }
-    }
-
-    impl WasmerEnv for Env {
-        fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
-            Ok(())
         }
     }
 
@@ -219,19 +213,13 @@ fn static_function_with_env() -> Result<()> {
     let store = get_store(false);
     let module = get_module(&store)?;
 
-    #[derive(Clone)]
+    #[derive(WasmerEnv, Clone)]
     struct Env(Arc<AtomicUsize>);
 
     impl std::ops::Deref for Env {
         type Target = Arc<AtomicUsize>;
         fn deref(&self) -> &Self::Target {
             &self.0
-        }
-    }
-
-    impl WasmerEnv for Env {
-        fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
-            Ok(())
         }
     }
 

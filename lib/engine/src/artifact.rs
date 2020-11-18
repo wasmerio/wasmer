@@ -96,27 +96,22 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         let module = self.module();
         let (instance_ptr, offsets) = InstanceHandle::allocate_instance(&module);
-        let imports = resolve_imports(
-            &module,
-            resolver,
-            &self.finished_dynamic_function_trampolines(),
-            self.memory_styles(),
-            self.table_styles(),
-        )
-        .map_err(InstantiationError::Link)?;
+        let (imports, import_initializers) = {
+            let mut imports = resolve_imports(
+                &module,
+                resolver,
+                &self.finished_dynamic_function_trampolines(),
+                self.memory_styles(),
+                self.table_styles(),
+            )
+            .map_err(InstantiationError::Link)?;
 
-        // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
-        // to the envs to call it on.
-        let import_initializers: Vec<(_, _)> = imports
-            .host_function_env_initializers
-            .values()
-            .cloned()
-            .zip(imports.functions.values())
-            .map(|(func_init, func)| {
-                let host_env = func.environment.host_env;
-                (func_init, host_env)
-            })
-            .collect();
+            // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
+            // to the envs to call it on.
+            let import_initializers: Vec<(_, _)> = imports.get_import_initializers();
+
+            (imports, import_initializers)
+        };
 
         // Get pointers to where metadata about local memories should live in VM memory.
         let memory_definition_locations =

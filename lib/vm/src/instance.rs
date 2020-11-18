@@ -63,12 +63,15 @@ cfg_if::cfg_if! {
     }
 }
 
+/// The function pointer to call with data and an [`Instance`] pointer to
+/// finish initializing the host env.
+pub(crate) type ImportInitializerFuncPtr =
+    fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
+
 /// This type holds thunks (delayed computations) for initializing the imported
 /// function's environments with the [`Instance`].
-pub(crate) type ImportInitializerThunks = Vec<(
-    Option<fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>>,
-    *mut std::ffi::c_void,
-)>;
+pub(crate) type ImportInitializerThunks =
+    Vec<(Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>;
 
 /// A WebAssembly instance.
 ///
@@ -159,13 +162,11 @@ impl Instance {
         unsafe { &*self.imported_functions_ptr().add(index) }
     }
 
-    /// TODO: document this
+    /// Get the import initializer func at the given index if it exists.
     fn imported_function_env_initializer(
         &self,
         index: FunctionIndex,
-    ) -> Option<
-        fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
-    > {
+    ) -> Option<ImportInitializerFuncPtr> {
         self.import_initializers[index.as_u32() as usize].0
     }
 
@@ -1170,17 +1171,14 @@ impl InstanceHandle {
             if let Some(ref f) = func {
                 // transmute our function pointer into one with the correct error type
                 let f = std::mem::transmute::<
-                    &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), *mut ffi::c_void>,
+                    &ImportInitializerFuncPtr,
                     &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
                 >(f);
                 f(env, instance_ptr)?;
             }
         }
-        // free memory
+        // free memory now that it's empty.
         instance.import_initializers.shrink_to_fit();
-        // TODO: remove, just here to double check my work
-        assert_eq!(instance.import_initializers.capacity(), 0);
-        assert_eq!(instance.import_initializers.len(), 0);
         Ok(())
     }
 

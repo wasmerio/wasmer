@@ -1,6 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
+use crate::instance::{ImportInitializerFuncPtr, ImportInitializerThunks};
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
@@ -14,12 +15,10 @@ pub struct Imports {
     /// Initializers for host function environments. This is split out from `functions`
     /// because the generated code never needs to touch this and the extra wasted
     /// space may affect Wasm runtime performance due to increased cache pressure.
-    pub host_function_env_initializers: BoxedSlice<
-        FunctionIndex,
-        Option<
-            fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>,
-        >,
-    >,
+    ///
+    /// We make it optional so that we can free the data after use.
+    pub host_function_env_initializers:
+        Option<BoxedSlice<FunctionIndex, Option<ImportInitializerFuncPtr>>>,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -35,22 +34,14 @@ impl Imports {
     /// Construct a new `Imports` instance.
     pub fn new(
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
-        host_function_env_initializers: PrimaryMap<
-            FunctionIndex,
-            Option<
-                fn(
-                    *mut std::ffi::c_void,
-                    *const std::ffi::c_void,
-                ) -> Result<(), *mut std::ffi::c_void>,
-            >,
-        >,
+        host_function_env_initializers: PrimaryMap<FunctionIndex, Option<ImportInitializerFuncPtr>>,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,
     ) -> Self {
         Self {
             functions: function_imports.into_boxed_slice(),
-            host_function_env_initializers: host_function_env_initializers.into_boxed_slice(),
+            host_function_env_initializers: Some(host_function_env_initializers.into_boxed_slice()),
             tables: table_imports.into_boxed_slice(),
             memories: memory_imports.into_boxed_slice(),
             globals: global_imports.into_boxed_slice(),
@@ -61,10 +52,40 @@ impl Imports {
     pub fn none() -> Self {
         Self {
             functions: PrimaryMap::new().into_boxed_slice(),
-            host_function_env_initializers: PrimaryMap::new().into_boxed_slice(),
+            host_function_env_initializers: Some(PrimaryMap::new().into_boxed_slice()),
             tables: PrimaryMap::new().into_boxed_slice(),
             memories: PrimaryMap::new().into_boxed_slice(),
             globals: PrimaryMap::new().into_boxed_slice(),
         }
+    }
+
+    /// Get the `WasmerEnv::init_with_instance` function pointers and the pointers
+    /// to the envs to call it on.
+    ///
+    /// This function can only be called once, it deletes the data it returns after
+    /// returning it to ensure that it's not called more than once.
+    pub fn get_import_initializers(&mut self) -> ImportInitializerThunks {
+        let result = if let Some(inner) = &self.host_function_env_initializers {
+            inner
+                .values()
+                .cloned()
+                .zip(self.functions.values())
+                .map(|(func_init, func)| {
+                    let host_env = if func_init.is_some() {
+                        // this access is correct because we know that only functions with
+                        // host envs have a value in `func_init`.
+                        unsafe { func.environment.host_env }
+                    } else {
+                        std::ptr::null_mut()
+                    };
+                    (func_init, host_env)
+                })
+                .collect()
+        } else {
+            vec![]
+        };
+        // ensure we only call these functions once and free this now useless memory.
+        self.host_function_env_initializers = None;
+        result
     }
 }
