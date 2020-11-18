@@ -15,13 +15,20 @@ impl From<ExportError> for HostEnvInitError {
     }
 }
 
-/// Prototype trait for finishing envs.
+/// Trait for initializing the environments passed to host functions after
+/// instantiation but before execution.
+///
+/// This is useful for filling an environment with data that can only be accesed
+/// after instantiation. For example, exported items such as memories and
+/// functions which don't exist prior to instantiation can be accessed here so
+/// that host functions can use them.
+///
 /// # Examples
 ///
 /// This trait can be derived like so:
 ///
 /// ```
-/// # use wasmer::{WasmerEnv, LazyInit, Memory, NativeFunc};
+/// use wasmer::{WasmerEnv, LazyInit, Memory, NativeFunc};
 ///
 /// #[derive(WasmerEnv)]
 /// pub struct MyEnvWithNoInstanceData {
@@ -38,6 +45,11 @@ impl From<ExportError> for HostEnvInitError {
 /// }
 ///
 /// ```
+///
+/// When deriving `WasmerEnv`, you must wrap your types to be initialized in
+/// [`LazyInit`]. The derive macro will also generate helper methods of the form
+/// `<field_name>_ref` and `<field_name>_ref_unchecked` for easy access to the
+/// data.
 ///
 /// This trait can also be implemented manually:
 /// ```

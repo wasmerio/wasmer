@@ -141,9 +141,9 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                             }
                         } else {
                             abort!(
-                    span,
-                    "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
-                );
+                                span,
+                                "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
+                            );
                         }
                     };
 
@@ -178,7 +178,7 @@ fn get_identifier(ty: &Type) -> TokenStream {
                 if ident != "LazyInit" {
                     abort!(
                         ident,
-                        "WasmerEnv derive expects all `exports` to be wrapped in `LazyInit`"
+                        "WasmerEnv derive expects all `export`s to be wrapped in `LazyInit`"
                     );
                 }
                 if let PathArguments::AngleBracketed(AngleBracketedGenericArguments {
