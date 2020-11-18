@@ -3,10 +3,10 @@
 use crate::utils::get_compiler;
 use std::path::Path;
 use wasmer::{Features, Store};
-#[cfg(feature = "jit")]
+#[cfg(feature = "test-jit")]
 use wasmer_engine_jit::JIT;
-// #[cfg(feature = "native")]
-// use wasmer_engine_native::NativeEngine;
+#[cfg(feature = "test-native")]
+use wasmer_engine_native::Native;
 use wasmer_wast::Wast;
 
 // The generated tests (from build.rs) look like:
@@ -28,6 +28,22 @@ fn _native_prefixer(bytes: &[u8]) -> String {
     format!("{}", hash.to_hex())
 }
 
+#[cfg(feature = "test-jit")]
+fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
+    let compiler_config = get_compiler(try_nan_canonicalization);
+    Store::new(&JIT::new(&compiler_config).features(features).engine())
+}
+
+#[cfg(feature = "test-native")]
+fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
+    let mut compiler_config = get_compiler(try_nan_canonicalization);
+    Store::new(
+        &Native::new(&mut compiler_config)
+            .features(features)
+            .engine(),
+    )
+}
+
 pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     println!(
         "Running wast `{}` with the {} compiler",
@@ -43,18 +59,32 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         features.simd(true);
     }
-    #[cfg(feature = "test-singlepass")]
-    features.multi_value(false);
-    let compiler_config = get_compiler(try_nan_canonicalization);
-    let store = Store::new(&JIT::new(&compiler_config).features(features).engine());
-    // let mut native = NativeEngine::new(compiler_config, tunables);
-    // native.set_deterministic_prefixer(native_prefixer);
-    // let store = Store::new(&native);
+    if cfg!(feature = "test-singlepass") {
+        features.multi_value(false);
+    }
+    let store = get_store(features, try_nan_canonicalization);
     let mut wast = Wast::new_with_spectest(store);
+    // `bulk-memory-operations/bulk.wast` checks for a message that
+    // specifies which element is uninitialized, but our traps don't
+    // shepherd that information out.
+    wast.allow_trap_message("uninitialized element 2", "uninitialized element");
+    if compiler == "cranelift" && cfg!(feature = "test-native") {
+        wast.allow_trap_message("call stack exhausted", "out of bounds memory access");
+        wast.allow_trap_message("indirect call type mismatch", "call stack exhausted");
+        wast.allow_trap_message("integer divide by zero", "call stack exhausted");
+        wast.allow_trap_message("integer overflow", "call stack exhausted");
+        wast.allow_trap_message("invalid conversion to integer", "call stack exhausted");
+        wast.allow_trap_message("undefined element", "call stack exhausted");
+        wast.allow_trap_message("uninitialized element", "call stack exhausted");
+        wast.allow_trap_message("unreachable", "call stack exhausted");
+    }
+    if cfg!(feature = "coverage") {
+        wast.disable_assert_and_exhaustion();
+    }
     if is_simd {
         // We allow this, so tests can be run properly for `simd_const` test.
         wast.allow_instantiation_failures(&[
-            "Validation error: multiple tables: tables count must be at most 1",
+            "Validation error: multiple tables",
             "Validation error: unknown memory 0",
             "Validation error: Invalid var_u32",
         ]);

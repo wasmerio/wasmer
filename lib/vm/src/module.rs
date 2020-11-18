@@ -155,7 +155,7 @@ impl ModuleInfo {
             .filter_map(|(_name, export_index)| match export_index {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(*i).unwrap();
-                    let func_type = self.signatures.get(signature.clone()).unwrap();
+                    let func_type = self.signatures.get(*signature).unwrap();
                     Some(func_type.clone())
                 }
                 _ => None,

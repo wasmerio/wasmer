@@ -11,9 +11,43 @@ use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
 use std::any::Any;
 use std::convert::TryFrom;
+use std::fmt;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
+
+/// Union representing the first parameter passed when calling a function.
+///
+/// It may either be a pointer to the [`VMContext`] if it's a Wasm function
+/// or a pointer to arbitrary data controlled by the host if it's a host function.
+#[derive(Copy, Clone)]
+pub union VMFunctionEnvironment {
+    /// Wasm functions take a pointer to [`VMContext`].
+    pub vmctx: *mut VMContext,
+    /// Host functions can have custom environments.
+    pub host_env: *mut std::ffi::c_void,
+}
+
+impl VMFunctionEnvironment {
+    /// Check whether the pointer stored is null or not.
+    pub fn is_null(&self) -> bool {
+        unsafe { self.host_env.is_null() }
+    }
+}
+
+impl std::fmt::Debug for VMFunctionEnvironment {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        f.debug_struct("VMFunctionEnvironment")
+            .field("vmctx_or_hostenv", unsafe { &self.host_env })
+            .finish()
+    }
+}
+
+impl std::cmp::PartialEq for VMFunctionEnvironment {
+    fn eq(&self, rhs: &Self) -> bool {
+        unsafe { self.host_env as usize == rhs.host_env as usize }
+    }
+}
 
 /// An imported function.
 #[derive(Debug, Copy, Clone)]
@@ -22,8 +56,8 @@ pub struct VMFunctionImport {
     /// A pointer to the imported function body.
     pub body: *const VMFunctionBody,
 
-    /// A pointer to the `VMContext` that owns the function.
-    pub vmctx: *const VMContext,
+    /// A pointer to the `VMContext` that owns the function or host env data.
+    pub environment: VMFunctionEnvironment,
 }
 
 #[cfg(test)]
@@ -46,7 +80,7 @@ mod test_vmfunction_import {
             usize::from(offsets.vmfunction_import_body())
         );
         assert_eq!(
-            offset_of!(VMFunctionImport, vmctx),
+            offset_of!(VMFunctionImport, environment),
             usize::from(offsets.vmfunction_import_vmctx())
         );
     }
@@ -116,20 +150,20 @@ mod test_vmfunction_body {
     }
 }
 
-/// A function kind.
+/// A function kind is a calling convention into and out of wasm code.
 #[derive(Debug, Copy, Clone, PartialEq)]
 #[repr(C)]
 pub enum VMFunctionKind {
-    /// A function is static when its address matches the signature:
-    /// (vmctx, vmctx, arg1, arg2...) -> (result1, result2, ...)
+    /// A static function has the native signature:
+    /// extern "C" (vmctx, arg1, arg2...) -> (result1, result2, ...)
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, natively
     /// 2. In the WebAssembly file
     Static,
 
-    /// A function is dynamic when its address matches the signature:
-    /// (ctx, &[Type]) -> Vec<Type>
+    /// A dynamic function has the native signature:
+    /// extern "C" (ctx, &[Value]) -> Vec<Value>
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, dynamically
@@ -421,6 +455,34 @@ mod test_vmtable_definition {
     }
 }
 
+/// A typesafe wrapper around the storage for a global variables.
+///
+/// # Safety
+///
+/// Accessing the different members of this union is always safe because there
+/// are no invalid values for any of the types and the whole object is
+/// initialized by VMGlobalDefinition::new().
+#[derive(Clone, Copy)]
+#[repr(C, align(16))]
+pub union VMGlobalDefinitionStorage {
+    as_i32: i32,
+    as_u32: u32,
+    as_f32: f32,
+    as_i64: i64,
+    as_u64: u64,
+    as_f64: f64,
+    as_u128: u128,
+    bytes: [u8; 16],
+}
+
+impl fmt::Debug for VMGlobalDefinitionStorage {
+    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
+        f.debug_struct("VMGlobalDefinitionStorage")
+            .field("bytes", unsafe { &self.bytes })
+            .finish()
+    }
+}
+
 /// The storage for a WebAssembly global defined within the instance.
 ///
 /// TODO: Pack the globals more densely, rather than using the same size
@@ -428,7 +490,7 @@ mod test_vmtable_definition {
 #[derive(Debug, Clone)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
-    storage: [u8; 16],
+    storage: VMGlobalDefinitionStorage,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
@@ -469,207 +531,158 @@ mod test_vmglobal_definition {
 impl VMGlobalDefinition {
     /// Construct a `VMGlobalDefinition`.
     pub fn new() -> Self {
-        Self { storage: [0; 16] }
+        Self {
+            storage: VMGlobalDefinitionStorage { bytes: [0; 16] },
+        }
     }
 
-    /// Return a reference to the value as an i32.
+    /// Return the value as an i32.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_i32(&self) -> &i32 {
-        &*(self.storage.as_ref().as_ptr() as *const i32)
+    /// If this is not an I32 typed global it is unspecified what value is returned.
+    pub fn to_i32(&self) -> i32 {
+        unsafe { self.storage.as_i32 }
     }
 
     /// Return a mutable reference to the value as an i32.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_i32_mut(&mut self) -> &mut i32 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut i32)
+        &mut self.storage.as_i32
     }
 
-    /// Return a reference to the value as a u32.
+    /// Return a reference to the value as an u32.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_u32(&self) -> &u32 {
-        &*(self.storage.as_ref().as_ptr() as *const u32)
+    /// If this is not an I32 typed global it is unspecified what value is returned.
+    pub fn to_u32(&self) -> u32 {
+        unsafe { self.storage.as_u32 }
     }
 
     /// Return a mutable reference to the value as an u32.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_u32_mut(&mut self) -> &mut u32 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut u32)
+        &mut self.storage.as_u32
     }
 
     /// Return a reference to the value as an i64.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_i64(&self) -> &i64 {
-        &*(self.storage.as_ref().as_ptr() as *const i64)
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_i64(&self) -> i64 {
+        unsafe { self.storage.as_i64 }
     }
 
     /// Return a mutable reference to the value as an i64.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_i64_mut(&mut self) -> &mut i64 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut i64)
+        &mut self.storage.as_i64
     }
 
     /// Return a reference to the value as an u64.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_u64(&self) -> &u64 {
-        &*(self.storage.as_ref().as_ptr() as *const u64)
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_u64(&self) -> u64 {
+        unsafe { self.storage.as_u64 }
     }
 
     /// Return a mutable reference to the value as an u64.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has I64 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_u64_mut(&mut self) -> &mut u64 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut u64)
+        &mut self.storage.as_u64
     }
 
     /// Return a reference to the value as an f32.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f32(&self) -> &f32 {
-        &*(self.storage.as_ref().as_ptr() as *const f32)
+    /// If this is not an F32 typed global it is unspecified what value is returned.
+    pub fn to_f32(&self) -> f32 {
+        unsafe { self.storage.as_f32 }
     }
 
     /// Return a mutable reference to the value as an f32.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has F32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_f32_mut(&mut self) -> &mut f32 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut f32)
-    }
-
-    /// Return a reference to the value as f32 bits.
-    ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f32_bits(&self) -> &u32 {
-        &*(self.storage.as_ref().as_ptr() as *const u32)
-    }
-
-    /// Return a mutable reference to the value as f32 bits.
-    ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f32_bits_mut(&mut self) -> &mut u32 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut u32)
+        &mut self.storage.as_f32
     }
 
     /// Return a reference to the value as an f64.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f64(&self) -> &f64 {
-        &*(self.storage.as_ref().as_ptr() as *const f64)
+    /// If this is not an F64 typed global it is unspecified what value is returned.
+    pub fn to_f64(&self) -> f64 {
+        unsafe { self.storage.as_f64 }
     }
 
     /// Return a mutable reference to the value as an f64.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has F64 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_f64_mut(&mut self) -> &mut f64 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut f64)
-    }
-
-    /// Return a reference to the value as f64 bits.
-    ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f64_bits(&self) -> &u64 {
-        &*(self.storage.as_ref().as_ptr() as *const u64)
-    }
-
-    /// Return a mutable reference to the value as f64 bits.
-    ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_f64_bits_mut(&mut self) -> &mut u64 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut u64)
+        &mut self.storage.as_f64
     }
 
     /// Return a reference to the value as an u128.
     ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_u128(&self) -> &u128 {
-        &*(self.storage.as_ref().as_ptr() as *const u128)
+    /// If this is not an V128 typed global it is unspecified what value is returned.
+    pub fn to_u128(&self) -> u128 {
+        unsafe { self.storage.as_u128 }
     }
 
     /// Return a mutable reference to the value as an u128.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
+    /// It is the callers responsibility to make sure the global has V128 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
     pub unsafe fn as_u128_mut(&mut self) -> &mut u128 {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut u128)
+        &mut self.storage.as_u128
     }
 
-    /// Return a reference to the value as u128 bits.
+    /// Return a reference to the value as bytes.
+    pub fn to_bytes(&self) -> [u8; 16] {
+        unsafe { self.storage.bytes }
+    }
+
+    /// Return a mutable reference to the value as bytes.
     ///
     /// # Safety
     ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_u128_bits(&self) -> &[u8; 16] {
-        &*(self.storage.as_ref().as_ptr() as *const [u8; 16])
-    }
-
-    /// Return a mutable reference to the value as u128 bits.
-    ///
-    /// # Safety
-    ///
-    /// To be defined (TODO).
-    #[allow(clippy::cast_ptr_alignment)]
-    pub unsafe fn as_u128_bits_mut(&mut self) -> &mut [u8; 16] {
-        &mut *(self.storage.as_mut().as_mut_ptr() as *mut [u8; 16])
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_bytes_mut(&mut self) -> &mut [u8; 16] {
+        &mut self.storage.bytes
     }
 }
 
@@ -728,8 +741,8 @@ pub struct VMCallerCheckedAnyfunc {
     pub func_ptr: *const VMFunctionBody,
     /// Function signature id.
     pub type_index: VMSharedSignatureIndex,
-    /// Function `VMContext`.
-    pub vmctx: *const VMContext,
+    /// Function `VMContext` or host env.
+    pub vmctx: VMFunctionEnvironment,
     // If more elements are added here, remember to add offset_of tests below!
 }
 
@@ -768,7 +781,9 @@ impl Default for VMCallerCheckedAnyfunc {
         Self {
             func_ptr: ptr::null_mut(),
             type_index: Default::default(),
-            vmctx: ptr::null_mut(),
+            vmctx: VMFunctionEnvironment {
+                vmctx: ptr::null_mut(),
+            },
         }
     }
 }

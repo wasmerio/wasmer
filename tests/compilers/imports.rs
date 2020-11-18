@@ -43,7 +43,7 @@ fn get_module(store: &Store) -> Result<Module> {
 
 #[test]
 fn dynamic_function() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
     static HITS: AtomicUsize = AtomicUsize::new(0);
     Instance::new(
@@ -83,7 +83,7 @@ fn dynamic_function() -> Result<()> {
 
 #[test]
 fn dynamic_function_with_env() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
@@ -124,7 +124,7 @@ fn dynamic_function_with_env() -> Result<()> {
 
 #[test]
 fn static_function() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -162,7 +162,7 @@ fn static_function() -> Result<()> {
 
 #[test]
 fn static_function_with_results() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -200,7 +200,7 @@ fn static_function_with_results() -> Result<()> {
 
 #[test]
 fn static_function_with_env() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
@@ -238,7 +238,7 @@ fn static_function_with_env() -> Result<()> {
 
 #[test]
 fn static_function_that_fails() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (import "host" "0" (func))
 

@@ -1,3 +1,4 @@
+// The Wasmer C/C++ header file.
 
 #if !defined(WASMER_H_MACROS)
 
@@ -27,8 +28,14 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
 #endif // WASMER_H_MACROS
+
+
+//
+// OK, here we go. The code below is automatically generated.
+//
 
 
 #ifndef WASMER_H
@@ -37,6 +44,7 @@
 #include <cstdarg>
 #include <cstdint>
 #include <cstdlib>
+#include <ostream>
 #include <new>
 
 #if defined(WASMER_WASI_ENABLED)
@@ -195,9 +203,9 @@ struct wasmer_memory_t {
 
 };
 
-/// Opaque pointer to the opaque structure `crate::NamedExports`,
-/// which is a wrapper around a vector of the opaque structure
-/// `crate::NamedExport`.
+/// Opaque pointer to the opaque structure
+/// `crate::deprecated::NamedExports`, which is a wrapper around a
+/// vector of the opaque structure `crate::deprecated::NamedExport`.
 ///
 /// Check the `wasmer_instance_exports()` function to learn more.
 struct wasmer_exports_t {

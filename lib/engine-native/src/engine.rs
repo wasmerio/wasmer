@@ -1,18 +1,18 @@
 //! Native Engine.
 
 use crate::NativeArtifact;
-use std::collections::HashMap;
+use libloading::Library;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;
+use wasmer_compiler::{CompileError, Target};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::Compiler;
-use wasmer_compiler::{CompileError, Target, Triple};
+use wasmer_compiler::{Compiler, Triple};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
 use wasmer_types::FunctionType;
-use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex, VMTrampoline};
+use wasmer_vm::{SignatureRegistry, VMSharedSignatureIndex};
 #[cfg(feature = "compiler")]
 use which::which;
 
@@ -49,12 +49,12 @@ impl NativeEngine {
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
                 compiler: Some(compiler),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 features,
                 is_cross_compiling,
                 linker,
+                libraries: vec![],
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
@@ -81,11 +81,11 @@ impl NativeEngine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
-                trampolines: HashMap::new(),
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 is_cross_compiling: false,
                 linker: Linker::None,
+                libraries: vec![],
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -135,11 +135,6 @@ impl Engine for NativeEngine {
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.inner();
         compiler.signatures().lookup(sig)
-    }
-
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.inner().trampoline(sig)
     }
 
     /// Validates a WebAssembly module
@@ -222,8 +217,6 @@ pub struct NativeEngineInner {
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,
-    /// Pointers to trampoline functions used to enter particular signatures
-    trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -235,6 +228,8 @@ pub struct NativeEngineInner {
     is_cross_compiling: bool,
     /// The linker to use.
     linker: Linker,
+    /// List of libraries loaded by this engine.
+    libraries: Vec<Library>,
 }
 
 impl NativeEngineInner {
@@ -283,24 +278,15 @@ impl NativeEngineInner {
         &self.signatures
     }
 
-    /// Gets the trampoline pre-registered for a particular signature
-    pub fn trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.trampolines.get(&sig).cloned()
-    }
-
-    pub(crate) fn add_trampoline(&mut self, func_type: &FunctionType, trampoline: VMTrampoline) {
-        let index = self.signatures.register(&func_type);
-        // We always use (for now) the latest trampoline compiled
-        // TODO: we need to deallocate trampolines as the compiled modules
-        // where they belong become unallocated.
-        self.trampolines.insert(index, trampoline);
-    }
-
     pub(crate) fn is_cross_compiling(&self) -> bool {
         self.is_cross_compiling
     }
 
     pub(crate) fn linker(&self) -> Linker {
         self.linker
+    }
+
+    pub(crate) fn add_library(&mut self, library: Library) {
+        self.libraries.push(library);
     }
 }

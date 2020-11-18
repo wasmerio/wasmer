@@ -132,7 +132,7 @@ pub fn poll_oneoff(
     let memory = env.memory();
     let mut in_origs: Vec<snapshot0::__wasi_subscription_t> = vec![];
     for in_sub in wasi_try!(in_.deref(memory, 0, nsubscriptions)) {
-        in_origs.push(in_sub.get().clone());
+        in_origs.push(in_sub.get());
     }
 
     // get a pointer to the smaller new type

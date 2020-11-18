@@ -1,6 +1,6 @@
 #![deny(unused_mut)]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
-#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 //! Wasmer's WASI implementation
 //!
@@ -50,7 +50,9 @@ pub enum WasiError {
 /// The environment provided to the WASI imports.
 #[derive(Debug, Clone)]
 pub struct WasiEnv {
-    state: Arc<Mutex<WasiState>>,
+    /// Shared state of the WASI system. Manages all the data that the
+    /// executing WASI program can see.
+    pub state: Arc<Mutex<WasiState>>,
     memory: Arc<WasiMemory>,
 }
 

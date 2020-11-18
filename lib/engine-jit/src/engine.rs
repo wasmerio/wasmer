@@ -1,14 +1,13 @@
 //! JIT compilation.
 
 use crate::{CodeMemory, JITArtifact};
-use std::collections::HashMap;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{
     CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
 };
-use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
+use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::Features;
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
@@ -33,7 +32,6 @@ impl JITEngine {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
-                function_call_trampolines: HashMap::new(),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
@@ -61,7 +59,6 @@ impl JITEngine {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 #[cfg(feature = "compiler")]
                 compiler: None,
-                function_call_trampolines: HashMap::new(),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
@@ -96,11 +93,6 @@ impl Engine for JITEngine {
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType> {
         let compiler = self.inner();
         compiler.signatures().lookup(sig)
-    }
-
-    /// Retrieves a trampoline given a signature
-    fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.inner().function_call_trampoline(sig)
     }
 
     /// Validates a WebAssembly module
@@ -150,8 +142,6 @@ pub struct JITEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
     compiler: Option<Box<dyn Compiler + Send>>,
-    /// Pointers to trampoline functions used to enter particular signatures
-    function_call_trampolines: HashMap<VMSharedSignatureIndex, VMTrampoline>,
     /// The features to compile the Wasm module with
     features: Features,
     /// The code memory is responsible of publishing the compiled
@@ -196,15 +186,15 @@ impl JITEngineInner {
     #[allow(clippy::type_complexity)]
     pub(crate) fn allocate(
         &mut self,
-        module: &ModuleInfo,
+        _module: &ModuleInfo,
         functions: &PrimaryMap<LocalFunctionIndex, FunctionBody>,
         function_call_trampolines: &PrimaryMap<SignatureIndex, FunctionBody>,
         dynamic_function_trampolines: &PrimaryMap<FunctionIndex, FunctionBody>,
         custom_sections: &PrimaryMap<SectionIndex, CustomSection>,
     ) -> Result<
         (
-            PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>,
-            PrimaryMap<SignatureIndex, FunctionBodyPtr>,
+            PrimaryMap<LocalFunctionIndex, FunctionExtent>,
+            PrimaryMap<SignatureIndex, VMTrampoline>,
             PrimaryMap<FunctionIndex, FunctionBodyPtr>,
             PrimaryMap<SectionIndex, SectionBodyPtr>,
         ),
@@ -238,28 +228,26 @@ impl JITEngineInner {
 
         let allocated_functions_result = allocated_functions
             .drain(0..functions.len())
-            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .map(|slice| FunctionExtent {
+                ptr: FunctionBodyPtr(slice.as_ptr()),
+                length: slice.len(),
+            })
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
-        let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBodyPtr> =
+        let mut allocated_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
             PrimaryMap::new();
-        for ((sig_index, _), ptr) in function_call_trampolines.iter().zip(
-            allocated_functions
-                .drain(0..function_call_trampolines.len())
-                .map(|slice| FunctionBodyPtr(slice as *mut [_])),
-        ) {
-            let func_type = &module.signatures[sig_index];
-            let index = self.signatures.register(&func_type);
-            allocated_function_call_trampolines.push(ptr);
-            let trampoline = unsafe {
-                std::mem::transmute::<*const VMFunctionBody, VMTrampoline>((**ptr).as_ptr())
-            };
-            self.function_call_trampolines.insert(index, trampoline);
+        for ptr in allocated_functions
+            .drain(0..function_call_trampolines.len())
+            .map(|slice| slice.as_ptr())
+        {
+            let trampoline =
+                unsafe { std::mem::transmute::<*const VMFunctionBody, VMTrampoline>(ptr) };
+            allocated_function_call_trampolines.push(trampoline);
         }
 
         let allocated_dynamic_function_trampolines = allocated_functions
             .drain(..)
-            .map(|slice| FunctionBodyPtr(slice as *mut [_]))
+            .map(|slice| FunctionBodyPtr(slice.as_ptr()))
             .collect::<PrimaryMap<FunctionIndex, _>>();
 
         let mut exec_iter = allocated_executable_sections.iter();
@@ -308,10 +296,5 @@ impl JITEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
-    }
-
-    /// Gets the trampoline pre-registered for a particular signature
-    pub fn function_call_trampoline(&self, sig: VMSharedSignatureIndex) -> Option<VMTrampoline> {
-        self.function_call_trampolines.get(&sig).cloned()
     }
 }

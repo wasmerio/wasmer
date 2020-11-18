@@ -59,7 +59,7 @@ impl SymbolRegistry for ShortNames {
             Ok(v) => v,
             Err(_) => return None,
         };
-        match ty.chars().nth(0).unwrap() {
+        match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
             't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
@@ -124,7 +124,7 @@ impl LLVMCompiler {
         compile_info
             .module
             .signatures
-            .into_iter()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
@@ -149,7 +149,7 @@ impl LLVMCompiler {
         compile_info
             .module
             .functions
-            .into_iter()
+            .iter()
             .collect::<Vec<_>>()
             .par_iter()
             .map_init(
@@ -248,7 +248,7 @@ impl Compiler for LLVMCompiler {
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(
@@ -267,7 +267,7 @@ impl Compiler for LLVMCompiler {
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &mut ShortNames {},
+                        &ShortNames {},
                     )
                 },
             )

@@ -1,5 +1,18 @@
-//! This example shows how the host can terminate execution of Wasm early from
-//! inside a host function called by the Wasm.
+//! There are cases where you may want to interrupt this synchronous execution of the WASM module
+//! while the it is calling a host function. This can be useful for saving resources, and not
+//! returning back to the guest WASM for execution, when you already know the WASM execution will
+//! fail, or no longer be needed.
+//!
+//! In this example, we will run a WASM module that calls the imported host function
+//! interrupt_execution. This host function will immediately stop executing the WebAssembly module.
+//!
+//! You can run the example directly by executing in Wasmer root:
+//!
+//! ```shell
+//! cargo run --example early-exit --release --features "cranelift"
+//! ```
+//!
+//! Ready?
 
 use anyhow::bail;
 use std::fmt;
@@ -21,12 +34,6 @@ impl fmt::Display for ExitCode {
 // And then we implement `std::error::Error`.
 impl std::error::Error for ExitCode {}
 
-// The host function that we'll use to terminate execution.
-fn early_exit() {
-    // This is where it happens.
-    RuntimeError::raise(Box::new(ExitCode(1)));
-}
-
 fn main() -> anyhow::Result<()> {
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = wat2wasm(
@@ -44,21 +51,40 @@ fn main() -> anyhow::Result<()> {
 "#,
     )?;
 
+    // Create a Store.
+    // Note that we don't need to specify the engine/compiler if we want to use
+    // the default provided by Wasmer.
+    // You can use `Store::default()` for that.
     let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+
+    println!("Compiling module...");
+    // Let's compile the Wasm module.
     let module = Module::new(&store, wasm_bytes)?;
 
+    // We declare the host function that we'll use to terminate execution.
+    fn early_exit() {
+        // This is where it happens.
+        RuntimeError::raise(Box::new(ExitCode(1)));
+    }
+
+    // Create an import object.
     let import_object = imports! {
         "env" => {
             "early_exit" => Function::new_native(&store, early_exit),
         }
     };
+
+    println!("Instantiating module...");
+    // Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object)?;
 
+    // Here we go.
+    //
     // Get the `run` function which we'll use as our entrypoint.
-    let run_func: NativeFunc<(i32, i32), i32> =
-        instance.exports.get_native_function("run").unwrap();
+    println!("Calling `run` function...");
+    let run_func: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("run")?;
 
-    // When we call a function it can either succeed or fail.
+    // When we call a function it can either succeed or fail. We expect it to fail.
     match run_func.call(1, 7) {
         Ok(result) => {
             bail!(
@@ -66,12 +92,13 @@ fn main() -> anyhow::Result<()> {
                 result
             );
         }
-        // We're expecting it to fail.
-        // We attempt to downcast the error into the error type that we were expecting.
+        // In case of a failure, which we expect, we attempt to downcast the error into the error
+        // type that we were expecting.
         Err(e) => match e.downcast::<ExitCode>() {
             // We found the exit code used to terminate execution.
             Ok(exit_code) => {
                 println!("Exited early with exit code: {}", exit_code);
+
                 Ok(())
             }
             Err(e) => {

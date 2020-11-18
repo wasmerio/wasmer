@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-c-api"
-version = "1.0.0-alpha3"
+version = "1.0.0-alpha5"
 description = "Wasmer C API library"
 categories = ["wasm", "api-bindings"]
 keywords = ["wasm", "webassembly", "runtime"]
@@ -15,36 +15,44 @@ edition = "2018"
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-wasmer = { version = "1.0.0-alpha3", path = "../api", default-features = false }
-wasmer-compiler = { version = "1.0.0-alpha3", path = "../compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0-alpha3", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0-alpha3", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0-alpha3", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.0-alpha3", path = "../emscripten", optional = true }
-wasmer-engine = { version = "1.0.0-alpha3", path = "../engine" }
-wasmer-engine-jit = { version = "1.0.0-alpha3", path = "../engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-alpha3", path = "../engine-native", optional = true }
-wasmer-wasi = { version = "1.0.0-alpha3", path = "../wasi", optional = true }
-wasmer-types = { version = "1.0.0-alpha3", path = "../wasmer-types" }
-cfg-if = "0.1"
+wasmer = { version = "1.0.0-alpha5", path = "../api", default-features = false }
+wasmer-compiler = { version = "1.0.0-alpha5", path = "../compiler" }
+wasmer-compiler-cranelift = { version = "1.0.0-alpha5", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.0-alpha5", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.0-alpha5", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "1.0.0-alpha5", path = "../emscripten", optional = true }
+wasmer-engine = { version = "1.0.0-alpha5", path = "../engine" }
+wasmer-engine-jit = { version = "1.0.0-alpha5", path = "../engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.0-alpha5", path = "../engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.0-alpha5", path = "../engine-object-file", optional = true }
+wasmer-wasi = { version = "1.0.0-alpha5", path = "../wasi", optional = true }
+wasmer-types = { version = "1.0.0-alpha5", path = "../wasmer-types" }
+cfg-if = "1.0"
 lazy_static = "1"
-libc = { version = "^0.2.69", default-features = false }
-libffi = { version = "0.9" }
+libc = { version = "^0.2", default-features = false }
+libffi = { version = "0.9", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
 paste = "0.1"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
-# wasmer-wasm-c-api = { version = "1.0.0-alpha3", path = "crates/wasm-c-api" }
+# wasmer-wasm-c-api = { version = "1.0.0-alpha5", path = "crates/wasm-c-api" }
+
+[dev-dependencies]
+inline-c = "0.1.2"
 
 [features]
 default = [
+    "deprecated",
+    "wat",
     "cranelift",
     "wasi",
 ]
+wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
+deprecated = ["libffi"]
 jit = [
     "wasmer-engine-jit",
     "engine",
@@ -53,9 +61,14 @@ native = [
     "wasmer-engine-native",
     "engine",
 ]
+object-file = [
+    "wasmer-engine-object-file",
+    "engine",
+]
 compiler = [
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler"
+    "wasmer-engine-native/compiler",
+    "wasmer-engine-object-file/compiler"
 ]
 singlepass = [
     "wasmer-compiler-singlepass",
@@ -69,10 +82,11 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+system-libffi = ["libffi/system"]
 
+# Deprecated feature.
+# TODO: Port this feature.
 #emscripten = ["wasmer-emscripten"]
-# used to avoid generating standard Wasm C API types in our header files
-ignore-wasm-c-api = []
 
 # This is for compatibility for old usage
 singlepass-backend = ["singlepass"]
@@ -80,4 +94,4 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = { version = "0.14.3" }
+cbindgen = "0.15"

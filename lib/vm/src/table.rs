@@ -112,7 +112,20 @@ pub struct LinearTable {
     table: TableType,
     /// Our chosen implementation style.
     style: TableStyle,
-    vm_table_definition: Box<UnsafeCell<VMTableDefinition>>,
+    vm_table_definition: VMTableDefinitionOwnership,
+}
+
+/// A type to help manage who is responsible for the backing table of the
+/// `VMTableDefinition`.
+#[derive(Debug)]
+enum VMTableDefinitionOwnership {
+    /// The `VMTableDefinition` is owned by the `Instance` and we should use
+    /// its table. This is how a local table that's exported should be stored.
+    VMOwned(NonNull<VMTableDefinition>),
+    /// The `VMTableDefinition` is owned by the host and we should manage its
+    /// table. This is how an imported table that doesn't come from another
+    /// Wasm module should be stored.
+    HostOwned(Box<UnsafeCell<VMTableDefinition>>),
 }
 
 /// This is correct because there is no thread-specific data tied to this type.
@@ -121,8 +134,35 @@ unsafe impl Send for LinearTable {}
 unsafe impl Sync for LinearTable {}
 
 impl LinearTable {
-    /// Create a new table instance with specified minimum and maximum number of elements.
+    /// Create a new linear table instance with specified minimum and maximum number of elements.
+    ///
+    /// This creates a `LinearTable` with metadata owned by a VM, pointed to by
+    /// `vm_table_location`: this can be used to create a local table.
     pub fn new(table: &TableType, style: &TableStyle) -> Result<Self, String> {
+        unsafe { Self::new_inner(table, style, None) }
+    }
+
+    /// Create a new linear table instance with specified minimum and maximum number of elements.
+    ///
+    /// This creates a `LinearTable` with metadata owned by a VM, pointed to by
+    /// `vm_table_location`: this can be used to create a local table.
+    ///
+    /// # Safety
+    /// - `vm_table_location` must point to a valid location in VM memory.
+    pub unsafe fn from_definition(
+        table: &TableType,
+        style: &TableStyle,
+        vm_table_location: NonNull<VMTableDefinition>,
+    ) -> Result<Self, String> {
+        Self::new_inner(table, style, Some(vm_table_location))
+    }
+
+    /// Create a new `LinearTable` with either self-owned or VM owned metadata.
+    unsafe fn new_inner(
+        table: &TableType,
+        style: &TableStyle,
+        vm_table_location: Option<NonNull<VMTableDefinition>>,
+    ) -> Result<Self, String> {
         match table.ty {
             ValType::FuncRef => (),
             ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
@@ -143,13 +183,39 @@ impl LinearTable {
             TableStyle::CallerChecksSignature => Ok(Self {
                 vec: Mutex::new(vec),
                 maximum: table.maximum,
-                table: table.clone(),
+                table: *table,
                 style: style.clone(),
-                vm_table_definition: Box::new(UnsafeCell::new(VMTableDefinition {
-                    base: base as _,
-                    current_elements: table_minimum as _,
-                })),
+                vm_table_definition: if let Some(table_loc) = vm_table_location {
+                    {
+                        let mut ptr = table_loc.clone();
+                        let td = ptr.as_mut();
+                        td.base = base as _;
+                        td.current_elements = table_minimum as _;
+                    }
+                    VMTableDefinitionOwnership::VMOwned(table_loc)
+                } else {
+                    VMTableDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
+                        VMTableDefinition {
+                            base: base as _,
+                            current_elements: table_minimum as _,
+                        },
+                    )))
+                },
             }),
+        }
+    }
+
+    /// Get the `VMTableDefinition`.
+    ///
+    /// # Safety
+    /// - You must ensure that you have mutually exclusive access before calling
+    ///   this function. You can get this by locking the `vec` mutex.
+    unsafe fn get_vm_table_definition(&self) -> NonNull<VMTableDefinition> {
+        match &self.vm_table_definition {
+            VMTableDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMTableDefinitionOwnership::HostOwned(boxed_ptr) => {
+                NonNull::new_unchecked(boxed_ptr.get())
+            }
         }
     }
 }
@@ -167,9 +233,11 @@ impl Table for LinearTable {
 
     /// Returns the number of allocated elements.
     fn size(&self) -> u32 {
+        // TODO: investigate this function for race conditions
         unsafe {
-            let ptr = self.vm_table_definition.get();
-            (*ptr).current_elements
+            let td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_ref();
+            td.current_elements
         }
     }
 
@@ -189,9 +257,11 @@ impl Table for LinearTable {
             usize::try_from(new_len).unwrap(),
             VMCallerCheckedAnyfunc::default(),
         );
+
         // update table definition
         unsafe {
-            let td = &mut *self.vm_table_definition.get();
+            let mut td_ptr = self.get_vm_table_definition();
+            let td = td_ptr.as_mut();
             td.current_elements = new_len;
             td.base = vec.as_mut_ptr() as _;
         }
@@ -226,8 +296,6 @@ impl Table for LinearTable {
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     fn vmtable(&self) -> NonNull<VMTableDefinition> {
         let _vec_guard = self.vec.lock().unwrap();
-        let ptr = self.vm_table_definition.as_ref() as *const UnsafeCell<VMTableDefinition>
-            as *const VMTableDefinition as *mut VMTableDefinition;
-        unsafe { NonNull::new_unchecked(ptr) }
+        unsafe { self.get_vm_table_definition() }
     }
 }

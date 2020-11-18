@@ -32,44 +32,47 @@ pub enum TrapCode {
     /// offset-guard pages.
     HeapAccessOutOfBounds = 2,
 
+    /// A `heap_addr` instruction was misaligned.
+    HeapMisaligned = 3,
+
     /// Table Elements doesn't fit the table size.
     ///
     /// This only can happen during instantiation.
-    TableSetterOutOfBounds = 3,
+    TableSetterOutOfBounds = 4,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
-    TableAccessOutOfBounds = 4,
+    TableAccessOutOfBounds = 5,
 
     /// Other bounds checking error.
-    OutOfBounds = 5,
+    OutOfBounds = 6,
 
     /// Indirect call to a null table entry.
-    IndirectCallToNull = 6,
+    IndirectCallToNull = 7,
 
     /// Signature mismatch on indirect call.
-    BadSignature = 7,
+    BadSignature = 8,
 
     /// An integer arithmetic operation caused an overflow.
-    IntegerOverflow = 8,
+    IntegerOverflow = 9,
 
     /// An integer division by zero.
-    IntegerDivisionByZero = 9,
+    IntegerDivisionByZero = 10,
 
     /// Failed float-to-int conversion.
-    BadConversionToInteger = 10,
+    BadConversionToInteger = 11,
 
     /// Code that was supposed to have been unreachable was reached.
-    UnreachableCodeReached = 11,
+    UnreachableCodeReached = 12,
 
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
-    Interrupt = 12,
+    Interrupt = 13,
 
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 13,
+    UnalignedAtomic = 14,
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    VMOutOfMemory = 14,
+    VMOutOfMemory = 15,
     // /// A user-defined trap code.
     // User(u16),
 }
@@ -81,6 +84,7 @@ impl TrapCode {
             Self::StackOverflow => "call stack exhausted",
             Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
+            Self::HeapMisaligned => "misaligned heap",
             Self::TableSetterOutOfBounds => "table out of bounds: elements segment does not fit",
             Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
             Self::OutOfBounds => "out of bounds",
@@ -104,6 +108,7 @@ impl Display for TrapCode {
             Self::StackOverflow => "stk_ovf",
             Self::HeapSetterOutOfBounds => "heap_set_oob",
             Self::HeapAccessOutOfBounds => "heap_get_oob",
+            Self::HeapMisaligned => "heap_misaligned",
             Self::TableSetterOutOfBounds => "table_set_oob",
             Self::TableAccessOutOfBounds => "table_get_oob",
             Self::OutOfBounds => "oob",
@@ -131,6 +136,7 @@ impl FromStr for TrapCode {
             "stk_ovf" => Ok(StackOverflow),
             "heap_set_oob" => Ok(HeapSetterOutOfBounds),
             "heap_get_oob" => Ok(HeapAccessOutOfBounds),
+            "heap_misaligned" => Ok(HeapMisaligned),
             "table_set_oob" => Ok(TableSetterOutOfBounds),
             "table_get_oob" => Ok(TableAccessOutOfBounds),
             "oob" => Ok(OutOfBounds),
@@ -154,10 +160,11 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 14] = [
+    const CODES: [TrapCode; 15] = [
         TrapCode::StackOverflow,
         TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
+        TrapCode::HeapMisaligned,
         TrapCode::TableSetterOutOfBounds,
         TrapCode::TableAccessOutOfBounds,
         TrapCode::OutOfBounds,

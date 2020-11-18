@@ -1,4 +1,6 @@
 use anyhow::Result;
+#[cfg(all(feature = "object-file", feature = "compiler"))]
+use wasmer_cli::commands::CreateExe;
 #[cfg(feature = "wast")]
 use wasmer_cli::commands::Wast;
 use wasmer_cli::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
@@ -25,6 +27,11 @@ enum WasmerCLIOptions {
     /// Compile a WebAssembly binary
     #[structopt(name = "compile")]
     Compile(Compile),
+
+    /// Compile a WebAssembly binary into a native executable
+    #[cfg(all(feature = "object-file", feature = "compiler"))]
+    #[structopt(name = "create-exe")]
+    CreateExe(CreateExe),
 
     /// Get various configuration information needed
     /// to compile programs which use Wasmer
@@ -53,6 +60,8 @@ impl WasmerCLIOptions {
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
             Self::Compile(compile) => compile.execute(),
+            #[cfg(all(feature = "object-file", feature = "compiler"))]
+            Self::CreateExe(create_exe) => create_exe.execute(),
             Self::Config(config) => config.execute(),
             Self::Inspect(inspect) => inspect.execute(),
             #[cfg(feature = "wast")]
@@ -73,9 +82,8 @@ fn main() {
     let args = std::env::args().collect::<Vec<_>>();
     let command = args.get(1);
     let options = match command.unwrap_or(&"".to_string()).as_ref() {
-        "run" | "cache" | "validate" | "compile" | "config" | "self-update" | "inspect" => {
-            WasmerCLIOptions::from_args()
-        }
+        "cache" | "compile" | "config" | "create-exe" | "help" | "inspect" | "run"
+        | "self-update" | "validate" | "wast" => WasmerCLIOptions::from_args(),
         _ => {
             WasmerCLIOptions::from_iter_safe(args.iter()).unwrap_or_else(|e| {
                 match e.kind {

@@ -26,7 +26,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
           echo ::set-output name=VERSION::${VERSION}
-          DOING_RELEASE=$(echo $VERSION | grep -c '[0-9]\+\.[0-9]\+\.[0-9]\+\(-.*\)\?' || true)
+          DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)?[0-9]*\)\?$' || true)
           echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
           echo $VERSION
           echo $DOING_RELEASE
@@ -41,30 +41,44 @@ jobs:
         build: [linux, macos, windows, linux-aarch64]
         include:
           - build: linux
-            os: ubuntu-latest
-            rust: 1.45.2
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            os: ubuntu-18.04
+            rust: 1.46.0
+            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
+            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_linux'
+            run_integration_tests: true
           - build: macos
             os: macos-latest
-            rust: 1.45.2
+            rust: 1.46.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-macos-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_mac'
+            run_integration_tests: true
           - build: windows
             os: windows-latest
-            rust: 1.45.2
+            rust: 1.46.0
             artifact_name: 'wasmer-windows-amd64'
+            cross_compilation_artifact_name: 'cross_compiled_from_win'
+            run_integration_tests: true
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
-            rust: 1.45.2
+            rust: 1.46.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
             artifact_name: 'wasmer-linux-aarch64'
+            run_integration_tests: false
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
+      - name: Set up libstdc++ on Linux
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
+          sudo apt-get install --reinstall g++-8
+        if: matrix.os == 'ubuntu-18.04'
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
@@ -76,7 +90,7 @@ jobs:
         # that are needed during the build process. Additionally, this works
         # around a bug in the 'cache' action that causes directories outside of
         # the workspace dir to be saved/restored incorrectly.
-        run: echo "::set-env name=CARGO_HOME::$(pwd)/.cargo_home"
+        run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
       - name: Cache
         uses: actions/cache@master
         with:
@@ -98,30 +112,32 @@ jobs:
       #     key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       # - name: Install sccache
       #   run: |
-      #     echo "::add-path::${{ runner.tool_cache }}/cargo-sccache/bin"
+      #     echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
       #     cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
       # - name: Start sccache
       #   run: |
       #     ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
       #     ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
-      #     echo "::set-env name=RUSTC_WRAPPER::${{ runner.tool_cache }}/cargo-sccache/bin/sccache"
+      #     echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
-        run: choco install llvm
+        shell: cmd
+        run: |
+          choco install llvm
         # run: |
         #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
         #   7z x llvm-installer.exe -oC:/llvm-10
-        #   echo ::add-path::C:/llvm-10/bin
-        #   echo ::set-env name=LLVM_SYS_100_PREFIX::C:/llvm-10
-        #   echo ::set-env name=LIBCLANG_PATH::C:/llvm-10/bin/libclang.dll
+        #   echo C:/llvm-10/bin >> $GITHUB_PATH
+        #   echo "LLVM_SYS_100_PREFIX=C:/llvm-10" >> $GITHUB_ENV
+        #   echo "LIBCLANG_PATH=C:/llvm-10/bin/libclang.dll" >> $GITHUB_ENV
       - name: Install LLVM (Unix)
         if: matrix.os != 'windows-latest'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
           tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
-          echo "::add-path::${{ env.LLVM_DIR }}/bin"
-          echo "::set-env name=LLVM_SYS_100_PREFIX::${{ env.LLVM_DIR }}"
+          echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Set up dependencies for Mac OS
@@ -130,8 +146,8 @@ jobs:
       - run: make test
       - name: Build and Test C API
         run: |
+          make test-capi
           make build-capi
-          make test-capi-cranelift
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
         run: make build-capi
@@ -143,10 +159,65 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer for integration tests
+        run: make package-without-wapm-for-integration-tests
+        if: needs.setup.outputs.DOING_RELEASE != '1'
       - name: Package Wasmer
         run: |
           make package
         if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Run integration tests (Windows)
+        shell: cmd
+        run: |
+          call refreshenv
+          set WASMER_DIR=%CD%\package
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os == 'windows-latest'
+      - name: Run integration tests (Unix)
+        run: |
+          export WASMER_DIR=`pwd`/package
+          make test-integration
+        if: matrix.run_integration_tests && matrix.os != 'windows-latest'
+      - name: Cross compile from Linux
+        if: matrix.os == 'ubuntu-18.04'
+        shell: bash
+        run: |
+          ls target/release
+          alias wasmer=target/release/wasmer
+          ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_linux.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_linux.wjit
+          mkdir cross
+          cp qjs_mac_from_linux.wjit cross
+          #cp qjs_win_from_linux.wjit cross
+          cp target/release/wasmer cross
+      - name: Cross compile from Mac
+        if: matrix.os == 'macos-latest'
+        shell: bash
+        run: |
+          ls target/release
+          alias wasmer=target/release/wasmer
+          ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_mac.wjit
+          #./target/release/wasmer compile --target=x86_64-pc-windows-msvc tests/integration/cli/assets/qjs.wasm -o qjs_win_from_mac.wjit
+          mkdir cross
+          cp qjs_linux_from_mac.wjit cross
+          #cp qjs_win_from_mac.wjit cross
+          cp target/release/wasmer cross
+      #- name: Cross compile from Windows
+      #  if: matrix.os == 'windows-latest'
+      #  shell: bash
+      #  run: |
+      #    alias wasmer=target/release/wasmer
+      #    ./target/release/wasmer compile --target=x86_64-unknown-linux-gnu tests/integration/cli/assets/qjs.wasm -o qjs_linux_from_win.wjit
+      #    ./target/release/wasmer compile --target=x86_64-apple-darwin tests/integration/cli/assets/qjs.wasm -o qjs_mac_from_win.wjit
+      #    mkdir cross
+      #    cp qjs_linux_from_win.wjit cross
+      #    cp qjs_mac_from_win.wjit cross
+      #    cp target/release/wasmer.exe cross
+      - name: Upload Cross Compiled Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.cross_compilation_artifact_name }}
+          path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         if: needs.setup.outputs.DOING_RELEASE == '1'
@@ -154,8 +225,57 @@ jobs:
           name: ${{ matrix.artifact_name }}
           path: dist
 
-  release:
+  test-cross-compile-on-linux:
+    name: Test cross-compile on linux
     needs: [setup, test]
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download Wasmer
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Run it
+        run: |
+          cp artifacts/cross_compiled_from_linux/wasmer .
+          chmod +x wasmer
+          OUTPUT=$(./wasmer run artifacts/cross_compiled_from_mac/qjs_linux_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
+          [[ "$OUTPUT" == '"Hello, World"' ]]
+          #wasmer run artifacts/cross/cross_compiled_from_win/qjs_linux_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+
+  test-cross-compile-on-mac:
+    name: Test cross-compile on macos
+    needs: [setup, test]
+    runs-on: macos-latest
+    steps:
+      - name: Download Wasmer
+        uses: actions/download-artifact@v2
+        with:
+          path: artifacts
+      - name: Run it
+        run: |
+          cp artifacts/cross_compiled_from_mac/wasmer .
+          chmod +x wasmer
+          OUTPUT=$(./wasmer run artifacts/cross_compiled_from_linux/qjs_mac_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
+          [[ "$OUTPUT" == '"Hello, World"' ]]
+          #wasmer run artifacts/cross/cross_compiled_from_win/qjs_mac_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+          
+  #test-cross-compile-on-win:
+  #  needs: [setup, test]
+  #  runs-on: windows-latest
+  #  steps:
+  #    - name: Download Wasmer
+  #      uses: actions/download-artifact@v2
+  #      with:
+  #        path: artifacts
+  #    - name: Run it
+  #      shell: bash
+  #      run: |
+  #        alias wasmer=artifacts/cross/cross_compiled_from_win/wasmer.exe
+  #        wasmer run artifacts/cross/cross_compiled_from_linux/win_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+  #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
+
+  release:
+    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
@@ -226,7 +346,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-audit
           key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
       - run: |
-          echo "::add-path::${{ runner.tool_cache }}/cargo-audit/bin"
+          echo "${{ runner.tool_cache }}/cargo-audit/bin" >> $GITHUB_PATH
       - run: |
           cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
           cargo audit

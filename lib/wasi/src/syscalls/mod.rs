@@ -2030,12 +2030,16 @@ pub fn path_rename(
     new_path: WasmPtr<u8, Array>,
     new_path_len: u32,
 ) -> __wasi_errno_t {
-    debug!("wasi::path_rename");
+    debug!(
+        "wasi::path_rename: old_fd = {}, new_fd = {}",
+        old_fd, new_fd
+    );
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let source_str = get_input_str!(memory, old_path, old_path_len);
     let source_path = std::path::Path::new(source_str);
     let target_str = get_input_str!(memory, new_path, new_path_len);
     let target_path = std::path::Path::new(target_str);
+    debug!("=> rename from {} to {}", source_str, target_str);
 
     {
         let source_fd = wasi_try!(state.fs.get_fd(old_fd));
@@ -2059,8 +2063,6 @@ pub fn path_rename(
                 return __WASI_EEXIST;
             }
             let mut out_path = path.clone();
-            // remove fd's own name which will be double counted
-            out_path.pop();
             out_path.push(target_path);
             out_path
         }
