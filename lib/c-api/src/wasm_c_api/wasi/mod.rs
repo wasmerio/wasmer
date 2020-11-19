@@ -335,7 +335,7 @@ unsafe fn wasi_get_imports_inner(
                         import_type.name()
                     ),
                 }));
-            let inner = Extern::from_export(store, export);
+            let inner = Extern::from_vm_export(store, export);
 
             Some(Box::new(wasm_extern_t {
                 instance: None,

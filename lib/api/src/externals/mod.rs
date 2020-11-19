@@ -43,13 +43,13 @@ impl Extern {
         }
     }
 
-    /// Create an `Extern` from an `Export`.
-    pub fn from_export(store: &Store, export: Export) -> Self {
+    /// Create an `Extern` from an `wasmer_vm::Export`.
+    pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
-            Export::Function(f) => Self::Function(Function::from_export(store, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_export(store, m)),
-            Export::Global(g) => Self::Global(Global::from_export(store, g)),
-            Export::Table(t) => Self::Table(Table::from_export(store, t)),
+            Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
+            Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
+            Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
+            Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
         }
     }
 }

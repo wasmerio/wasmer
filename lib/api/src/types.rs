@@ -82,7 +82,7 @@ impl ValFuncRef for Val {
             vmctx: item.vmctx,
             call_trampoline: None,
         };
-        let f = Function::from_export(store, export);
+        let f = Function::from_vm_export(store, export);
         Self::FuncRef(f)
     }
 }

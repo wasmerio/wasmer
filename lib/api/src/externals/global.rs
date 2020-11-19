@@ -180,7 +180,7 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
         Self {
             store: store.clone(),
             global: wasmer_export.from,

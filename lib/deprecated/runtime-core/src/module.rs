@@ -159,12 +159,12 @@ impl Module {
 
                         (
                             (namespace, name),
-                            new::wasmer::Extern::from_export(store, Export::Function(function)),
+                            new::wasmer::Extern::from_vm_export(store, Export::Function(function)),
                         )
                     }
                     export => (
                         (namespace, name),
-                        new::wasmer::Extern::from_export(store, export),
+                        new::wasmer::Extern::from_vm_export(store, export),
                     ),
                 })
                 .for_each(|((namespace, name), extern_)| {

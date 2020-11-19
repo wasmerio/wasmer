@@ -431,7 +431,7 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         if let Some(trampoline) = wasmer_export.call_trampoline {
             Self {
                 store: store.clone(),
