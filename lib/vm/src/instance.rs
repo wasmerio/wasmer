@@ -284,11 +284,8 @@ impl Instance {
 
     /// Lookup an export with the given name.
     pub fn lookup(&self, field: &str) -> Option<Export> {
-        let export = if let Some(export) = self.module.exports.get(field) {
-            export.clone()
-        } else {
-            return None;
-        };
+        let export = self.module.exports.get(field)?;
+
         Some(self.lookup_by_declaration(&export))
     }
 
