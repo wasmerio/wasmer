@@ -777,6 +777,13 @@ impl Instance {
 #[derive(Hash, PartialEq, Eq)]
 pub struct InstanceHandle {
     instance: *mut Instance,
+
+    /// Whether `Self` owns `self.instance`. It's not always the case;
+    /// e.g. when `Self` is built with `Self::from_vmctx`.
+    ///
+    /// This information is necessary to know whether `Self` should
+    /// deallocate `self.instance`.
+    owned_instance: bool,
 }
 
 /// # Safety
@@ -878,8 +885,10 @@ impl InstanceHandle {
     /// safety.
     ///
     /// However the following must be taken care of before calling this function:
-    /// - `instance_ptr` must point to valid memory sufficiently large for there
-    ///    `Instance`.
+    /// - `instance_ptr` must point to valid memory sufficiently large
+    ///    for the `Instance`. `instance_ptr` will be owned by
+    ///    `InstanceHandle`, see `InstanceHandle::owned_instance` to
+    ///    learn more.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
     /// - The memory at `instance.memories_ptr()` must be initialized with data for
@@ -924,8 +933,10 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
             ptr::write(instance_ptr, instance);
+
             Self {
                 instance: instance_ptr,
+                owned_instance: true,
             }
         };
         let instance = handle.instance();
@@ -1012,6 +1023,9 @@ impl InstanceHandle {
 
         Self {
             instance: instance as *const Instance as *mut Instance,
+
+            // We consider `vmctx` owns the `Instance`, not `Self`.
+            owned_instance: false,
         }
     }
 
@@ -1140,22 +1154,13 @@ impl InstanceHandle {
     }
 }
 
-impl Clone for InstanceHandle {
-    fn clone(&self) -> Self {
-        Self {
-            instance: self.instance,
+impl Drop for InstanceHandle {
+    fn drop(&mut self) {
+        if self.owned_instance {
+            unsafe { self.dealloc() }
         }
     }
 }
-
-// TODO: uncomment this, as we need to store the handles
-// in the store, and once the store is dropped, then the instances
-// will too.
-// impl Drop for InstanceHandle {
-//     fn drop(&mut self) {
-//         unsafe { self.dealloc() }
-//     }
-// }
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);

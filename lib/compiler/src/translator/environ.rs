@@ -44,7 +44,7 @@ pub struct ModuleInfoTranslation<'data> {
     pub data_initializers: Vec<DataInitializer<'data>>,
 
     /// The decoded Wasm types for the module.
-    pub module_translation: Option<ModuleTranslationState>,
+    pub module_translation_state: Option<ModuleTranslationState>,
 }
 
 /// Object containing the standalone environment information.
@@ -62,7 +62,7 @@ impl<'data> ModuleEnvironment<'data> {
                 module: ModuleInfo::new(),
                 function_body_inputs: PrimaryMap::new(),
                 data_initializers: Vec::new(),
-                module_translation: None,
+                module_translation_state: None,
             },
             imports: 0,
         }
@@ -71,9 +71,9 @@ impl<'data> ModuleEnvironment<'data> {
     /// Translate a wasm module using this environment. This consumes the
     /// `ModuleEnvironment` and produces a `ModuleInfoTranslation`.
     pub fn translate(mut self, data: &'data [u8]) -> WasmResult<ModuleInfoTranslation<'data>> {
-        assert!(self.result.module_translation.is_none());
-        let module_translation = translate_module(data, &mut self)?;
-        self.result.module_translation = Some(module_translation);
+        assert!(self.result.module_translation_state.is_none());
+        let module_translation_state = translate_module(data, &mut self)?;
+        self.result.module_translation_state = Some(module_translation_state);
         Ok(self.result)
     }
 
@@ -370,7 +370,7 @@ impl<'data> ModuleEnvironment<'data> {
 
     pub(crate) fn define_function_body(
         &mut self,
-        _module_translation: &ModuleTranslationState,
+        _module_translation_state: &ModuleTranslationState,
         body_bytes: &'data [u8],
         body_offset: usize,
     ) -> WasmResult<()> {

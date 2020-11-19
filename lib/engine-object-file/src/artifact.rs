@@ -128,7 +128,7 @@ impl ObjectFileArtifact {
             compile_info,
             translation.function_body_inputs,
             translation.data_initializers,
-            translation.module_translation,
+            translation.module_translation_state,
         ))
     }
 
