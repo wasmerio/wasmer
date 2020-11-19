@@ -282,89 +282,6 @@ impl Instance {
         self.vmctx() as *const VMContext as *mut VMContext
     }
 
-    /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<Export> {
-        let export = if let Some(export) = self.module.exports.get(field) {
-            export.clone()
-        } else {
-            return None;
-        };
-        Some(self.lookup_by_declaration(&export))
-    }
-
-    /// Lookup an export with the given export declaration.
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
-        match export {
-            ExportIndex::Function(index) => {
-                let sig_index = &self.module.functions[*index];
-                let (address, vmctx) = if let Some(def_index) = self.module.local_func_index(*index)
-                {
-                    (
-                        self.functions[def_index].0 as *const _,
-                        VMFunctionEnvironment {
-                            vmctx: self.vmctx_ptr(),
-                        },
-                    )
-                } else {
-                    let import = self.imported_function(*index);
-                    (import.body, import.environment)
-                };
-                let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
-                let signature = self.module.signatures[*sig_index].clone();
-                ExportFunction {
-                    address,
-                    // Any function received is already static at this point as:
-                    // 1. All locally defined functions in the Wasm have a static signature.
-                    // 2. All the imported functions are already static (because
-                    //    they point to the trampolines rather than the dynamic addresses).
-                    kind: VMFunctionKind::Static,
-                    signature,
-                    vmctx,
-                    call_trampoline,
-                }
-                .into()
-            }
-            ExportIndex::Table(index) => {
-                let from = if let Some(def_index) = self.module.local_table_index(*index) {
-                    self.tables[def_index].clone()
-                } else {
-                    let import = self.imported_table(*index);
-                    import.from.clone()
-                };
-                ExportTable { from }.into()
-            }
-            ExportIndex::Memory(index) => {
-                let from = if let Some(def_index) = self.module.local_memory_index(*index) {
-                    self.memories[def_index].clone()
-                } else {
-                    let import = self.imported_memory(*index);
-                    import.from.clone()
-                };
-                ExportMemory { from }.into()
-            }
-            ExportIndex::Global(index) => {
-                let from = {
-                    if let Some(def_index) = self.module.local_global_index(*index) {
-                        self.globals[def_index].clone()
-                    } else {
-                        let import = self.imported_global(*index);
-                        import.from.clone()
-                    }
-                };
-                ExportGlobal { from }.into()
-            }
-        }
-    }
-
-    /// Return an iterator over the exports of this instance.
-    ///
-    /// Specifically, it provides access to the key-value pairs, where the keys
-    /// are export names, and the values are export declarations which can be
-    /// resolved `lookup_by_declaration`.
-    pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
-        self.module.exports.iter()
-    }
-
     /// Return a reference to the custom state attached to this instance.
     #[inline]
     pub fn host_state(&self) -> &dyn Any {
@@ -1052,12 +969,82 @@ impl InstanceHandle {
 
     /// Lookup an export with the given name.
     pub fn lookup(&self, field: &str) -> Option<Export> {
-        self.instance().lookup(field)
+        let export = self.module().exports.get(field)?;
+
+        Some(self.lookup_by_declaration(&export))
     }
 
     /// Lookup an export with the given export declaration.
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
-        self.instance().lookup_by_declaration(export)
+        let instance = self.instance();
+
+        match export {
+            ExportIndex::Function(index) => {
+                let sig_index = &instance.module.functions[*index];
+                let (address, vmctx) =
+                    if let Some(def_index) = instance.module.local_func_index(*index) {
+                        (
+                            instance.functions[def_index].0 as *const _,
+                            VMFunctionEnvironment {
+                                vmctx: instance.vmctx_ptr(),
+                            },
+                        )
+                    } else {
+                        let import = instance.imported_function(*index);
+                        (import.body, import.environment)
+                    };
+                let call_trampoline = Some(instance.function_call_trampolines[*sig_index]);
+                let signature = instance.module.signatures[*sig_index].clone();
+
+                ExportFunction {
+                    address,
+                    // Any function received is already static at this point as:
+                    // 1. All locally defined functions in the Wasm have a static signature.
+                    // 2. All the imported functions are already static (because
+                    //    they point to the trampolines rather than the dynamic addresses).
+                    kind: VMFunctionKind::Static,
+                    signature,
+                    vmctx,
+                    call_trampoline,
+                }
+                .into()
+            }
+
+            ExportIndex::Table(index) => {
+                let from = if let Some(def_index) = instance.module.local_table_index(*index) {
+                    instance.tables[def_index].clone()
+                } else {
+                    let import = instance.imported_table(*index);
+                    import.from.clone()
+                };
+
+                ExportTable { from }.into()
+            }
+
+            ExportIndex::Memory(index) => {
+                let from = if let Some(def_index) = instance.module.local_memory_index(*index) {
+                    instance.memories[def_index].clone()
+                } else {
+                    let import = instance.imported_memory(*index);
+                    import.from.clone()
+                };
+
+                ExportMemory { from }.into()
+            }
+
+            ExportIndex::Global(index) => {
+                let from = {
+                    if let Some(def_index) = instance.module.local_global_index(*index) {
+                        instance.globals[def_index].clone()
+                    } else {
+                        let import = instance.imported_global(*index);
+                        import.from.clone()
+                    }
+                };
+
+                ExportGlobal { from }.into()
+            }
+        }
     }
 
     /// Return an iterator over the exports of this instance.
@@ -1066,7 +1053,7 @@ impl InstanceHandle {
     /// are export names, and the values are export declarations which can be
     /// resolved `lookup_by_declaration`.
     pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
-        self.instance().exports()
+        self.module().exports.iter()
     }
 
     /// Return a reference to the custom state attached to this instance.
