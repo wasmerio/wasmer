@@ -16,6 +16,17 @@ use std::mem;
 use std::ptr;
 use std::sync::Once;
 
+cfg_if::cfg_if! {
+    if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+        // In Apple Silicon, the page size is 16KiB
+        const PAGE_SIZE: usize = 16384;
+    }
+    else {
+        // Otherwise, page size is 4KiB
+        const PAGE_SIZE: usize = 4096;
+    }
+}
+
 extern "C" {
     fn RegisterSetjmp(
         jmp_buf: *mut *const u8,
@@ -117,8 +128,8 @@ cfg_if::cfg_if! {
                     let (stackaddr, stacksize) = thread_stack();
                     // The stack and its guard page covers the
                     // range [stackaddr - guard pages .. stackaddr + stacksize).
-                    // We assume the guard page is 1 page, and pages are 4KiB.
-                    if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
+                    // We assume the guard page is 1 page, and pages are 4KiB (or 16KiB in Apple Silicon)
+                    if stackaddr - PAGE_SIZE <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
                         Some(TrapCode::HeapAccessOutOfBounds)
@@ -202,9 +213,16 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
-                } else if #[cfg(target_os = "macos")] {
+                } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
+                } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+                    // println!("GET PC");
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__r15 as *const u8 // it holds the program counter - https://interrupt.memfault.com/blog/cortex-m-rtos-context-switching
+                    // (*cx.uc_mcontext).__ss.__rip as *const u8
+                    // let cx = &*(cx as *const libc::ucontext_t);
+                    // (*cx.uc_mcontext) as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
@@ -602,6 +620,7 @@ impl CallThreadState {
         signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&SignalHandler) -> bool,
     ) -> *const u8 {
+        println!("HANDLING TRAP");
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
         //
@@ -640,7 +659,9 @@ impl CallThreadState {
             self.handling_trap.set(false);
             return ptr::null();
         }
+        println!("New unresolved 1");
         let backtrace = Backtrace::new_unresolved();
+        println!("New unresolved 2");
         self.reset_guard_page.set(reset_guard_page);
         self.unwind.replace(UnwindReason::RuntimeTrap {
             backtrace,
@@ -720,7 +741,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = 16 * PAGE_SIZE;
 
     enum Tls {
         None,
@@ -738,7 +759,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
             // already checked
             _ => return Ok(()),
         }
-
+        println!("TLS WITH");
         // Check to see if the existing sigaltstack, if it exists, is big
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
@@ -751,7 +772,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
 
         // ... but failing that we need to allocate our own, so do all that
         // here.
-        let page_size: usize = libc::sysconf(libc::_SC_PAGESIZE).try_into().unwrap();
+        let page_size: usize = dbg!(libc::sysconf(libc::_SC_PAGESIZE).try_into().unwrap());
         let guard_size = page_size;
         let alloc_size = guard_size + MIN_STACK_SIZE;
 
