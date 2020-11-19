@@ -126,11 +126,11 @@ impl Instance {
         unsafe { *self.signature_ids_ptr().add(index) }
     }
 
-    pub(crate) fn module(&self) -> &Arc<ModuleInfo> {
+    fn module(&self) -> &Arc<ModuleInfo> {
         &self.module
     }
 
-    pub(crate) fn module_ref(&self) -> &ModuleInfo {
+    fn module_ref(&self) -> &ModuleInfo {
         &*self.module
     }
 
@@ -209,7 +209,7 @@ impl Instance {
     }
 
     /// Get a locally defined or imported memory.
-    pub(crate) fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
+    fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
             self.memory(local_index)
         } else {
@@ -273,12 +273,12 @@ impl Instance {
     }
 
     /// Return a reference to the vmctx used by compiled wasm code.
-    pub fn vmctx(&self) -> &VMContext {
+    fn vmctx(&self) -> &VMContext {
         &self.vmctx
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *mut VMContext {
+    fn vmctx_ptr(&self) -> *mut VMContext {
         self.vmctx() as *const VMContext as *mut VMContext
     }
 
@@ -416,7 +416,7 @@ impl Instance {
     }
 
     /// Return the table index for the given `VMTableDefinition`.
-    pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
+    fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
         let offsets = &self.offsets;
         let begin = unsafe {
             (&self.vmctx as *const VMContext as *const u8)
@@ -432,7 +432,7 @@ impl Instance {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition`.
-    pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
+    fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
         let offsets = &self.offsets;
         let begin = unsafe {
             (&self.vmctx as *const VMContext as *const u8)
@@ -551,6 +551,7 @@ impl Instance {
             .checked_add(usize::try_from(offsets.size_of_vmctx()).unwrap())
             .unwrap();
         let align = mem::align_of::<Self>();
+
         Layout::from_size_align(size, align).unwrap()
     }
 
