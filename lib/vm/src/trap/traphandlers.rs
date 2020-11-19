@@ -206,7 +206,8 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
                 } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
-                    // We need to submit this upfront in rust/libc
+                    // This should be integrated into rust/libc
+                    // Related issue: https://github.com/rust-lang/libc/issues/1977
                     pub struct __darwin_arm_thread_state64 {
                         pub __x: [u64; 29], /* General purpose registers x0-x28 */
                         pub __fp: u64,    /* Frame pointer x29 */
@@ -216,7 +217,7 @@ cfg_if::cfg_if! {
                         pub __cpsr: u32,  /* Current program status register */
                         pub __pad: u32,   /* Same size for 32-bit or 64-bit clients */
                     };
-                
+
                     let cx = &*(cx as *const libc::ucontext_t);
                     let uc_mcontext = unsafe { std::mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss) };
                     (*uc_mcontext).__pc as *const u8
