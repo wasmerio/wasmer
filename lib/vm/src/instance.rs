@@ -779,7 +779,7 @@ pub struct InstanceHandle {
     instance: *mut Instance,
 
     /// Whether `Self` owns `self.instance`. It's not always the case;
-    /// e.g. when `Self` is built with `Self.from_vmctx`.
+    /// e.g. when `Self` is built with `Self::from_vmctx`.
     ///
     /// This information is necessary to know whether `Self` should
     /// deallocate `self.instance`.
@@ -885,8 +885,10 @@ impl InstanceHandle {
     /// safety.
     ///
     /// However the following must be taken care of before calling this function:
-    /// - `instance_ptr` must point to valid memory sufficiently large for the
-    ///    `Instance`.
+    /// - `instance_ptr` must point to valid memory sufficiently large
+    ///    for the `Instance`. `instance_ptr` will be owned by
+    ///    `InstanceHandle`, see `InstanceHandle::owned_instance` to
+    ///    learn more.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
     /// - The memory at `instance.memories_ptr()` must be initialized with data for
@@ -894,7 +896,6 @@ impl InstanceHandle {
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
         instance_ptr: NonNull<u8>,
-        owned_instance: bool,
         offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -935,7 +936,7 @@ impl InstanceHandle {
 
             Self {
                 instance: instance_ptr,
-                owned_instance,
+                owned_instance: true,
             }
         };
         let instance = handle.instance();

@@ -127,7 +127,6 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         InstanceHandle::new(
             instance_ptr,
-            true, // the `Instance` is owned by `InstanceHandle`.
             offsets,
             module,
             self.finished_functions().clone(),
