@@ -277,8 +277,7 @@ impl NativeArtifact {
             // Apple Silicon, otherwise compilation fails.
             if target_triple_str == "arm64-apple-darwin" {
                 vec![format!("--target={}", target_triple_str)]
-            }
-            else {
+            } else {
                 vec![]
             }
         };
