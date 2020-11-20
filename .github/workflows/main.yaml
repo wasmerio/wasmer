@@ -92,7 +92,8 @@ jobs:
           override: true
       - name: Setup Rust target
         run:
-          echo "[build]\\ntarget = \"aarch64-apple-darwin\"" >> .cargo/config.toml
+          echo "[build]" >> .cargo/config.toml
+          echo "target = \"aarch64-apple-darwin\"" >> .cargo/config.toml
         if: matrix.target == 'aarch64-apple-darwin' # we just build 
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
