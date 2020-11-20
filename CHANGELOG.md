@@ -13,6 +13,7 @@
 
 ### Changed
 
+- [#1663](https://github.com/wasmerio/wasmer/pull/1663) Function environments passed to host functions now must be passed by `&` instead of `&mut`. This is a breaking change. This change fixes a race condition when a host function is called from multiple threads. If you need mutability in your environment, consider using `std::sync::Mutex` or other synchronization primitives.
 - [#1810](https://github.com/wasmerio/wasmer/pull/1810) Make the `state` field of `WasiEnv` public
 
 ### Fixed
