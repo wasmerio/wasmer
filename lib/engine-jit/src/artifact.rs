@@ -83,7 +83,10 @@ impl JITArtifact {
         let compilation = compiler.compile_module(
             &jit.target(),
             &compile_info,
-            translation.module_translation.as_ref().unwrap(),
+            // SAFETY: Calling `unwrap` is correct since
+            // `environ.translate()` above will write some data into
+            // `module_translation_state`.
+            translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
