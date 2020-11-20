@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows, linux-aarch64]
+        build: [linux, macos, macos-arm64, windows, linux-aarch64]
         include:
           - build: linux
             os: ubuntu-18.04
@@ -55,7 +55,7 @@ jobs:
             artifact_name: 'wasmer-macos-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
-          - build: macos
+          - build: macos-arm64
             os: macos-latest
             rust: nightly
             target: aarch64-apple-darwin
@@ -93,7 +93,7 @@ jobs:
       - name: Setup Rust target
         run:
           echo "\n[build]\ntarget = \"aarch64-apple-darwin\"" >> .cargo/config.toml
-        if: matrix.target != 'aarch64-apple-darwin' # we just build 
+        if: matrix.target == 'aarch64-apple-darwin' # we just build 
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
         # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
