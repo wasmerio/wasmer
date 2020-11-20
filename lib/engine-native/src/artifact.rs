@@ -273,7 +273,14 @@ impl NativeArtifact {
                 "-nostdlib".to_string(),
             ]
         } else {
-            vec![format!("--target={}", target_triple_str)]
+            // We are explicit on the target when the host system is
+            // Apple Silicon, otherwise compilation fails.
+            if target_triple_str == "arm64-apple-darwin" {
+                vec![format!("--target={}", target_triple_str)]
+            }
+            else {
+                vec![]
+            }
         };
         let target_args = match (target_triple.operating_system, is_cross_compiling) {
             (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved,/noentry"],
