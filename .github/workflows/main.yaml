@@ -55,6 +55,11 @@ jobs:
             artifact_name: 'wasmer-macos-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
+          - build: macos
+            os: macos-latest
+            rust: nightly
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-macos-arm64'
           - build: windows
             os: windows-latest
             rust: 1.46.0
@@ -83,7 +88,12 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
           override: true
+      - name: Setup Rust target
+        run:
+          echo "\n[build]\ntarget = \"aarch64-apple-darwin\"" >> .cargo/config.toml
+        if: matrix.target != 'aarch64-apple-darwin' # we just build 
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
         # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
@@ -131,7 +141,7 @@ jobs:
         #   echo "LLVM_SYS_100_PREFIX=C:/llvm-10" >> $GITHUB_ENV
         #   echo "LIBCLANG_PATH=C:/llvm-10/bin/libclang.dll" >> $GITHUB_ENV
       - name: Install LLVM (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
@@ -141,12 +151,19 @@ jobs:
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Set up dependencies for Mac OS
-        run: brew install automake
+        run: |
+          brew install automake
         if: matrix.os == 'macos-latest'
-      - run: make test
-      - name: Build and Test C API
+      - name: Test
+        run: |
+          make test
+        if: matrix.target != 'aarch64-apple-darwin'
+      - name: Test C API
         run: |
           make test-capi
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin' # we can't test yet on Apple Silicon or Windows
+      - name: Build C API
+        run: |
           make build-capi
         if: matrix.os != 'windows-latest'
       - name: Build C API on Windows
@@ -313,7 +330,7 @@ jobs:
           asset_path: artifacts/wasmer-linux-amd64/wasmer-linux-amd64.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Mac
+      - name: Upload Release Asset Mac amd64
         id: upload-release-asset-mac
         uses: actions/upload-release-asset@v1
         env:
@@ -322,6 +339,16 @@ jobs:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-amd64.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac arm64
+        id: upload-release-asset-mac
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-arm64.tar.gz
+          asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
         id: upload-release-asset-linux-aarch64
