@@ -42,7 +42,7 @@ jobs:
         include:
           - build: linux
             os: ubuntu-18.04
-            rust: 1.46.0
+            rust: 1.47.0
             llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
             # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
             artifact_name: 'wasmer-linux-amd64'
@@ -50,20 +50,20 @@ jobs:
             run_integration_tests: true
           - build: macos
             os: macos-latest
-            rust: 1.46.0
+            rust: 1.47.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
             artifact_name: 'wasmer-macos-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: windows
             os: windows-latest
-            rust: 1.46.0
+            rust: 1.47.0
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
-            rust: 1.46.0
+            rust: 1.47.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false

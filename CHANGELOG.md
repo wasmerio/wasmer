@@ -13,6 +13,7 @@
 
 ### Changed
 
+- [#1830](https://github.com/wasmerio/wasmer/pull/1830) Minimum supported Rust version bumped to 1.47.0
 - [#1810](https://github.com/wasmerio/wasmer/pull/1810) Make the `state` field of `WasiEnv` public
 
 ### Fixed
