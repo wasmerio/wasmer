@@ -6,6 +6,9 @@ use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
+#[cfg(feature = "deprecated")]
+pub use inner::{LegacyEnv, WithLegacyEnv};
+
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
@@ -234,6 +237,47 @@ impl Function {
         // Wasm-defined functions have a `VMContext`.
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
+        let box_env = Box::new(env);
+        let vmctx = VMFunctionEnvironment {
+            host_env: Box::into_raw(box_env) as *mut _,
+        };
+        let signature = function.ty();
+
+        Self {
+            store: store.clone(),
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Static,
+                vmctx,
+                signature,
+                call_trampoline: None,
+            },
+        }
+    }
+
+    /// Function used by the deprecated API to call a function with a `&mut` Env.
+    ///
+    /// This is  not a stable API and may be broken at any time.
+    ///
+    /// # Safety
+    /// - This function is only safe to use from the deprecated API.
+    #[doc(hidden)]
+    #[cfg(feature = "deprecated")]
+    pub unsafe fn new_native_with_env_legacy<F, Args, Rets, Env>(
+        store: &Store,
+        env: Env,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<Args, Rets, WithLegacyEnv, Env>,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        Env: LegacyEnv + 'static,
+    {
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address();
+
         let box_env = Box::new(env);
         let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(box_env) as *mut _,
@@ -976,6 +1020,14 @@ mod inner {
         fn function_body_ptr(self) -> *const VMFunctionBody;
     }
 
+    /// Marker trait to limit what the hidden APIs needed for the deprecated API
+    /// can be used on.
+    ///
+    /// Marks an environment as being passed by `&mut`.
+    #[cfg(feature = "deprecated")]
+    #[doc(hidden)]
+    pub unsafe trait LegacyEnv: Sized {}
+
     /// Empty trait to specify the kind of `HostFunction`: With or
     /// without an environment.
     ///
@@ -990,6 +1042,18 @@ mod inner {
     pub struct WithEnv;
 
     impl HostFunctionKind for WithEnv {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` does have an environment.
+    ///
+    /// This environment is passed by `&mut` and exists soley for the deprecated
+    /// API.
+    #[cfg(feature = "deprecated")]
+    #[doc(hidden)]
+    pub struct WithLegacyEnv;
+
+    #[cfg(feature = "deprecated")]
+    impl HostFunctionKind for WithLegacyEnv {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does not have an environment.
@@ -1216,6 +1280,51 @@ mod inner {
                 }
             }
 
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has an environment.
+            #[doc(hidden)]
+            #[cfg(feature = "deprecated")]
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Env, Func >
+                HostFunction<( $( $x ),* ), Rets, WithLegacyEnv, Env>
+            for
+                Func
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Env: LegacyEnv,
+                Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &mut Env, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Env: Sized,
+                        Func: Fn(&mut Env, $( $x ),* ) -> RetsAsResult + 'static
+                    {
+                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            Err(panic) => unsafe { resume_panic(panic) },
+                        }
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
+                }
+            }
         };
     }
 

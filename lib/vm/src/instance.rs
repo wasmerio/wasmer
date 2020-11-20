@@ -278,8 +278,8 @@ impl Instance {
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *const VMContext {
-        self.vmctx() as *const VMContext
+    pub fn vmctx_ptr(&self) -> *mut VMContext {
+        self.vmctx() as *const VMContext as *mut VMContext
     }
 
     /// Lookup an export with the given name.
@@ -1021,7 +1021,7 @@ impl InstanceHandle {
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *const VMContext {
+    pub fn vmctx_ptr(&self) -> *mut VMContext {
         self.instance().vmctx_ptr()
     }
 
