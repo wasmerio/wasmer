@@ -6,13 +6,32 @@ use std::rc::Rc;
 
 use wasmer::*;
 
-
-fn long_f(a:u32, b:u32, c:u32, d:u32, e:u32, f:u16, g:u64, h:u64, i:u16, j:u32) -> u64 {
-    j as u64 + i as u64*10  + h*100 + g*1000 + f as u64 *10000  +  e as u64 *100000  + d as u64 *1000000  + c  as u64 *10000000 + b as u64 * 100000000 + a as u64 * 1000000000 
+fn long_f(a: u32, b: u32, c: u32, d: u32, e: u32, f: u16, g: u64, h: u64, i: u16, j: u32) -> u64 {
+    j as u64
+        + i as u64 * 10
+        + h * 100
+        + g * 1000
+        + f as u64 * 10000
+        + e as u64 * 100000
+        + d as u64 * 1000000
+        + c as u64 * 10000000
+        + b as u64 * 100000000
+        + a as u64 * 1000000000
 }
 
 fn long_f_dynamic(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
-    Ok(vec![Value::I64(values[9].unwrap_i32() as i64 + values[8].unwrap_i32() as i64*10  + values[7].unwrap_i64()*100 + values[6].unwrap_i64()*1000 + values[5].unwrap_i32() as i64 *10000  +  values[4].unwrap_i32() as i64 *100000  + values[3].unwrap_i32() as i64 *1000000  + values[2].unwrap_i32() as i64 *10000000 + values[1].unwrap_i32() as i64 * 100000000 + values[0].unwrap_i32() as i64 * 1000000000)])
+    Ok(vec![Value::I64(
+        values[9].unwrap_i32() as i64
+            + values[8].unwrap_i32() as i64 * 10
+            + values[7].unwrap_i64() * 100
+            + values[6].unwrap_i64() * 1000
+            + values[5].unwrap_i32() as i64 * 10000
+            + values[4].unwrap_i32() as i64 * 100000
+            + values[3].unwrap_i32() as i64 * 1000000
+            + values[2].unwrap_i32() as i64 * 10000000
+            + values[1].unwrap_i32() as i64 * 100000000
+            + values[0].unwrap_i32() as i64 * 1000000000,
+    )])
 }
 
 #[test]
@@ -59,13 +78,12 @@ fn native_function_works_for_wasm() -> Result<()> {
     Ok(())
 }
 
-
 // The native ABI for functions fails when defining a function natively in
 // macos (Darwin) with the Apple Silicon ARM chip
-// TODO: Cranelift should have a good ABI for the ABI 
+// TODO: Cranelift should have a good ABI for the ABI
 #[test]
 #[cfg_attr(
-    any(
+    all(
         feature = "test-cranelift",
         target_os = "macos",
         target_arch = "aarch64",
@@ -100,14 +118,14 @@ fn native_function_works_for_wasm_function_manyparams() -> Result<()> {
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> = dyn_f.native().unwrap();
+        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+            dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
     }
 
     Ok(())
 }
-
 
 #[test]
 fn native_function_works_for_wasm_function_manyparams_dynamic() -> Result<()> {
@@ -138,7 +156,8 @@ fn native_function_works_for_wasm_function_manyparams_dynamic() -> Result<()> {
 
     {
         let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> = dyn_f.native().unwrap();
+        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+            dyn_f.native().unwrap();
         let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, 1234567890);
     }
@@ -158,10 +177,25 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
         Ok((d * 4.0, c * 3.0, b * 2, a * 1))
     }
 
-    fn long_f(a:u32, b:u32, c:u32, d:u32, e:u32, f:u16, g:u64, h:u64, i:u16, j:u32) -> (u32, u64, u32) {
-        (a+b*10+c*100+d*1000+e*10000+f as u32*100000, g+h*10, i as u32+j*10)
+    fn long_f(
+        a: u32,
+        b: u32,
+        c: u32,
+        d: u32,
+        e: u32,
+        f: u16,
+        g: u64,
+        h: u64,
+        i: u16,
+        j: u32,
+    ) -> (u32, u64, u32) {
+        (
+            a + b * 10 + c * 100 + d * 1000 + e * 10000 + f as u32 * 100000,
+            g + h * 10,
+            i as u32 + j * 10,
+        )
     }
-    
+
     // Native static host function that returns a tuple.
     {
         let f = Function::new_native(&store, f);
@@ -173,7 +207,10 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
     // Native static host function that returns a tuple.
     {
         let long_f = Function::new_native(&store, long_f);
-        let long_f_native: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), (u32, u64, u32)> = long_f.native().unwrap();
+        let long_f_native: NativeFunc<
+            (u32, u32, u32, u32, u32, u16, u64, u64, u16, u32),
+            (u32, u64, u32),
+        > = long_f.native().unwrap();
         let result = long_f_native.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
         assert_eq!(result, (654321, 87, 09));
     }

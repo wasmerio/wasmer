@@ -167,13 +167,13 @@ pub fn resolve_imports(
                         // The native ABI for functions fails when defining a function natively in
                         // macos (Darwin) with the Apple Silicon ARM chip, for functions with more than 10 args
                         // TODO: Cranelift should have a good ABI for the ABI
-                        if cfg!(all(target_os="macos", target_arch="aarch64")) {
+                        if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
                             let num_params = f.signature.params().len();
                             assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
                         }
 
                         f.address
-                    },
+                    }
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
