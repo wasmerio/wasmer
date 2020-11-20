@@ -9,7 +9,7 @@ use std::fmt;
 use wasmer::RuntimeError;
 
 /// setjmp
-pub fn __setjmp(ctx: &mut EmEnv, _env_addr: u32) -> c_int {
+pub fn __setjmp(ctx: &EmEnv, _env_addr: u32) -> c_int {
     debug!("emscripten::__setjmp (setjmp)");
     abort_with_message(ctx, "missing function: _setjmp");
     unreachable!()
@@ -32,7 +32,7 @@ pub fn __setjmp(ctx: &mut EmEnv, _env_addr: u32) -> c_int {
 
 /// longjmp
 #[allow(unreachable_code)]
-pub fn __longjmp(ctx: &mut EmEnv, _env_addr: u32, _val: c_int) {
+pub fn __longjmp(ctx: &EmEnv, _env_addr: u32, _val: c_int) {
     debug!("emscripten::__longjmp (longmp)");
     abort_with_message(ctx, "missing function: _longjmp");
     // unsafe {
@@ -59,7 +59,7 @@ impl Error for LongJumpRet {}
 /// _longjmp
 // This function differs from the js implementation, it should return Result<(), &'static str>
 #[allow(unreachable_code)]
-pub fn _longjmp(ctx: &mut EmEnv, env_addr: i32, val: c_int) {
+pub fn _longjmp(ctx: &EmEnv, env_addr: i32, val: c_int) {
     let val = if val == 0 { 1 } else { val };
     get_emscripten_data(ctx)
         .set_threw_ref()

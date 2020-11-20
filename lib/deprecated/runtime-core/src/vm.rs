@@ -1,6 +1,8 @@
-use crate::module::ModuleInfo;
-use crate::new::wasmer::WasmerEnv;
+use crate::{module::ModuleInfo, new};
+use new::wasmer::WasmerEnv;
 use std::{ffi::c_void, ptr};
+
+use new::wasmer::internals::UnsafeMutableEnv;
 
 /// The context of the currently running WebAssembly instance.
 ///
@@ -38,6 +40,9 @@ pub struct Ctx {
     /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
+
+/// We mark `Ctx` as a legacy env that can be passed by `&mut`.
+unsafe impl UnsafeMutableEnv for Ctx {}
 
 impl Ctx {
     pub(crate) unsafe fn new_uninit() -> Self {

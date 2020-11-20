@@ -14,12 +14,12 @@ use crate::EmEnv;
 //}
 
 /// putchar
-pub fn putchar(_ctx: &mut EmEnv, chr: i32) {
+pub fn putchar(_ctx: &EmEnv, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(_ctx: &mut EmEnv, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(_ctx: &EmEnv, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
     #[cfg(not(feature = "debug"))]
     {
@@ -34,13 +34,13 @@ pub fn printf(_ctx: &mut EmEnv, memory_offset: i32, extra: i32) -> i32 {
 }
 
 /// chroot
-pub fn chroot(_ctx: &mut EmEnv, _name_ptr: i32) -> i32 {
+pub fn chroot(_ctx: &EmEnv, _name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     unimplemented!("emscripten::chroot")
 }
 
 /// getpwuid
-pub fn getpwuid(_ctx: &mut EmEnv, _uid: i32) -> i32 {
+pub fn getpwuid(_ctx: &EmEnv, _uid: i32) -> i32 {
     debug!("emscripten::getpwuid");
     unimplemented!("emscripten::getpwuid")
 }

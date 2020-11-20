@@ -7,7 +7,9 @@ use crate::NativeFunc;
 use crate::RuntimeError;
 use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
-use std::cell::RefCell;
+#[cfg(feature = "deprecated")]
+pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
+
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
@@ -128,11 +130,11 @@ impl Function {
     #[allow(clippy::cast_ptr_alignment)]
     pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
-        F: Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
+        F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + WasmerEnv + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env: RefCell::new(env),
+            env: Box::new(env),
             func: Box::new(func),
             function_type: ty.clone(),
         });
@@ -228,7 +230,7 @@ impl Function {
     /// };
     /// let env = Env { multiplier: 2 };
     ///
-    /// fn sum_and_multiply(env: &mut Env, a: i32, b: i32) -> i32 {
+    /// fn sum_and_multiply(env: &Env, a: i32, b: i32) -> i32 {
     ///     (a + b) * env.multiplier
     /// }
     ///
@@ -260,6 +262,53 @@ impl Function {
             )
         });
         let signature = function.ty();
+
+        Self {
+            store: store.clone(),
+            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
+            exported: ExportFunction {
+                address,
+                kind: VMFunctionKind::Static,
+                vmctx,
+                function_ptr,
+                signature,
+                call_trampoline: None,
+            },
+        }
+    }
+
+    /// Function used by the deprecated API to call a function with a `&mut` Env.
+    ///
+    /// This is not a stable API and may be broken at any time.
+    ///
+    /// # Safety
+    /// - This function is only safe to use from the deprecated API.
+    #[doc(hidden)]
+    #[cfg(feature = "deprecated")]
+    pub unsafe fn new_native_with_unsafe_mutable_env<F, Args, Rets, Env>(
+        store: &Store,
+        env: Env,
+        func: F,
+    ) -> Self
+    where
+        F: HostFunction<Args, Rets, WithUnsafeMutableEnv, Env>,
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        Env: UnsafeMutableEnv + WasmerEnv + 'static,
+    {
+        let function = inner::Function::<Args, Rets>::new(func);
+        let address = function.address();
+
+        let box_env = Box::new(env);
+        let vmctx = VMFunctionEnvironment {
+            host_env: Box::into_raw(box_env) as *mut _,
+        };
+        let signature = function.ty();
+        // TODO: look into removing transmute by changing API type signatures
+        let function_ptr = Some(std::mem::transmute::<
+            fn(_, _) -> Result<(), _>,
+            fn(_, _) -> Result<(), _>,
+        >(Env::init_with_instance));
 
         Self {
             store: store.clone(),
@@ -649,8 +698,8 @@ where
 {
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&mut Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: RefCell<Env>,
+    func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: Box<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
@@ -658,9 +707,7 @@ where
     Env: Sized + 'static,
 {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
-        // TODO: the `&mut *self.env.as_ptr()` is likely invoking some "mild"
-        //      undefined behavior due to how it's used in the static fn call
-        unsafe { (*self.func)(&mut *self.env.as_ptr(), &args) }
+        (*self.func)(&*self.env, &args)
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
@@ -1000,6 +1047,14 @@ mod inner {
         fn function_body_ptr(self) -> *const VMFunctionBody;
     }
 
+    /// Marker trait to limit what the hidden APIs needed for the deprecated API
+    /// can be used on.
+    ///
+    /// Marks an environment as being passed by `&mut`.
+    #[cfg(feature = "deprecated")]
+    #[doc(hidden)]
+    pub unsafe trait UnsafeMutableEnv: Sized {}
+
     /// Empty trait to specify the kind of `HostFunction`: With or
     /// without an environment.
     ///
@@ -1014,6 +1069,18 @@ mod inner {
     pub struct WithEnv;
 
     impl HostFunctionKind for WithEnv {}
+
+    /// An empty struct to help Rust typing to determine
+    /// when a `HostFunction` has an environment.
+    ///
+    /// This environment is passed by `&mut` and exists solely for the deprecated
+    /// API.
+    #[cfg(feature = "deprecated")]
+    #[doc(hidden)]
+    pub struct WithUnsafeMutableEnv;
+
+    #[cfg(feature = "deprecated")]
+    impl HostFunctionKind for WithUnsafeMutableEnv {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does not have an environment.
@@ -1208,6 +1275,52 @@ mod inner {
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
                 Env: Sized,
+                Func: Fn(&Env, $( $x , )*) -> RetsAsResult + Send + 'static,
+            {
+                #[allow(non_snake_case)]
+                fn function_body_ptr(self) -> *const VMFunctionBody {
+                    /// This is a function that wraps the real host
+                    /// function. Its address will be used inside the
+                    /// runtime.
+                    extern fn func_wrapper<$( $x, )* Rets, RetsAsResult, Env, Func>( env: &Env, $( $x: $x::Native, )* ) -> Rets::CStruct
+                    where
+                        $( $x: FromToNativeWasmType, )*
+                        Rets: WasmTypeList,
+                        RetsAsResult: IntoResult<Rets>,
+                        Env: Sized,
+                        Func: Fn(&Env, $( $x ),* ) -> RetsAsResult + 'static
+                    {
+                        let func: &Func = unsafe { &*(&() as *const () as *const Func) };
+
+                        let result = panic::catch_unwind(AssertUnwindSafe(|| {
+                            func(env, $( FromToNativeWasmType::from_native($x) ),* ).into_result()
+                        }));
+
+                        match result {
+                            Ok(Ok(result)) => return result.into_c_struct(),
+                            Ok(Err(trap)) => unsafe { raise_user_trap(Box::new(trap)) },
+                            Err(panic) => unsafe { resume_panic(panic) },
+                        }
+                    }
+
+                    func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
+                }
+            }
+
+            // Implement `HostFunction` for a function that has the same arity than the tuple.
+            // This specific function has an environment.
+            #[doc(hidden)]
+            #[cfg(feature = "deprecated")]
+            #[allow(unused_parens)]
+            impl< $( $x, )* Rets, RetsAsResult, Env, Func >
+                HostFunction<( $( $x ),* ), Rets, WithUnsafeMutableEnv, Env>
+            for
+                Func
+            where
+                $( $x: FromToNativeWasmType, )*
+                Rets: WasmTypeList,
+                RetsAsResult: IntoResult<Rets>,
+                Env: UnsafeMutableEnv,
                 Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
             {
                 #[allow(non_snake_case)]
@@ -1239,7 +1352,6 @@ mod inner {
                     func_wrapper::< $( $x, )* Rets, RetsAsResult, Env, Self > as *const VMFunctionBody
                 }
             }
-
         };
     }
 

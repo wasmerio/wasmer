@@ -634,6 +634,7 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
 }
 
 /// struct used to pass in context to functions (which must be back-patched)
+
 #[derive(Debug, Default, WasmerEnv)]
 pub(crate) struct LegacyEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,

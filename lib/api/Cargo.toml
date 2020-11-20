@@ -68,6 +68,8 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+# enables internal features used by the deprecated API.
+deprecated = []
 default-compiler = []
 default-engine = []
 

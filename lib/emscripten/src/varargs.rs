@@ -11,14 +11,14 @@ pub struct VarArgs {
 }
 
 impl VarArgs {
-    pub fn get<T: Sized>(&mut self, ctx: &mut EmEnv) -> T {
+    pub fn get<T: Sized>(&mut self, ctx: &EmEnv) -> T {
         let ptr = emscripten_memory_pointer!(ctx.memory(0), self.pointer);
         self.pointer += mem::size_of::<T>() as u32;
         unsafe { (ptr as *const T).read() }
     }
 
     // pub fn getStr<'a>(&mut self, ctx: &mut Ctx) -> &'a CStr {
-    pub fn get_str(&mut self, ctx: &mut EmEnv) -> *const c_char {
+    pub fn get_str(&mut self, ctx: &EmEnv) -> *const c_char {
         let ptr_addr: u32 = self.get(ctx);
         let ptr = emscripten_memory_pointer!(ctx.memory(0), ptr_addr) as *const c_char;
         ptr

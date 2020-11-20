@@ -309,11 +309,8 @@ impl Instance {
 
     /// Lookup an export with the given name.
     pub fn lookup(&self, field: &str) -> Option<Export> {
-        let export = if let Some(export) = self.module.exports.get(field) {
-            export.clone()
-        } else {
-            return None;
-        };
+        let export = self.module.exports.get(field)?;
+
         Some(self.lookup_by_declaration(&export))
     }
 
@@ -445,11 +442,7 @@ impl Instance {
 
     /// Return the table index for the given `VMTableDefinition`.
     pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
-        let offsets = &self.offsets;
-        let begin = unsafe {
-            (&self.vmctx as *const VMContext as *const u8)
-                .add(usize::try_from(offsets.vmctx_tables_begin()).unwrap())
-        } as *const VMTableDefinition;
+        let begin: *const VMTableDefinition = self.tables_ptr() as *const _;
         let end: *const VMTableDefinition = table;
         // TODO: Use `offset_from` once it stablizes.
         let index = LocalTableIndex::new(
@@ -461,11 +454,7 @@ impl Instance {
 
     /// Return the memory index for the given `VMMemoryDefinition`.
     pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
-        let offsets = &self.offsets;
-        let begin = unsafe {
-            (&self.vmctx as *const VMContext as *const u8)
-                .add(usize::try_from(offsets.vmctx_memories_begin()).unwrap())
-        } as *const VMMemoryDefinition;
+        let begin: *const VMMemoryDefinition = self.memories_ptr() as *const _;
         let end: *const VMMemoryDefinition = memory;
         // TODO: Use `offset_from` once it stablizes.
         let index = LocalMemoryIndex::new(
@@ -640,7 +629,6 @@ impl Instance {
             return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
-        // TODO(#983): investigate replacing this get/set loop with a `memcpy`.
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
                 .set(dst, elem[src as usize].clone())
@@ -805,6 +793,13 @@ impl Instance {
 #[derive(Hash, PartialEq, Eq)]
 pub struct InstanceHandle {
     instance: *mut Instance,
+
+    /// Whether `Self` owns `self.instance`. It's not always the case;
+    /// e.g. when `Self` is built with `Self::from_vmctx`.
+    ///
+    /// This information is necessary to know whether `Self` should
+    /// deallocate `self.instance`.
+    owned_instance: bool,
 }
 
 /// # Safety
@@ -906,8 +901,10 @@ impl InstanceHandle {
     /// safety.
     ///
     /// However the following must be taken care of before calling this function:
-    /// - `instance_ptr` must point to valid memory sufficiently large for there
-    ///    `Instance`.
+    /// - `instance_ptr` must point to valid memory sufficiently large
+    ///    for the `Instance`. `instance_ptr` will be owned by
+    ///    `InstanceHandle`, see `InstanceHandle::owned_instance` to
+    ///    learn more.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
     /// - The memory at `instance.memories_ptr()` must be initialized with data for
@@ -954,8 +951,10 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
             ptr::write(instance_ptr, instance);
+
             Self {
                 instance: instance_ptr,
+                owned_instance: true,
             }
         };
         let instance = handle.instance();
@@ -1037,11 +1036,14 @@ impl InstanceHandle {
     /// # Safety
     /// This is unsafe because it doesn't work on just any `VMContext`, it must
     /// be a `VMContext` allocated as part of an `Instance`.
-    pub unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
+    pub unsafe fn from_vmctx(vmctx: *const VMContext) -> Self {
         let instance = (&*vmctx).instance();
 
         Self {
             instance: instance as *const Instance as *mut Instance,
+
+            // We consider `vmctx` owns the `Instance`, not `Self`.
+            owned_instance: false,
         }
     }
 
@@ -1197,22 +1199,13 @@ impl InstanceHandle {
     }
 }
 
-impl Clone for InstanceHandle {
-    fn clone(&self) -> Self {
-        Self {
-            instance: self.instance,
+impl Drop for InstanceHandle {
+    fn drop(&mut self) {
+        if self.owned_instance {
+            unsafe { self.dealloc() }
         }
     }
 }
-
-// TODO: uncomment this, as we need to store the handles
-// in the store, and once the store is dropped, then the instances
-// will too.
-// impl Drop for InstanceHandle {
-//     fn drop(&mut self) {
-//         unsafe { self.dealloc() }
-//     }
-// }
 
 fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
     let module = Arc::clone(&instance.module);
