@@ -155,7 +155,7 @@ jobs:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Set up dependencies for Mac OS
         run: |
-          brew install automake
+          brew install automake libffi
         if: matrix.os == 'macos-latest'
       - name: Test
         run: |
@@ -168,7 +168,11 @@ jobs:
       - name: Build C API
         run: |
           make build-capi
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
+      - name: Build C API
+        run: |
+          make build-capi-cranelift-system-libffi
+        if: matrix.target == 'aarch64-apple-darwin'
       - name: Build C API on Windows
         run: make build-capi
         if: matrix.os == 'windows-latest'

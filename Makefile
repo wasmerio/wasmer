@@ -99,7 +99,7 @@ build-docs-capi:
 	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi
 
 # We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift-system-libffi
+build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
