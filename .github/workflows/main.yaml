@@ -56,7 +56,7 @@ jobs:
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: macos-arm64
-            os: macos-latest
+            os: macos-11.0
             rust: nightly
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-macos-arm64'
