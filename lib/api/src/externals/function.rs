@@ -7,7 +7,7 @@ use crate::NativeFunc;
 use crate::RuntimeError;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 #[cfg(feature = "deprecated")]
-pub use inner::{LegacyEnv, WithLegacyEnv};
+pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
 use std::cmp::max;
 use std::fmt;
@@ -264,16 +264,16 @@ impl Function {
     /// - This function is only safe to use from the deprecated API.
     #[doc(hidden)]
     #[cfg(feature = "deprecated")]
-    pub unsafe fn new_native_with_env_legacy<F, Args, Rets, Env>(
+    pub unsafe fn new_native_with_unsafe_mutable_env<F, Args, Rets, Env>(
         store: &Store,
         env: Env,
         func: F,
     ) -> Self
     where
-        F: HostFunction<Args, Rets, WithLegacyEnv, Env>,
+        F: HostFunction<Args, Rets, WithUnsafeMutableEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: LegacyEnv + 'static,
+        Env: UnsafeMutableEnv + 'static,
     {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
@@ -1026,7 +1026,7 @@ mod inner {
     /// Marks an environment as being passed by `&mut`.
     #[cfg(feature = "deprecated")]
     #[doc(hidden)]
-    pub unsafe trait LegacyEnv: Sized {}
+    pub unsafe trait UnsafeMutableEnv: Sized {}
 
     /// Empty trait to specify the kind of `HostFunction`: With or
     /// without an environment.
@@ -1050,10 +1050,10 @@ mod inner {
     /// API.
     #[cfg(feature = "deprecated")]
     #[doc(hidden)]
-    pub struct WithLegacyEnv;
+    pub struct WithUnsafeMutableEnv;
 
     #[cfg(feature = "deprecated")]
-    impl HostFunctionKind for WithLegacyEnv {}
+    impl HostFunctionKind for WithUnsafeMutableEnv {}
 
     /// An empty struct to help Rust typing to determine
     /// when a `HostFunction` does not have an environment.
@@ -1286,14 +1286,14 @@ mod inner {
             #[cfg(feature = "deprecated")]
             #[allow(unused_parens)]
             impl< $( $x, )* Rets, RetsAsResult, Env, Func >
-                HostFunction<( $( $x ),* ), Rets, WithLegacyEnv, Env>
+                HostFunction<( $( $x ),* ), Rets, WithUnsafeMutableEnv, Env>
             for
                 Func
             where
                 $( $x: FromToNativeWasmType, )*
                 Rets: WasmTypeList,
                 RetsAsResult: IntoResult<Rets>,
-                Env: LegacyEnv,
+                Env: UnsafeMutableEnv,
                 Func: Fn(&mut Env, $( $x , )*) -> RetsAsResult + Send + 'static,
             {
                 #[allow(non_snake_case)]

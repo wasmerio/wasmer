@@ -47,7 +47,7 @@ pub mod internals {
     //! they might change frequently or be removed in the future.
 
     #[cfg(feature = "deprecated")]
-    pub use crate::externals::{LegacyEnv, WithLegacyEnv};
+    pub use crate::externals::{UnsafeMutableEnv, WithUnsafeMutableEnv};
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 

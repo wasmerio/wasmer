@@ -45,10 +45,10 @@ pub(crate) struct CAPIImportObject {
     /// but the new/current API does not. So we store them here to pass them to the Instance
     /// to allow functions to access this data for backwards compatibilty.
     pub(crate) imported_memories: Vec<*mut Memory>,
-    /// List of pointers to `LegacyEnv`s used to patch imported functions to be able to
+    /// List of pointers to `UnsafeMutableEnv`s used to patch imported functions to be able to
     /// pass a the "vmctx" as the first argument.
     /// Needed here because of extending import objects.
-    pub(crate) instance_pointers_to_update: Vec<NonNull<LegacyEnv>>,
+    pub(crate) instance_pointers_to_update: Vec<NonNull<UnsafeMutableEnv>>,
 }
 
 #[repr(C)]
@@ -399,7 +399,7 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
                 let function_wrapper: Box<FunctionWrapper> =
                     Box::from_raw(import.value.func as *mut _);
                 let _: Box<Function> = Box::from_raw(function_wrapper.func.as_ptr());
-                let _: Box<LegacyEnv> = Box::from_raw(function_wrapper.legacy_env.as_ptr());
+                let _: Box<UnsafeMutableEnv> = Box::from_raw(function_wrapper.legacy_env.as_ptr());
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let _: Box<Global> = Box::from_raw(import.value.global as *mut _);
@@ -635,11 +635,11 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
 
 /// struct used to pass in context to functions (which must be back-patched)
 #[derive(Debug, Default)]
-pub(crate) struct LegacyEnv {
+pub(crate) struct UnsafeMutableEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
 }
 
-impl LegacyEnv {
+impl UnsafeMutableEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
         self.instance_ptr
             .map(|p| p.as_ptr())
@@ -647,13 +647,13 @@ impl LegacyEnv {
     }
 }
 
-/// struct used to hold on to `LegacyEnv` pointer as well as the function.
-/// we need to do this to initialize the context ptr inside of `LegacyEnv` when
+/// struct used to hold on to `UnsafeMutableEnv` pointer as well as the function.
+/// we need to do this to initialize the context ptr inside of `UnsafeMutableEnv` when
 /// instantiating the module.
 #[derive(Debug)]
 pub(crate) struct FunctionWrapper {
     pub(crate) func: NonNull<Function>,
-    pub(crate) legacy_env: NonNull<LegacyEnv>,
+    pub(crate) legacy_env: NonNull<UnsafeMutableEnv>,
 }
 
 /// Creates new host function, aka imported function. `func` is a
@@ -690,7 +690,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let store = get_global_store();
 
-    let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
+    let env_ptr = Box::into_raw(Box::new(UnsafeMutableEnv::default()));
 
     let func = Function::new_with_env(store, &func_type, &mut *env_ptr, move |env, args| {
         use libffi::high::call::{call, Arg};

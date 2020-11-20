@@ -6,7 +6,7 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-pub use new::wasmer::internals::LegacyEnv;
+pub use new::wasmer::internals::UnsafeMutableEnv;
 pub use new::wasmer::{HostFunction, WasmTypeList};
 
 /// Represents a function that can be used by WebAssembly.
@@ -28,14 +28,14 @@ where
     /// Creates a new `Func`.
     pub fn new<F>(func: F) -> Self
     where
-        F: HostFunction<Args, Rets, new::wasmer::internals::WithLegacyEnv, vm::Ctx> + Send,
+        F: HostFunction<Args, Rets, new::wasmer::internals::WithUnsafeMutableEnv, vm::Ctx> + Send,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = unsafe { vm::Ctx::new_uninit() };
 
         Self {
             new_function: unsafe {
-                new::wasmer::Function::new_native_with_env_legacy::<F, Args, Rets, vm::Ctx>(
+                new::wasmer::Function::new_native_with_unsafe_mutable_env::<F, Args, Rets, vm::Ctx>(
                     &get_global_store(),
                     ctx,
                     func,
