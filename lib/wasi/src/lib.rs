@@ -176,7 +176,7 @@ impl WasiEnv {
     }
 
     pub(crate) fn get_memory_and_wasi_state(
-        &mut self,
+        &self,
         _mem_index: u32,
     ) -> (&Memory, MutexGuard<WasiState>) {
         let memory = self.memory();
