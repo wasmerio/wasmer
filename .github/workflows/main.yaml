@@ -92,7 +92,7 @@ jobs:
           override: true
       - name: Setup Rust target
         run: |
-          cat << EOF > cargo/config.toml
+          cat << EOF > .cargo/config.toml
           [build]
           target = "aarch64-apple-darwin"
           EOF
