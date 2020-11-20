@@ -2,4 +2,3 @@
 rustflags = [
   "-C", "link-arg=-Wl,-E"
 ]
-

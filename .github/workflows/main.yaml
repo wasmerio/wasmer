@@ -91,10 +91,12 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       - name: Setup Rust target
-        run:
-          echo "[build]" >> .cargo/config.toml
-          echo "target = \"aarch64-apple-darwin\"" >> .cargo/config.toml
-        if: matrix.target == 'aarch64-apple-darwin' # we just build 
+        run: |
+          cat << EOF > cargo/config.toml
+          [build]
+          target = "aarch64-apple-darwin"
+          EOF
+        if: matrix.target == 'aarch64-apple-darwin'
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
         # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
