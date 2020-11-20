@@ -331,7 +331,7 @@ jobs:
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
-        id: upload-release-asset-mac
+        id: upload-release-asset-mac-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -341,7 +341,7 @@ jobs:
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac arm64
-        id: upload-release-asset-mac
+        id: upload-release-asset-mac-arm64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
