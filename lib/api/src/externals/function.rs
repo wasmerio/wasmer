@@ -258,7 +258,7 @@ impl Function {
 
     /// Function used by the deprecated API to call a function with a `&mut` Env.
     ///
-    /// This is  not a stable API and may be broken at any time.
+    /// This is not a stable API and may be broken at any time.
     ///
     /// # Safety
     /// - This function is only safe to use from the deprecated API.
@@ -1044,9 +1044,9 @@ mod inner {
     impl HostFunctionKind for WithEnv {}
 
     /// An empty struct to help Rust typing to determine
-    /// when a `HostFunction` does have an environment.
+    /// when a `HostFunction` has an environment.
     ///
-    /// This environment is passed by `&mut` and exists soley for the deprecated
+    /// This environment is passed by `&mut` and exists solely for the deprecated
     /// API.
     #[cfg(feature = "deprecated")]
     #[doc(hidden)]
