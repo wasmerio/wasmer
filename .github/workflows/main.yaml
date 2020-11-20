@@ -171,7 +171,7 @@ jobs:
         if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
       - name: Build C API
         run: |
-          make build-capi
+          make build-capi-cranelift-system-libffi
         if: matrix.target == 'aarch64-apple-darwin'
       - name: Build C API on Windows
         run: make build-capi
