@@ -51,6 +51,10 @@ ifeq ($(ARCH), aarch64)
 	endif
 endif
 
+ifeq ($(ARCH), arm64)
+	test_compilers_engines += cranelift-jit
+endif
+
 compilers := $(filter-out ,$(compilers))
 test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
