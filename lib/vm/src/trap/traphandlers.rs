@@ -206,8 +206,10 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
                 } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
-                    // This should be integrated into rust/libc
+                    use std::mem;
+                    // TODO: This should be integrated into rust/libc
                     // Related issue: https://github.com/rust-lang/libc/issues/1977
+                    #[allow(non_camel_case_types)]
                     pub struct __darwin_arm_thread_state64 {
                         pub __x: [u64; 29], /* General purpose registers x0-x28 */
                         pub __fp: u64,    /* Frame pointer x29 */
@@ -219,7 +221,7 @@ cfg_if::cfg_if! {
                     };
 
                     let cx = &*(cx as *const libc::ucontext_t);
-                    let uc_mcontext = unsafe { std::mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss) };
+                    let uc_mcontext = mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss);
                     (*uc_mcontext).__pc as *const u8
                 } else {
                     compile_error!("unsupported platform");
@@ -725,7 +727,6 @@ mod tls {
 #[cfg(unix)]
 fn setup_unix_sigaltstack() -> Result<(), Trap> {
     use std::cell::RefCell;
-    use std::convert::TryInto;
     use std::ptr::null_mut;
 
     thread_local! {
