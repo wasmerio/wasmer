@@ -155,7 +155,7 @@ jobs:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Set up dependencies for Mac OS
         run: |
-          brew install automake libffi
+          brew install automake
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
       - name: Test
         run: |
@@ -182,14 +182,23 @@ jobs:
       - name: Build Wapm binary
         run: |
           make build-wapm
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+        # if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Copy target binaries for packaging
+        run: |
+          mkdir -p target/release
+          cp target/${{matrix.target}}/release/wasmer* target/release
+          cp target/${{matrix.target}}/release/libwasmer* target/release
+          mkdir -p wapm/target/release
+          cp wapm/target/${{matrix.target}}/release/wapm* wapm/target/release
+        if: matrix.target
+        # if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Package Wasmer for integration tests
         run: make package-without-wapm-for-integration-tests
         if: needs.setup.outputs.DOING_RELEASE != '1'
       - name: Package Wasmer
         run: |
           make package
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+        # if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
