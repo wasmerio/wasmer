@@ -199,6 +199,10 @@ jobs:
         run: |
           make package
         # if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Package Wasmer (${{ matrix.target }})
+        run: |
+          mv ./dist/$(shell ./scripts/binary-name.sh) ./dist/{{ matrix.artifact_name }}.tar.gz
+        if: matrix.target && matrix.os != 'windows-latest'
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -253,7 +257,7 @@ jobs:
           path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+        # if: needs.setup.outputs.DOING_RELEASE == '1'
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
