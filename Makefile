@@ -268,13 +268,13 @@ test-integration:
 #############
 
 package-wapm:
+ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
-	cp ./wapm-cli/target/release/wapm package/bin/
-ifeq ($(OS), Windows_NT)
-	echo ""
-else
-	echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax
-	chmod +x package/bin/wax
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/; \
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
+		chmod +x package/bin/wax; \
+	fi
 endif
 
 package-wasmer:
@@ -318,6 +318,8 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
+
+distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
@@ -330,9 +332,6 @@ else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 endif
-
-# command for simulating installing Wasmer without wapm.
-package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

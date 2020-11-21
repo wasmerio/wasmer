@@ -183,22 +183,19 @@ jobs:
         run: |
           make build-wapm
         # if: needs.setup.outputs.DOING_RELEASE == '1'
-      - name: Copy target binaries for packaging
+      - name: Copy target binaries
         run: |
           mkdir -p target/release
           cp target/${{matrix.target}}/release/wasmer* target/release
           cp target/${{matrix.target}}/release/libwasmer* target/release
-          mkdir -p wapm-cli/target/release
-          cp wapm-cli/target/${{matrix.target}}/release/wapm* wapm-cli/target/release
+          if [ -d "wapm-cli" ]; then
+            mkdir -p wapm-cli/target/release 
+            wapm-cli/target/${{matrix.target}}/release/wapm* wapm-cli/target/release
+          fi
         if: matrix.target
-        # if: needs.setup.outputs.DOING_RELEASE == '1'
-      - name: Package Wasmer for integration tests
-        run: make package-without-wapm-for-integration-tests
-        if: needs.setup.outputs.DOING_RELEASE != '1'
-      - name: Package Wasmer
+      - name: Dist
         run: |
-          make package
-        # if: needs.setup.outputs.DOING_RELEASE == '1'
+          make distribution
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -253,7 +250,6 @@ jobs:
           path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
-        # if: needs.setup.outputs.DOING_RELEASE == '1'
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
