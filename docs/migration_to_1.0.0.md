@@ -222,7 +222,7 @@ struct Env {
     counter: Arc<RefCell<i32>>,
 }
 
-fn get_counter(env: &mut Env) -> i32 {
+fn get_counter(env: &Env) -> i32 {
     *env.counter.borrow()
 }
 
