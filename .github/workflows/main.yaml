@@ -98,13 +98,6 @@ jobs:
           EOF
         if: matrix.target == 'aarch64-apple-darwin'
       - uses: Swatinem/rust-cache@v1
-      - name: Configure cargo data directory
-        # After this point, all cargo registry and crate data is stored in
-        # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
-        # that are needed during the build process. Additionally, this works
-        # around a bug in the 'cache' action that causes directories outside of
-        # the workspace dir to be saved/restored incorrectly.
-        run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         shell: cmd
