@@ -1886,7 +1886,7 @@ pub fn path_open(
 
 // Note: we define path_open_dynamic because native functions with more than 9 params
 // fail on Apple Silicon (with Cranelift).
-pub fn path_open_dynamic(env: &mut WasiEnv, params: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+pub fn path_open_dynamic(env: &WasiEnv, params: &[Value]) -> Result<Vec<Value>, RuntimeError> {
     let dirfd: __wasi_fd_t = params[0].unwrap_i32() as _;
     let dirflags: __wasi_lookupflags_t = params[1].unwrap_i32() as _;
     let path: WasmPtr<u8, Array> = params[2].unwrap_i32().into();
