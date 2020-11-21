@@ -94,9 +94,9 @@ jobs:
         run: |
           cat << EOF > .cargo/config.toml
           [build]
-          target = "aarch64-apple-darwin"
+          target = "${{ matrix.target }}"
           EOF
-        if: matrix.target == 'aarch64-apple-darwin'
+        if: matrix.target
       - uses: Swatinem/rust-cache@v1
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
