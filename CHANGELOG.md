@@ -9,6 +9,7 @@
 
 ### Added
 
+- [#1831](https://github.com/wasmerio/wasmer/pull/1831) Added support for Apple Silicon chips (`arm64-apple-darwin`)
 - [#1649](https://github.com/wasmerio/wasmer/pull/1649) Add outline of migration to 1.0.0 docs.
 
 ### Changed
