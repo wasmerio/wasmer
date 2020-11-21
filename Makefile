@@ -51,6 +51,10 @@ ifeq ($(ARCH), aarch64)
 	endif
 endif
 
+ifeq ($(ARCH), arm64)
+	test_compilers_engines += cranelift-jit
+endif
+
 compilers := $(filter-out ,$(compilers))
 test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
@@ -82,10 +86,17 @@ build-wasmer:
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
-WAPM_VERSION = v0.5.0
-build-wapm:
-	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+WAPM_VERSION = master # v0.5.0
+get-wapm:
+	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+
+build-wapm: get-wapm
+ifeq ($(UNAME_S), Darwin)
+	# We build it without bundling sqlite, as is included by default in macos
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
+else
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+endif
 
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
@@ -257,13 +268,13 @@ test-integration:
 #############
 
 package-wapm:
+ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
-	cp ./wapm-cli/target/release/wapm package/bin/
-ifeq ($(OS), Windows_NT)
-	echo ""
-else
-	echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax
-	chmod +x package/bin/wax
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/; \
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
+		chmod +x package/bin/wax; \
+	fi
 endif
 
 package-wasmer:
@@ -307,21 +318,20 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
+
+distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(OS), Windows_NT)
 	iscc scripts/windows-installer/wasmer.iss
-	cp scripts/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
+	cp scripts/windows-installer/WasmerInstaller.exe dist/
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
-	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
+	mv wasmer.tar.gz dist/
 endif
-
-# command for simulating installing Wasmer without wapm.
-package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

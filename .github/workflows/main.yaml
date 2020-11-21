@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, windows, linux-aarch64]
+        build: [linux, macos, macos-arm64, windows, linux-aarch64]
         include:
           - build: linux
             os: ubuntu-18.04
@@ -52,9 +52,14 @@ jobs:
             os: macos-latest
             rust: 1.47.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
-            artifact_name: 'wasmer-macos-amd64'
+            artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
+          - build: macos-arm64
+            os: macos-11.0
+            rust: nightly
+            target: aarch64-apple-darwin
+            artifact_name: 'wasmer-darwin-arm64'
           - build: windows
             os: windows-latest
             rust: 1.47.0
@@ -83,42 +88,16 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           toolchain: ${{ matrix.rust }}
+          target: ${{ matrix.target }}
           override: true
-      - name: Configure cargo data directory
-        # After this point, all cargo registry and crate data is stored in
-        # $GITHUB_WORKSPACE/.cargo_home. This allows us to cache only the files
-        # that are needed during the build process. Additionally, this works
-        # around a bug in the 'cache' action that causes directories outside of
-        # the workspace dir to be saved/restored incorrectly.
-        run: echo "CARGO_HOME=$(pwd)/.cargo_home" >> $GITHUB_ENV
-      - name: Cache
-        uses: actions/cache@master
-        with:
-          # Note: crates from the git repo always get rebuilt
-          # so we cache only those subdirectories of target/{debug|release} that
-          # contain the build output for crates that come from the registry.
-          path: |-
-            .cargo_home
-            target/*/.*
-            target/*/build
-            target/*/deps
-          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
-          restore-keys: |
-            ${{ matrix.os }}-${{ matrix.rust }}-
-      # # Install sccache
-      # - uses: actions/cache@master
-      #   with:
-      #     path: ${{ runner.tool_cache }}/cargo-sccache
-      #     key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
-      # - name: Install sccache
-      #   run: |
-      #     echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
-      #     cargo install sccache --version ${{ env.CARGO_SCCACHE_VERSION }} --root ${{ runner.tool_cache }}/cargo-sccache
-      # - name: Start sccache
-      #   run: |
-      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-      #     ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
-      #     echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+      - name: Setup Rust target
+        run: |
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
+      - uses: Swatinem/rust-cache@v1
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         shell: cmd
@@ -131,7 +110,7 @@ jobs:
         #   echo "LLVM_SYS_100_PREFIX=C:/llvm-10" >> $GITHUB_ENV
         #   echo "LIBCLANG_PATH=C:/llvm-10/bin/libclang.dll" >> $GITHUB_ENV
       - name: Install LLVM (Unix)
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
           mkdir -p ${{ env.LLVM_DIR }}
@@ -141,14 +120,25 @@ jobs:
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
       - name: Set up dependencies for Mac OS
-        run: brew install automake
-        if: matrix.os == 'macos-latest'
-      - run: make test
-      - name: Build and Test C API
+        run: |
+          brew install automake
+        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - name: Test
+        run: |
+          make test
+        if: matrix.target != 'aarch64-apple-darwin'
+      - name: Test C API
         run: |
           make test-capi
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin' # we can't test yet on Apple Silicon or Windows
+      - name: Build C API
+        run: |
           make build-capi
-        if: matrix.os != 'windows-latest'
+        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
+      - name: Build C API
+        run: |
+          make build-capi-cranelift-system-libffi
+        if: matrix.target == 'aarch64-apple-darwin'
       - name: Build C API on Windows
         run: make build-capi
         if: matrix.os == 'windows-latest'
@@ -159,13 +149,19 @@ jobs:
         run: |
           make build-wapm
         if: needs.setup.outputs.DOING_RELEASE == '1'
-      - name: Package Wasmer for integration tests
-        run: make package-without-wapm-for-integration-tests
-        if: needs.setup.outputs.DOING_RELEASE != '1'
-      - name: Package Wasmer
+      - name: Copy target binaries
         run: |
-          make package
-        if: needs.setup.outputs.DOING_RELEASE == '1'
+          mkdir -p target/release
+          cp target/${{matrix.target}}/release/wasmer* target/release
+          cp target/${{matrix.target}}/release/libwasmer* target/release
+          if [ -d "wapm-cli" ]; then
+            mkdir -p wapm-cli/target/release 
+            cp wapm-cli/target/${{matrix.target}}/release/wapm* wapm-cli/target/release
+          fi
+        if: matrix.target
+      - name: Dist
+        run: |
+          make distribution
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -220,7 +216,6 @@ jobs:
           path: cross
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
-        if: needs.setup.outputs.DOING_RELEASE == '1'
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
@@ -300,7 +295,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: artifacts/wasmer-windows-amd64/wasmer-windows.exe
+          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
       - name: Upload Release Asset Linux amd64
@@ -310,18 +305,28 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-amd64/wasmer-linux-amd64.tar.gz
+          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
-      - name: Upload Release Asset Mac
-        id: upload-release-asset-mac
+      - name: Upload Release Asset Mac amd64
+        id: upload-release-asset-mac-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-amd64.tar.gz
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
+          asset_content_type: application/gzip
+      - name: Upload Release Asset Mac arm64
+        id: upload-release-asset-mac-arm64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
+          asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
         id: upload-release-asset-linux-aarch64
@@ -330,7 +335,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-aarch64/wasmer-linux-aarch64.tar.gz
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
           asset_name: wasmer-linux-aarch64.tar.gz
           asset_content_type: application/gzip
 
