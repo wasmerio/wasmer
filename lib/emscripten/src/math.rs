@@ -62,7 +62,7 @@ pub fn _llvm_fma_f64(value: f64, a: f64, b: f64) -> f64 {
     value.mul_add(a, b)
 }
 
-pub fn _emscripten_random(_ctx: &mut EmEnv) -> f64 {
+pub fn _emscripten_random(_ctx: &EmEnv) -> f64 {
     debug!("emscripten::_emscripten_random");
     -1.0
 }

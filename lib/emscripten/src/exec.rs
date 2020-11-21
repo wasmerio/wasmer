@@ -4,7 +4,7 @@ use libc::execvp as libc_execvp;
 use std::cell::Cell;
 use std::ffi::CString;
 
-pub fn execvp(ctx: &mut EmEnv, command_name_offset: u32, argv_offset: u32) -> i32 {
+pub fn execvp(ctx: &EmEnv, command_name_offset: u32, argv_offset: u32) -> i32 {
     // a single reference to re-use
     let emscripten_memory = ctx.memory(0);
 
@@ -41,13 +41,13 @@ pub fn execvp(ctx: &mut EmEnv, command_name_offset: u32, argv_offset: u32) -> i3
 }
 
 /// execl
-pub fn execl(_ctx: &mut EmEnv, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+pub fn execl(_ctx: &EmEnv, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
     debug!("emscripten::execl");
     -1
 }
 
 /// execle
-pub fn execle(_ctx: &mut EmEnv, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
+pub fn execle(_ctx: &EmEnv, _path_ptr: i32, _arg0_ptr: i32, _varargs: VarArgs) -> i32 {
     debug!("emscripten::execle");
     -1
 }

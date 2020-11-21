@@ -6,12 +6,12 @@ use std::mem;
 use crate::EmEnv;
 
 /// putchar
-pub fn putchar(_ctx: &mut EmEnv, chr: i32) {
+pub fn putchar(_ctx: &EmEnv, chr: i32) {
     unsafe { libc::putchar(chr) };
 }
 
 /// printf
-pub fn printf(ctx: &mut EmEnv, memory_offset: i32, extra: i32) -> i32 {
+pub fn printf(ctx: &EmEnv, memory_offset: i32, extra: i32) -> i32 {
     debug!("emscripten::printf {}, {}", memory_offset, extra);
     unsafe {
         let addr = emscripten_memory_pointer!(ctx.memory(0), memory_offset) as _;
@@ -20,7 +20,7 @@ pub fn printf(ctx: &mut EmEnv, memory_offset: i32, extra: i32) -> i32 {
 }
 
 /// chroot
-pub fn chroot(ctx: &mut EmEnv, name_ptr: i32) -> i32 {
+pub fn chroot(ctx: &EmEnv, name_ptr: i32) -> i32 {
     debug!("emscripten::chroot");
     let name = emscripten_memory_pointer!(ctx.memory(0), name_ptr) as *const i8;
     unsafe { _chroot(name as *const _) }
@@ -28,7 +28,7 @@ pub fn chroot(ctx: &mut EmEnv, name_ptr: i32) -> i32 {
 
 /// getpwuid
 #[allow(clippy::cast_ptr_alignment)]
-pub fn getpwuid(ctx: &mut EmEnv, uid: i32) -> i32 {
+pub fn getpwuid(ctx: &EmEnv, uid: i32) -> i32 {
     debug!("emscripten::getpwuid {}", uid);
 
     #[repr(C)]
