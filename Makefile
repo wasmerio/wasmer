@@ -86,10 +86,17 @@ build-wasmer:
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
-WAPM_VERSION = v0.5.0
-build-wapm:
-	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+WAPM_VERSION = master # v0.5.0
+get-wapm:
+	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+
+build-wapm: get-wapm
+ifeq ($(UNAME_S), Darwin)
+	# We build it without bundling sqlite, as is included by default in macos
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
+else
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+endif
 
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace

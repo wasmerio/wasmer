@@ -188,8 +188,8 @@ jobs:
           mkdir -p target/release
           cp target/${{matrix.target}}/release/wasmer* target/release
           cp target/${{matrix.target}}/release/libwasmer* target/release
-          mkdir -p wapm/target/release
-          cp wapm/target/${{matrix.target}}/release/wapm* wapm/target/release
+          mkdir -p wapm-cli/target/release
+          cp wapm-cli/target/${{matrix.target}}/release/wapm* wapm-cli/target/release
         if: matrix.target
         # if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Package Wasmer for integration tests
