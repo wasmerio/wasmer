@@ -49,6 +49,6 @@ pub(crate) fn compiled_function_unwind_info(
             Ok(CraneliftUnwindInfo::WindowsX64(data))
         }
         Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::FDE(unwind)),
-        None => Ok(CraneliftUnwindInfo::None),
+        Some(_) | None => Ok(CraneliftUnwindInfo::None),
     }
 }
