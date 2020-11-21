@@ -52,14 +52,14 @@ jobs:
             os: macos-latest
             rust: 1.47.0
             llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
-            artifact_name: 'wasmer-macos-amd64'
+            artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: macos-arm64
             os: macos-11.0
             rust: nightly
             target: aarch64-apple-darwin
-            artifact_name: 'wasmer-macos-arm64'
+            artifact_name: 'wasmer-darwin-arm64'
           - build: windows
             os: windows-latest
             rust: 1.47.0
@@ -315,7 +315,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-macos-amd64/wasmer.tar.gz
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac arm64
@@ -325,7 +325,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-macos-amd64/wasmer.tar.gz
+          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
