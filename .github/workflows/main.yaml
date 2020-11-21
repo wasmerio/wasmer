@@ -148,7 +148,7 @@ jobs:
       - name: Build Wapm binary
         run: |
           make build-wapm
-        # if: needs.setup.outputs.DOING_RELEASE == '1'
+        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Copy target binaries
         run: |
           mkdir -p target/release
