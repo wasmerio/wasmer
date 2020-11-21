@@ -323,12 +323,12 @@ package: package-wapm package-wasmer package-capi
 	mkdir -p dist
 ifeq ($(OS), Windows_NT)
 	iscc scripts/windows-installer/wasmer.iss
-	cp scripts/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
+	cp scripts/windows-installer/WasmerInstaller.exe dist/
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
-	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
+	mv wasmer.tar.gz dist/
 endif
 
 # command for simulating installing Wasmer without wapm.

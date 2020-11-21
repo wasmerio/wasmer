@@ -199,10 +199,6 @@ jobs:
         run: |
           make package
         # if: needs.setup.outputs.DOING_RELEASE == '1'
-      - name: Package Wasmer (${{ matrix.target }})
-        run: |
-          mv ./dist/$(shell ./scripts/binary-name.sh) ./dist/{{ matrix.artifact_name }}.tar.gz
-        if: matrix.target && matrix.os != 'windows-latest'
       - name: Run integration tests (Windows)
         shell: cmd
         run: |
@@ -337,7 +333,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
-          asset_path: artifacts/wasmer-windows-amd64/wasmer-windows.exe
+          asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
       - name: Upload Release Asset Linux amd64
@@ -347,7 +343,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-amd64/wasmer-linux-amd64.tar.gz
+          asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
@@ -357,7 +353,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-amd64.tar.gz
+          asset_path: artifacts/wasmer-macos-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac arm64
@@ -367,7 +363,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-macos-amd64/wasmer-darwin-arm64.tar.gz
+          asset_path: artifacts/wasmer-macos-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
@@ -377,7 +373,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-linux-aarch64/wasmer-linux-aarch64.tar.gz
+          asset_path: artifacts/wasmer-linux-aarch64/wasmer.tar.gz
           asset_name: wasmer-linux-aarch64.tar.gz
           asset_content_type: application/gzip
 
