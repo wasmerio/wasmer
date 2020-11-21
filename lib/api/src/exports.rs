@@ -244,12 +244,9 @@ where
 
 impl FromIterator<(String, Extern)> for Exports {
     fn from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self {
-        // TODO: Move into IndexMap collect
-        let mut exports = Self::new();
-        for (name, extern_) in iter {
-            exports.insert(name, extern_);
+        Self {
+            map: Arc::new(IndexMap::from_iter(iter)),
         }
-        exports
     }
 }
 
