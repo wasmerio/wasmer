@@ -190,13 +190,13 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        let (compile_info, symbol_registry) = metadata.split();
+        let (mut compile_info, symbol_registry) = metadata.split();
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            compile_info,
+            &mut compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
-            symbol_registry,
+            &symbol_registry,
             &metadata_binary,
         );
 
@@ -217,14 +217,14 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &mut metadata.compile_info,
+                    &mut compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
                 emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
                     .map_err(to_compile_error)?;
-                emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+                emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
                     .prefix("wasmer_native")
@@ -349,8 +349,9 @@ impl NativeArtifact {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         for (function_local_index, _function_len) in metadata.function_body_lengths.iter() {
-            let function_name =
-                metadata.symbol_to_name(Symbol::LocalFunction(function_local_index));
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::LocalFunction(function_local_index));
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
@@ -367,7 +368,9 @@ impl NativeArtifact {
         let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
             PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
         for sig_index in metadata.compile_info.module.signatures.keys() {
-            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
@@ -387,8 +390,9 @@ impl NativeArtifact {
             .keys()
             .take(metadata.compile_info.module.num_imported_functions)
         {
-            let function_name =
-                metadata.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
             unsafe {
                 let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())

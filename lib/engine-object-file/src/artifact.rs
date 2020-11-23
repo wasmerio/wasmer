@@ -2,7 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
-use crate::serialize::ModuleMetadata;
+use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
@@ -39,6 +39,7 @@ pub struct ObjectFileArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     /// Length of the serialized metadata
     metadata_length: usize,
+    symbol_registry: ModuleMetadataSymbolRegistry,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -200,7 +201,7 @@ impl ObjectFileArtifact {
             compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
-            symbol_registry,
+            &symbol_registry,
             &metadata_binary,
         );
 
@@ -225,7 +226,7 @@ impl ObjectFileArtifact {
             let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
             emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
                 .map_err(to_compile_error)?;
-            emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+            emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                 .map_err(to_compile_error)?;
             obj.write().map_err(to_compile_error)?
         };
@@ -262,6 +263,7 @@ impl ObjectFileArtifact {
             .map(|sig| signature_registry.register(sig))
             .collect::<PrimaryMap<_, _>>();
 
+        let symbol_registry = metadata.get_symbol_registry();
         Ok(Self {
             metadata,
             module_bytes,
@@ -272,6 +274,7 @@ impl ObjectFileArtifact {
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             metadata_length,
+            symbol_registry,
         })
     }
 
@@ -368,6 +371,7 @@ impl ObjectFileArtifact {
             finished_dynamic_function_trampolines.push(fp);
         }
 
+        let symbol_registry = metadata.get_symbol_registry();
         Ok(Self {
             metadata,
             module_bytes: bytes.to_owned(),
@@ -378,12 +382,13 @@ impl ObjectFileArtifact {
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             metadata_length: 0,
+            symbol_registry,
         })
     }
 
     /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
     pub fn symbol_registry(&self) -> &dyn SymbolRegistry {
-        &self.metadata
+        &self.symbol_registry
     }
 
     /// The length in bytes of the metadata in the serialized output.
