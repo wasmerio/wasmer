@@ -211,7 +211,7 @@ impl Compiler for LLVMCompiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -219,9 +219,13 @@ impl Compiler for LLVMCompiler {
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
     ) -> Option<Result<Vec<u8>, CompileError>> {
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         Some(self.compile_native_object(
             target,
-            module,
+            compile_info,
             module_translation,
             function_body_inputs,
             symbol_registry,
