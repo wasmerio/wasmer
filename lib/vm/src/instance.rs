@@ -340,12 +340,8 @@ impl Instance {
     }
 
     /// Return the table index for the given `VMTableDefinition`.
-    fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
-        let offsets = &self.offsets;
-        let begin = unsafe {
-            (&self.vmctx as *const VMContext as *const u8)
-                .add(usize::try_from(offsets.vmctx_tables_begin()).unwrap())
-        } as *const VMTableDefinition;
+    pub(crate) fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
+        let begin: *const VMTableDefinition = self.tables_ptr() as *const _;
         let end: *const VMTableDefinition = table;
         // TODO: Use `offset_from` once it stablizes.
         let index = LocalTableIndex::new(
@@ -356,12 +352,8 @@ impl Instance {
     }
 
     /// Return the memory index for the given `VMMemoryDefinition`.
-    fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
-        let offsets = &self.offsets;
-        let begin = unsafe {
-            (&self.vmctx as *const VMContext as *const u8)
-                .add(usize::try_from(offsets.vmctx_memories_begin()).unwrap())
-        } as *const VMMemoryDefinition;
+    pub(crate) fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
+        let begin: *const VMMemoryDefinition = self.memories_ptr() as *const _;
         let end: *const VMMemoryDefinition = memory;
         // TODO: Use `offset_from` once it stablizes.
         let index = LocalMemoryIndex::new(
@@ -528,7 +520,6 @@ impl Instance {
             return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
-        // TODO(#983): investigate replacing this get/set loop with a `memcpy`.
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
                 .set(dst, elem[src as usize].clone())
@@ -918,7 +909,7 @@ impl InstanceHandle {
     /// # Safety
     /// This is unsafe because it doesn't work on just any `VMContext`, it must
     /// be a `VMContext` allocated as part of an `Instance`.
-    pub(crate) unsafe fn from_vmctx(vmctx: *mut VMContext) -> Self {
+    pub(crate) unsafe fn from_vmctx(vmctx: *const VMContext) -> Self {
         /*
         let instance = (&*vmctx).instance();
 

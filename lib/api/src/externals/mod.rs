@@ -6,6 +6,9 @@ mod table;
 pub use self::function::{
     FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
 };
+
+#[cfg(feature = "deprecated")]
+pub use self::function::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::table::Table;

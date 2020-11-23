@@ -1,7 +1,7 @@
 // use std::collections::HashMap;
 use crate::EmEnv;
 
-pub fn ___seterrno(_ctx: &mut EmEnv, _value: i32) {
+pub fn ___seterrno(_ctx: &EmEnv, _value: i32) {
     debug!("emscripten::___seterrno {}", _value);
     // TODO: Incomplete impl
     eprintln!("failed to set errno!");
