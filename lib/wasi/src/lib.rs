@@ -54,6 +54,10 @@ pub enum WasiError {
 pub struct WasiEnv {
     /// Shared state of the WASI system. Manages all the data that the
     /// executing WASI program can see.
+    ///
+    /// Be careful when using this in host functions that call into Wasm:
+    /// if the lock is held and the Wasm calls into a host function that tries
+    /// to lock this mutex, the program will deadlock.
     pub state: Arc<Mutex<WasiState>>,
     memory: Arc<WasiMemory>,
 }
@@ -163,11 +167,17 @@ impl WasiEnv {
     }
 
     /// Get the WASI state
+    ///
+    /// Be careful when using this in host functions that call into Wasm:
+    /// if the lock is held and the Wasm calls into a host function that tries
+    /// to lock this mutex, the program will deadlock.
     pub fn state(&self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
 
-    /// Get the WASI state (mutable)
+    // TODO: delete this method before 1.0.0 release
+    #[doc(hidden)]
+    #[deprecated(since = "1.0.0-beta1", note = "Please use the `state` method instead")]
     pub fn state_mut(&mut self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
