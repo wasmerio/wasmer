@@ -719,8 +719,6 @@ impl InstanceAllocator {
     fn allocate_instance(offsets: &VMOffsets) -> NonNull<u8> {
         let layout = Self::instance_layout(offsets);
 
-        dbg!(&layout);
-
         #[allow(clippy::cast_ptr_alignment)]
         let arc_instance_ptr = unsafe { alloc::alloc(layout) as *mut Arc<InstanceAllocator> };
 
@@ -750,8 +748,15 @@ impl PartialEq for InstanceAllocator {
     }
 }
 
+impl Drop for Instance {
+    fn drop(&mut self) {
+        println!("Dropping `wasmer_vm::Instance`");
+    }
+}
+
 impl Drop for InstanceAllocator {
     fn drop(&mut self) {
+        println!("Dropping `wasmer_vm::InstanceAllocator`");
         unsafe { Self::deallocate_instance(self) };
     }
 }
@@ -827,7 +832,6 @@ impl InstanceHandle {
 
         let handle = {
             let layout = InstanceAllocator::instance_layout(&offsets);
-            dbg!(&layout);
             let arc_instance = Arc::new(InstanceAllocator::new(
                 Instance {
                     module,

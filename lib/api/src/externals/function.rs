@@ -56,6 +56,12 @@ pub struct Function {
     pub(crate) exported: ExportFunction,
 }
 
+impl Drop for Function {
+    fn drop(&mut self) {
+        println!("Dropping `wasmer::Function`");
+    }
+}
+
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///

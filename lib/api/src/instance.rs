@@ -115,3 +115,9 @@ impl fmt::Debug for Instance {
             .finish()
     }
 }
+
+impl Drop for Instance {
+    fn drop(&mut self) {
+        println!("Dropping `wasmer::Instance`");
+    }
+}
