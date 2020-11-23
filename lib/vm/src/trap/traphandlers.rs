@@ -615,12 +615,13 @@ impl CallThreadState {
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
         let any_instance = self.any_instance(|i| {
-            let handler = match i.instance().signal_handler.replace(None) {
+            let instance_ref = i.instance().instance_ref();
+            let handler = match instance_ref.signal_handler.replace(None) {
                 Some(handler) => handler,
                 None => return false,
             };
             let result = call_handler(&handler);
-            i.instance().signal_handler.set(Some(handler));
+            instance_ref.signal_handler.set(Some(handler));
             result
         });
 
