@@ -98,6 +98,7 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }
@@ -150,6 +151,7 @@ impl Function {
                 vmctx,
                 signature: ty.clone(),
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }
@@ -194,6 +196,7 @@ impl Function {
                 signature,
                 kind: VMFunctionKind::Static,
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }
@@ -250,6 +253,7 @@ impl Function {
                 vmctx,
                 signature,
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }

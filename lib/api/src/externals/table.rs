@@ -156,6 +156,7 @@ impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
         ExportTable {
             from: self.table.clone(),
+            instance_allocator: None,
         }
         .into()
     }

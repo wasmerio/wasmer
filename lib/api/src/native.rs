@@ -70,6 +70,7 @@ where
             signature,
             kind: other.arg_kind,
             call_trampoline: None,
+            instance_allocator: None,
         }
     }
 }
@@ -90,6 +91,7 @@ where
                 signature,
                 kind: other.arg_kind,
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }

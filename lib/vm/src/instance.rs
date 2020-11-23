@@ -1073,7 +1073,7 @@ impl InstanceHandle {
                     signature,
                     vmctx,
                     call_trampoline,
-                    //instance_allocator: Some(instance),
+                    instance_allocator: Some(instance),
                 }
                 .into()
             }
@@ -1088,7 +1088,7 @@ impl InstanceHandle {
 
                 ExportTable {
                     from,
-                    //instance_allocator: Some(instance),
+                    instance_allocator: Some(instance),
                 }
                 .into()
             }
@@ -1103,7 +1103,7 @@ impl InstanceHandle {
 
                 ExportMemory {
                     from,
-                    //instance_allocator: Some(instance),
+                    instance_allocator: Some(instance),
                 }
                 .into()
             }
@@ -1120,7 +1120,7 @@ impl InstanceHandle {
 
                 ExportGlobal {
                     from,
-                    //instance_allocator: Some(instance),
+                    instance_allocator: Some(instance),
                 }
                 .into()
             }

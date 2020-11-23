@@ -218,6 +218,7 @@ impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
         ExportGlobal {
             from: self.global.clone(),
+            instance_allocator: None,
         }
         .into()
     }

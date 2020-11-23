@@ -81,6 +81,7 @@ impl ValFuncRef for Val {
             kind: wasmer_vm::VMFunctionKind::Static,
             vmctx: item.vmctx,
             call_trampoline: None,
+            instance_allocator: None,
         };
         let f = Function::from_vm_export(store, export);
         Self::FuncRef(f)

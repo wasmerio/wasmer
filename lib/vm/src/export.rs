@@ -39,9 +39,9 @@ pub struct ExportFunction {
     /// Address of the function call trampoline owned by the same VMContext that owns the VMFunctionBody.
     /// May be None when the function is a host-function (FunctionType == Dynamic or vmctx == nullptr).
     pub call_trampoline: Option<VMTrampoline>,
-    ///// A reference to the instance, to ensure it's not deallocated
-    ///// before the function.
-    //pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    /// A reference to the instance, to ensure it's not deallocated
+    /// before the function.
+    pub instance_allocator: Option<Arc<InstanceAllocator>>,
 }
 
 /// # Safety
@@ -63,9 +63,9 @@ impl From<ExportFunction> for Export {
 pub struct ExportTable {
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
-    ///// A reference to the instance, to ensure it's not deallocated
-    ///// before the table.
-    //pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    /// A reference to the instance, to ensure it's not deallocated
+    /// before the table.
+    pub instance_allocator: Option<Arc<InstanceAllocator>>,
 }
 
 /// # Safety
@@ -107,9 +107,9 @@ impl From<ExportTable> for Export {
 pub struct ExportMemory {
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
-    ///// A reference to the instance, to ensure it's not deallocated
-    ///// before the memory.
-    //pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    /// A reference to the instance, to ensure it's not deallocated
+    /// before the memory.
+    pub instance_allocator: Option<Arc<InstanceAllocator>>,
 }
 
 /// # Safety
@@ -151,9 +151,9 @@ impl From<ExportMemory> for Export {
 pub struct ExportGlobal {
     /// The global declaration, used for compatibility checking.
     pub from: Arc<Global>,
-    ///// A reference to the instance, to ensure it's not deallocated
-    ///// before the global.
-    //pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    /// A reference to the instance, to ensure it's not deallocated
+    /// before the global.
+    pub instance_allocator: Option<Arc<InstanceAllocator>>,
 }
 
 /// # Safety

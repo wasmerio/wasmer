@@ -248,6 +248,7 @@ impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
         ExportMemory {
             from: self.memory.clone(),
+            instance_allocator: None,
         }
         .into()
     }
