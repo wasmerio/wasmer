@@ -10,7 +10,6 @@ use wasmer::{
     FunctionMiddleware, GlobalInit, GlobalType, LocalFunctionIndex, MiddlewareReaderState,
     ModuleMiddleware, Mutability, Type,
 };
-use wasmer_types::entity::EntityRef;
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
 

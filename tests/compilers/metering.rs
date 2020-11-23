@@ -3,7 +3,7 @@ use anyhow::Result;
 use wasmer_middlewares::Metering;
 
 use std::sync::Arc;
-use wasmer::wasmparser::{Operator, Result as WpResult};
+use wasmer::wasmparser::Operator;
 use wasmer::*;
 
 fn cost_always_one(_: &Operator) -> u64 {
@@ -27,7 +27,7 @@ fn run_add_with_limit(limit: u64) -> Result<()> {
     let instance = Instance::new(&module, &import_object)?;
 
     let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    let result = f.call(4, 6)?;
+    f.call(4, 6)?;
     Ok(())
 }
 
