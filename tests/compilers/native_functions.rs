@@ -78,6 +78,118 @@ fn native_function_works_for_wasm() -> Result<()> {
     Ok(())
 }
 
+#[test]
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+fn host_function_closure_panics() {
+    let store = get_store(false);
+    let state = 3;
+    let ty = FunctionType::new(vec![], vec![]);
+    Function::new(&store, &ty, move |_args| {
+        println!("{}", state);
+        Ok(vec![])
+    });
+}
+
+#[test]
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+fn env_host_function_closure_panics() {
+    let store = get_store(false);
+    let state = 3;
+    let ty = FunctionType::new(vec![], vec![]);
+    let env = 4;
+    Function::new_with_env(&store, &ty, env, move |_env, _args| {
+        println!("{}", state);
+        Ok(vec![])
+    });
+}
+
+#[test]
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+fn native_host_function_closure_panics() {
+    let store = get_store(false);
+    let state = 3;
+    Function::new_native(&store, move |_: i32| {
+        println!("{}", state);
+    });
+}
+
+#[test]
+#[should_panic(
+    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+)]
+fn native_with_env_host_function_closure_panics() {
+    let store = get_store(false);
+    let state = 3;
+    let env = 4;
+    Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
+        println!("{}", state);
+    });
+}
+
+#[test]
+fn lambdas_with_no_env_work() -> Result<()> {
+    let store = get_store(false);
+    let wat = r#"(module
+        (func $multiply1 (import "env" "multiply1") (param i32 i32) (result i32))
+        (func $multiply2 (import "env" "multiply2") (param i32 i32) (result i32))
+        (func $multiply3 (import "env" "multiply3") (param i32 i32) (result i32))
+        (func $multiply4 (import "env" "multiply4") (param i32 i32) (result i32))
+
+        (func (export "test") (param i32 i32 i32 i32 i32) (result i32)
+           (call $multiply4
+             (call $multiply3
+               (call $multiply2
+                  (call $multiply1
+                    (local.get 0)
+                    (local.get 1))
+                  (local.get 2))
+               (local.get 3))
+              (local.get 4)))
+)"#;
+    let module = Module::new(&store, wat).unwrap();
+
+    let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
+    let env = 10;
+    let import_object = imports! {
+        "env" => {
+            "multiply1" => Function::new(&store, &ty, |args| {
+                if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
+                    Ok(vec![Value::I32(v1 * v2)])
+                } else {
+                    panic!("Invalid arguments");
+                }
+            }),
+            "multiply2" => Function::new_with_env(&store, &ty, env, |&env, args| {
+                if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
+                    Ok(vec![Value::I32(v1 * v2 * env)])
+                } else {
+                    panic!("Invalid arguments");
+                }
+            }),
+            "multiply3" => Function::new_native(&store, |arg1: i32, arg2: i32| -> i32
+                                                {arg1 * arg2 }),
+            "multiply4" => Function::new_native_with_env(&store, env, |&env: &i32, arg1: i32, arg2: i32| -> i32
+                                                         {arg1 * arg2 * env }),
+        },
+    };
+
+    let instance = Instance::new(&module, &import_object)?;
+
+    let test: NativeFunc<(i32, i32, i32, i32, i32), i32> =
+        instance.exports.get_native_function("test")?;
+
+    let result = test.call(2, 3, 4, 5, 6)?;
+    let manually_computed_result = 6 * (5 * (4 * (3 * 2) * 10)) * 10;
+    assert_eq!(result, manually_computed_result);
+    Ok(())
+}
+
 // The native ABI for functions fails when defining a function natively in
 // macos (Darwin) with the Apple Silicon ARM chip
 // TODO: Cranelift should have a good ABI for the ABI

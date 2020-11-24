@@ -51,6 +51,11 @@ pub enum FunctionDefinition {
 /// during execution of the function.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
+///
+/// # Panics
+/// - Closures (functions with captured environments) are not currently supported.
+///   Attempting to create a `Function` with one will result in a panic.
+///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
@@ -79,6 +84,9 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
             func: Box::new(func),
             function_type: ty.clone(),
@@ -130,6 +138,9 @@ impl Function {
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Box::new(env),
             func: Box::new(func),
@@ -180,6 +191,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
         let vmctx = VMFunctionEnvironment {
@@ -229,6 +243,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -275,6 +292,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: UnsafeMutableEnv + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -619,6 +639,10 @@ impl Function {
             self.exported.kind,
             self.definition.clone(),
         ))
+    }
+
+    fn closures_unsupported_panic() -> ! {
+        unimplemented!("Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 }
 
