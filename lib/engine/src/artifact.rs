@@ -95,7 +95,8 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.preinstantiate()?;
 
         let module = self.module();
-        let (instance_ptr, offsets) = InstanceHandle::allocate_instance(&module);
+        let (arc_instance_allocator_ptr, offsets) =
+            InstanceHandle::allocate_instance_allocator(&module);
         let imports = resolve_imports(
             &module,
             resolver,
@@ -106,14 +107,14 @@ pub trait Artifact: Send + Sync + Upcastable {
         .map_err(InstantiationError::Link)?;
         // Get pointers to where metadata about local memories should live in VM memory.
         let memory_definition_locations =
-            InstanceHandle::memory_definition_locations(instance_ptr, &offsets);
+            InstanceHandle::memory_definition_locations(arc_instance_allocator_ptr, &offsets);
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         // Get pointers to where metadata about local tables should live in VM memory.
         let table_definition_locations =
-            InstanceHandle::table_definition_locations(instance_ptr, &offsets);
+            InstanceHandle::table_definition_locations(arc_instance_allocator_ptr, &offsets);
         let finished_tables = tunables
             .create_tables(&module, self.table_styles(), &table_definition_locations)
             .map_err(InstantiationError::Link)?
@@ -126,7 +127,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.register_frame_info();
 
         InstanceHandle::new(
-            instance_ptr,
+            arc_instance_allocator_ptr,
             offsets,
             module,
             self.finished_functions().clone(),

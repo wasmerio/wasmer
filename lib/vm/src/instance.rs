@@ -1,9 +1,12 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-//! An `Instance` contains all the runtime state used by execution of a
-//! wasm module (except its callstack and register state). An
-//! `InstanceHandle` is a wrapper around an `Instance`.
+//! An `Instance` contains all the runtime state used by execution of
+//! a WebAssembly module (except its callstack and register state). An
+//! `InstanceAllocator` is a wrapper around `Instance` that manages
+//! how it is allocated and deallocated. An `InstanceHandle` is a
+//! wrapper around an `InstanceAllocator`.
+
 use crate::export::Export;
 use crate::global::Global;
 use crate::imports::Imports;
@@ -36,37 +39,12 @@ use wasmer_types::{
     SignatureIndex, TableIndex, TableInitializer,
 };
 
-cfg_if::cfg_if! {
-    if #[cfg(unix)] {
-        pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
-
-        impl InstanceHandle {
-            /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&self, handler: H)
-            where
-                H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
-            {
-                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
-            }
-        }
-    } else if #[cfg(target_os = "windows")] {
-        pub type SignalHandler = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
-
-        impl InstanceHandle {
-            /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&self, handler: H)
-            where
-                H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
-            {
-                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
-            }
-        }
-    }
-}
-
 /// A WebAssembly instance.
 ///
-/// This is repr(C) to ensure that the vmctx field is last.
+/// The type is dynamically-sized. Indeed, the `vmctx` field can
+/// contain various data. That's why the type has a C representation
+/// to ensure that the `vmctx` field is last. See the documentation of
+/// the `vmctx` field to learn more.
 #[repr(C)]
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
@@ -105,9 +83,10 @@ pub(crate) struct Instance {
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
-    /// Additional context used by compiled wasm code. This field is last, and
-    /// represents a dynamically-sized array that extends beyond the nominal
-    /// end of the struct (similar to a flexible array member).
+    /// Additional context used by compiled WebAssembly code. This
+    /// field is last, and represents a dynamically-sized array that
+    /// extends beyond the nominal end of the struct (similar to a
+    /// flexible array member).
     vmctx: VMContext,
 }
 
@@ -333,7 +312,7 @@ impl Instance {
         }
     }
 
-    /// Return the offset from the vmctx pointer to its containing Instance.
+    /// Return the offset from the vmctx pointer to its containing `Instance`.
     #[inline]
     pub(crate) fn vmctx_offset() -> isize {
         offset_of!(Self, vmctx) as isize
@@ -438,7 +417,7 @@ impl Instance {
         result
     }
 
-    // Get table element by index.
+    /// Get table element by index.
     fn table_get(
         &self,
         table_index: LocalTableIndex,
@@ -450,6 +429,7 @@ impl Instance {
             .get(index)
     }
 
+    /// Set table element by index.
     fn table_set(
         &self,
         table_index: LocalTableIndex,
@@ -482,6 +462,7 @@ impl Instance {
             let import = self.imported_function(index);
             (import.body, import.environment)
         };
+
         VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -680,38 +661,107 @@ impl Instance {
     }
 }
 
+/// An `InstanceAllocator` is responsible to allocate, to deallocate,
+/// and to give access to an `Instance`, in such a way that `Instance`
+/// is unique, can be shared, safely, across threads, without
+/// duplicating the pointer. `InstanceAllocator` must be the only
+/// owner of an `Instance`.
+///
+/// Consequently, one must not share `Instance` but
+/// `InstanceAllocator` behind a reference-counting pointer. It is
+/// designed like that. That's why the astute reader will notice there
+/// is only the `Arc<InstanceAllocator>` type in the codebase, never
+/// `InstanceAllocator` alone.
+///
+/// It is important to remind that `Instance` has a dynamic size
+/// defined by `VMOffsets`: The `Instance.vmctx` field represents a
+/// dynamically-sized array that extends beyond the nominal end of the
+/// type. So in order to create an instance of it, we must:
+///
+/// 1. Define the correct layout for `Instance` (size and alignment),
+/// 2. Allocate it properly.
+///
+/// It must be considered that not only the layout of `Instance` is
+/// needed, but the layout of `Arc<InstanceAllocator>`
+/// entirely. That's exactly what `InstanceAllocator::instance_layout`
+/// does.
+///
+/// Then `InstanceAllocator::allocate_self` will use this layout
+/// to allocate an empty `Arc<InstanceAllocator>` properly. This
+/// allocation must be freed with
+/// `InstanceAllocator::deallocate_self` if and only if it has
+/// been set correctly. The `Drop` implementation of
+/// `InstanceAllocator` calls its `deallocate_self` method without
+/// checking if this property holds.
+///
+/// Note for the curious reader: `InstanceHandle::allocate_self`
+/// and `InstanceHandle::new` will respectively allocate a proper
+/// `Arc<InstanceAllocator>` and will fill it correctly.
+///
+/// A little bit of background: The initial goal was to be able to
+/// shared an `Instance` between an `InstanceHandle` and the module
+/// exports, so that one can drop a `InstanceHandle` but still being
+/// able to use the exports properly.
+///
+/// This structure has a C representation because `Instance` is
+/// dynamically-sized, and the `instance` field must be last.
 #[derive(Debug)]
 #[repr(C)]
 pub struct InstanceAllocator {
-    ptr_to_dealloc: *const Arc<Self>,
-    ptr_layout: Layout,
+    /// The pointer to the allocation for `Self`, from the
+    /// `Self::allocate_self` method.
+    self_ptr: *const Arc<Self>,
+
+    /// The layout of `Self` (which can vary depending of the
+    /// `Instance`'s layout).
+    self_layout: Layout,
+
+    /// The `Instance` itself. It must be the last field of
+    /// `InstanceAllocator` since `Instance` is dyamically-sized.
+    ///
+    /// `Instance` must not be dropped manually by Rust, because it's
+    /// allocated manually with `alloc` and a specific layout (Rust
+    /// would be able to drop `Instance` itself but it will imply a
+    /// memory leak because of `alloc`), hence the `ManuallyDrop`.
     instance: mem::ManuallyDrop<Instance>,
 }
 
 impl InstanceAllocator {
+    /// Create a new `InstanceAllocator`. It allocates nothing. It
+    /// fills nothing. The `Instance` must be already valid and
+    /// filled. `self_ptr` and `self_layout` must be the pointer and
+    /// the layout returned by `Self::allocate_self` used to build
+    /// `Self`.
     #[inline(always)]
-    const fn new(instance: Instance, ptr_to_dealloc: *const Arc<Self>, ptr_layout: Layout) -> Self {
+    const fn new(instance: Instance, self_ptr: *const Arc<Self>, self_layout: Layout) -> Self {
         Self {
+            self_ptr,
+            self_layout,
             instance: mem::ManuallyDrop::new(instance),
-            ptr_to_dealloc,
-            ptr_layout,
         }
     }
 
+    /// Calculate the appropriate layout for `Self`.
     fn instance_layout(offsets: &VMOffsets) -> Layout {
-        let size = mem::size_of::<Arc<mem::ManuallyDrop<Self>>>()
-            .checked_add(usize::try_from(offsets.size_of_vmctx()).unwrap())
-            .unwrap();
-        let align = mem::align_of::<Arc<mem::ManuallyDrop<Self>>>();
+        let size = mem::size_of::<Arc<Self>>()
+            .checked_add(
+                usize::try_from(offsets.size_of_vmctx())
+                    .expect("Failed to convert the size of `vmctx` to a `usize`"),
+            )
+            .expect("Failed to compute the size of `Arc<InstanceAllocator>`");
+        let align = mem::align_of::<Arc<Self>>();
 
         Layout::from_size_align(size, align).unwrap()
     }
 
-    fn allocate_instance(offsets: &VMOffsets) -> NonNull<u8> {
+    /// Allocate `Self`.
+    ///
+    /// `offsets` is used to compute the layout with `Self::instance_layout`.
+    fn allocate_self(offsets: &VMOffsets) -> (NonNull<Arc<Self>>, Layout) {
         let layout = Self::instance_layout(offsets);
 
         #[allow(clippy::cast_ptr_alignment)]
-        let arc_instance_ptr = unsafe { alloc::alloc(layout) as *mut Arc<InstanceAllocator> };
+        let arc_instance_ptr = unsafe { alloc::alloc(layout) as *mut Arc<Self> };
 
         let ptr = if let Some(ptr) = NonNull::new(arc_instance_ptr) {
             ptr.cast()
@@ -719,14 +769,21 @@ impl InstanceAllocator {
             alloc::handle_alloc_error(layout);
         };
 
-        ptr
+        (ptr, layout)
     }
 
-    unsafe fn deallocate_instance(&mut self) {
+    /// Deallocate `Self`.
+    ///
+    /// # Safety
+    ///
+    /// `Self` must be correctly set and filled before being dropped
+    /// and deallocated.
+    unsafe fn deallocate_self(&mut self) {
         mem::ManuallyDrop::drop(&mut self.instance);
-        std::alloc::dealloc(self.ptr_to_dealloc as *mut _, self.ptr_layout);
+        std::alloc::dealloc(self.self_ptr as *mut u8, self.self_layout);
     }
 
+    /// Get a reference to the `Instance`.
     #[inline(always)]
     pub(crate) fn instance_ref(&self) -> &Instance {
         &self.instance
@@ -735,7 +792,7 @@ impl InstanceAllocator {
 
 impl PartialEq for InstanceAllocator {
     fn eq(&self, other: &Self) -> bool {
-        self.ptr_to_dealloc == other.ptr_to_dealloc
+        self.self_ptr == other.self_ptr
     }
 }
 
@@ -748,7 +805,7 @@ impl Drop for Instance {
 impl Drop for InstanceAllocator {
     fn drop(&mut self) {
         println!("Dropping `wasmer_vm::InstanceAllocator`");
-        unsafe { Self::deallocate_instance(self) };
+        unsafe { Self::deallocate_self(self) };
     }
 }
 
@@ -768,10 +825,12 @@ impl InstanceHandle {
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
     /// memory buffer pointed to by the instance pointer.
-    pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
+    pub fn allocate_instance_allocator(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
+        let (arc_instance_allocator_ptr, _arc_instance_allocator_layout) =
+            InstanceAllocator::allocate_self(&offsets);
 
-        (InstanceAllocator::allocate_instance(&offsets), offsets)
+        (arc_instance_allocator_ptr.cast(), offsets)
     }
 
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
@@ -801,7 +860,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        arc_instance_ptr: NonNull<u8>,
+        arc_instance_allocator_ptr: NonNull<u8>,
         offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -813,7 +872,9 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
-        let arc_instance_ptr = arc_instance_ptr.cast::<Arc<InstanceAllocator>>().as_ptr();
+        let arc_instance_allocator_ptr = arc_instance_allocator_ptr
+            .cast::<Arc<InstanceAllocator>>()
+            .as_ptr();
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
@@ -822,7 +883,7 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            let layout = InstanceAllocator::instance_layout(&offsets);
+            let arc_instance_allocator_layout = InstanceAllocator::instance_layout(&offsets);
             let arc_instance = Arc::new(InstanceAllocator::new(
                 Instance {
                     module,
@@ -838,14 +899,14 @@ impl InstanceHandle {
                     signal_handler: Cell::new(None),
                     vmctx: VMContext {},
                 },
-                arc_instance_ptr,
-                layout,
+                arc_instance_allocator_ptr,
+                arc_instance_allocator_layout,
             ));
 
             let instance_ptr = Arc::as_ptr(&arc_instance);
             debug_assert_eq!(Arc::strong_count(&arc_instance), 1);
 
-            ptr::write(arc_instance_ptr, arc_instance);
+            ptr::write(arc_instance_allocator_ptr, arc_instance);
 
             let instance = Arc::from_raw(instance_ptr);
             debug_assert_eq!(Arc::strong_count(&instance), 1);
@@ -1201,6 +1262,34 @@ impl InstanceHandle {
     /// Get a table defined locally within this module.
     pub fn get_local_table(&self, index: LocalTableIndex) -> &dyn Table {
         self.instance().instance_ref().get_local_table(index)
+    }
+}
+
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
+
+        impl InstanceHandle {
+            /// Set a custom signal handler
+            pub fn set_signal_handler<H>(&self, handler: H)
+            where
+                H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
+            {
+                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
+            }
+        }
+    } else if #[cfg(target_os = "windows")] {
+        pub type SignalHandler = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+
+        impl InstanceHandle {
+            /// Set a custom signal handler
+            pub fn set_signal_handler<H>(&self, handler: H)
+            where
+                H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
+            {
+                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
+            }
+        }
     }
 }
 
