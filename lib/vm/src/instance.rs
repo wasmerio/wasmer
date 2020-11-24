@@ -764,7 +764,7 @@ impl InstanceAllocator {
         let arc_instance_ptr = unsafe { alloc::alloc(layout) as *mut Arc<Self> };
 
         let ptr = if let Some(ptr) = NonNull::new(arc_instance_ptr) {
-            ptr.cast()
+            ptr
         } else {
             alloc::handle_alloc_error(layout);
         };
@@ -825,12 +825,14 @@ impl InstanceHandle {
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
     /// memory buffer pointed to by the instance pointer.
-    pub fn allocate_instance_allocator(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
+    pub fn allocate_instance_allocator(
+        module: &ModuleInfo,
+    ) -> (NonNull<Arc<InstanceAllocator>>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
         let (arc_instance_allocator_ptr, _arc_instance_allocator_layout) =
             InstanceAllocator::allocate_self(&offsets);
 
-        (arc_instance_allocator_ptr.cast(), offsets)
+        (arc_instance_allocator_ptr, offsets)
     }
 
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
@@ -860,7 +862,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        arc_instance_allocator_ptr: NonNull<u8>,
+        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
         offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -872,9 +874,7 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
-        let arc_instance_allocator_ptr = arc_instance_allocator_ptr
-            .cast::<Arc<InstanceAllocator>>()
-            .as_ptr();
+        let arc_instance_allocator_ptr = arc_instance_allocator_ptr.as_ptr();
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
@@ -997,14 +997,16 @@ impl InstanceHandle {
     /// - `instance_ptr` must point to enough memory that all of the offsets in
     ///   `offsets` point to valid locations in memory.
     pub unsafe fn memory_definition_locations(
-        instance_ptr: NonNull<u8>,
+        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMMemoryDefinition>> {
         let num_memories = offsets.num_local_memories;
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
-        // TODO: better encapsulate this logic, this shouldn't be duplicated
-        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+
+        let instance: &Instance = arc_instance_allocator_ptr.as_ref().instance_ref();
+        let instance_ptr: *mut Instance = instance as *const _ as *mut _;
+        let base_ptr = instance_ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
             let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
@@ -1014,6 +1016,7 @@ impl InstanceHandle {
 
             out.push(new_ptr.cast());
         }
+
         out
     }
 
@@ -1026,14 +1029,16 @@ impl InstanceHandle {
     /// - `instance_ptr` must point to enough memory that all of the offsets in
     ///   `offsets` point to valid locations in memory.
     pub unsafe fn table_definition_locations(
-        instance_ptr: NonNull<u8>,
+        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMTableDefinition>> {
         let num_tables = offsets.num_local_tables;
         let num_tables = usize::try_from(num_tables).unwrap();
         let mut out = Vec::with_capacity(num_tables);
-        // TODO: better encapsulate this logic, this shouldn't be duplicated
-        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+
+        let instance: &Instance = arc_instance_allocator_ptr.as_ref().instance_ref();
+        let instance_ptr: *mut Instance = instance as *const _ as *mut _;
+        let base_ptr = instance_ptr.add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
             let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
