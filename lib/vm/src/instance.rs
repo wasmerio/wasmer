@@ -664,39 +664,36 @@ impl Instance {
 /// An `InstanceAllocator` is responsible to allocate, to deallocate,
 /// and to give access to an `Instance`, in such a way that `Instance`
 /// is unique, can be shared, safely, across threads, without
-/// duplicating the pointer. `InstanceAllocator` must be the only
-/// owner of an `Instance`.
+/// duplicating the pointer in multiple locations. `InstanceAllocator`
+/// must be the only “owner” of an `Instance`.
 ///
 /// Consequently, one must not share `Instance` but
-/// `InstanceAllocator` behind a reference-counting pointer. It is
-/// designed like that. That's why the astute reader will notice there
-/// is only the `Arc<InstanceAllocator>` type in the codebase, never
-/// `InstanceAllocator` alone.
+/// `InstanceAllocator`. It acts like an Atomically Reference Counted
+/// to `Instance`. In short, `InstanceAllocator` is roughly a
+/// simplified version of `std::sync::Arc`.
 ///
-/// It is important to remind that `Instance` has a dynamic size
-/// defined by `VMOffsets`: The `Instance.vmctx` field represents a
+/// It is important to remind that `Instance` is dynamically-sized
+/// based on `VMOffsets`: The `Instance.vmctx` field represents a
 /// dynamically-sized array that extends beyond the nominal end of the
 /// type. So in order to create an instance of it, we must:
 ///
 /// 1. Define the correct layout for `Instance` (size and alignment),
 /// 2. Allocate it properly.
 ///
-/// It must be considered that not only the layout of `Instance` is
-/// needed, but the layout of `Arc<InstanceAllocator>`
-/// entirely. That's exactly what `InstanceAllocator::instance_layout`
-/// does.
+/// The `InstanceAllocator::instance_layout` computes the correct
+/// layout to represent the wanted `Instance`.
 ///
-/// Then `InstanceAllocator::allocate_self` will use this layout
-/// to allocate an empty `Arc<InstanceAllocator>` properly. This
-/// allocation must be freed with
-/// `InstanceAllocator::deallocate_self` if and only if it has
-/// been set correctly. The `Drop` implementation of
-/// `InstanceAllocator` calls its `deallocate_self` method without
-/// checking if this property holds.
+/// Then `InstanceAllocator::allocate_instance` will use this layout
+/// to allocate an empty `Instance` properly. This allocation must be
+/// freed with `InstanceAllocator::deallocate_instance` if and only if
+/// it has been set correctly. The `Drop` implementation of
+/// `InstanceAllocator` calls its `deallocate_instance` method without
+/// checking if this property holds, only when `Self.strong` is equal
+/// to 1.
 ///
-/// Note for the curious reader: `InstanceHandle::allocate_self`
+/// Note for the curious reader: `InstanceHandle::allocate_instance`
 /// and `InstanceHandle::new` will respectively allocate a proper
-/// `Arc<InstanceAllocator>` and will fill it correctly.
+/// `Instance` and will fill it correctly.
 ///
 /// A little bit of background: The initial goal was to be able to
 /// shared an `Instance` between an `InstanceHandle` and the module
@@ -708,13 +705,11 @@ impl Instance {
 #[derive(Debug)]
 #[repr(C)]
 pub struct InstanceAllocator {
-    /// The pointer to the allocation for `Self`, from the
-    /// `Self::allocate_self` method.
-    //self_ptr: *const Self,
+    /// Number of `Self` in the nature. It increases when `Self` is
+    /// cloned, and it decreases when `Self` is dropped.
     strong: Arc<atomic::AtomicUsize>,
 
-    /// The layout of `Self` (which can vary depending of the
-    /// `Instance`'s layout).
+    /// The layout of `Instance` (which can vary).
     instance_layout: Layout,
 
     /// The `Instance` itself. It must be the last field of
@@ -723,7 +718,10 @@ pub struct InstanceAllocator {
     /// `Instance` must not be dropped manually by Rust, because it's
     /// allocated manually with `alloc` and a specific layout (Rust
     /// would be able to drop `Instance` itself but it will imply a
-    /// memory leak because of `alloc`), hence the `ManuallyDrop`.
+    /// memory leak because of `alloc`).
+    ///
+    /// No one in the code has a copy of the `Instance`'s
+    /// pointer. `Self` is the only one.
     instance: NonNull<Instance>,
 }
 
@@ -733,33 +731,28 @@ impl InstanceAllocator {
     /// filled. `self_ptr` and `self_layout` must be the pointer and
     /// the layout returned by `Self::allocate_self` used to build
     /// `Self`.
-    #[inline(always)]
-    fn new(
-        instance: NonNull<Instance>,
-        /*self_ptr: *const Self, */ instance_layout: Layout,
-    ) -> Self {
+    fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
         Self {
-            //self_ptr,
             strong: Arc::new(atomic::AtomicUsize::new(1)),
             instance_layout,
             instance,
         }
     }
 
-    /// Calculate the appropriate layout for `Self`.
+    /// Calculate the appropriate layout for `Instance`.
     fn instance_layout(offsets: &VMOffsets) -> Layout {
         let size = mem::size_of::<Instance>()
             .checked_add(
                 usize::try_from(offsets.size_of_vmctx())
                     .expect("Failed to convert the size of `vmctx` to a `usize`"),
             )
-            .unwrap();
+            .expect("Failed to compute the size of `Instance`");
         let align = mem::align_of::<Instance>();
 
         Layout::from_size_align(size, align).unwrap()
     }
 
-    /// Allocate `Self`.
+    /// Allocate `Instance` (it is an uninitialized pointer).
     ///
     /// `offsets` is used to compute the layout with `Self::instance_layout`.
     fn allocate_instance(offsets: &VMOffsets) -> (NonNull<Instance>, Layout) {
@@ -777,43 +770,59 @@ impl InstanceAllocator {
         (ptr, layout)
     }
 
-    /// Deallocate `Self`.
+    /// Deallocate `Instance`.
     ///
     /// # Safety
     ///
-    /// `Self` must be correctly set and filled before being dropped
-    /// and deallocated.
+    /// `Self.instance` must be correctly set and filled before being
+    /// dropped and deallocated.
     unsafe fn deallocate_instance(&mut self) {
-        //mem::ManuallyDrop::drop(&mut self.instance);
         let instance_ptr = self.instance.as_ptr();
+
         ptr::drop_in_place(instance_ptr);
         std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
     }
 
-    /// Get a reference to the `Instance`.
-    #[inline(always)]
-    pub(crate) fn instance_ref(&self) -> &Instance {
-        unsafe { self.instance.as_ref() }
+    /// Get the number of strong references pointing to this
+    /// `InstanceAllocator`.
+    pub fn strong_count(&self) -> usize {
+        self.strong.load(atomic::Ordering::SeqCst)
     }
 
-    fn instance_ptr(&self) -> *const Instance {
-        self.instance.as_ptr()
+    /// Get a reference to the `Instance`.
+    #[inline]
+    pub(crate) fn instance_ref<'a>(&'a self) -> &'a Instance {
+        // SAFETY: The pointer is properly aligned, it is
+        // “dereferencable”, it points to an initialized memory of
+        // `Instance`, and the reference has the lifetime `'a`.
+        unsafe { self.instance.as_ref() }
     }
 }
 
+/// TODO: Review this super carefully.
+unsafe impl Send for InstanceAllocator {}
+unsafe impl Sync for InstanceAllocator {}
+
+/// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
+///
+/// Going above this limit will make the program to panic at exactly
+/// `MAX_REFCOUNT` references.
+const MAX_REFCOUNT: usize = std::usize::MAX - 1;
+
 impl Clone for InstanceAllocator {
+    /// Makes a clone of `InstanceAllocator`.
+    ///
+    /// This creates another `InstanceAllocator` using the same
+    /// `instance` pointer, increasing the strong reference count.
     #[inline]
     fn clone(&self) -> Self {
-        let _old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
+        let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
 
-        /*
-        let old_size > MAX_REFCOUNT {
-            abort();
+        if old_size > MAX_REFCOUNT {
+            panic!("Too much references of `InstanceAllocator`");
         }
-        */
 
         Self {
-            //self_ptr: self.self_ptr,
             strong: self.strong.clone(),
             instance_layout: self.instance_layout,
             instance: self.instance.clone(),
@@ -822,6 +831,8 @@ impl Clone for InstanceAllocator {
 }
 
 impl PartialEq for InstanceAllocator {
+    /// Two `InstanceAllocator` are equal if and only if
+    /// `Self.instance` points to the same location.
     fn eq(&self, other: &Self) -> bool {
         self.instance == other.instance
     }
@@ -834,9 +845,17 @@ impl Drop for Instance {
 }
 
 impl Drop for InstanceAllocator {
+    /// Drop the `InstanceAllocator`.
+    ///
+    /// This will decrement the strong reference count. If it reaches
+    /// 1, then the `Self.instance` will be deallocated with
+    /// `Self::deallocate_instance`.
     fn drop(&mut self) {
         println!("Trying to drop `wasmer_vm::InstanceAllocator`...");
 
+        // Because `fetch_sub` is already atomic, we do not need to
+        // synchronize with other threads unless we are going to
+        // delete the object.
         if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
             println!("... not now");
 
@@ -845,28 +864,53 @@ impl Drop for InstanceAllocator {
 
         println!("Yep, dropping it.");
 
+        // This fence is needed to prevent reordering of use of the data and
+        // deletion of the data. Because it is marked `Release`, the decreasing
+        // of the reference count synchronizes with this `Acquire` fence. This
+        // means that use of the data happens before decreasing the reference
+        // count, which happens before this fence, which happens before the
+        // deletion of the data.
+        //
+        // As explained in the [Boost documentation][1],
+        //
+        // > It is important to enforce any possible access to the object in one
+        // > thread (through an existing reference) to *happen before* deleting
+        // > the object in a different thread. This is achieved by a "release"
+        // > operation after dropping a reference (any access to the object
+        // > through this reference must obviously happened before), and an
+        // > "acquire" operation before deleting the object.
+        //
+        // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
         atomic::fence(atomic::Ordering::Acquire);
 
+        // Now we can deallocate the instance. Note that we don't
+        // check the pointer to `Instance` is correctly initialized,
+        // but the way `InstanceHandle` creates the
+        // `InstanceAllocator` ensures that.
         unsafe { Self::deallocate_instance(self) };
     }
 }
 
-/// A handle holding an `Instance` of a WebAssembly module.
-//#[derive(Hash, PartialEq, Eq)]
+/// A handle holding an `InstanceAllocator`, which holds an `Instance`
+/// of a WebAssembly module.
+///
+/// This is more or less a public facade of the private `Instance`,
+/// providing useful higher-level API.
+#[derive(Debug, PartialEq)]
 pub struct InstanceHandle {
+    /// The `InstanceAllocator`. See its documentation to learn more.
     instance: InstanceAllocator,
 }
-
-/// # Safety
-/// This is safe because there is no thread-specific logic in `InstanceHandle`.
-/// TODO: this needs extra review
-unsafe impl Send for InstanceHandle {}
 
 impl InstanceHandle {
     /// Allocates an instance for use with `InstanceHandle::new`.
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
     /// memory buffer pointed to by the instance pointer.
+    ///
+    /// It should ideally return `NonNull<Instance>` rather than
+    /// `NonNull<u8>`, however `Instance` is private, and we want to
+    /// keep it private.
     pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
         let (instance_ptr, _instance_layout) = InstanceAllocator::allocate_instance(&offsets);
@@ -874,15 +918,15 @@ impl InstanceHandle {
         (instance_ptr.cast(), offsets)
     }
 
-    /// Create a new `InstanceHandle` pointing at a new `Instance`.
+    /// Create a new `InstanceHandle` pointing at a new `InstanceAllocator`.
     ///
     /// # Safety
     ///
     /// This method is not necessarily inherently unsafe to call, but in general
     /// the APIs of an `Instance` are quite unsafe and have not been really
     /// audited for safety that much. As a result the unsafety here on this
-    /// method is a low-overhead way of saying "this is an extremely unsafe type
-    /// to work with".
+    /// method is a low-overhead way of saying “this is an extremely unsafe type
+    /// to work with”.
     ///
     /// Extreme care must be taken when working with `InstanceHandle` and it's
     /// recommended to have relatively intimate knowledge of how it works
@@ -893,8 +937,7 @@ impl InstanceHandle {
     /// However the following must be taken care of before calling this function:
     /// - `instance_ptr` must point to valid memory sufficiently large
     ///    for the `Instance`. `instance_ptr` will be owned by
-    ///    `InstanceHandle`, see `InstanceHandle::owned_instance` to
-    ///    learn more.
+    ///    `InstanceAllocator`, see `InstanceAllocator` to learn more.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
     /// - The memory at `instance.memories_ptr()` must be initialized with data for
@@ -913,7 +956,10 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
         let instance_ptr: NonNull<Instance> = instance_ptr.cast();
+
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
@@ -922,8 +968,8 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            dbg!(instance_ptr);
             let instance_layout = InstanceAllocator::instance_layout(&offsets);
+            // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
                 offsets,
@@ -939,20 +985,17 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
 
+            // `instance` is moved at `instance_ptr`. This pointer has
+            // been allocated by `Self::allocate_instance` (so by
+            // `InstanceAllocator::allocate_instance`.
             ptr::write(instance_ptr.as_ptr(), instance);
 
+            // Now `instance_ptr` is correctly initialized!
+
+            // `instance_ptr` is passed to `InstanceAllocator`, which
+            // makes it the only “owner” (it doesn't own the value,
+            // it's just the semantics we define).
             let instance_allocator = InstanceAllocator::new(instance_ptr, instance_layout);
-
-            /*
-            let instance_ptr = Arc::as_ptr(&arc_instance);
-            dbg!(instance_ptr);
-            debug_assert_eq!(Arc::strong_count(&arc_instance), 1);
-
-            ptr::write(arc_instance_allocator_ptr, arc_instance);
-
-            let instance = Arc::from_raw(instance_ptr);
-            debug_assert_eq!(Arc::strong_count(&instance), 1);
-            */
 
             Self {
                 instance: instance_allocator,
@@ -1045,7 +1088,10 @@ impl InstanceHandle {
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMMemoryDefinition>> {
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
         let instance_ptr: NonNull<Instance> = instance_ptr.cast();
+
         let num_memories = offsets.num_local_memories;
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
@@ -1076,7 +1122,10 @@ impl InstanceHandle {
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMTableDefinition>> {
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
         let instance_ptr: NonNull<Instance> = instance_ptr.cast();
+
         let num_tables = offsets.num_local_tables;
         let num_tables = usize::try_from(num_tables).unwrap();
         let mut out = Vec::with_capacity(num_tables);
