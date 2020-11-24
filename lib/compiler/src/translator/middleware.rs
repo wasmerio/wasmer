@@ -96,6 +96,18 @@ impl<'a> MiddlewareReaderState<'a> {
     }
 }
 
+impl<'a> Extend<Operator<'a>> for MiddlewareReaderState<'a> {
+    fn extend<I: IntoIterator<Item = Operator<'a>>>(&mut self, iter: I) {
+        self.pending_operations.extend(iter);
+    }
+}
+
+impl<'a: 'b, 'b> Extend<&'b Operator<'a>> for MiddlewareReaderState<'a> {
+    fn extend<I: IntoIterator<Item = &'b Operator<'a>>>(&mut self, iter: I) {
+        self.pending_operations.extend(iter.into_iter().cloned());
+    }
+}
+
 impl<'a> MiddlewareBinaryReader<'a> {
     /// Constructs a `MiddlewareBinaryReader` with an explicit starting offset.
     pub fn new_with_offset(data: &'a [u8], original_offset: usize) -> Self {

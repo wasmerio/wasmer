@@ -132,19 +132,21 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
             | Operator::Return // end of function - branch source
             => {
                 if self.accumulated_cost > 0 {
-                    // if unsigned(globals[remaining_points_index]) < unsigned(self.accumulated_cost) { throw(); }
-                    state.push_operator(Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() });
-                    state.push_operator(Operator::I64Const { value: self.accumulated_cost as i64 });
-                    state.push_operator(Operator::I64LtU);
-                    state.push_operator(Operator::If { ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType) });
-                    state.push_operator(Operator::Unreachable); // FIXME: Signal the error properly.
-                    state.push_operator(Operator::End);
+                    state.extend(&[
+                        // if unsigned(globals[remaining_points_index]) < unsigned(self.accumulated_cost) { throw(); }
+                        Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() },
+                        Operator::I64Const { value: self.accumulated_cost as i64 },
+                        Operator::I64LtU,
+                        Operator::If { ty: WpTypeOrFuncType::Type(WpType::EmptyBlockType) },
+                        Operator::Unreachable, // FIXME: Signal the error properly.
+                        Operator::End,
 
-                    // globals[remaining_points_index] -= self.accumulated_cost;
-                    state.push_operator(Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() });
-                    state.push_operator(Operator::I64Const { value: self.accumulated_cost as i64 });
-                    state.push_operator(Operator::I64Sub);
-                    state.push_operator(Operator::GlobalSet { global_index: self.remaining_points_index.as_u32() });
+                        // globals[remaining_points_index] -= self.accumulated_cost;
+                        Operator::GlobalGet { global_index: self.remaining_points_index.as_u32() },
+                        Operator::I64Const { value: self.accumulated_cost as i64 },
+                        Operator::I64Sub,
+                        Operator::GlobalSet { global_index: self.remaining_points_index.as_u32() },
+                    ]);
 
                     self.accumulated_cost = 0;
                 }
