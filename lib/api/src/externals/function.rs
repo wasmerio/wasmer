@@ -53,8 +53,9 @@ pub enum FunctionDefinition {
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
 ///
 /// # Panics
-/// - Closures (functions with captured environments) are not currently supported.
-///   Attempting to create a `Function` with one will result in a panic.
+/// - Closures (functions with captured environments) are not currently supported
+///   with native functions. Attempting to create a native `Function` with one will
+///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
@@ -84,9 +85,6 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
             func: Box::new(func),
             function_type: ty.clone(),
@@ -138,9 +136,6 @@ impl Function {
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + 'static,
     {
-        if std::mem::size_of::<F>() != 0 {
-            Self::closures_unsupported_panic();
-        }
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Box::new(env),
             func: Box::new(func),
@@ -642,7 +637,7 @@ impl Function {
     }
 
     fn closures_unsupported_panic() -> ! {
-        unimplemented!("Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840")
+        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 }
 

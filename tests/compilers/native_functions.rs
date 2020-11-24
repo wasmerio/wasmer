@@ -80,36 +80,7 @@ fn native_function_works_for_wasm() -> Result<()> {
 
 #[test]
 #[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
-)]
-fn host_function_closure_panics() {
-    let store = get_store(false);
-    let state = 3;
-    let ty = FunctionType::new(vec![], vec![]);
-    Function::new(&store, &ty, move |_args| {
-        println!("{}", state);
-        Ok(vec![])
-    });
-}
-
-#[test]
-#[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
-)]
-fn env_host_function_closure_panics() {
-    let store = get_store(false);
-    let state = 3;
-    let ty = FunctionType::new(vec![], vec![]);
-    let env = 4;
-    Function::new_with_env(&store, &ty, env, move |_env, _args| {
-        println!("{}", state);
-        Ok(vec![])
-    });
-}
-
-#[test]
-#[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
 )]
 fn native_host_function_closure_panics() {
     let store = get_store(false);
@@ -121,7 +92,7 @@ fn native_host_function_closure_panics() {
 
 #[test]
 #[should_panic(
-    expected = "Closures (functions with captured environments) are currently unsupported. See: https://github.com/wasmerio/wasmer/issues/1840"
+    expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
 )]
 fn native_with_env_host_function_closure_panics() {
     let store = get_store(false);
@@ -156,18 +127,19 @@ fn lambdas_with_no_env_work() -> Result<()> {
 
     let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
     let env = 10;
+    let captured_by_closure = 20;
     let import_object = imports! {
         "env" => {
-            "multiply1" => Function::new(&store, &ty, |args| {
+            "multiply1" => Function::new(&store, &ty, move |args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
-                    Ok(vec![Value::I32(v1 * v2)])
+                    Ok(vec![Value::I32(v1 * v2 * captured_by_closure)])
                 } else {
                     panic!("Invalid arguments");
                 }
             }),
-            "multiply2" => Function::new_with_env(&store, &ty, env, |&env, args| {
+            "multiply2" => Function::new_with_env(&store, &ty, env, move |&env, args| {
                 if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
-                    Ok(vec![Value::I32(v1 * v2 * env)])
+                    Ok(vec![Value::I32(v1 * v2 * captured_by_closure * env)])
                 } else {
                     panic!("Invalid arguments");
                 }
@@ -185,7 +157,7 @@ fn lambdas_with_no_env_work() -> Result<()> {
         instance.exports.get_native_function("test")?;
 
     let result = test.call(2, 3, 4, 5, 6)?;
-    let manually_computed_result = 6 * (5 * (4 * (3 * 2) * 10)) * 10;
+    let manually_computed_result = 6 * (5 * (4 * (3 * 2 * 20) * 10 * 20)) * 10;
     assert_eq!(result, manually_computed_result);
     Ok(())
 }
