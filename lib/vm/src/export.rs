@@ -41,7 +41,7 @@ pub struct ExportFunction {
     pub call_trampoline: Option<VMTrampoline>,
     /// A reference to the instance, to ensure it's not deallocated
     /// before the function.
-    pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    pub instance_allocator: Option<InstanceAllocator>,
 }
 
 /// # Safety
@@ -65,7 +65,7 @@ pub struct ExportTable {
     pub from: Arc<dyn Table>,
     /// A reference to the instance, to ensure it's not deallocated
     /// before the table.
-    pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    pub instance_allocator: Option<InstanceAllocator>,
 }
 
 /// # Safety
@@ -109,7 +109,7 @@ pub struct ExportMemory {
     pub from: Arc<dyn Memory>,
     /// A reference to the instance, to ensure it's not deallocated
     /// before the memory.
-    pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    pub instance_allocator: Option<InstanceAllocator>,
 }
 
 /// # Safety
@@ -153,7 +153,7 @@ pub struct ExportGlobal {
     pub from: Arc<Global>,
     /// A reference to the instance, to ensure it's not deallocated
     /// before the global.
-    pub instance_allocator: Option<Arc<InstanceAllocator>>,
+    pub instance_allocator: Option<InstanceAllocator>,
 }
 
 /// # Safety

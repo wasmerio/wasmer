@@ -30,7 +30,7 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::fmt;
 use std::ptr::NonNull;
-use std::sync::Arc;
+use std::sync::{atomic, Arc};
 use std::{mem, ptr, slice};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -710,11 +710,12 @@ impl Instance {
 pub struct InstanceAllocator {
     /// The pointer to the allocation for `Self`, from the
     /// `Self::allocate_self` method.
-    self_ptr: *const Arc<Self>,
+    //self_ptr: *const Self,
+    strong: Arc<atomic::AtomicUsize>,
 
     /// The layout of `Self` (which can vary depending of the
     /// `Instance`'s layout).
-    self_layout: Layout,
+    instance_layout: Layout,
 
     /// The `Instance` itself. It must be the last field of
     /// `InstanceAllocator` since `Instance` is dyamically-sized.
@@ -723,7 +724,7 @@ pub struct InstanceAllocator {
     /// allocated manually with `alloc` and a specific layout (Rust
     /// would be able to drop `Instance` itself but it will imply a
     /// memory leak because of `alloc`), hence the `ManuallyDrop`.
-    instance: mem::ManuallyDrop<Instance>,
+    instance: NonNull<Instance>,
 }
 
 impl InstanceAllocator {
@@ -733,23 +734,27 @@ impl InstanceAllocator {
     /// the layout returned by `Self::allocate_self` used to build
     /// `Self`.
     #[inline(always)]
-    const fn new(instance: Instance, self_ptr: *const Arc<Self>, self_layout: Layout) -> Self {
+    fn new(
+        instance: NonNull<Instance>,
+        /*self_ptr: *const Self, */ instance_layout: Layout,
+    ) -> Self {
         Self {
-            self_ptr,
-            self_layout,
-            instance: mem::ManuallyDrop::new(instance),
+            //self_ptr,
+            strong: Arc::new(atomic::AtomicUsize::new(1)),
+            instance_layout,
+            instance,
         }
     }
 
     /// Calculate the appropriate layout for `Self`.
     fn instance_layout(offsets: &VMOffsets) -> Layout {
-        let size = mem::size_of::<Arc<Self>>()
+        let size = mem::size_of::<Instance>()
             .checked_add(
                 usize::try_from(offsets.size_of_vmctx())
                     .expect("Failed to convert the size of `vmctx` to a `usize`"),
             )
-            .expect("Failed to compute the size of `Arc<InstanceAllocator>`");
-        let align = mem::align_of::<Arc<Self>>();
+            .unwrap();
+        let align = mem::align_of::<Instance>();
 
         Layout::from_size_align(size, align).unwrap()
     }
@@ -757,13 +762,13 @@ impl InstanceAllocator {
     /// Allocate `Self`.
     ///
     /// `offsets` is used to compute the layout with `Self::instance_layout`.
-    fn allocate_self(offsets: &VMOffsets) -> (NonNull<Arc<Self>>, Layout) {
+    fn allocate_instance(offsets: &VMOffsets) -> (NonNull<Instance>, Layout) {
         let layout = Self::instance_layout(offsets);
 
         #[allow(clippy::cast_ptr_alignment)]
-        let arc_instance_ptr = unsafe { alloc::alloc(layout) as *mut Arc<Self> };
+        let instance_ptr = unsafe { alloc::alloc(layout) as *mut Instance };
 
-        let ptr = if let Some(ptr) = NonNull::new(arc_instance_ptr) {
+        let ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
             ptr
         } else {
             alloc::handle_alloc_error(layout);
@@ -778,21 +783,47 @@ impl InstanceAllocator {
     ///
     /// `Self` must be correctly set and filled before being dropped
     /// and deallocated.
-    unsafe fn deallocate_self(&mut self) {
-        mem::ManuallyDrop::drop(&mut self.instance);
-        std::alloc::dealloc(self.self_ptr as *mut u8, self.self_layout);
+    unsafe fn deallocate_instance(&mut self) {
+        //mem::ManuallyDrop::drop(&mut self.instance);
+        let instance_ptr = self.instance.as_ptr();
+        ptr::drop_in_place(instance_ptr);
+        std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
     }
 
     /// Get a reference to the `Instance`.
     #[inline(always)]
     pub(crate) fn instance_ref(&self) -> &Instance {
-        &self.instance
+        unsafe { self.instance.as_ref() }
+    }
+
+    fn instance_ptr(&self) -> *const Instance {
+        self.instance.as_ptr()
+    }
+}
+
+impl Clone for InstanceAllocator {
+    #[inline]
+    fn clone(&self) -> Self {
+        let _old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
+
+        /*
+        let old_size > MAX_REFCOUNT {
+            abort();
+        }
+        */
+
+        Self {
+            //self_ptr: self.self_ptr,
+            strong: self.strong.clone(),
+            instance_layout: self.instance_layout,
+            instance: self.instance.clone(),
+        }
     }
 }
 
 impl PartialEq for InstanceAllocator {
     fn eq(&self, other: &Self) -> bool {
-        self.self_ptr == other.self_ptr
+        self.instance == other.instance
     }
 }
 
@@ -804,15 +835,26 @@ impl Drop for Instance {
 
 impl Drop for InstanceAllocator {
     fn drop(&mut self) {
-        println!("Dropping `wasmer_vm::InstanceAllocator`");
-        unsafe { Self::deallocate_self(self) };
+        println!("Trying to drop `wasmer_vm::InstanceAllocator`...");
+
+        if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
+            println!("... not now");
+
+            return;
+        }
+
+        println!("Yep, dropping it.");
+
+        atomic::fence(atomic::Ordering::Acquire);
+
+        unsafe { Self::deallocate_instance(self) };
     }
 }
 
 /// A handle holding an `Instance` of a WebAssembly module.
 //#[derive(Hash, PartialEq, Eq)]
 pub struct InstanceHandle {
-    instance: Arc<InstanceAllocator>,
+    instance: InstanceAllocator,
 }
 
 /// # Safety
@@ -825,14 +867,11 @@ impl InstanceHandle {
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
     /// memory buffer pointed to by the instance pointer.
-    pub fn allocate_instance_allocator(
-        module: &ModuleInfo,
-    ) -> (NonNull<Arc<InstanceAllocator>>, VMOffsets) {
+    pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
-        let (arc_instance_allocator_ptr, _arc_instance_allocator_layout) =
-            InstanceAllocator::allocate_self(&offsets);
+        let (instance_ptr, _instance_layout) = InstanceAllocator::allocate_instance(&offsets);
 
-        (arc_instance_allocator_ptr, offsets)
+        (instance_ptr.cast(), offsets)
     }
 
     /// Create a new `InstanceHandle` pointing at a new `Instance`.
@@ -862,7 +901,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
+        instance_ptr: NonNull<u8>,
         offsets: VMOffsets,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -874,7 +913,7 @@ impl InstanceHandle {
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
     ) -> Result<Self, Trap> {
-        let arc_instance_allocator_ptr = arc_instance_allocator_ptr.as_ptr();
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
@@ -883,35 +922,41 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            let arc_instance_allocator_layout = InstanceAllocator::instance_layout(&offsets);
-            let arc_instance = Arc::new(InstanceAllocator::new(
-                Instance {
-                    module,
-                    offsets,
-                    memories: finished_memories,
-                    tables: finished_tables,
-                    globals: finished_globals,
-                    functions: finished_functions,
-                    function_call_trampolines: finished_function_call_trampolines,
-                    passive_elements: Default::default(),
-                    passive_data,
-                    host_state,
-                    signal_handler: Cell::new(None),
-                    vmctx: VMContext {},
-                },
-                arc_instance_allocator_ptr,
-                arc_instance_allocator_layout,
-            ));
+            dbg!(instance_ptr);
+            let instance_layout = InstanceAllocator::instance_layout(&offsets);
+            let instance = Instance {
+                module,
+                offsets,
+                memories: finished_memories,
+                tables: finished_tables,
+                globals: finished_globals,
+                functions: finished_functions,
+                function_call_trampolines: finished_function_call_trampolines,
+                passive_elements: Default::default(),
+                passive_data,
+                host_state,
+                signal_handler: Cell::new(None),
+                vmctx: VMContext {},
+            };
 
+            ptr::write(instance_ptr.as_ptr(), instance);
+
+            let instance_allocator = InstanceAllocator::new(instance_ptr, instance_layout);
+
+            /*
             let instance_ptr = Arc::as_ptr(&arc_instance);
+            dbg!(instance_ptr);
             debug_assert_eq!(Arc::strong_count(&arc_instance), 1);
 
             ptr::write(arc_instance_allocator_ptr, arc_instance);
 
             let instance = Arc::from_raw(instance_ptr);
             debug_assert_eq!(Arc::strong_count(&instance), 1);
+            */
 
-            Self { instance }
+            Self {
+                instance: instance_allocator,
+            }
         };
         let instance = handle.instance().instance_ref();
 
@@ -984,7 +1029,7 @@ impl InstanceHandle {
     }
 
     /// Return a reference to the contained `Instance`.
-    pub(crate) fn instance(&self) -> &Arc<InstanceAllocator> {
+    pub(crate) fn instance(&self) -> &InstanceAllocator {
         &self.instance
     }
 
@@ -997,16 +1042,15 @@ impl InstanceHandle {
     /// - `instance_ptr` must point to enough memory that all of the offsets in
     ///   `offsets` point to valid locations in memory.
     pub unsafe fn memory_definition_locations(
-        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
+        instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMMemoryDefinition>> {
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
         let num_memories = offsets.num_local_memories;
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
 
-        let instance: &Instance = arc_instance_allocator_ptr.as_ref().instance_ref();
-        let instance_ptr: *mut Instance = instance as *const _ as *mut _;
-        let base_ptr = instance_ptr.add(mem::size_of::<Instance>());
+        let base_ptr = instance_ptr.as_ptr().add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
             let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
@@ -1029,16 +1073,15 @@ impl InstanceHandle {
     /// - `instance_ptr` must point to enough memory that all of the offsets in
     ///   `offsets` point to valid locations in memory.
     pub unsafe fn table_definition_locations(
-        arc_instance_allocator_ptr: NonNull<Arc<InstanceAllocator>>,
+        instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
     ) -> Vec<NonNull<VMTableDefinition>> {
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
         let num_tables = offsets.num_local_tables;
         let num_tables = usize::try_from(num_tables).unwrap();
         let mut out = Vec::with_capacity(num_tables);
 
-        let instance: &Instance = arc_instance_allocator_ptr.as_ref().instance_ref();
-        let instance_ptr: *mut Instance = instance as *const _ as *mut _;
-        let base_ptr = instance_ptr.add(std::mem::size_of::<Instance>());
+        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
             let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
