@@ -145,11 +145,19 @@ intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_le
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-bool wasi_env_set_instance(wasi_env_t *_env, const wasm_instance_t *_instance);
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
+bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_env_set_memory(wasi_env_t *_env, const wasm_memory_t *_memory);
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
+void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)

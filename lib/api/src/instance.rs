@@ -130,6 +130,14 @@ impl Instance {
             exports,
         };
 
+        // # Safety
+        // `initialize_host_envs` should be called after instantiation but before
+        // returning an `Instance` to the user. We set up the host environments
+        // via `WasmerEnv::init_with_instance`.
+        //
+        // This usage is correct because we pass a valid pointer to `instance` and the
+        // correct error type returned by `WasmerEnv::init_with_instance` as a generic
+        // parameter.
         unsafe {
             instance
                 .handle

@@ -82,7 +82,8 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory_ref().unwrap()
+        self.memory_ref()
+            .expect("Memory should be set on `WasiEnv` first")
     }
 
     pub(crate) fn get_memory_and_wasi_state(
