@@ -791,9 +791,7 @@ version = "0.22.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "aaf91faf136cb47367fa430cd46e37a788775e7fa104f8b4bcb3861dc389b724"
 dependencies = [
- "fallible-iterator",
  "indexmap",
- "stable_deref_trait",
 ]
 
 [[package]]
@@ -801,6 +799,11 @@ name = "gimli"
 version = "0.23.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f6503fe142514ca4799d4c26297c4248239fe8838d827db6bd6065c6ed29a6ce"
+dependencies = [
+ "fallible-iterator",
+ "indexmap",
+ "stable_deref_trait",
+]
 
 [[package]]
 name = "glob"
@@ -2377,7 +2380,7 @@ dependencies = [
  "cranelift-codegen 0.67.0",
  "cranelift-codegen 0.68.0",
  "cranelift-frontend",
- "gimli 0.22.0",
+ "gimli 0.23.0",
  "hashbrown 0.9.1",
  "lazy_static",
  "more-asserts",
