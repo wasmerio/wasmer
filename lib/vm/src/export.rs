@@ -11,6 +11,22 @@ use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
+pub enum EngineExport {
+    /// A function export value.
+    Function(EngineExportFunction),
+
+    /// A table export value.
+    Table(ExportTable),
+
+    /// A memory export value.
+    Memory(ExportMemory),
+
+    /// A global export value.
+    Global(ExportGlobal),
+}
+
+/// The value of an export passed from one instance to another.
+#[derive(Debug, Clone)]
 pub enum Export {
     /// A function export value.
     Function(ExportFunction),
@@ -25,6 +41,18 @@ pub enum Export {
     Global(ExportGlobal),
 }
 
+/// TODO:
+#[derive(Debug, Clone, PartialEq)]
+pub struct EngineExportFunction {
+    /// TODO:
+    pub function: ExportFunction,
+    /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
+    ///
+    /// This function is called to finish setting up the environment after
+    /// we create the `api::Instance`.
+    pub function_ptr: Option<ImportInitializerFuncPtr>,
+}
+
 /// A function export value.
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExportFunction {
@@ -32,13 +60,6 @@ pub struct ExportFunction {
     pub address: *const VMFunctionBody,
     /// Pointer to the containing `VMContext`.
     pub vmctx: VMFunctionEnvironment,
-    /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
-    ///
-    /// This function is called to finish setting up the environment after
-    /// we create the `api::Instance`.
-    // META: if you have a better idea of how to get this function to where it
-    // needs to be, please let me know.
-    pub function_ptr: Option<ImportInitializerFuncPtr>,
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
     /// The function kind (specifies the calling convention for the function).
@@ -55,6 +76,12 @@ unsafe impl Send for ExportFunction {}
 /// # Safety
 /// The members of an ExportFunction are immutable after construction.
 unsafe impl Sync for ExportFunction {}
+
+impl From<EngineExportFunction> for EngineExport {
+    fn from(func: EngineExportFunction) -> Self {
+        Self::Function(func)
+    }
+}
 
 impl From<ExportFunction> for Export {
     fn from(func: ExportFunction) -> Self {
@@ -103,6 +130,12 @@ impl From<ExportTable> for Export {
     }
 }
 
+impl From<ExportTable> for EngineExport {
+    fn from(table: ExportTable) -> Self {
+        Self::Table(table)
+    }
+}
+
 /// A memory export value.
 #[derive(Debug, Clone)]
 pub struct ExportMemory {
@@ -144,6 +177,12 @@ impl From<ExportMemory> for Export {
     }
 }
 
+impl From<ExportMemory> for EngineExport {
+    fn from(memory: ExportMemory) -> Self {
+        Self::Memory(memory)
+    }
+}
+
 /// A global export value.
 #[derive(Debug, Clone)]
 pub struct ExportGlobal {
@@ -170,6 +209,12 @@ impl ExportGlobal {
 }
 
 impl From<ExportGlobal> for Export {
+    fn from(global: ExportGlobal) -> Self {
+        Self::Global(global)
+    }
+}
+
+impl From<ExportGlobal> for EngineExport {
     fn from(global: ExportGlobal) -> Self {
         Self::Global(global)
     }

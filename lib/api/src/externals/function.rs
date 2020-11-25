@@ -13,9 +13,9 @@ pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 use std::cmp::max;
 use std::fmt;
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
-    VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, EngineExport, EngineExportFunction,
+    ExportFunction, VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -56,7 +56,7 @@ pub enum FunctionDefinition {
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
-    pub(crate) exported: ExportFunction,
+    pub(crate) exported: EngineExportFunction,
 }
 
 impl Function {
@@ -95,13 +95,15 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
+            exported: EngineExportFunction {
                 function_ptr: None,
-                signature: ty.clone(),
-                call_trampoline: None,
+                function: ExportFunction {
+                    address,
+                    kind: VMFunctionKind::Dynamic,
+                    vmctx,
+                    signature: ty.clone(),
+                    call_trampoline: None,
+                },
             },
         }
     }
@@ -155,13 +157,15 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
+            exported: EngineExportFunction {
                 function_ptr,
-                signature: ty.clone(),
-                call_trampoline: None,
+                function: ExportFunction {
+                    address,
+                    kind: VMFunctionKind::Dynamic,
+                    vmctx,
+                    signature: ty.clone(),
+                    call_trampoline: None,
+                },
             },
         }
     }
@@ -200,15 +204,18 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
-            exported: ExportFunction {
-                address,
-                vmctx,
-                signature,
+
+            exported: EngineExportFunction {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
                 function_ptr: None,
-                kind: VMFunctionKind::Static,
-                call_trampoline: None,
+                function: ExportFunction {
+                    address,
+                    vmctx,
+                    signature,
+                    kind: VMFunctionKind::Static,
+                    call_trampoline: None,
+                },
             },
         }
     }
@@ -266,13 +273,15 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Static,
-                vmctx,
+            exported: EngineExportFunction {
                 function_ptr,
-                signature,
-                call_trampoline: None,
+                function: ExportFunction {
+                    address,
+                    kind: VMFunctionKind::Static,
+                    vmctx,
+                    signature,
+                    call_trampoline: None,
+                },
             },
         }
     }
@@ -313,13 +322,15 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
-            exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Static,
-                vmctx,
+            exported: EngineExportFunction {
                 function_ptr,
-                signature,
-                call_trampoline: None,
+                function: ExportFunction {
+                    address,
+                    kind: VMFunctionKind::Static,
+                    vmctx,
+                    signature,
+                    call_trampoline: None,
+                },
             },
         }
     }
@@ -342,7 +353,7 @@ impl Function {
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self) -> &FunctionType {
-        &self.exported.signature
+        &self.exported.function.signature
     }
 
     /// Returns the [`Store`] where the `Function` belongs.
@@ -399,9 +410,9 @@ impl Function {
         // Call the trampoline.
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
-                self.exported.vmctx,
+                self.exported.function.vmctx,
                 func.trampoline,
-                self.exported.address,
+                self.exported.function.address,
                 values_vec.as_mut_ptr() as *mut u8,
             )
         } {
@@ -501,8 +512,8 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        if let Some(trampoline) = wasmer_export.call_trampoline {
+    pub(crate) fn from_export(store: &Store, wasmer_export: EngineExportFunction) -> Self {
+        if let Some(trampoline) = wasmer_export.function.call_trampoline {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
@@ -512,7 +523,7 @@ impl Function {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    has_env: !wasmer_export.vmctx.is_null(),
+                    has_env: !wasmer_export.function.vmctx.is_null(),
                 }),
                 exported: wasmer_export,
             }
@@ -523,11 +534,11 @@ impl Function {
         let vmsignature = self
             .store
             .engine()
-            .register_signature(&self.exported.signature);
+            .register_signature(&self.exported.function.signature);
         VMCallerCheckedAnyfunc {
-            func_ptr: self.exported.address,
+            func_ptr: self.exported.function.address,
             type_index: vmsignature,
-            vmctx: self.exported.vmctx,
+            vmctx: self.exported.function.vmctx,
         }
     }
 
@@ -613,7 +624,7 @@ impl Function {
     {
         // type check
         {
-            let expected = self.exported.signature.params();
+            let expected = self.exported.function.signature.params();
             let given = Args::wasm_types();
 
             if expected != given {
@@ -626,7 +637,7 @@ impl Function {
         }
 
         {
-            let expected = self.exported.signature.results();
+            let expected = self.exported.function.signature.results();
             let given = Rets::wasm_types();
 
             if expected != given {
@@ -641,16 +652,16 @@ impl Function {
 
         Ok(NativeFunc::new(
             self.store.clone(),
-            self.exported.address,
-            self.exported.vmctx,
-            self.exported.kind,
+            self.exported.function.address,
+            self.exported.function.vmctx,
+            self.exported.function.kind,
             self.definition.clone(),
         ))
     }
 }
 
 impl<'a> Exportable<'a> for Function {
-    fn to_export(&self) -> Export {
+    fn to_export(&self) -> EngineExport {
         self.exported.clone().into()
     }
 

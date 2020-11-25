@@ -7,16 +7,16 @@ use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use wasmer_engine::NamedResolver;
-use wasmer_vm::Export;
+use wasmer_vm::EngineExport;
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be
 /// considered namespaces that could provide imports to an instance.
 pub trait LikeNamespace {
     /// Gets an export by name.
-    fn get_namespace_export(&self, name: &str) -> Option<Export>;
+    fn get_namespace_export(&self, name: &str) -> Option<EngineExport>;
     /// Gets all exports in the namespace.
-    fn get_namespace_exports(&self) -> Vec<(String, Export)>;
+    fn get_namespace_exports(&self) -> Vec<(String, EngineExport)>;
 }
 
 /// All of the import data used when instantiating.
@@ -59,7 +59,7 @@ impl ImportObject {
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
-    pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
+    pub fn get_export(&self, module: &str, name: &str) -> Option<EngineExport> {
         let guard = self.map.lock().unwrap();
         let map_ref = guard.borrow();
         if map_ref.contains_key(module) {
@@ -102,7 +102,7 @@ impl ImportObject {
         }
     }
 
-    fn get_objects(&self) -> VecDeque<((String, String), Export)> {
+    fn get_objects(&self) -> VecDeque<((String, String), EngineExport)> {
         let mut out = VecDeque::new();
         let guard = self.map.lock().unwrap();
         let map = guard.borrow();
@@ -116,18 +116,18 @@ impl ImportObject {
 }
 
 impl NamedResolver for ImportObject {
-    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
+    fn resolve_by_name(&self, module: &str, name: &str) -> Option<EngineExport> {
         self.get_export(module, name)
     }
 }
 
 /// Iterator for an `ImportObject`'s exports.
 pub struct ImportObjectIterator {
-    elements: VecDeque<((String, String), Export)>,
+    elements: VecDeque<((String, String), EngineExport)>,
 }
 
 impl Iterator for ImportObjectIterator {
-    type Item = ((String, String), Export);
+    type Item = ((String, String), EngineExport);
     fn next(&mut self) -> Option<Self::Item> {
         self.elements.pop_front()
     }
@@ -135,7 +135,7 @@ impl Iterator for ImportObjectIterator {
 
 impl IntoIterator for ImportObject {
     type IntoIter = ImportObjectIterator;
-    type Item = ((String, String), Export);
+    type Item = ((String, String), EngineExport);
 
     fn into_iter(self) -> Self::IntoIter {
         ImportObjectIterator {

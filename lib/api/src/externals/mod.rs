@@ -17,7 +17,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
 use std::fmt;
-use wasmer_vm::Export;
+use wasmer_vm::{EngineExport, Export};
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
@@ -58,7 +58,7 @@ impl Extern {
 }
 
 impl<'a> Exportable<'a> for Extern {
-    fn to_export(&self) -> Export {
+    fn to_export(&self) -> EngineExport {
         match self {
             Self::Function(f) => f.to_export(),
             Self::Global(g) => g.to_export(),

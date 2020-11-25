@@ -7,7 +7,7 @@ use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    Export, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    EngineExport, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
     VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
@@ -32,7 +32,7 @@ pub trait Resolver {
     ///   (import "" "" (func (param i32) (result i32)))
     /// )
     /// ```
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export>;
+    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<EngineExport>;
 }
 
 /// Import resolver connects imports with available exported values.
@@ -45,26 +45,26 @@ pub trait NamedResolver {
     ///
     /// It receives the `module` and `field` names and return the [`Export`] in
     /// case it's found.
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export>;
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<EngineExport>;
 }
 
 // All NamedResolvers should extend `Resolver`.
 impl<T: NamedResolver> Resolver for T {
     /// By default this method will be calling [`NamedResolver::resolve_by_name`],
     /// dismissing the provided `index`.
-    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<Export> {
+    fn resolve(&self, _index: u32, module: &str, field: &str) -> Option<EngineExport> {
         self.resolve_by_name(module, field)
     }
 }
 
 impl<T: NamedResolver> NamedResolver for &T {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<EngineExport> {
         (**self).resolve_by_name(module, field)
     }
 }
 
 impl NamedResolver for Box<dyn NamedResolver> {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<EngineExport> {
         (**self).resolve_by_name(module, field)
     }
 }
@@ -73,7 +73,7 @@ impl NamedResolver for Box<dyn NamedResolver> {
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
-    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<Export> {
+    fn resolve(&self, _idx: u32, _module: &str, _field: &str) -> Option<EngineExport> {
         None
     }
 }
@@ -101,12 +101,12 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 }
 
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
-fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
+fn get_extern_from_export(_module: &ModuleInfo, export: &EngineExport) -> ExternType {
     match export {
-        Export::Function(ref f) => ExternType::Function(f.signature.clone()),
-        Export::Table(ref t) => ExternType::Table(*t.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.ty()),
-        Export::Global(ref g) => {
+        EngineExport::Function(ref f) => ExternType::Function(f.function.signature.clone()),
+        EngineExport::Table(ref t) => ExternType::Table(*t.ty()),
+        EngineExport::Memory(ref m) => ExternType::Memory(*m.ty()),
+        EngineExport::Global(ref g) => {
             let global = g.from.ty();
             ExternType::Global(*global)
         }
@@ -153,8 +153,8 @@ pub fn resolve_imports(
             ));
         }
         match resolved {
-            Export::Function(ref f) => {
-                let address = match f.kind {
+            EngineExport::Function(ref f) => {
+                let address = match f.function.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
@@ -165,22 +165,22 @@ pub fn resolve_imports(
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
                     }
-                    VMFunctionKind::Static => f.address,
+                    VMFunctionKind::Static => f.function.address,
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: f.vmctx,
+                    environment: f.function.vmctx,
                 });
 
                 host_function_env_initializers.push(f.function_ptr);
             }
-            Export::Table(ref t) => {
+            EngineExport::Table(ref t) => {
                 table_imports.push(VMTableImport {
                     definition: t.from.vmtable(),
                     from: t.from.clone(),
                 });
             }
-            Export::Memory(ref m) => {
+            EngineExport::Memory(ref m) => {
                 match import_index {
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
@@ -215,7 +215,7 @@ pub fn resolve_imports(
                 });
             }
 
-            Export::Global(ref g) => {
+            EngineExport::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
                     definition: g.from.vmglobal(),
                     from: g.from.clone(),
@@ -303,7 +303,7 @@ where
     A: NamedResolver,
     B: NamedResolver,
 {
-    fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
+    fn resolve_by_name(&self, module: &str, field: &str) -> Option<EngineExport> {
         self.a
             .resolve_by_name(module, field)
             .or_else(|| self.b.resolve_by_name(module, field))

@@ -4,7 +4,7 @@
 //! An `Instance` contains all the runtime state used by execution of a
 //! wasm module (except its callstack and register state). An
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
-use crate::export::Export;
+use crate::export::{EngineExport, Export};
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -16,7 +16,7 @@ use crate::vmcontext::{
     VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
-use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
+use crate::{EngineExportFunction, ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -315,6 +315,7 @@ impl Instance {
     }
 
     /// Lookup an export with the given export declaration.
+    // TODO: maybe EngineExport
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
         match export {
             ExportIndex::Function(index) => {
@@ -335,6 +336,9 @@ impl Instance {
                     };
                 let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
+                /*EngineExportFunction {
+                function_ptr,
+                function: */
                 ExportFunction {
                     address,
                     // Any function received is already static at this point as:
@@ -344,9 +348,9 @@ impl Instance {
                     kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
-                    function_ptr,
                     call_trampoline,
                 }
+                //}
                 .into()
             }
             ExportIndex::Table(index) => {
@@ -1170,6 +1174,7 @@ impl InstanceHandle {
         use std::ffi;
         let instance = &mut *self.instance;
         for (func, env) in instance.import_initializers.drain(..) {
+            dbg!(func, env);
             if let Some(ref f) = func {
                 // transmute our function pointer into one with the correct error type
                 let f = std::mem::transmute::<

@@ -6,7 +6,7 @@ use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
+use wasmer_vm::{EngineExport, ExportMemory, Memory as RuntimeMemory, MemoryError};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -245,7 +245,7 @@ impl Memory {
 }
 
 impl<'a> Exportable<'a> for Memory {
-    fn to_export(&self) -> Export {
+    fn to_export(&self) -> EngineExport {
         ExportMemory {
             from: self.memory.clone(),
         }

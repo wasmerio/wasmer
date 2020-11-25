@@ -7,7 +7,7 @@ use crate::Mutability;
 use crate::RuntimeError;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_vm::{Export, ExportGlobal, Global as RuntimeGlobal};
+use wasmer_vm::{EngineExport, ExportGlobal, Global as RuntimeGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -215,7 +215,7 @@ impl fmt::Debug for Global {
 }
 
 impl<'a> Exportable<'a> for Global {
-    fn to_export(&self) -> Export {
+    fn to_export(&self) -> EngineExport {
         ExportGlobal {
             from: self.global.clone(),
         }

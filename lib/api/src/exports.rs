@@ -7,7 +7,7 @@ use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_vm::Export;
+use wasmer_vm::EngineExport;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.
@@ -264,11 +264,11 @@ impl FromIterator<(String, Extern)> for Exports {
 }
 
 impl LikeNamespace for Exports {
-    fn get_namespace_export(&self, name: &str) -> Option<Export> {
+    fn get_namespace_export(&self, name: &str) -> Option<EngineExport> {
         self.map.get(name).map(|is_export| is_export.to_export())
     }
 
-    fn get_namespace_exports(&self) -> Vec<(String, Export)> {
+    fn get_namespace_exports(&self) -> Vec<(String, EngineExport)> {
         self.map
             .iter()
             .map(|(k, v)| (k.clone(), v.to_export()))
@@ -284,7 +284,7 @@ pub trait Exportable<'a>: Sized {
     /// can be used while instantiating the [`Module`].
     ///
     /// [`Module`]: crate::Module
-    fn to_export(&self) -> Export;
+    fn to_export(&self) -> EngineExport;
 
     /// Implementation of how to get the export corresponding to the implementing type
     /// from an [`Instance`] by name.

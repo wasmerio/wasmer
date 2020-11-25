@@ -17,7 +17,8 @@ use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, W
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind,
+    EngineExportFunction, ExportFunction, VMDynamicFunctionContext, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -28,7 +29,7 @@ pub struct NativeFunc<Args = (), Rets = ()> {
     address: *const VMFunctionBody,
     vmctx: VMFunctionEnvironment,
     arg_kind: VMFunctionKind,
-    // exported: ExportFunction,
+    // exported: EngineExportFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -57,6 +58,7 @@ where
     }
 }
 
+/*
 impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
 where
     Args: WasmTypeList,
@@ -68,10 +70,29 @@ where
             address: other.address,
             vmctx: other.vmctx,
             signature,
-            // TODO:
-            function_ptr: None,
             kind: other.arg_kind,
             call_trampoline: None,
+        }
+    }
+}*/
+
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for EngineExportFunction
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: &NativeFunc<Args, Rets>) -> Self {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        Self {
+            // TODO:
+            function_ptr: None,
+            function: ExportFunction {
+                address: other.address,
+                vmctx: other.vmctx,
+                signature,
+                kind: other.arg_kind,
+                call_trampoline: None,
+            },
         }
     }
 }
@@ -86,14 +107,16 @@ where
         Self {
             store: other.store,
             definition: other.definition,
-            exported: ExportFunction {
-                address: other.address,
-                vmctx: other.vmctx,
-                signature,
+            exported: EngineExportFunction {
                 // TODO:
                 function_ptr: None,
-                kind: other.arg_kind,
-                call_trampoline: None,
+                function: ExportFunction {
+                    address: other.address,
+                    vmctx: other.vmctx,
+                    signature,
+                    kind: other.arg_kind,
+                    call_trampoline: None,
+                },
             },
         }
     }
