@@ -1052,25 +1052,6 @@ impl InstanceHandle {
         Ok(handle)
     }
 
-    /// Create a new `InstanceHandle` pointing at the instance
-    /// pointed to by the given `VMContext` pointer.
-    ///
-    /// # Safety
-    /// This is unsafe because it doesn't work on just any `VMContext`, it must
-    /// be a `VMContext` allocated as part of an `Instance`.
-    pub(crate) unsafe fn from_vmctx(vmctx: *const VMContext) -> Self {
-        /*
-        let instance = (&*vmctx).instance();
-
-        Self {
-            instance: Arc::from_raw(instance as *const InstanceAllocator),
-            // We consider `vmctx` owns the `Instance`, not `Self`.
-            //owned_instance: false,
-        }
-        */
-        todo!()
-    }
-
     /// Return a reference to the contained `Instance`.
     pub(crate) fn instance(&self) -> &InstanceAllocator {
         &self.instance

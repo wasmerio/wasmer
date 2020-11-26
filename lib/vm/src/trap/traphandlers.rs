@@ -5,7 +5,7 @@
 //! signalhandling mechanisms.
 
 use super::trapcode::TrapCode;
-use crate::instance::{InstanceHandle, SignalHandler};
+use crate::instance::{Instance, SignalHandler};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
 use std::any::Any;
@@ -577,9 +577,15 @@ impl CallThreadState {
         })
     }
 
-    fn any_instance(&self, func: impl Fn(&InstanceHandle) -> bool) -> bool {
+    fn any_instance(&self, func: impl Fn(&Instance) -> bool) -> bool {
         unsafe {
-            if func(&InstanceHandle::from_vmctx(self.vmctx.vmctx)) {
+            if func(
+                self.vmctx
+                    .vmctx
+                    .as_ref()
+                    .expect("`VMContext` is null in `any_instance`")
+                    .instance(),
+            ) {
                 return true;
             }
             match self.prev {
@@ -632,14 +638,13 @@ impl CallThreadState {
         // First up see if any instance registered has a custom trap handler,
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
-        let any_instance = self.any_instance(|i| {
-            let instance_ref = i.instance().instance_ref();
-            let handler = match instance_ref.signal_handler.replace(None) {
+        let any_instance = self.any_instance(|instance: &Instance| {
+            let handler = match instance.signal_handler.replace(None) {
                 Some(handler) => handler,
                 None => return false,
             };
             let result = call_handler(&handler);
-            instance_ref.signal_handler.set(Some(handler));
+            instance.signal_handler.set(Some(handler));
             result
         });
 
