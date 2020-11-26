@@ -870,8 +870,7 @@ impl Drop for InstanceAllocator {
     /// `Self::deallocate_instance`.
     fn drop(&mut self) {
         // Because `fetch_sub` is already atomic, we do not need to
-        // synchronize with other threads unless we are going to
-        // delete the object.
+        // synchronize with other thread.
         if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
             return;
         }
