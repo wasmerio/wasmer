@@ -819,7 +819,7 @@ impl Clone for InstanceAllocator {
         let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
 
         if old_size > Self::MAX_REFCOUNT {
-            panic!("Too much references of `InstanceAllocator`");
+            panic!("Too many references of `InstanceAllocator`");
         }
 
         Self {
