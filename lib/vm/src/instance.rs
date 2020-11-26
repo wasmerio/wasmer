@@ -838,12 +838,6 @@ impl PartialEq for InstanceAllocator {
     }
 }
 
-impl Drop for Instance {
-    fn drop(&mut self) {
-        println!("Dropping `wasmer_vm::Instance`");
-    }
-}
-
 impl Drop for InstanceAllocator {
     /// Drop the `InstanceAllocator`.
     ///
@@ -851,18 +845,12 @@ impl Drop for InstanceAllocator {
     /// 1, then the `Self.instance` will be deallocated with
     /// `Self::deallocate_instance`.
     fn drop(&mut self) {
-        println!("Trying to drop `wasmer_vm::InstanceAllocator`...");
-
         // Because `fetch_sub` is already atomic, we do not need to
         // synchronize with other threads unless we are going to
         // delete the object.
         if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
-            println!("... not now");
-
             return;
         }
-
-        println!("Yep, dropping it.");
 
         // This fence is needed to prevent reordering of use of the data and
         // deletion of the data. Because it is marked `Release`, the decreasing
