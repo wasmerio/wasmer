@@ -1075,8 +1075,10 @@ impl InstanceHandle {
     /// memory in the VM.
     ///
     /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the offsets in
-    ///   `offsets` point to valid locations in memory.
+    /// - `instance_ptr` must point to enough memory that all of the
+    ///   offsets in `offsets` point to valid locations in memory,
+    ///   i.e. `instance_ptr` must have been allocated by
+    ///   `InstanceHandle::allocate_instance`.
     pub unsafe fn memory_definition_locations(
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
@@ -1113,8 +1115,10 @@ impl InstanceHandle {
     /// memory in the VM.
     ///
     /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the offsets in
-    ///   `offsets` point to valid locations in memory.
+    /// - `instance_ptr` must point to enough memory that all of the
+    ///   offsets in `offsets` point to valid locations in memory,
+    ///   i.e. `instance_ptr` must have been allocated by
+    ///   `InstanceHandle::allocate_instance`.
     pub unsafe fn table_definition_locations(
         instance_ptr: NonNull<u8>,
         offsets: &VMOffsets,
