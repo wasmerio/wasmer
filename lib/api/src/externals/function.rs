@@ -303,6 +303,7 @@ impl Function {
                 vmctx,
                 signature,
                 call_trampoline: None,
+                instance_allocator: None,
             },
         }
     }
