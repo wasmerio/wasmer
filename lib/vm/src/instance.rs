@@ -791,7 +791,7 @@ impl InstanceAllocator {
 
     /// Get a reference to the `Instance`.
     #[inline]
-    pub(crate) fn instance_ref<'a>(&'a self) -> &'a Instance {
+    pub(crate) fn as_ref<'a>(&'a self) -> &'a Instance {
         // SAFETY: The pointer is properly aligned, it is
         // “dereferencable”, it points to an initialized memory of
         // `Instance`, and the reference has the lifetime `'a`.
@@ -1001,7 +1001,7 @@ impl InstanceHandle {
                 instance: instance_allocator,
             }
         };
-        let instance = handle.instance().instance_ref();
+        let instance = handle.instance().as_ref();
 
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
@@ -1133,7 +1133,7 @@ impl InstanceHandle {
         &self,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
-        let instance = self.instance().instance_ref();
+        let instance = self.instance().as_ref();
         check_table_init_bounds(instance)?;
         check_memory_init_bounds(instance, data_initializers)?;
 
@@ -1149,22 +1149,22 @@ impl InstanceHandle {
 
     /// Return a reference to the vmctx used by compiled wasm code.
     pub fn vmctx(&self) -> &VMContext {
-        self.instance().instance_ref().vmctx()
+        self.instance().as_ref().vmctx()
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
     pub fn vmctx_ptr(&self) -> *mut VMContext {
-        self.instance().instance_ref().vmctx_ptr()
+        self.instance().as_ref().vmctx_ptr()
     }
 
     /// Return a reference-counting pointer to a module.
     pub fn module(&self) -> &Arc<ModuleInfo> {
-        self.instance().instance_ref().module()
+        self.instance().as_ref().module()
     }
 
     /// Return a reference to a module.
     pub fn module_ref(&self) -> &ModuleInfo {
-        self.instance().instance_ref().module_ref()
+        self.instance().as_ref().module_ref()
     }
 
     /// Lookup an export with the given name.
@@ -1177,7 +1177,7 @@ impl InstanceHandle {
     /// Lookup an export with the given export declaration.
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
         let instance = self.instance().clone();
-        let instance_ref = instance.instance_ref();
+        let instance_ref = instance.as_ref();
 
         match export {
             ExportIndex::Function(index) => {
@@ -1272,12 +1272,12 @@ impl InstanceHandle {
 
     /// Return a reference to the custom state attached to this instance.
     pub fn host_state(&self) -> &dyn Any {
-        self.instance().instance_ref().host_state()
+        self.instance().as_ref().host_state()
     }
 
     /// Return the memory index for the given `VMMemoryDefinition` in this instance.
     pub fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
-        self.instance().instance_ref().memory_index(memory)
+        self.instance().as_ref().memory_index(memory)
     }
 
     /// Grow memory in this instance by the specified amount of pages.
@@ -1292,14 +1292,12 @@ impl InstanceHandle {
     where
         IntoPages: Into<Pages>,
     {
-        self.instance()
-            .instance_ref()
-            .memory_grow(memory_index, delta)
+        self.instance().as_ref().memory_grow(memory_index, delta)
     }
 
     /// Return the table index for the given `VMTableDefinition` in this instance.
     pub fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
-        self.instance().instance_ref().table_index(table)
+        self.instance().as_ref().table_index(table)
     }
 
     /// Grow table in this instance by the specified amount of pages.
@@ -1307,9 +1305,7 @@ impl InstanceHandle {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     pub fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
-        self.instance()
-            .instance_ref()
-            .table_grow(table_index, delta)
+        self.instance().as_ref().table_grow(table_index, delta)
     }
 
     /// Get table element reference.
@@ -1320,7 +1316,7 @@ impl InstanceHandle {
         table_index: LocalTableIndex,
         index: u32,
     ) -> Option<VMCallerCheckedAnyfunc> {
-        self.instance().instance_ref().table_get(table_index, index)
+        self.instance().as_ref().table_get(table_index, index)
     }
 
     /// Set table element reference.
@@ -1332,14 +1328,12 @@ impl InstanceHandle {
         index: u32,
         val: VMCallerCheckedAnyfunc,
     ) -> Result<(), Trap> {
-        self.instance()
-            .instance_ref()
-            .table_set(table_index, index, val)
+        self.instance().as_ref().table_set(table_index, index, val)
     }
 
     /// Get a table defined locally within this module.
     pub fn get_local_table(&self, index: LocalTableIndex) -> &dyn Table {
-        self.instance().instance_ref().get_local_table(index)
+        self.instance().as_ref().get_local_table(index)
     }
 }
 
@@ -1353,7 +1347,7 @@ cfg_if::cfg_if! {
             where
                 H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
             {
-                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
+                self.instance().as_ref().signal_handler.set(Some(Box::new(handler)));
             }
         }
     } else if #[cfg(target_os = "windows")] {
@@ -1365,7 +1359,7 @@ cfg_if::cfg_if! {
             where
                 H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
             {
-                self.instance().instance_ref().signal_handler.set(Some(Box::new(handler)));
+                self.instance().as_ref().signal_handler.set(Some(Box::new(handler)));
             }
         }
     }
