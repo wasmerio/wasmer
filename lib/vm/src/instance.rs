@@ -816,7 +816,31 @@ impl Clone for InstanceAllocator {
     /// `instance` pointer, increasing the strong reference count.
     #[inline]
     fn clone(&self) -> Self {
+        // Using a relaxed ordering is alright here, as knowledge of
+        // the original reference prevents other threads from
+        // erroneously deleting the object.
+        //
+        // As explained in the [Boost documentation][1]:
+        //
+        // > Increasing the reference counter can always be done with
+        // > `memory_order_relaxed`: New references to an object can
+        // > only be formed from an existing reference, and passing an
+        // > existing reference from one thread to another must already
+        // > provide any required synchronization.
+        //
+        // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
         let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
+
+        // However we need to guard against massive refcounts in case
+        // someone is `mem::forget`ing `InstanceAllocator`. If we
+        // don't do this the count can overflow and users will
+        // use-after free. We racily saturate to `isize::MAX` on the
+        // assumption that there aren't ~2 billion threads
+        // incrementing the reference count at once. This branch will
+        // never be taken in any realistic program.
+        //
+        // We abort because such a program is incredibly degenerate,
+        // and we don't care to support it.
 
         if old_size > Self::MAX_REFCOUNT {
             panic!("Too many references of `InstanceAllocator`");
@@ -859,7 +883,7 @@ impl Drop for InstanceAllocator {
         // count, which happens before this fence, which happens before the
         // deletion of the data.
         //
-        // As explained in the [Boost documentation][1],
+        // As explained in the [Boost documentation][1]:
         //
         // > It is important to enforce any possible access to the object in one
         // > thread (through an existing reference) to *happen before* deleting
