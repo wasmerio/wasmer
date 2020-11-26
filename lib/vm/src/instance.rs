@@ -747,15 +747,17 @@ impl InstanceAllocator {
 
     /// Calculate the appropriate layout for `Instance`.
     fn instance_layout(offsets: &VMOffsets) -> Layout {
-        let size = mem::size_of::<Instance>()
-            .checked_add(
-                usize::try_from(offsets.size_of_vmctx())
-                    .expect("Failed to convert the size of `vmctx` to a `usize`"),
-            )
-            .expect("Failed to compute the size of `Instance`");
-        let align = mem::align_of::<Instance>();
+        let vmctx_size = usize::try_from(offsets.size_of_vmctx())
+            .expect("Failed to convert the size of `vmctx` to a `usize`");
 
-        Layout::from_size_align(size, align).unwrap()
+        let instance_vmctx_layout =
+            Layout::array::<u8>(vmctx_size).expect("Failed to create a layout for `VMContext`");
+
+        let (instance_layout, _offset) = Layout::new::<Instance>()
+            .extend(instance_vmctx_layout)
+            .expect("Failed to extend to `Instance` layout to include `VMContext`");
+
+        instance_layout.pad_to_align()
     }
 
     /// Allocate `Instance` (it is an uninitialized pointer).
