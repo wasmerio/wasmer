@@ -1077,7 +1077,11 @@ impl InstanceHandle {
         let num_memories = usize::try_from(num_memories).unwrap();
         let mut out = Vec::with_capacity(num_memories);
 
-        let base_ptr = instance_ptr.as_ptr().add(mem::size_of::<Instance>());
+        // We need to do some pointer arithmetic now. The unit is `u8`.
+        let ptr = instance_ptr.cast::<u8>().as_ptr();
+
+        //
+        let base_ptr = ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
             let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
@@ -1111,7 +1115,9 @@ impl InstanceHandle {
         let num_tables = usize::try_from(num_tables).unwrap();
         let mut out = Vec::with_capacity(num_tables);
 
-        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
+        // We need to do some pointer arithmetic now. The unit is `u8`.
+        let ptr = instance_ptr.cast::<u8>().as_ptr();
+        let base_ptr = ptr.add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
             let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
