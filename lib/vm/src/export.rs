@@ -30,17 +30,26 @@ pub enum Export {
 pub struct ExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
+
     /// Pointer to the containing `VMContext`.
     pub vmctx: VMFunctionEnvironment,
+
     /// The function type, used for compatibility checking.
     pub signature: FunctionType,
-    /// The function kind (specifies the calling convention for the function).
+
+    /// The function kind (specifies the calling convention for the
+    /// function).
     pub kind: VMFunctionKind,
-    /// Address of the function call trampoline owned by the same VMContext that owns the VMFunctionBody.
-    /// May be None when the function is a host-function (FunctionType == Dynamic or vmctx == nullptr).
+
+    /// Address of the function call trampoline owned by the same
+    /// VMContext that owns the VMFunctionBody.
+    ///
+    /// May be `None` when the function is a host function (`FunctionType`
+    /// == `Dynamic` or `vmctx` == `nullptr`).
     pub call_trampoline: Option<VMTrampoline>,
-    /// A reference to the instance, to ensure it's not deallocated
-    /// before the function.
+
+    /// A “reference” to the instance through the
+    /// `InstanceAllocator`. `None` if it is a host function.
     pub instance_allocator: Option<InstanceAllocator>,
 }
 
@@ -63,8 +72,9 @@ impl From<ExportFunction> for Export {
 pub struct ExportTable {
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
-    /// A reference to the instance, to ensure it's not deallocated
-    /// before the table.
+
+    /// A “reference” to the instance through the
+    /// `InstanceAllocator`. `None` if it is a host function.
     pub instance_allocator: Option<InstanceAllocator>,
 }
 
@@ -73,6 +83,7 @@ pub struct ExportTable {
 /// correct use of the raw table from multiple threads via `definition` requires `unsafe`
 /// and is the responsibilty of the user of this type.
 unsafe impl Send for ExportTable {}
+
 /// # Safety
 /// This is correct because the values directly in `definition` should be considered immutable
 /// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
@@ -107,8 +118,9 @@ impl From<ExportTable> for Export {
 pub struct ExportMemory {
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
-    /// A reference to the instance, to ensure it's not deallocated
-    /// before the memory.
+
+    /// A “reference” to the instance through the
+    /// `InstanceAllocator`. `None` if it is a host function.
     pub instance_allocator: Option<InstanceAllocator>,
 }
 
@@ -117,6 +129,7 @@ pub struct ExportMemory {
 /// correct use of the raw memory from multiple threads via `definition` requires `unsafe`
 /// and is the responsibilty of the user of this type.
 unsafe impl Send for ExportMemory {}
+
 /// # Safety
 /// This is correct because the values directly in `definition` should be considered immutable
 /// and the type is both `Send` and `Clone` (thus marking it `Sync` adds no new behavior, it
@@ -151,8 +164,9 @@ impl From<ExportMemory> for Export {
 pub struct ExportGlobal {
     /// The global declaration, used for compatibility checking.
     pub from: Arc<Global>,
-    /// A reference to the instance, to ensure it's not deallocated
-    /// before the global.
+
+    /// A “reference” to the instance through the
+    /// `InstanceAllocator`. `None` if it is a host function.
     pub instance_allocator: Option<InstanceAllocator>,
 }
 
@@ -161,6 +175,7 @@ pub struct ExportGlobal {
 /// correct use of the raw global from multiple threads via `definition` requires `unsafe`
 /// and is the responsibilty of the user of this type.
 unsafe impl Send for ExportGlobal {}
+
 /// # Safety
 /// This is correct because the values directly in `definition` should be considered immutable
 /// from the perspective of users of this type and the type is both `Send` and `Clone` (thus
