@@ -12,10 +12,10 @@ pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
 use std::cmp::max;
 use std::fmt;
+use wasmer_engine::{EngineExport, EngineExportFunction};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, EngineExport, EngineExportFunction,
-    ExportFunction, VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody,
-    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, ExportFunction, VMCallerCheckedAnyfunc,
+    VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module

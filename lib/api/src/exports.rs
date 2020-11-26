@@ -7,7 +7,7 @@ use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_vm::EngineExport;
+use wasmer_engine::EngineExport;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.

@@ -4,7 +4,7 @@
 //! An `Instance` contains all the runtime state used by execution of a
 //! wasm module (except its callstack and register state). An
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
-use crate::export::{EngineExport, Export};
+use crate::export::Export;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -16,7 +16,7 @@ use crate::vmcontext::{
     VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
-use crate::{EngineExportFunction, ExportFunction, ExportGlobal, ExportMemory, ExportTable};
+use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -65,7 +65,7 @@ cfg_if::cfg_if! {
 
 /// The function pointer to call with data and an [`Instance`] pointer to
 /// finish initializing the host env.
-pub(crate) type ImportInitializerFuncPtr =
+pub type ImportInitializerFuncPtr =
     fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
 
 /// This type holds thunks (delayed computations) for initializing the imported
@@ -320,7 +320,7 @@ impl Instance {
         match export {
             ExportIndex::Function(index) => {
                 let sig_index = &self.module.functions[*index];
-                let (address, vmctx, function_ptr) =
+                let (address, vmctx, _function_ptr) =
                     if let Some(def_index) = self.module.local_func_index(*index) {
                         (
                             self.functions[def_index].0 as *const _,
@@ -1174,7 +1174,6 @@ impl InstanceHandle {
         use std::ffi;
         let instance = &mut *self.instance;
         for (func, env) in instance.import_initializers.drain(..) {
-            dbg!(func, env);
             if let Some(ref f) = func {
                 // transmute our function pointer into one with the correct error type
                 let f = std::mem::transmute::<

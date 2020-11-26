@@ -73,7 +73,7 @@ impl ValFuncRef for Val {
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
-        let export = wasmer_vm::EngineExportFunction {
+        let export = wasmer_engine::EngineExportFunction {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
             function_ptr: None,

@@ -5,7 +5,8 @@ use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
 use std::sync::Arc;
-use wasmer_vm::{EngineExport, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
+use wasmer_engine::EngineExport;
+use wasmer_vm::{ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
 
 /// A WebAssembly `table` instance.
 ///

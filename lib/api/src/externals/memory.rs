@@ -5,8 +5,9 @@ use crate::{MemoryType, MemoryView};
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
+use wasmer_engine::EngineExport;
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{EngineExport, ExportMemory, Memory as RuntimeMemory, MemoryError};
+use wasmer_vm::{ExportMemory, Memory as RuntimeMemory, MemoryError};
 
 /// A WebAssembly `memory` instance.
 ///

@@ -23,6 +23,7 @@
 mod artifact;
 mod engine;
 mod error;
+mod export;
 mod resolver;
 mod serialize;
 mod trap;
@@ -33,6 +34,7 @@ pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
+pub use crate::export::{EngineExport, EngineExportFunction};
 pub use crate::resolver::{
     resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
     Resolver,

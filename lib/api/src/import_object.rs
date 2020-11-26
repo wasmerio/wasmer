@@ -6,8 +6,7 @@ use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
-use wasmer_engine::NamedResolver;
-use wasmer_vm::EngineExport;
+use wasmer_engine::{EngineExport, NamedResolver};
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be
@@ -265,7 +264,6 @@ mod test {
     use crate::{Global, Store, Val};
     use wasmer_engine::ChainableNamedResolver;
     use wasmer_types::Type;
-    use wasmer_vm::Export;
 
     #[test]
     fn chaining_works() {
@@ -319,11 +317,13 @@ mod test {
         let resolver = imports1.chain_front(imports2);
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I64
-        } else {
-            false
-        });
+        assert!(
+            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
+                happy_dog_global.from.ty().ty == Type::I64
+            } else {
+                false
+            }
+        );
 
         // now test it in reverse
         let store = Store::default();
@@ -345,11 +345,13 @@ mod test {
         let resolver = imports1.chain_back(imports2);
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I32
-        } else {
-            false
-        });
+        assert!(
+            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
+                happy_dog_global.from.ty().ty == Type::I32
+            } else {
+                false
+            }
+        );
     }
 
     #[test]
@@ -365,11 +367,13 @@ mod test {
 
         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
-            happy_dog_global.from.ty().ty == Type::I32
-        } else {
-            false
-        });
+        assert!(
+            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
+                happy_dog_global.from.ty().ty == Type::I32
+            } else {
+                false
+            }
+        );
     }
 
     #[test]
