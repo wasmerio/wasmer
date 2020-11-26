@@ -726,6 +726,12 @@ pub struct InstanceAllocator {
 }
 
 impl InstanceAllocator {
+    /// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
+    ///
+    /// Going above this limit will make the program to panic at exactly
+    /// `MAX_REFCOUNT` references.
+    const MAX_REFCOUNT: usize = std::usize::MAX - 1;
+
     /// Create a new `InstanceAllocator`. It allocates nothing. It
     /// fills nothing. The `Instance` must be already valid and
     /// filled. `self_ptr` and `self_layout` must be the pointer and
@@ -803,12 +809,6 @@ impl InstanceAllocator {
 unsafe impl Send for InstanceAllocator {}
 unsafe impl Sync for InstanceAllocator {}
 
-/// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
-///
-/// Going above this limit will make the program to panic at exactly
-/// `MAX_REFCOUNT` references.
-const MAX_REFCOUNT: usize = std::usize::MAX - 1;
-
 impl Clone for InstanceAllocator {
     /// Makes a clone of `InstanceAllocator`.
     ///
@@ -818,7 +818,7 @@ impl Clone for InstanceAllocator {
     fn clone(&self) -> Self {
         let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
 
-        if old_size > MAX_REFCOUNT {
+        if old_size > Self::MAX_REFCOUNT {
             panic!("Too much references of `InstanceAllocator`");
         }
 
