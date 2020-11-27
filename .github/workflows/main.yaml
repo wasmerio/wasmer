@@ -43,15 +43,14 @@ jobs:
           - build: linux
             os: ubuntu-18.04
             rust: 1.47.0
-            llvm_url: 'https://github.com/wasmerio/llvm-build/releases/download/10.x/Ubuntu1604_Release.tar.xz'
-            # llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-linux-gnu-ubuntu-18.04.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos
             os: macos-latest
             rust: 1.47.0
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-x86_64-apple-darwin.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
@@ -63,13 +62,14 @@ jobs:
           - build: windows
             os: windows-latest
             rust: 1.47.0
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             rust: 1.47.0
-            llvm_url: 'https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/clang+llvm-10.0.0-aarch64-linux-gnu.tar.xz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
     env:
@@ -103,18 +103,13 @@ jobs:
         shell: cmd
         run: |
           choco install llvm
-        # run: |
-        #   curl --proto '=https' --tlsv1.2 -sSf https://github.com/llvm/llvm-project/releases/download/llvmorg-10.0.0/LLVM-10.0.0-win64.exe -L -o llvm-installer.exe
-        #   7z x llvm-installer.exe -oC:/llvm-10
-        #   echo C:/llvm-10/bin >> $GITHUB_PATH
-        #   echo "LLVM_SYS_100_PREFIX=C:/llvm-10" >> $GITHUB_ENV
-        #   echo "LIBCLANG_PATH=C:/llvm-10/bin/libclang.dll" >> $GITHUB_ENV
-      - name: Install LLVM (Unix)
-        if: matrix.os != 'windows-latest' && matrix.target != 'aarch64-apple-darwin'
+      - name: Install LLVM
+        if: matrix.os != 'windows-latest' && matrix.os != 'macos-11.0'
+        shell: bash
         run: |
-          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.xz
-          mkdir -p ${{ env.LLVM_DIR }}
-          tar xf llvm.tar.xz --strip-components=1 -C ${{ env.LLVM_DIR }}
+          curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.gz
+          mkdir ${{ env.LLVM_DIR }}
+          tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
           echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
