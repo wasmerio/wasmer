@@ -79,7 +79,35 @@ pub struct wasm_config_t {
     compiler: wasmer_compiler_t,
 }
 
-/// Create a new Wasmer configuration.
+/// Create a new default Wasmer configuration.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 ///
 /// cbindgen:ignore
 #[no_mangle]
@@ -87,7 +115,38 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::new(wasm_config_t::default())
 }
 
-/// Configure the compiler to use.
+/// Updates the configuration to specify a particular compiler to use.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Use the Cranelift compiler.
+///     wasm_config_set_compiler(config, CRANELIFT);
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[cfg(feature = "compiler")]
 #[no_mangle]
 pub extern "C" fn wasm_config_set_compiler(
@@ -97,7 +156,38 @@ pub extern "C" fn wasm_config_set_compiler(
     config.compiler = compiler;
 }
 
-/// Configure the engine to use.
+/// Updates the configuration to specify a particular engine to use.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Use the JIT engine.
+///     wasm_config_set_engine(config, JIT);
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
     config.engine = engine;
@@ -132,6 +222,12 @@ fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
 
 cfg_if! {
     if #[cfg(all(feature = "jit", feature = "compiler"))] {
+        /// Creates a new JIT engine with the default compiler.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
@@ -139,17 +235,26 @@ cfg_if! {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-    else if #[cfg(feature = "jit")] {
-        // Headless JIT
+    } else if #[cfg(feature = "jit")] {
+        /// Creates a new headless JIT engine.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-    else if #[cfg(all(feature = "native", feature = "compiler"))] {
+    } else if #[cfg(all(feature = "native", feature = "compiler"))] {
+        /// Creates a new native engine with the default compiler.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
@@ -157,8 +262,13 @@ cfg_if! {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(&mut *compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-    else if #[cfg(feature = "native")] {
+    } else if #[cfg(feature = "native")] {
+        /// Creates a new headless native engine.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
@@ -169,26 +279,70 @@ cfg_if! {
     // There are currently no uses of the object-file engine + compiler from the C API.
     // So if we get here, we default to headless mode regardless of if `compiler` is enabled.
     else if #[cfg(feature = "object-file")] {
+        /// Creates a new headless object-file engine.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(ObjectFile::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    }
-    else {
+    } else {
+        /// Creates a new unknown engine, i.e. it will panic with an error message.
+        ///
+        /// # Example
+        ///
+        /// See `wasm_engine_delete`.
+        ///
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            unimplemented!("The JITEngine is not attached; You might want to recompile `wasmer_c_api` with `--feature jit`");
+            unimplemented!("No engine attached; You might want to recompile `wasmer_c_api` with for example `--feature jit`");
         }
     }
 }
 
+/// Deletes an engine.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create a default engine.
+///     wasm_engine_t* engine = wasm_engine_new();
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
 /// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>) {}
 
+/// Creates an engine with a particular configuration.
+///
+/// # Example
+///
+/// See `wasm_config_new`.
+///
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(

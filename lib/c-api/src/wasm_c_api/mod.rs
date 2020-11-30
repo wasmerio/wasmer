@@ -3,6 +3,7 @@
 #[macro_use]
 pub mod macros;
 
+/// The engine drives the compilation and the runtime.
 pub mod engine;
 
 /// cbindgen:ignore
