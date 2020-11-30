@@ -15,7 +15,7 @@ maintenance = { status = "deprecated" }
 
 [dependencies]
 wasmer-types = { path = "../../wasmer-types", version = "1.0.0-alpha5" }
-wasmer = { path = "../../api", version = "1.0.0-alpha5" }
+wasmer = { path = "../../api", version = "1.0.0-alpha5", features = ["deprecated"] }
 wasmer-cache = { path = "../../cache", version = "1.0.0-alpha5" }
 wasmer-compiler = { path = "../../compiler", version = "1.0.0-alpha5", features = ["translator"] }
 wasmer-compiler-llvm = { path = "../../compiler-llvm", version = "1.0.0-alpha5", optional = true }

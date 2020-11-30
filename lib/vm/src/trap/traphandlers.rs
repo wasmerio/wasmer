@@ -117,8 +117,8 @@ cfg_if::cfg_if! {
                     let (stackaddr, stacksize) = thread_stack();
                     // The stack and its guard page covers the
                     // range [stackaddr - guard pages .. stackaddr + stacksize).
-                    // We assume the guard page is 1 page, and pages are 4KiB.
-                    if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
+                    // We assume the guard page is 1 page, and pages are 4KiB (or 16KiB in Apple Silicon)
+                    if stackaddr - region::page::size() <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
                         Some(TrapCode::HeapAccessOutOfBounds)
@@ -202,9 +202,27 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
-                } else if #[cfg(target_os = "macos")] {
+                } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
+                } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+                    use std::mem;
+                    // TODO: This should be integrated into rust/libc
+                    // Related issue: https://github.com/rust-lang/libc/issues/1977
+                    #[allow(non_camel_case_types)]
+                    pub struct __darwin_arm_thread_state64 {
+                        pub __x: [u64; 29], /* General purpose registers x0-x28 */
+                        pub __fp: u64,    /* Frame pointer x29 */
+                        pub __lr: u64,    /* Link register x30 */
+                        pub __sp: u64,    /* Stack pointer x31 */
+                        pub __pc: u64,   /* Program counter */
+                        pub __cpsr: u32,  /* Current program status register */
+                        pub __pad: u32,   /* Same size for 32-bit or 64-bit clients */
+                    };
+
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    let uc_mcontext = mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss);
+                    (*uc_mcontext).__pc as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
@@ -709,7 +727,6 @@ mod tls {
 #[cfg(unix)]
 fn setup_unix_sigaltstack() -> Result<(), Trap> {
     use std::cell::RefCell;
-    use std::convert::TryInto;
     use std::ptr::null_mut;
 
     thread_local! {
@@ -738,7 +755,6 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
             // already checked
             _ => return Ok(()),
         }
-
         // Check to see if the existing sigaltstack, if it exists, is big
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
@@ -751,7 +767,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
 
         // ... but failing that we need to allocate our own, so do all that
         // here.
-        let page_size: usize = libc::sysconf(libc::_SC_PAGESIZE).try_into().unwrap();
+        let page_size: usize = region::page::size();
         let guard_size = page_size;
         let alloc_size = guard_size + MIN_STACK_SIZE;
 

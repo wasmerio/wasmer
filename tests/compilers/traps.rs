@@ -421,7 +421,8 @@ fn mismatched_arguments() -> Result<()> {
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native"
+        feature = "test-native",
+        all(target_os = "macos", target_arch = "aarch64")
     ),
     ignore
 )]

@@ -46,6 +46,8 @@ pub mod internals {
     //! `wasmer-vm`. Please don't use any of this types directly, as
     //! they might change frequently or be removed in the future.
 
+    #[cfg(feature = "deprecated")]
+    pub use crate::externals::{UnsafeMutableEnv, WithUnsafeMutableEnv};
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 

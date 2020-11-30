@@ -74,10 +74,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     }
 
     // Create the functions
-    fn get_counter(env: &mut Env) -> i32 {
+    fn get_counter(env: &Env) -> i32 {
         *env.counter.borrow()
     }
-    fn add_to_counter(env: &mut Env, add: i32) -> i32 {
+    fn add_to_counter(env: &Env, add: i32) -> i32 {
         let mut counter_ref = env.counter.borrow_mut();
 
         *counter_ref += add;

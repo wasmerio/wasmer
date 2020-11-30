@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 # We use `cranelift-entity` here because it's a lightweight dependency and it contains
 # some useful data structures
-cranelift-entity = "0.67"
+cranelift-entity = "0.68"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 
 [features]

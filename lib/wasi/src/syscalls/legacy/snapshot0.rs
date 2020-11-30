@@ -10,7 +10,7 @@ use crate::WasiEnv;
 /// Wasm memory.  If the memory clobbered by the current syscall is also used by
 /// that syscall, then it may break.
 pub fn fd_filestat_get(
-    env: &mut WasiEnv,
+    env: &WasiEnv,
     fd: types::__wasi_fd_t,
     buf: WasmPtr<snapshot0::__wasi_filestat_t>,
 ) -> types::__wasi_errno_t {
@@ -61,7 +61,7 @@ pub fn fd_filestat_get(
 /// Wrapper around `syscalls::path_filestat_get` with extra logic to handle the size
 /// difference of `wasi_filestat_t`
 pub fn path_filestat_get(
-    env: &mut WasiEnv,
+    env: &WasiEnv,
     fd: types::__wasi_fd_t,
     flags: types::__wasi_lookupflags_t,
     path: WasmPtr<u8, Array>,
@@ -100,7 +100,7 @@ pub fn path_filestat_get(
 /// Wrapper around `syscalls::fd_seek` with extra logic to remap the values
 /// of `__wasi_whence_t`
 pub fn fd_seek(
-    env: &mut WasiEnv,
+    env: &WasiEnv,
     fd: types::__wasi_fd_t,
     offset: types::__wasi_filedelta_t,
     whence: snapshot0::__wasi_whence_t,
@@ -119,7 +119,7 @@ pub fn fd_seek(
 /// Wrapper around `syscalls::poll_oneoff` with extra logic to add the removed
 /// userdata field back
 pub fn poll_oneoff(
-    env: &mut WasiEnv,
+    env: &WasiEnv,
     in_: WasmPtr<snapshot0::__wasi_subscription_t, Array>,
     out_: WasmPtr<types::__wasi_event_t, Array>,
     nsubscriptions: u32,
