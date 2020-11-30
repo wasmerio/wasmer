@@ -2413,7 +2413,7 @@ dependencies = [
  "rayon",
  "regex",
  "rustc_version 0.2.3",
- "semver 0.9.0",
+ "semver 0.11.0",
  "smallvec",
  "target-lexicon",
  "wasmer-compiler",
