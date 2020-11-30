@@ -7,11 +7,28 @@ use std::mem;
 use std::sync::Arc;
 use wasmer::{Extern, Instance, InstantiationError};
 
+/// Opaque type representing a WebAssembly instance.
 #[allow(non_camel_case_types)]
 pub struct wasm_instance_t {
     pub(crate) inner: Arc<Instance>,
 }
 
+/// Creates a new instance from a WebAssembly module and a
+/// set of imports.
+///
+/// ## Errors
+///
+/// The function can fail in 2 ways, as defined by the specification:
+///
+/// 1. Link errors that happen when plugging the imports into the
+///    instance,
+/// 2. Runtime errors that happen when running the module `start`
+///    function.
+///
+/// # Notes
+///
+/// The `store` argument is ignored. The store from the given module
+/// will be used.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
     _store: Option<&wasm_store_t>,
@@ -54,9 +71,15 @@ pub unsafe extern "C" fn wasm_instance_new(
     Some(Box::new(wasm_instance_t { inner: instance }))
 }
 
+/// Deletes an instance.
+///
+/// # Example
+///
+/// See `wasm_instance_new`.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 
+/// Gets the exports of the instance.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,

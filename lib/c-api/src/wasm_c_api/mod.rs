@@ -12,14 +12,24 @@ pub mod engine;
 /// cbindgen:ignore
 pub mod externals;
 
+/// A WebAssembly instance is a stateful, executable instance of a
+/// WebAssembly module.
+///
+/// Instance objects contain all the exported WebAssembly functions,
+/// memories, tables and globals that allow interacting with
+/// WebAssembly.
+///
+/// Entry points: A WebAssembly instance is created with
+/// `wasm_instance_new` and freed with `wasm_instance_delete`.
+///
 /// cbindgen:ignore
 pub mod instance;
 
 /// A WebAssembly module contains stateless WebAssembly code that has
 /// already been compiled and can be instantiated multiple times.
 ///
-/// Entry points: A WebAssembly is created with `wasm_module_new` and
-/// freed with `wasm_module_delete`.
+/// Entry points: A WebAssembly module is created with
+/// `wasm_module_new` and freed with `wasm_module_delete`.
 ///
 /// cbindgen:ignore
 pub mod module;
