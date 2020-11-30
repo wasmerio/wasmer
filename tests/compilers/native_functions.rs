@@ -104,7 +104,7 @@ fn native_with_env_host_function_closure_panics() {
 }
 
 #[test]
-fn lambdas_with_no_env_work() -> Result<()> {
+fn non_native_functions_and_closures_with_no_env_work() -> Result<()> {
     let store = get_store(false);
     let wat = r#"(module
         (func $multiply1 (import "env" "multiply1") (param i32 i32) (result i32))
