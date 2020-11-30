@@ -459,3 +459,25 @@ pub extern "C" fn wasm_engine_new_with_config(
         }
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_engine_new() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                assert(engine);
+
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}
