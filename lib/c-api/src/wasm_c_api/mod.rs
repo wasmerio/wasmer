@@ -4,6 +4,9 @@
 pub mod macros;
 
 /// The engine drives the compilation and the runtime.
+///
+/// Entry points: A default engine is created with `wasm_engine_new`
+/// and freed with `wasm_engine_delete`.
 pub mod engine;
 
 /// cbindgen:ignore
