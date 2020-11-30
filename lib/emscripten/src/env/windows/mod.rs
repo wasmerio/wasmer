@@ -17,7 +17,7 @@ extern "C" {
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(ctx: &mut EmEnv, name: u32) -> u32 {
+pub fn _getenv(ctx: &EmEnv, name: u32) -> u32 {
     debug!("emscripten::_getenv");
     let name_string = read_string_from_wasm(ctx.memory(0), name);
     debug!("=> name({:?})", name_string);
@@ -29,7 +29,7 @@ pub fn _getenv(ctx: &mut EmEnv, name: u32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(ctx: &mut EmEnv, name: u32, value: u32, _overwrite: u32) -> c_int {
+pub fn _setenv(ctx: &EmEnv, name: u32, value: u32, _overwrite: u32) -> c_int {
     debug!("emscripten::_setenv");
     // setenv does not exist on windows, so we hack it with _putenv
     let name = read_string_from_wasm(ctx.memory(0), name);
@@ -43,7 +43,7 @@ pub fn _setenv(ctx: &mut EmEnv, name: u32, value: u32, _overwrite: u32) -> c_int
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub fn _putenv(ctx: &mut EmEnv, name: c_int) -> c_int {
+pub fn _putenv(ctx: &EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
     debug!("=> name({:?})", unsafe {
@@ -53,7 +53,7 @@ pub fn _putenv(ctx: &mut EmEnv, name: c_int) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(ctx: &mut EmEnv, name: u32) -> c_int {
+pub fn _unsetenv(ctx: &EmEnv, name: u32) -> c_int {
     debug!("emscripten::_unsetenv");
     let name = read_string_from_wasm(ctx.memory(0), name);
     // no unsetenv on windows, so use putenv with an empty value
@@ -65,7 +65,7 @@ pub fn _unsetenv(ctx: &mut EmEnv, name: u32) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getpwnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
+pub fn _getpwnam(ctx: &EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
@@ -99,7 +99,7 @@ pub fn _getpwnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
+pub fn _getgrnam(ctx: &EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
     #[cfg(not(feature = "debug"))]
     let _ = name_ptr;
@@ -125,7 +125,7 @@ pub fn _getgrnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
     }
 }
 
-pub fn _sysconf(_ctx: &mut EmEnv, name: c_int) -> c_long {
+pub fn _sysconf(_ctx: &EmEnv, name: c_int) -> c_long {
     debug!("emscripten::_sysconf {}", name);
     #[cfg(not(feature = "debug"))]
     let _ = name;
@@ -133,13 +133,13 @@ pub fn _sysconf(_ctx: &mut EmEnv, name: c_int) -> c_long {
     0
 }
 
-pub fn _gai_strerror(_ctx: &mut EmEnv, _ecode: i32) -> i32 {
+pub fn _gai_strerror(_ctx: &EmEnv, _ecode: i32) -> i32 {
     debug!("emscripten::_gai_strerror({}) - stub", _ecode);
     -1
 }
 
 pub fn _getaddrinfo(
-    _ctx: &mut EmEnv,
+    _ctx: &EmEnv,
     _node_ptr: WasmPtr<c_char>,
     _service_str_ptr: WasmPtr<c_char>,
     _hints_ptr: WasmPtr<EmAddrInfo>,

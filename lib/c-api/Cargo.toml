@@ -27,10 +27,10 @@ wasmer-engine-native = { version = "1.0.0-alpha5", path = "../engine-native", op
 wasmer-engine-object-file = { version = "1.0.0-alpha5", path = "../engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.0-alpha5", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.0-alpha5", path = "../wasmer-types" }
-cfg-if = "0.1"
+cfg-if = "1.0"
 lazy_static = "1"
 libc = { version = "^0.2", default-features = false }
-libffi = { version = "0.9" }
+libffi = { version = "1.0", optional = true }
 serde = { version = "1", optional = true, features = ["derive"] }
 thiserror = "1"
 typetag = { version = "0.1", optional = true }
@@ -39,8 +39,12 @@ paste = "0.1"
 # Commented out for now until we can find a solution to the exported function problem
 # wasmer-wasm-c-api = { version = "1.0.0-alpha5", path = "crates/wasm-c-api" }
 
+[dev-dependencies]
+inline-c = "0.1.2"
+
 [features]
 default = [
+    "deprecated",
     "wat",
     "cranelift",
     "wasi",
@@ -48,6 +52,7 @@ default = [
 wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
+deprecated = ["libffi"]
 jit = [
     "wasmer-engine-jit",
     "engine",

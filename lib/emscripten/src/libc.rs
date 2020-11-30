@@ -49,14 +49,14 @@ pub fn killpg(_a: i32, _b: i32) -> i32 {
 }
 
 #[cfg(unix)]
-pub fn pathconf(ctx: &mut EmEnv, path_ptr: i32, name: i32) -> i32 {
+pub fn pathconf(ctx: &EmEnv, path_ptr: i32, name: i32) -> i32 {
     debug!("emscripten::pathconf");
     let path = emscripten_memory_pointer!(ctx.memory(0), path_ptr) as *const i8;
     unsafe { libc::pathconf(path as *const _, name).try_into().unwrap() }
 }
 
 #[cfg(not(unix))]
-pub fn pathconf(_ctx: &mut EmEnv, _path_ptr: i32, _name: i32) -> i32 {
+pub fn pathconf(_ctx: &EmEnv, _path_ptr: i32, _name: i32) -> i32 {
     debug!("emscripten::pathconf");
     0
 }

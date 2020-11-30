@@ -128,7 +128,7 @@ impl ObjectFileArtifact {
             compile_info,
             translation.function_body_inputs,
             translation.data_initializers,
-            translation.module_translation,
+            translation.module_translation_state,
         ))
     }
 
@@ -306,12 +306,6 @@ impl ObjectFileArtifact {
         let num_finished_functions = usize::from_ne_bytes(byte_buffer);
         let mut finished_functions = PrimaryMap::new();
 
-        #[repr(C)]
-        struct SlicePtr {
-            ptr: usize,
-            len: usize,
-        }
-
         let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
@@ -323,14 +317,13 @@ impl ObjectFileArtifact {
             let vm_shared_idx = signature_registry.register(&func_type);
             sig_map.insert(sig_idx, vm_shared_idx);
 
-            let mut sp = SlicePtr { ptr: 0, len: 0 };
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
-            sp.ptr = usize::from_ne_bytes(byte_buffer);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
-            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
 
-            let fp = FunctionBodyPtr(mem::transmute(sp));
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
+
             finished_functions.push(fp);
         }
 
@@ -364,14 +357,12 @@ impl ObjectFileArtifact {
         cur_offset += WORD_SIZE;
         let num_dynamic_trampoline_functions = usize::from_ne_bytes(byte_buffer);
         for _i in 0..num_dynamic_trampoline_functions {
-            let mut sp = SlicePtr { ptr: 0, len: 0 };
             byte_buffer[0..WORD_SIZE]
                 .clone_from_slice(&bytes[cur_offset..(cur_offset + WORD_SIZE)]);
-            sp.ptr = usize::from_ne_bytes(byte_buffer);
+            let fp = FunctionBodyPtr(usize::from_ne_bytes(byte_buffer) as _);
             cur_offset += WORD_SIZE;
 
-            // TODO: we can read  back the length here if we serialize it. This will improve debug output.
-            let fp = FunctionBodyPtr(mem::transmute(sp));
+            // TODO: we can read back the length here if we serialize it. This will improve debug output.
 
             finished_dynamic_function_trampolines.push(fp);
         }

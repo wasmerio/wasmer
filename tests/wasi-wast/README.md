@@ -7,7 +7,7 @@ WASI test files with expected output in a custom WAST format.
 In order to run the test generator properly you will need:
 
 - `rustup` installed and on your PATH
-- `wasm-opt` and `wasm-strip` from `wabt` installed and on your PATH
+- `wasm-opt` from `binaryen` and `wasm-strip` from `wabt` are installed and on your PATH
 
 ## Usage
 

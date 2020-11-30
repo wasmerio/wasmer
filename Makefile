@@ -16,14 +16,14 @@ compilers := cranelift
 test_compilers_engines :=
 
 # Autodetect LLVM from llvm-config
-ifneq (, $(shell which llvm-config))
+ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
 	# If findstring is not empty, then it have found the value
 	ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
 else
-	ifneq (, $(shell which llvm-config-10))
+	ifneq (, $(shell which llvm-config-10 2>/dev/null))
 		compilers += llvm
 	endif
 endif
@@ -51,6 +51,10 @@ ifeq ($(ARCH), aarch64)
 	endif
 endif
 
+ifeq ($(ARCH), arm64)
+	test_compilers_engines += cranelift-jit
+endif
+
 compilers := $(filter-out ,$(compilers))
 test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
@@ -61,10 +65,12 @@ ifneq ($(OS), Windows_NT)
 endif
 
 
-$(info Available compilers: $(bold)$(green)${compilers}$(reset))
-
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
+
+$(info Available compilers: $(bold)$(green)${compilers}$(reset))
+$(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
+$(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
 
 
 ############
@@ -80,43 +86,97 @@ build-wasmer:
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
-WAPM_VERSION = v0.5.0
-build-wapm:
-	git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+WAPM_VERSION = master # v0.5.0
+get-wapm:
+	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
+
+build-wapm: get-wapm
+ifeq ($(UNAME_S), Darwin)
+	# We build it without bundling sqlite, as is included by default in macos
+	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
+else
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --features "telemetry update-notifications"
+endif
 
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
 
 build-docs-capi:
-	cd lib/c-api/ && doxygen doxyfile
+	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
+	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi
 
 # We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift-jit
+build-capi: build-capi-cranelift
+
+build-capi-singlepass:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi
 
 build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,singlepass,wasi
+		--no-default-features --features deprecated,wat,jit,singlepass,wasi
+
+build-capi-singlepass-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,native,singlepass,wasi
+
+build-capi-singlepass-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,object-file,singlepass,wasi
+
+build-capi-cranelift:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,cranelift,wasi
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi
 
 build-capi-cranelift-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,native,object-file,cranelift,wasi
+		--no-default-features --features deprecated,wat,native,cranelift,wasi
+
+build-capi-cranelift-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi
 
 build-capi-cranelift-system-libffi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,native,object-file,cranelift,wasi,system-libffi
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi
+
+build-capi-llvm:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi
 
 build-capi-llvm-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,object-file,llvm,wasi
+		--no-default-features --features deprecated,wat,jit,llvm,wasi
 
 build-capi-llvm-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,native,object-file,llvm,wasi
+		--no-default-features --features deprecated,wat,native,llvm,wasi
+
+build-capi-llvm-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,object-file,llvm,wasi
+
+# Headless (we include the minimal to be able to run)
+
+build-capi-headless-jit:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features jit,wasi
+
+build-capi-headless-native:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features native,wasi
+
+build-capi-headless-object-file:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features object-file,wasi
+
+build-capi-headless-all:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features jit,native,object-file,wasi
 
 ###########
 # Testing #
@@ -163,31 +223,31 @@ test-packages:
 # link the tests against. cargo test doesn't know that the tests will be running
 # cmake + make to build programs whose dependencies cargo isn't aware of.
 
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) #$(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
+
 test-capi-singlepass-jit: build-capi-singlepass-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,singlepass,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,singlepass,wasi -- --nocapture
 
 test-capi-cranelift-jit: build-capi-cranelift-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,cranelift,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi -- --nocapture
 
 test-capi-cranelift-native: build-capi-cranelift-native
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,native,cranelift,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,native,cranelift,wasi -- --nocapture
 
 test-capi-cranelift-jit-system-libffi:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,cranelift,wasi,system-libffi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi,system-libffi -- --nocapture
 
 test-capi-llvm-jit:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,jit,llvm,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,llvm,wasi -- --nocapture
 
 test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features wat,native,llvm,wasi -- --nocapture
-
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) $(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
+		--no-default-features --features deprecated,wat,native,llvm,wasi -- --nocapture
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
@@ -208,13 +268,13 @@ test-integration:
 #############
 
 package-wapm:
+ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
-	cp ./wapm-cli/target/release/wapm package/bin/
-ifeq ($(OS), Windows_NT)
-	echo ""
-else
-	echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax
-	chmod +x package/bin/wax
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/; \
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
+		chmod +x package/bin/wax; \
+	fi
 endif
 
 package-wasmer:
@@ -258,21 +318,20 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-capi
+
+distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
 ifeq ($(OS), Windows_NT)
 	iscc scripts/windows-installer/wasmer.iss
-	cp scripts/windows-installer/WasmerInstaller.exe dist/wasmer-windows.exe
+	cp scripts/windows-installer/WasmerInstaller.exe dist/
 else
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
-	cp ./wasmer.tar.gz ./dist/$(shell ./scripts/binary-name.sh)
+	mv wasmer.tar.gz dist/
 endif
-
-# command for simulating installing Wasmer without wapm.
-package-without-wapm-for-integration-tests: package-wasmer package-capi
 
 #################
 # Miscellaneous #

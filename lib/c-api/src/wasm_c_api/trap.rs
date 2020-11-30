@@ -1,5 +1,6 @@
 use super::store::wasm_store_t;
 use super::types::{wasm_byte_vec_t, wasm_frame_t, wasm_frame_vec_t, wasm_message_t};
+use std::str;
 use wasmer::RuntimeError;
 
 // opaque type which is a `RuntimeError`
@@ -19,8 +20,8 @@ pub unsafe extern "C" fn wasm_trap_new(
     _store: &mut wasm_store_t,
     message: &wasm_message_t,
 ) -> Option<Box<wasm_trap_t>> {
-    let message_bytes: &[u8] = message.into_slice()?;
-    let message_str = c_try!(std::str::from_utf8(message_bytes));
+    let message_bytes = message.into_slice()?;
+    let message_str = c_try!(str::from_utf8(message_bytes));
     let runtime_error = RuntimeError::new(message_str);
     let trap = runtime_error.into();
 
@@ -31,11 +32,16 @@ pub unsafe extern "C" fn wasm_trap_new(
 pub unsafe extern "C" fn wasm_trap_delete(_trap: Option<Box<wasm_trap_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_trap_message(trap: &wasm_trap_t, out_ptr: &mut wasm_byte_vec_t) {
+pub unsafe extern "C" fn wasm_trap_message(
+    trap: &wasm_trap_t,
+    // own
+    out: &mut wasm_byte_vec_t,
+) {
     let message = trap.inner.message();
     let byte_vec: wasm_byte_vec_t = message.into_bytes().into();
-    out_ptr.size = byte_vec.size;
-    out_ptr.data = byte_vec.data;
+
+    out.size = byte_vec.size;
+    out.data = byte_vec.data;
 }
 
 #[no_mangle]
@@ -44,10 +50,14 @@ pub unsafe extern "C" fn wasm_trap_origin(trap: &wasm_trap_t) -> Option<Box<wasm
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_trap_trace(trap: &wasm_trap_t, out_ptr: &mut wasm_frame_vec_t) {
+pub unsafe extern "C" fn wasm_trap_trace(
+    trap: &wasm_trap_t,
+    // own
+    out: &mut wasm_frame_vec_t,
+) {
     let frames = trap.inner.trace();
     let frame_vec: wasm_frame_vec_t = frames.into();
 
-    out_ptr.size = frame_vec.size;
-    out_ptr.data = frame_vec.data;
+    out.size = frame_vec.size;
+    out.data = frame_vec.data;
 }

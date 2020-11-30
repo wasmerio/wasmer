@@ -4,6 +4,7 @@ use crate::module::Module;
 use crate::store::Store;
 use crate::InstantiationError;
 use std::fmt;
+use std::sync::{Arc, Mutex};
 use wasmer_engine::Resolver;
 use wasmer_vm::{InstanceHandle, VMContext};
 
@@ -17,7 +18,7 @@ use wasmer_vm::{InstanceHandle, VMContext};
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
 #[derive(Clone)]
 pub struct Instance {
-    handle: InstanceHandle,
+    handle: Arc<Mutex<InstanceHandle>>,
     module: Module,
     /// The exports for an instance.
     pub exports: Exports,
@@ -30,6 +31,7 @@ mod send_test {
     fn is_send<T: Send>() -> bool {
         true
     }
+
     #[test]
     fn instance_is_send() {
         assert!(is_send::<Instance>());
@@ -72,9 +74,7 @@ impl Instance {
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
         let store = module.store();
-
         let handle = module.instantiate(resolver)?;
-
         let exports = module
             .exports()
             .map(|export| {
@@ -86,7 +86,7 @@ impl Instance {
             .collect::<Exports>();
 
         Ok(Self {
-            handle,
+            handle: Arc::new(Mutex::new(handle)),
             module: module.clone(),
             exports,
         })
@@ -104,7 +104,7 @@ impl Instance {
 
     #[doc(hidden)]
     pub fn vmctx_ptr(&self) -> *mut VMContext {
-        self.handle.vmctx_ptr()
+        self.handle.lock().unwrap().vmctx_ptr()
     }
 }
 

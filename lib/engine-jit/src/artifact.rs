@@ -11,7 +11,8 @@ use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
 use wasmer_engine::{
-    register_frame_info, Artifact, DeserializeError, GlobalFrameInfoRegistration, SerializeError,
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    SerializeError,
 };
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
@@ -32,6 +33,7 @@ pub struct JITArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
+    finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
 
 impl JITArtifact {
@@ -81,7 +83,10 @@ impl JITArtifact {
         let compilation = compiler.compile_module(
             &jit.target(),
             &compile_info,
-            translation.module_translation.as_ref().unwrap(),
+            // SAFETY: Calling `unwrap` is correct since
+            // `environ.translate()` above will write some data into
+            // `module_translation_state`.
+            translation.module_translation_state.as_ref().unwrap(),
             translation.function_body_inputs,
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
@@ -203,7 +208,16 @@ impl JITArtifact {
 
         inner_jit.publish_eh_frame(eh_frame)?;
 
-        let finished_functions = finished_functions.into_boxed_slice();
+        let finished_function_lengths = finished_functions
+            .values()
+            .map(|extent| extent.length)
+            .collect::<PrimaryMap<LocalFunctionIndex, usize>>()
+            .into_boxed_slice();
+        let finished_functions = finished_functions
+            .values()
+            .map(|extent| extent.ptr)
+            .collect::<PrimaryMap<LocalFunctionIndex, FunctionBodyPtr>>()
+            .into_boxed_slice();
         let finished_function_call_trampolines =
             finished_function_call_trampolines.into_boxed_slice();
         let finished_dynamic_function_trampolines =
@@ -217,6 +231,7 @@ impl JITArtifact {
             finished_dynamic_function_trampolines,
             signatures,
             frame_info_registration: Mutex::new(None),
+            finished_function_lengths,
         })
     }
 
@@ -247,11 +262,19 @@ impl Artifact for JITArtifact {
             return;
         }
 
+        let finished_function_extents = self
+            .finished_functions
+            .values()
+            .copied()
+            .zip(self.finished_function_lengths.values().copied())
+            .map(|(ptr, length)| FunctionExtent { ptr, length })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
         let frame_infos = &self.serializable.compilation.function_frame_info;
-        let finished_functions = &self.finished_functions;
         *info = register_frame_info(
             self.serializable.compile_info.module.clone(),
-            finished_functions,
+            &finished_function_extents,
             frame_infos.clone(),
         );
     }
