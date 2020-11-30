@@ -11,6 +11,12 @@ pub mod externals;
 /// cbindgen:ignore
 pub mod instance;
 
+/// A WebAssembly module contains stateless WebAssembly code that has
+/// already been compiled and can be instantiated multiple times.
+///
+/// Entry points: A WebAssembly is created with `wasm_module_new` and
+/// freed with `wasm_module_delete`.
+///
 /// cbindgen:ignore
 pub mod module;
 

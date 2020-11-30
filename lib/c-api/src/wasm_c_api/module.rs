@@ -8,6 +8,7 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use wasmer::Module;
 
+/// Opaque type representing a WebAssembly module.
 #[allow(non_camel_case_types)]
 pub struct wasm_module_t {
     pub(crate) inner: Arc<Module>,
@@ -54,7 +55,7 @@ pub struct wasm_module_t {
 ///     wasm_module_delete(module);
 ///     wasm_store_delete(store);
 ///     wasm_engine_delete(engine);
-///    
+///
 ///     return 0;
 /// }
 /// #    })
