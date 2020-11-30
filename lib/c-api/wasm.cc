@@ -709,16 +709,126 @@ auto ExportType::type() const -> const ExternType * {
 }
 
 namespace {
-struct WasmerRefWrapper {};
+struct WasmerRefWrapper {
+  const wasm_trap_t *trap() const { return wasm_ref_as_trap_const(ref); }
+  const wasm_foreign_t *foreign() const {
+    return wasm_ref_as_foreign_const(ref);
+  }
+  const wasm_func_t *func() const { return wasm_ref_as_func_const(ref); }
+  const wasm_global_t *global() const { return wasm_ref_as_global_const(ref); }
+  const wasm_table_t *table() const { return wasm_ref_as_table_const(ref); }
+  const wasm_memory_t *memory() const { return wasm_ref_as_memory_const(ref); }
+  const wasm_extern_t *extern_() const { return wasm_ref_as_extern_const(ref); }
+  const wasm_instance_t *instance() const {
+    return wasm_ref_as_instance_const(ref);
+  }
+  const wasm_module_t *module() const { return wasm_ref_as_module_const(ref); }
+  wasm_ref_t *const ref;
+  enum WasmerRefWrapperKind {
+    TRAP,
+    FOREIGN,
+    FUNC,
+    GLOBAL,
+    TABLE,
+    MEMORY,
+    EXTERN,
+    INSTANCE,
+    MODULE
+  } kind;
+};
 } // namespace
 
-class WASM_API_EXTERN WasmerRef : From<Ref, WasmerRef> {
+class WASM_API_EXTERN WasmerRef : WasmerRefWrapper,
+                                  public From<Ref, WasmerRef> {
 public:
   auto copy() const -> own<Ref>;
-  auto same(const Ref *) const -> bool;
+  /*
+  auto copy() const -> own<Ref> {
+    switch (kind) {
+    case TRAP:
+      return static_cast<WasmerTrap>(this)->copy();
+    // TODO
+    }
+  }
+  */
+  auto same(const Ref *that) const -> bool {
+    return ref == WasmerRef::from(that)->ref;
+  }
 
-  auto get_host_info() const -> void *;
-  void set_host_info(void *info, void (*finalizer)(void *) = nullptr);
+  auto get_host_info() const -> void * { return wasm_ref_get_host_info(ref); }
+  void set_host_info(void *info, void (*finalizer)(void *) = nullptr) {
+    if (finalizer) {
+      wasm_ref_set_host_info(ref, info);
+    } else {
+      wasm_ref_set_host_info_with_finalizer(ref, info, finalizer);
+    }
+  }
 };
 
 void Ref::destroy() { delete WasmerRef::from(this); }
+
+auto Ref::copy() const -> own<Ref> { return WasmerRef::from(this)->copy(); }
+auto Ref::same(const Ref *that) const -> bool {
+  return WasmerRef::from(this)->same(that);
+}
+
+auto Ref::get_host_info() const -> void * {
+  return WasmerRef::from(this)->get_host_info();
+}
+void Ref::set_host_info(void *info, void (*finalizer)(void *)) {
+  return WasmerRef::from(this)->set_host_info(info, finalizer);
+}
+
+class WASM_API_EXTERN WasmerFrame : public From<Frame, WasmerFrame> {
+public:
+  explicit WasmerFrame(c_own<wasm_frame_t> &&frame) : frame(std::move(frame)) {}
+
+  auto copy() const -> own<Frame> {
+    return make_own(new WasmerFrame(make_c_own(wasm_frame_copy(frame.get()))));
+  }
+
+  auto instance() const -> Instance *;
+  auto func_index() const -> uint32_t {
+    return wasm_frame_func_index(frame.get());
+  }
+  auto func_offset() const -> size_t {
+    return wasm_frame_func_offset(frame.get());
+  }
+  auto module_offset() const -> size_t {
+    return wasm_frame_module_offset(frame.get());
+  }
+
+  c_own<wasm_frame_t> frame;
+};
+
+auto Frame::copy() const -> own<Frame> {
+  return WasmerFrame::from(this)->copy();
+}
+
+auto Frame::instance() const -> Instance * {
+  return WasmerFrame::from(this)->instance();
+}
+auto Frame::func_index() const -> uint32_t {
+  return WasmerFrame::from(this)->func_index();
+}
+auto Frame::func_offset() const -> size_t {
+  return WasmerFrame::from(this)->func_offset();
+}
+auto Frame::module_offset() const -> size_t {
+  return WasmerFrame::from(this)->module_offset();
+}
+
+class WASM_API_EXTERN WasmerTrap : WasmerRefWrapper,
+                                   public From<Trap, WasmerTrap> {
+public:
+  static auto make(Store *, const Message &msg) -> own<Trap>;
+  auto copy() const -> own<Trap>;
+
+  auto message() const -> Message;
+  auto origin() const -> own<Frame>;   // may be null
+  auto trace() const -> ownvec<Frame>; // may be empty, origin first
+};
+
+auto WasmerTrap::message() const -> Message{
+
+};
