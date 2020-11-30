@@ -1,13 +1,13 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::{ImportError, LinkError};
+use crate::{Export, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    Export, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
     VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
 };
 
@@ -103,11 +103,11 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
-        Export::Function(ref f) => ExternType::Function(f.signature.clone()),
-        Export::Table(ref t) => ExternType::Table(*t.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.ty()),
+        Export::Function(ref f) => ExternType::Function(f.vm_function.signature.clone()),
+        Export::Table(ref t) => ExternType::Table(*t.vm_table.ty()),
+        Export::Memory(ref m) => ExternType::Memory(*m.vm_memory.ty()),
         Export::Global(ref g) => {
-            let global = g.from.ty();
+            let global = g.vm_global.from.ty();
             ExternType::Global(*global)
         }
     }
@@ -154,7 +154,7 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                let address = match f.kind {
+                let address = match f.vm_function.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
@@ -165,19 +165,19 @@ pub fn resolve_imports(
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
                     }
-                    VMFunctionKind::Static => f.address,
+                    VMFunctionKind::Static => f.vm_function.address,
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: f.vmctx,
+                    environment: f.vm_function.vmctx,
                 });
 
-                host_function_env_initializers.push(f.function_ptr);
+                host_function_env_initializers.push(f.import_init_function_ptr);
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
-                    definition: t.from.vmtable(),
-                    from: t.from.clone(),
+                    definition: t.vm_table.from.vmtable(),
+                    from: t.vm_table.from.clone(),
                 });
             }
             Export::Memory(ref m) => {
@@ -185,7 +185,7 @@ pub fn resolve_imports(
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
-                        let export_memory_style = m.style();
+                        let export_memory_style = m.vm_memory.style();
                         let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
@@ -210,15 +210,15 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.from.vmmemory(),
-                    from: m.from.clone(),
+                    definition: m.vm_memory.from.vmmemory(),
+                    from: m.vm_memory.from.clone(),
                 });
             }
 
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
-                    definition: g.from.vmglobal(),
-                    from: g.from.clone(),
+                    definition: g.vm_global.from.vmglobal(),
+                    from: g.vm_global.from.clone(),
                 });
             }
         }

@@ -15,9 +15,11 @@ use crate::externals::function::{
 };
 use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind,
+    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -57,7 +59,8 @@ where
     }
 }
 
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
+/*
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMExportFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -68,10 +71,29 @@ where
             address: other.address,
             vmctx: other.vmctx,
             signature,
-            // TODO:
-            function_ptr: None,
             kind: other.arg_kind,
             call_trampoline: None,
+        }
+    }
+}*/
+
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: &NativeFunc<Args, Rets>) -> Self {
+        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
+        Self {
+            // TODO:
+            import_init_function_ptr: None,
+            vm_function: VMExportFunction {
+                address: other.address,
+                vmctx: other.vmctx,
+                signature,
+                kind: other.arg_kind,
+                call_trampoline: None,
+            },
         }
     }
 }
@@ -87,13 +109,15 @@ where
             store: other.store,
             definition: other.definition,
             exported: ExportFunction {
-                address: other.address,
-                vmctx: other.vmctx,
-                signature,
                 // TODO:
-                function_ptr: None,
-                kind: other.arg_kind,
-                call_trampoline: None,
+                import_init_function_ptr: None,
+                vm_function: VMExportFunction {
+                    address: other.address,
+                    vmctx: other.vmctx,
+                    signature,
+                    kind: other.arg_kind,
+                    call_trampoline: None,
+                },
             },
         }
     }

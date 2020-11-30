@@ -4,7 +4,7 @@
 //! An `Instance` contains all the runtime state used by execution of a
 //! wasm module (except its callstack and register state). An
 //! `InstanceHandle` is a reference-counting handle for an `Instance`.
-use crate::export::Export;
+use crate::export::VMExport;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -16,8 +16,8 @@ use crate::vmcontext::{
     VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
-use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
+use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -65,7 +65,7 @@ cfg_if::cfg_if! {
 
 /// The function pointer to call with data and an [`Instance`] pointer to
 /// finish initializing the host env.
-pub(crate) type ImportInitializerFuncPtr =
+pub type ImportInitializerFuncPtr =
     fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
 
 /// This type holds thunks (delayed computations) for initializing the imported
@@ -308,18 +308,19 @@ impl Instance {
     }
 
     /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<Export> {
+    pub fn lookup(&self, field: &str) -> Option<VMExport> {
         let export = self.module.exports.get(field)?;
 
         Some(self.lookup_by_declaration(&export))
     }
 
     /// Lookup an export with the given export declaration.
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
+    // TODO: maybe EngineExport
+    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
         match export {
             ExportIndex::Function(index) => {
                 let sig_index = &self.module.functions[*index];
-                let (address, vmctx, function_ptr) =
+                let (address, vmctx, _function_ptr) =
                     if let Some(def_index) = self.module.local_func_index(*index) {
                         (
                             self.functions[def_index].0 as *const _,
@@ -335,7 +336,10 @@ impl Instance {
                     };
                 let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
                 let signature = self.module.signatures[*sig_index].clone();
-                ExportFunction {
+                /*EngineExportFunction {
+                function_ptr,
+                function: */
+                VMExportFunction {
                     address,
                     // Any function received is already static at this point as:
                     // 1. All locally defined functions in the Wasm have a static signature.
@@ -344,9 +348,9 @@ impl Instance {
                     kind: VMFunctionKind::Static,
                     signature,
                     vmctx,
-                    function_ptr,
                     call_trampoline,
                 }
+                //}
                 .into()
             }
             ExportIndex::Table(index) => {
@@ -356,7 +360,7 @@ impl Instance {
                     let import = self.imported_table(*index);
                     import.from.clone()
                 };
-                ExportTable { from }.into()
+                VMExportTable { from }.into()
             }
             ExportIndex::Memory(index) => {
                 let from = if let Some(def_index) = self.module.local_memory_index(*index) {
@@ -365,7 +369,7 @@ impl Instance {
                     let import = self.imported_memory(*index);
                     import.from.clone()
                 };
-                ExportMemory { from }.into()
+                VMExportMemory { from }.into()
             }
             ExportIndex::Global(index) => {
                 let from = {
@@ -376,7 +380,7 @@ impl Instance {
                         import.from.clone()
                     }
                 };
-                ExportGlobal { from }.into()
+                VMExportGlobal { from }.into()
             }
         }
     }
@@ -1068,12 +1072,12 @@ impl InstanceHandle {
     }
 
     /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<Export> {
+    pub fn lookup(&self, field: &str) -> Option<VMExport> {
         self.instance().lookup(field)
     }
 
     /// Lookup an export with the given export declaration.
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
+    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
         self.instance().lookup_by_declaration(export)
     }
 

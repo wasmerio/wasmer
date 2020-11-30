@@ -119,7 +119,7 @@ impl Instance {
             .map(|export| {
                 let name = export.name().to_string();
                 let export = handle.lookup(&name).expect("export");
-                let extern_ = Extern::from_export(store, export);
+                let extern_ = Extern::from_export(store, export.into());
                 (name, extern_)
             })
             .collect::<Exports>();

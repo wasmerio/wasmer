@@ -80,7 +80,7 @@ pub use wasmer_compiler::{
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, LinkError, NamedResolver,
+    ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
@@ -89,7 +89,7 @@ pub use wasmer_types::{
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
+pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
 pub mod vm {
     //! We use the vm module for re-exporting wasmer-vm types
 

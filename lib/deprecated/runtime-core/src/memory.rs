@@ -9,8 +9,8 @@ pub mod ptr {
     pub use crate::new::wasmer::{Array, Item, WasmPtr};
 }
 
-pub use new::wasmer_types::MemoryType as MemoryDescriptor;
 pub use new::wasmer::{Atomically, MemoryView};
+pub use new::wasmer_types::MemoryType as MemoryDescriptor;
 pub use new::wasmer_vm::MemoryStyle as MemoryType;
 
 /// A Wasm linear memory.
@@ -108,7 +108,7 @@ impl From<&new::wasmer::Memory> for Memory {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for Memory {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_memory.to_export()
     }
 
