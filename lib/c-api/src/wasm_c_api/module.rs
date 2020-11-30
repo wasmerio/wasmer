@@ -24,7 +24,7 @@ pub struct wasm_module_t {
 /// Before the code is compiled, it will be validated using the store
 /// features.
 ///
-/// # Examples
+/// # Example
 ///
 /// ```rust
 /// # use inline_c::assert_c;
@@ -33,16 +33,22 @@ pub struct wasm_module_t {
 /// # #include "tests/wasmer_wasm.h"
 /// #
 /// int main() {
+///     // Create the engine and the store.
 ///     wasm_engine_t* engine = wasm_engine_new();
 ///     wasm_store_t* store = wasm_store_new(engine);
-///    
+///
+///     // Create a WebAssembly module from a WAT definition.
 ///     wasm_byte_vec_t wat;
 ///     wasmer_byte_vec_new_from_string(&wat, "(module)");
 ///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
-///    
+///
+///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, wasm);
+///
+///     // It works!
 ///     assert(module);
-///    
+///
+///     // Free everything.
 ///     wasm_byte_vec_delete(wasm);
 ///     wasm_byte_vec_delete(&wat);
 ///     wasm_module_delete(module);
@@ -71,9 +77,54 @@ pub unsafe extern "C" fn wasm_module_new(
     }))
 }
 
+/// Destruct a WebAssembly module.
+///
+/// # Example
+///
+/// See `wasm_module_new`.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
 
+/// Validates a new WebAssembly module given the configuration
+/// in the `wasm_store_t`.
+///
+/// This validation is normally pretty fast and checks the enabled
+/// WebAssembly features in the store engine (`wasm_engine_t`) to
+/// assure deterministic validation of the module.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&wat, "(module)");
+///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///
+///     // Validate that the WebAssembly module is correct.
+///     assert(wasm_module_validate(store, wasm));
+///
+///     // Free everything.
+///     wasm_byte_vec_delete(wasm);
+///     wasm_byte_vec_delete(&wat);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_validate(
     store: Option<&wasm_store_t>,
@@ -102,6 +153,113 @@ pub unsafe extern "C" fn wasm_module_validate(
     }
 }
 
+/// Returns an array of the exported types in the module.
+///
+/// The order of the exports is guaranteed to be the same as in the
+/// WebAssembly bytecode.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(
+///         &wat,
+///         "(module\n"
+///         "  (func (export \"function\") (param i32 i64))\n"
+///         "  (global (export \"global\") i32 (i32.const 7))\n"
+///         "  (table (export \"table\") 0 funcref)\n"
+///         "  (memory (export \"memory\") 1))"
+///     );
+///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, wasm);
+///     assert(module);
+///
+///     // Extract the types exported by this module.
+///     wasm_exporttype_vec_t export_types;
+///     wasm_module_exports(module, &export_types);
+///
+///     // We have 4 of them.
+///     assert(export_types.size == 4);
+///
+///     // The first one is a function. Use
+///     // `wasm_externtype_as_functype_const` to continue to inspect the
+///     // type.
+///     {
+///         wasm_exporttype_t* export_type = export_types.data[0];
+///
+///         const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+///         wasmer_assert_name(export_name, "function");
+///
+///         const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
+///     }
+///
+///     // The second one is a global. Use
+///     // `wasm_externtype_as_globaltype_const` to continue to inspect the
+///     // type.
+///     {
+///         wasm_exporttype_t* export_type = export_types.data[1];
+///
+///         const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+///         wasmer_assert_name(export_name, "global");
+///
+///         const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
+///     }
+///
+///     // The third one is a table. Use
+///     // `wasm_externtype_as_tabletype_const` to continue to inspect the
+///     // type.
+///     {
+///         wasm_exporttype_t* export_type = export_types.data[2];
+///
+///         const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+///         wasmer_assert_name(export_name, "table");
+///
+///         const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
+///     }
+///
+///     // The fourth one is a memory. Use
+///     // `wasm_externtype_as_memorytype_const` to continue to inspect the
+///     // type.
+///     {
+///         wasm_exporttype_t* export_type = export_types.data[3];
+///
+///         const wasm_name_t* export_name = wasm_exporttype_name(export_type);
+///         wasmer_assert_name(export_name, "memory");
+///
+///         const wasm_externtype_t* extern_type = wasm_exporttype_type(export_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
+///     }
+///
+///     // Free everything.
+///     wasm_exporttype_vec_delete(&export_types);
+///     wasm_byte_vec_delete(wasm);
+///     wasm_byte_vec_delete(&wat);
+///     wasm_module_delete(module);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_exports(
     module: &wasm_module_t,
@@ -118,6 +276,130 @@ pub unsafe extern "C" fn wasm_module_exports(
     *out = exports.into();
 }
 
+/// Returns an array of the imported types in the module.
+///
+/// The order of the imports is guaranteed to be the same as in the
+/// WebAssembly bytecode.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(
+///         &wat,
+///         "(module\n"
+///         "  (import \"ns\" \"function\" (func))\n"
+///         "  (import \"ns\" \"global\" (global f32))\n"
+///         "  (import \"ns\" \"table\" (table 1 2 anyfunc))\n"
+///         "  (import \"ns\" \"memory\" (memory 3 4)))"
+///     );
+///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, wasm);
+///     assert(module);
+///
+///     // Extract the types imported by the module.
+///     wasm_importtype_vec_t import_types;
+///     wasm_module_imports(module, &import_types);
+///
+///     // We have 4 of them.
+///     assert(import_types.size == 4);
+///
+///     // The first one is a function. Use
+///     // `wasm_externtype_as_functype_const` to continue to inspect the
+///     // type.
+///     {
+///         const wasm_importtype_t* import_type = import_types.data[0];
+///
+///         const wasm_name_t* import_module = wasm_importtype_module(import_type);
+///         wasmer_assert_name(import_module, "ns");
+///
+///         const wasm_name_t* import_name = wasm_importtype_name(import_type);
+///         wasmer_assert_name(import_name, "function");
+///
+///         const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_FUNC);
+///     }
+///
+///     // The second one is a global. Use
+///     // `wasm_externtype_as_globaltype_const` to continue to inspect
+///     // the type.
+///     {
+///         const wasm_importtype_t* import_type = import_types.data[1];
+///
+///         const wasm_name_t* import_module = wasm_importtype_module(import_type);
+///         wasmer_assert_name(import_module, "ns");
+///
+///         const wasm_name_t* import_name = wasm_importtype_name(import_type);
+///         wasmer_assert_name(import_name, "global");
+///
+///         const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_GLOBAL);
+///     }
+///
+///     // The third one is a table. Use
+///     // `wasm_externtype_as_tabletype_const` to continue to inspect
+///     // the type.
+///     {
+///         const wasm_importtype_t* import_type = import_types.data[2];
+///
+///         const wasm_name_t* import_module = wasm_importtype_module(import_type);
+///         wasmer_assert_name(import_module, "ns");
+///
+///         const wasm_name_t* import_name = wasm_importtype_name(import_type);
+///         wasmer_assert_name(import_name, "table");
+///
+///         const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_TABLE);
+///     }
+///
+///     // The fourth one is a memory. Use
+///     // `wasm_externtype_as_memorytype_const` to continue to inspect
+///     // the type.
+///     {
+///         const wasm_importtype_t* import_type = import_types.data[3];
+///
+///         const wasm_name_t* import_module = wasm_importtype_module(import_type);
+///         wasmer_assert_name(import_module, "ns");
+///
+///         const wasm_name_t* import_name = wasm_importtype_name(import_type);
+///         wasmer_assert_name(import_name, "memory");
+///
+///         const wasm_externtype_t* extern_type = wasm_importtype_type(import_type);
+///         assert(wasm_externtype_kind(extern_type) == WASM_EXTERN_MEMORY);
+///
+///         const wasm_memorytype_t* memory_type = wasm_externtype_as_memorytype_const(extern_type);
+///         const wasm_limits_t* memory_limits = wasm_memorytype_limits(memory_type);
+///         assert(memory_limits->min == 3);
+///         assert(memory_limits->max == 4);
+///     }
+///
+///     // Free everything.
+///     wasm_importtype_vec_delete(&import_types);
+///     wasm_module_delete(module);
+///     wasm_byte_vec_delete(wasm);
+///     wasm_byte_vec_delete(&wat);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_imports(
     module: &wasm_module_t,
@@ -134,6 +416,88 @@ pub unsafe extern "C" fn wasm_module_imports(
     *out = imports.into();
 }
 
+/// Deserializes a serialized module binary into a `wasm_module_t`.
+///
+/// Note: the module has to be serialized before with the
+/// `wasm_module_serialize` function.
+///
+/// # Safety
+///
+/// This function is inherently **unsafe** as the provided bytes:
+///
+/// 1. Are going to be deserialized directly into Rust and C objects,
+/// 2. Contains the function assembly bodies and, if intercepted,
+///    a malicious actor could inject code into executable
+///    memory.
+///
+/// And as such, the `wasm_module_deserialize` method is unsafe.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///    wasm_byte_vec_t wat;
+///    wasmer_byte_vec_new_from_string(
+///        &wat,
+///        "(module\n"
+///        "  (func (export \"function\") (param i32 i64))\n"
+///        "  (global (export \"global\") i32 (i32.const 7))\n"
+///        "  (table (export \"table\") 0 funcref)\n"
+///        "  (memory (export \"memory\") 1))"
+///    );
+///    wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///
+///    // Create the module.
+///    wasm_module_t* module = wasm_module_new(store, wasm);
+///    assert(module);
+///
+///    // Serialize the module into bytes.
+///    wasm_byte_vec_t serialized_module;
+///    wasm_module_serialize(module, &serialized_module);
+///    assert(serialized_module.size > 0);
+///
+///    // Free the module.
+///    wasm_module_delete(module);
+///
+///    // Deserialize the serialized module. Note that the store must
+///    // be the same as the one used to serialize.
+///    wasm_module_t* deserialized_module = wasm_module_deserialize(
+///        store,
+///        &serialized_module
+///    );
+///    wasm_byte_vec_delete(&serialized_module);
+///    assert(deserialized_module);
+///
+///    // Check we have our 4 export types.
+///    wasm_exporttype_vec_t export_types;
+///    wasm_module_exports(deserialized_module, &export_types);
+///
+///    assert(export_types.size == 4);
+///
+///    // Free everything.
+///    wasm_exporttype_vec_delete(&export_types);
+///    wasm_module_delete(deserialized_module);
+///    wasm_byte_vec_delete(wasm);
+///    wasm_byte_vec_delete(&wat);
+///    wasm_store_delete(store);
+///    wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_deserialize(
     store: &wasm_store_t,
@@ -160,6 +524,12 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     ))))
 }
 
+/// Serializes a module into a binary representation that the engine
+/// (`wasm_engine_t`) can later process via `wasm_module_deserialize`.
+///
+/// # Example
+///
+/// See `wasm_module_deserialize`.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(
     module: &wasm_module_t,
@@ -333,6 +703,8 @@ mod tests {
                 wasm_module_delete(module);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
+
+                return 0;
             }
         })
         .success();
@@ -448,6 +820,8 @@ mod tests {
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
+
+                return 0;
             }
         })
         .success();
@@ -479,6 +853,8 @@ mod tests {
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
+
+                return 0;
             }
         })
         .success();
@@ -530,6 +906,8 @@ mod tests {
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
+
+                return 0;
             }
         })
         .success();
