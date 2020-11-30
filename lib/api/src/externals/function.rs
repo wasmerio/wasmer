@@ -14,8 +14,9 @@ use std::cmp::max;
 use std::fmt;
 use wasmer_engine::{EngineExport, EngineExportFunction};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, ExportFunction, VMCallerCheckedAnyfunc,
-    VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
+    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -97,7 +98,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: EngineExportFunction {
                 function_ptr: None,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
@@ -159,7 +160,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: EngineExportFunction {
                 function_ptr,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
@@ -209,7 +210,7 @@ impl Function {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
                 function_ptr: None,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address,
                     vmctx,
                     signature,
@@ -275,7 +276,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: EngineExportFunction {
                 function_ptr,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,
@@ -324,7 +325,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: EngineExportFunction {
                 function_ptr,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,

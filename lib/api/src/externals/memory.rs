@@ -7,7 +7,7 @@ use std::slice;
 use std::sync::Arc;
 use wasmer_engine::EngineExport;
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{ExportMemory, Memory as RuntimeMemory, MemoryError};
+use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -221,7 +221,7 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+    pub(crate) fn from_export(store: &Store, wasmer_export: VMExportMemory) -> Self {
         Self {
             store: store.clone(),
             memory: wasmer_export.from,
@@ -247,7 +247,7 @@ impl Memory {
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> EngineExport {
-        ExportMemory {
+        VMExportMemory {
             from: self.memory.clone(),
         }
         .into()

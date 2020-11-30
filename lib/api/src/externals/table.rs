@@ -6,7 +6,7 @@ use crate::RuntimeError;
 use crate::TableType;
 use std::sync::Arc;
 use wasmer_engine::EngineExport;
-use wasmer_vm::{ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
+use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -140,7 +140,7 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Self {
+    pub(crate) fn from_export(store: &Store, wasmer_export: VMExportTable) -> Self {
         Self {
             store: store.clone(),
             table: wasmer_export.from,
@@ -155,7 +155,7 @@ impl Table {
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> EngineExport {
-        ExportTable {
+        VMExportTable {
             from: self.table.clone(),
         }
         .into()

@@ -77,7 +77,7 @@ impl ValFuncRef for Val {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
             function_ptr: None,
-            function: wasmer_vm::ExportFunction {
+            function: wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,
                 // All functions in tables are already Static (as dynamic functions

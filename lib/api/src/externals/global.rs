@@ -8,7 +8,7 @@ use crate::RuntimeError;
 use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::EngineExport;
-use wasmer_vm::{ExportGlobal, Global as RuntimeGlobal};
+use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -181,7 +181,7 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+    pub(crate) fn from_export(store: &Store, wasmer_export: VMExportGlobal) -> Self {
         Self {
             store: store.clone(),
             global: wasmer_export.from,
@@ -217,7 +217,7 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> EngineExport {
-        ExportGlobal {
+        VMExportGlobal {
             from: self.global.clone(),
         }
         .into()

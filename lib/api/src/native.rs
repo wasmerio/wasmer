@@ -18,7 +18,8 @@ use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_engine::EngineExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind,
+    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMFunctionKind,
 };
 
 /// A WebAssembly function that can be called natively
@@ -59,7 +60,7 @@ where
 }
 
 /*
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMExportFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -86,7 +87,7 @@ where
         Self {
             // TODO:
             function_ptr: None,
-            function: ExportFunction {
+            function: VMExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
                 signature,
@@ -110,7 +111,7 @@ where
             exported: EngineExportFunction {
                 // TODO:
                 function_ptr: None,
-                function: ExportFunction {
+                function: VMExportFunction {
                     address: other.address,
                     vmctx: other.vmctx,
                     signature,

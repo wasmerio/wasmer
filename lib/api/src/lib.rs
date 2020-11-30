@@ -89,7 +89,7 @@ pub use wasmer_types::{
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
+pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
 pub mod vm {
     //! We use the vm module for re-exporting wasmer-vm types
 
