@@ -1,4 +1,4 @@
 pub use crate::new::{
+    wasmer::Export as RuntimeExport,
     wasmer::{Exportable, Extern as Export},
-    wasmer_vm::Export as RuntimeExport,
 };

@@ -15,7 +15,7 @@ use crate::externals::function::{
 };
 use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
-use wasmer_engine::EngineExportFunction;
+use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
     VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
@@ -30,7 +30,7 @@ pub struct NativeFunc<Args = (), Rets = ()> {
     address: *const VMFunctionBody,
     vmctx: VMFunctionEnvironment,
     arg_kind: VMFunctionKind,
-    // exported: EngineExportFunction,
+    // exported: ExportFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -77,7 +77,7 @@ where
     }
 }*/
 
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for EngineExportFunction
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -86,8 +86,8 @@ where
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             // TODO:
-            function_ptr: None,
-            function: VMExportFunction {
+            import_init_function_ptr: None,
+            vm_function: VMExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
                 signature,
@@ -108,10 +108,10 @@ where
         Self {
             store: other.store,
             definition: other.definition,
-            exported: EngineExportFunction {
+            exported: ExportFunction {
                 // TODO:
-                function_ptr: None,
-                function: VMExportFunction {
+                import_init_function_ptr: None,
+                vm_function: VMExportFunction {
                     address: other.address,
                     vmctx: other.vmctx,
                     signature,

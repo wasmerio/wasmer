@@ -73,11 +73,11 @@ impl ValFuncRef for Val {
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
-        let export = wasmer_engine::EngineExportFunction {
+        let export = wasmer_engine::ExportFunction {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
-            function_ptr: None,
-            function: wasmer_vm::VMExportFunction {
+            import_init_function_ptr: None,
+            vm_function: wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,
                 // All functions in tables are already Static (as dynamic functions

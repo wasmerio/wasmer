@@ -6,16 +6,16 @@ use std::collections::VecDeque;
 use std::collections::{hash_map::Entry, HashMap};
 use std::fmt;
 use std::sync::{Arc, Mutex};
-use wasmer_engine::{EngineExport, NamedResolver};
+use wasmer_engine::{Export, NamedResolver};
 
 /// The `LikeNamespace` trait represents objects that act as a namespace for imports.
 /// For example, an `Instance` or `Namespace` could be
 /// considered namespaces that could provide imports to an instance.
 pub trait LikeNamespace {
     /// Gets an export by name.
-    fn get_namespace_export(&self, name: &str) -> Option<EngineExport>;
+    fn get_namespace_export(&self, name: &str) -> Option<Export>;
     /// Gets all exports in the namespace.
-    fn get_namespace_exports(&self) -> Vec<(String, EngineExport)>;
+    fn get_namespace_exports(&self) -> Vec<(String, Export)>;
 }
 
 /// All of the import data used when instantiating.
@@ -58,7 +58,7 @@ impl ImportObject {
     /// let mut import_object = ImportObject::new();
     /// import_object.get_export("module", "name");
     /// ```
-    pub fn get_export(&self, module: &str, name: &str) -> Option<EngineExport> {
+    pub fn get_export(&self, module: &str, name: &str) -> Option<Export> {
         let guard = self.map.lock().unwrap();
         let map_ref = guard.borrow();
         if map_ref.contains_key(module) {
@@ -101,7 +101,7 @@ impl ImportObject {
         }
     }
 
-    fn get_objects(&self) -> VecDeque<((String, String), EngineExport)> {
+    fn get_objects(&self) -> VecDeque<((String, String), Export)> {
         let mut out = VecDeque::new();
         let guard = self.map.lock().unwrap();
         let map = guard.borrow();
@@ -115,18 +115,18 @@ impl ImportObject {
 }
 
 impl NamedResolver for ImportObject {
-    fn resolve_by_name(&self, module: &str, name: &str) -> Option<EngineExport> {
+    fn resolve_by_name(&self, module: &str, name: &str) -> Option<Export> {
         self.get_export(module, name)
     }
 }
 
 /// Iterator for an `ImportObject`'s exports.
 pub struct ImportObjectIterator {
-    elements: VecDeque<((String, String), EngineExport)>,
+    elements: VecDeque<((String, String), Export)>,
 }
 
 impl Iterator for ImportObjectIterator {
-    type Item = ((String, String), EngineExport);
+    type Item = ((String, String), Export);
     fn next(&mut self) -> Option<Self::Item> {
         self.elements.pop_front()
     }
@@ -134,7 +134,7 @@ impl Iterator for ImportObjectIterator {
 
 impl IntoIterator for ImportObject {
     type IntoIter = ImportObjectIterator;
-    type Item = ((String, String), EngineExport);
+    type Item = ((String, String), Export);
 
     fn into_iter(self) -> Self::IntoIter {
         ImportObjectIterator {
@@ -317,13 +317,11 @@ mod test {
         let resolver = imports1.chain_front(imports2);
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(
-            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
-                happy_dog_global.from.ty().ty == Type::I64
-            } else {
-                false
-            }
-        );
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.vm_global.from.ty().ty == Type::I64
+        } else {
+            false
+        });
 
         // now test it in reverse
         let store = Store::default();
@@ -345,13 +343,11 @@ mod test {
         let resolver = imports1.chain_back(imports2);
         let happy_dog_entry = resolver.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(
-            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
-                happy_dog_global.from.ty().ty == Type::I32
-            } else {
-                false
-            }
-        );
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.vm_global.from.ty().ty == Type::I32
+        } else {
+            false
+        });
     }
 
     #[test]
@@ -367,13 +363,11 @@ mod test {
 
         let happy_dog_entry = imports1.resolve_by_name("dog", "happy").unwrap();
 
-        assert!(
-            if let EngineExport::Global(happy_dog_global) = happy_dog_entry {
-                happy_dog_global.from.ty().ty == Type::I32
-            } else {
-                false
-            }
-        );
+        assert!(if let Export::Global(happy_dog_global) = happy_dog_entry {
+            happy_dog_global.vm_global.from.ty().ty == Type::I32
+        } else {
+            false
+        });
     }
 
     #[test]

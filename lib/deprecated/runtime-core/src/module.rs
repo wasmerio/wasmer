@@ -8,7 +8,7 @@ use crate::{
     types::{FuncSig, Value},
     vm,
 };
-use new::wasmer_vm::Export;
+use new::wasmer::Export;
 use std::{
     cell::RefCell,
     collections::HashMap,
@@ -98,18 +98,20 @@ impl Module {
                             // `function` is a static host function
                             // constructed with
                             // `new::wasmer::Function::new_env`.
-                            if !function.address.is_null() {
+                            if !function.vm_function.address.is_null() {
                                 // Properly drop the empty `vm::Ctx`
                                 // created by the host function.
                                 unsafe {
-                                    ptr::drop_in_place::<vm::Ctx>(function.vmctx.host_env as _);
+                                    ptr::drop_in_place::<vm::Ctx>(
+                                        function.vm_function.vmctx.host_env as _,
+                                    );
                                 }
 
                                 // Update the pointer to `VMContext`,
                                 // which is actually a `vm::Ctx`
                                 // pointer, to fallback on the
                                 // environment hack.
-                                function.vmctx.host_env = pre_instance.vmctx_ptr() as _;
+                                function.vm_function.vmctx.host_env = pre_instance.vmctx_ptr() as _;
                             }
                             // `function` is a dynamic host function
                             // constructed with
@@ -147,13 +149,15 @@ impl Module {
                                     new::wasmer_vm::VMDynamicFunctionContext<
                                         VMDynamicFunctionWithEnv<DynamicCtx>,
                                     >,
-                                > = unsafe { Box::from_raw(function.vmctx.host_env as *mut _) };
+                                > = unsafe {
+                                    Box::from_raw(function.vm_function.vmctx.host_env as *mut _)
+                                };
 
                                 // Replace the environment by ours.
                                 vmctx.ctx.env.borrow_mut().vmctx = pre_instance.vmctx();
 
                                 // … without anyone noticing…
-                                function.vmctx.host_env = Box::into_raw(vmctx) as _;
+                                function.vm_function.vmctx.host_env = Box::into_raw(vmctx) as _;
                             }
                         }
 

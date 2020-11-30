@@ -201,7 +201,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 
@@ -312,7 +312,7 @@ impl From<&new::wasmer::Function> for DynamicFunc {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 

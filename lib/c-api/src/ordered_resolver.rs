@@ -5,7 +5,7 @@
 //! by index and not by module and name.
 
 use std::iter::FromIterator;
-use wasmer::{EngineExport, Exportable, Extern, Resolver};
+use wasmer::{Export, Exportable, Extern, Resolver};
 
 /// An `OrderedResolver` stores all the `externs` provided to an Instance
 /// in a Vec, so we can retrieve them later based on index.
@@ -16,7 +16,7 @@ pub struct OrderedResolver {
 }
 
 impl Resolver for OrderedResolver {
-    fn resolve(&self, index: u32, _module: &str, _name: &str) -> Option<EngineExport> {
+    fn resolve(&self, index: u32, _module: &str, _name: &str) -> Option<Export> {
         self.externs
             .get(index as usize)
             .map(|extern_| extern_.to_export())
