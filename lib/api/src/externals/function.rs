@@ -53,6 +53,12 @@ pub enum FunctionDefinition {
 /// during execution of the function.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
+///
+/// # Panics
+/// - Closures (functions with captured environments) are not currently supported
+///   with native functions. Attempting to create a native `Function` with one will
+///   result in a panic.
+///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
@@ -195,6 +201,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
         let vmctx = VMFunctionEnvironment {
@@ -251,6 +260,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + WasmerEnv + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -306,6 +318,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: UnsafeMutableEnv + WasmerEnv + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -658,6 +673,10 @@ impl Function {
             self.exported.vm_function.kind,
             self.definition.clone(),
         ))
+    }
+
+    fn closures_unsupported_panic() -> ! {
+        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 }
 

@@ -254,15 +254,32 @@ impl NativeArtifact {
         };
 
         let is_cross_compiling = engine_inner.is_cross_compiling();
+        let target_triple_str = {
+            let into_str = target_triple.to_string();
+            // We have to adapt the target triple string, because otherwise
+            // Apple's clang will not recognize it.
+            if into_str == "aarch64-apple-darwin" {
+                "arm64-apple-darwin".to_string()
+            } else {
+                into_str
+            }
+        };
+
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
-                format!("--target={}", target_triple),
+                format!("--target={}", target_triple_str),
                 "-fuse-ld=lld".to_string(),
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
             ]
         } else {
-            vec![]
+            // We are explicit on the target when the host system is
+            // Apple Silicon, otherwise compilation fails.
+            if target_triple_str == "arm64-apple-darwin" {
+                vec![format!("--target={}", target_triple_str)]
+            } else {
+                vec![]
+            }
         };
         let target_args = match (target_triple.operating_system, is_cross_compiling) {
             (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved,/noentry"],
@@ -271,7 +288,7 @@ impl NativeArtifact {
         };
         trace!(
             "Compiling for target {} from host {}",
-            target_triple.to_string(),
+            target_triple_str,
             Triple::host().to_string(),
         );
 
