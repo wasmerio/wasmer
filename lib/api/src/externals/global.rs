@@ -181,7 +181,7 @@ impl Global {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
         Self {
             store: store.clone(),
             global: wasmer_export.vm_global.from,
@@ -220,6 +220,7 @@ impl<'a> Exportable<'a> for Global {
         ExportGlobal {
             vm_global: VMExportGlobal {
                 from: self.global.clone(),
+                instance_allocator: None,
             },
         }
         .into()

@@ -221,7 +221,7 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportMemory) -> Self {
         Self {
             store: store.clone(),
             memory: wasmer_export.vm_memory.from,
@@ -250,6 +250,7 @@ impl<'a> Exportable<'a> for Memory {
         ExportMemory {
             vm_memory: VMExportMemory {
                 from: self.memory.clone(),
+                instance_allocator: None,
             },
         }
         .into()

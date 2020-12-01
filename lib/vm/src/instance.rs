@@ -1,9 +1,12 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-//! An `Instance` contains all the runtime state used by execution of a
-//! wasm module (except its callstack and register state). An
-//! `InstanceHandle` is a reference-counting handle for an `Instance`.
+//! An `Instance` contains all the runtime state used by execution of
+//! a WebAssembly module (except its callstack and register state). An
+//! `InstanceAllocator` is a wrapper around `Instance` that manages
+//! how it is allocated and deallocated. An `InstanceHandle` is a
+//! wrapper around an `InstanceAllocator`.
+
 use crate::export::VMExport;
 use crate::global::Global;
 use crate::imports::Imports;
@@ -25,8 +28,10 @@ use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::ffi;
+use std::fmt;
 use std::ptr::NonNull;
-use std::sync::Arc;
+use std::sync::{atomic, Arc};
 use std::{mem, ptr, slice};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
@@ -34,34 +39,6 @@ use wasmer_types::{
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex, TableInitializer,
 };
-
-cfg_if::cfg_if! {
-    if #[cfg(unix)] {
-        pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
-
-        impl InstanceHandle {
-            /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&self, handler: H)
-            where
-                H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
-            {
-                self.instance().signal_handler.set(Some(Box::new(handler)));
-            }
-        }
-    } else if #[cfg(target_os = "windows")] {
-        pub type SignalHandler = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
-
-        impl InstanceHandle {
-            /// Set a custom signal handler
-            pub fn set_signal_handler<H>(&self, handler: H)
-            where
-                H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
-            {
-                self.instance().signal_handler.set(Some(Box::new(handler)));
-            }
-        }
-    }
-}
 
 /// The function pointer to call with data and an [`Instance`] pointer to
 /// finish initializing the host env.
@@ -75,7 +52,10 @@ pub(crate) type ImportInitializerThunks =
 
 /// A WebAssembly instance.
 ///
-/// This is repr(C) to ensure that the vmctx field is last.
+/// The type is dynamically-sized. Indeed, the `vmctx` field can
+/// contain various data. That's why the type has a C representation
+/// to ensure that the `vmctx` field is last. See the documentation of
+/// the `vmctx` field to learn more.
 #[repr(C)]
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
@@ -114,17 +94,25 @@ pub(crate) struct Instance {
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
-    /// Functions to initialize the host environments in the imports and pointers
-    /// to the environments.
-    /// These function pointers all come from `WasmerEnv::init_with_instance`.
+    /// Functions to initialize the host environments in the imports
+    /// and pointers to the environments. These function pointers all
+    /// come from `WasmerEnv::init_with_instance`.
     ///
-    /// TODO:
-    /// Be sure to test with serialize/deserialize and imported functions from other Wasm modules.
+    /// TODO: Be sure to test with serialize/deserialize and imported
+    /// functions from other Wasm modules.
     import_initializers: ImportInitializerThunks,
-    /// Additional context used by compiled wasm code. This field is last, and
-    /// represents a dynamically-sized array that extends beyond the nominal
-    /// end of the struct (similar to a flexible array member).
+
+    /// Additional context used by compiled WebAssembly code. This
+    /// field is last, and represents a dynamically-sized array that
+    /// extends beyond the nominal end of the struct (similar to a
+    /// flexible array member).
     vmctx: VMContext,
+}
+
+impl fmt::Debug for Instance {
+    fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
+        formatter.debug_struct("Instance").finish()
+    }
 }
 
 #[allow(clippy::cast_ptr_alignment)]
@@ -143,11 +131,11 @@ impl Instance {
         unsafe { *self.signature_ids_ptr().add(index) }
     }
 
-    pub(crate) fn module(&self) -> &Arc<ModuleInfo> {
+    fn module(&self) -> &Arc<ModuleInfo> {
         &self.module
     }
 
-    pub(crate) fn module_ref(&self) -> &ModuleInfo {
+    fn module_ref(&self) -> &ModuleInfo {
         &*self.module
     }
 
@@ -234,7 +222,7 @@ impl Instance {
     }
 
     /// Get a locally defined or imported memory.
-    pub(crate) fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
+    fn get_memory(&self, index: MemoryIndex) -> VMMemoryDefinition {
         if let Some(local_index) = self.module.local_memory_index(index) {
             self.memory(local_index)
         } else {
@@ -298,100 +286,13 @@ impl Instance {
     }
 
     /// Return a reference to the vmctx used by compiled wasm code.
-    pub fn vmctx(&self) -> &VMContext {
+    fn vmctx(&self) -> &VMContext {
         &self.vmctx
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
-    pub fn vmctx_ptr(&self) -> *mut VMContext {
+    fn vmctx_ptr(&self) -> *mut VMContext {
         self.vmctx() as *const VMContext as *mut VMContext
-    }
-
-    /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<VMExport> {
-        let export = self.module.exports.get(field)?;
-
-        Some(self.lookup_by_declaration(&export))
-    }
-
-    /// Lookup an export with the given export declaration.
-    // TODO: maybe EngineExport
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
-        match export {
-            ExportIndex::Function(index) => {
-                let sig_index = &self.module.functions[*index];
-                let (address, vmctx, _function_ptr) =
-                    if let Some(def_index) = self.module.local_func_index(*index) {
-                        (
-                            self.functions[def_index].0 as *const _,
-                            VMFunctionEnvironment {
-                                vmctx: self.vmctx_ptr(),
-                            },
-                            None,
-                        )
-                    } else {
-                        let import = self.imported_function(*index);
-                        let initializer = self.imported_function_env_initializer(*index);
-                        (import.body, import.environment, initializer)
-                    };
-                let call_trampoline = Some(self.function_call_trampolines[*sig_index]);
-                let signature = self.module.signatures[*sig_index].clone();
-                /*EngineExportFunction {
-                function_ptr,
-                function: */
-                VMExportFunction {
-                    address,
-                    // Any function received is already static at this point as:
-                    // 1. All locally defined functions in the Wasm have a static signature.
-                    // 2. All the imported functions are already static (because
-                    //    they point to the trampolines rather than the dynamic addresses).
-                    kind: VMFunctionKind::Static,
-                    signature,
-                    vmctx,
-                    call_trampoline,
-                }
-                //}
-                .into()
-            }
-            ExportIndex::Table(index) => {
-                let from = if let Some(def_index) = self.module.local_table_index(*index) {
-                    self.tables[def_index].clone()
-                } else {
-                    let import = self.imported_table(*index);
-                    import.from.clone()
-                };
-                VMExportTable { from }.into()
-            }
-            ExportIndex::Memory(index) => {
-                let from = if let Some(def_index) = self.module.local_memory_index(*index) {
-                    self.memories[def_index].clone()
-                } else {
-                    let import = self.imported_memory(*index);
-                    import.from.clone()
-                };
-                VMExportMemory { from }.into()
-            }
-            ExportIndex::Global(index) => {
-                let from = {
-                    if let Some(def_index) = self.module.local_global_index(*index) {
-                        self.globals[def_index].clone()
-                    } else {
-                        let import = self.imported_global(*index);
-                        import.from.clone()
-                    }
-                };
-                VMExportGlobal { from }.into()
-            }
-        }
-    }
-
-    /// Return an iterator over the exports of this instance.
-    ///
-    /// Specifically, it provides access to the key-value pairs, where the keys
-    /// are export names, and the values are export declarations which can be
-    /// resolved `lookup_by_declaration`.
-    pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
-        self.module.exports.iter()
     }
 
     /// Return a reference to the custom state attached to this instance.
@@ -438,7 +339,7 @@ impl Instance {
         }
     }
 
-    /// Return the offset from the vmctx pointer to its containing Instance.
+    /// Return the offset from the vmctx pointer to its containing `Instance`.
     #[inline]
     pub(crate) fn vmctx_offset() -> isize {
         offset_of!(Self, vmctx) as isize
@@ -543,7 +444,7 @@ impl Instance {
         result
     }
 
-    // Get table element by index.
+    /// Get table element by index.
     fn table_get(
         &self,
         table_index: LocalTableIndex,
@@ -555,6 +456,7 @@ impl Instance {
             .get(index)
     }
 
+    /// Set table element by index.
     fn table_set(
         &self,
         table_index: LocalTableIndex,
@@ -565,14 +467,6 @@ impl Instance {
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
             .set(index, val)
-    }
-
-    fn alloc_layout(offsets: &VMOffsets) -> Layout {
-        let size = mem::size_of::<Self>()
-            .checked_add(usize::try_from(offsets.size_of_vmctx()).unwrap())
-            .unwrap();
-        let align = mem::align_of::<Self>();
-        Layout::from_size_align(size, align).unwrap()
     }
 
     /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
@@ -595,6 +489,7 @@ impl Instance {
             let import = self.imported_function(index);
             (import.body, import.environment)
         };
+
         VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
@@ -793,110 +688,297 @@ impl Instance {
     }
 }
 
-/// A handle holding an `Instance` of a WebAssembly module.
-#[derive(Hash, PartialEq, Eq)]
-pub struct InstanceHandle {
-    instance: *mut Instance,
+/// An `InstanceAllocator` is responsible to allocate, to deallocate,
+/// and to give access to an `Instance`, in such a way that `Instance`
+/// is unique, can be shared, safely, across threads, without
+/// duplicating the pointer in multiple locations. `InstanceAllocator`
+/// must be the only “owner” of an `Instance`.
+///
+/// Consequently, one must not share `Instance` but
+/// `InstanceAllocator`. It acts like an Atomically Reference Counted
+/// to `Instance`. In short, `InstanceAllocator` is roughly a
+/// simplified version of `std::sync::Arc`.
+///
+/// It is important to remind that `Instance` is dynamically-sized
+/// based on `VMOffsets`: The `Instance.vmctx` field represents a
+/// dynamically-sized array that extends beyond the nominal end of the
+/// type. So in order to create an instance of it, we must:
+///
+/// 1. Define the correct layout for `Instance` (size and alignment),
+/// 2. Allocate it properly.
+///
+/// The `InstanceAllocator::instance_layout` computes the correct
+/// layout to represent the wanted `Instance`.
+///
+/// Then `InstanceAllocator::allocate_instance` will use this layout
+/// to allocate an empty `Instance` properly. This allocation must be
+/// freed with `InstanceAllocator::deallocate_instance` if and only if
+/// it has been set correctly. The `Drop` implementation of
+/// `InstanceAllocator` calls its `deallocate_instance` method without
+/// checking if this property holds, only when `Self.strong` is equal
+/// to 1.
+///
+/// Note for the curious reader: `InstanceHandle::allocate_instance`
+/// and `InstanceHandle::new` will respectively allocate a proper
+/// `Instance` and will fill it correctly.
+///
+/// A little bit of background: The initial goal was to be able to
+/// shared an `Instance` between an `InstanceHandle` and the module
+/// exports, so that one can drop a `InstanceHandle` but still being
+/// able to use the exports properly.
+///
+/// This structure has a C representation because `Instance` is
+/// dynamically-sized, and the `instance` field must be last.
+#[derive(Debug)]
+#[repr(C)]
+pub struct InstanceAllocator {
+    /// Number of `Self` in the nature. It increases when `Self` is
+    /// cloned, and it decreases when `Self` is dropped.
+    strong: Arc<atomic::AtomicUsize>,
 
-    /// Whether `Self` owns `self.instance`. It's not always the case;
-    /// e.g. when `Self` is built with `Self::from_vmctx`.
+    /// The layout of `Instance` (which can vary).
+    instance_layout: Layout,
+
+    /// The `Instance` itself. It must be the last field of
+    /// `InstanceAllocator` since `Instance` is dyamically-sized.
     ///
-    /// This information is necessary to know whether `Self` should
-    /// deallocate `self.instance`.
-    owned_instance: bool,
+    /// `Instance` must not be dropped manually by Rust, because it's
+    /// allocated manually with `alloc` and a specific layout (Rust
+    /// would be able to drop `Instance` itself but it will imply a
+    /// memory leak because of `alloc`).
+    ///
+    /// No one in the code has a copy of the `Instance`'s
+    /// pointer. `Self` is the only one.
+    instance: NonNull<Instance>,
 }
 
-/// # Safety
-/// This is safe because there is no thread-specific logic in `InstanceHandle`.
-/// TODO: this needs extra review
-unsafe impl Send for InstanceHandle {}
+impl InstanceAllocator {
+    /// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
+    ///
+    /// Going above this limit will make the program to panic at exactly
+    /// `MAX_REFCOUNT` references.
+    const MAX_REFCOUNT: usize = std::usize::MAX - 1;
+
+    /// Create a new `InstanceAllocator`. It allocates nothing. It
+    /// fills nothing. The `Instance` must be already valid and
+    /// filled. `self_ptr` and `self_layout` must be the pointer and
+    /// the layout returned by `Self::allocate_self` used to build
+    /// `Self`.
+    ///
+    /// # Safety
+    ///
+    /// `instance` must a non-null, non-dangling, properly aligned,
+    /// and correctly initialized pointer to `Instance`. See
+    /// `InstanceHandle::new` for an example of how to correctly use
+    /// this API.
+    unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
+        Self {
+            strong: Arc::new(atomic::AtomicUsize::new(1)),
+            instance_layout,
+            instance,
+        }
+    }
+
+    /// Calculate the appropriate layout for `Instance`.
+    fn instance_layout(offsets: &VMOffsets) -> Layout {
+        let vmctx_size = usize::try_from(offsets.size_of_vmctx())
+            .expect("Failed to convert the size of `vmctx` to a `usize`");
+
+        let instance_vmctx_layout =
+            Layout::array::<u8>(vmctx_size).expect("Failed to create a layout for `VMContext`");
+
+        let (instance_layout, _offset) = Layout::new::<Instance>()
+            .extend(instance_vmctx_layout)
+            .expect("Failed to extend to `Instance` layout to include `VMContext`");
+
+        instance_layout.pad_to_align()
+    }
+
+    /// Allocate `Instance` (it is an uninitialized pointer).
+    ///
+    /// `offsets` is used to compute the layout with `Self::instance_layout`.
+    fn allocate_instance(offsets: &VMOffsets) -> (NonNull<Instance>, Layout) {
+        let layout = Self::instance_layout(offsets);
+
+        #[allow(clippy::cast_ptr_alignment)]
+        let instance_ptr = unsafe { alloc::alloc(layout) as *mut Instance };
+
+        let ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
+            ptr
+        } else {
+            alloc::handle_alloc_error(layout);
+        };
+
+        (ptr, layout)
+    }
+
+    /// Deallocate `Instance`.
+    ///
+    /// # Safety
+    ///
+    /// `Self.instance` must be correctly set and filled before being
+    /// dropped and deallocated.
+    unsafe fn deallocate_instance(&mut self) {
+        let instance_ptr = self.instance.as_ptr();
+
+        ptr::drop_in_place(instance_ptr);
+        std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+    }
+
+    /// Get the number of strong references pointing to this
+    /// `InstanceAllocator`.
+    pub fn strong_count(&self) -> usize {
+        self.strong.load(atomic::Ordering::SeqCst)
+    }
+
+    /// Get a reference to the `Instance`.
+    #[inline]
+    pub(crate) fn as_ref<'a>(&'a self) -> &'a Instance {
+        // SAFETY: The pointer is properly aligned, it is
+        // “dereferencable”, it points to an initialized memory of
+        // `Instance`, and the reference has the lifetime `'a`.
+        unsafe { self.instance.as_ref() }
+    }
+
+    #[inline]
+    unsafe fn as_mut<'a>(&'a mut self) -> &'a mut Instance {
+        self.instance.as_mut()
+    }
+}
+
+/// TODO: Review this super carefully.
+unsafe impl Send for InstanceAllocator {}
+unsafe impl Sync for InstanceAllocator {}
+
+impl Clone for InstanceAllocator {
+    /// Makes a clone of `InstanceAllocator`.
+    ///
+    /// This creates another `InstanceAllocator` using the same
+    /// `instance` pointer, increasing the strong reference count.
+    #[inline]
+    fn clone(&self) -> Self {
+        // Using a relaxed ordering is alright here, as knowledge of
+        // the original reference prevents other threads from
+        // erroneously deleting the object.
+        //
+        // As explained in the [Boost documentation][1]:
+        //
+        // > Increasing the reference counter can always be done with
+        // > `memory_order_relaxed`: New references to an object can
+        // > only be formed from an existing reference, and passing an
+        // > existing reference from one thread to another must already
+        // > provide any required synchronization.
+        //
+        // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
+        let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
+
+        // However we need to guard against massive refcounts in case
+        // someone is `mem::forget`ing `InstanceAllocator`. If we
+        // don't do this the count can overflow and users will
+        // use-after free. We racily saturate to `isize::MAX` on the
+        // assumption that there aren't ~2 billion threads
+        // incrementing the reference count at once. This branch will
+        // never be taken in any realistic program.
+        //
+        // We abort because such a program is incredibly degenerate,
+        // and we don't care to support it.
+
+        if old_size > Self::MAX_REFCOUNT {
+            panic!("Too many references of `InstanceAllocator`");
+        }
+
+        Self {
+            strong: self.strong.clone(),
+            instance_layout: self.instance_layout,
+            instance: self.instance.clone(),
+        }
+    }
+}
+
+impl PartialEq for InstanceAllocator {
+    /// Two `InstanceAllocator` are equal if and only if
+    /// `Self.instance` points to the same location.
+    fn eq(&self, other: &Self) -> bool {
+        self.instance == other.instance
+    }
+}
+
+impl Drop for InstanceAllocator {
+    /// Drop the `InstanceAllocator`.
+    ///
+    /// This will decrement the strong reference count. If it reaches
+    /// 1, then the `Self.instance` will be deallocated with
+    /// `Self::deallocate_instance`.
+    fn drop(&mut self) {
+        // Because `fetch_sub` is already atomic, we do not need to
+        // synchronize with other thread.
+        if self.strong.fetch_sub(1, atomic::Ordering::Release) != 1 {
+            return;
+        }
+
+        // This fence is needed to prevent reordering of use of the data and
+        // deletion of the data. Because it is marked `Release`, the decreasing
+        // of the reference count synchronizes with this `Acquire` fence. This
+        // means that use of the data happens before decreasing the reference
+        // count, which happens before this fence, which happens before the
+        // deletion of the data.
+        //
+        // As explained in the [Boost documentation][1]:
+        //
+        // > It is important to enforce any possible access to the object in one
+        // > thread (through an existing reference) to *happen before* deleting
+        // > the object in a different thread. This is achieved by a "release"
+        // > operation after dropping a reference (any access to the object
+        // > through this reference must obviously happened before), and an
+        // > "acquire" operation before deleting the object.
+        //
+        // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
+        atomic::fence(atomic::Ordering::Acquire);
+
+        // Now we can deallocate the instance. Note that we don't
+        // check the pointer to `Instance` is correctly initialized,
+        // but the way `InstanceHandle` creates the
+        // `InstanceAllocator` ensures that.
+        unsafe { Self::deallocate_instance(self) };
+    }
+}
+
+/// A handle holding an `InstanceAllocator`, which holds an `Instance`
+/// of a WebAssembly module.
+///
+/// This is more or less a public facade of the private `Instance`,
+/// providing useful higher-level API.
+#[derive(Debug, PartialEq)]
+pub struct InstanceHandle {
+    /// The `InstanceAllocator`. See its documentation to learn more.
+    instance: InstanceAllocator,
+}
 
 impl InstanceHandle {
     /// Allocates an instance for use with `InstanceHandle::new`.
     ///
     /// Returns the instance pointer and the [`VMOffsets`] that describe the
     /// memory buffer pointed to by the instance pointer.
+    ///
+    /// It should ideally return `NonNull<Instance>` rather than
+    /// `NonNull<u8>`, however `Instance` is private, and we want to
+    /// keep it private.
     pub fn allocate_instance(module: &ModuleInfo) -> (NonNull<u8>, VMOffsets) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
+        let (instance_ptr, _instance_layout) = InstanceAllocator::allocate_instance(&offsets);
 
-        let layout = Instance::alloc_layout(&offsets);
-
-        #[allow(clippy::cast_ptr_alignment)]
-        let instance_ptr = unsafe { alloc::alloc(layout) as *mut Instance };
-        let ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
-            ptr.cast()
-        } else {
-            alloc::handle_alloc_error(layout);
-        };
-
-        (ptr, offsets)
+        (instance_ptr.cast(), offsets)
     }
 
-    /// Get the locations of where the local `VMMemoryDefinition`s should be stored.
-    ///
-    /// This function lets us create `Memory` objects on the host with backing
-    /// memory in the VM.
-    ///
-    /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the offsets in
-    ///   `offsets` point to valid locations in memory.
-    pub unsafe fn memory_definition_locations(
-        instance_ptr: NonNull<u8>,
-        offsets: &VMOffsets,
-    ) -> Vec<NonNull<VMMemoryDefinition>> {
-        let num_memories = offsets.num_local_memories;
-        let num_memories = usize::try_from(num_memories).unwrap();
-        let mut out = Vec::with_capacity(num_memories);
-        // TODO: better encapsulate this logic, this shouldn't be duplicated
-        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
-        for i in 0..num_memories {
-            let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
-            let mem_offset = usize::try_from(mem_offset).unwrap();
-
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
-
-            out.push(new_ptr.cast());
-        }
-        out
-    }
-
-    /// Get the locations of where the `VMTableDefinition`s should be stored.
-    ///
-    /// This function lets us create `Table` objects on the host with backing
-    /// memory in the VM.
-    ///
-    /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the offsets in
-    ///   `offsets` point to valid locations in memory.
-    pub unsafe fn table_definition_locations(
-        instance_ptr: NonNull<u8>,
-        offsets: &VMOffsets,
-    ) -> Vec<NonNull<VMTableDefinition>> {
-        let num_tables = offsets.num_local_tables;
-        let num_tables = usize::try_from(num_tables).unwrap();
-        let mut out = Vec::with_capacity(num_tables);
-        // TODO: better encapsulate this logic, this shouldn't be duplicated
-        let base_ptr = instance_ptr.as_ptr().add(std::mem::size_of::<Instance>());
-        for i in 0..num_tables {
-            let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
-            let table_offset = usize::try_from(table_offset).unwrap();
-
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
-
-            out.push(new_ptr.cast());
-        }
-        out
-    }
-
-    /// Create a new `InstanceHandle` pointing at a new `Instance`.
+    /// Create a new `InstanceHandle` pointing at a new `InstanceAllocator`.
     ///
     /// # Safety
     ///
     /// This method is not necessarily inherently unsafe to call, but in general
     /// the APIs of an `Instance` are quite unsafe and have not been really
     /// audited for safety that much. As a result the unsafety here on this
-    /// method is a low-overhead way of saying "this is an extremely unsafe type
-    /// to work with".
+    /// method is a low-overhead way of saying “this is an extremely unsafe type
+    /// to work with”.
     ///
     /// Extreme care must be taken when working with `InstanceHandle` and it's
     /// recommended to have relatively intimate knowledge of how it works
@@ -907,8 +989,7 @@ impl InstanceHandle {
     /// However the following must be taken care of before calling this function:
     /// - `instance_ptr` must point to valid memory sufficiently large
     ///    for the `Instance`. `instance_ptr` will be owned by
-    ///    `InstanceHandle`, see `InstanceHandle::owned_instance` to
-    ///    learn more.
+    ///    `InstanceAllocator`, see `InstanceAllocator` to learn more.
     /// - The memory at `instance.tables_ptr()` must be initialized with data for
     ///   all the local tables.
     /// - The memory at `instance.memories_ptr()` must be initialized with data for
@@ -928,17 +1009,20 @@ impl InstanceHandle {
         host_state: Box<dyn Any>,
         import_initializers: ImportInitializerThunks,
     ) -> Result<Self, Trap> {
-        let instance_ptr = instance_ptr.cast::<Instance>().as_ptr();
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
 
         let vmctx_globals = finished_globals
             .values()
             .map(|m| m.vmglobal())
             .collect::<PrimaryMap<LocalGlobalIndex, _>>()
             .into_boxed_slice();
-
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
+            let instance_layout = InstanceAllocator::instance_layout(&offsets);
+            // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
                 offsets,
@@ -954,14 +1038,27 @@ impl InstanceHandle {
                 import_initializers,
                 vmctx: VMContext {},
             };
-            ptr::write(instance_ptr, instance);
+
+            // `instance` is moved at `instance_ptr`. This pointer has
+            // been allocated by `Self::allocate_instance` (so by
+            // `InstanceAllocator::allocate_instance`.
+            ptr::write(instance_ptr.as_ptr(), instance);
+
+            // Now `instance_ptr` is correctly initialized!
+
+            // `instance_ptr` is passed to `InstanceAllocator`, which
+            // makes it the only “owner” (it doesn't own the value,
+            // it's just the semantics we define).
+            //
+            // SAFETY: `instance_ptr` fulfills all the requirement of
+            // `InstanceAllocator::new`.
+            let instance_allocator = InstanceAllocator::new(instance_ptr, instance_layout);
 
             Self {
-                instance: instance_ptr,
-                owned_instance: true,
+                instance: instance_allocator,
             }
         };
-        let instance = handle.instance();
+        let instance = handle.instance().as_ref();
 
         ptr::copy(
             vmshared_signatures.values().as_slice().as_ptr(),
@@ -1012,6 +1109,86 @@ impl InstanceHandle {
         Ok(handle)
     }
 
+    /// Return a reference to the contained `Instance`.
+    pub(crate) fn instance(&self) -> &InstanceAllocator {
+        &self.instance
+    }
+
+    /// Get the locations of where the local `VMMemoryDefinition`s should be stored.
+    ///
+    /// This function lets us create `Memory` objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the
+    ///   offsets in `offsets` point to valid locations in memory,
+    ///   i.e. `instance_ptr` must have been allocated by
+    ///   `InstanceHandle::allocate_instance`.
+    pub unsafe fn memory_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMMemoryDefinition>> {
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
+
+        let num_memories = offsets.num_local_memories;
+        let num_memories = usize::try_from(num_memories).unwrap();
+        let mut out = Vec::with_capacity(num_memories);
+
+        // We need to do some pointer arithmetic now. The unit is `u8`.
+        let ptr = instance_ptr.cast::<u8>().as_ptr();
+        let base_ptr = ptr.add(mem::size_of::<Instance>());
+
+        for i in 0..num_memories {
+            let mem_offset = offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = usize::try_from(mem_offset).unwrap();
+
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
+
+            out.push(new_ptr.cast());
+        }
+
+        out
+    }
+
+    /// Get the locations of where the `VMTableDefinition`s should be stored.
+    ///
+    /// This function lets us create `Table` objects on the host with backing
+    /// memory in the VM.
+    ///
+    /// # Safety
+    /// - `instance_ptr` must point to enough memory that all of the
+    ///   offsets in `offsets` point to valid locations in memory,
+    ///   i.e. `instance_ptr` must have been allocated by
+    ///   `InstanceHandle::allocate_instance`.
+    pub unsafe fn table_definition_locations(
+        instance_ptr: NonNull<u8>,
+        offsets: &VMOffsets,
+    ) -> Vec<NonNull<VMTableDefinition>> {
+        // `NonNull<u8>` here actually means `NonNull<Instance>`. See
+        // `Self::allocate_instance` to understand why.
+        let instance_ptr: NonNull<Instance> = instance_ptr.cast();
+
+        let num_tables = offsets.num_local_tables;
+        let num_tables = usize::try_from(num_tables).unwrap();
+        let mut out = Vec::with_capacity(num_tables);
+
+        // We need to do some pointer arithmetic now. The unit is `u8`.
+        let ptr = instance_ptr.cast::<u8>().as_ptr();
+        let base_ptr = ptr.add(std::mem::size_of::<Instance>());
+
+        for i in 0..num_tables {
+            let table_offset = offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = usize::try_from(table_offset).unwrap();
+
+            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
+
+            out.push(new_ptr.cast());
+        }
+        out
+    }
+
     /// Finishes the instantiation process started by `Instance::new`.
     ///
     /// # Safety
@@ -1021,64 +1198,129 @@ impl InstanceHandle {
         &self,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
-        check_table_init_bounds(self.instance())?;
-        check_memory_init_bounds(self.instance(), data_initializers)?;
+        let instance = self.instance().as_ref();
+        check_table_init_bounds(instance)?;
+        check_memory_init_bounds(instance, data_initializers)?;
 
         // Apply the initializers.
-        initialize_tables(self.instance())?;
-        initialize_memories(self.instance(), data_initializers)?;
+        initialize_tables(instance)?;
+        initialize_memories(instance, data_initializers)?;
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        self.instance().invoke_start_function()?;
+        instance.invoke_start_function()?;
         Ok(())
-    }
-
-    /// Create a new `InstanceHandle` pointing at the instance
-    /// pointed to by the given `VMContext` pointer.
-    ///
-    /// # Safety
-    /// This is unsafe because it doesn't work on just any `VMContext`, it must
-    /// be a `VMContext` allocated as part of an `Instance`.
-    pub unsafe fn from_vmctx(vmctx: *const VMContext) -> Self {
-        let instance = (&*vmctx).instance();
-
-        Self {
-            instance: instance as *const Instance as *mut Instance,
-
-            // We consider `vmctx` owns the `Instance`, not `Self`.
-            owned_instance: false,
-        }
     }
 
     /// Return a reference to the vmctx used by compiled wasm code.
     pub fn vmctx(&self) -> &VMContext {
-        self.instance().vmctx()
+        self.instance().as_ref().vmctx()
     }
 
     /// Return a raw pointer to the vmctx used by compiled wasm code.
     pub fn vmctx_ptr(&self) -> *mut VMContext {
-        self.instance().vmctx_ptr()
+        self.instance().as_ref().vmctx_ptr()
     }
 
     /// Return a reference-counting pointer to a module.
     pub fn module(&self) -> &Arc<ModuleInfo> {
-        self.instance().module()
+        self.instance().as_ref().module()
     }
 
     /// Return a reference to a module.
     pub fn module_ref(&self) -> &ModuleInfo {
-        self.instance().module_ref()
+        self.instance().as_ref().module_ref()
     }
 
     /// Lookup an export with the given name.
     pub fn lookup(&self, field: &str) -> Option<VMExport> {
-        self.instance().lookup(field)
+        let export = self.module_ref().exports.get(field)?;
+
+        Some(self.lookup_by_declaration(&export))
     }
 
     /// Lookup an export with the given export declaration.
+    // TODO: maybe EngineExport
     pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
-        self.instance().lookup_by_declaration(export)
+        let instance = self.instance().clone();
+        let instance_ref = instance.as_ref();
+
+        match export {
+            ExportIndex::Function(index) => {
+                let sig_index = &instance_ref.module.functions[*index];
+                let (address, vmctx, _function_ptr) =
+                    if let Some(def_index) = instance_ref.module.local_func_index(*index) {
+                        (
+                            instance_ref.functions[def_index].0 as *const _,
+                            VMFunctionEnvironment {
+                                vmctx: instance_ref.vmctx_ptr(),
+                            },
+                            None,
+                        )
+                    } else {
+                        let import = instance_ref.imported_function(*index);
+                        let initializer = instance_ref.imported_function_env_initializer(*index);
+                        (import.body, import.environment, initializer)
+                    };
+                let call_trampoline = Some(instance_ref.function_call_trampolines[*sig_index]);
+                let signature = instance_ref.module.signatures[*sig_index].clone();
+
+                VMExportFunction {
+                    address,
+                    // Any function received is already static at this point as:
+                    // 1. All locally defined functions in the Wasm have a static signature.
+                    // 2. All the imported functions are already static (because
+                    //    they point to the trampolines rather than the dynamic addresses).
+                    kind: VMFunctionKind::Static,
+                    signature,
+                    vmctx,
+                    call_trampoline,
+                    instance_allocator: Some(instance),
+                }
+                .into()
+            }
+            ExportIndex::Table(index) => {
+                let from = if let Some(def_index) = instance_ref.module.local_table_index(*index) {
+                    instance_ref.tables[def_index].clone()
+                } else {
+                    let import = instance_ref.imported_table(*index);
+                    import.from.clone()
+                };
+                VMExportTable {
+                    from,
+                    instance_allocator: Some(instance),
+                }
+                .into()
+            }
+            ExportIndex::Memory(index) => {
+                let from = if let Some(def_index) = instance_ref.module.local_memory_index(*index) {
+                    instance_ref.memories[def_index].clone()
+                } else {
+                    let import = instance_ref.imported_memory(*index);
+                    import.from.clone()
+                };
+                VMExportMemory {
+                    from,
+                    instance_allocator: Some(instance),
+                }
+                .into()
+            }
+            ExportIndex::Global(index) => {
+                let from = {
+                    if let Some(def_index) = instance_ref.module.local_global_index(*index) {
+                        instance_ref.globals[def_index].clone()
+                    } else {
+                        let import = instance_ref.imported_global(*index);
+                        import.from.clone()
+                    }
+                };
+                VMExportGlobal {
+                    from,
+                    instance_allocator: Some(instance),
+                }
+                .into()
+            }
+        }
     }
 
     /// Return an iterator over the exports of this instance.
@@ -1087,17 +1329,17 @@ impl InstanceHandle {
     /// are export names, and the values are export declarations which can be
     /// resolved `lookup_by_declaration`.
     pub fn exports(&self) -> indexmap::map::Iter<String, ExportIndex> {
-        self.instance().exports()
+        self.module().exports.iter()
     }
 
     /// Return a reference to the custom state attached to this instance.
     pub fn host_state(&self) -> &dyn Any {
-        self.instance().host_state()
+        self.instance().as_ref().host_state()
     }
 
     /// Return the memory index for the given `VMMemoryDefinition` in this instance.
     pub fn memory_index(&self, memory: &VMMemoryDefinition) -> LocalMemoryIndex {
-        self.instance().memory_index(memory)
+        self.instance().as_ref().memory_index(memory)
     }
 
     /// Grow memory in this instance by the specified amount of pages.
@@ -1112,12 +1354,12 @@ impl InstanceHandle {
     where
         IntoPages: Into<Pages>,
     {
-        self.instance().memory_grow(memory_index, delta)
+        self.instance().as_ref().memory_grow(memory_index, delta)
     }
 
     /// Return the table index for the given `VMTableDefinition` in this instance.
     pub fn table_index(&self, table: &VMTableDefinition) -> LocalTableIndex {
-        self.instance().table_index(table)
+        self.instance().as_ref().table_index(table)
     }
 
     /// Grow table in this instance by the specified amount of pages.
@@ -1125,7 +1367,7 @@ impl InstanceHandle {
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
     pub fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
-        self.instance().table_grow(table_index, delta)
+        self.instance().as_ref().table_grow(table_index, delta)
     }
 
     /// Get table element reference.
@@ -1136,7 +1378,7 @@ impl InstanceHandle {
         table_index: LocalTableIndex,
         index: u32,
     ) -> Option<VMCallerCheckedAnyfunc> {
-        self.instance().table_get(table_index, index)
+        self.instance().as_ref().table_get(table_index, index)
     }
 
     /// Set table element reference.
@@ -1148,17 +1390,12 @@ impl InstanceHandle {
         index: u32,
         val: VMCallerCheckedAnyfunc,
     ) -> Result<(), Trap> {
-        self.instance().table_set(table_index, index, val)
+        self.instance().as_ref().table_set(table_index, index, val)
     }
 
     /// Get a table defined locally within this module.
     pub fn get_local_table(&self, index: LocalTableIndex) -> &dyn Table {
-        self.instance().get_local_table(index)
-    }
-
-    /// Return a reference to the contained `Instance`.
-    pub(crate) fn instance(&self) -> &Instance {
-        unsafe { &*(self.instance as *const Instance) }
+        self.instance().as_ref().get_local_table(index)
     }
 
     /// Initializes the host environments.
@@ -1172,12 +1409,12 @@ impl InstanceHandle {
         &mut self,
         instance_ptr: *const std::ffi::c_void,
     ) -> Result<(), Err> {
-        use std::ffi;
-        let instance = &mut *self.instance;
-        for (func, env) in instance.import_initializers.drain(..) {
+        let instance_ref = self.instance.as_mut();
+
+        for (func, env) in instance_ref.import_initializers.drain(..) {
             if let Some(ref f) = func {
                 // transmute our function pointer into one with the correct error type
-                let f = std::mem::transmute::<
+                let f = mem::transmute::<
                     &ImportInitializerFuncPtr,
                     &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
                 >(f);
@@ -1185,29 +1422,36 @@ impl InstanceHandle {
             }
         }
         // free memory now that it's empty.
-        instance.import_initializers.shrink_to_fit();
-        Ok(())
-    }
+        instance_ref.import_initializers.shrink_to_fit();
 
-    /// Deallocates memory associated with this instance.
-    ///
-    /// # Safety
-    ///
-    /// This is unsafe because there might be other handles to this
-    /// `InstanceHandle` elsewhere, and there's nothing preventing
-    /// usage of this handle after this function is called.
-    pub unsafe fn dealloc(&self) {
-        let instance = self.instance();
-        let layout = Instance::alloc_layout(&instance.offsets);
-        ptr::drop_in_place(self.instance);
-        alloc::dealloc(self.instance.cast(), layout);
+        Ok(())
     }
 }
 
-impl Drop for InstanceHandle {
-    fn drop(&mut self) {
-        if self.owned_instance {
-            unsafe { self.dealloc() }
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
+
+        impl InstanceHandle {
+            /// Set a custom signal handler
+            pub fn set_signal_handler<H>(&self, handler: H)
+            where
+                H: 'static + Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool,
+            {
+                self.instance().as_ref().signal_handler.set(Some(Box::new(handler)));
+            }
+        }
+    } else if #[cfg(target_os = "windows")] {
+        pub type SignalHandler = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+
+        impl InstanceHandle {
+            /// Set a custom signal handler
+            pub fn set_signal_handler<H>(&self, handler: H)
+            where
+                H: 'static + Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool,
+            {
+                self.instance().as_ref().signal_handler.set(Some(Box::new(handler)));
+            }
         }
     }
 }
