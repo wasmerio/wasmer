@@ -38,12 +38,13 @@ pub struct wasm_module_t {
 ///    
 ///     wasm_byte_vec_t wat;
 ///     wasmer_byte_vec_new_from_string(&wat, "(module)");
-///     wasm_byte_vec_t* wasm = wat2wasm(&wat);
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&wat, &wasm);
 ///    
-///     wasm_module_t* module = wasm_module_new(store, wasm);
+///     wasm_module_t* module = wasm_module_new(store, &wasm);
 ///     assert(module);
 ///    
-///     wasm_byte_vec_delete(wasm);
+///     wasm_byte_vec_delete(&wasm);
 ///     wasm_byte_vec_delete(&wat);
 ///     wasm_module_delete(module);
 ///     wasm_store_delete(store);
@@ -190,11 +191,12 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                assert(wasm_module_validate(store, wasm));
+                assert(wasm_module_validate(store, &wasm));
 
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -216,12 +218,13 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_module_delete(module);
                 wasm_store_delete(store);
@@ -251,9 +254,10 @@ mod tests {
                     "  (table (export \"table\") 0 funcref)\n"
                     "  (memory (export \"memory\") 1))"
                 );
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
                 wasm_exporttype_vec_t export_types;
@@ -328,7 +332,7 @@ mod tests {
                 }
 
                 wasm_exporttype_vec_delete(&export_types);
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_module_delete(module);
                 wasm_store_delete(store);
@@ -356,9 +360,10 @@ mod tests {
                     "  (import \"ns\" \"table\" (table 1 2 anyfunc))\n"
                     "  (import \"ns\" \"memory\" (memory 3 4)))"
                 );
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
                 wasm_importtype_vec_t import_types;
@@ -444,7 +449,7 @@ mod tests {
 
                 wasm_importtype_vec_delete(&import_types);
                 wasm_module_delete(module);
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -464,9 +469,10 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
                 wasm_byte_vec_t serialized_module;
@@ -475,7 +481,7 @@ mod tests {
 
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&serialized_module);
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -502,9 +508,10 @@ mod tests {
                     "  (table (export \"table\") 0 funcref)\n"
                     "  (memory (export \"memory\") 1))"
                 );
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
 
                 wasm_byte_vec_t serialized_module;
@@ -526,7 +533,7 @@ mod tests {
 
                 wasm_exporttype_vec_delete(&export_types);
                 wasm_module_delete(deserialized_module);
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
