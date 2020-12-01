@@ -728,14 +728,16 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
+#[repr(C)]
 pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {
+    // This field _must_ come first in this struct.
+    env: Box<Env>,
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: Box<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>

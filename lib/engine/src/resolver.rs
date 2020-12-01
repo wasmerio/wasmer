@@ -7,8 +7,9 @@ use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
-    VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
+    FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMDynamicFunctionContext,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -154,13 +155,36 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                let address = match f.vm_function.kind {
+                let (address, env_ptr) = match f.vm_function.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
+                        let address = finished_dynamic_function_trampolines[index].0
+                            as *mut VMFunctionBody as _;
+                        let env_ptr = if f.import_init_function_ptr.is_some() {
+                            // Our function env looks like:
+                            // Box<VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>>
+                            // Which we can interpret as `*const <field offset> *const Env` (due to precise
+                            // layout of these types via `repr(C)`)
+                            // We extract the `*const Env`:
+                            unsafe {
+                                // Box<VMDynamicFunctionContext<...>>
+                                let dyn_func_ctx_ptr = f.vm_function.vmctx.host_env
+                                    as *mut VMDynamicFunctionContext<*mut std::ffi::c_void>;
+                                // maybe report error here if it's null?
+                                // invariants of these types are not enforced.
+
+                                // &VMDynamicFunctionContext<...>
+                                let dyn_func_ctx = &*dyn_func_ctx_ptr;
+                                dyn_func_ctx.ctx
+                            }
+                        } else {
+                            std::ptr::null_mut()
+                        };
+
+                        (address, env_ptr)
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
@@ -174,7 +198,9 @@ pub fn resolve_imports(
                             assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
                         }
 
-                        f.vm_function.address
+                        (f.vm_function.address, unsafe {
+                            f.vm_function.vmctx.host_env
+                        })
                     }
                 };
                 function_imports.push(VMFunctionImport {
@@ -182,7 +208,7 @@ pub fn resolve_imports(
                     environment: f.vm_function.vmctx,
                 });
 
-                host_function_env_initializers.push(f.import_init_function_ptr);
+                host_function_env_initializers.push((f.import_init_function_ptr, env_ptr));
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
