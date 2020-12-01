@@ -29,9 +29,6 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
-// The `jit` feature has been enabled for this build.
-#define WASMER_JIT_ENABLED
-
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -145,10 +142,18 @@ intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_le
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
 bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
 void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
 #endif
 

@@ -29,7 +29,7 @@ pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
 ) -> *mut wasm_trap_t;
 
 #[allow(non_camel_case_types)]
-pub type wasm_env_finalizer_t = unsafe extern "C" fn(c_void);
+pub type wasm_env_finalizer_t = unsafe extern "C" fn(*mut c_void);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_new(
@@ -92,7 +92,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     function_type: Option<&wasm_functype_t>,
     callback: Option<wasm_func_callback_with_env_t>,
     env: *mut c_void,
-    finalizer: wasm_env_finalizer_t,
+    finalizer: Option<wasm_env_finalizer_t>,
 ) -> Option<Box<wasm_func_t>> {
     let store = store?;
     let function_type = function_type?;
@@ -100,7 +100,23 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
-    let inner_callback = move |env: &*mut c_void, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+
+    #[derive(wasmer::WasmerEnv)]
+    #[repr(C)]
+    struct WrapperEnv {
+        env: *mut c_void,
+        finalizer: Option<wasm_env_finalizer_t>,
+    };
+
+    impl Drop for WrapperEnv {
+        fn drop(&mut self) {
+            if let Some(finalizer) = self.finalizer {
+                unsafe { (finalizer)(self.env as _) }
+            }
+        }
+    }
+
+    let inner_callback = move |env: &WrapperEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
             .into_iter()
             .map(TryInto::try_into)
@@ -117,7 +133,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         ]
         .into();
 
-        let trap = callback(*env, &processed_args, &mut results);
+        let trap = callback(env.env, &processed_args, &mut results);
 
         if !trap.is_null() {
             let trap: Box<wasm_trap_t> = Box::from_raw(trap);
@@ -136,7 +152,12 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         Ok(processed_results)
     };
 
-    let function = Function::new_with_env(&store.inner, &func_sig, env, inner_callback);
+    let function = Function::new_with_env(
+        &store.inner,
+        &func_sig,
+        WrapperEnv { env, finalizer },
+        inner_callback,
+    );
 
     Some(Box::new(wasm_func_t {
         instance: None,

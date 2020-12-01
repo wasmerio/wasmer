@@ -1,5 +1,5 @@
 //! Ordered Resolvers are a custom kind of [`Resolver`] that retrieves
-//! `Export`s based on the index of the import, and not the module or name.
+//! `EngineExport`s based on the index of the import, and not the module or name.
 //!
 //! This resolver is used in the Wasm-C-API as the imports are provided
 //! by index and not by module and name.

@@ -4,7 +4,7 @@ use libc::c_uchar;
 use std::path::PathBuf;
 use std::ptr;
 use std::str;
-use wasmer::{Memory, MemoryType, NamedResolver};
+use wasmer::NamedResolver;
 use wasmer_wasi as wasi;
 
 #[derive(Debug, PartialEq)]
@@ -213,11 +213,6 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     let mut wasi_state_builder = wasi::WasiState::new("wasmer-wasi-default-program-name");
     let wasi_state = wasi_state_builder.build().unwrap();
     let mut wasi_env = wasi::WasiEnv::new(wasi_state);
-    // this API will now leak a `Memory`
-    let memory_type = MemoryType::new(0, None, false);
-    let memory = Memory::new(store, memory_type).expect("create memory");
-    wasi_env.set_memory(memory);
-    // TODO(mark): review lifetime of `Memory` here
     let import_object_inner: Box<dyn NamedResolver> = Box::new(
         wasi::generate_import_object_from_env(store, wasi_env, wasi::WasiVersion::Latest),
     );

@@ -328,8 +328,15 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
         Ok((d * 4.0, c * 3.0, b * 2, a * 1))
     }
 
-    #[derive(Clone)]
+    #[derive(WasmerEnv, Clone)]
     struct Env(Rc<RefCell<i32>>);
+
+    impl std::ops::Deref for Env {
+        type Target = Rc<RefCell<i32>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
 
     // Native static host function that returns a tuple.
     {
@@ -395,8 +402,15 @@ fn dynamic_host_function_without_env() -> anyhow::Result<()> {
 fn dynamic_host_function_with_env() -> anyhow::Result<()> {
     let store = get_store(false);
 
-    #[derive(Clone)]
+    #[derive(WasmerEnv, Clone)]
     struct Env(Rc<RefCell<i32>>);
+
+    impl std::ops::Deref for Env {
+        type Target = Rc<RefCell<i32>>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
 
     let env = Env(Rc::new(RefCell::new(100)));
     let f = Function::new_with_env(
