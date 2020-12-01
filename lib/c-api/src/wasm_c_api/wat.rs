@@ -9,12 +9,18 @@ use super::types::wasm_byte_vec_t;
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
     let wat: &[u8] = match wat.into_slice() {
         Some(v) => v,
-        _ => return,
+        _ => {
+            out.data = std::ptr::null_mut();
+            out.size = 0;
+            return;
+        }
     };
     let result: wasm_byte_vec_t = match wasmer::wat2wasm(wat) {
         Ok(val) => val.into_owned().into(),
         Err(err) => {
             crate::error::update_last_error(err);
+            out.data = std::ptr::null_mut();
+            out.size = 0;
             return;
         }
     };
@@ -37,22 +43,23 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                assert(wasm);
-                assert(wasm->size == 8);
+                assert(wasm.data);
+                assert(wasm.size == 8);
                 assert(
-                    wasm->data[0] == 0 &&
-                        wasm->data[1] == 'a' &&
-                        wasm->data[2] == 's' &&
-                        wasm->data[3] == 'm' &&
-                        wasm->data[4] == 1 &&
-                        wasm->data[5] == 0 &&
-                        wasm->data[6] == 0 &&
-                        wasm->data[7] == 0
+                    wasm.data[0] == 0 &&
+                        wasm.data[1] == 'a' &&
+                        wasm.data[2] == 's' &&
+                        wasm.data[3] == 'm' &&
+                        wasm.data[4] == 1 &&
+                        wasm.data[5] == 0 &&
+                        wasm.data[6] == 0 &&
+                        wasm.data[7] == 0
                 );
 
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
@@ -74,9 +81,10 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module");
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
-                assert(!wasm);
+                assert(!wasm.data);
                 assert(wasmer_last_error_length() > 0);
 
                 wasm_byte_vec_delete(&wat);
