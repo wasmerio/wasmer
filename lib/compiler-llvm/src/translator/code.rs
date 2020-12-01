@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, GenerateMiddlewareChain,
-    MiddlewareBinaryReader, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -150,7 +150,7 @@ impl FuncTranslator {
         reader.set_middleware_chain(
             config
                 .middlewares
-                .generate_middleware_chain(*local_func_index),
+                .generate_function_middleware_chain(*local_func_index),
         );
 
         let mut params = vec![];

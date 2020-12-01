@@ -24,6 +24,7 @@ wasmer-wasi = { version = "1.0.0-alpha5", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-alpha5", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.0-alpha5", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.0-alpha5", path = "lib/wasmer-types" }
+wasmer-middlewares = { version = "1.0.0-alpha5", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
 
 [workspace]
@@ -81,6 +82,7 @@ default = [
     "cache",
     "wasi",
     "emscripten",
+    "middlewares",
 ]
 engine = []
 jit = [
@@ -119,6 +121,7 @@ llvm = [
     "wasmer-compiler-llvm",
     "compiler",
 ]
+middlewares = ["wasmer-middlewares"]
 
 # Testing features
 test-singlepass = [

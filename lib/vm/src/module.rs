@@ -19,7 +19,7 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ModuleId {
     id: usize,
 }
@@ -41,7 +41,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///

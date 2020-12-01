@@ -8,15 +8,16 @@ use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
-    Symbol, SymbolRegistry, Target,
+    Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
+    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
-//use std::sync::{Arc, Mutex};
+//use std::sync::Mutex;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -210,7 +211,7 @@ impl Compiler for LLVMCompiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -218,9 +219,13 @@ impl Compiler for LLVMCompiler {
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
     ) -> Option<Result<Vec<u8>, CompileError>> {
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         Some(self.compile_native_object(
             target,
-            module,
+            compile_info,
             module_translation,
             function_body_inputs,
             symbol_registry,
@@ -233,13 +238,17 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
@@ -260,7 +269,7 @@ impl Compiler for LLVMCompiler {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
                     func_translator.translate(
-                        &module,
+                        module,
                         module_translation,
                         i,
                         input,

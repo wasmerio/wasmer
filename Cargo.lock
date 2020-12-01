@@ -2727,6 +2727,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-middlewares"
+version = "1.0.0-alpha5"
+dependencies = [
+ "wasmer",
+ "wasmer-types",
+ "wasmer-vm",
+]
+
+[[package]]
 name = "wasmer-object"
 version = "1.0.0-alpha5"
 dependencies = [
@@ -2832,6 +2841,7 @@ dependencies = [
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",

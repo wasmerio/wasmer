@@ -1,5 +1,5 @@
 use std::sync::Arc;
-use wasmer::{FunctionMiddlewareGenerator, Store};
+use wasmer::{ModuleMiddleware, Store};
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
 #[cfg(feature = "test-jit")]
@@ -50,7 +50,7 @@ pub fn get_store(canonicalize_nans: bool) -> Store {
     Store::new(&get_engine(canonicalize_nans))
 }
 
-pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn FunctionMiddlewareGenerator>>>(
+pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>(
     middlewares: I,
 ) -> Store {
     let mut compiler_config = get_compiler(false);

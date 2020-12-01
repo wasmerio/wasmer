@@ -7,7 +7,7 @@ use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
-use crate::translator::FunctionMiddlewareGenerator;
+use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
@@ -45,7 +45,7 @@ pub trait CompilerConfig {
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
@@ -84,7 +84,7 @@ pub trait Compiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        module: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -96,7 +96,7 @@ pub trait Compiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         _target: &Target,
-        _module: &'module CompileModuleInfo,
+        _module: &'module mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
