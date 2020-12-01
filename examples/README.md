@@ -39,7 +39,21 @@ example.
 
 ### Basics
 
-1. [**Instantiating a module**][instance], explains the basics of using Wasmer
+1. [**Hello World**][hello-world], explains the core concepts of the Wasmer
+   API for compiling and executing WebAssembly.
+
+   _Keywords_: introduction, instance, module.
+
+   <details>
+    <summary><em>Execute the example</em></summary>
+
+    ```shell
+    $ cargo run --example hello-world --release --features "cranelift"
+    ```
+
+   </details>
+
+2. [**Instantiating a module**][instance], explains the basics of using Wasmer
    and how to create an instance out of a Wasm module.
    
    _Keywords_: instance, module.
@@ -53,7 +67,7 @@ example.
 
    </details>
 
-2. [**Handling errors**][errors], explains the basics of interacting with
+3. [**Handling errors**][errors], explains the basics of interacting with
    Wasm module memory.
    
    _Keywords_: memory, module.
@@ -67,7 +81,7 @@ example.
 
    </details>
 
-3. [**Interacting with memory**][memory], explains the basics of interacting with
+4. [**Interacting with memory**][memory], explains the basics of interacting with
    Wasm module memory.
    
    _Keywords_: memory, module.

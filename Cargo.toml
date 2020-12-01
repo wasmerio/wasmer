@@ -245,3 +245,8 @@ required-features = ["cranelift"]
 name = "imported-function-env"
 path = "examples/imports_function_env.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "hello-world"
+path = "examples/hello_world.rs"
+required-features = ["cranelift"]
