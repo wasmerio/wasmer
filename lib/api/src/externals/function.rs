@@ -5,15 +5,17 @@ use crate::types::Val;
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
+use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 #[cfg(feature = "deprecated")]
 pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
 use std::cmp::max;
 use std::fmt;
+use wasmer_engine::{Export, ExportFunction};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, Export, ExportFunction,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
+    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
     VMFunctionKind, VMTrampoline,
 };
 
@@ -51,6 +53,12 @@ pub enum FunctionDefinition {
 /// during execution of the function.
 ///
 /// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
+///
+/// # Panics
+/// - Closures (functions with captured environments) are not currently supported
+///   with native functions. Attempting to create a native `Function` with one will
+///   result in a panic.
+///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
 #[derive(Clone, PartialEq)]
 pub struct Function {
     pub(crate) store: Store,
@@ -95,12 +103,15 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
-                signature: ty.clone(),
-                call_trampoline: None,
-                instance_allocator: None,
+                import_init_function_ptr: None,
+                vm_function: VMExportFunction {
+                    address,
+                    kind: VMFunctionKind::Dynamic,
+                    vmctx,
+                    signature: ty.clone(),
+                    call_trampoline: None,
+                    instance_allocator: None,
+                },
             },
         }
     }
@@ -110,9 +121,10 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
     /// # let store = Store::default();
     /// #
+    /// #[derive(WasmerEnv)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -129,7 +141,7 @@ impl Function {
     pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
     where
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
-        Env: Sized + 'static,
+        Env: Sized + WasmerEnv + 'static,
     {
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Box::new(env),
@@ -143,17 +155,26 @@ impl Function {
         let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
         };
+        // TODO: look into removing transmute by changing API type signatures
+        let import_init_function_ptr = Some(unsafe {
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
+                Env::init_with_instance,
+            )
+        });
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Dynamic,
-                vmctx,
-                signature: ty.clone(),
-                call_trampoline: None,
-                instance_allocator: None,
+                import_init_function_ptr,
+                vm_function: VMExportFunction {
+                    address,
+                    kind: VMFunctionKind::Dynamic,
+                    vmctx,
+                    signature: ty.clone(),
+                    call_trampoline: None,
+                    instance_allocator: None,
+                },
             },
         }
     }
@@ -182,6 +203,9 @@ impl Function {
         Rets: WasmTypeList,
         Env: Sized + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
         let vmctx = VMFunctionEnvironment {
@@ -192,13 +216,19 @@ impl Function {
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
+
             exported: ExportFunction {
-                address,
-                vmctx,
-                signature,
-                kind: VMFunctionKind::Static,
-                call_trampoline: None,
-                instance_allocator: None,
+                // TODO: figure out what's going on in this function: it takes an `Env`
+                // param but also marks itself as not having an env
+                import_init_function_ptr: None,
+                vm_function: VMExportFunction {
+                    address,
+                    vmctx,
+                    signature,
+                    kind: VMFunctionKind::Static,
+                    call_trampoline: None,
+                    instance_allocator: None,
+                },
             },
         }
     }
@@ -211,9 +241,10 @@ impl Function {
     /// # Example
     ///
     /// ```
-    /// # use wasmer::{Store, Function};
+    /// # use wasmer::{Store, Function, WasmerEnv};
     /// # let store = Store::default();
     /// #
+    /// #[derive(WasmerEnv)]
     /// struct Env {
     ///     multiplier: i32,
     /// };
@@ -230,8 +261,11 @@ impl Function {
         F: HostFunction<Args, Rets, WithEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: Sized + 'static,
+        Env: Sized + WasmerEnv + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -244,18 +278,27 @@ impl Function {
         let vmctx = VMFunctionEnvironment {
             host_env: Box::into_raw(box_env) as *mut _,
         };
+        // TODO: look into removing transmute by changing API type signatures
+        let import_init_function_ptr = Some(unsafe {
+            std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
+                Env::init_with_instance,
+            )
+        });
         let signature = function.ty();
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Static,
-                vmctx,
-                signature,
-                call_trampoline: None,
-                instance_allocator: None,
+                import_init_function_ptr,
+                vm_function: VMExportFunction {
+                    address,
+                    kind: VMFunctionKind::Static,
+                    vmctx,
+                    signature,
+                    call_trampoline: None,
+                    instance_allocator: None,
+                },
             },
         }
     }
@@ -277,8 +320,11 @@ impl Function {
         F: HostFunction<Args, Rets, WithUnsafeMutableEnv, Env>,
         Args: WasmTypeList,
         Rets: WasmTypeList,
-        Env: UnsafeMutableEnv + 'static,
+        Env: UnsafeMutableEnv + WasmerEnv + 'static,
     {
+        if std::mem::size_of::<F>() != 0 {
+            Self::closures_unsupported_panic();
+        }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
@@ -287,17 +333,25 @@ impl Function {
             host_env: Box::into_raw(box_env) as *mut _,
         };
         let signature = function.ty();
+        // TODO: look into removing transmute by changing API type signatures
+        let import_init_function_ptr = Some(std::mem::transmute::<
+            fn(_, _) -> Result<(), _>,
+            fn(_, _) -> Result<(), _>,
+        >(Env::init_with_instance));
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                address,
-                kind: VMFunctionKind::Static,
-                vmctx,
-                signature,
-                call_trampoline: None,
-                instance_allocator: None,
+                import_init_function_ptr,
+                vm_function: VMExportFunction {
+                    address,
+                    kind: VMFunctionKind::Static,
+                    vmctx,
+                    signature,
+                    call_trampoline: None,
+                    instance_allocator: None,
+                },
             },
         }
     }
@@ -320,7 +374,7 @@ impl Function {
     /// assert_eq!(f.ty().results(), vec![Type::I32]);
     /// ```
     pub fn ty(&self) -> &FunctionType {
-        &self.exported.signature
+        &self.exported.vm_function.signature
     }
 
     /// Returns the [`Store`] where the `Function` belongs.
@@ -377,9 +431,9 @@ impl Function {
         // Call the trampoline.
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
-                self.exported.vmctx,
+                self.exported.vm_function.vmctx,
                 func.trampoline,
-                self.exported.address,
+                self.exported.vm_function.address,
                 values_vec.as_mut_ptr() as *mut u8,
             )
         } {
@@ -480,7 +534,7 @@ impl Function {
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        if let Some(trampoline) = wasmer_export.call_trampoline {
+        if let Some(trampoline) = wasmer_export.vm_function.call_trampoline {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
@@ -490,7 +544,7 @@ impl Function {
             Self {
                 store: store.clone(),
                 definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    has_env: !wasmer_export.vmctx.is_null(),
+                    has_env: !wasmer_export.vm_function.vmctx.is_null(),
                 }),
                 exported: wasmer_export,
             }
@@ -501,11 +555,11 @@ impl Function {
         let vmsignature = self
             .store
             .engine()
-            .register_signature(&self.exported.signature);
+            .register_signature(&self.exported.vm_function.signature);
         VMCallerCheckedAnyfunc {
-            func_ptr: self.exported.address,
+            func_ptr: self.exported.vm_function.address,
             type_index: vmsignature,
-            vmctx: self.exported.vmctx,
+            vmctx: self.exported.vm_function.vmctx,
         }
     }
 
@@ -591,7 +645,7 @@ impl Function {
     {
         // type check
         {
-            let expected = self.exported.signature.params();
+            let expected = self.exported.vm_function.signature.params();
             let given = Args::wasm_types();
 
             if expected != given {
@@ -604,7 +658,7 @@ impl Function {
         }
 
         {
-            let expected = self.exported.signature.results();
+            let expected = self.exported.vm_function.signature.results();
             let given = Rets::wasm_types();
 
             if expected != given {
@@ -619,11 +673,15 @@ impl Function {
 
         Ok(NativeFunc::new(
             self.store.clone(),
-            self.exported.address,
-            self.exported.vmctx,
-            self.exported.kind,
+            self.exported.vm_function.address,
+            self.exported.vm_function.vmctx,
+            self.exported.vm_function.kind,
             self.definition.clone(),
         ))
+    }
+
+    fn closures_unsupported_panic() -> ! {
+        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
 }
 

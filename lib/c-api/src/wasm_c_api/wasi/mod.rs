@@ -174,21 +174,31 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
+/// This function is deprecated. You may safely remove all calls to it and everything
+/// will continue to work.
+// Dead code: deprecate or remove
+#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn wasi_env_set_instance(env: &mut wasi_env_t, instance: &wasm_instance_t) -> bool {
+    /*
     let memory = if let Ok(memory) = instance.inner.exports.get_memory("memory") {
         memory
     } else {
         return false;
     };
     env.inner.set_memory(memory.clone());
+    */
 
     true
 }
 
+/// This function is deprecated. You may safely remove all calls to it and everything
+/// will continue to work.
+// Dead code: deprecate or remove
+#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    env.inner.set_memory(memory.inner.clone());
+    //env.inner.set_memory(memory.inner.clone());
 }
 
 #[no_mangle]

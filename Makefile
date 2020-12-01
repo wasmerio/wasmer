@@ -16,14 +16,14 @@ compilers := cranelift
 test_compilers_engines :=
 
 # Autodetect LLVM from llvm-config
-ifneq (, $(shell which llvm-config))
+ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
 	# If findstring is not empty, then it have found the value
 	ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
 else
-	ifneq (, $(shell which llvm-config-10))
+	ifneq (, $(shell which llvm-config-10 2>/dev/null))
 		compilers += llvm
 	endif
 endif

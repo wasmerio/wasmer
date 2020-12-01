@@ -1118,6 +1118,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-derive",
  "wasmer-engine",
  "wasmer-engine-jit",
  "wasmer-engine-native",
@@ -1208,6 +1209,16 @@ dependencies = [
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
+]
+
+[[package]]
+name = "wasmer-derive"
+version = "1.0.0-alpha5"
+dependencies = [
+ "proc-macro-error",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

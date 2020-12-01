@@ -7,7 +7,7 @@
 //! how it is allocated and deallocated. An `InstanceHandle` is a
 //! wrapper around an `InstanceAllocator`.
 
-use crate::export::Export;
+use crate::export::VMExport;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -19,8 +19,8 @@ use crate::vmcontext::{
     VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
     VMTrampoline,
 };
-use crate::{ExportFunction, ExportGlobal, ExportMemory, ExportTable};
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
+use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::alloc::{self, Layout};
@@ -28,6 +28,7 @@ use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
+use std::ffi;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::{atomic, Arc};
@@ -38,6 +39,16 @@ use wasmer_types::{
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, Pages,
     SignatureIndex, TableIndex, TableInitializer,
 };
+
+/// The function pointer to call with data and an [`Instance`] pointer to
+/// finish initializing the host env.
+pub type ImportInitializerFuncPtr =
+    fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
+
+/// This type holds thunks (delayed computations) for initializing the imported
+/// function's environments with the [`Instance`].
+pub(crate) type ImportInitializerThunks =
+    Vec<(Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>;
 
 /// A WebAssembly instance.
 ///
@@ -82,6 +93,14 @@ pub(crate) struct Instance {
 
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
+
+    /// Functions to initialize the host environments in the imports
+    /// and pointers to the environments. These function pointers all
+    /// come from `WasmerEnv::init_with_instance`.
+    ///
+    /// TODO: Be sure to test with serialize/deserialize and imported
+    /// functions from other Wasm modules.
+    import_initializers: ImportInitializerThunks,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -129,6 +148,14 @@ impl Instance {
     fn imported_function(&self, index: FunctionIndex) -> &VMFunctionImport {
         let index = usize::try_from(index.as_u32()).unwrap();
         unsafe { &*self.imported_functions_ptr().add(index) }
+    }
+
+    /// Get the import initializer func at the given index if it exists.
+    fn imported_function_env_initializer(
+        &self,
+        index: FunctionIndex,
+    ) -> Option<ImportInitializerFuncPtr> {
+        self.import_initializers[index.as_u32() as usize].0
     }
 
     /// Return a pointer to the `VMFunctionImport`s.
@@ -812,6 +839,11 @@ impl InstanceAllocator {
         // `Instance`, and the reference has the lifetime `'a`.
         unsafe { self.instance.as_ref() }
     }
+
+    #[inline]
+    unsafe fn as_mut<'a>(&'a mut self) -> &'a mut Instance {
+        self.instance.as_mut()
+    }
 }
 
 /// TODO: Review this super carefully.
@@ -975,6 +1007,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
+        import_initializers: ImportInitializerThunks,
     ) -> Result<Self, Trap> {
         // `NonNull<u8>` here actually means `NonNull<Instance>`. See
         // `Self::allocate_instance` to understand why.
@@ -1002,6 +1035,7 @@ impl InstanceHandle {
                 passive_data,
                 host_state,
                 signal_handler: Cell::new(None),
+                import_initializers,
                 vmctx: VMContext {},
             };
 
@@ -1104,8 +1138,6 @@ impl InstanceHandle {
 
         // We need to do some pointer arithmetic now. The unit is `u8`.
         let ptr = instance_ptr.cast::<u8>().as_ptr();
-
-        //
         let base_ptr = ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
@@ -1201,36 +1233,39 @@ impl InstanceHandle {
     }
 
     /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<Export> {
-        let export = self.module().exports.get(field)?;
+    pub fn lookup(&self, field: &str) -> Option<VMExport> {
+        let export = self.module_ref().exports.get(field)?;
 
         Some(self.lookup_by_declaration(&export))
     }
 
     /// Lookup an export with the given export declaration.
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> Export {
+    // TODO: maybe EngineExport
+    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
         let instance = self.instance().clone();
         let instance_ref = instance.as_ref();
 
         match export {
             ExportIndex::Function(index) => {
                 let sig_index = &instance_ref.module.functions[*index];
-                let (address, vmctx) =
+                let (address, vmctx, _function_ptr) =
                     if let Some(def_index) = instance_ref.module.local_func_index(*index) {
                         (
                             instance_ref.functions[def_index].0 as *const _,
                             VMFunctionEnvironment {
                                 vmctx: instance_ref.vmctx_ptr(),
                             },
+                            None,
                         )
                     } else {
                         let import = instance_ref.imported_function(*index);
-                        (import.body, import.environment)
+                        let initializer = instance_ref.imported_function_env_initializer(*index);
+                        (import.body, import.environment, initializer)
                     };
                 let call_trampoline = Some(instance_ref.function_call_trampolines[*sig_index]);
                 let signature = instance_ref.module.signatures[*sig_index].clone();
 
-                ExportFunction {
+                VMExportFunction {
                     address,
                     // Any function received is already static at this point as:
                     // 1. All locally defined functions in the Wasm have a static signature.
@@ -1244,7 +1279,6 @@ impl InstanceHandle {
                 }
                 .into()
             }
-
             ExportIndex::Table(index) => {
                 let from = if let Some(def_index) = instance_ref.module.local_table_index(*index) {
                     instance_ref.tables[def_index].clone()
@@ -1252,14 +1286,12 @@ impl InstanceHandle {
                     let import = instance_ref.imported_table(*index);
                     import.from.clone()
                 };
-
-                ExportTable {
+                VMExportTable {
                     from,
                     instance_allocator: Some(instance),
                 }
                 .into()
             }
-
             ExportIndex::Memory(index) => {
                 let from = if let Some(def_index) = instance_ref.module.local_memory_index(*index) {
                     instance_ref.memories[def_index].clone()
@@ -1267,14 +1299,12 @@ impl InstanceHandle {
                     let import = instance_ref.imported_memory(*index);
                     import.from.clone()
                 };
-
-                ExportMemory {
+                VMExportMemory {
                     from,
                     instance_allocator: Some(instance),
                 }
                 .into()
             }
-
             ExportIndex::Global(index) => {
                 let from = {
                     if let Some(def_index) = instance_ref.module.local_global_index(*index) {
@@ -1284,8 +1314,7 @@ impl InstanceHandle {
                         import.from.clone()
                     }
                 };
-
-                ExportGlobal {
+                VMExportGlobal {
                     from,
                     instance_allocator: Some(instance),
                 }
@@ -1367,6 +1396,35 @@ impl InstanceHandle {
     /// Get a table defined locally within this module.
     pub fn get_local_table(&self, index: LocalTableIndex) -> &dyn Table {
         self.instance().as_ref().get_local_table(index)
+    }
+
+    /// Initializes the host environments.
+    ///
+    /// # Safety
+    /// - This function must be called with the correct `Err` type parameter: the error type is not
+    ///   visible to code in `wasmer_vm`, so it's the caller's responsibility to ensure these
+    ///   functions are called with the correct type.
+    /// - `instance_ptr` must point to a valid `wasmer::Instance`.
+    pub unsafe fn initialize_host_envs<Err: Sized>(
+        &mut self,
+        instance_ptr: *const std::ffi::c_void,
+    ) -> Result<(), Err> {
+        let instance_ref = self.instance.as_mut();
+
+        for (func, env) in instance_ref.import_initializers.drain(..) {
+            if let Some(ref f) = func {
+                // transmute our function pointer into one with the correct error type
+                let f = mem::transmute::<
+                    &ImportInitializerFuncPtr,
+                    &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
+                >(f);
+                f(env, instance_ptr)?;
+            }
+        }
+        // free memory now that it's empty.
+        instance_ref.import_initializers.shrink_to_fit();
+
+        Ok(())
     }
 }
 
