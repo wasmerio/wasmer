@@ -239,6 +239,6 @@ int wasmer_last_error_message(char *buffer, int length);
  *
  * In case of failure, `wat2wasm` returns `NULL`.
  */
-wasm_byte_vec_t *wat2wasm(const wasm_byte_vec_t *wat);
+void wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
 
 #endif /* WASMER_WASM_H */

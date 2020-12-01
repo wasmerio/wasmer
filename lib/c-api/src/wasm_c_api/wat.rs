@@ -6,11 +6,20 @@ use super::types::wasm_byte_vec_t;
 /// In case of failure, `wat2wasm` returns `NULL`.
 #[cfg(feature = "wat")]
 #[no_mangle]
-pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t) -> Option<Box<wasm_byte_vec_t>> {
-    let wat: &[u8] = wat.into_slice()?;
-    let result: wasm_byte_vec_t = c_try!(wasmer::wat2wasm(wat)).into_owned().into();
+pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
+    let wat: &[u8] = match wat.into_slice() {
+        Some(v) => v,
+        _ => return,
+    };
+    let result: wasm_byte_vec_t = match wasmer::wat2wasm(wat) {
+        Ok(val) => val.into_owned().into(),
+        Err(err) => {
+            crate::error::update_last_error(err);
+            return;
+        }
+    };
 
-    Some(Box::new(result))
+    *out = result;
 }
 
 #[cfg(test)]
