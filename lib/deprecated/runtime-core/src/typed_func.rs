@@ -7,7 +7,7 @@ use crate::{
 use std::marker::PhantomData;
 
 pub use new::wasmer::internals::UnsafeMutableEnv;
-pub use new::wasmer::{HostFunction, WasmTypeList};
+pub use new::wasmer::{HostFunction, WasmTypeList, WasmerEnv};
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone)]
@@ -201,7 +201,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 
@@ -235,6 +235,7 @@ use std::{
 /// Initially, it holds an empty `vm::Ctx`, but it is replaced by the
 /// `vm::Ctx` from `instance::PreInstance` in
 /// `module::Module::instantiate`.
+#[derive(WasmerEnv)]
 pub(crate) struct DynamicCtx {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
     inner_func:
@@ -311,7 +312,7 @@ impl From<&new::wasmer::Function> for DynamicFunc {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 

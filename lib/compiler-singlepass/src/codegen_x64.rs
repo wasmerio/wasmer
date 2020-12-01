@@ -5129,11 +5129,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
-                                fp.canonicalization.unwrap().to_size(),
-                                params[index],
-                                params[index],
-                            );
+                            let size = fp.canonicalization.unwrap().to_size();
+                            self.canonicalize_nan(size, params[index], params[index]);
                         }
                         self.fp_stack.pop().unwrap();
                     } else {
@@ -5230,11 +5227,8 @@ impl<'a> FuncGen<'a> {
                             && self.config.enable_nan_canonicalization
                             && fp.canonicalization.is_some()
                         {
-                            self.canonicalize_nan(
-                                fp.canonicalization.unwrap().to_size(),
-                                params[index],
-                                params[index],
-                            );
+                            let size = fp.canonicalization.unwrap().to_size();
+                            self.canonicalize_nan(size, params[index], params[index]);
                         }
                         self.fp_stack.pop().unwrap();
                     } else {
