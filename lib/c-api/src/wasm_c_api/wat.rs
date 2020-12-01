@@ -3,7 +3,7 @@ use super::types::wasm_byte_vec_t;
 /// Parses in-memory bytes as either the WAT format, or a binary Wasm
 /// module. This is wasmer-specific.
 ///
-/// In case of failure, `wat2wasm` returns `NULL`.
+/// In case of failure, `wat2wasm` sets the `out->data = NULL` and `out->size = 0`.
 #[cfg(feature = "wat")]
 #[no_mangle]
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
