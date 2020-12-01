@@ -25,14 +25,17 @@ macro_rules! wasm_declare_vec {
             }
 
             impl<'a> From<Vec<[<wasm_ $name _t>]>> for [<wasm_ $name _vec_t>] {
-                fn from(other: Vec<[<wasm_ $name _t>]>) -> Self {
-                    let mut boxed_slice = other.into_boxed_slice();
-                    let size = boxed_slice.len();
-                    let data = boxed_slice.as_mut_ptr();
-                    ::std::mem::forget(boxed_slice);
+                fn from(mut vec: Vec<[<wasm_ $name _t>]>) -> Self {
+                    vec.shrink_to_fit();
+
+                    let length = vec.len();
+                    let pointer = vec.as_mut_ptr();
+
+                    ::std::mem::forget(vec);
+
                     Self {
-                        size,
-                        data,
+                        size: length,
+                        data: pointer,
                     }
                 }
             }
@@ -100,20 +103,19 @@ macro_rules! wasm_declare_vec {
                 ::std::mem::forget(bytes);
             }
 
-
             #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<Box<[<wasm_ $name _vec_t>]>>) {
-                if ptr.is_none() {
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](subject: Option<Box<[<wasm_ $name _vec_t>]>>) {
+                if subject.is_none() {
                     return;
                 }
 
-                let mut vec = ptr.unwrap();
+                let subject: Box<[<wasm_ $name _vec_t>]> = subject.unwrap();
 
-                if !vec.data.is_null() {
-                    let _ = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    vec.data = ::std::ptr::null_mut();
-                    vec.size = 0;
+                if !subject.data.is_null() {
+                    let _ = Vec::from_raw_parts(subject.data, subject.size, subject.size);
                 }
+
+                ::std::ptr::drop_in_place(Box::into_raw(subject));
             }
         }
 
