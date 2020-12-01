@@ -110,6 +110,7 @@ impl Function {
                     vmctx,
                     signature: ty.clone(),
                     call_trampoline: None,
+                    instance_allocator: None,
                 },
             },
         }
@@ -172,6 +173,7 @@ impl Function {
                     vmctx,
                     signature: ty.clone(),
                     call_trampoline: None,
+                    instance_allocator: None,
                 },
             },
         }
@@ -225,6 +227,7 @@ impl Function {
                     signature,
                     kind: VMFunctionKind::Static,
                     call_trampoline: None,
+                    instance_allocator: None,
                 },
             },
         }
@@ -294,6 +297,7 @@ impl Function {
                     vmctx,
                     signature,
                     call_trampoline: None,
+                    instance_allocator: None,
                 },
             },
         }
@@ -346,6 +350,7 @@ impl Function {
                     vmctx,
                     signature,
                     call_trampoline: None,
+                    instance_allocator: None,
                 },
             },
         }
@@ -528,7 +533,7 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportFunction) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         if let Some(trampoline) = wasmer_export.vm_function.call_trampoline {
             Self {
                 store: store.clone(),
