@@ -24,7 +24,7 @@ int main(int argc, const char* argv[]) {
   wat2wasm(&wat, &wasm);
 
   if (!wasm.data) {
-    printf("> Error compiler WAT to Wasm!\n");
+    printf("> Error compiling WAT to Wasm!\n");
     return 1;
   }
 
