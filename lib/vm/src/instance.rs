@@ -737,7 +737,14 @@ impl InstanceAllocator {
     /// filled. `self_ptr` and `self_layout` must be the pointer and
     /// the layout returned by `Self::allocate_self` used to build
     /// `Self`.
-    fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
+    ///
+    /// # Safety
+    ///
+    /// `instance` must a non-null, non-dangling, properly aligned,
+    /// and correctly initialized pointer to `Instance`. See
+    /// `InstanceHandle::new` for an example of how to correctly use
+    /// this API.
+    unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
         Self {
             strong: Arc::new(atomic::AtomicUsize::new(1)),
             instance_layout,
@@ -1008,6 +1015,9 @@ impl InstanceHandle {
             // `instance_ptr` is passed to `InstanceAllocator`, which
             // makes it the only “owner” (it doesn't own the value,
             // it's just the semantics we define).
+            //
+            // SAFETY: `instance_ptr` fulfills all the requirement of
+            // `InstanceAllocator::new`.
             let instance_allocator = InstanceAllocator::new(instance_ptr, instance_layout);
 
             Self {
