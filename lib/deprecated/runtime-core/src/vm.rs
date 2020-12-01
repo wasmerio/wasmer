@@ -1,4 +1,5 @@
 use crate::{module::ModuleInfo, new};
+use new::wasmer::WasmerEnv;
 use std::{ffi::c_void, ptr};
 
 use new::wasmer::internals::UnsafeMutableEnv;
@@ -15,7 +16,7 @@ use new::wasmer::internals::UnsafeMutableEnv;
 /// it may someday be pinned to a register (especially
 /// on arm, which has a ton of registers) to reduce
 /// register shuffling.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, WasmerEnv)]
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to the `ModuleInfo` of this instance.

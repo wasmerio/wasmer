@@ -51,9 +51,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let import_object = wasi_env.import_object(&module)?;
     let instance = Instance::new(&module, &import_object)?;
 
-    // WASI requires to explicitly set the memory for the `WasiEnv`
-    wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
-
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!
     let start = instance.exports.get_function("_start")?;

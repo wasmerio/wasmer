@@ -70,7 +70,7 @@ impl From<&new::wasmer::Table> for Table {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for Table {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_table.to_export()
     }
 
