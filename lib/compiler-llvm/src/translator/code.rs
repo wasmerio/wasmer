@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    to_wasm_error, wptype_to_type, CompileError, MiddlewareBinaryReader, ModuleTranslationState,
+    RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -75,7 +75,7 @@ impl FuncTranslator {
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
-        function_body: &FunctionBodyData,
+        function_reader: &mut MiddlewareBinaryReader,
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         _table_styles: &PrimaryMap<TableIndex, TableStyle>,
@@ -143,16 +143,6 @@ impl FuncTranslator {
         state.push_block(return_, phis);
         builder.position_at_end(start_of_code);
 
-        let mut reader = MiddlewareBinaryReader::new_with_offset(
-            function_body.data,
-            function_body.module_offset,
-        );
-        reader.set_middleware_chain(
-            config
-                .middlewares
-                .generate_function_middleware_chain(*local_func_index),
-        );
-
         let mut params = vec![];
         let first_param =
             if func_type.get_return_type().is_none() && wasm_fn_type.results().len() > 1 {
@@ -182,9 +172,9 @@ impl FuncTranslator {
         }
 
         let mut locals = vec![];
-        let num_locals = reader.read_local_count().map_err(to_wasm_error)?;
+        let num_locals = function_reader.read_local_count().map_err(to_wasm_error)?;
         for _ in 0..num_locals {
-            let (count, ty) = reader.read_local_decl().map_err(to_wasm_error)?;
+            let (count, ty) = function_reader.read_local_decl().map_err(to_wasm_error)?;
             let ty = wptype_to_type(ty).map_err(to_compile_error)?;
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
@@ -223,8 +213,8 @@ impl FuncTranslator {
         );
 
         while fcg.state.has_control_frames() {
-            let pos = reader.current_position() as u32;
-            let op = reader.read_operator().map_err(to_wasm_error)?;
+            let pos = function_reader.current_position() as u32;
+            let op = function_reader.read_operator().map_err(to_wasm_error)?;
             fcg.translate_operator(op, pos)?;
         }
 
@@ -285,7 +275,7 @@ impl FuncTranslator {
         wasm_module: &ModuleInfo,
         module_translation: &ModuleTranslationState,
         local_func_index: &LocalFunctionIndex,
-        function_body: &FunctionBodyData,
+        function_reader: &mut MiddlewareBinaryReader,
         config: &LLVM,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         table_styles: &PrimaryMap<TableIndex, TableStyle>,
@@ -295,7 +285,7 @@ impl FuncTranslator {
             wasm_module,
             module_translation,
             local_func_index,
-            function_body,
+            function_reader,
             config,
             memory_styles,
             table_styles,

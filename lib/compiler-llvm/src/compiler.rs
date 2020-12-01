@@ -11,8 +11,8 @@ use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
-    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
+    Dwarf, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    RelocationTarget, SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -100,12 +100,21 @@ impl LLVMCompiler {
                     let target_machine = self.config().target_machine(target);
                     FuncTranslator::new(target_machine)
                 },
-                |func_translator, (i, input)| {
+                |func_translator, (i, function_body)| {
+                    let mut reader = MiddlewareBinaryReader::new_with_offset(
+                        function_body.data,
+                        function_body.module_offset,
+                    );
+                    reader.set_middleware_chain(
+                        self.config()
+                            .middlewares
+                            .generate_function_middleware_chain(*i),
+                    );
                     let module = func_translator.translate_to_module(
                         &compile_info.module,
                         module_translation,
                         i,
-                        input,
+                        &mut reader,
                         self.config(),
                         &compile_info.memory_styles,
                         &compile_info.table_styles,
@@ -265,14 +274,23 @@ impl Compiler for LLVMCompiler {
                     let target_machine = self.config().target_machine(target);
                     FuncTranslator::new(target_machine)
                 },
-                |func_translator, (i, input)| {
+                |func_translator, (i, function_body)| {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
+                    let mut reader = MiddlewareBinaryReader::new_with_offset(
+                        function_body.data,
+                        function_body.module_offset,
+                    );
+                    reader.set_middleware_chain(
+                        self.config()
+                            .middlewares
+                            .generate_function_middleware_chain(*i),
+                    );
                     func_translator.translate(
                         module,
                         module_translation,
                         i,
-                        input,
+                        &mut reader,
                         self.config(),
                         memory_styles,
                         &table_styles,
