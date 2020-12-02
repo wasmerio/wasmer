@@ -8,7 +8,7 @@ use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware, Target, Triple};
+use wasmer_compiler::{Compiler, CompilerConfig, Target, Triple};
 use wasmer_types::{FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
@@ -44,8 +44,6 @@ pub struct LLVM {
     pub(crate) opt_level: OptimizationLevel,
     is_pic: bool,
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
-    /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl LLVM {
@@ -58,7 +56,6 @@ impl LLVM {
             opt_level: OptimizationLevel::Aggressive,
             is_pic: false,
             callbacks: None,
-            middlewares: vec![],
         }
     }
 
@@ -209,11 +206,6 @@ impl CompilerConfig for LLVM {
     /// Transform it into the compiler.
     fn compiler(&self) -> Box<dyn Compiler + Send> {
         Box::new(LLVMCompiler::new(&self))
-    }
-
-    /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
-        self.middlewares.push(middleware);
     }
 }
 

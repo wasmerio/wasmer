@@ -4,11 +4,8 @@
 use crate::error::CompileError;
 use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
-use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
-use crate::translator::ModuleMiddleware;
-use crate::FunctionBodyData;
 use crate::MiddlewareBinaryReader;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
@@ -44,9 +41,6 @@ pub trait CompilerConfig {
     fn default_features_for_target(&self, _target: &Target) -> Features {
         Features::default()
     }
-
-    /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
@@ -100,7 +94,7 @@ pub trait Compiler {
         _module: &'module mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
-        _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        _function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         _wasmer_metadata: &[u8],

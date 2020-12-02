@@ -1,5 +1,6 @@
 use crate::JITEngine;
-use wasmer_compiler::{CompilerConfig, Features, Target};
+use std::sync::Arc;
+use wasmer_compiler::{CompilerConfig, Features, ModuleMiddleware, Target};
 
 /// The JIT builder
 pub struct JIT<'a> {
@@ -7,6 +8,7 @@ pub struct JIT<'a> {
     compiler_config: Option<&'a dyn CompilerConfig>,
     target: Option<Target>,
     features: Option<Features>,
+    middleware: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl<'a> JIT<'a> {
@@ -16,6 +18,7 @@ impl<'a> JIT<'a> {
             compiler_config: Some(compiler_config),
             target: None,
             features: None,
+            middleware: vec![],
         }
     }
 
@@ -25,6 +28,7 @@ impl<'a> JIT<'a> {
             compiler_config: None,
             target: None,
             features: None,
+            middleware: vec![],
         }
     }
 
@@ -40,6 +44,12 @@ impl<'a> JIT<'a> {
         self
     }
 
+    /// Add a middleware
+    pub fn middleware(mut self, middleware: Arc<dyn ModuleMiddleware>) -> Self {
+        self.middleware.push(middleware);
+        self
+    }
+
     /// Build the `JITEngine` for this configuration
     #[cfg(feature = "compiler")]
     pub fn engine(self) -> JITEngine {
@@ -49,7 +59,7 @@ impl<'a> JIT<'a> {
                 .features
                 .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
             let compiler = compiler_config.compiler();
-            JITEngine::new(compiler, target, features)
+            JITEngine::new(compiler, target, features, self.middleware)
         } else {
             JITEngine::headless()
         }

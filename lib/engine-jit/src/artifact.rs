@@ -10,8 +10,7 @@ use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, MiddlewareBinaryReader, ModuleEnvironment, ModuleMiddleware,
-    ModuleMiddlewareChain,
+    CompileModuleInfo, MiddlewareBinaryReader, ModuleEnvironment, ModuleMiddlewareChain,
 };
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
@@ -58,7 +57,10 @@ impl JITArtifact {
         let mut inner_jit = jit.inner_mut();
         let features = inner_jit.features();
 
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        let mut translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        inner_jit
+            .middlewares()
+            .apply_on_module_info(&mut translation.module);
 
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module

@@ -29,27 +29,11 @@ pub struct JITEngine {
 impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
-        Self {
-            inner: Arc::new(Mutex::new(JITEngineInner {
-                compiler: Some(compiler),
-                code_memory: vec![],
-                signatures: SignatureRegistry::new(),
-                features,
-                middlewares: vec![],
-            })),
-            target: Arc::new(target),
-            engine_id: EngineId::default(),
-        }
-    }
-
-    /// Create a new `JITEngine` with the given config and middleware
-    #[cfg(feature = "compiler")]
-    pub fn new_with_middleware<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>(
+    pub fn new(
         compiler: Box<dyn Compiler + Send>,
         target: Target,
         features: Features,
-        middlewares: I,
+        middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     ) -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
@@ -57,7 +41,7 @@ impl JITEngine {
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
-                middlewares: middlewares.collect(),
+                middlewares: middlewares,
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
