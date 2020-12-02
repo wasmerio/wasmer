@@ -166,8 +166,8 @@ pub fn resolve_imports(
                         let env_ptr = if f.import_init_function_ptr.is_some() {
                             // Our function env looks like:
                             // Box<VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>>
-                            // Which we can interpret as `*const <field offset> *const Env` (due to precise
-                            // layout of these types via `repr(C)`)
+                            // Which we can interpret as `*const <field offset> *const Env` (due to
+                            // the precise layout of these types via `repr(C)`)
                             // We extract the `*const Env`:
                             unsafe {
                                 // Box<VMDynamicFunctionContext<...>>

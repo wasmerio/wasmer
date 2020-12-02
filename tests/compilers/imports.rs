@@ -17,6 +17,8 @@ fn get_module(store: &Store) -> Result<Module> {
         (import "host" "1" (func (param i32) (result i32)))
         (import "host" "2" (func (param i32) (param i64)))
         (import "host" "3" (func (param i32 i64 i32 f32 f64)))
+        (memory $mem 1)
+        (export "memory" (memory $mem))
 
         (func $foo
             call 0
@@ -87,16 +89,20 @@ fn dynamic_function_with_env() -> Result<()> {
     let module = get_module(&store)?;
 
     #[derive(WasmerEnv, Clone)]
-    struct Env(Arc<AtomicUsize>);
+    struct Env {
+        counter: Arc<AtomicUsize>,
+    };
 
     impl std::ops::Deref for Env {
         type Target = Arc<AtomicUsize>;
         fn deref(&self) -> &Self::Target {
-            &self.0
+            &self.counter
         }
     }
 
-    let env: Env = Env(Arc::new(AtomicUsize::new(0)));
+    let env: Env = Env {
+        counter: Arc::new(AtomicUsize::new(0)),
+    };
     Instance::new(
         &module,
         &imports! {
@@ -290,5 +296,50 @@ fn static_function_that_fails() -> Result<()> {
         _ => assert!(false),
     }
 
+    Ok(())
+}
+
+fn get_module2(store: &Store) -> Result<Module> {
+    let wat = r#"
+        (import "host" "fn" (func))
+        (memory $mem 1)
+        (export "memory" (memory $mem))
+        (export "main" (func $main))
+        (func $main (param) (result)
+          (call 0))
+    "#;
+
+    let module = Module::new(&store, &wat)?;
+    Ok(module)
+}
+
+#[test]
+fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
+    let store = get_store(false);
+    let module = get_module2(&store)?;
+
+    #[allow(dead_code)]
+    #[derive(WasmerEnv, Clone)]
+    struct Env {
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    };
+
+    let env: Env = Env {
+        memory: LazyInit::default(),
+    };
+    let instance = Instance::new(
+        &module,
+        &imports! {
+            "host" => {
+                "fn" => Function::new_with_env(&store, &FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                    assert!(env.memory_ref().is_some());
+                    Ok(vec![])
+                }),
+            },
+        },
+    )?;
+    let f: NativeFunc<(), ()> = instance.exports.get_native_function("main")?;
+    f.call()?;
     Ok(())
 }
