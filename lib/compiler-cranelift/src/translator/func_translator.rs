@@ -19,10 +19,8 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, WasmResult,
+    to_wasm_error, wasm_unsupported, MiddlewareBinaryReader, ModuleTranslationState, WasmResult,
 };
-use wasmer_types::LocalFunctionIndex;
 
 /// WebAssembly to Cranelift IR function translator.
 ///
@@ -64,27 +62,19 @@ impl FuncTranslator {
     pub fn translate<FE: FuncEnvironment + ?Sized>(
         &mut self,
         module_translation_state: &ModuleTranslationState,
-        code: &[u8],
-        code_offset: usize,
+        function_reader: &mut MiddlewareBinaryReader,
         func: &mut ir::Function,
         environ: &mut FE,
-        local_function_index: LocalFunctionIndex,
-        config: &Cranelift,
+        _config: &Cranelift,
     ) -> WasmResult<()> {
-        let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
-        reader.set_middleware_chain(
-            config
-                .middlewares
-                .generate_function_middleware_chain(local_function_index),
-        );
-        self.translate_from_reader(module_translation_state, reader, func, environ)
+        self.translate_from_reader(module_translation_state, function_reader, func, environ)
     }
 
     /// Translate a binary WebAssembly function from a `MiddlewareBinaryReader`.
     pub fn translate_from_reader<FE: FuncEnvironment + ?Sized>(
         &mut self,
         module_translation_state: &ModuleTranslationState,
-        mut reader: MiddlewareBinaryReader,
+        reader: &mut MiddlewareBinaryReader,
         func: &mut ir::Function,
         environ: &mut FE,
     ) -> WasmResult<()> {
@@ -118,7 +108,7 @@ impl FuncTranslator {
         builder.append_block_params_for_function_returns(exit_block);
         self.state.initialize(&builder.func.signature, exit_block);
 
-        parse_local_decls(&mut reader, &mut builder, num_params, environ)?;
+        parse_local_decls(reader, &mut builder, num_params, environ)?;
         parse_function_body(
             module_translation_state,
             reader,
@@ -228,7 +218,7 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
 /// arguments and locals are declared in the builder.
 fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     module_translation_state: &ModuleTranslationState,
-    mut reader: MiddlewareBinaryReader,
+    reader: &mut MiddlewareBinaryReader,
     builder: &mut FunctionBuilder,
     state: &mut FuncTranslationState,
     environ: &mut FE,

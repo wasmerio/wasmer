@@ -183,6 +183,11 @@ impl<'a> MiddlewareBinaryReader<'a> {
         self.state.inner.bytes_remaining()
     }
 
+    /// Returns the number of bytes in the `BinaryReader`.
+    pub fn len(&self) -> usize {
+        self.state.inner.range().end - self.state.inner.range().start
+    }
+
     /// Returns whether the inner `BinaryReader` has reached the end of the file.
     pub fn eof(&self) -> bool {
         self.state.inner.eof()

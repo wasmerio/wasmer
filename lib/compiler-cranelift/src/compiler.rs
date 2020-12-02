@@ -18,14 +18,12 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::sync::Arc;
-use wasmer_compiler::CompileError;
-use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
-    Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData,
-    ModuleMiddlewareChain, SectionIndex,
+    CallingConvention, Compilation, CompileError, CompileModuleInfo, CompiledFunction,
+    CompiledFunctionFrameInfo, CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody,
+    MiddlewareBinaryReader, ModuleTranslationState, SectionIndex, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -58,15 +56,12 @@ impl Compiler for CraneliftCompiler {
         target: &Target,
         compile_info: &mut CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
     ) -> Result<Compilation, CompileError> {
         let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -100,9 +95,9 @@ impl Compiler for CraneliftCompiler {
         };
 
         let functions = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .par_iter_mut()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
                 let func_index = module.func_index(*i);
                 let mut context = Context::new();
@@ -121,11 +116,9 @@ impl Compiler for CraneliftCompiler {
 
                 func_translator.translate(
                     module_translation_state,
-                    input.data,
-                    input.module_offset,
+                    input,
                     &mut context.func,
                     &mut func_env,
-                    *i,
                     &self.config,
                 )?;
 
