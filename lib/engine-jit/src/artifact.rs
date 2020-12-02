@@ -9,7 +9,10 @@ use crate::serialize::SerializableModule;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
+use wasmer_compiler::{
+    CompileModuleInfo, MiddlewareBinaryReader, ModuleEnvironment, ModuleMiddleware,
+    ModuleMiddlewareChain,
+};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
     SerializeError,
@@ -79,6 +82,23 @@ impl JITArtifact {
 
         let compiler = inner_jit.compiler()?;
 
+        let function_body_inputs = translation
+            .function_body_inputs
+            .iter()
+            .map(|(i, function_body)| {
+                let mut reader = MiddlewareBinaryReader::new_with_offset(
+                    function_body.data,
+                    function_body.module_offset,
+                );
+                reader.set_middleware_chain(
+                    inner_jit
+                        .middlewares()
+                        .generate_function_middleware_chain(i),
+                );
+                reader
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>>();
+
         // Compile the Module
         let compilation = compiler.compile_module(
             &jit.target(),
@@ -87,7 +107,7 @@ impl JITArtifact {
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
             translation.module_translation_state.as_ref().unwrap(),
-            translation.function_body_inputs,
+            function_body_inputs,
         )?;
         let function_call_trampolines = compilation.get_function_call_trampolines();
         let dynamic_function_trampolines = compilation.get_dynamic_function_trampolines();

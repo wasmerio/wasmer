@@ -5,7 +5,8 @@ use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
 use wasmer_compiler::{
-    CompileError, CustomSection, CustomSectionProtection, FunctionBody, SectionIndex, Target,
+    CompileError, CustomSection, CustomSectionProtection, FunctionBody, ModuleMiddleware,
+    SectionIndex, Target,
 };
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, FunctionExtent, Tunables};
 use wasmer_types::entity::PrimaryMap;
@@ -35,6 +36,28 @@ impl JITEngine {
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
+                middlewares: vec![],
+            })),
+            target: Arc::new(target),
+            engine_id: EngineId::default(),
+        }
+    }
+
+    /// Create a new `JITEngine` with the given config and middleware
+    #[cfg(feature = "compiler")]
+    pub fn new_with_middleware<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>(
+        compiler: Box<dyn Compiler + Send>,
+        target: Target,
+        features: Features,
+        middlewares: I,
+    ) -> Self {
+        Self {
+            inner: Arc::new(Mutex::new(JITEngineInner {
+                compiler: Some(compiler),
+                code_memory: vec![],
+                signatures: SignatureRegistry::new(),
+                features,
+                middlewares: middlewares.collect(),
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
@@ -62,6 +85,7 @@ impl JITEngine {
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features: Features::default(),
+                middlewares: vec![],
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -144,12 +168,14 @@ pub struct JITEngineInner {
     compiler: Option<Box<dyn Compiler + Send>>,
     /// The features to compile the Wasm module with
     features: Features,
-    /// The code memory is responsible of publishing the compiled
+    /// The code memory is responsible for publishing the compiled
     /// functions to memory.
     code_memory: Vec<CodeMemory>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
+    /// Stack of middlewares to transform the module.
+    middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl JITEngineInner {
@@ -296,5 +322,10 @@ impl JITEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+
+    /// Stack of middlewares.
+    pub fn middlewares(&self) -> &Vec<Arc<dyn ModuleMiddleware>> {
+        &self.middlewares
     }
 }

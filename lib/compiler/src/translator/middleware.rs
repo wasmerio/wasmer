@@ -26,7 +26,7 @@ pub trait ModuleMiddleware: Debug + Send + Sync {
 }
 
 /// A function middleware specialized for a single function.
-pub trait FunctionMiddleware: Debug {
+pub trait FunctionMiddleware: Debug + Send + Sync {
     /// Processes the given operator.
     fn feed<'a>(
         &mut self,

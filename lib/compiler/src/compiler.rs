@@ -9,6 +9,7 @@ use crate::module::CompileModuleInfo;
 use crate::target::Target;
 use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
+use crate::MiddlewareBinaryReader;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use wasmer_types::entity::PrimaryMap;
@@ -87,7 +88,7 @@ pub trait Compiler {
         module: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
     ) -> Result<Compilation, CompileError>;
 
     /// Compiles a module into a native object file.

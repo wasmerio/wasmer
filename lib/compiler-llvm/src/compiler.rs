@@ -7,7 +7,7 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
@@ -249,7 +249,7 @@ impl Compiler for LLVMCompiler {
         target: &Target,
         compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;
@@ -266,31 +266,22 @@ impl Compiler for LLVMCompiler {
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
+            .into_iter()
+            .collect::<Vec<_>>()
+            .par_iter_mut()
             .map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
                     FuncTranslator::new(target_machine)
                 },
-                |func_translator, (i, function_body)| {
+                |func_translator, (i, reader)| {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
-                    let mut reader = MiddlewareBinaryReader::new_with_offset(
-                        function_body.data,
-                        function_body.module_offset,
-                    );
-                    reader.set_middleware_chain(
-                        self.config()
-                            .middlewares
-                            .generate_function_middleware_chain(*i),
-                    );
                     func_translator.translate(
                         module,
                         module_translation,
                         i,
-                        &mut reader,
+                        reader,
                         self.config(),
                         memory_styles,
                         &table_styles,
