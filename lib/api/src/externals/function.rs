@@ -680,6 +680,7 @@ impl Function {
         ))
     }
 
+    #[track_caller]
     fn closures_unsupported_panic() -> ! {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
