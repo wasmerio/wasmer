@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-beta1 - 2020-12-01
+
 ### Added
 
 - [#1837](https://github.com/wasmerio/wasmer/pull/1837) It is now possible to use exports of an `Intance` even after the `Instance` has been freed

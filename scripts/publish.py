@@ -26,6 +26,7 @@ target_version = "1.0.0-alpha5"
 # TODO: generate this by parsing toml files
 dep_graph = {
     "wasmer-types": set([]),
+    "wasmer-derive": set([]),
     "wasmer-vm": set(["wasmer-types"]),
     "wasmer-compiler": set(["wasmer-vm", "wasmer-types"]),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
@@ -40,7 +41,7 @@ dep_graph = {
                                       "wasmer-object"]),
     "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
                    "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-jit",
-                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types"]),
+                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types", "wasmer-derive"]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
@@ -54,6 +55,7 @@ dep_graph = {
 # TODO: this could also be generated from the toml files
 location = {
     "wasmer-types": "wasmer-types",
+    "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
     "wasmer-object": "object",
