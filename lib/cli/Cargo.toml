@@ -54,8 +54,8 @@ default = [
     "wat",
     "wast",
     "jit",
-    "native",
-    "object-file",
+#    "native",
+#    "object-file",
     "cache",
     "wasi",
     "emscripten",
@@ -81,8 +81,8 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler",
-    "wasmer-engine-object-file/compiler",
+#    "wasmer-engine-native/compiler",
+#    "wasmer-engine-object-file/compiler",
 ]
 experimental-io-devices = [
     "wasmer-wasi-experimental-io-devices",
