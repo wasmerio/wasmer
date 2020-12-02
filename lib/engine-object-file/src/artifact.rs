@@ -7,10 +7,13 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
+use wasmer_compiler::{
+    CompileError, Features, ModuleMiddleware, OperatingSystem, SymbolRegistry, Triple,
+};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, MiddlewareBinaryReader, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -95,17 +98,19 @@ impl ObjectFileArtifact {
         data: &'data [u8],
         features: &Features,
         tunables: &dyn Tunables,
+        middlewares: &Vec<Arc<dyn ModuleMiddleware>>,
     ) -> Result<
         (
             CompileModuleInfo,
-            PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
+            PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader<'data>>,
             Vec<DataInitializer<'data>>,
             Option<ModuleTranslationState>,
         ),
         CompileError,
     > {
         let environ = ModuleEnvironment::new();
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        let mut translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        middlewares.apply_on_module_info(&mut translation.module);
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
             .memories
@@ -125,9 +130,22 @@ impl ObjectFileArtifact {
             table_styles,
         };
 
+        let function_body_inputs = translation
+            .function_body_inputs
+            .iter()
+            .map(|(i, function_body)| {
+                let mut reader = MiddlewareBinaryReader::new_with_offset(
+                    function_body.data,
+                    function_body.module_offset,
+                );
+                reader.set_middleware_chain(middlewares.generate_function_middleware_chain(i));
+                reader
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>>();
+
         Ok((
             compile_info,
-            translation.function_body_inputs,
+            function_body_inputs,
             translation.data_initializers,
             translation.module_translation_state,
         ))
@@ -145,7 +163,12 @@ impl ObjectFileArtifact {
         let target = engine.target();
         let compiler = engine_inner.compiler()?;
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, engine_inner.features(), tunables)?;
+            Self::generate_metadata(
+                data,
+                engine_inner.features(),
+                tunables,
+                engine_inner.middlewares(),
+            )?;
 
         let data_initializers = data_initializers
             .iter()
@@ -196,17 +219,15 @@ impl ObjectFileArtifact {
         let metadata_length = metadata_binary.len();
 
         let (compile_info, symbol_registry) = metadata.split();
-        let maybe_obj_bytes = compiler.experimental_native_compile_module(
-            &target,
-            compile_info,
-            module_translation.as_ref().unwrap(),
-            &function_body_inputs,
-            &symbol_registry,
-            &metadata_binary,
-        );
-
-        let obj_bytes = if let Some(obj_bytes) = maybe_obj_bytes {
-            obj_bytes?
+        let obj_bytes = if compiler.supports_experimental_native_compile_module() {
+            compiler.experimental_native_compile_module(
+                &target,
+                compile_info,
+                module_translation.as_ref().unwrap(),
+                function_body_inputs,
+                &symbol_registry,
+                &metadata_binary,
+            )?
         } else {
             let compilation = compiler.compile_module(
                 &target,
