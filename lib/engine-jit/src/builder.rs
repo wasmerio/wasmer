@@ -44,9 +44,18 @@ impl<'a> JIT<'a> {
         self
     }
 
-    /// Add a middleware
+    /// Append one middleware
     pub fn middleware(mut self, middleware: Arc<dyn ModuleMiddleware>) -> Self {
         self.middleware.push(middleware);
+        self
+    }
+
+    /// Append a stack of middlewares
+    pub fn middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>(
+        mut self,
+        middlewares: I,
+    ) -> Self {
+        self.middleware.extend(middlewares);
         self
     }
 

@@ -56,14 +56,11 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>
     #[allow(unused_mut)]
     let mut compiler_config = get_compiler(false);
     #[cfg(feature = "test-jit")]
-    let mut engine_builder = JIT::new(&compiler_config);
+    let engine = JIT::new(&compiler_config).middlewares(middlewares).engine();
     #[cfg(feature = "test-native")]
-    let mut engine_builder = Native::new(&mut compiler_config);
-    for m in middlewares {
-        // TODO: the builder should have a bulk add API
-        engine_builder = engine_builder.middleware(m);
-    }
-    let engine = engine_builder.engine();
+    let engine = Native::new(&mut compiler_config)
+        .middlewares(middlewares)
+        .engine();
     Store::new(&engine)
 }
 
