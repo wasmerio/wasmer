@@ -1,10 +1,10 @@
 # Migrating from Wasmer 0.x to Wasmer 1.0.0
 
-Wasmer 1.0.0 is currently in alpha and is our primary focus. This document will
+Wasmer 1.0.0 is currently in beta and is our primary focus. This document will
 describe the differences between Wasmer 0.x and Wasmer 1.0.0 and provide examples
 to make migrating to the new API as simple as possible.
 
-Some features are still under development during the alpha of Wasmer 1.0.0. This document
+Some features are still under development during the beta of Wasmer 1.0.0. This document
 will aim to make clear what these features are.
 
 ## Table of Contents
@@ -328,11 +328,11 @@ you'll be able to delegate most of the work to Wasmer:
 ``` 
 
 [examples]: https://docs.wasmer.io/integrations/examples
-[wasmer]: https://crates.io/crates/wasmer/1.0.0-alpha3
-[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0-alpha3
-[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0-alpha3
-[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0-alpha3
-[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0-alpha3
+[wasmer]: https://crates.io/crates/wasmer/1.0.0-beta1
+[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0-beta1
+[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0-beta1
+[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0-beta1
+[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0-beta1
 [wasmer.io]: https://wasmer.io
 [wasmer-nightly]: https://github.com/wasmerio/wasmer-nightly/
 [getting-started]: https://docs.wasmer.io/ecosystem/wasmer/getting-started

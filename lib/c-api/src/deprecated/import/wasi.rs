@@ -212,7 +212,7 @@ pub unsafe extern "C" fn wasmer_wasi_generate_default_import_object() -> *mut wa
     let store = get_global_store();
     let mut wasi_state_builder = wasi::WasiState::new("wasmer-wasi-default-program-name");
     let wasi_state = wasi_state_builder.build().unwrap();
-    let mut wasi_env = wasi::WasiEnv::new(wasi_state);
+    let wasi_env = wasi::WasiEnv::new(wasi_state);
     let import_object_inner: Box<dyn NamedResolver> = Box::new(
         wasi::generate_import_object_from_env(store, wasi_env, wasi::WasiVersion::Latest),
     );

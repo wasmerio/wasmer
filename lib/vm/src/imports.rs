@@ -17,8 +17,9 @@ pub struct Imports {
     /// space may affect Wasm runtime performance due to increased cache pressure.
     ///
     /// We make it optional so that we can free the data after use.
-    pub host_function_env_initializers:
-        Option<BoxedSlice<FunctionIndex, Option<ImportInitializerFuncPtr>>>,
+    pub host_function_env_initializers: Option<
+        BoxedSlice<FunctionIndex, (Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>,
+    >,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -34,7 +35,10 @@ impl Imports {
     /// Construct a new `Imports` instance.
     pub fn new(
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
-        host_function_env_initializers: PrimaryMap<FunctionIndex, Option<ImportInitializerFuncPtr>>,
+        host_function_env_initializers: PrimaryMap<
+            FunctionIndex,
+            (Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void),
+        >,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,
@@ -69,12 +73,9 @@ impl Imports {
             inner
                 .values()
                 .cloned()
-                .zip(self.functions.values())
-                .map(|(func_init, func)| {
+                .map(|(func_init, env_ptr)| {
                     let host_env = if func_init.is_some() {
-                        // this access is correct because we know that only functions with
-                        // host envs have a value in `func_init`.
-                        unsafe { func.environment.host_env }
+                        env_ptr
                     } else {
                         std::ptr::null_mut()
                     };
