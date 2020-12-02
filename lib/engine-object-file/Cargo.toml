@@ -13,7 +13,7 @@ edition = "2018"
 [dependencies]
 wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta1" }
 wasmer-compiler = { path = "../compiler", version = "1.0.0-beta1" }
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha01.0" }
+wasmer-vm = { path = "../vm", version = "1.0.0-beta1" }
 wasmer-engine = { path = "../engine", version = "1.0.0-beta1" }
 wasmer-object = { path = "../object", version = "1.0.0-beta1" }
 serde = { version = "1.0", features = ["derive", "rc"] }
