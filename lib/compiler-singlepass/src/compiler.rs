@@ -7,16 +7,17 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{
+    IntoParallelIterator, IntoParallelRefIterator, IntoParallelRefMutIterator, ParallelIterator,
+};
 use std::sync::Arc;
 use wasmer_compiler::wasmparser::BinaryReaderError;
+use wasmer_compiler::FunctionBody;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, Target,
+    CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleTranslationState, Target,
 };
-use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
@@ -49,16 +50,13 @@ impl Compiler for SinglepassCompiler {
         _target: &Target,
         compile_info: &mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
-        function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
+        function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
     ) -> Result<Compilation, CompileError> {
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
@@ -72,18 +70,10 @@ impl Compiler for SinglepassCompiler {
             .into_iter()
             .collect();
         let functions = function_body_inputs
-            .iter()
-            .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
-            .map(|(i, input)| {
-                let middleware_chain = self
-                    .config
-                    .middlewares
-                    .generate_function_middleware_chain(*i);
-                let mut reader =
-                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
-                reader.set_middleware_chain(middleware_chain);
-
+            .into_iter()
+            .collect::<Vec<_>>()
+            .par_iter_mut()
+            .map(|(i, reader)| {
                 // This local list excludes arguments.
                 let mut locals = vec![];
                 let num_locals = reader.read_local_count().map_err(to_compile_error)?;
