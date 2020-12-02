@@ -41,7 +41,7 @@ impl JITEngine {
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
                 features,
-                middlewares: middlewares,
+                middlewares,
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),

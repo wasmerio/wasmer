@@ -1,11 +1,13 @@
 use crate::NativeEngine;
-use wasmer_compiler::{CompilerConfig, Features, Target};
+use std::sync::Arc;
+use wasmer_compiler::{CompilerConfig, Features, ModuleMiddleware, Target};
 
 /// The Native builder
 pub struct Native<'a> {
     compiler_config: Option<&'a dyn CompilerConfig>,
     target: Option<Target>,
     features: Option<Features>,
+    middleware: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl<'a> Native<'a> {
@@ -18,6 +20,7 @@ impl<'a> Native<'a> {
             compiler_config: Some(compiler_config),
             target: None,
             features: None,
+            middleware: vec![],
         }
     }
 
@@ -27,6 +30,7 @@ impl<'a> Native<'a> {
             compiler_config: None,
             target: None,
             features: None,
+            middleware: vec![],
         }
     }
 
@@ -42,6 +46,21 @@ impl<'a> Native<'a> {
         self
     }
 
+    /// Append one middleware
+    pub fn middleware(mut self, middleware: Arc<dyn ModuleMiddleware>) -> Self {
+        self.middleware.push(middleware);
+        self
+    }
+
+    /// Append a stack of middlewares
+    pub fn middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>(
+        mut self,
+        middlewares: I,
+    ) -> Self {
+        self.middleware.extend(middlewares);
+        self
+    }
+
     /// Build the `NativeEngine` for this configuration
     pub fn engine(self) -> NativeEngine {
         if let Some(_compiler_config) = self.compiler_config {
@@ -53,7 +72,7 @@ impl<'a> Native<'a> {
                     .features
                     .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
                 let compiler = compiler_config.compiler();
-                NativeEngine::new(compiler, target, features)
+                NativeEngine::new(compiler, target, features, self.middleware)
             }
 
             #[cfg(not(feature = "compiler"))]

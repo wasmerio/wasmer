@@ -7,7 +7,7 @@ use std::sync::Arc;
 use std::sync::Mutex;
 use wasmer_compiler::{CompileError, Target};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{Compiler, Triple};
+use wasmer_compiler::{Compiler, ModuleMiddleware, Triple};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 #[cfg(feature = "compiler")]
 use wasmer_types::Features;
@@ -28,7 +28,12 @@ pub struct NativeEngine {
 impl NativeEngine {
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
+    pub fn new(
+        compiler: Box<dyn Compiler + Send>,
+        target: Target,
+        features: Features,
+        middlewares: Vec<Arc<dyn ModuleMiddleware>>,
+    ) -> Self {
         let host_target = Triple::host();
         let is_cross_compiling = target.triple() != &host_target;
 
@@ -52,6 +57,7 @@ impl NativeEngine {
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 features,
+                middlewares,
                 is_cross_compiling,
                 linker,
                 libraries: vec![],
@@ -81,6 +87,8 @@ impl NativeEngine {
                 compiler: None,
                 #[cfg(feature = "compiler")]
                 features: Features::default(),
+                #[cfg(feature = "compiler")]
+                middlewares: vec![],
                 signatures: SignatureRegistry::new(),
                 prefixer: None,
                 is_cross_compiling: false,
@@ -217,6 +225,9 @@ pub struct NativeEngineInner {
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,
+    /// Stack of middlewares to transform the module.
+    #[cfg(feature = "compiler")]
+    middlewares: Vec<Arc<dyn ModuleMiddleware>>,
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
@@ -271,6 +282,12 @@ impl NativeEngineInner {
         Err(CompileError::Validate(
             "The `NativeEngine` is not compiled with compiler support, which is required for validating".to_string(),
         ))
+    }
+
+    /// Stack of middlewares.
+    #[cfg(feature = "compiler")]
+    pub fn middlewares(&self) -> &Vec<Arc<dyn ModuleMiddleware>> {
+        &self.middlewares
     }
 
     /// Shared signature registry.

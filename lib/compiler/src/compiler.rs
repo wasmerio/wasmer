@@ -85,6 +85,11 @@ pub trait Compiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, MiddlewareBinaryReader>,
     ) -> Result<Compilation, CompileError>;
 
+    /// Whether this compiler supports the experimental native object file method.
+    fn supports_experimental_native_compile_module(&self) -> bool {
+        false
+    }
+
     /// Compiles a module into a native object file.
     ///
     /// It returns the bytes as a `&[u8]` or a [`CompileError`].
@@ -98,8 +103,10 @@ pub trait Compiler {
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         _wasmer_metadata: &[u8],
-    ) -> Option<Result<Vec<u8>, CompileError>> {
-        None
+    ) -> Result<Vec<u8>, CompileError> {
+        Err(CompileError::Codegen(
+            "This backend does not support `experimental_native_compile_module`.".into(),
+        ))
     }
 }
 

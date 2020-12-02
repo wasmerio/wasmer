@@ -207,6 +207,10 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    fn supports_experimental_native_compile_module(&self) -> bool {
+        true
+    }
+
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
@@ -217,15 +221,15 @@ impl Compiler for LLVMCompiler {
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
-    ) -> Option<Result<Vec<u8>, CompileError>> {
-        Some(self.compile_native_object(
+    ) -> Result<Vec<u8>, CompileError> {
+        self.compile_native_object(
             target,
             compile_info,
             module_translation,
             function_body_inputs,
             symbol_registry,
             wasmer_metadata,
-        ))
+        )
     }
 
     /// Compile the module using LLVM, producing a compilation result with
