@@ -142,6 +142,7 @@ jobs:
       - name: Start sccache
         run: |
           echo "Running sccache on port: $SCCACHE_SERVER_PORT"
+          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
           echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
