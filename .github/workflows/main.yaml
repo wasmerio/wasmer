@@ -90,14 +90,6 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
           override: true
-      - name: Setup Rust target
-        run: |
-          cat << EOF > .cargo/config.toml
-          [build]
-          target = "${{ matrix.target }}"
-          EOF
-        if: matrix.target
-      #- uses: Swatinem/rust-cache@v1
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         shell: cmd
@@ -135,6 +127,13 @@ jobs:
             cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
           fi
         shell: bash
+      - name: Setup Rust target
+        run: |
+          cat << EOF > .cargo/config.toml
+          [build]
+          target = "${{ matrix.target }}"
+          EOF
+        if: matrix.target
       - name: Start sccache
         run: |
           echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
