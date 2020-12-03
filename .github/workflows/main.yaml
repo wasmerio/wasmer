@@ -134,9 +134,13 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
+      - name: Set sccache port
+        run: |
+          echo "SCCACHE_SERVER_PORT=$RANDOM" >> $GITHUB_ENV
+        shell: bash
       - name: Start sccache
         run: |
-          echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
+          echo "Running sccache in port: $SCCACHE_SERVER_PORT"
           chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
