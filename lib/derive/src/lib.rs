@@ -31,6 +31,7 @@ fn impl_wasmer_env_for_struct(
             #trait_methods
         }
 
+        #[allow(dead_code)]
         impl < #lifetimes_and_generics > #name < #lifetimes_and_generics > #where_clause {
             #helper_methods
         }
