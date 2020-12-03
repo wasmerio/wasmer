@@ -6,8 +6,9 @@ use std::any::Any;
 use std::convert::TryInto;
 use std::fmt;
 use std::{
+    collections::VecDeque,
     fs,
-    io::{self, Cursor, Read, Seek, Write},
+    io::{self, Read, Seek, Write},
     path::PathBuf,
     time::SystemTime,
 };
@@ -971,40 +972,41 @@ impl WasiFile for Stdin {
 }
 
 /// For piping stdio. Stores all output / input in a byte-vector.
-#[derive(Serialize, Deserialize)]
-#[serde(remote = "Cursor<Vec<u8>>")]
-struct CursorDef {
-    #[serde(getter = "Cursor::get_ref")]
-    inner: Vec<u8>,
-    #[serde(getter = "Cursor::position")]
-    pos: u64,
-}
-
-impl From<CursorDef> for Cursor<Vec<u8>> {
-    fn from(def: CursorDef) -> Cursor<Vec<u8>> {
-        let mut cur = Cursor::new(def.inner);
-        cur.set_position(def.pos);
-        cur
-    }
-}
-
 #[derive(Debug, Default, Serialize, Deserialize)]
 pub struct Pipe {
-    #[serde(with = "CursorDef")]
-    buffer: Cursor<Vec<u8>>,
+    buffer: VecDeque<u8>,
 }
 
 impl Pipe {
     pub fn new() -> Self {
-        Self {
-            buffer: Cursor::new(Vec::new()),
-        }
+        Self::default()
     }
 }
 
-impl fmt::Display for Pipe {
-    fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        write!(f, "{}", String::from_utf8_lossy(&self.buffer.get_ref()[..]))
+impl Read for Pipe {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let bytes = self.buffer.as_slices().0.read(buf)?;
+        drop(self.buffer.drain(..bytes));
+        Ok(bytes)
+    }
+}
+
+impl Write for Pipe {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.buffer.extend(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for Pipe {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek in a pipe",
+        ))
     }
 }
 
@@ -1020,37 +1022,16 @@ impl WasiFile for Pipe {
         0
     }
     fn size(&self) -> u64 {
-        self.buffer.get_ref().len() as u64
+        self.buffer.len() as u64
     }
     fn set_len(&mut self, len: u64) -> Result<(), WasiFsError> {
-        Ok(self.buffer.get_mut().resize(len as usize, 0))
+        Ok(self.buffer.resize(len as usize, 0))
     }
     fn unlink(&mut self) -> Result<(), WasiFsError> {
         Ok(())
     }
     fn bytes_available(&self) -> Result<usize, WasiFsError> {
-        Ok(self.buffer.get_ref().len() - self.buffer.position() as usize)
-    }
-}
-
-impl Read for Pipe {
-    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
-        self.buffer.read(buf)
-    }
-}
-
-impl Seek for Pipe {
-    fn seek(&mut self, pos: io::SeekFrom) -> io::Result<u64> {
-        self.buffer.seek(pos)
-    }
-}
-
-impl Write for Pipe {
-    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
-        self.buffer.write(buf)
-    }
-    fn flush(&mut self) -> io::Result<()> {
-        self.buffer.flush()
+        Ok(self.buffer.len())
     }
 }
 
