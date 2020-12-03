@@ -73,7 +73,7 @@ jobs:
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
     env:
-      CARGO_SCCACHE_VERSION: 0.2.13
+      CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
@@ -118,6 +118,20 @@ jobs:
         run: |
           brew install automake
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      # Install sccache
+      - uses: actions/cache@master
+        with:
+          path: ${{ runner.tool_cache }}/cargo-sccache
+          key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+      - name: Install sccache
+        run: |
+          echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
+          cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+      - name: Start sccache
+        run: |
+          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
+          ${{ runner.tool_cache }}/cargo-sccache/bin/sscache -s
+          echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
       - name: Test
         run: |
           make test
