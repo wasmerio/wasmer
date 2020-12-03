@@ -100,13 +100,35 @@ pub(crate) struct Instance {
     ///
     /// TODO: Be sure to test with serialize/deserialize and imported
     /// functions from other Wasm modules.
-    import_initializers: ImportInitializerThunks,
+    /// TODO: update this comment
+    import_envs: BoxedSlice<FunctionIndex, Arc<ImportEnv>>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
     /// extends beyond the nominal end of the struct (similar to a
     /// flexible array member).
     vmctx: VMContext,
+}
+
+/// TODO: figure out what to do with Clone here
+///       We can probably remove the Arc... just need to figure that out.
+/// TODO:
+#[derive(Debug)]
+pub struct ImportEnv {
+    /// TODO:
+    pub env: *mut std::ffi::c_void,
+    /// TODO:
+    pub initializer: Option<ImportInitializerFuncPtr>,
+    /// TODO:
+    pub destructor: Option<fn(*mut std::ffi::c_void)>,
+}
+
+impl Drop for ImportEnv {
+    fn drop(&mut self) {
+        if let Some(destructor) = self.destructor {
+            (destructor)(self.env);
+        }
+    }
 }
 
 impl fmt::Debug for Instance {
@@ -155,7 +177,7 @@ impl Instance {
         &self,
         index: FunctionIndex,
     ) -> Option<ImportInitializerFuncPtr> {
-        self.import_initializers[index.as_u32() as usize].0
+        self.import_envs[index].initializer
     }
 
     /// Return a pointer to the `VMFunctionImport`s.
@@ -1007,7 +1029,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
-        import_initializers: ImportInitializerThunks,
+        import_envs: BoxedSlice<FunctionIndex, Arc<ImportEnv>>,
     ) -> Result<Self, Trap> {
         // `NonNull<u8>` here actually means `NonNull<Instance>`. See
         // `Self::allocate_instance` to understand why.
@@ -1035,7 +1057,7 @@ impl InstanceHandle {
                 passive_data,
                 host_state,
                 signal_handler: Cell::new(None),
-                import_initializers,
+                import_envs,
                 vmctx: VMContext {},
             };
 
@@ -1411,18 +1433,20 @@ impl InstanceHandle {
     ) -> Result<(), Err> {
         let instance_ref = self.instance.as_mut();
 
-        for (func, env) in instance_ref.import_initializers.drain(..) {
-            if let Some(ref f) = func {
+        for ImportEnv {
+            env, initializer, ..
+        } in instance_ref.import_envs.values().map(|v| &**v)
+        {
+            if let Some(ref f) = initializer {
                 // transmute our function pointer into one with the correct error type
                 let f = mem::transmute::<
                     &ImportInitializerFuncPtr,
                     &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
                 >(f);
-                f(env, instance_ptr)?;
+                f(*env, instance_ptr)?;
+                //*initializer = None;
             }
         }
-        // free memory now that it's empty.
-        instance_ref.import_initializers.shrink_to_fit();
 
         Ok(())
     }

@@ -10,10 +10,10 @@ use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum VMExport {
     /// A function export value.
-    Function(VMExportFunction),
+    Function(Arc<VMExportFunction>),
 
     /// A table export value.
     Table(VMExportTable),
@@ -26,7 +26,7 @@ pub enum VMExport {
 }
 
 /// A function export value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, PartialEq)]
 pub struct VMExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
@@ -63,7 +63,7 @@ unsafe impl Sync for VMExportFunction {}
 
 impl From<VMExportFunction> for VMExport {
     fn from(func: VMExportFunction) -> Self {
-        Self::Function(func)
+        Self::Function(Arc::new(func))
     }
 }
 

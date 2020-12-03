@@ -1,8 +1,9 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use crate::instance::{ImportInitializerFuncPtr, ImportInitializerThunks};
+use crate::instance::ImportEnv;
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
+use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 
@@ -17,9 +18,7 @@ pub struct Imports {
     /// space may affect Wasm runtime performance due to increased cache pressure.
     ///
     /// We make it optional so that we can free the data after use.
-    pub host_function_env_initializers: Option<
-        BoxedSlice<FunctionIndex, (Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>,
-    >,
+    pub host_function_env_initializers: Option<BoxedSlice<FunctionIndex, Arc<ImportEnv>>>,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -35,10 +34,7 @@ impl Imports {
     /// Construct a new `Imports` instance.
     pub fn new(
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
-        host_function_env_initializers: PrimaryMap<
-            FunctionIndex,
-            (Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void),
-        >,
+        host_function_env_initializers: PrimaryMap<FunctionIndex, Arc<ImportEnv>>,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,
@@ -56,7 +52,7 @@ impl Imports {
     pub fn none() -> Self {
         Self {
             functions: PrimaryMap::new().into_boxed_slice(),
-            host_function_env_initializers: Some(PrimaryMap::new().into_boxed_slice()),
+            host_function_env_initializers: None,
             tables: PrimaryMap::new().into_boxed_slice(),
             memories: PrimaryMap::new().into_boxed_slice(),
             globals: PrimaryMap::new().into_boxed_slice(),
@@ -68,25 +64,9 @@ impl Imports {
     ///
     /// This function can only be called once, it deletes the data it returns after
     /// returning it to ensure that it's not called more than once.
-    pub fn get_import_initializers(&mut self) -> ImportInitializerThunks {
-        let result = if let Some(inner) = &self.host_function_env_initializers {
-            inner
-                .values()
-                .cloned()
-                .map(|(func_init, env_ptr)| {
-                    let host_env = if func_init.is_some() {
-                        env_ptr
-                    } else {
-                        std::ptr::null_mut()
-                    };
-                    (func_init, host_env)
-                })
-                .collect()
-        } else {
-            vec![]
-        };
-        // ensure we only call these functions once and free this now useless memory.
-        self.host_function_env_initializers = None;
-        result
+    pub fn get_import_initializers(&mut self) -> BoxedSlice<FunctionIndex, Arc<ImportEnv>> {
+        self.host_function_env_initializers
+            .take()
+            .unwrap_or_else(|| PrimaryMap::new().into_boxed_slice())
     }
 }

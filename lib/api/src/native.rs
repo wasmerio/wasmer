@@ -15,6 +15,7 @@ use crate::externals::function::{
 };
 use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use std::sync::Arc;
 use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
@@ -88,14 +89,15 @@ where
         Self {
             // TODO:
             import_init_function_ptr: None,
-            vm_function: VMExportFunction {
+            host_env_drop_fn: None,
+            vm_function: Arc::new(VMExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
                 signature,
                 kind: other.arg_kind,
                 call_trampoline: None,
                 instance_allocator: None,
-            },
+            }),
         }
     }
 }
@@ -113,14 +115,15 @@ where
             exported: ExportFunction {
                 // TODO:
                 import_init_function_ptr: None,
-                vm_function: VMExportFunction {
+                host_env_drop_fn: None,
+                vm_function: Arc::new(VMExportFunction {
                     address: other.address,
                     vmctx: other.vmctx,
                     signature,
                     kind: other.arg_kind,
                     call_trampoline: None,
                     instance_allocator: None,
-                },
+                }),
             },
         }
     }

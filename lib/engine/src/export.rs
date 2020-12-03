@@ -3,6 +3,8 @@ use wasmer_vm::{
     VMExportTable,
 };
 
+use std::sync::Arc;
+
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
 pub enum Export {
@@ -36,6 +38,7 @@ impl From<VMExport> for Export {
             VMExport::Function(vm_function) => Export::Function(ExportFunction {
                 vm_function,
                 import_init_function_ptr: None,
+                host_env_drop_fn: None,
             }),
             VMExport::Memory(vm_memory) => Export::Memory(ExportMemory { vm_memory }),
             VMExport::Table(vm_table) => Export::Table(ExportTable { vm_table }),
@@ -49,12 +52,14 @@ impl From<VMExport> for Export {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
-    pub vm_function: VMExportFunction,
+    pub vm_function: Arc<VMExportFunction>,
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
     /// This function is called to finish setting up the environment after
     /// we create the `api::Instance`.
     pub import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+    /// The destructor to free the host environment.
+    pub host_env_drop_fn: Option<fn(*mut std::ffi::c_void)>,
 }
 
 impl From<ExportFunction> for Export {
