@@ -15,8 +15,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMSharedSignatureIndex,
-    VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// Serializable struct for the artifact
@@ -45,6 +45,14 @@ pub struct DummyArtifact {
 
 extern "C" fn dummy_function(_context: *mut VMContext) {
     panic!("Dummy engine can't generate functions")
+}
+
+extern "C" fn dummy_trampoline(
+    _context: *mut VMContext,
+    _callee: *const VMFunctionBody,
+    _values: *mut u128,
+) {
+    panic!("Dummy engine can't generate trampolines")
 }
 
 impl DummyArtifact {
@@ -141,7 +149,7 @@ impl DummyArtifact {
         // We prepare the pointers for the finished function call trampolines.
         let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> = (0
             ..metadata.module.signatures.len())
-            .map(|_| unsafe { std::mem::transmute::<_, VMTrampoline>(&dummy_function) })
+            .map(|_| dummy_trampoline as VMTrampoline)
             .collect::<PrimaryMap<_, _>>();
 
         // We prepare the pointers for the finished dynamic function trampolines.
