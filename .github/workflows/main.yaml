@@ -128,7 +128,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.os }}-cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+          key: ${{ matrix.os }}-${{ matrix.target }}-cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       - name: Install sccache
         run: |
           if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
