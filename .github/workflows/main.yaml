@@ -136,12 +136,12 @@ jobs:
         if: matrix.target
       - name: Set sccache port
         run: |
-          echo "SCCACHE_SERVER_PORT=$RANDOM" >> $GITHUB_ENV
+          echo "SCCACHE_SERVER_PORT=9000" >> $GITHUB_ENV
+        if: ${{ matrix.build }} != 'linux-aarch64'
         shell: bash
       - name: Start sccache
         run: |
-          echo "Running sccache in port: $SCCACHE_SERVER_PORT"
-          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
+          echo "Running sccache on port: $SCCACHE_SERVER_PORT"
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
           echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
