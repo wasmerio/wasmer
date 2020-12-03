@@ -134,6 +134,7 @@ jobs:
           if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
             cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
           fi
+        shell: bash
       - name: Start sccache
         run: |
           echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
