@@ -140,7 +140,7 @@ jobs:
       - name: Set sccache port
         run: |
           echo "SCCACHE_SERVER_PORT=9000" >> $GITHUB_ENV
-        if: ${{ matrix.build }} != 'linux-aarch64'
+        if: matrix.build != 'linux-aarch64'
         shell: bash
       - name: Start sccache
         run: |
