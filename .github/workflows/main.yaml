@@ -131,10 +131,10 @@ jobs:
           key: ${{ runner.os }}-cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       - name: Install sccache
         run: |
-          echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
-          cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+          [ -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ] || cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
       - name: Start sccache
         run: |
+          echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
           echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
