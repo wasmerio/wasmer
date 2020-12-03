@@ -118,11 +118,17 @@ jobs:
         run: |
           brew install automake
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
+      - uses: actions/cache@v2
+        with:
+          path: |
+            ~/.cargo/registry
+            ~/.cargo/git
+          key: ${{ runner.os }}-cargo-${{ hashFiles('Cargo.lock') }}
       # Install sccache
-      - uses: actions/cache@master
+      - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
-          key: cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+          key: ${{ runner.os }}-cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       - name: Install sccache
         run: |
           echo "${{ runner.tool_cache }}/cargo-sccache/bin" >> $GITHUB_PATH
