@@ -5224,6 +5224,15 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
+                        let offset = this.assembler.get_offset().0;
+                        this.instructions_address_map.push(InstructionAddressMap {
+                            srcloc: SourceLoc::new(this.src_loc),
+                            code_offset: offset,
+                            code_len: 3,
+                        });
+                        this.trap_table
+                            .offset_to_code
+                            .insert(offset, TrapCode::StackOverflow);
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
                     },
                     params.iter().copied(),
@@ -5417,6 +5426,15 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
+                            let offset = this.assembler.get_offset().0;
+                            this.instructions_address_map.push(InstructionAddressMap {
+                                srcloc: SourceLoc::new(this.src_loc),
+                                code_offset: offset,
+                                code_len: 3,
+                            });
+                            this.trap_table
+                                .offset_to_code
+                                .insert(offset, TrapCode::StackOverflow);
                             this.assembler.emit_call_location(Location::Memory(
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
