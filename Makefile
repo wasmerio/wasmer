@@ -15,6 +15,11 @@ compilers := cranelift
 # in `make test`.
 test_compilers_engines :=
 
+# if we are in Darwin, we use the system libffi for the capi
+ifeq ($(UNAME_S), Darwin)
+	capi_default_features := --features system-libffi
+endif
+
 # Autodetect LLVM from llvm-config
 ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
@@ -110,61 +115,51 @@ build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi
+		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi $(capi_default_features)
 
 build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi
+		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features)
 
 build-capi-singlepass-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,singlepass,wasi
+		--no-default-features --features deprecated,wat,native,singlepass,wasi $(capi_default_features)
 
 build-capi-singlepass-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,singlepass,wasi
+		--no-default-features --features deprecated,wat,object-file,singlepass,wasi $(capi_default_features)
 
 build-capi-cranelift:
-ifeq ($(UNAME_S), Darwin)
-	# We build it with the system-libffi as is included in macos
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi
-else
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi
-endif
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi $(capi_default_features)
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features)
 
 build-capi-cranelift-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi
+		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features)
 
 build-capi-cranelift-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi
-
-build-capi-cranelift-system-libffi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi
+		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi $(capi_default_features)
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi
+		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi $(capi_default_features)
 
 build-capi-llvm-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi
+		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features)
 
 build-capi-llvm-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi
+		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features)
 
 build-capi-llvm-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,llvm,wasi
+		--no-default-features --features deprecated,wat,object-file,llvm,wasi $(capi_default_features)
 
 # Headless (we include the minimal to be able to run)
 
@@ -229,33 +224,29 @@ test-packages:
 # link the tests against. cargo test doesn't know that the tests will be running
 # cmake + make to build programs whose dependencies cargo isn't aware of.
 
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) test-capi-examples #$(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
 
-test-capi-singlepass-jit: build-capi-singlepass-jit
+test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-examples
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-jit: build-capi-cranelift-jit
+test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-examples
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-native: build-capi-cranelift-native
+test-capi-cranelift-native: build-capi-cranelift-native test-capi-examples
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi -- --nocapture
-
-test-capi-cranelift-jit-system-libffi:
-	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi,system-libffi -- --nocapture
+		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features) -- --nocapture
 
 test-capi-llvm-jit:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features) -- --nocapture
 
 test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi -- --nocapture
+		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
 
-test-capi-examples: package-capi
+test-capi-examples:
 	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
