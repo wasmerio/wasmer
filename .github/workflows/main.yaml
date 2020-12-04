@@ -110,6 +110,9 @@ jobs:
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
+          # using gnu-tar is a workaround for https://github.com/actions/cache/issues/403
+          brew install gnu-tar
+          echo PATH="/usr/local/opt/gnu-tar/libexec/gnubin:$PATH" >> $GITHUB_ENV
         if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
       - uses: actions/cache@v2
         with:
