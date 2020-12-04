@@ -13,7 +13,7 @@ impl ObjectFile {
     /// Create a new ObjectFile
     pub fn new<T>(compiler_config: T) -> Self
     where
-        T: Into<Box<dyn CompilerConfig>>,
+        T: Into<Box<dyn CompilerConfig + Send + Sync>>,
     {
         let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
