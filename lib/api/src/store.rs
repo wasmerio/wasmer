@@ -80,7 +80,7 @@ impl Default for Store {
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> impl CompilerConfig + Send + Sync + 'static {
+        fn get_config() -> impl CompilerConfig + 'static {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
@@ -96,7 +96,7 @@ impl Default for Store {
 
         #[allow(unreachable_code, unused_mut)]
         fn get_engine(
-            mut config: impl CompilerConfig + Send + Sync + 'static,
+            mut config: impl CompilerConfig + 'static,
         ) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-jit")] {

@@ -4,7 +4,7 @@ use wasmer_compiler::{CompilerConfig, Features, Target};
 /// The JIT builder
 pub struct JIT {
     #[allow(dead_code)]
-    compiler_config: Option<Box<dyn CompilerConfig + Send + Sync>>,
+    compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
@@ -13,7 +13,7 @@ impl JIT {
     /// Create a new JIT
     pub fn new<T>(compiler_config: T) -> Self
     where
-        T: Into<Box<dyn CompilerConfig + Send + Sync>>,
+        T: Into<Box<dyn CompilerConfig>>,
     {
         Self {
             compiler_config: Some(compiler_config.into()),

@@ -13,7 +13,7 @@ impl Native {
     /// Create a new Native
     pub fn new<T>(compiler_config: T) -> Self
     where
-        T: Into<Box<dyn CompilerConfig + Send + Sync>>,
+        T: Into<Box<dyn CompilerConfig>>,
     {
         let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
@@ -91,7 +91,7 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler + Send> {
+        fn compiler(&self) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 

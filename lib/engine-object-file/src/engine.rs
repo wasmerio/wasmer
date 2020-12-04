@@ -23,7 +23,7 @@ pub struct ObjectFileEngine {
 impl ObjectFileEngine {
     /// Create a new `ObjectFileEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
+    pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(ObjectFileEngineInner {
                 compiler: Some(compiler),
@@ -168,7 +168,7 @@ impl Engine for ObjectFileEngine {
 pub struct ObjectFileEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler + Send>>,
+    compiler: Option<Box<dyn Compiler>>,
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,
