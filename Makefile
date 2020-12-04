@@ -222,19 +222,17 @@ test-packages:
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
 # link the tests against. cargo test doesn't know that the tests will be running
-# cmake + make to build programs whose dependencies cargo isn't aware of.
-
 test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
 
-test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-examples
+test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-examples
+test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-native: build-capi-cranelift-native test-capi-examples
+test-capi-cranelift-native: build-capi-cranelift-native test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features) -- --nocapture
 
@@ -246,7 +244,10 @@ test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
 
-test-capi-examples:
+test-capi-tests: package-capi
+	# Test the Wasmer C API tests for C
+	cd lib/c-api/tests; WASMER_DIR=`pwd`/../../../package make test
+	# Test the Wasmer C API examples
 	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
@@ -284,8 +285,6 @@ ifeq ($(OS), Windows_NT)
 else
 	cp target/release/wasmer package/bin/
 endif
-
-
 
 package-capi:
 	mkdir -p "package/include"

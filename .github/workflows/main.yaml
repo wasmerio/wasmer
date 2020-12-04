@@ -114,10 +114,6 @@ jobs:
           echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
           LLVM_DIR: ${{ github.workspace }}/llvm-10
-      - name: Set up dependencies for Mac OS
-        run: |
-          brew install automake
-        if: matrix.os == 'macos-latest' || matrix.os == 'macos-11.0'
       - name: Test
         run: |
           make test

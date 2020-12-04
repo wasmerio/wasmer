@@ -14,29 +14,26 @@ $(info * CFLAGS: $(CFLAGS))
 $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
-ALL = instance imports-exports exports-function exports-global memory
+ALL = \
+	test-context                   test-import-object             test-module-imports \
+    test-import-trap               test-module-serialize \
+	test-exported-memory           test-imports                   test-module \
+	test-exports                   test-instantiate               test-tables \
+	test-globals                   test-memory                    test-validate \
+	test-module-exports            test-module-import-instantiate
 
-.SILENT: instance instance.o
-instance: instance.o
+EMSCRIPTEN = test-emscripten-import-object
 
-.SILENT: imports-exports imports-exports.o
-imports-exports: imports-exports.o
+NOT_WORKING = test-import-function test-import-function-callinfo test-wasi-import-object
 
-.SILENT: exports-function exports-function.o
-exports-function: exports-function.o
-
-.SILENT: exports-global exports-global.o
-exports-global: exports-global.o
-
-.SILENT: memory memory.o
-memory: memory.o
+test-%: %.o
 
 .PHONY: all
 all: $(ALL)
 
-.PHONY: run
-.SILENT: run
-run: $(ALL)
+.PHONY: test
+.SILENT: test
+test: $(ALL)
 	set -o errexit; \
 	$(foreach example,$?,echo Running \"$(example)\" example; ./$(example); echo;)
 
