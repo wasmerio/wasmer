@@ -68,7 +68,7 @@ fn main() -> anyhow::Result<()> {
     //
     // We use our previously create compiler configuration
     // with the JIT engine.
-    let store = Store::new(&JIT::new(&compiler_config).engine());
+    let store = Store::new(&JIT::new(compiler_config).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
