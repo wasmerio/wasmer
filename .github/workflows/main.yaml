@@ -38,7 +38,7 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux, macos, macos-arm64, windows, linux-aarch64]
+        build: [linux-x64, macos-x64, macos-arm64, windows-x64, linux-aarch64]
         include:
           - build: linux-x64
             os: ubuntu-18.04
