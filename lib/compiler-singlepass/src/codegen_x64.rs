@@ -6220,7 +6220,7 @@ impl<'a> FuncGen<'a> {
                 self.instructions_address_map.push(InstructionAddressMap {
                     srcloc: SourceLoc::new(self.src_loc),
                     code_offset: offset,
-                    code_len: 2, // TODO: Check this length
+                    code_len: 2,
                 });
                 self.trap_table
                     .offset_to_code
