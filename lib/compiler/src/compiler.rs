@@ -37,7 +37,7 @@ pub trait CompilerConfig {
     }
 
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler + Send>;
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler + Send>;
 
     /// Gets the default features for this compiler in the given target
     fn default_features_for_target(&self, _target: &Target) -> Features {

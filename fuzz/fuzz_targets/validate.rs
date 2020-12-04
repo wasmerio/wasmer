@@ -8,6 +8,6 @@ use wasmer_engine_jit::JIT;
 
 fuzz_target!(|wasm_bytes: &[u8]| {
     let compiler = Cranelift::default();
-    let store = Store::new(&JIT::new(&compiler).engine());
+    let store = Store::new(&JIT::new(compiler).engine());
     Module::validate(&store, wasm_bytes);
 });

@@ -88,7 +88,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // are going to store it in a file with the `.so` extension
         // for example (or `.dylib`, or `.dll` depending of the
         // platform).
-        let engine = Native::new(&mut compiler_config).engine();
+        let engine = Native::new(compiler_config).engine();
 
         // Create a store, that holds the engine.
         let store = Store::new(&engine);

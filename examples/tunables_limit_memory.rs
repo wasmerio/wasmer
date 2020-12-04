@@ -143,7 +143,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Any compiler and any engine do the job here
     let compiler = Cranelift::default();
-    let engine = JIT::new(&compiler).engine();
+    let engine = JIT::new(compiler).engine();
 
     // Here is where the fun begins
 
