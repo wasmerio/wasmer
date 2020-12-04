@@ -108,19 +108,22 @@ impl GlobalFrameInfo {
     /// Returns an object if this `pc` is known to some previously registered
     /// module, or returns `None` if no information can be found.
     pub fn lookup_frame_info(&self, pc: usize) -> Option<FrameInfo> {
+        dbg!(pc);
         let module = self.module_info(pc)?;
+        println!("lookup_frame_info::module_info success");
         let func = module.function_info(pc)?;
+        println!("lookup_frame_info::function_info success");
 
         // Use our relative position from the start of the function to find the
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
-        let rel_pos = pc - func.start;
+        let rel_pos = dbg!(pc - func.start);
         let instr_map = &module
             .processed_function_frame_info(func.local_index)
             .address_map;
-        let pos = match instr_map
+        let pos = match dbg!(instr_map
             .instructions
-            .binary_search_by_key(&rel_pos, |map| map.code_offset)
+            .binary_search_by_key(&rel_pos, |map| map.code_offset))
         {
             // Exact hit!
             Ok(pos) => Some(pos),
@@ -143,6 +146,8 @@ impl GlobalFrameInfo {
                 }
             }
         };
+
+        dbg!(pos);
 
         // In debug mode for now assert that we found a mapping for `pc` within
         // the function, because otherwise something is buggy along the way and
@@ -276,6 +281,11 @@ pub fn register(
     if let Some((prev_end, _)) = info.ranges.range(..=min).next_back() {
         assert!(*prev_end < min);
     }
+
+    println!(
+        "Frame info ranges for this Module info are ({}, {})",
+        min, max
+    );
 
     // ... then insert our range and assert nothing was there previously
     let prev = info.ranges.insert(

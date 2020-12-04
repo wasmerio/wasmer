@@ -99,9 +99,7 @@ impl JITArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let frame_infos = compilation
-            .get_frame_info()
-            .values()
+        let frame_infos = dbg!(compilation.get_frame_info().values())
             .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
