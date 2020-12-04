@@ -8,7 +8,7 @@ use wasmer::wasmparser::{
 };
 use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
-    MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    MiddlewareReaderState, ModuleMiddleware, Mutability, Type, Value,
 };
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
@@ -53,13 +53,28 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
         }
     }
 
+    /// Get the remaining points in an Instance.
+    ///
+    /// Important: the instance Module must been processed with the `Metering` middleware.
     pub fn get_remaining_points(&self, instance: &Instance) -> u64 {
         instance
             .exports
             .get_global("remaining_points")
-            .unwrap()
+            .expect("Can't get `remaining_points` from Instance")
             .get()
             .unwrap_i64() as _
+    }
+
+    /// Set the provided remaining points in an Instance.
+    ///
+    /// Important: the instance Module must been processed with the `Metering` middleware.
+    pub fn set_remaining_points(&self, instance: &Instance, points: u64) {
+        instance
+            .exports
+            .get_global("remaining_points")
+            .expect("Can't get `remaining_points` from Instance")
+            .set(Value::I64(points as _))
+            .expect("Can't set `remaining_points` in Instance");
     }
 }
 
