@@ -77,7 +77,9 @@ pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Tripl
 pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
-pub use wasmer_compiler::{CpuFeature, Features, Target};
+pub use wasmer_compiler::{
+    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError,
+};
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
