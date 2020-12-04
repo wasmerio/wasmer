@@ -97,6 +97,7 @@ impl ModuleInfoFrameInfo {
     }
 }
 
+#[derive(Debug)]
 struct FunctionInfo {
     start: usize,
     local_index: LocalFunctionIndex,
@@ -111,7 +112,7 @@ impl GlobalFrameInfo {
         dbg!(pc);
         let module = self.module_info(pc)?;
         println!("lookup_frame_info::module_info success");
-        let func = module.function_info(pc)?;
+        let func = dbg!(module.function_info(pc)?);
         println!("lookup_frame_info::function_info success");
 
         // Use our relative position from the start of the function to find the
