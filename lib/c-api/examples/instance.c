@@ -13,14 +13,15 @@ int main(int argc, const char* argv[]) {
 
     wasm_byte_vec_t wat;
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
-    wasm_byte_vec_t* wasm_bytes = wat2wasm(&wat);
+    wasm_byte_vec_t wasm_bytes;
+    wat2wasm(&wat, &wasm_bytes);
 
     printf("Creating the store...\n");
     wasm_engine_t* engine = wasm_engine_new();
     wasm_store_t* store = wasm_store_new(engine);
 
     printf("Compiling module...\n");
-    wasm_module_t* module = wasm_module_new(store, wasm_bytes);
+    wasm_module_t* module = wasm_module_new(store, &wasm_bytes);
 
     if (!module) {
         printf("> Error compiling module!\n");
@@ -28,7 +29,7 @@ int main(int argc, const char* argv[]) {
         return 1;
     }
 
-    wasm_byte_vec_delete(wasm_bytes);
+    wasm_byte_vec_delete(&wasm_bytes);
 
     printf("Creating imports...\n");
     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
