@@ -129,6 +129,11 @@ jobs:
       - name: Build C API
         run: |
           make build-capi
+        if: matrix.target != 'aarch64-apple-darwin'
+      - name: Build C API (system libffi)
+        run: |
+          make build-capi-cranelift-system-libffi
+        if: matrix.target == 'aarch64-apple-darwin'
       - name: Build Wasmer binary
         run: |
           make build-wasmer

@@ -131,6 +131,10 @@ build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi $(capi_default_features)
 
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi $(capi_default_features)
+
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features)
