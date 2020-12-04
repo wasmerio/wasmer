@@ -51,10 +51,10 @@ pub trait CompilerConfig {
 
 impl<T> From<T> for Box<dyn CompilerConfig + Send + Sync + 'static>
 where
-    T: CompilerConfig + Send + Sync + 'static
+    T: CompilerConfig + Send + Sync + 'static,
 {
     fn from(other: T) -> Self {
-       Box::new(other)
+        Box::new(other)
     }
 }
 
