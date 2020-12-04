@@ -7,13 +7,19 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-beta1 - 2020-12-01
+
 ### Added
 
+- [#1839](https://github.com/wasmerio/wasmer/pull/1839) Added support for Metering Middleware
+- [#1837](https://github.com/wasmerio/wasmer/pull/1837) It is now possible to use exports of an `Intance` even after the `Instance` has been freed
 - [#1831](https://github.com/wasmerio/wasmer/pull/1831) Added support for Apple Silicon chips (`arm64-apple-darwin`)
+- [#1739](https://github.com/wasmerio/wasmer/pull/1739) Improved function environment setup via `WasmerEnv` proc macro.
 - [#1649](https://github.com/wasmerio/wasmer/pull/1649) Add outline of migration to 1.0.0 docs.
 
 ### Changed
 
+- [#1739](https://github.com/wasmerio/wasmer/pull/1739) Environments passed to host function- must now implement the `WasmerEnv` trait. You can implement it on your existing type with `#[derive(WasmerEnv)]`.
 - [#1838](https://github.com/wasmerio/wasmer/pull/1838) Deprecate `WasiEnv::state_mut`: prefer `WasiEnv::state` instead.
 - [#1663](https://github.com/wasmerio/wasmer/pull/1663) Function environments passed to host functions now must be passed by `&` instead of `&mut`. This is a breaking change. This change fixes a race condition when a host function is called from multiple threads. If you need mutability in your environment, consider using `std::sync::Mutex` or other synchronization primitives.
 - [#1830](https://github.com/wasmerio/wasmer/pull/1830) Minimum supported Rust version bumped to 1.47.0
@@ -21,6 +27,9 @@
 
 ### Fixed
 
+- [#1857](https://github.com/wasmerio/wasmer/pull/1857) Fix dynamic function with new Environment API
+- [#1855](https://github.com/wasmerio/wasmer/pull/1855) Fix memory leak when using `wat2wasm` in the C API, the function now takes its output parameter by pointer rather than returning an allocated `wasm_byte_vec_t`.
+- [#1841](https://github.com/wasmerio/wasmer/pull/1841) We will now panic when attempting to use a native function with a captured env as a host function. Previously this would silently do the wrong thing. See [#1840](https://github.com/wasmerio/wasmer/pull/1840) for info about Wasmer's support of closures as host functions.
 - [#1764](https://github.com/wasmerio/wasmer/pull/1764) Fix bug in WASI `path_rename` allowing renamed files to be 1 directory below a preopened directory.
 
 ## 1.0.0-alpha5 - 2020-11-06

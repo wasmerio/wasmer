@@ -1,14 +1,15 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::{ImportError, LinkError};
+use crate::{Export, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    Export, FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
-    VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport, VMTableImport,
+    FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMDynamicFunctionContext,
+    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -103,11 +104,11 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 /// Get an `ExternType` given an export (and Engine signatures in case is a function).
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
-        Export::Function(ref f) => ExternType::Function(f.signature.clone()),
-        Export::Table(ref t) => ExternType::Table(*t.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.ty()),
+        Export::Function(ref f) => ExternType::Function(f.vm_function.signature.clone()),
+        Export::Table(ref t) => ExternType::Table(*t.vm_table.ty()),
+        Export::Memory(ref m) => ExternType::Memory(*m.vm_memory.ty()),
         Export::Global(ref g) => {
-            let global = g.from.ty();
+            let global = g.vm_global.from.ty();
             ExternType::Global(*global)
         }
     }
@@ -125,6 +126,8 @@ pub fn resolve_imports(
     _table_styles: &PrimaryMap<TableIndex, TableStyle>,
 ) -> Result<Imports, LinkError> {
     let mut function_imports = PrimaryMap::with_capacity(module.num_imported_functions);
+    let mut host_function_env_initializers =
+        PrimaryMap::with_capacity(module.num_imported_functions);
     let mut table_imports = PrimaryMap::with_capacity(module.num_imported_tables);
     let mut memory_imports = PrimaryMap::with_capacity(module.num_imported_memories);
     let mut global_imports = PrimaryMap::with_capacity(module.num_imported_globals);
@@ -152,13 +155,36 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                let address = match f.kind {
+                let (address, env_ptr) = match f.vm_function.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
+                        let address = finished_dynamic_function_trampolines[index].0
+                            as *mut VMFunctionBody as _;
+                        let env_ptr = if f.import_init_function_ptr.is_some() {
+                            // Our function env looks like:
+                            // Box<VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>>
+                            // Which we can interpret as `*const <field offset> *const Env` (due to
+                            // the precise layout of these types via `repr(C)`)
+                            // We extract the `*const Env`:
+                            unsafe {
+                                // Box<VMDynamicFunctionContext<...>>
+                                let dyn_func_ctx_ptr = f.vm_function.vmctx.host_env
+                                    as *mut VMDynamicFunctionContext<*mut std::ffi::c_void>;
+                                // maybe report error here if it's null?
+                                // invariants of these types are not enforced.
+
+                                // &VMDynamicFunctionContext<...>
+                                let dyn_func_ctx = &*dyn_func_ctx_ptr;
+                                dyn_func_ctx.ctx
+                            }
+                        } else {
+                            std::ptr::null_mut()
+                        };
+
+                        (address, env_ptr)
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
@@ -168,22 +194,26 @@ pub fn resolve_imports(
                         // macos (Darwin) with the Apple Silicon ARM chip, for functions with more than 10 args
                         // TODO: Cranelift should have a good ABI for the ABI
                         if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
-                            let num_params = f.signature.params().len();
+                            let num_params = f.vm_function.signature.params().len();
                             assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
                         }
 
-                        f.address
+                        (f.vm_function.address, unsafe {
+                            f.vm_function.vmctx.host_env
+                        })
                     }
                 };
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: f.vmctx,
+                    environment: f.vm_function.vmctx,
                 });
+
+                host_function_env_initializers.push((f.import_init_function_ptr, env_ptr));
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
-                    definition: t.from.vmtable(),
-                    from: t.from.clone(),
+                    definition: t.vm_table.from.vmtable(),
+                    from: t.vm_table.from.clone(),
                 });
             }
             Export::Memory(ref m) => {
@@ -191,7 +221,7 @@ pub fn resolve_imports(
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
-                        let export_memory_style = m.style();
+                        let export_memory_style = m.vm_memory.style();
                         let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
@@ -216,15 +246,15 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.from.vmmemory(),
-                    from: m.from.clone(),
+                    definition: m.vm_memory.from.vmmemory(),
+                    from: m.vm_memory.from.clone(),
                 });
             }
 
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
-                    definition: g.from.vmglobal(),
-                    from: g.from.clone(),
+                    definition: g.vm_global.from.vmglobal(),
+                    from: g.vm_global.from.clone(),
                 });
             }
         }
@@ -232,6 +262,7 @@ pub fn resolve_imports(
 
     Ok(Imports::new(
         function_imports,
+        host_function_env_initializers,
         table_imports,
         memory_imports,
         global_imports,

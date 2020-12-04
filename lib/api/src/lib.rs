@@ -28,6 +28,7 @@
     )
 )]
 
+mod env;
 mod exports;
 mod externals;
 mod import_object;
@@ -40,6 +41,8 @@ mod tunables;
 mod types;
 mod utils;
 
+pub use wasmer_derive::WasmerEnv;
+
 pub mod internals {
     //! We use the internals module for exporting types that are only
     //! intended to use in internal crates such as the compatibility crate
@@ -51,12 +54,13 @@ pub mod internals {
     pub use crate::externals::{WithEnv, WithoutEnv};
 }
 
+pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
 pub use crate::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
-pub use crate::instance::Instance;
+pub use crate::instance::{Instance, InstantiationError};
 pub use crate::module::Module;
 pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
@@ -71,13 +75,12 @@ pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
-    wasmparser, CompilerConfig, FunctionMiddleware, FunctionMiddlewareGenerator,
-    MiddlewareReaderState,
+    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 pub use wasmer_compiler::{CpuFeature, Features, Target};
 pub use wasmer_engine::{
-    ChainableNamedResolver, DeserializeError, Engine, FrameInfo, InstantiationError, LinkError,
-    NamedResolver, NamedResolverChain, Resolver, RuntimeError, SerializeError,
+    ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
+    NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
     Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
@@ -85,7 +88,7 @@ pub use wasmer_types::{
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, Export, MemoryError};
+pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
 pub mod vm {
     //! We use the vm module for re-exporting wasmer-vm types
 

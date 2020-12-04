@@ -26,7 +26,7 @@ jobs:
         run: |
           VERSION=${GITHUB_REF/refs\/tags\//}
           echo ::set-output name=VERSION::${VERSION}
-          DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)?[0-9]*\)\?$' || true)
+          DOING_RELEASE=$(echo $VERSION | grep -c '^[0-9]\+\.[0-9]\+\.[0-9]\+\(-\([a-zA-Z]\+\)\?[0-9]*\)\?$' || true)
           echo ::set-output name=DOING_RELEASE::${DOING_RELEASE}
           echo $VERSION
           echo $DOING_RELEASE
@@ -97,7 +97,7 @@ jobs:
           target = "${{ matrix.target }}"
           EOF
         if: matrix.target
-      - uses: Swatinem/rust-cache@v1
+      #- uses: Swatinem/rust-cache@v1
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest'
         shell: cmd
@@ -320,7 +320,7 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
+          asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64

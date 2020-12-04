@@ -13,7 +13,7 @@ use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompileModuleInfo, CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, Target,
 };
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
@@ -47,16 +47,19 @@ impl Compiler for SinglepassCompiler {
     fn compile_module(
         &self,
         _target: &Target,
-        compile_info: &CompileModuleInfo,
+        compile_info: &mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
-        let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+        let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
@@ -73,7 +76,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let middleware_chain = self.config.middlewares.generate_middleware_chain(*i);
+                let middleware_chain = self
+                    .config
+                    .middlewares
+                    .generate_function_middleware_chain(*i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);

@@ -174,21 +174,31 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
+/// This function is deprecated. You may safely remove all calls to it and everything
+/// will continue to work.
+// Dead code: deprecate or remove
+#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn wasi_env_set_instance(env: &mut wasi_env_t, instance: &wasm_instance_t) -> bool {
+    /*
     let memory = if let Ok(memory) = instance.inner.exports.get_memory("memory") {
         memory
     } else {
         return false;
     };
     env.inner.set_memory(memory.clone());
+    */
 
     true
 }
 
+/// This function is deprecated. You may safely remove all calls to it and everything
+/// will continue to work.
+// Dead code: deprecate or remove
+#[allow(unused_variables)]
 #[no_mangle]
 pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    env.inner.set_memory(memory.inner.clone());
+    //env.inner.set_memory(memory.inner.clone());
 }
 
 #[no_mangle]
@@ -198,7 +208,7 @@ pub unsafe extern "C" fn wasi_env_read_stdout(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut state = env.inner.state_mut();
+    let mut state = env.inner.state();
 
     let stdout = if let Ok(stdout) = state.fs.stdout_mut() {
         if let Some(stdout) = stdout.as_mut() {
@@ -222,7 +232,7 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
     buffer_len: usize,
 ) -> isize {
     let inner_buffer = slice::from_raw_parts_mut(buffer as *mut _, buffer_len as usize);
-    let mut state = env.inner.state_mut();
+    let mut state = env.inner.state();
     let stderr = if let Ok(stderr) = state.fs.stderr_mut() {
         if let Some(stderr) = stderr.as_mut() {
             stderr
@@ -335,7 +345,7 @@ unsafe fn wasi_get_imports_inner(
                         import_type.name()
                     ),
                 }));
-            let inner = Extern::from_export(store, export);
+            let inner = Extern::from_vm_export(store, export);
 
             Some(Box::new(wasm_extern_t {
                 instance: None,
