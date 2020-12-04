@@ -7,6 +7,10 @@
 
 ## **[Unreleased]**
 
+### Changed
+
+- [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)
+
 ## 1.0.0-beta1 - 2020-12-01
 
 ### Added
