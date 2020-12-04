@@ -1,6 +1,19 @@
-CFLAGS = -g -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
-LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
-LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
+
+$(info Using provided WASMER_DIR=$(WASMER_DIR))
+
+ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))
+	CFLAGS = -g -I$(WASMER_DIR)/include
+	LDFLAGS = -Wl,-rpath,$(WASMER_DIR)/lib
+	LDLIBS = -L$(WASMER_DIR)/lib -lwasmer
+else
+	CFLAGS = -g -I$(shell $(WASMER_DIR)/bin/wasmer config --includedir)
+	LDFLAGS = -Wl,-rpath,$(shell $(WASMER_DIR)/bin/wasmer config --libdir)
+	LDLIBS = $(shell $(WASMER_DIR)/bin/wasmer config --libs)
+endif
+
+$(info * CFLAGS: $(CFLAGS))
+$(info * LDFLAGS: $(LDFLAGS))
+$(info * LDLIBS: $(LDLIBS))
 
 ALL = instance imports-exports exports-function exports-global memory
 
