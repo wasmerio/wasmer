@@ -82,7 +82,7 @@ pub struct FuncGen<'a> {
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
 
-    /// The source location for the current operator
+    /// The source location for the current operator.
     src_loc: u32,
 
     /// All the InstructionAddressMap
