@@ -223,7 +223,7 @@ test-packages:
 # link the tests against. cargo test doesn't know that the tests will be running
 # cmake + make to build programs whose dependencies cargo isn't aware of.
 
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) #$(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
+test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine)) test-capi-examples #$(if $(findstring cranelift-jit,$(test_compilers_engines)),test-capi-cranelift-jit-system-libffi)
 
 test-capi-singlepass-jit: build-capi-singlepass-jit
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -248,6 +248,9 @@ test-capi-llvm-jit:
 test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi -- --nocapture
+
+test-capi-examples:
+	cd lib/c-api/examples; make run
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
