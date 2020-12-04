@@ -194,8 +194,8 @@ impl CompilerConfig for Cranelift {
     }
 
     /// Transform it into the compiler
-    fn compiler(&self) -> Box<dyn Compiler + Send> {
-        Box::new(CraneliftCompiler::new(&self))
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler + Send> {
+        Box::new(CraneliftCompiler::new(*self))
     }
 
     /// Pushes a middleware onto the back of the middleware chain.

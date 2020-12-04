@@ -33,7 +33,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let compiler = Singlepass::default();
 
     // Create the store
-    let store = Store::new(&JIT::new(&compiler).engine());
+    let store = Store::new(&JIT::new(compiler).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

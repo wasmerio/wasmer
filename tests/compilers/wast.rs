@@ -31,17 +31,13 @@ fn _native_prefixer(bytes: &[u8]) -> String {
 #[cfg(feature = "test-jit")]
 fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
     let compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(&JIT::new(&compiler_config).features(features).engine())
+    Store::new(&JIT::new(compiler_config).features(features).engine())
 }
 
 #[cfg(feature = "test-native")]
 fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
     let mut compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(
-        &Native::new(&mut compiler_config)
-            .features(features)
-            .engine(),
-    )
+    Store::new(&Native::new(compiler_config).features(features).engine())
 }
 
 pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {

@@ -2,20 +2,20 @@ use crate::ObjectFileEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The ObjectFile builder
-pub struct ObjectFile<'a> {
-    compiler_config: Option<&'a dyn CompilerConfig>,
+pub struct ObjectFile {
+    compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl<'a> ObjectFile<'a> {
+impl ObjectFile {
     #[cfg(feature = "compiler")]
     /// Create a new ObjectFile
-    pub fn new(compiler_config: &'a mut dyn CompilerConfig) -> Self {
+    pub fn new(mut compiler_config: impl CompilerConfig + 'static) -> Self {
         compiler_config.enable_pic();
 
         Self {
-            compiler_config: Some(compiler_config),
+            compiler_config: Some(Box::new(compiler_config)),
             target: None,
             features: None,
         }

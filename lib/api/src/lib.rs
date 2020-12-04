@@ -115,7 +115,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 ```
 use wasmer::{Store, JIT, Singlepass};
 
-let engine = JIT::new(&Singlepass::default()).engine();
+let engine = JIT::new(Singlepass::default()).engine();
 let store = Store::new(&engine);
 ```"#
 );

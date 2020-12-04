@@ -10,7 +10,7 @@ fuzz_target!(|wasm_bytes: &[u8]| {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
-    let store = Store::new(&JIT::new(&compiler).engine());
+    let store = Store::new(&JIT::new(compiler).engine());
     match Module::validate(&store, wasm_bytes) {
         Ok(_) => {
             let module = Module::new(&store, wasm_bytes).unwrap();
