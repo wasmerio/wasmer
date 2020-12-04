@@ -119,12 +119,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
       # Install sccache
       - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
           if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
