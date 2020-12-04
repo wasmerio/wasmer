@@ -258,7 +258,7 @@ struct I2O1 {
 }
 
 impl<'a> FuncGen<'a> {
-    /// Set the source location of the Wasm to the given offset
+    /// Set the source location of the Wasm to the given offset.
     pub fn set_srcloc(&mut self, offset: u32) {
         self.src_loc = offset;
     }
