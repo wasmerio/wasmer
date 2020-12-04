@@ -17,6 +17,8 @@ exports-global: exports-global.o
 .SILENT: memory memory.o
 memory: memory.o
 
+all: instance imports-exports exports-function exports-global memory
+
 .SILENT: clean
 .PHONY: clean
 clean:
