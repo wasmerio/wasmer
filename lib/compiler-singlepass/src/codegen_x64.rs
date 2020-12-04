@@ -1811,6 +1811,17 @@ impl<'a> FuncGen<'a> {
 
         // TODO: Full preemption by explicit signal checking
 
+        // We insert set StackOverflow as the default trap that can happen
+        // anywhere in the function prologue for sake of simplicity.
+        self.instructions_address_map.push(InstructionAddressMap {
+            srcloc: SourceLoc::new(self.src_loc),
+            code_offset: 0,
+            code_len: self.assembler.get_offset().0,
+        });
+        self.trap_table
+            .offset_to_code
+            .insert(0, TrapCode::StackOverflow);
+
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
                 message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
