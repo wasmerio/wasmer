@@ -787,7 +787,11 @@ public:
     return make_own(new WasmerFrame(make_c_own(wasm_frame_copy(frame.get()))));
   }
 
-  auto instance() const -> Instance *;
+  auto instance() const -> Instance * {
+    // TODO: return make_own(new
+    // WasmerInstance(make_c_own(wasm_frame_instance(frame.get()))));
+    return nullptr;
+  }
   auto func_index() const -> uint32_t {
     return wasm_frame_func_index(frame.get());
   }
@@ -820,15 +824,214 @@ auto Frame::module_offset() const -> size_t {
 
 class WASM_API_EXTERN WasmerTrap : WasmerRefWrapper,
                                    public From<Trap, WasmerTrap> {
+  static auto identity(byte_t x) -> byte_t { return x; }
+
+  static auto c_frame_to_cxx_frame(wasm_frame_t *c_frame) -> own<Frame> {
+    return make_own(new WasmerFrame(make_c_own(c_frame)));
+  }
+
 public:
   static auto make(Store *, const Message &msg) -> own<Trap>;
   auto copy() const -> own<Trap>;
 
-  auto message() const -> Message;
-  auto origin() const -> own<Frame>;   // may be null
-  auto trace() const -> ownvec<Frame>; // may be empty, origin first
+  auto message() const -> Message {
+    wasm_message_t message;
+    wasm_trap_message(trap.get(), &message);
+    auto ret = c_vec_to_cxx_vec(&message, identity);
+    wasm_name_delete(&message);
+    return ret;
+  }
+  auto origin() const -> own<Frame> {
+    return make_own(new WasmerFrame(make_c_own(wasm_trap_origin(trap.get()))));
+  }
+  auto trace() const -> ownvec<Frame> {
+    wasm_frame_vec_t trace;
+    wasm_trap_trace(trap.get(), &trace);
+    return c_vec_to_cxx_ownvec(&trace, c_frame_to_cxx_frame);
+  }
+
+  c_own<wasm_trap_t> trap;
 };
 
-auto WasmerTrap::message() const -> Message{
-
+auto Trap::message() const -> Message {
+  return WasmerTrap::from(this)->message();
 };
+
+auto Trap::origin() const -> own<Frame> {
+  return WasmerTrap::from(this)->origin();
+}
+auto Trap::trace() const -> ownvec<Frame> {
+  return WasmerTrap::from(this)->trace();
+}
+
+class WASM_API_EXTERN WasmerModule : WasmerRefWrapper,
+                                     public From<Module, WasmerModule> {
+public:
+  static auto validate(Store *store, const vec<byte_t> &binary) -> bool;
+  static auto make(Store *store, const vec<byte_t> &binary) -> own<Module>;
+  auto copy() const -> own<Module>;
+
+  auto imports() const -> ownvec<ImportType>;
+  auto exports() const -> ownvec<ExportType>;
+
+  auto share() const -> own<Shared<Module>>;
+  static auto obtain(Store *store, const Shared<Module> *shared_module)
+      -> own<Module>;
+
+  auto serialize() const -> vec<byte_t>;
+  static auto deserialize(Store *store, const vec<byte_t> &bytes)
+      -> own<Module>;
+};
+
+auto Module::validate(Store *store, const vec<byte_t> &binary) -> bool {
+  return WasmerModule::validate(store, binary);
+}
+auto Module::make(Store *store, const vec<byte_t> &binary) -> own<Module> {
+  return WasmerModule::make(store, binary);
+}
+auto Module::copy() const -> own<Module> {
+  return WasmerModule::from(this)->copy();
+}
+
+auto Module::imports() const -> ownvec<ImportType> {
+  return WasmerModule::from(this)->imports();
+}
+auto Module::exports() const -> ownvec<ExportType> {
+  return WasmerModule::from(this)->exports();
+}
+
+auto Module::share() const -> own<Shared<Module>> {
+  return WasmerModule::from(this)->share();
+}
+auto Module::obtain(Store *store, const Shared<Module> *shared_module)
+    -> own<Module> {
+  return WasmerModule::obtain(store, shared_module);
+}
+
+auto Module::serialize() const -> vec<byte_t> {
+  return WasmerModule::from(this)->serialize();
+}
+auto deserialize(Store *store, const vec<byte_t> &bytes) -> own<Module> {
+  return WasmerModule::deserialize(store, bytes);
+}
+
+class WASM_API_EXTERN WasmerForeign : WasmerRefWrapper,
+                                      public From<Foreign, WasmerForeign> {
+public:
+  static auto make(Store *store) -> own<Foreign>;
+
+  auto copy() const -> own<Foreign>;
+};
+
+auto Foreign::make(Store *store) -> own<Foreign> {
+  return WasmerForeign::make(store);
+}
+auto Foreign::copy() const -> own<Foreign> {
+  return WasmerForeign::from(this)->copy();
+}
+
+namespace {
+struct WasmerExternWrapper : WasmerRefWrapper {
+  const wasm_func_t *func() const {
+    return kind() == ExternKind::FUNC ? wasm_extern_as_func_const(extern_())
+                                      : nullptr;
+  }
+  const wasm_global_t *global() const {
+    return kind() == ExternKind::GLOBAL ? wasm_extern_as_global_const(extern_())
+                                        : nullptr;
+  }
+  const wasm_table_t *table() const {
+    return kind() == ExternKind::TABLE ? wasm_extern_as_table_const(extern_())
+                                       : nullptr;
+  }
+  const wasm_memory_t *memory() const {
+    return kind() == ExternKind::MEMORY ? wasm_extern_as_memory_const(extern_())
+                                        : nullptr;
+  }
+  auto kind() const -> ExternKind {
+    return c_externkind_to_cxx_externkind(wasm_extern_kind(extern_()));
+  }
+};
+} // namespace
+
+class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
+  static auto cxx_val_to_c_val(Val cxx_val) -> wasm_val_t {
+    wasm_val_t c_val;
+    switch (cxx_val.kind()) {
+    case ValKind::I32:
+      c_val.kind = WASM_I32;
+      c_val.of.i32 = cxx_val.i32();
+      return c_val;
+    case ValKind::I64:
+      c_val.kind = WASM_I64;
+      c_val.of.i64 = cxx_val.i64();
+      return c_val;
+    case ValKind::F32:
+      c_val.kind = WASM_F32;
+      c_val.of.f32 = cxx_val.f32();
+      return c_val;
+    case ValKind::F64:
+      c_val.kind = WASM_F64;
+      c_val.of.f64 = cxx_val.i64();
+      return c_val;
+    case ValKind::ANYREF:
+    case ValKind::FUNCREF:
+      assert(false);
+      // return WASM_REF_VAL(v.ref());
+    }
+  };
+
+public:
+  static auto make(Store *store, const FuncType *functype, callback cb)
+      -> own<Func>;
+  static auto make(Store *store, const FuncType *functype, callback_with_env cb,
+                   void *env, void (*finalizer)(void *) = nullptr) -> own<Func>;
+  auto copy() const -> own<Func>;
+
+  auto type() const -> own<FuncType> {
+    return make_own(new WasmerFuncType(make_c_own(wasm_func_type(func.get()))));
+  }
+  auto param_arity() const -> size_t {
+    return wasm_func_param_arity(func.get());
+  }
+  auto result_arity() const -> size_t {
+    return wasm_func_result_arity(func.get());
+  }
+
+  auto call(const vec<Val> &cxx_args, vec<Val> &cxx_results) const
+      -> own<Trap> {
+    /*
+    auto c_args = cxx_vec_to_c_vec(cxx_args, cxx_val_to_c_val);
+    wasm_val_vec_t c_results;
+    wasm_val_vec_new_uninitialized(&c_results, cxx_results.size());
+    auto trap = make_own(new WasmerTrap(make_c_own(wasm_func_call(func.get(),
+    c_args, c_results)))); c_vec_to_cxx_vec( return
+    */
+  }
+
+  c_own<wasm_func_t> func;
+};
+
+auto Func::make(Store *store, const FuncType *functype, callback cb)
+    -> own<Func> {
+  return WasmerFunc::make(store, functype, cb);
+}
+auto Func::make(Store *store, const FuncType *functype, callback_with_env cb,
+                void *env, void (*finalizer)(void *)) -> own<Func> {
+  return WasmerFunc::make(store, functype, cb, env, finalizer);
+}
+auto Func::copy() const -> own<Func> { return WasmerFunc::from(this)->copy(); }
+
+auto Func::type() const -> own<FuncType> {
+  return WasmerFunc::from(this)->type();
+}
+auto Func::param_arity() const -> size_t {
+  return WasmerFunc::from(this)->param_arity();
+}
+auto Func::result_arity() const -> size_t {
+  return WasmerFunc::from(this)->result_arity();
+}
+
+auto Func::call(const vec<Val> &args, vec<Val> &results) const -> own<Trap> {
+  return WasmerFunc::from(this)->call(args, results);
+}
