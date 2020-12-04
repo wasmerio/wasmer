@@ -40,14 +40,14 @@ jobs:
       matrix:
         build: [linux, macos, macos-arm64, windows, linux-aarch64]
         include:
-          - build: linux
+          - build: linux-x64
             os: ubuntu-18.04
             rust: 1.47.0
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
-          - build: macos
+          - build: macos-x64
             os: macos-latest
             rust: 1.47.0
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/darwin-amd64.tar.gz'
@@ -59,7 +59,7 @@ jobs:
             rust: nightly
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
-          - build: windows
+          - build: windows-x64
             os: windows-latest
             rust: 1.47.0
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/windows-amd64.tar.gz'
@@ -116,12 +116,12 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ runner.os }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}
+          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}
       # Install sccache
       - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}
       - name: Install sccache
         run: |
           if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
@@ -140,8 +140,8 @@ jobs:
           netstat -aln | awk '
             $6 == "LISTEN" {
               if ($4 ~ "[.:][0-9]+$") {
-                split($4, a, /[:.]/);
-                port = a[length(a)];
+                n = split($4, a, /[:.]/);
+                port = a[n];
                 p[port] = 1
               }
             }
