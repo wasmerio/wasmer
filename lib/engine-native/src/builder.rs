@@ -11,7 +11,10 @@ pub struct Native {
 impl Native {
     #[cfg(feature = "compiler")]
     /// Create a new Native
-    pub fn new<T>(compiler_config: T) -> Self where T: Into<Box<dyn CompilerConfig>> {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
         let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
 
