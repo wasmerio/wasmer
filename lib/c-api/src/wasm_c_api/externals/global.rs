@@ -125,8 +125,9 @@ mod tests {
 
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (global $global (export \"global\") f32 (f32.const 1)))");
-                wasm_byte_vec_t* wasm_bytes = wat2wasm(&wat);
-                wasm_module_t* module = wasm_module_new(store, wasm_bytes);
+                wasm_byte_vec_t wasm_bytes;
+                wat2wasm(&wat, &wasm_bytes);
+                wasm_module_t* module = wasm_module_new(store, &wasm_bytes);
                 wasm_extern_vec_t import_object = WASM_EMPTY_VEC;
                 wasm_instance_t* instance = wasm_instance_new(store, module, &import_object, NULL);
 
@@ -141,7 +142,7 @@ mod tests {
                 assert(wasmer_last_error_length() > 0);
 
                 wasm_instance_delete(instance);
-                wasm_byte_vec_delete(wasm_bytes);
+                wasm_byte_vec_delete(&wasm_bytes);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
