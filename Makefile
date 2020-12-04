@@ -246,7 +246,7 @@ test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
 
-test-capi-examples:
+test-capi-examples: package-capi
 	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
