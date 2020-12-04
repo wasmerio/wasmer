@@ -125,8 +125,14 @@ build-capi-singlepass-object-file:
 		--no-default-features --features deprecated,wat,object-file,singlepass,wasi
 
 build-capi-cranelift:
+ifeq ($(UNAME_S), Darwin)
+	# We build it with the system-libffi as is included in macos
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi
+else
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi
+endif
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -142,7 +148,7 @@ build-capi-cranelift-object-file:
 
 build-capi-cranelift-system-libffi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -249,8 +255,8 @@ test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi -- --nocapture
 
-test-capi-examples:
-	cd lib/c-api/examples; make run
+test-capi-examples: package-capi
+	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
 	cargo test --manifest-path lib/wasi/Cargo.toml --release
