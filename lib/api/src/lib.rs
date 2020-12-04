@@ -85,7 +85,7 @@ pub use wasmer_engine::{
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
-    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 

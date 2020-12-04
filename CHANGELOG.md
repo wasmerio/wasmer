@@ -7,6 +7,10 @@
 
 ## **[Unreleased]**
 
+### Added
+ 
+* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
+
 ## 1.0.0-beta1 - 2020-12-01
 
 ### Added
