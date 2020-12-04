@@ -7,6 +7,10 @@
 
 ## **[Unreleased]**
 
+### Added
+ 
+* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
+
 ### Changed
 
 - [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)

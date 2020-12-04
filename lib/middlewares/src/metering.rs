@@ -7,8 +7,8 @@ use wasmer::wasmparser::{
     Operator, Result as WpResult, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
 use wasmer::{
-    FunctionMiddleware, GlobalInit, GlobalType, LocalFunctionIndex, MiddlewareReaderState,
-    ModuleMiddleware, Mutability, Type,
+    ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
+    MiddlewareReaderState, ModuleMiddleware, Mutability, Type, Value,
 };
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
@@ -52,6 +52,30 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
             remaining_points_index: Mutex::new(None),
         }
     }
+
+    /// Get the remaining points in an Instance.
+    ///
+    /// Important: the instance Module must been processed with the `Metering` middleware.
+    pub fn get_remaining_points(&self, instance: &Instance) -> u64 {
+        instance
+            .exports
+            .get_global("remaining_points")
+            .expect("Can't get `remaining_points` from Instance")
+            .get()
+            .unwrap_i64() as _
+    }
+
+    /// Set the provided remaining points in an Instance.
+    ///
+    /// Important: the instance Module must been processed with the `Metering` middleware.
+    pub fn set_remaining_points(&self, instance: &Instance, points: u64) {
+        instance
+            .exports
+            .get_global("remaining_points")
+            .expect("Can't get `remaining_points` from Instance")
+            .set(Value::I64(points as _))
+            .expect("Can't set `remaining_points` in Instance");
+    }
 }
 
 impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Metering<F> {
@@ -86,14 +110,18 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync + 'static> ModuleMiddl
         }
 
         // Append a global for remaining points and initialize it.
-        *remaining_points_index = Some(
-            module_info
-                .globals
-                .push(GlobalType::new(Type::I64, Mutability::Var)),
-        );
+        let global_index = module_info
+            .globals
+            .push(GlobalType::new(Type::I64, Mutability::Var));
+        *remaining_points_index = Some(global_index.clone());
         module_info
             .global_initializers
             .push(GlobalInit::I64Const(self.initial_limit as i64));
+
+        module_info.exports.insert(
+            "remaining_points".to_string(),
+            ExportIndex::Global(global_index),
+        );
     }
 }
 
