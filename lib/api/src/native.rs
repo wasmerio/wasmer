@@ -88,8 +88,7 @@ where
         let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             // TODO:
-            import_init_function_ptr: None,
-            host_env_drop_fn: None,
+            metadata: None,
             vm_function: Arc::new(VMExportFunction {
                 address: other.address,
                 vmctx: other.vmctx,
@@ -114,8 +113,7 @@ where
             definition: other.definition,
             exported: ExportFunction {
                 // TODO:
-                import_init_function_ptr: None,
-                host_env_drop_fn: None,
+                metadata: None,
                 vm_function: Arc::new(VMExportFunction {
                     address: other.address,
                     vmctx: other.vmctx,

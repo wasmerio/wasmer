@@ -76,8 +76,7 @@ impl ValFuncRef for Val {
         let export = wasmer_engine::ExportFunction {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
-            import_init_function_ptr: None,
-            host_env_drop_fn: None,
+            metadata: None,
             vm_function: std::sync::Arc::new(wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,

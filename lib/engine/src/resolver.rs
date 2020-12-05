@@ -1,16 +1,15 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::{Export, ImportError, LinkError};
+use crate::{Export, ExportFunctionMetadata, ImportError, LinkError};
 use more_asserts::assert_ge;
-use std::sync::Arc;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    FunctionBodyPtr, ImportEnv, Imports, MemoryStyle, ModuleInfo, TableStyle,
-    VMDynamicFunctionContext, VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport,
-    VMMemoryImport, VMTableImport,
+    FunctionBodyPtr, ImportEnv, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
+    VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -179,16 +178,42 @@ pub fn resolve_imports(
                         f.vm_function.address
                     }
                 };
+
+                // TODO: add lots of documentation for this really strange
+                // looking code.
+                // Also, keep eyes open for refactor opportunities to clean
+                // this all up.
+                let env = if let Some(ExportFunctionMetadata {
+                    host_env_clone_fn: clone,
+                    ..
+                }) = f.metadata.as_ref().map(|x| &**x)
+                {
+                    // TODO: maybe start adding asserts in all these
+                    // unsafe blocks to prevent future changes from
+                    // horribly breaking things.
+                    unsafe {
+                        assert!(!f.vm_function.vmctx.host_env.is_null());
+                        (clone)(f.vm_function.vmctx.host_env)
+                    }
+                } else {
+                    unsafe {
+                        assert!(f.vm_function.vmctx.host_env.is_null());
+                        f.vm_function.vmctx.host_env
+                    }
+                };
+
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: f.vm_function.vmctx,
+                    environment: VMFunctionEnvironment { host_env: env },
                 });
 
-                host_function_env_initializers.push(Arc::new(ImportEnv {
-                    env: unsafe { f.vm_function.vmctx.host_env },
-                    initializer: f.import_init_function_ptr,
-                    destructor: f.host_env_drop_fn,
-                }));
+                host_function_env_initializers.push(ImportEnv {
+                    env,
+                    // TODO: consider just passing metadata directly
+                    initializer: f.metadata.as_ref().and_then(|m| m.import_init_function_ptr),
+                    clone: f.metadata.as_ref().map(|m| m.host_env_clone_fn),
+                    destructor: f.metadata.as_ref().map(|m| m.host_env_drop_fn),
+                });
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {

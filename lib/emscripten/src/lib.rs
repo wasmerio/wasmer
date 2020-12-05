@@ -122,7 +122,7 @@ lazy_static! {
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
-#[derive(WasmerEnv, Default)]
+#[derive(WasmerEnv, Clone, Default)]
 pub struct EmscriptenData {
     pub globals: EmscriptenGlobalsData,
 

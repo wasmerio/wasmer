@@ -37,12 +37,38 @@ impl From<VMExport> for Export {
         match other {
             VMExport::Function(vm_function) => Export::Function(ExportFunction {
                 vm_function,
-                import_init_function_ptr: None,
-                host_env_drop_fn: None,
+                metadata: None,
             }),
             VMExport::Memory(vm_memory) => Export::Memory(ExportMemory { vm_memory }),
             VMExport::Table(vm_table) => Export::Table(ExportTable { vm_table }),
             VMExport::Global(vm_global) => Export::Global(ExportGlobal { vm_global }),
+        }
+    }
+}
+
+/// TODO: rename, etc.
+#[derive(Debug, PartialEq)]
+pub struct ExportFunctionMetadata {
+    /// duplicated here so we can free it....
+    /// TODO: refactor all this stuff so it's less of a nightmare.
+    pub host_env: *mut std::ffi::c_void,
+    /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
+    ///
+    /// This function is called to finish setting up the environment after
+    /// we create the `api::Instance`.
+    // This one is optional for now because dynamic host envs need the rest
+    // of this without the init fn
+    pub import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+    /// TODO:
+    pub host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+    /// The destructor to free the host environment.
+    pub host_env_drop_fn: fn(*mut std::ffi::c_void),
+}
+
+impl Drop for ExportFunctionMetadata {
+    fn drop(&mut self) {
+        if !self.host_env.is_null() {
+            (self.host_env_drop_fn)(self.host_env);
         }
     }
 }
@@ -53,13 +79,8 @@ impl From<VMExport> for Export {
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
     pub vm_function: Arc<VMExportFunction>,
-    /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
-    ///
-    /// This function is called to finish setting up the environment after
-    /// we create the `api::Instance`.
-    pub import_init_function_ptr: Option<ImportInitializerFuncPtr>,
-    /// The destructor to free the host environment.
-    pub host_env_drop_fn: Option<fn(*mut std::ffi::c_void)>,
+    /// TODO:
+    pub metadata: Option<Arc<ExportFunctionMetadata>>,
 }
 
 impl From<ExportFunction> for Export {

@@ -13,7 +13,7 @@ pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 use std::cmp::max;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportFunction};
+use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
     VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
@@ -97,22 +97,32 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = ptr as _;
+                let item: &VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
         };
-        let host_env_drop_fn: Option<fn(*mut std::ffi::c_void)> =
-            Some(|ptr: *mut std::ffi::c_void| {
-                unsafe {
-                    Box::from_raw(ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>)
-                };
-            });
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe {
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>)
+            };
+        };
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
-                import_init_function_ptr: None,
-                host_env_drop_fn,
+                metadata: Some(Arc::new(ExportFunctionMetadata {
+                    host_env,
+                    import_init_function_ptr: None,
+                    host_env_clone_fn,
+                    host_env_drop_fn,
+                })),
                 vm_function: Arc::new(VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -162,9 +172,8 @@ impl Function {
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
-        };
+        let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
         let import_init_function_ptr: fn(_, _) -> Result<(), _> =
             |ptr: *mut std::ffi::c_void, instance: *const std::ffi::c_void| {
                 let ptr = ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>;
@@ -180,21 +189,30 @@ impl Function {
                 import_init_function_ptr,
             )
         });
-        let host_env_drop_fn: Option<fn(*mut std::ffi::c_void)> =
-            Some(|ptr: *mut std::ffi::c_void| {
-                unsafe {
-                    Box::from_raw(
-                        ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>,
-                    )
-                };
-            });
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = ptr as _;
+                let item: &VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
+        };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe {
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>)
+            };
+        };
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
-                host_env_drop_fn,
+                metadata: Some(Arc::new(ExportFunctionMetadata {
+                    host_env,
+                    import_init_function_ptr,
+                    host_env_clone_fn,
+                    host_env_drop_fn,
+                })),
                 vm_function: Arc::new(VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -248,8 +266,7 @@ impl Function {
             exported: ExportFunction {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
-                import_init_function_ptr: None,
-                host_env_drop_fn: None,
+                metadata: None,
                 vm_function: Arc::new(VMExportFunction {
                     address,
                     vmctx,
@@ -304,13 +321,19 @@ impl Function {
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
         let box_env = Box::new(env);
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(box_env) as *mut _,
+        let host_env = Box::into_raw(box_env) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env = unsafe {
+                let ptr: *mut Env = ptr as _;
+                let item: &Env = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
         };
-        let host_env_drop_fn: Option<fn(*mut std::ffi::c_void)> =
-            Some(|ptr: *mut std::ffi::c_void| {
-                unsafe { Box::from_raw(ptr as *mut Env) };
-            });
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe { Box::from_raw(ptr as *mut Env) };
+        };
 
         // TODO: look into removing transmute by changing API type signatures
         let import_init_function_ptr = Some(unsafe {
@@ -324,8 +347,12 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
-                host_env_drop_fn,
+                metadata: Some(Arc::new(ExportFunctionMetadata {
+                    host_env,
+                    import_init_function_ptr,
+                    host_env_clone_fn,
+                    host_env_drop_fn,
+                })),
                 vm_function: Arc::new(VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,

@@ -30,12 +30,12 @@ impl From<ExportError> for HostEnvInitError {
 /// ```
 /// use wasmer::{WasmerEnv, LazyInit, Memory, NativeFunc};
 ///
-/// #[derive(WasmerEnv)]
+/// #[derive(WasmerEnv, Clone)]
 /// pub struct MyEnvWithNoInstanceData {
 ///     non_instance_data: u8,
 /// }
 ///
-/// #[derive(WasmerEnv)]
+/// #[derive(WasmerEnv, Clone)]
 /// pub struct MyEnvWithInstanceData {
 ///     non_instance_data: u8,
 ///     #[wasmer(export)]
@@ -54,6 +54,7 @@ impl From<ExportError> for HostEnvInitError {
 /// This trait can also be implemented manually:
 /// ```
 /// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance, HostEnvInitError};
+/// #[derive(Clone)]
 /// pub struct MyEnv {
 ///    memory: LazyInit<Memory>,
 /// }
@@ -66,7 +67,7 @@ impl From<ExportError> for HostEnvInitError {
 ///     }
 /// }
 /// ```
-pub trait WasmerEnv {
+pub trait WasmerEnv: Clone {
     /// The function that Wasmer will call on your type to let it finish
     /// setting up the environment with data from the `Instance`.
     ///
@@ -94,28 +95,29 @@ impl WasmerEnv for isize {}
 impl WasmerEnv for char {}
 impl WasmerEnv for bool {}
 impl WasmerEnv for String {}
-impl WasmerEnv for ::std::sync::atomic::AtomicBool {}
-impl WasmerEnv for ::std::sync::atomic::AtomicI8 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicU8 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicI16 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicU16 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicI32 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicU32 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicI64 {}
-impl WasmerEnv for ::std::sync::atomic::AtomicUsize {}
-impl WasmerEnv for ::std::sync::atomic::AtomicIsize {}
-impl WasmerEnv for dyn ::std::any::Any {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicBool {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI8 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicU8 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI16 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicU16 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI32 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicU32 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI64 {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicUsize {}
+impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicIsize {}
+//impl WasmerEnv for dyn ::std::any::Any + Clone {}
 impl<T: WasmerEnv> WasmerEnv for Box<T> {
     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
         (&mut **self).init_with_instance(instance)
     }
 }
 
-impl<T: WasmerEnv> WasmerEnv for &'static mut T {
+/*impl<T: WasmerEnv> WasmerEnv for &'static T {
     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+        T::init_with_instance()
         (*self).init_with_instance(instance)
     }
-}
+}*/
 
 /// Lazily init an item
 pub struct LazyInit<T: Sized> {

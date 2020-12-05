@@ -45,11 +45,6 @@ use wasmer_types::{
 pub type ImportInitializerFuncPtr =
     fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
 
-/// This type holds thunks (delayed computations) for initializing the imported
-/// function's environments with the [`Instance`].
-pub(crate) type ImportInitializerThunks =
-    Vec<(Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>;
-
 /// A WebAssembly instance.
 ///
 /// The type is dynamically-sized. Indeed, the `vmctx` field can
@@ -101,7 +96,7 @@ pub(crate) struct Instance {
     /// TODO: Be sure to test with serialize/deserialize and imported
     /// functions from other Wasm modules.
     /// TODO: update this comment
-    import_envs: BoxedSlice<FunctionIndex, Arc<ImportEnv>>,
+    import_envs: BoxedSlice<FunctionIndex, ImportEnv>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -118,9 +113,27 @@ pub struct ImportEnv {
     /// TODO:
     pub env: *mut std::ffi::c_void,
     /// TODO:
+    pub clone: Option<fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void>,
+    /// TODO:
     pub initializer: Option<ImportInitializerFuncPtr>,
     /// TODO:
     pub destructor: Option<fn(*mut std::ffi::c_void)>,
+}
+
+impl Clone for ImportEnv {
+    fn clone(&self) -> Self {
+        let env = if let Some(clone) = self.clone {
+            (clone)(self.env)
+        } else {
+            self.env
+        };
+        Self {
+            env,
+            clone: self.clone.clone(),
+            initializer: self.initializer.clone(),
+            destructor: self.destructor.clone(),
+        }
+    }
 }
 
 impl Drop for ImportEnv {
@@ -1029,7 +1042,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
-        import_envs: BoxedSlice<FunctionIndex, Arc<ImportEnv>>,
+        import_envs: BoxedSlice<FunctionIndex, ImportEnv>,
     ) -> Result<Self, Trap> {
         // `NonNull<u8>` here actually means `NonNull<Instance>`. See
         // `Self::allocate_instance` to understand why.
@@ -1435,7 +1448,7 @@ impl InstanceHandle {
 
         for ImportEnv {
             env, initializer, ..
-        } in instance_ref.import_envs.values().map(|v| &**v)
+        } in instance_ref.import_envs.values_mut()
         {
             if let Some(ref f) = initializer {
                 // transmute our function pointer into one with the correct error type
@@ -1444,7 +1457,7 @@ impl InstanceHandle {
                     &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
                 >(f);
                 f(*env, instance_ptr)?;
-                //*initializer = None;
+                *initializer = None;
             }
         }
 
