@@ -11,16 +11,26 @@ use wasmer::ValType;
 #[derive(Clone)]
 pub enum wasmer_value_tag {
     /// Represents the `i32` WebAssembly type.
-    WASM_I32,
+    WASMER_I32 = 0,
 
     /// Represents the `i64` WebAssembly type.
-    WASM_I64,
+    WASMER_I64 = 1,
 
     /// Represents the `f32` WebAssembly type.
-    WASM_F32,
+    WASMER_F32 = 2,
 
     /// Represents the `f64` WebAssembly type.
-    WASM_F64,
+    WASMER_F64 = 3,
+}
+
+#[test]
+fn wasmer_value_tag_are_wasm_valkind_enum() {
+    use crate::wasm_c_api::types::wasm_valkind_enum;
+
+    assert_eq!(wasmer_value_tag::WASMER_I32 as u32, wasm_valkind_enum::WASM_I32 as u32);
+    assert_eq!(wasmer_value_tag::WASMER_I64 as u32, wasm_valkind_enum::WASM_I64 as u32);
+    assert_eq!(wasmer_value_tag::WASMER_F32 as u32, wasm_valkind_enum::WASM_F32 as u32);
+    assert_eq!(wasmer_value_tag::WASMER_F64 as u32, wasm_valkind_enum::WASM_F64 as u32);
 }
 
 /// Represents a WebAssembly value.
@@ -49,12 +59,12 @@ pub union wasmer_value {
 /// ```c
 /// // Create a WebAssembly value.
 /// wasmer_value_t wasm_value = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 42,
 /// };
 ///
 /// // Read a WebAssembly value.
-/// if (wasm_value.tag == WASM_I32) {
+/// if (wasm_value.tag == WASMER_I32) {
 ///     int32_t x = wasm_value.value.I32;
 ///     // …
 /// }
@@ -75,19 +85,19 @@ impl From<wasmer_value_t> for Val {
             #[allow(unreachable_patterns, non_snake_case)]
             match v {
                 wasmer_value_t {
-                    tag: wasmer_value_tag::WASM_I32,
+                    tag: wasmer_value_tag::WASMER_I32,
                     value: wasmer_value { I32 },
                 } => Val::I32(I32),
                 wasmer_value_t {
-                    tag: wasmer_value_tag::WASM_I64,
+                    tag: wasmer_value_tag::WASMER_I64,
                     value: wasmer_value { I64 },
                 } => Val::I64(I64),
                 wasmer_value_t {
-                    tag: wasmer_value_tag::WASM_F32,
+                    tag: wasmer_value_tag::WASMER_F32,
                     value: wasmer_value { F32 },
                 } => Val::F32(F32),
                 wasmer_value_t {
-                    tag: wasmer_value_tag::WASM_F64,
+                    tag: wasmer_value_tag::WASMER_F64,
                     value: wasmer_value { F64 },
                 } => Val::F64(F64),
                 _ => unreachable!("unknown WASM type"),
@@ -100,19 +110,19 @@ impl From<Val> for wasmer_value_t {
     fn from(val: Val) -> Self {
         match val {
             Val::I32(x) => wasmer_value_t {
-                tag: wasmer_value_tag::WASM_I32,
+                tag: wasmer_value_tag::WASMER_I32,
                 value: wasmer_value { I32: x },
             },
             Val::I64(x) => wasmer_value_t {
-                tag: wasmer_value_tag::WASM_I64,
+                tag: wasmer_value_tag::WASMER_I64,
                 value: wasmer_value { I64: x },
             },
             Val::F32(x) => wasmer_value_t {
-                tag: wasmer_value_tag::WASM_F32,
+                tag: wasmer_value_tag::WASMER_F32,
                 value: wasmer_value { F32: x },
             },
             Val::F64(x) => wasmer_value_t {
-                tag: wasmer_value_tag::WASM_F64,
+                tag: wasmer_value_tag::WASMER_F64,
                 value: wasmer_value { F64: x },
             },
             Val::V128(_) => unimplemented!("V128 not supported in C API"),
@@ -126,10 +136,10 @@ impl From<ValType> for wasmer_value_tag {
     fn from(ty: ValType) -> Self {
         #[allow(unreachable_patterns)]
         match ty {
-            ValType::I32 => wasmer_value_tag::WASM_I32,
-            ValType::I64 => wasmer_value_tag::WASM_I64,
-            ValType::F32 => wasmer_value_tag::WASM_F32,
-            ValType::F64 => wasmer_value_tag::WASM_F64,
+            ValType::I32 => wasmer_value_tag::WASMER_I32,
+            ValType::I64 => wasmer_value_tag::WASMER_I64,
+            ValType::F32 => wasmer_value_tag::WASMER_F32,
+            ValType::F64 => wasmer_value_tag::WASMER_F64,
             ValType::V128 => unreachable!("V128 not supported in C API"),
             ValType::ExternRef => unimplemented!("ExternRef not supported in C API"),
             ValType::FuncRef => unimplemented!("FuncRef not supported in C API"),
@@ -141,10 +151,10 @@ impl From<wasmer_value_tag> for ValType {
     fn from(v: wasmer_value_tag) -> Self {
         #[allow(unreachable_patterns)]
         match v {
-            wasmer_value_tag::WASM_I32 => ValType::I32,
-            wasmer_value_tag::WASM_I64 => ValType::I64,
-            wasmer_value_tag::WASM_F32 => ValType::F32,
-            wasmer_value_tag::WASM_F64 => ValType::F64,
+            wasmer_value_tag::WASMER_I32 => ValType::I32,
+            wasmer_value_tag::WASMER_I64 => ValType::I64,
+            wasmer_value_tag::WASMER_F32 => ValType::F32,
+            wasmer_value_tag::WASMER_F64 => ValType::F64,
             _ => unreachable!("unknown WASM type"),
         }
     }
@@ -153,10 +163,10 @@ impl From<wasmer_value_tag> for ValType {
 impl From<&ValType> for wasmer_value_tag {
     fn from(ty: &ValType) -> Self {
         match *ty {
-            ValType::I32 => wasmer_value_tag::WASM_I32,
-            ValType::I64 => wasmer_value_tag::WASM_I64,
-            ValType::F32 => wasmer_value_tag::WASM_F32,
-            ValType::F64 => wasmer_value_tag::WASM_F64,
+            ValType::I32 => wasmer_value_tag::WASMER_I32,
+            ValType::I64 => wasmer_value_tag::WASMER_I64,
+            ValType::F32 => wasmer_value_tag::WASMER_F32,
+            ValType::F64 => wasmer_value_tag::WASMER_F64,
             ValType::V128 => unimplemented!("V128 not supported in C API"),
             ValType::ExternRef => unimplemented!("ExternRef not supported in C API"),
             ValType::FuncRef => unimplemented!("FuncRef not supported in C API"),

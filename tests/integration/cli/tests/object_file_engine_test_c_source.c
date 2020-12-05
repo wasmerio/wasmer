@@ -2,8 +2,7 @@
 extern "C" {
 #endif
 
-#include "wasmer_wasm.h"
-#include "wasm.h"
+#include "wasmer.h"
 #include "my_wasm.h"
 
 #include <stdio.h>

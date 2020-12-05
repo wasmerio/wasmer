@@ -2,7 +2,11 @@
 
 #if !defined(WASMER_H_MACROS)
 
+// Include the WASP API for using the wasm_valkind_enum type.
+#include "wasm.h"
+
 #define WASMER_H_MACROS
+
 
 // Define the `ARCH_X86_X64` constant.
 #if defined(MSVC) && defined(_M_AMD64)
@@ -95,13 +99,13 @@ enum class wasmer_result_t {
 /// See `wasmer_value_t` to get a complete example.
 enum class wasmer_value_tag : uint32_t {
   /// Represents the `i32` WebAssembly type.
-  WASM_I32,
+  WASMER_I32 = 0,
   /// Represents the `i64` WebAssembly type.
-  WASM_I64,
+  WASMER_I64 = 1,
   /// Represents the `f32` WebAssembly type.
-  WASM_F32,
+  WASMER_F32 = 2,
   /// Represents the `f64` WebAssembly type.
-  WASM_F64,
+  WASMER_F64 = 3,
 };
 
 struct wasmer_module_t {
@@ -171,12 +175,12 @@ union wasmer_value {
 /// ```c
 /// // Create a WebAssembly value.
 /// wasmer_value_t wasm_value = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 42,
 /// };
 ///
 /// // Read a WebAssembly value.
-/// if (wasm_value.tag == WASM_I32) {
+/// if (wasm_value.tag == WASMER_I32) {
 ///     int32_t x = wasm_value.value.I32;
 ///     // …
 /// }
@@ -667,13 +671,13 @@ wasmer_import_object_t *wasmer_import_object_new();
 /// ```c
 /// // First argument.
 /// wasmer_value_t argument_one = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 3,
 /// };
 ///
 /// // Second argument.
 /// wasmer_value_t argument_two = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 4,
 /// };
 ///

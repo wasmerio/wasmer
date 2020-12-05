@@ -4,3 +4,10 @@ test-*
 
 # Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
 !*.c
+
+wasm-c-api/example/*
+# Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
+!wasm-c-api/example/*.c
+!wasm-c-api/example/*.cc
+!wasm-c-api/example/*.wat
+!wasm-c-api/example/*.wasm

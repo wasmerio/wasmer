@@ -4,7 +4,7 @@
 #ifndef TEST_WASMER_WASM
 #define TEST_WASMER_WASM
 
-#include "../wasmer_wasm.h"
+#include "../wasmer.h"
 #include <stdio.h>
 #include <string.h>
 

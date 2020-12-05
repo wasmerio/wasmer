@@ -60,17 +60,17 @@ fn main() {
     let out_dir = env::var("OUT_DIR").unwrap();
 
     build_wasm_c_api_headers(&crate_dir, &out_dir);
-    build_wasmer_headers(&crate_dir, &out_dir);
+    build_wasmer_deprecated_headers(&crate_dir, &out_dir);
     build_inline_c_env_vars();
 }
 
 /// Build the header files for the `wasm_c_api` API.
 fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
-    crate_header_file.push("wasmer_wasm");
+    crate_header_file.push("wasmer");
 
     let mut out_header_file = PathBuf::from(out_dir);
-    out_header_file.push("wasmer_wasm");
+    out_header_file.push("wasmer");
 
     let mut pre_header = format!(
         r#"// The Wasmer C/C++ header file compatible with the `wasm-c-api` standard API.
@@ -79,6 +79,10 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 #if !defined(WASMER_WASM_H_MACROS)
 
 #define WASMER_WASM_H_MACROS
+
+// Include the deprecated API for import compatibility reasons
+#include "wasmer_deprecated.h"
+
 {pre_header}"#,
         pre_header = PRE_HEADER
     );
@@ -124,19 +128,23 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 }
 
 /// Build the header files for the `deprecated` API.
-fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
+fn build_wasmer_deprecated_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
-    crate_header_file.push("wasmer");
+    crate_header_file.push("wasmer_deprecated");
 
     let mut out_header_file = PathBuf::from(out_dir);
-    out_header_file.push("wasmer");
+    out_header_file.push("wasmer_deprecated");
 
     let mut pre_header = format!(
         r#"// The Wasmer C/C++ header file.
 
 #if !defined(WASMER_H_MACROS)
 
+// Include the WASP API for using the wasm_valkind_enum type.
+#include "wasm.h"
+
 #define WASMER_H_MACROS
+
 {pre_header}"#,
         pre_header = PRE_HEADER
     );

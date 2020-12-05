@@ -35,7 +35,7 @@ mod tests {
     #[test]
     fn test_wat2wasm() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();
@@ -73,7 +73,7 @@ mod tests {
     #[test]
     fn test_wat2wasm_failed() {
         (assert_c! {
-            #include "tests/wasmer_wasm.h"
+            #include "tests/wasmer.h"
 
             int main() {
                 wasm_engine_t* engine = wasm_engine_new();

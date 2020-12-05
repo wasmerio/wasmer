@@ -280,13 +280,13 @@ pub unsafe extern "C" fn wasmer_instance_context_get(
 /// ```c
 /// // First argument.
 /// wasmer_value_t argument_one = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 3,
 /// };
 ///
 /// // Second argument.
 /// wasmer_value_t argument_two = {
-///     .tag = WASM_I32,
+///     .tag = WASMER_I32,
 ///     .value.I32 = 4,
 /// };
 ///
@@ -377,19 +377,19 @@ pub unsafe extern "C" fn wasmer_instance_call(
             if !results_vec.is_empty() {
                 let ret = match results_vec[0] {
                     Val::I32(x) => wasmer_value_t {
-                        tag: wasmer_value_tag::WASM_I32,
+                        tag: wasmer_value_tag::WASMER_I32,
                         value: wasmer_value { I32: x },
                     },
                     Val::I64(x) => wasmer_value_t {
-                        tag: wasmer_value_tag::WASM_I64,
+                        tag: wasmer_value_tag::WASMER_I64,
                         value: wasmer_value { I64: x },
                     },
                     Val::F32(x) => wasmer_value_t {
-                        tag: wasmer_value_tag::WASM_F32,
+                        tag: wasmer_value_tag::WASMER_F32,
                         value: wasmer_value { F32: x },
                     },
                     Val::F64(x) => wasmer_value_t {
-                        tag: wasmer_value_tag::WASM_F64,
+                        tag: wasmer_value_tag::WASMER_F64,
                         value: wasmer_value { F64: x },
                     },
                     Val::V128(_) => unimplemented!("calling function with V128 parameter"),

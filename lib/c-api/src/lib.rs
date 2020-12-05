@@ -8,12 +8,12 @@
 //! * `deprecated`, which is the old one, and is represented by the
 //!   `wasmer.h` and the `wasmer.hh` C header files,
 //! * `wasm_c_api`, which is the new, standard C API, and is
-//!   represented by the `wasmer_wasm.h` C header file.
+//!   represented by the `wasmer.h` C header file.
 //!
 //! The `wasm_c_api` follows the [official WebAssembly C and C++
 //! API](https://github.com/WebAssembly/wasm-c-api). It provides
 //! however some extensions, like the `wasi_*` types and functions,
-//! which aren't yet defined by the standard. The `wasmer_wasm.h`
+//! which aren't yet defined by the standard. The `wasmer.h`
 //! header file already depends on the `wasm.h` file. A copy lands in
 //! this repository for the sake of simplicity.
 

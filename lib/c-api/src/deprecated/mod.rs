@@ -46,12 +46,12 @@
 //!
 //!     // Value of argument #1 is `7i32`.
 //!     wasmer_value_t argument_one;
-//!     argument_one.tag = WASM_I32;
+//!     argument_one.tag = WASMER_I32;
 //!     argument_one.value.I32 = 7;
 //!
 //!     // Value of argument #2 is `8i32`.
 //!     wasmer_value_t argument_two;
-//!     argument_two.tag = WASM_I32;
+//!     argument_two.tag = WASMER_I32;
 //!     argument_two.value.I32 = 8;
 //!
 //!     // Prepare the arguments.

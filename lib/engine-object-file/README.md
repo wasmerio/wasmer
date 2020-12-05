@@ -29,7 +29,7 @@ Now lets create a program to link with this object file.
 extern "C" {
 #endif
 
-#include "wasmer_wasm.h"
+#include "wasmer.h"
 #include "wasm.h"
 #include "my_wasm.h"
 
