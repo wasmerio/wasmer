@@ -207,7 +207,7 @@ impl CompilerConfig for LLVM {
     }
 
     /// Transform it into the compiler.
-    fn compiler(self: Box<Self>) -> Box<dyn Compiler + Send> {
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
         Box::new(LLVMCompiler::new(*self))
     }
 

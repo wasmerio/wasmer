@@ -11,7 +11,10 @@ pub struct JIT {
 
 impl JIT {
     /// Create a new JIT
-    pub fn new<T>(compiler_config: T) -> Self where T: Into<Box<dyn CompilerConfig>> {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
         Self {
             compiler_config: Some(compiler_config.into()),
             target: None,

@@ -37,7 +37,7 @@ pub trait CompilerConfig {
     }
 
     /// Gets the custom compiler config
-    fn compiler(self: Box<Self>) -> Box<dyn Compiler + Send>;
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
     fn default_features_for_target(&self, _target: &Target) -> Features {
@@ -48,8 +48,17 @@ pub trait CompilerConfig {
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
 }
 
+impl<T> From<T> for Box<dyn CompilerConfig + 'static>
+where
+    T: CompilerConfig + 'static,
+{
+    fn from(other: T) -> Self {
+        Box::new(other)
+    }
+}
+
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler {
+pub trait Compiler: Send {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.

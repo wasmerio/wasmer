@@ -23,7 +23,7 @@ To create a compiler, one needs to implement two traits:
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler + Send>;
+    fn compiler(&self) -> Box<dyn Compiler>;
 }
 
 /// An implementation of a compiler from parsed WebAssembly module to compiled native code.

@@ -11,7 +11,10 @@ pub struct ObjectFile {
 impl ObjectFile {
     #[cfg(feature = "compiler")]
     /// Create a new ObjectFile
-    pub fn new<T>(compiler_config: T) -> Self where T: Into<Box<dyn CompilerConfig>> {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
         let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
 
@@ -88,7 +91,7 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler + Send> {
+        fn compiler(&self) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 
