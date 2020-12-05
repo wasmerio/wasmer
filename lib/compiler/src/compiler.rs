@@ -48,7 +48,6 @@ pub trait CompilerConfig {
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
 }
 
-
 impl<T> From<T> for Box<dyn CompilerConfig + 'static>
 where
     T: CompilerConfig + 'static,
