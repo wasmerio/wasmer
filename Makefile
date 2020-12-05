@@ -301,7 +301,7 @@ ifeq ($(OS), Windows_NT)
 else
 ifeq ($(UNAME_S), Darwin)
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
-	rm package/lib/libwasmer.dylib
+	rm -f package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
