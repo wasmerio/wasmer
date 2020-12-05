@@ -29,10 +29,8 @@ pub struct SinglepassCompiler {
 
 impl SinglepassCompiler {
     /// Creates a new Singlepass compiler
-    pub fn new(config: &Singlepass) -> Self {
-        Self {
-            config: config.clone(),
-        }
+    pub fn new(config: Singlepass) -> Self {
+        Self { config }
     }
 
     /// Gets the config for this Compiler

@@ -38,12 +38,12 @@ pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
 #[cfg(feature = "test-jit")]
 pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
     let compiler_config = get_compiler(canonicalize_nans);
-    JIT::new(&compiler_config).engine()
+    JIT::new(compiler_config).engine()
 }
 #[cfg(feature = "test-native")]
 pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
     let mut compiler_config = get_compiler(canonicalize_nans);
-    Native::new(&mut compiler_config).engine()
+    Native::new(compiler_config).engine()
 }
 
 pub fn get_store(canonicalize_nans: bool) -> Store {
@@ -58,9 +58,9 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>
         compiler_config.push_middleware(x);
     }
     #[cfg(feature = "test-jit")]
-    let engine = JIT::new(&compiler_config).engine();
+    let engine = JIT::new(compiler_config).engine();
     #[cfg(feature = "test-native")]
-    let engine = Native::new(&mut compiler_config).engine();
+    let engine = Native::new(compiler_config).engine();
     Store::new(&engine)
 }
 

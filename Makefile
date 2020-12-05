@@ -15,11 +15,6 @@ compilers := cranelift
 # in `make test`.
 test_compilers_engines :=
 
-# if we are in Darwin, we use the system libffi for the capi
-ifeq ($(UNAME_S), Darwin)
-	capi_default_features := --features system-libffi
-endif
-
 # Autodetect LLVM from llvm-config
 ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
@@ -49,15 +44,18 @@ ifeq ($(ARCH), x86_64)
 	endif
 endif
 
-ifeq ($(ARCH), aarch64)
+# If it's an aarch64/arm64 chip
+# Using filter as a logical OR
+# https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
+ifneq (,$(filter $(ARCH),aarch64 arm64))
 	test_compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
 		test_compilers_engines += llvm-native
 	endif
-endif
-
-ifeq ($(ARCH), arm64)
-	test_compilers_engines += cranelift-jit
+	# if we are in macos arm64, we use the system libffi for the capi
+	ifeq ($(UNAME_S), Darwin)
+		capi_default_features := --features system-libffi
+	endif
 endif
 
 compilers := $(filter-out ,$(compilers))
@@ -132,6 +130,10 @@ build-capi-singlepass-object-file:
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi $(capi_default_features)
+
+build-capi-cranelift-system-libffi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi $(capi_default_features)
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -298,6 +300,8 @@ ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.lib package/lib
 else
 ifeq ($(UNAME_S), Darwin)
+	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
+	rm package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib

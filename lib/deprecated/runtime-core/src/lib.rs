@@ -115,27 +115,27 @@ impl GlobalStore {
         }
 
         #[allow(unused_variables)]
-        let update = |compiler_config: &dyn new::wasmer_compiler::CompilerConfig,
+        let update = |engine: new::wasmer_engine_jit::JIT,
                       global_store: &GlobalStore| {
-            let engine = new::wasmer_engine_jit::JIT::new(compiler_config).engine();
-
+            let engine = engine.engine();
             *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
         };
 
         match compiler {
             #[cfg(feature = "singlepass")]
             Backend::Singlepass => update(
-                &new::wasmer_compiler_singlepass::Singlepass::default(),
+                new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_singlepass::Singlepass::default()),
                 &self,
             ),
 
             #[cfg(feature = "cranelift")]
             Backend::Cranelift => {
-                update(&new::wasmer_compiler_cranelift::Cranelift::default(), &self)
+                update(
+                    new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_cranelift::Cranelift::default()), &self)
             }
 
             #[cfg(feature = "llvm")]
-            Backend::LLVM => update(&new::wasmer_compiler_llvm::LLVM::default(), &self),
+            Backend::LLVM => update(new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_llvm::LLVM::default()), &self),
 
             Backend::Auto => *self.store.lock().unwrap() = Arc::new(Default::default()),
         };

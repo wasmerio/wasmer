@@ -38,10 +38,8 @@ pub struct CraneliftCompiler {
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
-    pub fn new(config: &Cranelift) -> Self {
-        Self {
-            config: config.clone(),
-        }
+    pub fn new(config: Cranelift) -> Self {
+        Self { config }
     }
 
     /// Gets the WebAssembly features for this Compiler
