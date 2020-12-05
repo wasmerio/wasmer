@@ -393,9 +393,20 @@ impl Function {
         let address = function.address();
 
         let box_env = Box::new(env);
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(box_env) as *mut _,
+        let host_env = Box::into_raw(box_env) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env: Env = {
+                let ptr: *mut Env = ptr as _;
+                let item: &Env = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
         };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            Box::from_raw(ptr as *mut Env);
+        };
+
         let signature = function.ty();
         // TODO: look into removing transmute by changing API type signatures
         let import_init_function_ptr = Some(std::mem::transmute::<
@@ -408,6 +419,9 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(ExportFunctionMetadata {
+                    host_env,
+                    host_env_clone_fn,
+                    host_env_drop_fn,
                     import_init_function_ptr,
                 })),
                 vm_function: VMExportFunction {

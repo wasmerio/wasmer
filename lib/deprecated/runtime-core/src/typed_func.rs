@@ -235,11 +235,11 @@ use std::{
 /// Initially, it holds an empty `vm::Ctx`, but it is replaced by the
 /// `vm::Ctx` from `instance::PreInstance` in
 /// `module::Module::instantiate`.
-#[derive(WasmerEnv)]
+#[derive(WasmerEnv, Clone)]
 pub(crate) struct DynamicCtx {
     pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
     inner_func:
-        Box<dyn Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + 'static>,
+        Rc<dyn Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + 'static>,
 }
 
 impl DynamicFunc {
@@ -251,7 +251,7 @@ impl DynamicFunc {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = DynamicCtx {
             vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
-            inner_func: Box::new(func),
+            inner_func: Rc::new(func),
         };
 
         // Wrapper to safely extract a `&mut vm::Ctx` to pass

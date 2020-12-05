@@ -186,7 +186,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             wasmer_import_export_kind::WASM_FUNCTION => {
                 let func_wrapper = import.value.func as *mut FunctionWrapper;
                 let func_export = (*func_wrapper).func.as_ptr();
-                instance_pointers_to_update.push((*func_wrapper).legacy_env);
+                instance_pointers_to_update.push((*func_wrapper).legacy_env.clone());
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -229,8 +229,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
         ctx_data: None,
     };
     let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
-    for mut to_update in instance_pointers_to_update {
-        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+    for to_update in instance_pointers_to_update {
+        let mut to_update_guard = to_update.lock().unwrap();
+        to_update_guard.instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
     }
     *instance = c_api_instance_pointer as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK

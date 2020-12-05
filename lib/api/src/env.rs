@@ -112,6 +112,13 @@ impl<T: WasmerEnv> WasmerEnv for Box<T> {
     }
 }
 
+impl<T: WasmerEnv> WasmerEnv for ::std::sync::Arc<::std::sync::Mutex<T>> {
+    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+        let mut guard = self.lock().unwrap();
+        guard.init_with_instance(instance)
+    }
+}
+
 /*impl<T: WasmerEnv> WasmerEnv for &'static T {
     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
         T::init_with_instance()
