@@ -28,7 +28,7 @@ pub struct NativeEngine {
 impl NativeEngine {
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
+    pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         let host_target = Triple::host();
         let is_cross_compiling = target.triple() != &host_target;
 
@@ -213,7 +213,7 @@ impl Into<&'static str> for Linker {
 pub struct NativeEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler + Send>>,
+    compiler: Option<Box<dyn Compiler>>,
     /// The WebAssembly features to use
     #[cfg(feature = "compiler")]
     features: Features,

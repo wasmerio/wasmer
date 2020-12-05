@@ -194,7 +194,7 @@ impl CompilerConfig for Cranelift {
     }
 
     /// Transform it into the compiler
-    fn compiler(self: Box<Self>) -> Box<dyn Compiler + Send> {
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
         Box::new(CraneliftCompiler::new(*self))
     }
 

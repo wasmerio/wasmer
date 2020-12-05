@@ -11,9 +11,12 @@ pub struct JIT {
 
 impl JIT {
     /// Create a new JIT
-    pub fn new(compiler_config: impl CompilerConfig + 'static) -> Self {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
         Self {
-            compiler_config: Some(Box::new(compiler_config)),
+            compiler_config: Some(compiler_config.into()),
             target: None,
             features: None,
         }

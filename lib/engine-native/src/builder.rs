@@ -11,11 +11,15 @@ pub struct Native {
 impl Native {
     #[cfg(feature = "compiler")]
     /// Create a new Native
-    pub fn new(mut compiler_config: impl CompilerConfig + 'static) -> Self {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
+        let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
 
         Self {
-            compiler_config: Some(Box::new(compiler_config)),
+            compiler_config: Some(compiler_config),
             target: None,
             features: None,
         }
@@ -87,7 +91,7 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler + Send> {
+        fn compiler(&self) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 
