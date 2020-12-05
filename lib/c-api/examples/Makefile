@@ -1,4 +1,3 @@
-
 $(info Using provided WASMER_DIR=$(WASMER_DIR))
 
 ifeq (,$(wildcard $(WASMER_DIR)/bin/wasmer))

@@ -52,7 +52,7 @@ ifneq (,$(filter $(ARCH),aarch64 arm64))
 	ifneq (, $(findstring llvm,$(compilers)))
 		test_compilers_engines += llvm-native
 	endif
-	# if we are in Darwin, we use the system libffi for the capi
+	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(UNAME_S), Darwin)
 		capi_default_features := --features system-libffi
 	endif
@@ -224,19 +224,17 @@ test-packages:
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
 # link the tests against. cargo test doesn't know that the tests will be running
-# cmake + make to build programs whose dependencies cargo isn't aware of.
-
 test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
 
-test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-examples
+test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-examples
+test-capi-cranelift-jit: build-capi-cranelift-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features) -- --nocapture
 
-test-capi-cranelift-native: build-capi-cranelift-native test-capi-examples
+test-capi-cranelift-native: build-capi-cranelift-native test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features) -- --nocapture
 
@@ -248,7 +246,10 @@ test-capi-llvm-native:
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
 
-test-capi-examples: package-capi
+test-capi-tests: package-capi
+	# Test the Wasmer C API tests for C
+	cd lib/c-api/tests; WASMER_DIR=`pwd`/../../../package make test
+	# Test the Wasmer C API examples
 	cd lib/c-api/examples; WASMER_DIR=`pwd`/../../../package make run
 
 test-wasi-unit:
@@ -287,8 +288,6 @@ else
 	cp target/release/wasmer package/bin/
 endif
 
-
-
 package-capi:
 	mkdir -p "package/include"
 	mkdir -p "package/lib"
@@ -301,6 +300,8 @@ ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.lib package/lib
 else
 ifeq ($(UNAME_S), Darwin)
+	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
+	rm -f package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 	# Fix the rpath for the dylib
