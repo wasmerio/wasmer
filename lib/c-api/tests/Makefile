@@ -28,12 +28,12 @@ CAPI_BASE_TESTS_NOT_WORKING = \
 	wasm-c-api/example/table			wasm-c-api/example/threads
 
 DEPRECATED_TESTS = \
-	deprecated/test-context             deprecated/test-import-object             	deprecated/test-module-imports \
-    deprecated/test-import-trap         deprecated/test-module-serialize \
-	deprecated/test-exported-memory     deprecated/test-imports                   	deprecated/test-module \
-	deprecated/test-exports             deprecated/test-instantiate               	deprecated/test-tables \
-	deprecated/test-globals             deprecated/test-memory                    	deprecated/test-validate \
-	deprecated/test-module-exports      deprecated/test-module-import-instantiate
+	deprecated/test-context				deprecated/test-import-object				deprecated/test-module-imports \
+	deprecated/test-import-trap			deprecated/test-module-serialize \
+	deprecated/test-exported-memory		deprecated/test-imports						deprecated/test-module \
+	deprecated/test-exports				deprecated/test-instantiate					deprecated/test-tables \
+	deprecated/test-globals				deprecated/test-memory						deprecated/test-validate \
+	deprecated/test-module-exports		deprecated/test-module-import-instantiate
 
 DEPRECATED_NOT_WORKING = test-import-function test-import-function-callinfo test-wasi-import-object test-emscripten-import-object
 
