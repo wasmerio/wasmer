@@ -144,23 +144,19 @@ impl CompilerOptions {
                     .engine(),
             ),
             #[cfg(feature = "native")]
-            EngineType::Native => {
-                Box::new(
-                    wasmer_engine_native::Native::new(compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
+            EngineType::Native => Box::new(
+                wasmer_engine_native::Native::new(compiler_config)
+                    .target(target)
+                    .features(features)
+                    .engine(),
+            ),
             #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                Box::new(
-                    wasmer_engine_object_file::ObjectFile::new(compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
+            EngineType::ObjectFile => Box::new(
+                wasmer_engine_object_file::ObjectFile::new(compiler_config)
+                    .target(target)
+                    .features(features)
+                    .engine(),
+            ),
             #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
