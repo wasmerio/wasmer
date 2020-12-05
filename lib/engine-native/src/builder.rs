@@ -2,16 +2,20 @@ use crate::NativeEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The Native builder
-pub struct Native<'a> {
-    compiler_config: Option<&'a dyn CompilerConfig>,
+pub struct Native {
+    compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl<'a> Native<'a> {
+impl Native {
     #[cfg(feature = "compiler")]
     /// Create a new Native
-    pub fn new(compiler_config: &'a mut dyn CompilerConfig) -> Self {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
+        let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
 
         Self {
@@ -87,7 +91,7 @@ mod tests {
             self.enabled_pic = true;
         }
 
-        fn compiler(&self) -> Box<dyn Compiler + Send> {
+        fn compiler(&self) -> Box<dyn Compiler> {
             unimplemented!("compiler not implemented");
         }
 
@@ -101,7 +105,7 @@ mod tests {
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
         let mut compiler_config = TestCompilerConfig::default();
-        let native = Native::new(&mut compiler_config);
+        let native = Native::new(compiler_config);
         let _engine = native.engine();
     }
 

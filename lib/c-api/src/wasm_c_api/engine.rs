@@ -136,7 +136,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(&*compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -154,7 +154,7 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(&mut *compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -243,7 +243,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::JIT => {
                     cfg_if! {
                         if #[cfg(feature = "jit")] {
-                            Arc::new(JIT::new(&*compiler_config).engine())
+                            Arc::new(JIT::new(compiler_config).engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `jit` feature.");
                         }
@@ -252,7 +252,7 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::NATIVE => {
                     cfg_if! {
                         if #[cfg(feature = "native")] {
-                            Arc::new(Native::new(&mut *compiler_config).engine())
+                            Arc::new(Native::new(compiler_config).engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `native` feature.");
                         }
