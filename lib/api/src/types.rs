@@ -77,7 +77,7 @@ impl ValFuncRef for Val {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
             metadata: None,
-            vm_function: std::sync::Arc::new(wasmer_vm::VMExportFunction {
+            vm_function: wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,
                 // All functions in tables are already Static (as dynamic functions
@@ -86,7 +86,7 @@ impl ValFuncRef for Val {
                 vmctx: item.vmctx,
                 call_trampoline: None,
                 instance_allocator: None,
-            }),
+            },
         };
         let f = Function::from_vm_export(store, export);
         Self::FuncRef(f)

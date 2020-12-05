@@ -197,7 +197,7 @@ pub fn resolve_imports(
                     }
                 } else {
                     unsafe {
-                        assert!(f.vm_function.vmctx.host_env.is_null());
+                        //assert!(f.vm_function.vmctx.host_env.is_null());
                         f.vm_function.vmctx.host_env
                     }
                 };

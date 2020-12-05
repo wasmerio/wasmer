@@ -90,7 +90,7 @@ impl Function {
     {
         let dynamic_ctx: VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> =
             VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
-                func: Box::new(func),
+                func: Arc::new(func),
                 function_type: ty.clone(),
             });
         // We don't yet have the address with the Wasm ABI signature.
@@ -100,7 +100,7 @@ impl Function {
         let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
         let vmctx = VMFunctionEnvironment { host_env };
         let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
-            let duped_env = unsafe {
+            let duped_env: VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = unsafe {
                 let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = ptr as _;
                 let item: &VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = &*ptr;
                 item.clone()
@@ -123,14 +123,14 @@ impl Function {
                     host_env_clone_fn,
                     host_env_drop_fn,
                 })),
-                vm_function: Arc::new(VMExportFunction {
+                vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
                     signature: ty.clone(),
                     call_trampoline: None,
                     instance_allocator: None,
-                }),
+                },
             },
         }
     }
@@ -164,8 +164,11 @@ impl Function {
     {
         let dynamic_ctx: VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> =
             VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-                env: Box::new(env),
-                func: Box::new(func),
+                env: {
+                    let e = Box::new(env);
+                    e
+                },
+                func: Arc::new(func),
                 function_type: ty.clone(),
             });
         // We don't yet have the address with the Wasm ABI signature.
@@ -190,7 +193,7 @@ impl Function {
             )
         });
         let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
-            let duped_env = unsafe {
+            let duped_env: VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = unsafe {
                 let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = ptr as _;
                 let item: &VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = &*ptr;
                 item.clone()
@@ -213,14 +216,14 @@ impl Function {
                     host_env_clone_fn,
                     host_env_drop_fn,
                 })),
-                vm_function: Arc::new(VMExportFunction {
+                vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
                     signature: ty.clone(),
                     call_trampoline: None,
                     instance_allocator: None,
-                }),
+                },
             },
         }
     }
@@ -267,14 +270,14 @@ impl Function {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
                 metadata: None,
-                vm_function: Arc::new(VMExportFunction {
+                vm_function: VMExportFunction {
                     address,
                     vmctx,
                     signature,
                     kind: VMFunctionKind::Static,
                     call_trampoline: None,
                     instance_allocator: None,
-                }),
+                },
             },
         }
     }
@@ -320,8 +323,7 @@ impl Function {
         // Wasm-defined functions have a `VMContext`.
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
-        let box_env = Box::new(env);
-        let host_env = Box::into_raw(box_env) as *mut _;
+        let host_env = Box::into_raw(Box::new(env)) as *mut _;
         let vmctx = VMFunctionEnvironment { host_env };
         let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
             let duped_env = unsafe {
@@ -353,14 +355,14 @@ impl Function {
                     host_env_clone_fn,
                     host_env_drop_fn,
                 })),
-                vm_function: Arc::new(VMExportFunction {
+                vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,
                     signature,
                     call_trampoline: None,
                     instance_allocator: None,
-                }),
+                },
             },
         }
     }
@@ -405,15 +407,17 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
-                vm_function: Arc::new(VMExportFunction {
+                metadata: Some(Arc::new(ExportFunctionMetadata {
+                    import_init_function_ptr,
+                })),
+                vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,
                     signature,
                     call_trampoline: None,
                     instance_allocator: None,
-                }),
+                },
             },
         }
     }
@@ -775,9 +779,10 @@ pub(crate) trait VMDynamicFunction {
     fn function_type(&self) -> &FunctionType;
 }
 
+#[derive(Clone)]
 pub(crate) struct VMDynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    func: Arc<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
 
@@ -799,7 +804,17 @@ where
     env: Box<Env>,
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+}
+
+impl<Env: Sized + Clone + 'static> Clone for VMDynamicFunctionWithEnv<Env> {
+    fn clone(&self) -> Self {
+        Self {
+            env: self.env.clone(),
+            function_type: self.function_type.clone(),
+            func: self.func.clone(),
+        }
+    }
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>

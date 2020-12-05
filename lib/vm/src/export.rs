@@ -13,7 +13,7 @@ use wasmer_types::{FunctionType, MemoryType, TableType};
 #[derive(Debug)]
 pub enum VMExport {
     /// A function export value.
-    Function(Arc<VMExportFunction>),
+    Function(VMExportFunction),
 
     /// A table export value.
     Table(VMExportTable),
@@ -26,7 +26,7 @@ pub enum VMExport {
 }
 
 /// A function export value.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, Clone, PartialEq)]
 pub struct VMExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
@@ -63,7 +63,7 @@ unsafe impl Sync for VMExportFunction {}
 
 impl From<VMExportFunction> for VMExport {
     fn from(func: VMExportFunction) -> Self {
-        Self::Function(Arc::new(func))
+        Self::Function(func)
     }
 }
 

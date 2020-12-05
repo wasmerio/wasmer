@@ -65,8 +65,11 @@ pub struct ExportFunctionMetadata {
     pub host_env_drop_fn: fn(*mut std::ffi::c_void),
 }
 
+// We have to free `host_env` here because we always clone it before using it
+// so all the `host_env`s freed at the `Instance` level won't touch the original.
 impl Drop for ExportFunctionMetadata {
     fn drop(&mut self) {
+        dbg!("DROPPING ORIGINAL HOST ENV!");
         if !self.host_env.is_null() {
             (self.host_env_drop_fn)(self.host_env);
         }
@@ -78,7 +81,7 @@ impl Drop for ExportFunctionMetadata {
 #[derive(Debug, Clone, PartialEq)]
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
-    pub vm_function: Arc<VMExportFunction>,
+    pub vm_function: VMExportFunction,
     /// TODO:
     pub metadata: Option<Arc<ExportFunctionMetadata>>,
 }
