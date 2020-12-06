@@ -27,10 +27,22 @@ pub enum wasmer_value_tag {
 fn wasmer_value_tag_are_wasm_valkind_enum() {
     use crate::wasm_c_api::types::wasm_valkind_enum;
 
-    assert_eq!(wasmer_value_tag::WASMER_I32 as u32, wasm_valkind_enum::WASM_I32 as u32);
-    assert_eq!(wasmer_value_tag::WASMER_I64 as u32, wasm_valkind_enum::WASM_I64 as u32);
-    assert_eq!(wasmer_value_tag::WASMER_F32 as u32, wasm_valkind_enum::WASM_F32 as u32);
-    assert_eq!(wasmer_value_tag::WASMER_F64 as u32, wasm_valkind_enum::WASM_F64 as u32);
+    assert_eq!(
+        wasmer_value_tag::WASMER_I32 as u32,
+        wasm_valkind_enum::WASM_I32 as u32
+    );
+    assert_eq!(
+        wasmer_value_tag::WASMER_I64 as u32,
+        wasm_valkind_enum::WASM_I64 as u32
+    );
+    assert_eq!(
+        wasmer_value_tag::WASMER_F32 as u32,
+        wasm_valkind_enum::WASM_F32 as u32
+    );
+    assert_eq!(
+        wasmer_value_tag::WASMER_F64 as u32,
+        wasm_valkind_enum::WASM_F64 as u32
+    );
 }
 
 /// Represents a WebAssembly value.
