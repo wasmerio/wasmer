@@ -260,3 +260,8 @@ required-features = ["cranelift"]
 name = "metering"
 path = "examples/metering.rs"
 required-features = ["cranelift"]
+
+[[example]]
+name = "imports-exports"
+path = "examples/imports_exports.rs"
+required-features = ["cranelift"]
