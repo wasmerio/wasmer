@@ -27,10 +27,8 @@ pub struct LLVMCompiler {
 
 impl LLVMCompiler {
     /// Creates a new LLVM compiler
-    pub fn new(config: &LLVM) -> LLVMCompiler {
-        LLVMCompiler {
-            config: config.clone(),
-        }
+    pub fn new(config: LLVM) -> LLVMCompiler {
+        LLVMCompiler { config }
     }
 
     /// Gets the config for this Compiler

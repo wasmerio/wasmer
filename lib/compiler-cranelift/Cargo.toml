@@ -39,3 +39,6 @@ unwind = ["cranelift-codegen/unwind", "gimli"]
 enable-serde = ["wasmer-compiler/enable-serde", "wasmer-types/enable-serde"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]
 core = ["hashbrown", "cranelift-codegen/core", "cranelift-frontend/core"]
+
+# Enable Cranelift experimental x64 backend
+experimental-x64 = ["cranelift-codegen/x64"]

@@ -43,7 +43,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // In this situation, the compiler is
     // `wasmer_compiler_cranelift`. The compiler is responsible to
     // compile the Wasm module into executable code.
-    let mut compiler_config = Cranelift::default();
+    let compiler_config = Cranelift::default();
 
     // Here we go.
     //
@@ -72,7 +72,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // That's where we specify the target for the compiler.
     // Use the native engine.
-    let engine = Native::new(&mut compiler_config)
+    let engine = Native::new(compiler_config)
         // Here we go.
         // Pass the target to the engine! The engine will share
         // this information with the compiler.

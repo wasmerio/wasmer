@@ -28,7 +28,7 @@ pub struct JITEngine {
 impl JITEngine {
     /// Create a new `JITEngine` with the given config
     #[cfg(feature = "compiler")]
-    pub fn new(compiler: Box<dyn Compiler + Send>, target: Target, features: Features) -> Self {
+    pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
         Self {
             inner: Arc::new(Mutex::new(JITEngineInner {
                 compiler: Some(compiler),
@@ -141,7 +141,7 @@ impl Engine for JITEngine {
 pub struct JITEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]
-    compiler: Option<Box<dyn Compiler + Send>>,
+    compiler: Option<Box<dyn Compiler>>,
     /// The features to compile the Wasm module with
     features: Features,
     /// The code memory is responsible of publishing the compiled

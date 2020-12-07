@@ -1,6 +1,9 @@
-# ignore wasm-c-api binaries
-wasm-c-api-*
-test-*
+
+*
+*.o
+
 
 # Unignore files ending with `.c` (i.e. `wasm-c-api-wasi.c`)
 !*.c
+# Unignore Makefile
+!Makefile

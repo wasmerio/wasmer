@@ -57,7 +57,7 @@ fn main() -> anyhow::Result<()> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.

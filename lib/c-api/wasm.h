@@ -1,1 +1,1 @@
-tests/wasm_c_api/wasm-c-api/include/wasm.h
+tests/wasm-c-api/include/wasm.h

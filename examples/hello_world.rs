@@ -44,7 +44,7 @@ fn main() -> anyhow::Result<()> {
     // However for the purposes of showing what's happening, we create a compiler
     // (`Cranelift`) and pass it to an engine (`JIT`). We then pass the engine to
     // the store and are now ready to compile and run WebAssembly!
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
     // We then use our store and Wasm bytes to compile a `Module`.
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.
     let module = Module::new(&store, wasm_bytes)?;
