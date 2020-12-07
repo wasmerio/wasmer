@@ -1,4 +1,3 @@
-//! Wasmer API
 #![doc(
     html_logo_url = "https://github.com/wasmerio.png?size=200",
     html_favicon_url = "https://wasmer.io/static/icons/favicon.ico"
@@ -28,6 +27,199 @@
     )
 )]
 
+//! This crate contains the Wasmer API. The Wasmer API facilitates the efficient,
+//! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.
+//!
+//! For examples of using the Wasmer API, check out the [wasmer examples][wasmer-examples].
+//!
+//! ---------
+//!
+//! # Table of Contents
+//!
+//! - [Project Layout](#project-layout)
+//!   - [Engines](#engines)
+//!   - [Compilers](#compilers)
+//! - [Features](#features)
+//! - [Wasm Primitives](#wasm-primitives)
+//!   - [Externs](#externs)
+//!     - [Functions](#functions)
+//!     - [Memories](#memories)
+//!     - [Globals](#globals)
+//!     - [Tables](#tables)
+//!
+//! ## Project Layout
+//!
+//! The Wasmer project is divided into a number of crates, below is a dependency
+//! graph with transitive dependencies removed.
+//!
+//! <div>
+//! <img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" />
+//! </div>
+//!
+//! While this crate is the top level API for Wasmer, we also publish crates built
+//! on top of this API that you may be interested in using, including:
+//!
+//! - [wasmer-cache][] for caching compiled Wasm modules.
+//! - [wasmer-emscripten][] for running Wasm modules compiled to the
+//!   Emscripten ABI.
+//! - [wasmer-wasi][] for running Wasm modules compiled to the WASI ABI.
+//!
+//! --------
+//!
+//! The Wasmer project has two major abstractions:
+//! - [Engines][wasmer-engine]
+//! - [Compilers][wasmer-compiler]
+//!
+//! These two abstractions have multiple options that can be enabled
+//! with features.
+//!
+//! ### Engines
+//!
+//! In the wasmer API, an engine is a system that uses a compiler to make
+//! a WebAssembly module executable.
+//!
+//! ### Compilers
+//!
+//! In the wasmer API, a compiler is a system that handles the details of
+//! making a Wasm module executable. For example, by generating native
+//! machine code for each Wasm function.
+//!
+//!
+//! ## Features
+//!
+//! This crate's features can be broken down into 2 kinds, features that
+//! enable new functionality and features that set defaults.
+//!
+//! The features that enable new functionality are:
+//! - `jit` - enable the JIT engine. (See [wasmer-jit][])
+//! - `native` - enable the native engine. (See [wasmer-native][])
+//! - `cranelift` - enable wasmer's Cranelift compiler. (See [wasmer-cranelift][])
+//! - `llvm` - enable wasmer's LLVM compiler. (See [wasmer-llvm][])
+//! - `singlepass` - enable wasmer's Singlepass compiler. (See [wasmer-singlepass][])
+//! - `wat` - enable wasmer to parse the WebAssembly text format.
+//!
+//! The features that set defaults come in sets that are mutually exclusive.
+//!
+//! The first set is the default compiler set:
+//! - `default-cranelift` - set wasmer's Cranelift compiler as the default.
+//! - `default-llvm` - set wasmer's LLVM compiler as the default.
+//! - `default-singlepass` - set wasmer's Singlepass compiler as the default.
+//!
+//! The next set is the default engine set:
+//! - `default-jit` - set the JIT engine as the default.
+//! - `default-native` - set the native engine as the default.
+//!
+//! --------
+//!
+//! By default the `wat`, `default-cranelift`, and `default-jit` features
+//! are enabled.
+//!
+//! # Wasm Primitives
+//! In order to make use of the power of the wasmer API, it's important
+//! to understand the primitives around which the API is built.
+//!
+//! Wasm only deals with a small number of core data types, these data
+//! types can be found in the [`Value`] type.
+//!
+//! In addition to the core Wasm types, the core types of the API are
+//! referred to as "externs".
+//!
+//! ## Externs
+//! An [`Extern`] is a type that can be imported or exported from a Wasm
+//! module.
+//!
+//! To import an extern, simply give it a namespace and a name with the
+//! [`imports`] macro:
+//!
+//! ```
+//! # use wasmer::{imports, Function, Memory, MemoryType, Store, ImportObject};
+//! # fn imports_example(store: &Store) -> ImportObject {
+//! let memory = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
+//! imports! {
+//!   "env" => {
+//!      "my_function" => Function::new_native(store, || println!("Hello")),
+//!      "memory" => memory,
+//!   }
+//! }
+//! # }
+//! ```
+//!
+//! And to access an exported extern, see the [`Exports`][] API, accessible
+//! from any instance via `instance.exports`:
+//!
+//! ```
+//! # use wasmer::{imports, Instance, Function, Memory, NativeFunc};
+//! # fn exports_example(instance: &Instance) -> anyhow::Result<()> {
+//! let memory = instance.exports.get_memory("memory")?;
+//! let memory: &Memory = instance.exports.get("some_other_memory")?;
+//! let add: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+//! let result = add.call(5, 37)?;
+//! assert_eq!(result, 42);
+//! # Ok(())
+//! # }
+//! ```
+//!
+//! These are the primary types that the wasmer API uses.
+//!
+//! ### Functions
+//! There are 2 types of functions in wasmer:
+//! - Wasm functions
+//! - Host functions
+//!
+//! A Wasm function is a function defined in a WebAssembly module that can
+//! only perform computation without side effects and call other functions.
+//!
+//! Wasm functions take 0 or more arguments and return 0 or more results.
+//! Wasm functions can only deal with the primitive types defined in
+//! [`Value`].
+//!
+//! A Host function is any function implemented on the host, in this case in
+//! Rust.
+//!
+//! Host functions can optionally be created with an enivronment that
+//! implements [`WasmerEnv`]. This enivronment is useful for maintaining
+//! host state (for example the filesystem in WASI).
+//!
+//! Thus WebAssembly modules by themselves cannot do anything but computation
+//! on the core types in [`Value`]. In order to make them more useful we
+//! give them access to the outside world with [`imports`].
+//!
+//! If you're looking for a sandboxed, POSIX-like environment to execute Wasm
+//! in, check out the [`wasmer-wasi`][] crate for our implementation of WASI,
+//! the WebAssembly System Interface.
+//!
+//! In the Wasmer API we support functions which take their arguments and
+//! return their results dynamically, [`Function`] and functions which
+//! take their arguments and return their results statically, [`NativeFunc`].
+//!
+//! ### Memories
+//! Memories store data.
+//!
+//! In most Wasm programs, nearly all data will live in a [`Memory`].
+//!
+//! This data can be shared between the host and guest to allow for more
+//! interesting programs.
+//!
+//! ### Globals
+//! A [`Global`] is a type that may be either mutable or immutable, and
+//! contains one of the core Wasm types defined in [`Value`].
+//!
+//! ### Tables
+//! A [`Table`] is an indexed list of items.
+//!
+//! [wasm]: https://webassembly.org/
+//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/exmples
+//! [wasmer-cache]: https://docs.rs/wasmer-cache/1.0.0-beta1/wasmer_cache/
+//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/1.0.0-beta1/wasmer_compiler/
+//! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/1.0.0-beta1/wasmer_cranelift/
+//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/1.0.0-beta1/wasmer_emscripten/
+//! [wasmer-engine]: https://docs.rs/wasmer-engine/1.0.0-beta1/wasmer_engine/
+//! [wasmer-jit]: https://docs.rs/wasmer-jit/1.0.0-beta1/wasmer_jit/
+//! [wasmer-native]: https://docs.rs/wasmer-native/1.0.0-beta1/wasmer_native/
+//! [wasmer-singlepass]: https://docs.rs/wasmer-singlepass/1.0.0-beta1/wasmer_singlepass/
+//! [wasmer-llvm]: https://docs.rs/wasmer-llvm/1.0.0-beta1/wasmer_llvm/
+//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/1.0.0-beta1/wasmer_wasi/
+
 mod env;
 mod exports;
 mod externals;
@@ -41,8 +233,12 @@ mod tunables;
 mod types;
 mod utils;
 
+/// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.
+///
+/// See the [`WasmerEnv`] trait for more information.
 pub use wasmer_derive::WasmerEnv;
 
+#[doc(hidden)]
 pub mod internals {
     //! We use the internals module for exporting types that are only
     //! intended to use in internal crates such as the compatibility crate
@@ -92,7 +288,7 @@ pub use wasmer_types::{
 // TODO: should those be moved into wasmer::vm as well?
 pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
 pub mod vm {
-    //! We use the vm module for re-exporting wasmer-vm types
+    //! The vm module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
         Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition, VMTableDefinition,
