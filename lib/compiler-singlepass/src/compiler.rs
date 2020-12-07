@@ -176,6 +176,7 @@ fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
 mod tests {
     use super::*;
     use std::str::FromStr;
+    use target_lexicon::triple;
     use wasmer_compiler::{CpuFeature, Features, Triple};
     use wasmer_vm::{MemoryStyle, TableStyle};
 
@@ -200,10 +201,7 @@ mod tests {
         let compiler = SinglepassCompiler::new(Singlepass::default());
 
         // Compile for win64
-        let win64 = Target::new(
-            Triple::from_str("x86_64-pc-windows-msvc").unwrap(),
-            CpuFeature::for_host(),
-        );
+        let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
         match result.unwrap_err() {
@@ -212,10 +210,7 @@ mod tests {
         };
 
         // Compile for 32bit Linux
-        let linux32 = Target::new(
-            Triple::from_str("i686-unknown-linux-gnu").unwrap(),
-            CpuFeature::for_host(),
-        );
+        let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&linux32, &mut info, &translation, inputs);
         match result.unwrap_err() {
@@ -224,10 +219,7 @@ mod tests {
         };
 
         // Compile for win32
-        let win32 = Target::new(
-            Triple::from_str("i686-pc-windows-gnu").unwrap(),
-            CpuFeature::for_host(),
-        );
+        let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
         let (mut info, translation, inputs) = dummy_compilation_ingredients();
         let result = compiler.compile_module(&win32, &mut info, &translation, inputs);
         match result.unwrap_err() {

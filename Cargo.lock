@@ -2595,6 +2595,7 @@ dependencies = [
  "rayon",
  "serde",
  "smallvec",
+ "target-lexicon",
  "wasmer-compiler",
  "wasmer-types",
  "wasmer-vm",
