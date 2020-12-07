@@ -1009,9 +1009,9 @@ dependencies = [
 
 [[package]]
 name = "inline-c"
-version = "0.1.3"
+version = "0.1.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f3f35c2ef14070ed26ac0c6ff16e22d12b35bf1a6a97dcbd1a693b56aa87a61c"
+checksum = "5db7d6323d3b700eec996bc5d60ffed2249f6bc63d88dec0681d2158115e5ed7"
 dependencies = [
  "assert_cmd",
  "cc",
@@ -1019,6 +1019,7 @@ dependencies = [
  "lazy_static",
  "predicates",
  "regex",
+ "rustc_version 0.3.0",
  "target-lexicon",
  "tempfile",
 ]
