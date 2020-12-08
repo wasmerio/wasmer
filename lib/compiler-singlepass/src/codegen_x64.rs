@@ -328,7 +328,7 @@ impl<'a> FuncGen<'a> {
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
-        self.mark_instruction_address_end(offst);
+        self.mark_instruction_address_end(offset);
     }
 
     /// Canonicalizes the floating point value at `input` into `output`.
