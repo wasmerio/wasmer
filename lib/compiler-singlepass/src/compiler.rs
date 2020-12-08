@@ -112,11 +112,12 @@ impl Compiler for SinglepassCompiler {
                 .map_err(to_compile_error)?;
 
                 while generator.has_control_frames() {
+                    generator.set_srcloc(reader.original_position() as u32);
                     let op = reader.read_operator().map_err(to_compile_error)?;
                     generator.feed_operator(op).map_err(to_compile_error)?;
                 }
 
-                Ok(generator.finalize())
+                Ok(generator.finalize(&input))
             })
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()

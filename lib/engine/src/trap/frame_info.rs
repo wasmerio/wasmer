@@ -97,6 +97,7 @@ impl ModuleInfoFrameInfo {
     }
 }
 
+#[derive(Debug)]
 struct FunctionInfo {
     start: usize,
     local_index: LocalFunctionIndex,
