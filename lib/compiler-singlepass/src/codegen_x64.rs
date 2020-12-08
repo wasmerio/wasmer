@@ -87,7 +87,7 @@ pub struct FuncGen<'a> {
 
     /// Map from byte offset into wasm function to range of native instructions.
     /// 
-    // Important: all instructions must be ordered.
+    // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
 }
 
