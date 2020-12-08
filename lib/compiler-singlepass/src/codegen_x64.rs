@@ -314,15 +314,19 @@ impl<'a> FuncGen<'a> {
         code: TrapCode,
         f: F,
     ) -> R {
-        let offset = self.assembler.get_offset().0();
+        let offset = self.assembler.get_offset().0;
         let ret = f(self);
+        let end = self.assembler.get_offset().0;
+        for i in begin..end {
+            self.trap_table.offset_to_code.insert(i, code);
+        }
         self.mark_instruction_address_end(offset);
         ret
     }
 
     /// Marks one address as trappable with trap code `code`.
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
-        let offset = self.assembler.get_offset().0();
+        let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
         self.mark_instruction_address_end(offst);
     }
@@ -391,7 +395,7 @@ impl<'a> FuncGen<'a> {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
-                let offset = self.assembler.get_offset().0();
+                let offset = self.assembler.get_offset().0;
                 self.trap_table
                     .offset_to_code
                     .insert(offset, TrapCode::IntegerOverflow);
@@ -400,7 +404,7 @@ impl<'a> FuncGen<'a> {
             }
             _ => {
                 self.mark_trappable();
-                let offset = self.assembler.get_offset().0();
+                let offset = self.assembler.get_offset().0;
                 self.trap_table
                     .offset_to_code
                     .insert(offset, TrapCode::IntegerOverflow);
@@ -1489,7 +1493,7 @@ impl<'a> FuncGen<'a> {
         );
 
         self.assembler.emit_label(trap_overflow);
-        let offset = self.assembler.get_offset().0();
+        let offset = self.assembler.get_offset().0;
         self.trap_table
             .offset_to_code
             .insert(offset, TrapCode::IntegerOverflow);
@@ -1498,7 +1502,7 @@ impl<'a> FuncGen<'a> {
 
         self.assembler.emit_label(trap_badconv);
 
-        let offset = self.assembler.get_offset().0();
+        let offset = self.assembler.get_offset().0;
         self.trap_table
             .offset_to_code
             .insert(offset, TrapCode::BadConversionToInteger);
@@ -5208,7 +5212,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let offset = self.assembler.get_offset().0();
+                        let offset = self.assembler.get_offset().0;
                         this.trap_table
                             .offset_to_code
                             .insert(offset, TrapCode::StackOverflow);
@@ -5406,7 +5410,7 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
-                            let offset = self.assembler.get_offset().0();
+                            let offset = self.assembler.get_offset().0;
                             this.trap_table
                                 .offset_to_code
                                 .insert(offset, TrapCode::StackOverflow);
@@ -6181,7 +6185,7 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                let offset = self.assembler.get_offset().0();
+                let offset = self.assembler.get_offset().0;
                 self.trap_table
                     .offset_to_code
                     .insert(offset, TrapCode::UnreachableCodeReached);
