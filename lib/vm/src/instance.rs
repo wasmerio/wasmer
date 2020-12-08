@@ -933,6 +933,7 @@ impl Drop for InstanceAllocator {
         // > "acquire" operation before deleting the object.
         //
         // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
+        dbg!("Freeing instance allocator");
         atomic::fence(atomic::Ordering::Acquire);
 
         // Now we can deallocate the instance. Note that we don't
