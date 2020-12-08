@@ -357,7 +357,6 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
 
     impl WasmerEnv for Env {
         fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
-            dbg!("Initing the env!");
             let memory = instance.exports.get_memory("memory")?.clone();
             self.memory.initialize(memory);
             Ok(())
@@ -368,7 +367,6 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
         memory: LazyInit::default(),
     };
     fn host_fn(env: &Env) {
-        dbg!(env as *const _);
         assert!(env.memory.get_ref().is_some());
         println!("Hello, world!");
     }

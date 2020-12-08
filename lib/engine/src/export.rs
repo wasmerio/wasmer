@@ -46,11 +46,25 @@ impl From<VMExport> for Export {
     }
 }
 
-/// TODO: rename, etc.
+/// Extra metadata about `ExportFunction`s.
+///
+/// The metadata acts as a kind of manual virtual dispatch. We store the
+/// user-supplied `WasmerEnv` as a void pointer and have methods on it
+/// that have been adapted to accept a void pointer.
 #[derive(Debug, PartialEq)]
 pub struct ExportFunctionMetadata {
-    /// duplicated here so we can free it....
-    /// TODO: refactor all this stuff so it's less of a nightmare.
+    /// This field is stored here to be accessible by `Drop`.
+    ///
+    /// At the time it was added, it's not accessed anywhere outside of
+    /// the `Drop` implementation. This field is the "master copy" of the env,
+    /// that is, the original env passed in by the user. Every time we create
+    /// an `Instance` we clone this with the `host_env_clone_fn` field.
+    ///
+    /// Thus, we only bother to store the master copy at all here so that
+    /// we can free it.
+    ///
+    /// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of
+    /// this pointer that is used by the VM when creating an `Instance`.
     pub host_env: *mut std::ffi::c_void,
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
@@ -69,7 +83,6 @@ pub struct ExportFunctionMetadata {
 // so all the `host_env`s freed at the `Instance` level won't touch the original.
 impl Drop for ExportFunctionMetadata {
     fn drop(&mut self) {
-        dbg!("DROPPING ORIGINAL HOST ENV!");
         if !self.host_env.is_null() {
             (self.host_env_drop_fn)(self.host_env);
         }

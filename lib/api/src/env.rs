@@ -105,7 +105,6 @@ impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicU32 {}
 impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicI64 {}
 impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicUsize {}
 impl<'a> WasmerEnv for &'a ::std::sync::atomic::AtomicIsize {}
-//impl WasmerEnv for dyn ::std::any::Any + Clone {}
 impl<T: WasmerEnv> WasmerEnv for Box<T> {
     fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
         (&mut **self).init_with_instance(instance)
@@ -118,13 +117,6 @@ impl<T: WasmerEnv> WasmerEnv for ::std::sync::Arc<::std::sync::Mutex<T>> {
         guard.init_with_instance(instance)
     }
 }
-
-/*impl<T: WasmerEnv> WasmerEnv for &'static T {
-    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
-        T::init_with_instance()
-        (*self).init_with_instance(instance)
-    }
-}*/
 
 /// Lazily init an item
 pub struct LazyInit<T: Sized> {

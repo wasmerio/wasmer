@@ -88,8 +88,8 @@ impl Function {
     where
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
-        let dynamic_ctx: VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> =
-            VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
+        let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> =
+            VMDynamicFunctionContext::from_context(DynamicFunctionWithoutEnv {
                 func: Arc::new(func),
                 function_type: ty.clone(),
             });
@@ -100,16 +100,16 @@ impl Function {
         let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
         let vmctx = VMFunctionEnvironment { host_env };
         let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
-            let duped_env: VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = unsafe {
-                let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = ptr as _;
-                let item: &VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv> = &*ptr;
+            let duped_env: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = ptr as _;
+                let item: &VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = &*ptr;
                 item.clone()
             };
             Box::into_raw(Box::new(duped_env)) as _
         };
         let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
             unsafe {
-                Box::from_raw(ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>)
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv>)
             };
         };
 
@@ -162,8 +162,8 @@ impl Function {
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + WasmerEnv + 'static,
     {
-        let dynamic_ctx: VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> =
-            VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
+        let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> =
+            VMDynamicFunctionContext::from_context(DynamicFunctionWithEnv {
                 env: {
                     let e = Box::new(env);
                     e
@@ -179,7 +179,7 @@ impl Function {
         let vmctx = VMFunctionEnvironment { host_env };
         let import_init_function_ptr: fn(_, _) -> Result<(), _> =
             |ptr: *mut std::ffi::c_void, instance: *const std::ffi::c_void| {
-                let ptr = ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>;
+                let ptr = ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>;
                 unsafe {
                     let env = &mut *ptr;
                     let env: &mut Env = &mut *env.ctx.env;
@@ -193,16 +193,16 @@ impl Function {
             )
         });
         let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
-            let duped_env: VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = unsafe {
-                let ptr: *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = ptr as _;
-                let item: &VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>> = &*ptr;
+            let duped_env: VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = ptr as _;
+                let item: &VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = &*ptr;
                 item.clone()
             };
             Box::into_raw(Box::new(duped_env)) as _
         };
         let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
             unsafe {
-                Box::from_raw(ptr as *mut VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>)
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>)
             };
         };
 
@@ -795,13 +795,13 @@ pub(crate) trait VMDynamicFunction {
 }
 
 #[derive(Clone)]
-pub(crate) struct VMDynamicFunctionWithoutEnv {
+pub(crate) struct DynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
 
-impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
+impl VMDynamicFunction for DynamicFunctionWithoutEnv {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         (*self.func)(&args)
     }
@@ -810,19 +810,17 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
-#[repr(C)]
-pub(crate) struct VMDynamicFunctionWithEnv<Env>
+pub(crate) struct DynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {
-    // This field _must_ come first in this struct.
-    env: Box<Env>,
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: Box<Env>,
 }
 
-impl<Env: Sized + Clone + 'static> Clone for VMDynamicFunctionWithEnv<Env> {
+impl<Env: Sized + Clone + 'static> Clone for DynamicFunctionWithEnv<Env> {
     fn clone(&self) -> Self {
         Self {
             env: self.env.clone(),
@@ -832,7 +830,7 @@ impl<Env: Sized + Clone + 'static> Clone for VMDynamicFunctionWithEnv<Env> {
     }
 }
 
-impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
+impl<Env> VMDynamicFunction for DynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {
