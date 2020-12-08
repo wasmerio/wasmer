@@ -1782,7 +1782,7 @@ impl<'a> FuncGen<'a> {
         // TODO: Full preemption by explicit signal checking
 
         // We insert set StackOverflow as the default trap that can happen
-        // anywhere in the function prologue for sake of simplicity.
+        // anywhere in the function prologue.
         let offset = 0;
         self.trap_table
             .offset_to_code
