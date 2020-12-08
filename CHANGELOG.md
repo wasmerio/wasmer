@@ -7,6 +7,15 @@
 
 ## **[Unreleased]**
 
+### Added
+ 
+* [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
+
+### Changed
+
+- [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)
+- [#1880](https://github.com/wasmerio/wasmer/pull/1880) Remove cmake dependency for tests
+
 ## 1.0.0-beta1 - 2020-12-01
 
 ### Added

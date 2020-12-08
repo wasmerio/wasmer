@@ -85,7 +85,7 @@ pub use wasmer_engine::{
     NamedResolverChain, Resolver, RuntimeError, SerializeError,
 };
 pub use wasmer_types::{
-    Atomically, Bytes, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
@@ -117,7 +117,7 @@ If you wish to use more than one compiler, you can simply create the own store. 
 ```
 use wasmer::{Store, JIT, Singlepass};
 
-let engine = JIT::new(&Singlepass::default()).engine();
+let engine = JIT::new(Singlepass::default()).engine();
 let store = Store::new(&engine);
 ```"#
 );
