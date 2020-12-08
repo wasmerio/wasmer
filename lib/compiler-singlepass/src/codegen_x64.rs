@@ -86,7 +86,7 @@ pub struct FuncGen<'a> {
     src_loc: u32,
 
     /// Map from byte offset into wasm function to range of native instructions.
-    /// 
+    ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
 }
@@ -314,13 +314,13 @@ impl<'a> FuncGen<'a> {
         code: TrapCode,
         f: F,
     ) -> R {
-        let offset = self.assembler.get_offset().0;
+        let begin = self.assembler.get_offset().0;
         let ret = f(self);
         let end = self.assembler.get_offset().0;
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
         }
-        self.mark_instruction_address_end(offset);
+        self.mark_instruction_address_end(begin);
         ret
     }
 
@@ -1498,7 +1498,7 @@ impl<'a> FuncGen<'a> {
             .offset_to_code
             .insert(offset, TrapCode::IntegerOverflow);
         self.assembler.emit_ud2();
-        self.mark_instruction_address_end();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(trap_badconv);
 
@@ -1507,7 +1507,7 @@ impl<'a> FuncGen<'a> {
             .offset_to_code
             .insert(offset, TrapCode::BadConversionToInteger);
         self.assembler.emit_ud2();
-        self.mark_instruction_address_end();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1799,7 +1799,7 @@ impl<'a> FuncGen<'a> {
 
     /// Pushes the instruction to the address map, calculating the offset from a
     /// provided beginning address.
-    fn mark_instruction_address_end(&mut self, begin: u32) {
+    fn mark_instruction_address_end(&mut self, begin: usize) {
         self.instructions_address_map.push(InstructionAddressMap {
             srcloc: SourceLoc::new(self.src_loc),
             code_offset: begin,
@@ -5212,12 +5212,12 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let offset = self.assembler.get_offset().0;
+                        let offset = this.assembler.get_offset().0;
                         this.trap_table
                             .offset_to_code
                             .insert(offset, TrapCode::StackOverflow);
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
-                        self.mark_instruction_address_end();
+                        this.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
                 )?;
@@ -5410,7 +5410,7 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
-                            let offset = self.assembler.get_offset().0;
+                            let offset = this.assembler.get_offset().0;
                             this.trap_table
                                 .offset_to_code
                                 .insert(offset, TrapCode::StackOverflow);
@@ -5418,7 +5418,7 @@ impl<'a> FuncGen<'a> {
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
-                            self.mark_instruction_address_end(offset);
+                            this.mark_instruction_address_end(offset);
                         }
                     },
                     params.iter().copied(),
