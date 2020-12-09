@@ -95,7 +95,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.preinstantiate()?;
 
         let module = self.module();
-        let (instance_ptr, offsets) = InstanceHandle::allocate_instance(&module);
+        let unprepared = InstanceHandle::allocate_instance(&*module);
         let (imports, import_initializers) = {
             let mut imports = resolve_imports(
                 &module,
@@ -114,15 +114,13 @@ pub trait Artifact: Send + Sync + Upcastable {
         };
 
         // Get pointers to where metadata about local memories should live in VM memory.
-        let memory_definition_locations =
-            InstanceHandle::memory_definition_locations(instance_ptr, &offsets);
+        // Get pointers to where metadata about local tables should live in VM memory.
+        let (half_prepared, memory_definition_locations, table_definition_locations) =
+            unprepared.prepare();
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
-        // Get pointers to where metadata about local tables should live in VM memory.
-        let table_definition_locations =
-            InstanceHandle::table_definition_locations(instance_ptr, &offsets);
         let finished_tables = tunables
             .create_tables(&module, self.table_styles(), &table_definition_locations)
             .map_err(InstantiationError::Link)?
@@ -135,8 +133,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.register_frame_info();
 
         let handle = InstanceHandle::new(
-            instance_ptr,
-            offsets,
+            half_prepared,
             module,
             self.finished_functions().clone(),
             self.finished_function_call_trampolines().clone(),
