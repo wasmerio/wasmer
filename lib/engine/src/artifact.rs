@@ -12,8 +12,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, UnpreparedInstance, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
-    VMTrampoline,
+    FunctionBodyPtr, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, UnpreparedInstance,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
