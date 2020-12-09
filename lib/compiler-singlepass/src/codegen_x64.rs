@@ -1,3 +1,4 @@
+use crate::address_map::get_function_address_map;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
@@ -8,8 +9,8 @@ use wasmer_compiler::wasmparser::{
 };
 use wasmer_compiler::{
     CompiledFunction, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
-    FunctionBody, Relocation, RelocationKind, RelocationTarget, SectionBody, SectionIndex,
-    TrapInformation,
+    FunctionBody, FunctionBodyData, InstructionAddressMap, Relocation, RelocationKind,
+    RelocationTarget, SectionBody, SectionIndex, SourceLoc, TrapInformation,
 };
 use wasmer_types::{
     entity::{EntityRef, PrimaryMap, SecondaryMap},
@@ -80,6 +81,14 @@ pub struct FuncGen<'a> {
 
     /// A set of special labels for trapping.
     special_labels: SpecialLabelSet,
+
+    /// The source location for the current operator.
+    src_loc: u32,
+
+    /// Map from byte offset into wasm function to range of native instructions.
+    ///
+    // Ordered by increasing InstructionAddressMap::srcloc.
+    instructions_address_map: Vec<InstructionAddressMap>,
 }
 
 struct SpecialLabelSet {
@@ -251,6 +260,11 @@ struct I2O1 {
 }
 
 impl<'a> FuncGen<'a> {
+    /// Set the source location of the Wasm to the given offset.
+    pub fn set_srcloc(&mut self, offset: u32) {
+        self.src_loc = offset;
+    }
+
     fn get_location_released(&mut self, loc: Location) -> Location {
         self.machine.release_locations(&mut self.assembler, &[loc]);
         loc
@@ -306,6 +320,7 @@ impl<'a> FuncGen<'a> {
         for i in begin..end {
             self.trap_table.offset_to_code.insert(i, code);
         }
+        self.mark_instruction_address_end(begin);
         ret
     }
 
@@ -313,6 +328,7 @@ impl<'a> FuncGen<'a> {
     fn mark_address_with_trap_code(&mut self, code: TrapCode) {
         let offset = self.assembler.get_offset().0;
         self.trap_table.offset_to_code.insert(offset, code);
+        self.mark_instruction_address_end(offset);
     }
 
     /// Canonicalizes the floating point value at `input` into `output`.
@@ -379,17 +395,21 @@ impl<'a> FuncGen<'a> {
             Location::Imm64(_) | Location::Imm32(_) => {
                 self.assembler.emit_mov(sz, loc, Location::GPR(GPR::RCX)); // must not be used during div (rax, rdx)
                 self.mark_trappable();
+                let offset = self.assembler.get_offset().0;
                 self.trap_table
                     .offset_to_code
-                    .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+                    .insert(offset, TrapCode::IntegerOverflow);
                 op(&mut self.assembler, sz, Location::GPR(GPR::RCX));
+                self.mark_instruction_address_end(offset);
             }
             _ => {
                 self.mark_trappable();
+                let offset = self.assembler.get_offset().0;
                 self.trap_table
                     .offset_to_code
-                    .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+                    .insert(offset, TrapCode::IntegerOverflow);
                 op(&mut self.assembler, sz, loc);
+                self.mark_instruction_address_end(offset);
             }
         }
     }
@@ -1473,17 +1493,21 @@ impl<'a> FuncGen<'a> {
         );
 
         self.assembler.emit_label(trap_overflow);
+        let offset = self.assembler.get_offset().0;
         self.trap_table
             .offset_to_code
-            .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+            .insert(offset, TrapCode::IntegerOverflow);
         self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(trap_badconv);
-        self.trap_table.offset_to_code.insert(
-            self.assembler.get_offset().0,
-            TrapCode::BadConversionToInteger,
-        );
+
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::BadConversionToInteger);
         self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1622,17 +1646,20 @@ impl<'a> FuncGen<'a> {
         );
 
         self.assembler.emit_label(trap_overflow);
+        let offset = self.assembler.get_offset().0;
         self.trap_table
             .offset_to_code
-            .insert(self.assembler.get_offset().0, TrapCode::IntegerOverflow);
+            .insert(offset, TrapCode::IntegerOverflow);
         self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(trap_badconv);
-        self.trap_table.offset_to_code.insert(
-            self.assembler.get_offset().0,
-            TrapCode::BadConversionToInteger,
-        );
+        let offset = self.assembler.get_offset().0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::BadConversionToInteger);
         self.assembler.emit_ud2();
+        self.mark_instruction_address_end(offset);
 
         self.assembler.emit_label(end);
     }
@@ -1754,12 +1781,30 @@ impl<'a> FuncGen<'a> {
 
         // TODO: Full preemption by explicit signal checking
 
+        // We insert set StackOverflow as the default trap that can happen
+        // anywhere in the function prologue.
+        let offset = 0;
+        self.trap_table
+            .offset_to_code
+            .insert(offset, TrapCode::StackOverflow);
+        self.mark_instruction_address_end(offset);
+
         if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
                 message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
             });
         }
         Ok(())
+    }
+
+    /// Pushes the instruction to the address map, calculating the offset from a
+    /// provided beginning address.
+    fn mark_instruction_address_end(&mut self, begin: usize) {
+        self.instructions_address_map.push(InstructionAddressMap {
+            srcloc: SourceLoc::new(self.src_loc),
+            code_offset: begin,
+            code_len: self.assembler.get_offset().0 - begin,
+        });
     }
 
     pub fn new(
@@ -1819,6 +1864,8 @@ impl<'a> FuncGen<'a> {
             trap_table: TrapTable::default(),
             relocations: vec![],
             special_labels,
+            src_loc: 0,
+            instructions_address_map: vec![],
         };
         fg.emit_head()?;
         Ok(fg)
@@ -5165,7 +5212,12 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
+                        let offset = this.assembler.get_offset().0;
+                        this.trap_table
+                            .offset_to_code
+                            .insert(offset, TrapCode::StackOverflow);
                         this.assembler.emit_call_location(Location::GPR(GPR::RAX));
+                        this.mark_instruction_address_end(offset);
                     },
                     params.iter().copied(),
                 )?;
@@ -5358,10 +5410,15 @@ impl<'a> FuncGen<'a> {
                                 ),
                             );
                         } else {
+                            let offset = this.assembler.get_offset().0;
+                            this.trap_table
+                                .offset_to_code
+                                .insert(offset, TrapCode::StackOverflow);
                             this.assembler.emit_call_location(Location::Memory(
                                 GPR::RAX,
                                 vmcaller_checked_anyfunc_func_ptr as i32,
                             ));
+                            this.mark_instruction_address_end(offset);
                         }
                     },
                     params.iter().copied(),
@@ -6128,11 +6185,12 @@ impl<'a> FuncGen<'a> {
             }
             Operator::Unreachable => {
                 self.mark_trappable();
-                self.trap_table.offset_to_code.insert(
-                    self.assembler.get_offset().0,
-                    TrapCode::UnreachableCodeReached,
-                );
+                let offset = self.assembler.get_offset().0;
+                self.trap_table
+                    .offset_to_code
+                    .insert(offset, TrapCode::UnreachableCodeReached);
                 self.assembler.emit_ud2();
+                self.mark_instruction_address_end(offset);
                 self.unreachable_depth = 1;
             }
             Operator::Return => {
@@ -8125,7 +8183,7 @@ impl<'a> FuncGen<'a> {
         Ok(())
     }
 
-    pub fn finalize(mut self) -> CompiledFunction {
+    pub fn finalize(mut self, data: &FunctionBodyData) -> CompiledFunction {
         // Generate actual code for special labels.
         self.assembler
             .emit_label(self.special_labels.integer_division_by_zero);
@@ -8153,6 +8211,11 @@ impl<'a> FuncGen<'a> {
 
         // Notify the assembler backend to generate necessary code at end of function.
         self.assembler.finalize_function();
+
+        let body_len = self.assembler.get_offset().0;
+        let instructions_address_map = self.instructions_address_map;
+        let address_map = get_function_address_map(instructions_address_map, data, body_len);
+
         CompiledFunction {
             body: FunctionBody {
                 body: self.assembler.finalize().unwrap().to_vec(),
@@ -8170,7 +8233,7 @@ impl<'a> FuncGen<'a> {
                         trap_code: code,
                     })
                     .collect(),
-                ..Default::default()
+                address_map,
             },
         }
     }

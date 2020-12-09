@@ -101,7 +101,7 @@ control:
 
 ```diff
 - let module = compile(&wasm_bytes[..])?; 
-+ let engine = JIT::new(&Cranelift::default()).engine();
++ let engine = JIT::new(Cranelift::default()).engine();
 + let store = Store::new(&engine);
 + let module = Module::new(&store, wasm_bytes)?;
 - let instance = module.instantiate(&imports)?;

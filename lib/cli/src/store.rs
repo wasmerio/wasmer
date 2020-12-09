@@ -138,31 +138,25 @@ impl CompilerOptions {
         let engine: Box<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineType::JIT => Box::new(
-                wasmer_engine_jit::JIT::new(&*compiler_config)
+                wasmer_engine_jit::JIT::new(compiler_config)
                     .features(features)
                     .target(target)
                     .engine(),
             ),
             #[cfg(feature = "native")]
-            EngineType::Native => {
-                let mut compiler_config = compiler_config;
-                Box::new(
-                    wasmer_engine_native::Native::new(&mut *compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
+            EngineType::Native => Box::new(
+                wasmer_engine_native::Native::new(compiler_config)
+                    .target(target)
+                    .features(features)
+                    .engine(),
+            ),
             #[cfg(feature = "object-file")]
-            EngineType::ObjectFile => {
-                let mut compiler_config = compiler_config;
-                Box::new(
-                    wasmer_engine_object_file::ObjectFile::new(&mut *compiler_config)
-                        .target(target)
-                        .features(features)
-                        .engine(),
-                )
-            }
+            EngineType::ObjectFile => Box::new(
+                wasmer_engine_object_file::ObjectFile::new(compiler_config)
+                    .target(target)
+                    .features(features)
+                    .engine(),
+            ),
             #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",

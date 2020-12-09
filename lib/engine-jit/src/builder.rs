@@ -2,18 +2,21 @@ use crate::JITEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
 /// The JIT builder
-pub struct JIT<'a> {
+pub struct JIT {
     #[allow(dead_code)]
-    compiler_config: Option<&'a dyn CompilerConfig>,
+    compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl<'a> JIT<'a> {
+impl JIT {
     /// Create a new JIT
-    pub fn new(compiler_config: &'a dyn CompilerConfig) -> Self {
+    pub fn new<T>(compiler_config: T) -> Self
+    where
+        T: Into<Box<dyn CompilerConfig>>,
+    {
         Self {
-            compiler_config: Some(compiler_config),
+            compiler_config: Some(compiler_config.into()),
             target: None,
             features: None,
         }
