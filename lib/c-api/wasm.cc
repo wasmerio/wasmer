@@ -8,6 +8,56 @@
 
 using namespace wasm;
 
+// TODO: these are all missing from wasmer's C API implementation
+extern "C" {
+WASM_API_EXTERN void wasm_config_delete(wasm_config_t *) { abort(); }
+WASM_API_EXTERN void wasm_foreign_delete(wasm_foreign_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_foreign_as_ref(wasm_foreign_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_instance_as_ref(wasm_instance_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_trap_as_ref(wasm_trap_t *) { abort(); }
+WASM_API_EXTERN wasm_extern_t *wasm_ref_as_extern(wasm_ref_t *) { abort(); }
+WASM_API_EXTERN const wasm_extern_t *
+wasm_ref_as_extern_const(const wasm_ref_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_globaltype_t *
+wasm_globaltype_copy(const wasm_globaltype_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_memorytype_t *
+wasm_memorytype_copy(const wasm_memorytype_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_importtype_t *
+wasm_importtype_copy(const wasm_importtype_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_exporttype_t *
+wasm_exporttype_copy(const wasm_exporttype_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_module_t *wasm_module_copy(const wasm_module_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_foreign_t *wasm_foreign_copy(const wasm_foreign_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_func_t *wasm_func_copy(const wasm_func_t *) { abort(); }
+WASM_API_EXTERN wasm_instance_t *wasm_instance_copy(const wasm_instance_t *) {
+  abort();
+}
+WASM_API_EXTERN wasm_trap_t *wasm_trap_copy(const wasm_trap_t *) { abort(); }
+WASM_API_EXTERN void *wasm_ref_get_host_info(const wasm_ref_t *) { abort(); }
+WASM_API_EXTERN void wasm_ref_set_host_info(wasm_ref_t *, void *) { abort(); }
+WASM_API_EXTERN void wasm_ref_set_host_info_with_finalizer(wasm_ref_t *, void *,
+                                                           void (*)(void *)) {
+  abort();
+}
+WASM_API_EXTERN wasm_foreign_t *wasm_foreign_new(wasm_store_t *) { abort(); }
+}
+
 namespace {
 struct wasmer_delete_c_type {
 #define WASMER_DECLARE_DELETE(name)                                            \
@@ -582,6 +632,8 @@ public:
   }
 };
 
+void ExternType::destroy() { delete WasmerExternType::from(this); }
+
 auto ExternType::copy() const -> own<ExternType> {
   return WasmerExternType::from(this)->copy();
 }
@@ -985,6 +1037,8 @@ public:
   c_own<wasm_foreign_t> foreign;
 };
 
+void Foreign::destroy() { delete WasmerForeign::from(this); }
+
 auto Foreign::make(Store *store) -> own<Foreign> {
   return WasmerForeign::make(WasmerStore::from(store));
 }
@@ -1032,6 +1086,8 @@ class WasmerExtern : WasmerExternWrapper, public From<Extern, WasmerExtern> {
 public:
   using WasmerExternWrapper::extern_;
 
+  void destroy();
+
   auto copy() const -> own<Extern>;
 
   auto kind() const -> ExternKind { return WasmerExternWrapper::kind(); }
@@ -1048,7 +1104,7 @@ public:
   auto memory() const -> const Memory *;
 };
 
-void Extern::destroy() { delete WasmerExtern::from(this); }
+void Extern::destroy() { WasmerExtern::from(this)->destroy(); }
 
 auto Extern::copy() const -> own<Extern> {
   return WasmerExtern::from(this)->copy();
@@ -1206,7 +1262,7 @@ public:
         new WasmerInstance(make_c_own(wasm_instance_copy(instance.get()))));
   }
 
-  auto exports() const -> ownvec<Extern>;
+  auto exports() const -> ownvec<Extern> { abort(); }
 
   c_own<wasm_instance_t> instance;
 };
@@ -1237,6 +1293,26 @@ auto Instance::copy() const -> own<Instance> {
 
 auto Instance::exports() const -> ownvec<Extern> {
   return WasmerInstance::from(this)->exports();
+}
+
+void WasmerExtern::destroy() {
+  auto extern_ = static_cast<Extern *>(this);
+  switch (kind()) {
+  case ExternKind::FUNC:
+    delete static_cast<WasmerFunc *>(extern_);
+    return;
+  // case ExternKind::GLOBAL:
+  //  delete static_cast<WasmerGlobal *>(extern_);
+  //  return;
+  // case ExternKind::TABLE:
+  //  delete static_cast<WasmerTable *>(extern_);
+  //  return;
+  // case ExternKind::MEMORY:
+  //  delete static_cast<WasmerMemory *>(extern_);
+  //  return;
+  default:
+    abort();
+  }
 }
 
 auto WasmerExtern::copy() const -> own<Extern> {
