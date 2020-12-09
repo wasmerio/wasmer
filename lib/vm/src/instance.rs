@@ -825,7 +825,7 @@ impl UnpreparedInstanceAllocatorSetter {
     }
 
     /// Finish preparing by writing the `Instance` into memory.
-    pub(crate) fn write_instance(self, instance: Instance) -> PreparedInstanceAllocatorSetter {
+    pub(crate) fn write_instance(self, instance: Instance) -> InstanceAllocator {
         unsafe {
             // `instance` is moved at `instance_ptr`. This pointer has
             // been allocated by `Self::allocate_instance` (so by
@@ -833,70 +833,21 @@ impl UnpreparedInstanceAllocatorSetter {
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
-        let instance_ptr = self.instance_ptr;
+        let instance = self.instance_ptr;
         let instance_layout = self.instance_layout;
         // prevent the old state's drop logic from being called as we
         // transition into the new state.
         std::mem::forget(self);
-        PreparedInstanceAllocatorSetter {
-            instance_ptr,
-            instance_layout,
-        }
+
+        // This is correct because of the invariants of `Self` and
+        // because we write `Instance` to the pointer in this function.
+        unsafe { InstanceAllocator::new(instance, instance_layout) }
     }
 
     /// This function will return the offsets on the first time it's
     /// called and `None` on all subsequent calls.
     pub(crate) fn take_offsets(&mut self) -> Option<VMOffsets> {
         self.offsets.take()
-    }
-}
-
-/// TODO: rename
-/// You must not put any type in this struct with drop logic as
-/// `Drop` will not be called on this type if it transitions into the
-/// next state.
-pub struct PreparedInstanceAllocatorSetter {
-    instance_ptr: NonNull<Instance>,
-    instance_layout: Layout,
-}
-
-impl Drop for PreparedInstanceAllocatorSetter {
-    fn drop(&mut self) {
-        let instance_ptr = self.instance_ptr.as_ptr();
-        unsafe {
-            ptr::drop_in_place(instance_ptr);
-            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-        }
-    }
-}
-
-impl PreparedInstanceAllocatorSetter {
-    /// Create a new `InstanceAllocator`. It allocates nothing. It
-    /// fills nothing. The `Instance` must be already valid and
-    /// filled. `self_ptr` and `self_layout` must be the pointer and
-    /// the layout returned by `Self::allocate_self` used to build
-    /// `Self`.
-    ///
-    /// # Safety
-    ///
-    /// `instance` must a non-null, non-dangling, properly aligned,
-    /// and correctly initialized pointer to `Instance`. See
-    /// `InstanceHandle::new` for an example of how to correctly use
-    /// this API.
-    /// TODO: update docs
-
-    fn finish(self) -> InstanceAllocator {
-        let instance_layout = self.instance_layout;
-        let instance = self.instance_ptr;
-        // prevent the old state's drop logic from being called as we
-        // transition into the new state.
-        std::mem::forget(self);
-
-        InstanceAllocator {
-            strong: Arc::new(atomic::AtomicUsize::new(1)),
-            instance_layout,
-            instance,
-        }
     }
 }
 
@@ -965,6 +916,27 @@ pub struct InstanceAllocator {
 }
 
 impl InstanceAllocator {
+    /// Create a new `InstanceAllocator`. It allocates nothing. It
+    /// fills nothing. The `Instance` must be already valid and
+    /// filled. `self_ptr` and `self_layout` must be the pointer and
+    /// the layout returned by `Self::allocate_self` used to build
+    /// `Self`.
+    ///
+    /// # Safety
+    ///
+    /// `instance` must a non-null, non-dangling, properly aligned,
+    /// and correctly initialized pointer to `Instance`. See
+    /// `InstanceHandle::new` for an example of how to correctly use
+    /// this API.
+    /// TODO: update docs
+    pub(crate) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
+        InstanceAllocator {
+            strong: Arc::new(atomic::AtomicUsize::new(1)),
+            instance_layout,
+            instance,
+        }
+    }
+
     /// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
     ///
     /// Going above this limit will make the program to panic at exactly
@@ -1159,7 +1131,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        mut half_prepared: UnpreparedInstanceAllocatorSetter,
+        mut unprepared: UnpreparedInstanceAllocatorSetter,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -1179,7 +1151,7 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            let offsets = half_prepared.take_offsets().unwrap();
+            let offsets = unprepared.take_offsets().unwrap();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
@@ -1197,9 +1169,7 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
 
-            let prepared = half_prepared.write_instance(instance);
-
-            let instance_allocator = prepared.finish();
+            let instance_allocator = unprepared.write_instance(instance);
 
             Self {
                 instance: instance_allocator,
