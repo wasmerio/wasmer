@@ -95,7 +95,6 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.preinstantiate()?;
 
         let module = self.module();
-        let unprepared = InstanceHandle::allocate_instance(&*module);
         let (imports, import_initializers) = {
             let mut imports = resolve_imports(
                 &module,
@@ -115,8 +114,9 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         // Get pointers to where metadata about local memories should live in VM memory.
         // Get pointers to where metadata about local tables should live in VM memory.
-        let (half_prepared, memory_definition_locations, table_definition_locations) =
-            unprepared.prepare();
+
+        let (unprepared, memory_definition_locations, table_definition_locations) =
+            InstanceHandle::allocate_instance(&*module);
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
@@ -133,7 +133,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.register_frame_info();
 
         let handle = InstanceHandle::new(
-            half_prepared,
+            unprepared,
             module,
             self.finished_functions().clone(),
             self.finished_function_call_trampolines().clone(),

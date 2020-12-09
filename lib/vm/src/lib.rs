@@ -40,8 +40,8 @@ pub use crate::export::*;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{
-    HalfPreparedInstanceAllocatorSetter, ImportInitializerFuncPtr, InstanceHandle,
-    PreparedInstanceAllocatorSetter, UnpreparedInstanceAllocatorSetter,
+    ImportInitializerFuncPtr, InstanceHandle, PreparedInstanceAllocatorSetter,
+    UnpreparedInstanceAllocatorSetter,
 };
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;

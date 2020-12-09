@@ -714,7 +714,13 @@ impl UnpreparedInstanceAllocatorSetter {
     /// Allocate `Instance` (it is an uninitialized pointer).
     ///
     /// `offsets` is used to compute the layout with `Self::instance_layout`.
-    pub fn new(offsets: VMOffsets) -> Self {
+    pub fn new(
+        offsets: VMOffsets,
+    ) -> (
+        Self,
+        Vec<NonNull<VMMemoryDefinition>>,
+        Vec<NonNull<VMTableDefinition>>,
+    ) {
         let instance_layout = Self::instance_layout(&offsets);
 
         #[allow(clippy::cast_ptr_alignment)]
@@ -726,12 +732,17 @@ impl UnpreparedInstanceAllocatorSetter {
             alloc::handle_alloc_error(instance_layout);
         };
 
-        Self {
+        let unprepared = Self {
             instance_ptr: instance_ptr.cast(),
             instance_layout,
             offsets: Some(offsets),
             consumed: false,
-        }
+        };
+
+        let memories = unsafe { unprepared.memory_definition_locations() };
+        let tables = unsafe { unprepared.table_definition_locations() };
+
+        (unprepared, memories, tables)
     }
 
     /// Calculate the appropriate layout for `Instance`.
@@ -747,31 +758,6 @@ impl UnpreparedInstanceAllocatorSetter {
             .expect("Failed to extend to `Instance` layout to include `VMContext`");
 
         instance_layout.pad_to_align()
-    }
-
-    /// Prepare the instance allocator setter by getting pointers into key
-    /// locations which can be used to initialize data.
-    pub fn prepare(
-        mut self,
-    ) -> (
-        HalfPreparedInstanceAllocatorSetter,
-        Vec<NonNull<VMMemoryDefinition>>,
-        Vec<NonNull<VMTableDefinition>>,
-    ) {
-        let memories = unsafe { self.memory_definition_locations() };
-        let tables = unsafe { self.table_definition_locations() };
-        self.consumed = true;
-        let instance_ptr = self.instance_ptr;
-        let instance_layout = self.instance_layout;
-        let offsets = self.offsets.take();
-        let prepared = HalfPreparedInstanceAllocatorSetter {
-            instance_ptr,
-            instance_layout,
-            offsets,
-            consumed: false,
-        };
-
-        (prepared, memories, tables)
     }
 
     /// Get the locations of where the local `VMMemoryDefinition`s should be stored.
@@ -818,7 +804,7 @@ impl UnpreparedInstanceAllocatorSetter {
     ///   offsets in `offsets` point to valid locations in memory,
     ///   i.e. `instance_ptr` must have been allocated by
     ///   `InstanceHandle::allocate_instance`.
-    pub unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
+    unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
         let offsets = self.offsets.as_ref().unwrap();
 
         let num_tables = offsets.num_local_tables;
@@ -839,28 +825,7 @@ impl UnpreparedInstanceAllocatorSetter {
         }
         out
     }
-}
 
-/// TODO: rename
-pub struct HalfPreparedInstanceAllocatorSetter {
-    instance_ptr: NonNull<Instance>,
-    instance_layout: Layout,
-    offsets: Option<VMOffsets>,
-    consumed: bool,
-}
-
-impl Drop for HalfPreparedInstanceAllocatorSetter {
-    fn drop(&mut self) {
-        if !self.consumed {
-            let instance_ptr = self.instance_ptr.as_ptr();
-            unsafe {
-                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-            }
-        }
-    }
-}
-
-impl HalfPreparedInstanceAllocatorSetter {
     /// Finish preparing by writing the `Instance` into memory.
     pub(crate) fn write_instance(mut self, instance: Instance) -> PreparedInstanceAllocatorSetter {
         unsafe {
@@ -880,7 +845,7 @@ impl HalfPreparedInstanceAllocatorSetter {
 
     /// This function will return the offsets on the first time it's
     /// called and `None` on all subsequent calls.
-    fn take_offsets(&mut self) -> Option<VMOffsets> {
+    pub(crate) fn take_offsets(&mut self) -> Option<VMOffsets> {
         self.offsets.take()
     }
 }
@@ -1152,7 +1117,13 @@ impl InstanceHandle {
     /// It should ideally return `NonNull<Instance>` rather than
     /// `NonNull<u8>`, however `Instance` is private, and we want to
     /// keep it private.
-    pub fn allocate_instance(module: &ModuleInfo) -> UnpreparedInstanceAllocatorSetter {
+    pub fn allocate_instance(
+        module: &ModuleInfo,
+    ) -> (
+        UnpreparedInstanceAllocatorSetter,
+        Vec<NonNull<VMMemoryDefinition>>,
+        Vec<NonNull<VMTableDefinition>>,
+    ) {
         let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
         UnpreparedInstanceAllocatorSetter::new(offsets)
     }
@@ -1183,7 +1154,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        mut half_prepared: HalfPreparedInstanceAllocatorSetter,
+        mut half_prepared: UnpreparedInstanceAllocatorSetter,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
