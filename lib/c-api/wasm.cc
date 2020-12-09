@@ -73,8 +73,8 @@ vec<S2> c_vec_to_cxx_vec(C c_vec, S2 (*convert)(S1)) {
 }
 
 template <typename T> struct c_vec;
-#define DEFINE_C_VEC_SPECIALIZATION(name)                                      \
-  template <> struct c_vec<wasm_##name##_t> {                                  \
+#define DEFINE_C_VEC_SPECIALIZATION(name, ptr_or_none)                         \
+  template <> struct c_vec<wasm_##name##_t ptr_or_none> {                      \
     using type = wasm_##name##_vec_t;                                          \
     static constexpr auto new_empty = wasm_##name##_vec_new_empty;             \
     static constexpr auto new_uninitialized =                                  \
@@ -84,22 +84,22 @@ template <typename T> struct c_vec;
     static constexpr auto delete_ = wasm_##name##_vec_delete;                  \
   };
 // This list should match all WASM_DECLARE_VEC(type) in wasm.h.
-DEFINE_C_VEC_SPECIALIZATION(byte)
-DEFINE_C_VEC_SPECIALIZATION(val)
-DEFINE_C_VEC_SPECIALIZATION(frame)
-DEFINE_C_VEC_SPECIALIZATION(extern)
-DEFINE_C_VEC_SPECIALIZATION(valtype)
-DEFINE_C_VEC_SPECIALIZATION(functype)
-DEFINE_C_VEC_SPECIALIZATION(globaltype)
-DEFINE_C_VEC_SPECIALIZATION(tabletype)
-DEFINE_C_VEC_SPECIALIZATION(memorytype)
-DEFINE_C_VEC_SPECIALIZATION(externtype)
-DEFINE_C_VEC_SPECIALIZATION(importtype)
-DEFINE_C_VEC_SPECIALIZATION(exporttype)
+DEFINE_C_VEC_SPECIALIZATION(byte, )
+DEFINE_C_VEC_SPECIALIZATION(val, *)
+DEFINE_C_VEC_SPECIALIZATION(frame, *)
+DEFINE_C_VEC_SPECIALIZATION(extern, *)
+DEFINE_C_VEC_SPECIALIZATION(valtype, *)
+DEFINE_C_VEC_SPECIALIZATION(functype, *)
+DEFINE_C_VEC_SPECIALIZATION(globaltype, *)
+DEFINE_C_VEC_SPECIALIZATION(tabletype, *)
+DEFINE_C_VEC_SPECIALIZATION(memorytype, *)
+DEFINE_C_VEC_SPECIALIZATION(externtype, *)
+DEFINE_C_VEC_SPECIALIZATION(importtype, *)
+DEFINE_C_VEC_SPECIALIZATION(exporttype, *)
 
 template <typename T, typename S1, typename S2>
 typename c_vec<S2>::type cxx_ownvec_to_c_vec(ownvec<T> &&cxx_vec,
-                                             S2 *(*convert)(S1)) {
+                                             S2 (*convert)(S1)) {
   typename c_vec<S2>::type v;
   c_vec<S2>::new_uninitialized(&v, cxx_vec.size());
   for (int i = 0, e = cxx_vec.size(); i != e; ++i) {
@@ -581,8 +581,6 @@ public:
                : nullptr;
   }
 };
-
-void ExternType::destroy() { delete WasmerExternType::from(this); }
 
 auto ExternType::copy() const -> own<ExternType> {
   return WasmerExternType::from(this)->copy();
@@ -1182,8 +1180,9 @@ auto Func::call(const vec<Val> &args, vec<Val> &results) const -> own<Trap> {
 class WASM_API_EXTERN WasmerInstance : WasmerRefWrapper,
                                        public From<Instance, WasmerInstance> {
 
-  static const wasm_extern_t *cxx_extern_to_c_extern(Extern *extern_) {
-    return WasmerExtern::from(extern_)->extern_();
+  static wasm_extern_t *cxx_extern_to_c_extern(Extern *extern_) {
+    // TODO: const correctness
+    return const_cast<wasm_extern_t *>(WasmerExtern::from(extern_)->extern_());
   }
 
 public:
@@ -1192,11 +1191,14 @@ public:
         instance(std::move(instance)) {}
 
   static auto make(WasmerStore *store, const WasmerModule *module,
-                   const vec<Extern *> &imports,
-                   own<WasmerTrap> *trap = nullptr) -> own<WasmerInstance> {
+                   const vec<Extern *> &imports, own<WasmerTrap> &trap)
+      -> own<WasmerInstance> {
+    wasm_trap_t *c_trap;
     auto c_imports = cxx_vec_to_c_vec(imports.copy(), cxx_extern_to_c_extern);
-    return make_own(new WasmerInstance(make_c_own(wasm_instance_new(
-        store->store.get(), module->module.get(), c_imports, &trap))));
+    auto instance = make_own(new WasmerInstance(make_c_own(wasm_instance_new(
+        store->store.get(), module->module.get(), &c_imports, &c_trap))));
+    trap = make_own(new WasmerTrap(make_c_own(c_trap)));
+    return instance;
   }
 
   auto copy() const -> own<WasmerInstance> {
@@ -1214,15 +1216,16 @@ void Instance::destroy() { delete WasmerInstance::from(this); }
 auto Instance::make(Store *store, const Module *module,
                     const vec<Extern *> &imports, own<Trap> *trap)
     -> own<Instance> {
-  vec<WasmerExtern *> wasmer_imports =
+  /*vec<WasmerExtern *> wasmer_imports =
       vec<WasmerExtern *>::make_uninitialized(imports.size());
   for (int i = 0; i != imports.size(); ++i) {
     wasmer_imports[i] = WasmerExtern::from(imports[i]);
   }
+  */
   own<WasmerTrap> wasmer_trap;
   auto instance =
       WasmerInstance::make(WasmerStore::from(store), WasmerModule::from(module),
-                           wasmer_imports, trap ? &wasmer_trap : nullptr);
+                           imports, wasmer_trap);
   if (trap)
     *trap = std::move(wasmer_trap);
   return instance;
