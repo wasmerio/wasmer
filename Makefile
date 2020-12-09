@@ -47,6 +47,7 @@ endif
 # If it's an aarch64/arm64 chip
 # Using filter as a logical OR
 # https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
+use_system_ffi =
 ifneq (,$(filter $(ARCH),aarch64 arm64))
 	test_compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
@@ -54,8 +55,18 @@ ifneq (,$(filter $(ARCH),aarch64 arm64))
 	endif
 	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(UNAME_S), Darwin)
-		capi_default_features := --features system-libffi
+		use_system_ffi = yes
 	endif
+endif
+
+# if the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` var to 1 also
+# use the system libffi.
+ifeq ($(WASMER_CAPI_USE_SYSTEM_LIBFFI), 1)
+	use_system_ffi = yes
+endif
+
+ifdef use_system_ffi
+	capi_default_features := --features system-libffi
 endif
 
 compilers := $(filter-out ,$(compilers))
