@@ -753,9 +753,7 @@ impl Function {
 
         Ok(NativeFunc::new(
             self.store.clone(),
-            self.exported.vm_function.address,
-            self.exported.vm_function.vmctx,
-            self.exported.vm_function.kind,
+            self.exported.clone(),
             self.definition.clone(),
         ))
     }

@@ -8,6 +8,7 @@
 //! Compared to Cranelift and LLVM, Singlepass compiles much faster but has worse
 //! runtime performance.
 
+mod address_map;
 mod codegen_x64;
 mod common_decl;
 mod compiler;
