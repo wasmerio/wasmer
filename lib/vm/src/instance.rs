@@ -689,23 +689,22 @@ impl Instance {
 }
 
 /// TODO: rename this
+/// You must not put any type in this struct with drop logic as
+/// `Drop` will not be called on this type if it transitions into the
+/// next state.
 pub struct UnpreparedInstanceAllocatorSetter {
     instance_ptr: NonNull<Instance>,
     instance_layout: Layout,
     /// Only in an `Option` so we can `Option::take` it before it's
     /// dropped.
     offsets: Option<VMOffsets>,
-    /// Whether to drop the inner values or not.
-    consumed: bool,
 }
 
 impl Drop for UnpreparedInstanceAllocatorSetter {
     fn drop(&mut self) {
-        if !self.consumed {
-            let instance_ptr = self.instance_ptr.as_ptr();
-            unsafe {
-                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-            }
+        let instance_ptr = self.instance_ptr.as_ptr();
+        unsafe {
+            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
         }
     }
 }
@@ -736,7 +735,6 @@ impl UnpreparedInstanceAllocatorSetter {
             instance_ptr: instance_ptr.cast(),
             instance_layout,
             offsets: Some(offsets),
-            consumed: false,
         };
 
         let memories = unsafe { unprepared.memory_definition_locations() };
@@ -827,7 +825,7 @@ impl UnpreparedInstanceAllocatorSetter {
     }
 
     /// Finish preparing by writing the `Instance` into memory.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> PreparedInstanceAllocatorSetter {
+    pub(crate) fn write_instance(self, instance: Instance) -> PreparedInstanceAllocatorSetter {
         unsafe {
             // `instance` is moved at `instance_ptr`. This pointer has
             // been allocated by `Self::allocate_instance` (so by
@@ -835,11 +833,14 @@ impl UnpreparedInstanceAllocatorSetter {
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
-        self.consumed = true;
+        let instance_ptr = self.instance_ptr;
+        let instance_layout = self.instance_layout;
+        // prevent the old state's drop logic from being called as we
+        // transition into the new state.
+        std::mem::forget(self);
         PreparedInstanceAllocatorSetter {
-            instance_ptr: self.instance_ptr,
-            instance_layout: self.instance_layout,
-            consumed: false,
+            instance_ptr,
+            instance_layout,
         }
     }
 
@@ -851,20 +852,20 @@ impl UnpreparedInstanceAllocatorSetter {
 }
 
 /// TODO: rename
+/// You must not put any type in this struct with drop logic as
+/// `Drop` will not be called on this type if it transitions into the
+/// next state.
 pub struct PreparedInstanceAllocatorSetter {
     instance_ptr: NonNull<Instance>,
     instance_layout: Layout,
-    consumed: bool,
 }
 
 impl Drop for PreparedInstanceAllocatorSetter {
     fn drop(&mut self) {
-        if !self.consumed {
-            let instance_ptr = self.instance_ptr.as_ptr();
-            unsafe {
-                ptr::drop_in_place(instance_ptr);
-                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-            }
+        let instance_ptr = self.instance_ptr.as_ptr();
+        unsafe {
+            ptr::drop_in_place(instance_ptr);
+            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
         }
     }
 }
@@ -884,13 +885,17 @@ impl PreparedInstanceAllocatorSetter {
     /// this API.
     /// TODO: update docs
 
-    fn finish(mut self) -> InstanceAllocator {
-        self.consumed = true;
+    fn finish(self) -> InstanceAllocator {
+        let instance_layout = self.instance_layout;
+        let instance = self.instance_ptr;
+        // prevent the old state's drop logic from being called as we
+        // transition into the new state.
+        std::mem::forget(self);
 
         InstanceAllocator {
             strong: Arc::new(atomic::AtomicUsize::new(1)),
-            instance_layout: self.instance_layout,
-            instance: self.instance_ptr.cast(),
+            instance_layout,
+            instance,
         }
     }
 }
