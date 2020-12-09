@@ -698,9 +698,6 @@ impl Instance {
 /// layout to represent the wanted [`Instance`].
 ///
 /// Then we use this layout to allocate an empty `Instance` properly.
-// You must not put any type in this struct with drop logic as
-// `Drop` will not be called on this type if it transitions into the
-// next state.
 pub struct UnpreparedInstance {
     /// The buffer that will contain the [`Instance`] and dynamic fields.
     instance_ptr: NonNull<Instance>,
@@ -709,15 +706,21 @@ pub struct UnpreparedInstance {
     /// Information about the offsets into the `instance_ptr` buffer for
     /// the dynamic fields.
     offsets: VMOffsets,
+    /// Whether or not this type has transferred ownership of the
+    /// `instance_ptr` buffer. If it has not when being dropped,
+    /// the buffer should be freed.
+    consumed: bool,
 }
 
 impl Drop for UnpreparedInstance {
     fn drop(&mut self) {
-        // if this is called it means we aren't using the buffer and will
-        // leak memory if we don't free it.
-        let instance_ptr = self.instance_ptr.as_ptr();
-        unsafe {
-            std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+        if !self.consumed {
+            // If `consumed` has not been set, then we still have ownership
+            // over the buffer and must free it.
+            let instance_ptr = self.instance_ptr.as_ptr();
+            unsafe {
+                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
+            }
         }
     }
 }
@@ -750,9 +753,10 @@ impl UnpreparedInstance {
         };
 
         let unprepared = Self {
-            instance_ptr: instance_ptr.cast(),
+            instance_ptr,
             instance_layout,
             offsets,
+            consumed: false,
         };
 
         let memories = unsafe { unprepared.memory_definition_locations() };
@@ -796,7 +800,9 @@ impl UnpreparedInstance {
         let base_ptr = ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
-            let mem_offset = self.offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = self
+                .offsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
             let mem_offset = usize::try_from(mem_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
@@ -827,7 +833,9 @@ impl UnpreparedInstance {
         let base_ptr = ptr.add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
-            let table_offset = self.offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = self
+                .offsets
+                .vmctx_vmtable_definition(LocalTableIndex::new(i));
             let table_offset = usize::try_from(table_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
@@ -838,7 +846,7 @@ impl UnpreparedInstance {
     }
 
     /// Finish preparing by writing the [`Instance`] into memory.
-    pub(crate) fn write_instance(self, instance: Instance) -> InstanceAllocator {
+    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceAllocator {
         unsafe {
             // `instance` is moved at `instance_ptr`. This pointer has
             // been allocated by `Self::allocate_instance` (so by
@@ -850,7 +858,7 @@ impl UnpreparedInstance {
         let instance_layout = self.instance_layout;
         // prevent the old state's drop logic from being called as we
         // transition into the new state.
-        std::mem::forget(self);
+        self.consumed = true;
 
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
