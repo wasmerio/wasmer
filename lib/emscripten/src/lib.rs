@@ -14,7 +14,7 @@
 extern crate log;
 
 use lazy_static::lazy_static;
-use std::cell::UnsafeCell;
+use std::cell::Cell;
 use std::collections::HashMap;
 use std::f64;
 use std::path::PathBuf;
@@ -136,7 +136,7 @@ pub struct EmscriptenData {
     pub memset: LazyInit<NativeFunc<(u32, u32, u32), u32>>,
     #[wasmer(export)]
     pub stack_alloc: LazyInit<NativeFunc<u32, u32>>,
-    pub jumps: Vec<UnsafeCell<[u32; 27]>>,
+    pub jumps: Vec<Cell<[u32; 27]>>,
     pub opened_dirs: HashMap<i32, Box<*mut LibcDir>>,
 
     #[wasmer(export)]

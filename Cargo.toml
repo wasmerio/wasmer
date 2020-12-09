@@ -15,7 +15,7 @@ wasmer-compiler = { version = "1.0.0-beta1", path = "lib/compiler" }
 wasmer-compiler-cranelift = { version = "1.0.0-beta1", path = "lib/compiler-cranelift", optional = true }
 wasmer-compiler-singlepass = { version = "1.0.0-beta1", path = "lib/compiler-singlepass", optional = true }
 wasmer-compiler-llvm = { version = "1.0.0-beta1", path = "lib/compiler-llvm", optional = true }
-#wasmer-emscripten = { version = "1.0.0-beta1", path = "lib/emscripten", optional = true }
+wasmer-emscripten = { version = "1.0.0-beta1", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "1.0.0-beta1", path = "lib/engine" }
 wasmer-engine-jit = { version = "1.0.0-beta1", path = "lib/engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.0-beta1", path = "lib/engine-native", optional = true }
@@ -38,7 +38,7 @@ members = [
     "lib/compiler-singlepass",
     "lib/compiler-llvm",
     "lib/derive",
-#    "lib/emscripten",
+    "lib/emscripten",
     "lib/engine",
     "lib/engine-jit",
     "lib/engine-native",
@@ -81,7 +81,7 @@ default = [
     "object-file",
     "cache",
     "wasi",
-#    "emscripten",
+    "emscripten",
     "middlewares",
 ]
 engine = []
@@ -100,7 +100,7 @@ object-file = [
 cache = ["wasmer-cache"]
 wast = ["wasmer-wast"]
 wasi = ["wasmer-wasi"]
-#emscripten = ["wasmer-emscripten"]
+emscripten = ["wasmer-emscripten"]
 wat = ["wasmer/wat"]
 compiler = [
     "wasmer/compiler",
