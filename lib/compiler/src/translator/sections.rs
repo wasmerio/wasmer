@@ -239,9 +239,7 @@ pub fn parse_global_section(
             Operator::I64Const { value } => GlobalInit::I64Const(value),
             Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
             Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
-            Operator::V128Const { value } => {
-                GlobalInit::V128Const(V128::from(value.bytes().to_vec().as_slice()))
-            }
+            Operator::V128Const { value } => GlobalInit::V128Const(V128::from(*value.bytes())),
             Operator::RefNull { ty: _ } => GlobalInit::RefNullConst,
             Operator::RefFunc { function_index } => {
                 GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
