@@ -40,7 +40,7 @@ pub use crate::export::*;
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{
-    ImportInitializerFuncPtr, InstanceHandle, UnpreparedInstanceAllocatorSetter,
+    ImportInitializerFuncPtr, InstanceHandle, UnpreparedInstance,
 };
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;

@@ -12,7 +12,7 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
+    FunctionBodyPtr, UnpreparedInstance, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
     VMTrampoline,
 };
 
@@ -116,7 +116,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         // Get pointers to where metadata about local tables should live in VM memory.
 
         let (unprepared, memory_definition_locations, table_definition_locations) =
-            InstanceHandle::allocate_instance(&*module);
+            UnpreparedInstance::new(&*module);
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
