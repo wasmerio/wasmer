@@ -27,92 +27,55 @@
     )
 )]
 
-//! This crate contains the Wasmer API. The Wasmer API facilitates the efficient,
+//! This crate contains the wasmer API. The wasmer API facilitates the efficient,
 //! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.
 //!
-//! For examples of using the Wasmer API, check out the [wasmer examples][wasmer-examples].
+//! Here's an example of the wasmer API in action:
+//! ```
+//! use wasmer::{Store, Module, Instance, Value, imports};
+//!
+//! fn main() -> anyhow::Result<()> {
+//!     let module_wat = r#"
+//!     (module
+//!     (type $t0 (func (param i32) (result i32)))
+//!     (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+//!         get_local $p0
+//!         i32.const 1
+//!         i32.add))
+//!     "#;
+//!
+//!     let store = Store::default();
+//!     let module = Module::new(&store, &module_wat)?;
+//!     // The module doesn't import anything, so we create an empty import object.
+//!     let import_object = imports! {};
+//!     let instance = Instance::new(&module, &import_object)?;
+//!
+//!     let add_one = instance.exports.get_function("add_one")?;
+//!     let result = add_one.call(&[Value::I32(42)])?;
+//!     assert_eq!(result[0], Value::I32(43));
+//!
+//!     Ok(())
+//! }
+//! ```
+//!
+//! For more examples of using the wasmer API, check out the
+//! [wasmer examples][wasmer-examples].
 //!
 //! ---------
 //!
 //! # Table of Contents
 //!
-//! - [Project Layout](#project-layout)
-//!   - [Engines](#engines)
-//!   - [Compilers](#compilers)
-//! - [Features](#features)
 //! - [Wasm Primitives](#wasm-primitives)
 //!   - [Externs](#externs)
 //!     - [Functions](#functions)
 //!     - [Memories](#memories)
 //!     - [Globals](#globals)
 //!     - [Tables](#tables)
+//! - [Project Layout](#project-layout)
+//!   - [Engines](#engines)
+//!   - [Compilers](#compilers)
+//! - [Features](#features)
 //!
-//! ## Project Layout
-//!
-//! The Wasmer project is divided into a number of crates, below is a dependency
-//! graph with transitive dependencies removed.
-//!
-//! <div>
-//! <img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" />
-//! </div>
-//!
-//! While this crate is the top level API for Wasmer, we also publish crates built
-//! on top of this API that you may be interested in using, including:
-//!
-//! - [wasmer-cache][] for caching compiled Wasm modules.
-//! - [wasmer-emscripten][] for running Wasm modules compiled to the
-//!   Emscripten ABI.
-//! - [wasmer-wasi][] for running Wasm modules compiled to the WASI ABI.
-//!
-//! --------
-//!
-//! The Wasmer project has two major abstractions:
-//! - [Engines][wasmer-engine]
-//! - [Compilers][wasmer-compiler]
-//!
-//! These two abstractions have multiple options that can be enabled
-//! with features.
-//!
-//! ### Engines
-//!
-//! In the wasmer API, an engine is a system that uses a compiler to make
-//! a WebAssembly module executable.
-//!
-//! ### Compilers
-//!
-//! In the wasmer API, a compiler is a system that handles the details of
-//! making a Wasm module executable. For example, by generating native
-//! machine code for each Wasm function.
-//!
-//!
-//! ## Features
-//!
-//! This crate's features can be broken down into 2 kinds, features that
-//! enable new functionality and features that set defaults.
-//!
-//! The features that enable new functionality are:
-//! - `jit` - enable the JIT engine. (See [wasmer-jit][])
-//! - `native` - enable the native engine. (See [wasmer-native][])
-//! - `cranelift` - enable wasmer's Cranelift compiler. (See [wasmer-cranelift][])
-//! - `llvm` - enable wasmer's LLVM compiler. (See [wasmer-llvm][])
-//! - `singlepass` - enable wasmer's Singlepass compiler. (See [wasmer-singlepass][])
-//! - `wat` - enable wasmer to parse the WebAssembly text format.
-//!
-//! The features that set defaults come in sets that are mutually exclusive.
-//!
-//! The first set is the default compiler set:
-//! - `default-cranelift` - set wasmer's Cranelift compiler as the default.
-//! - `default-llvm` - set wasmer's LLVM compiler as the default.
-//! - `default-singlepass` - set wasmer's Singlepass compiler as the default.
-//!
-//! The next set is the default engine set:
-//! - `default-jit` - set the JIT engine as the default.
-//! - `default-native` - set the native engine as the default.
-//!
-//! --------
-//!
-//! By default the `wat`, `default-cranelift`, and `default-jit` features
-//! are enabled.
 //!
 //! # Wasm Primitives
 //! In order to make use of the power of the wasmer API, it's important
@@ -206,6 +169,76 @@
 //!
 //! ### Tables
 //! A [`Table`] is an indexed list of items.
+//!
+//!
+//! ## Project Layout
+//!
+//! The Wasmer project is divided into a number of crates, below is a dependency
+//! graph with transitive dependencies removed.
+//!
+//! <div>
+//! <img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" />
+//! </div>
+//!
+//! While this crate is the top level API for Wasmer, we also publish crates built
+//! on top of this API that you may be interested in using, including:
+//!
+//! - [wasmer-cache][] for caching compiled Wasm modules.
+//! - [wasmer-emscripten][] for running Wasm modules compiled to the
+//!   Emscripten ABI.
+//! - [wasmer-wasi][] for running Wasm modules compiled to the WASI ABI.
+//!
+//! --------
+//!
+//! The Wasmer project has two major abstractions:
+//! - [Engines][wasmer-engine]
+//! - [Compilers][wasmer-compiler]
+//!
+//! These two abstractions have multiple options that can be enabled
+//! with features.
+//!
+//! ### Engines
+//!
+//! In the wasmer API, an engine is a system that uses a compiler to make
+//! a WebAssembly module executable.
+//!
+//! ### Compilers
+//!
+//! In the wasmer API, a compiler is a system that handles the details of
+//! making a Wasm module executable. For example, by generating native
+//! machine code for each Wasm function.
+//!
+//!
+//! ## Features
+//!
+//! This crate's features can be broken down into 2 kinds, features that
+//! enable new functionality and features that set defaults.
+//!
+//! The features that enable new functionality are:
+//! - `jit` - enable the JIT engine. (See [wasmer-jit][])
+//! - `native` - enable the native engine. (See [wasmer-native][])
+//! - `cranelift` - enable wasmer's Cranelift compiler. (See [wasmer-cranelift][])
+//! - `llvm` - enable wasmer's LLVM compiler. (See [wasmer-llvm][])
+//! - `singlepass` - enable wasmer's Singlepass compiler. (See [wasmer-singlepass][])
+//! - `wat` - enable wasmer to parse the WebAssembly text format.
+//!
+//! The features that set defaults come in sets that are mutually exclusive.
+//!
+//! The first set is the default compiler set:
+//! - `default-cranelift` - set wasmer's Cranelift compiler as the default.
+//! - `default-llvm` - set wasmer's LLVM compiler as the default.
+//! - `default-singlepass` - set wasmer's Singlepass compiler as the default.
+//!
+//! The next set is the default engine set:
+//! - `default-jit` - set the JIT engine as the default.
+//! - `default-native` - set the native engine as the default.
+//!
+//! --------
+//!
+//! By default the `wat`, `default-cranelift`, and `default-jit` features
+//! are enabled.
+//!
+//!
 //!
 //! [wasm]: https://webassembly.org/
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/exmples
