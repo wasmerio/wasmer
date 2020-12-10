@@ -117,6 +117,8 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 
 /// Updates the configuration to specify a particular compiler to use.
 ///
+/// This is a Wasmer-specific function.
+///
 /// # Example
 ///
 /// ```rust
@@ -157,6 +159,8 @@ pub extern "C" fn wasm_config_set_compiler(
 }
 
 /// Updates the configuration to specify a particular engine to use.
+///
+/// This is a Wasmer-specific function.
 ///
 /// # Example
 ///
