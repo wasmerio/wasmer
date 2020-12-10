@@ -114,7 +114,7 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 ///     wat2wasm(&wat, &wasm);
 ///
 ///     // Validate that the WebAssembly module is correct.
-///     assert(wasm_module_validate(store, wasm));
+///     assert(wasm_module_validate(store, &wasm));
 ///
 ///     // Free everything.
 ///     wasm_byte_vec_delete(&wasm);
@@ -188,7 +188,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 ///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
-///     wasm_module_t* module = wasm_module_new(store, wasm);
+///     wasm_module_t* module = wasm_module_new(store, &wasm);
 ///     assert(module);
 ///
 ///     // Extract the types exported by this module.
@@ -312,7 +312,7 @@ pub unsafe extern "C" fn wasm_module_exports(
 ///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
-///     wasm_module_t* module = wasm_module_new(store, wasm);
+///     wasm_module_t* module = wasm_module_new(store, &wasm);
 ///     assert(module);
 ///
 ///     // Extract the types imported by the module.
@@ -464,7 +464,7 @@ pub unsafe extern "C" fn wasm_module_imports(
 ///    wat2wasm(&wat, &wasm);
 ///
 ///    // Create the module.
-///    wasm_module_t* module = wasm_module_new(store, wasm);
+///    wasm_module_t* module = wasm_module_new(store, &wasm);
 ///    assert(module);
 ///
 ///    // Serialize the module into bytes.

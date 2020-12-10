@@ -131,12 +131,11 @@ mod tests {
                 const wasm_val_vec_t* arguments,
                 wasm_val_vec_t* results
             ) {
-                uint32_t sum = arguments->data[0].of.i32 + arguments->data[1].of.i32;
-                wasm_val_t result = {
+                wasm_val_t sum = {
                     .kind = WASM_I32,
-                    .of = result
+                    .of = { arguments->data[0].of.i32 + arguments->data[1].of.i32 },
                 };
-                results->data[0] = result;
+                results->data[0] = sum;
 
                 return NULL;
             }
@@ -157,25 +156,21 @@ mod tests {
                     "    i32.const 1\n"
                     "    call $sum))"
                 );
-                wasm_byte_vec_t* wasm = wat2wasm(&wat);
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
 
                 // Create the module.
-                wasm_module_t* module = wasm_module_new(store, wasm);
+                wasm_module_t* module = wasm_module_new(store, &wasm);
 
                 assert(module);
 
                 // Prepare the imports.
-                // Create the type for the `sum` host function.
                 wasm_functype_t* sum_type = wasm_functype_new_2_1(
                     wasm_valtype_new_i32(),
                     wasm_valtype_new_i32(),
                     wasm_valtype_new_i32()
                 );
-
-                // Create the `sum` host function.
                 wasm_func_t* sum_function = wasm_func_new(store, sum_type, sum_callback);
-
-                // Create the imports.
                 wasm_extern_t* externs[] = { wasm_func_as_extern(sum_function) };
                 wasm_extern_vec_t imports = WASM_ARRAY_VEC(externs);
 
@@ -191,11 +186,10 @@ mod tests {
 
                 assert(exports.size == 1);
 
-                // Get the `add_one` exported function.
                 const wasm_func_t* run_function = wasm_extern_as_func(exports.data[0]);
+
                 assert(run_function);
 
-                // And call it as `add_one(1)`.
                 wasm_val_t arguments[1] = { WASM_I32_VAL(1) };
                 wasm_val_t results[1] = { WASM_INIT_VAL };
 
@@ -204,15 +198,15 @@ mod tests {
 
                 wasm_trap_t* trap = wasm_func_call(run_function, &arguments_as_array, &results_as_array);
 
-                // Check the result!
                 assert(trap == NULL);
                 assert(results[0].of.i32 == 2);
 
                 // Free everything.
-                wasm_func_delete(sum_function);
                 wasm_instance_delete(instance);
+                wasm_func_delete(sum_function);
+                wasm_functype_delete(sum_type);
                 wasm_module_delete(module);
-                wasm_byte_vec_delete(wasm);
+                wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
