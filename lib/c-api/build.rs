@@ -81,7 +81,12 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 #define WASMER_WASM_H_MACROS
 
 // Include the deprecated API for import compatibility reasons
+#ifdef __cplusplus
+#include "wasmer_deprecated.hh"
+#endif
+#ifndef __cplusplus
 #include "wasmer_deprecated.h"
+#endif
 
 {pre_header}"#,
         pre_header = PRE_HEADER

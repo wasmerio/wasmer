@@ -2,7 +2,7 @@
 
 #if !defined(WASMER_H_MACROS)
 
-// Include the WASP API for using the wasm_valkind_enum type.
+// Include the Wasm API for using the wasm_valkind_enum type.
 #include "wasm.h"
 
 #define WASMER_H_MACROS

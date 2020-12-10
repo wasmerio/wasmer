@@ -6,7 +6,12 @@
 #define WASMER_WASM_H_MACROS
 
 // Include the deprecated API for import compatibility reasons
+#ifdef __cplusplus
+#include "wasmer_deprecated.hh"
+#endif
+#ifndef __cplusplus
 #include "wasmer_deprecated.h"
+#endif
 
 
 // Define the `ARCH_X86_X64` constant.
@@ -32,9 +37,6 @@
 #elif defined(MSVC) || __has_declspec_attribute(deprecated)
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
-
-// The `jit` feature has been enabled for this build.
-#define WASMER_JIT_ENABLED
 
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
