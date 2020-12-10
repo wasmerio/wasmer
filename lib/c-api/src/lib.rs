@@ -30,8 +30,51 @@
     unreachable_patterns
 )]
 
+use std::ffi::CString;
+use std::mem;
+use std::os::raw::c_char;
+
 #[cfg(feature = "deprecated")]
 pub mod deprecated;
 pub mod error;
 mod ordered_resolver;
 pub mod wasm_c_api;
+
+/// Gets the version of the Wasmer C API.
+///
+/// The returned string is guaranteed to be a valid C string. The
+/// caller owns the string, so it's up to the caller to free it.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Read and print the version.
+///     char* version = wasmer_version();
+///     printf("%s", version);
+///
+///     // Free it, as we own it.
+///     free(version);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(std::env::var("CARGO_PKG_VERSION").unwrap());
+/// # }
+/// ```
+#[no_mangle]
+pub extern "C" fn wasmer_version() -> *mut c_char {
+    let version = CString::new(env!("CARGO_PKG_VERSION"))
+        .expect("Failed to create a CString for the Wasmer C version");
+    let ptr = version.as_ptr();
+
+    mem::forget(version);
+
+    ptr as *mut _
+}
