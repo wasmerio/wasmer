@@ -164,7 +164,7 @@ pub extern "C" fn wasm_config_set_compiler(
 ///
 /// # Example
 ///
-/// ```rust,ignore
+/// ```rust,no_run
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
