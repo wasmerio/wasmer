@@ -38,14 +38,14 @@ mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         pub use alloc::{borrow, boxed, format, rc, slice, string, vec};
-        pub use core::{any, cell, fmt, hash, marker, ops, ptr, sync};
+        pub use core::{any, cell, convert, fmt, hash, marker, ops, ptr, sync};
     }
 
     #[cfg(feature = "std")]
     pub mod std {
         pub use std::{
-            any, borrow, boxed, cell, fmt, format, hash, marker, ops, ptr, rc, slice, string, sync,
-            vec,
+            any, borrow, boxed, cell, convert, fmt, format, hash, marker, ops, ptr, rc, slice,
+            string, sync, vec,
         };
     }
 }

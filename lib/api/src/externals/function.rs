@@ -673,13 +673,12 @@ impl Function {
 
         Ok(NativeFunc::new(
             self.store.clone(),
-            self.exported.vm_function.address,
-            self.exported.vm_function.vmctx,
-            self.exported.vm_function.kind,
+            self.exported.clone(),
             self.definition.clone(),
         ))
     }
 
+    #[track_caller]
     fn closures_unsupported_panic() -> ! {
         unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
     }
@@ -728,14 +727,16 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
+#[repr(C)]
 pub(crate) struct VMDynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {
+    // This field _must_ come first in this struct.
+    env: Box<Env>,
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
-    env: Box<Env>,
 }
 
 impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>

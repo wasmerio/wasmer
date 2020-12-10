@@ -11,7 +11,7 @@ use wasmer::{Export, Exportable, Extern, Resolver};
 /// in a Vec, so we can retrieve them later based on index.
 #[derive(Clone)]
 pub struct OrderedResolver {
-    /// The externs to be resolved by inddex
+    /// The externs to be resolved by index
     externs: Vec<Extern>,
 }
 

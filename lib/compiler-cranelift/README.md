@@ -7,7 +7,7 @@ This crate contains a compiler implementation based on Cranelift.
 First, add this crate into your `Cargo.toml` dependencies:
 
 ```toml
-wasmer-compiler-cranelift = "1.0.0-alpha"
+wasmer-compiler-cranelift = "1.0.0-beta"
 ```
 
 And then:
@@ -18,7 +18,7 @@ use wasmer_compiler_cranelift::Cranelift;
 
 let compiler = Cranelift::new();
 // Put it into an engine and add it to the store
-let store = Store::new(&JIT::new(&compiler).engine());
+let store = Store::new(&JIT::new(compiler).engine());
 ```
 
 *Note: you can find a [full working example using Cranelift compiler

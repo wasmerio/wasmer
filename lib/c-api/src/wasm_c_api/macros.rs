@@ -104,18 +104,14 @@ macro_rules! wasm_declare_vec {
             }
 
             #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](subject: Option<Box<[<wasm_ $name _vec_t>]>>) {
-                if subject.is_none() {
-                    return;
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut [<wasm_ $name _vec_t>]>) {
+                if let Some(vec) = ptr {
+                    if !vec.data.is_null() {
+                        Vec::from_raw_parts(vec.data, vec.size, vec.size);
+                        vec.data = ::std::ptr::null_mut();
+                        vec.size = 0;
+                    }
                 }
-
-                let subject: Box<[<wasm_ $name _vec_t>]> = subject.unwrap();
-
-                if !subject.data.is_null() {
-                    let _ = Vec::from_raw_parts(subject.data, subject.size, subject.size);
-                }
-
-                ::std::ptr::drop_in_place(Box::into_raw(subject));
             }
         }
 

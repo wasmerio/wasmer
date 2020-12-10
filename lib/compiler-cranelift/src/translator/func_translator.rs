@@ -19,7 +19,7 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, GenerateMiddlewareChain, MiddlewareBinaryReader,
+    to_wasm_error, wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
@@ -75,7 +75,7 @@ impl FuncTranslator {
         reader.set_middleware_chain(
             config
                 .middlewares
-                .generate_middleware_chain(local_function_index),
+                .generate_function_middleware_chain(local_function_index),
         );
         self.translate_from_reader(module_translation_state, reader, func, environ)
     }
