@@ -121,7 +121,7 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 ///
 /// # Example
 ///
-/// ```rust
+/// ```rust,no_run
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
