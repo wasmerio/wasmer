@@ -179,10 +179,7 @@ pub fn resolve_imports(
                     }
                 };
 
-                // TODO: add lots of documentation for this really strange
-                // looking code.
-                // Also, keep eyes open for refactor opportunities to clean
-                // this all up.
+                // Clone the host env for this `Instance`.
                 let env = if let Some(ExportFunctionMetadata {
                     host_env_clone_fn: clone,
                     ..
@@ -196,10 +193,10 @@ pub fn resolve_imports(
                         (clone)(f.vm_function.vmctx.host_env)
                     }
                 } else {
-                    unsafe {
-                        //assert!(f.vm_function.vmctx.host_env.is_null());
-                        f.vm_function.vmctx.host_env
-                    }
+                    // No `clone` function means we're dealing with some
+                    // other kind of `vmctx`, not a host env of any
+                    // kind.
+                    unsafe { f.vm_function.vmctx.host_env }
                 };
 
                 function_imports.push(VMFunctionImport {
@@ -207,13 +204,20 @@ pub fn resolve_imports(
                     environment: VMFunctionEnvironment { host_env: env },
                 });
 
-                host_function_env_initializers.push(ImportEnv {
-                    env,
-                    // TODO: consider just passing metadata directly
-                    initializer: f.metadata.as_ref().and_then(|m| m.import_init_function_ptr),
-                    clone: f.metadata.as_ref().map(|m| m.host_env_clone_fn),
-                    destructor: f.metadata.as_ref().map(|m| m.host_env_drop_fn),
-                });
+                let initializer = f.metadata.as_ref().and_then(|m| m.import_init_function_ptr);
+                let clone = f.metadata.as_ref().map(|m| m.host_env_clone_fn);
+                let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
+                let import_env = if let (Some(clone), Some(destructor)) = (clone, destructor) {
+                    if let Some(initializer) = initializer {
+                        ImportEnv::new_host_env(env, clone, initializer, destructor)
+                    } else {
+                        ImportEnv::new_dynamic_host_env_with_no_inner_env(env, clone, destructor)
+                    }
+                } else {
+                    ImportEnv::new_no_env()
+                };
+
+                host_function_env_initializers.push(import_env);
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {

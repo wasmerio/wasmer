@@ -117,12 +117,12 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata {
+                metadata: Some(Arc::new(ExportFunctionMetadata::new(
                     host_env,
-                    import_init_function_ptr: None,
+                    None,
                     host_env_clone_fn,
                     host_env_drop_fn,
-                })),
+                ))),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -210,12 +210,12 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata {
+                metadata: Some(Arc::new(ExportFunctionMetadata::new(
                     host_env,
                     import_init_function_ptr,
                     host_env_clone_fn,
                     host_env_drop_fn,
-                })),
+                ))),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -349,12 +349,12 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata {
+                metadata: Some(Arc::new(ExportFunctionMetadata::new(
                     host_env,
                     import_init_function_ptr,
                     host_env_clone_fn,
                     host_env_drop_fn,
-                })),
+                ))),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,

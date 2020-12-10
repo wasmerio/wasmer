@@ -51,6 +51,9 @@ impl From<VMExport> for Export {
 /// The metadata acts as a kind of manual virtual dispatch. We store the
 /// user-supplied `WasmerEnv` as a void pointer and have methods on it
 /// that have been adapted to accept a void pointer.
+///
+/// This struct owns the original `host_env`, thus when it gets dropped
+/// it calls the `drop` function on it.
 #[derive(Debug, PartialEq)]
 pub struct ExportFunctionMetadata {
     /// This field is stored here to be accessible by `Drop`.
@@ -65,18 +68,36 @@ pub struct ExportFunctionMetadata {
     ///
     /// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of
     /// this pointer that is used by the VM when creating an `Instance`.
-    pub host_env: *mut std::ffi::c_void,
+    pub(crate) host_env: *mut std::ffi::c_void,
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
     /// This function is called to finish setting up the environment after
     /// we create the `api::Instance`.
     // This one is optional for now because dynamic host envs need the rest
     // of this without the init fn
-    pub import_init_function_ptr: Option<ImportInitializerFuncPtr>,
-    /// TODO:
-    pub host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+    pub(crate) import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+    /// A function analogous to `Clone::clone` that returns a leaked `Box`.
+    pub(crate) host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
     /// The destructor to free the host environment.
-    pub host_env_drop_fn: fn(*mut std::ffi::c_void),
+    pub(crate) host_env_drop_fn: fn(*mut std::ffi::c_void),
+}
+
+impl ExportFunctionMetadata {
+    /// Create an `ExportFunctionMetadata` type with information about
+    /// the exported function.
+    pub fn new(
+        host_env: *mut std::ffi::c_void,
+        import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+        host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+        host_env_drop_fn: fn(*mut std::ffi::c_void),
+    ) -> Self {
+        Self {
+            host_env,
+            import_init_function_ptr,
+            host_env_clone_fn,
+            host_env_drop_fn,
+        }
+    }
 }
 
 // We have to free `host_env` here because we always clone it before using it
@@ -95,7 +116,9 @@ impl Drop for ExportFunctionMetadata {
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
     pub vm_function: VMExportFunction,
-    /// TODO:
+    /// Contains functions necessary to create and initialize host envs
+    /// with each `Instance` as well as being responsible for the
+    /// underlying memory of the host env.
     pub metadata: Option<Arc<ExportFunctionMetadata>>,
 }
 
