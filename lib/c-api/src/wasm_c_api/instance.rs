@@ -18,12 +18,15 @@ pub struct wasm_instance_t {
 ///
 /// ## Errors
 ///
-/// The function can fail in 2 ways, as defined by the specification:
+/// The function can fail in 2 ways:
 ///
 /// 1. Link errors that happen when plugging the imports into the
 ///    instance,
 /// 2. Runtime errors that happen when running the module `start`
 ///    function.
+///
+/// Failures are stored in the `traps` argument; the program doesn't
+/// panic.
 ///
 /// # Notes
 ///
