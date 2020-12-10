@@ -7,6 +7,10 @@
 //! how it is allocated and deallocated. An `InstanceHandle` is a
 //! wrapper around an `InstanceAllocator`.
 
+mod builder;
+
+pub use builder::InstanceBuilder;
+
 use crate::export::VMExport;
 use crate::global::Global;
 use crate::imports::Imports;
@@ -23,7 +27,7 @@ use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
-use std::alloc::{self, Layout};
+use std::alloc::Layout;
 use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::HashMap;
@@ -688,189 +692,7 @@ impl Instance {
     }
 }
 
-/// This is an intermediate type that manages the raw allocation and
-/// metadata when creating an [`Instance`].
-///
-/// This type will free the allocated memory if it's dropped before
-/// being used.
-///
-/// The [`UnpreparedInstance::instance_layout`] computes the correct
-/// layout to represent the wanted [`Instance`].
-///
-/// Then we use this layout to allocate an empty `Instance` properly.
-pub struct UnpreparedInstance {
-    /// The buffer that will contain the [`Instance`] and dynamic fields.
-    instance_ptr: NonNull<Instance>,
-    /// The layout of the `instance_ptr` buffer.
-    instance_layout: Layout,
-    /// Information about the offsets into the `instance_ptr` buffer for
-    /// the dynamic fields.
-    offsets: VMOffsets,
-    /// Whether or not this type has transferred ownership of the
-    /// `instance_ptr` buffer. If it has not when being dropped,
-    /// the buffer should be freed.
-    consumed: bool,
-}
-
-impl Drop for UnpreparedInstance {
-    fn drop(&mut self) {
-        if !self.consumed {
-            // If `consumed` has not been set, then we still have ownership
-            // over the buffer and must free it.
-            let instance_ptr = self.instance_ptr.as_ptr();
-            unsafe {
-                std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
-            }
-        }
-    }
-}
-
-impl UnpreparedInstance {
-    /// Allocates instance data for use with [`InstanceHandle::new`].
-    ///
-    /// Returns a wrapper type around the allocation and 2 vectors of
-    /// pointers into the allocated buffer. These lists of pointers
-    /// correspond to the location in memory for the local memories and
-    /// tables respectively. These pointers should be written to before
-    /// calling [`InstanceHandle::new`].
-    pub fn new(
-        module: &ModuleInfo,
-    ) -> (
-        UnpreparedInstance,
-        Vec<NonNull<VMMemoryDefinition>>,
-        Vec<NonNull<VMTableDefinition>>,
-    ) {
-        let offsets = VMOffsets::new(mem::size_of::<*const u8>() as u8, module);
-        let instance_layout = Self::instance_layout(&offsets);
-
-        #[allow(clippy::cast_ptr_alignment)]
-        let instance_ptr = unsafe { alloc::alloc(instance_layout) as *mut Instance };
-
-        let instance_ptr = if let Some(ptr) = NonNull::new(instance_ptr) {
-            ptr
-        } else {
-            alloc::handle_alloc_error(instance_layout);
-        };
-
-        let unprepared = Self {
-            instance_ptr,
-            instance_layout,
-            offsets,
-            consumed: false,
-        };
-
-        let memories = unsafe { unprepared.memory_definition_locations() };
-        let tables = unsafe { unprepared.table_definition_locations() };
-
-        (unprepared, memories, tables)
-    }
-
-    /// Calculate the appropriate layout for the [`Instance`].
-    fn instance_layout(offsets: &VMOffsets) -> Layout {
-        let vmctx_size = usize::try_from(offsets.size_of_vmctx())
-            .expect("Failed to convert the size of `vmctx` to a `usize`");
-
-        let instance_vmctx_layout =
-            Layout::array::<u8>(vmctx_size).expect("Failed to create a layout for `VMContext`");
-
-        let (instance_layout, _offset) = Layout::new::<Instance>()
-            .extend(instance_vmctx_layout)
-            .expect("Failed to extend to `Instance` layout to include `VMContext`");
-
-        instance_layout.pad_to_align()
-    }
-
-    /// Get the locations of where the local [`VMMemoryDefinition`]s should be stored.
-    ///
-    /// This function lets us create `Memory` objects on the host with backing
-    /// memory in the VM.
-    ///
-    /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the
-    ///   offsets in `offsets` point to valid locations in memory,
-    ///   i.e. `instance_ptr` must have been allocated by
-    ///   `Self::new`.
-    unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
-        let num_memories = self.offsets.num_local_memories;
-        let num_memories = usize::try_from(num_memories).unwrap();
-        let mut out = Vec::with_capacity(num_memories);
-
-        // We need to do some pointer arithmetic now. The unit is `u8`.
-        let ptr = self.instance_ptr.cast::<u8>().as_ptr();
-        let base_ptr = ptr.add(mem::size_of::<Instance>());
-
-        for i in 0..num_memories {
-            let mem_offset = self
-                .offsets
-                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
-            let mem_offset = usize::try_from(mem_offset).unwrap();
-
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
-
-            out.push(new_ptr.cast());
-        }
-
-        out
-    }
-
-    /// Get the locations of where the [`VMTableDefinition`]s should be stored.
-    ///
-    /// This function lets us create [`Table`] objects on the host with backing
-    /// memory in the VM.
-    ///
-    /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the
-    ///   offsets in `offsets` point to valid locations in memory,
-    ///   i.e. `instance_ptr` must have been allocated by
-    ///   `Self::new`.
-    unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
-        let num_tables = self.offsets.num_local_tables;
-        let num_tables = usize::try_from(num_tables).unwrap();
-        let mut out = Vec::with_capacity(num_tables);
-
-        // We need to do some pointer arithmetic now. The unit is `u8`.
-        let ptr = self.instance_ptr.cast::<u8>().as_ptr();
-        let base_ptr = ptr.add(std::mem::size_of::<Instance>());
-
-        for i in 0..num_tables {
-            let table_offset = self
-                .offsets
-                .vmctx_vmtable_definition(LocalTableIndex::new(i));
-            let table_offset = usize::try_from(table_offset).unwrap();
-
-            let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));
-
-            out.push(new_ptr.cast());
-        }
-        out
-    }
-
-    /// Finish preparing by writing the [`Instance`] into memory.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceAllocator {
-        unsafe {
-            // `instance` is moved at `instance_ptr`. This pointer has
-            // been allocated by `Self::allocate_instance` (so by
-            // `InstanceAllocator::allocate_instance`.
-            ptr::write(self.instance_ptr.as_ptr(), instance);
-            // Now `instance_ptr` is correctly initialized!
-        }
-        let instance = self.instance_ptr;
-        let instance_layout = self.instance_layout;
-        // prevent the old state's drop logic from being called as we
-        // transition into the new state.
-        self.consumed = true;
-
-        // This is correct because of the invariants of `Self` and
-        // because we write `Instance` to the pointer in this function.
-        unsafe { InstanceAllocator::new(instance, instance_layout) }
-    }
-
-    /// Get the [`VMOffsets`] for the allocated buffer.
-    pub(crate) fn offsets(&self) -> VMOffsets {
-        self.offsets.clone()
-    }
-}
-
+/// TODO: update these docs
 /// An `InstanceAllocator` is responsible to allocate, to deallocate,
 /// and to give access to an `Instance`, in such a way that `Instance`
 /// is unique, can be shared, safely, across threads, without
@@ -895,7 +717,7 @@ impl UnpreparedInstance {
 /// [`InstanceAllocator`] calls its `deallocate_instance` method without
 /// checking if this  property holds, only when `Self.strong` is equal to 1.
 ///
-/// Note for the curious reader: [`UnpreparedInstance::new`]
+/// Note for the curious reader: [`InstanceBuilder::new`]
 /// and [`InstanceHandle::new`] will respectively allocate a proper
 /// `Instance` and will fill it correctly.
 ///
@@ -940,11 +762,11 @@ impl InstanceAllocator {
     ///
     /// `instance` must a non-null, non-dangling, properly aligned,
     /// and correctly initialized pointer to `Instance`. See
-    /// [`UnpreparedInstance::new`] for an example of how to correctly use
+    /// [`InstanceBuilder::new`] for an example of how to correctly use
     /// this API.
     /// TODO: update docs
     pub(crate) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
-        InstanceAllocator {
+        Self {
             strong: Arc::new(atomic::AtomicUsize::new(1)),
             instance_layout,
             instance,
@@ -1123,7 +945,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        unprepared: UnpreparedInstance,
+        unprepared: InstanceBuilder,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -1143,7 +965,7 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            let offsets = unprepared.offsets();
+            let offsets = unprepared.offsets().clone();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
