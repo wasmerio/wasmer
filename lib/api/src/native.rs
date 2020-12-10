@@ -13,12 +13,12 @@ use crate::externals::function::{
     FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
     VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
-use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
+use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
 use wasmer_vm::{
-    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
     VMFunctionKind,
 };
 
