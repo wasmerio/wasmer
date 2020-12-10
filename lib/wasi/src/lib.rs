@@ -132,7 +132,7 @@ fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
     #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
     let path_open = Function::new_with_env(
         store,
-        &FunctionType::new(
+        FunctionType::new(
             vec![
                 ValType::I32,
                 ValType::I32,

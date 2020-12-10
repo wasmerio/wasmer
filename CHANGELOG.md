@@ -13,7 +13,7 @@
 * [#1881](https://github.com/wasmerio/wasmer/pull/1881) Added `UnsupportedTarget` error to `CompileError`
 * [#1908](https://github.com/wasmerio/wasmer/pull/1908) Implemented `TryFrom<Value<T>>` for `i32`/`u32`/`i64`/`u64`/`f32`/`f64`
 * [#1927](https://github.com/wasmerio/wasmer/pull/1927) Added mmap support in `Engine::deserialize_from_file` to speed up artifact loading
-* Implement `From<([Type; $N], [Type; $M])>` for `FunctionType`
+* [#1911](https://github.com/wasmerio/wasmer/pull/1911) Generalized signature type in `Function::new` and `Function::new_with_env` to accept owned and reference `FunctionType` as well as array pairs. This allows users to define signatures as constants. Implemented `From<([Type; $N], [Type; $M])>` for `FunctionType` to support this.
 
 ### Changed
 
