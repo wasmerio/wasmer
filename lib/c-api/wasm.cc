@@ -1,8 +1,10 @@
 // Implementation of the wasm-c-api C++ API for wasmer on top of the Wasmer C++
 // API and the wasm C API.
 
-#include "wasm.hh"
+#include <variant>
+
 #include "wasm.h"
+#include "wasm.hh"
 
 #include "wasmer.hh"
 
@@ -12,9 +14,13 @@ using namespace wasm;
 extern "C" {
 WASM_API_EXTERN void wasm_config_delete(wasm_config_t *) { abort(); }
 WASM_API_EXTERN void wasm_foreign_delete(wasm_foreign_t *) { abort(); }
-WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) { abort(); }
+// WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) {
+  return nullptr;
+}
 WASM_API_EXTERN wasm_ref_t *wasm_foreign_as_ref(wasm_foreign_t *) { abort(); }
-WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { abort(); }
+// WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { return nullptr; }
 WASM_API_EXTERN wasm_ref_t *wasm_instance_as_ref(wasm_instance_t *) { abort(); }
 WASM_API_EXTERN wasm_ref_t *wasm_trap_as_ref(wasm_trap_t *) { abort(); }
 WASM_API_EXTERN wasm_extern_t *wasm_ref_as_extern(wasm_ref_t *) { abort(); }
@@ -359,11 +365,11 @@ class WasmerFuncType : public WasmerExternTypeImpl<FuncType, WasmerFuncType> {
 public:
   explicit WasmerFuncType(c_own<const wasm_functype_t> &&functype)
       : WasmerExternTypeImpl(wasm_functype_as_externtype_const(functype.get())),
-        functype(std::move(functype)),
         params_(c_vec_to_cxx_ownvec(wasm_functype_params(functype.get()),
                                     c_valtype_to_cxx_ownvaltype)),
         results_(c_vec_to_cxx_ownvec(wasm_functype_results(functype.get()),
-                                     c_valtype_to_cxx_ownvaltype)) {}
+                                     c_valtype_to_cxx_ownvaltype)),
+        functype(std::move(functype)) {}
 
   static auto make(ownvec<ValType> &&params, ownvec<ValType> &&results)
       -> own<FuncType> {
@@ -383,9 +389,9 @@ public:
   auto params() const -> const ownvec<ValType> & { return params_; }
   auto results() const -> const ownvec<ValType> & { return results_; }
 
-  c_own<const wasm_functype_t> functype;
   ownvec<ValType> params_;
   ownvec<ValType> results_;
+  c_own<const wasm_functype_t> functype;
 };
 
 auto FuncType::make(ownvec<ValType> &&params, ownvec<ValType> &&results)
@@ -1162,14 +1168,53 @@ class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
     }
   };
 
+  struct WasmerFuncEnv {
+    callback cb;
+    static wasm_trap_t *shim(void *env, const wasm_val_vec_t *args,
+                             wasm_val_vec_t *results) {
+      abort();
+    }
+    static void finalizer(void *ptr) {
+      delete static_cast<WasmerFuncEnvWithEnv *>(ptr);
+    }
+  };
+
+  struct WasmerFuncEnvWithEnv {
+    callback_with_env cb;
+    void (*c_finalizer)(void *);
+    void *env;
+    static wasm_trap_t *shim(void *env, const wasm_val_vec_t *args,
+                             wasm_val_vec_t *results) {
+      abort();
+    }
+    static void finalizer(void *ptr) {
+      auto self = static_cast<WasmerFuncEnvWithEnv *>(ptr);
+      self->c_finalizer(self->env);
+      delete self;
+    }
+  };
+
 public:
-  explicit WasmerFunc(c_own<wasm_func_t> &&func)
+  explicit WasmerFunc(
+      c_own<wasm_func_t> &&func,
+      std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv>
+          func_env)
       : WasmerExternWrapper(wasm_func_as_ref(func.get()), FUNC),
-        func(std::move(func)) {}
+        func_env(func_env), func(std::move(func)) {}
+
+  explicit WasmerFunc(
+      wasm_store_t *store, const wasm_functype_t *functype,
+      std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv>
+          func_env)
+      : WasmerExternWrapper(wasm_func_as_ref(func.get()), FUNC),
+        func_env(func_env), func(std::move(func)) {}
 
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback cb) -> own<Func> {
-    abort();
+    WasmerFuncEnv func_env;
+    func_env.cb = cb;
+    new WasmerFunc(make_c_own(wasm_func_new_with_env(store->store.get(), functype->functype.get(), func_env.shim, ?, ?)), func_env));
+    return make_own(
   }
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback_with_env cb, void *env,
@@ -1178,7 +1223,8 @@ public:
   }
 
   auto copy() const -> own<Func> {
-    return make_own(new WasmerFunc(make_c_own(wasm_func_copy(func.get()))));
+    return make_own(
+        new WasmerFunc(make_c_own(wasm_func_copy(func.get())), func_env));
   }
 
   auto type() const -> own<FuncType> {
@@ -1202,6 +1248,7 @@ public:
     */
   }
 
+  std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv> func_env;
   c_own<wasm_func_t> func;
 };
 
