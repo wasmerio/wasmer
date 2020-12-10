@@ -237,6 +237,38 @@ int wasmer_last_error_length(void);
 int wasmer_last_error_message(char *buffer, int length);
 
 /**
+ * Gets the version of the Wasmer C API.
+ *
+ * The returned string is guaranteed to be a valid C string. The
+ * caller owns the string, so it's up to the caller to free it.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Read and print the version.
+ *     char* version = wasmer_version();
+ *     printf("%s", version);
+ *
+ *     // Free it, as we own it.
+ *     free(version);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(std::env::var("CARGO_PKG_VERSION").unwrap());
+ * # }
+ * ```
+ */
+char *wasmer_version(void);
+
+/**
  * Parses in-memory bytes as either the WAT format, or a binary Wasm
  * module. This is wasmer-specific.
  *
