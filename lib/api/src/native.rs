@@ -17,10 +17,7 @@ use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
-use wasmer_vm::{
-    VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
-    VMFunctionKind,
-};
+use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
