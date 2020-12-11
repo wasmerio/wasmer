@@ -16,7 +16,6 @@ $(info * LDLIBS: $(LDLIBS))
 
 CAPI_WASMER_TESTS = \
 	test-early-exit 					test-memory 							  	test-wasi \
-	test-wat2wasm
 
 CAPI_BASE_TESTS = \
 	wasm-c-api/example/callback			wasm-c-api/example/global				  	wasm-c-api/example/hello \
