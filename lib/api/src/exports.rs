@@ -7,7 +7,7 @@ use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use std::sync::Arc;
 use thiserror::Error;
-use wasmer_vm::Export;
+use wasmer_engine::Export;
 
 /// The `ExportError` can happen when trying to get a specific
 /// export [`Extern`] from the [`Instance`] exports.
@@ -59,6 +59,8 @@ pub enum ExportError {
 
 /// Exports is a special kind of map that allows easily unwrapping
 /// the types of instances.
+///
+/// TODO: add examples of using exports
 #[derive(Clone, Default)]
 pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,
@@ -148,6 +150,19 @@ impl Exports {
         self.get_function(name)?
             .native()
             .map_err(|_| ExportError::IncompatibleType)
+    }
+
+    /// Hack to get this working with nativefunc too
+    pub fn get_with_generics<'a, T, Args, Rets>(&'a self, name: &str) -> Result<T, ExportError>
+    where
+        Args: WasmTypeList,
+        Rets: WasmTypeList,
+        T: ExportableWithGenerics<'a, Args, Rets>,
+    {
+        match self.map.get(name) {
+            None => Err(ExportError::Missing(name.to_string())),
+            Some(extern_) => T::get_self_from_extern_with_generics(extern_),
+        }
     }
 
     /// Get an export as an `Extern`.
@@ -278,4 +293,20 @@ pub trait Exportable<'a>: Sized {
     ///
     /// [`Instance`]: crate::Instance
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError>;
+}
+
+/// A trait for accessing exports (like [`Exportable`]) but it takes generic
+/// `Args` and `Rets` parameters so that `NativeFunc` can be accessed directly
+/// as well.
+pub trait ExportableWithGenerics<'a, Args: WasmTypeList, Rets: WasmTypeList>: Sized {
+    /// Get an export with the given generics.
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError>;
+}
+
+/// We implement it for all concrete [`Exportable`] types (that are `Clone`)
+/// with empty `Args` and `Rets`.
+impl<'a, T: Exportable<'a> + Clone + 'static> ExportableWithGenerics<'a, (), ()> for T {
+    fn get_self_from_extern_with_generics(_extern: &'a Extern) -> Result<Self, ExportError> {
+        T::get_self_from_extern(_extern).map(|i| i.clone())
+    }
 }

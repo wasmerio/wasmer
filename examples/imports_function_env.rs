@@ -21,7 +21,7 @@
 
 use std::cell::RefCell;
 use std::sync::Arc;
-use wasmer::{imports, wat2wasm, Function, Instance, Module, Store};
+use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, WasmerEnv};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
 
@@ -50,7 +50,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -68,7 +68,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // This struct may have been anything. The only constraint is it must be
     // possible to know the size of the `Env` at compile time (i.e it has to
-    // implement the `Sized` trait).
+    // implement the `Sized` trait) and that it implement the `WasmerEnv` trait.
+    // We derive a default implementation of `WasmerEnv` here.
+    #[derive(WasmerEnv)]
     struct Env {
         counter: Arc<RefCell<i32>>,
     }

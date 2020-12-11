@@ -4,24 +4,21 @@ This crate exposes a C and a C++ API for the Wasmer runtime. It also fully suppo
 
 ##  Usage
 
-Once you [install Wasmer in your system](https://github.com/wasmerio/wasmer-install), the *shared object files* and the *headers* will be automatically available **inside the Wasmer installed path**.
+Once you [install Wasmer in your system](https://github.com/wasmerio/wasmer-install), the *shared object files* and the *headers* are available **inside the Wasmer installed path**.
 
-The C ([`wasmer.h`][wasmer_h]) and C++ ([`wasmer.hh`][wasmer_hh]) header
-files can be found in the Wasmer `include` directory:
-
-```bash
-wasmer config --includedir
+```
+$WASMER_DIR/
+  lib/
+    libwasmer.{so,dylib,dll}
+  include/
+    wasm.h
+    wasmer.h
+    wasmer.hh
+    wasmer_wasm.h
 ```
 
-The runtime shared libraries (`.so`, `.dylib`, `.dll`) can be found in the Wasmer
-`lib` directory:
-
-```bash
-wasmer config --libdir
-```
-
-> Note: You can also download the libraries or header files directly
-from [Wasmer release page].
+Wasmer binary also ships with [`wasmer-config`](#wasmer-config)
+an utility tool that outputs config information needed to compile programs which use Wasmer.
 
 The full C API documentation can be found here:
 https://wasmerio.github.io/wasmer/c-api/
@@ -30,86 +27,173 @@ Here is a simple example to use the C API:
 
 ```c
 #include <stdio.h>
-#include "../wasmer.h"
-#include <assert.h>
-#include <stdint.h>
-int main()
-{
-    // Read the Wasm file bytes.
-    FILE *file = fopen("sum.wasm", "r");
-    fseek(file, 0, SEEK_END);
-    long len = ftell(file);
-    uint8_t *bytes = malloc(len);
-    fseek(file, 0, SEEK_SET);
-    fread(bytes, 1, len, file);
-    fclose(file);
-    // Prepare the imports.
-    wasmer_import_t imports[] = {};
-    // Instantiate!
-    wasmer_instance_t *instance = NULL;
-    wasmer_result_t instantiation_result = wasmer_instantiate(&instance, bytes, len, imports, 0);
-    assert(instantiation_result == WASMER_OK);
-    // Let's call a function.
-    // Start by preparing the arguments.
-    // Value of argument #1 is `7i32`.
-    wasmer_value_t argument_one;
-    argument_one.tag = WASM_I32;
-    argument_one.value.I32 = 7;
-    // Value of argument #2 is `8i32`.
-    wasmer_value_t argument_two;
-    argument_two.tag = WASM_I32;
-    argument_two.value.I32 = 8;
-    // Prepare the arguments.
-    wasmer_value_t arguments[] = {argument_one, argument_two};
-    // Prepare the return value.
-    wasmer_value_t result_one;
-    wasmer_value_t results[] = {result_one};
-    // Call the `sum` function with the prepared arguments and the return value.
-    wasmer_result_t call_result = wasmer_instance_call(instance, "sum", arguments, 2, results, 1);
-    // Let's display the result.
-    printf("Call result:  %d\n", call_result);
-    printf("Result: %d\n", results[0].value.I32);
-    // `sum(7, 8) == 15`.
-    assert(results[0].value.I32 == 15);
-    assert(call_result == WASMER_OK);
-    wasmer_instance_destroy(instance);
-    return 0;
+#include "wasmer_wasm.h"
+
+int main(int argc, const char* argv[]) {
+    const char *wat_string =
+        "(module\n"
+        "  (type $sum_t (func (param i32 i32) (result i32)))\n"
+        "  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)\n"
+        "    local.get $x\n"
+        "    local.get $y\n"
+        "    i32.add)\n"
+        "  (export \"sum\" (func $sum_f)))";
+
+    wasm_byte_vec_t wat;
+    wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
+    wasm_byte_vec_t wasm_bytes;
+    wat2wasm(&wat, &wasm_bytes);
+
+    printf("Creating the store...\n");
+    wasm_engine_t* engine = wasm_engine_new();
+    wasm_store_t* store = wasm_store_new(engine);
+
+    printf("Compiling module...\n");
+    wasm_module_t* module = wasm_module_new(store, &wasm_bytes);
+
+    if (!module) {
+        printf("> Error compiling module!\n");
+        return 1;
+    }
+
+    wasm_byte_vec_delete(&wasm_bytes);
+
+    printf("Creating imports...\n");
+    wasm_extern_vec_t import_object = WASM_EMPTY_VEC;
+
+    printf("Instantiating module...\n");
+    wasm_instance_t* instance = wasm_instance_new(store, module, &import_object, NULL);
+
+    if (!instance) {
+      printf("> Error instantiating module!\n");
+      return 1;
+    }
+
+    printf("Retrieving exports...\n");
+    wasm_extern_vec_t exports;
+    wasm_instance_exports(instance, &exports);
+
+    if (exports.size == 0) {
+        printf("> Error accessing exports!\n");
+        return 1;
+    }
+
+    printf("Retrieving the `sum` function...\n");
+    wasm_func_t* sum_func = wasm_extern_as_func(exports.data[0]);
+
+    if (sum_func == NULL) {
+        printf("> Failed to get the `sum` function!\n");
+        return 1;
+    }
+
+    printf("Calling `sum` function...\n");
+    wasm_val_t args_val[2] = { WASM_I32_VAL(3), WASM_I32_VAL(4) };
+    wasm_val_t results_val[1] = { WASM_INIT_VAL };
+    wasm_val_vec_t args = WASM_ARRAY_VEC(args_val);
+    wasm_val_vec_t results = WASM_ARRAY_VEC(results_val);
+
+    if (wasm_func_call(sum_func, &args, &results)) {
+        printf("> Error calling the `sum` function!\n");
+
+        return 1;
+    }
+
+    printf("Results of `sum`: %d\n", results_val[0].of.i32);
+
+    wasm_func_delete(sum_func);
+    wasm_module_delete(module);
+    wasm_instance_delete(instance);
+    wasm_store_delete(store);
+    wasm_engine_delete(engine);
 }
 ```
 
-# Testing
+## Building
+
+You can compile Wasmer shared library from source:
+
+```text
+make build-capi
+```
+
+This will generate the shared library \(depending on your system\):
+
+* Windows: `target/release/libwasmer_c_api.dll`
+* macOS: `target/release/libwasmer_runtime_c_api.dylib`
+* Linux: `target/release/libwasmer_runtime_c_api.so`
+
+If you want to generate the library and headers in a friendly format as shown in [Usage](#usage), you can execute the following in Wasmer root:
+
+```bash
+make package-capi
+```
+
+This command will generate a `package` directory, that you can then use easily in the [Wasmer C API examples](https://docs.wasmer.io/integrations/examples).
+
+
+## Testing
 
 Tests are run using the release build of the library.  If you make
 changes or compile with non-default features, please ensure you
 rebuild in release mode for the tests to see the changes.
 
-The tests can be run via `cargo test`, such as:
-
-```sh
-$ cargo test --release -- --nocapture
-```
-
-To run tests manually, enter the `lib/c-api/tests` directory
+To run all the full suite of tests, enter Wasmer root directory
 and run the following commands:
 
 ```sh
-$ cmake .
-$ make
-$ make test
+$ make test-capi
 ```
 
-## pkg-config
+## `wasmer config`
 
-The Wasmer binary ships with an utility tool that outputs config
-in the `pkg-config` format.
+`wasmer config` output various configuration information needed to compile programs which use Wasmer.
 
-You can use it like:
+### `wasmer config --pkg-config`
+
+It outputs the necessary details for compiling and linking a program to Wasmer,
+using the `pkg-config` format:
 
 ```bash
-wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
+$ wasmer config --pkg-config > $PKG_CONFIG_PATH/wasmer.pc
 ```
 
-# License
+### `wasmer config --includedir`
+
+Directory containing Wasmer headers:
+
+```bash
+$ wasmer config --includedir
+/users/myuser/.wasmer/include
+```
+
+### `wasmer config --libdir`
+
+Directory containing Wasmer libraries:
+
+```bash
+$ wasmer config --libdir
+/users/myuser/.wasmer/lib
+```
+
+### `wasmer config --libs`
+
+Libraries needed to link against Wasmer components:
+
+```bash
+$ wasmer config --libs
+-L/Users/myuser/.wasmer/lib -lwasmer
+```
+
+### `wasmer config --libs`
+
+Libraries needed to link against Wasmer components:
+
+```bash
+$ wasmer config --cflags
+-I/Users/myuser/.wasmer/include/wasmer
+```
+
+## License
 
 Wasmer is primarily distributed under the terms of the [MIT
 license][mit-license] ([LICENSE][license]).

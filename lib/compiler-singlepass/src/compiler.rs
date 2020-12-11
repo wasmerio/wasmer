@@ -11,11 +11,11 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::sync::Arc;
 use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
-use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{
-    CompileModuleInfo, CompilerConfig, GenerateMiddlewareChain, MiddlewareBinaryReader,
-    ModuleTranslationState, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
+    ModuleTranslationState, OperatingSystem, Target,
 };
+use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
@@ -29,10 +29,8 @@ pub struct SinglepassCompiler {
 
 impl SinglepassCompiler {
     /// Creates a new Singlepass compiler
-    pub fn new(config: &Singlepass) -> Self {
-        Self {
-            config: config.clone(),
-        }
+    pub fn new(config: Singlepass) -> Self {
+        Self { config }
     }
 
     /// Gets the config for this Compiler
@@ -46,17 +44,28 @@ impl Compiler for SinglepassCompiler {
     /// associated relocations.
     fn compile_module(
         &self,
-        _target: &Target,
-        compile_info: &CompileModuleInfo,
+        target: &Target,
+        compile_info: &mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
+        if target.triple().operating_system == OperatingSystem::Windows {
+            return Err(CompileError::UnsupportedTarget(
+                OperatingSystem::Windows.to_string(),
+            ));
+        }
+        if let Architecture::X86_32(arch) = target.triple().architecture {
+            return Err(CompileError::UnsupportedTarget(arch.to_string()));
+        }
         if compile_info.features.multi_value {
             return Err(CompileError::UnsupportedFeature("multivalue".to_string()));
         }
-        let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+        let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
@@ -73,7 +82,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let middleware_chain = self.config.middlewares.generate_middleware_chain(*i);
+                let middleware_chain = self
+                    .config
+                    .middlewares
+                    .generate_function_middleware_chain(*i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);
@@ -100,11 +112,12 @@ impl Compiler for SinglepassCompiler {
                 .map_err(to_compile_error)?;
 
                 while generator.has_control_frames() {
+                    generator.set_srcloc(reader.original_position() as u32);
                     let op = reader.read_operator().map_err(to_compile_error)?;
                     generator.feed_operator(op).map_err(to_compile_error)?;
                 }
 
-                Ok(generator.finalize())
+                Ok(generator.finalize(&input))
             })
             .collect::<Result<Vec<CompiledFunction>, CompileError>>()?
             .into_iter()
@@ -158,4 +171,61 @@ impl ToCompileError for CodegenError {
 
 fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
     x.to_compile_error()
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use std::str::FromStr;
+    use target_lexicon::triple;
+    use wasmer_compiler::{CpuFeature, Features, Triple};
+    use wasmer_vm::{MemoryStyle, TableStyle};
+
+    fn dummy_compilation_ingredients<'a>() -> (
+        CompileModuleInfo,
+        ModuleTranslationState,
+        PrimaryMap<LocalFunctionIndex, FunctionBodyData<'a>>,
+    ) {
+        let compile_info = CompileModuleInfo {
+            features: Features::new(),
+            module: Arc::new(ModuleInfo::new()),
+            memory_styles: PrimaryMap::<MemoryIndex, MemoryStyle>::new(),
+            table_styles: PrimaryMap::<TableIndex, TableStyle>::new(),
+        };
+        let module_translation = ModuleTranslationState::new();
+        let function_body_inputs = PrimaryMap::<LocalFunctionIndex, FunctionBodyData<'_>>::new();
+        (compile_info, module_translation, function_body_inputs)
+    }
+
+    #[test]
+    fn errors_for_unsupported_targets() {
+        let compiler = SinglepassCompiler::new(Singlepass::default());
+
+        // Compile for win64
+        let win64 = Target::new(triple!("x86_64-pc-windows-msvc"), CpuFeature::for_host());
+        let (mut info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&win64, &mut info, &translation, inputs);
+        match result.unwrap_err() {
+            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"),
+            error => panic!("Unexpected error: {:?}", error),
+        };
+
+        // Compile for 32bit Linux
+        let linux32 = Target::new(triple!("i686-unknown-linux-gnu"), CpuFeature::for_host());
+        let (mut info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&linux32, &mut info, &translation, inputs);
+        match result.unwrap_err() {
+            CompileError::UnsupportedTarget(name) => assert_eq!(name, "i686"),
+            error => panic!("Unexpected error: {:?}", error),
+        };
+
+        // Compile for win32
+        let win32 = Target::new(triple!("i686-pc-windows-gnu"), CpuFeature::for_host());
+        let (mut info, translation, inputs) = dummy_compilation_ingredients();
+        let result = compiler.compile_module(&win32, &mut info, &translation, inputs);
+        match result.unwrap_err() {
+            CompileError::UnsupportedTarget(name) => assert_eq!(name, "windows"), // Windows should be checked before architecture
+            error => panic!("Unexpected error: {:?}", error),
+        };
+    }
 }

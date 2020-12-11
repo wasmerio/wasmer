@@ -32,6 +32,11 @@ pub enum CompileError {
     #[cfg_attr(feature = "std", error("Feature {0} is not yet supported"))]
     UnsupportedFeature(String),
 
+    /// The compiler cannot compile for the given target.
+    /// This can refer to the OS, the chipset or any other aspect of the target system.
+    #[cfg_attr(feature = "std", error("The target {0} is not yet supported (see https://docs.wasmer.io/ecosystem/wasmer/wasmer-features)"))]
+    UnsupportedTarget(String),
+
     /// Insufficient resources available for execution.
     #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),

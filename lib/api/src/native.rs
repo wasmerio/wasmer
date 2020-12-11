@@ -13,22 +13,18 @@ use crate::externals::function::{
     FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
     VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
 };
-use crate::{FromToNativeWasmType, Function, FunctionType, RuntimeError, Store, WasmTypeList};
+use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
+use wasmer_engine::ExportFunction;
 use wasmer_types::NativeWasmType;
-use wasmer_vm::{
-    ExportFunction, VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind,
-};
+use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment, VMFunctionKind};
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
 pub struct NativeFunc<Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
-    address: *const VMFunctionBody,
-    vmctx: VMFunctionEnvironment,
-    arg_kind: VMFunctionKind,
-    // exported: ExportFunction,
+    exported: ExportFunction,
     _phantom: PhantomData<(Args, Rets)>,
 }
 
@@ -41,23 +37,32 @@ where
 {
     pub(crate) fn new(
         store: Store,
-        address: *const VMFunctionBody,
-        vmctx: VMFunctionEnvironment,
-        arg_kind: VMFunctionKind,
+        exported: ExportFunction,
         definition: FunctionDefinition,
     ) -> Self {
         Self {
             definition,
             store,
-            address,
-            vmctx,
-            arg_kind,
+            exported,
             _phantom: PhantomData,
         }
     }
+
+    pub(crate) fn vmctx(&self) -> VMFunctionEnvironment {
+        self.exported.vm_function.vmctx
+    }
+
+    pub(crate) fn address(&self) -> *const VMFunctionBody {
+        self.exported.vm_function.address
+    }
+
+    pub(crate) fn arg_kind(&self) -> VMFunctionKind {
+        self.exported.vm_function.kind
+    }
 }
 
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
+/*
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMExportFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
@@ -70,7 +75,18 @@ where
             signature,
             kind: other.arg_kind,
             call_trampoline: None,
+            instance_allocator: None,
         }
+    }
+}*/
+
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for ExportFunction
+where
+    Args: WasmTypeList,
+    Rets: WasmTypeList,
+{
+    fn from(other: &NativeFunc<Args, Rets>) -> Self {
+        other.exported.clone()
     }
 }
 
@@ -80,17 +96,10 @@ where
     Rets: WasmTypeList,
 {
     fn from(other: NativeFunc<Args, Rets>) -> Self {
-        let signature = FunctionType::new(Args::wasm_types(), Rets::wasm_types());
         Self {
             store: other.store,
             definition: other.definition,
-            exported: ExportFunction {
-                address: other.address,
-                vmctx: other.vmctx,
-                signature,
-                kind: other.arg_kind,
-                call_trampoline: None,
-            },
+            exported: other.exported.clone(),
         }
     }
 }
@@ -127,9 +136,9 @@ macro_rules! impl_native_traits {
                         };
                         unsafe {
                             wasmer_vm::wasmer_call_trampoline(
-                                self.vmctx,
+                                self.vmctx(),
                                 trampoline,
-                                self.address,
+                                self.address(),
                                 args_rets.as_mut_ptr() as *mut u8,
                             )
                         }?;
@@ -151,7 +160,7 @@ macro_rules! impl_native_traits {
                         //
                         // let results = unsafe {
                         //     wasmer_vm::catch_traps_with_result(self.vmctx, || {
-                        //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address);
+                        //         let f = std::mem::transmute::<_, unsafe extern "C" fn( *mut VMContext, $( $x, )*) -> Rets::CStruct>(self.address());
                         //         // We always pass the vmctx
                         //         f( self.vmctx, $( $x, )* )
                         //     }).map_err(RuntimeError::from_trap)?
@@ -162,12 +171,12 @@ macro_rules! impl_native_traits {
                     FunctionDefinition::Host(HostFunctionDefinition {
                         has_env
                     }) => {
-                        match self.arg_kind {
+                        match self.arg_kind() {
                             VMFunctionKind::Static => {
                                 let results = catch_unwind(AssertUnwindSafe(|| unsafe {
-                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( VMFunctionEnvironment, $( $x, )*) -> Rets::CStruct>(self.address);
+                                    let f = std::mem::transmute::<_, unsafe extern "C" fn( VMFunctionEnvironment, $( $x, )*) -> Rets::CStruct>(self.address());
                                     // We always pass the vmctx
-                                    f( self.vmctx, $( $x, )* )
+                                    f( self.vmctx(), $( $x, )* )
                                 })).map_err(|e| RuntimeError::new(format!("{:?}", e)))?;
                                 Ok(Rets::from_c_struct(results))
                             },
@@ -176,13 +185,13 @@ macro_rules! impl_native_traits {
                                 let results = if !has_env {
                                     type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
                                     unsafe {
-                                        let ctx = self.vmctx.host_env as *mut VMContextWithoutEnv;
+                                        let ctx = self.vmctx().host_env as *mut VMContextWithoutEnv;
                                         (*ctx).ctx.call(&params_list)?
                                     }
                                 } else {
                                     type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
                                     unsafe {
-                                        let ctx = self.vmctx.host_env as *mut VMContextWithEnv;
+                                        let ctx = self.vmctx().host_env as *mut VMContextWithEnv;
                                         (*ctx).ctx.call(&params_list)?
                                     }
                                 };
@@ -199,6 +208,18 @@ macro_rules! impl_native_traits {
                     },
                 }
 
+            }
+        }
+
+        #[allow(unused_parens)]
+        impl<'a, $( $x, )* Rets> crate::exports::ExportableWithGenerics<'a, ($( $x ),*), Rets> for NativeFunc<( $( $x ),* ), Rets>
+        where
+            $( $x: FromToNativeWasmType, )*
+            Rets: WasmTypeList,
+        {
+            fn get_self_from_extern_with_generics(_extern: &crate::externals::Extern) -> Result<Self, crate::exports::ExportError> {
+                use crate::exports::Exportable;
+                crate::Function::get_self_from_extern(_extern)?.native().map_err(|_| crate::exports::ExportError::IncompatibleType)
             }
         }
     };

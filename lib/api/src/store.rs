@@ -15,7 +15,7 @@ use wasmer_engine::Tunables as BaseTunables;
 /// the Wasm bytes into a valid module artifact), in addition to the
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#store
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
@@ -80,7 +80,7 @@ impl Default for Store {
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> impl CompilerConfig + Send + Sync {
+        fn get_config() -> impl CompilerConfig + 'static {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
@@ -95,13 +95,13 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
+        fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-jit")] {
-                    wasmer_engine_jit::JIT::new(&config)
+                    wasmer_engine_jit::JIT::new(config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_native::Native::new(&mut config)
+                    wasmer_engine_native::Native::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

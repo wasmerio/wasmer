@@ -5,6 +5,7 @@
 //! on what's available on the target.
 
 mod imports;
+mod metering;
 mod middlewares;
 mod multi_value_imports;
 mod native_functions;

@@ -12,7 +12,7 @@ Add to your `Cargo.toml`
 
 ```toml
 [dependencies]
-wasmer = "1.0.0-alpha"
+wasmer = "1.0.0-beta"
 ```
 
 ```rust
@@ -29,13 +29,13 @@ fn main() -> anyhow::Result<()> {
     "#;
 
     let store = Store::default();
-    let module = Module::new(&store, &module_wat);
+    let module = Module::new(&store, &module_wat)?;
     // The module doesn't import anything, so we create an empty import object.
     let import_object = imports! {};
     let instance = Instance::new(&module, &import_object)?;
 
     let add_one = instance.exports.get_function("add_one")?;
-    let result = add_one.call([Value::I32(42)])?;
+    let result = add_one.call(&[Value::I32(42)])?;
     assert_eq!(result[0], Value::I32(43));
 
     Ok(())

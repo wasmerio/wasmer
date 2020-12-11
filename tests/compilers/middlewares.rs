@@ -15,8 +15,8 @@ struct Add2Mul {
     value_off: i32,
 }
 
-impl FunctionMiddlewareGenerator for Add2MulGen {
-    fn generate<'a>(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
+impl ModuleMiddleware for Add2MulGen {
+    fn generate_function_middleware(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
         Box::new(Add2Mul {
             value_off: self.value_off,
         })
@@ -55,8 +55,8 @@ struct Fusion {
     state: i32,
 }
 
-impl FunctionMiddlewareGenerator for FusionGen {
-    fn generate<'a>(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
+impl ModuleMiddleware for FusionGen {
+    fn generate_function_middleware(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
         Box::new(Fusion { state: 0 })
     }
 }
@@ -91,7 +91,7 @@ impl FunctionMiddleware for Fusion {
 #[test]
 fn middleware_basic() -> Result<()> {
     let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn FunctionMiddlewareGenerator>
+        Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>
     ));
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
@@ -113,7 +113,7 @@ fn middleware_basic() -> Result<()> {
 #[test]
 fn middleware_one_to_multi() -> Result<()> {
     let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn FunctionMiddlewareGenerator>
+        Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn ModuleMiddleware>
     ));
     let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
@@ -135,7 +135,7 @@ fn middleware_one_to_multi() -> Result<()> {
 #[test]
 fn middleware_multi_to_one() -> Result<()> {
     let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(FusionGen) as Arc<dyn FunctionMiddlewareGenerator>
+        Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>
     ));
     let wat = r#"(module
         (func (export "testfunc") (param i32 i32) (result i32)
@@ -161,8 +161,8 @@ fn middleware_multi_to_one() -> Result<()> {
 fn middleware_chain_order_1() -> Result<()> {
     let store = get_store_with_middlewares(
         vec![
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn FunctionMiddlewareGenerator>,
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn FunctionMiddlewareGenerator>,
+            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
+            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
         ]
         .into_iter(),
     );
@@ -187,8 +187,8 @@ fn middleware_chain_order_1() -> Result<()> {
 fn middleware_chain_order_2() -> Result<()> {
     let store = get_store_with_middlewares(
         vec![
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn FunctionMiddlewareGenerator>,
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn FunctionMiddlewareGenerator>,
+            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
+            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
         ]
         .into_iter(),
     );

@@ -5,8 +5,9 @@ use crate::{MemoryType, MemoryView};
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
+use wasmer_engine::{Export, ExportMemory};
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
+use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -21,7 +22,7 @@ use wasmer_vm::{Export, ExportMemory, Memory as RuntimeMemory, MemoryError};
 /// A memory created by the host or in WebAssembly code will be accessible and
 /// mutable from both host and WebAssembly.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,
@@ -220,10 +221,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportMemory) -> Self {
         Self {
             store: store.clone(),
-            memory: wasmer_export.from,
+            memory: wasmer_export.vm_memory.from,
         }
     }
 
@@ -247,7 +248,10 @@ impl Memory {
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
         ExportMemory {
-            from: self.memory.clone(),
+            vm_memory: VMExportMemory {
+                from: self.memory.clone(),
+                instance_allocator: None,
+            },
         }
         .into()
     }

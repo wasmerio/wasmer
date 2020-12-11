@@ -96,7 +96,7 @@ fn run_c_compile(
         .arg("-c")
         .arg(path_to_c_src)
         .arg("-I")
-        .arg(ASSET_PATH)
+        .arg(WASMER_INCLUDE_PATH)
         .arg("-o")
         .arg(output_name)
         .output()?;

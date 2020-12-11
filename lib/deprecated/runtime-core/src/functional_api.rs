@@ -78,9 +78,7 @@ pub fn validate(bytes: &[u8]) -> bool {
 ///
 /// # Usage
 ///
-/// Function pointers or closures are supported. Closures can capture
-/// their environment (with `move`). The first parameter is of kind
-/// `vm::Ctx`.
+/// Function pointers are supported. The first parameter is of kind `vm::Ctx`.
 ///
 /// ```
 /// # use wasmer_runtime_core::{imports, func, vm};
@@ -90,15 +88,12 @@ pub fn validate(bytes: &[u8]) -> bool {
 ///     n
 /// }
 ///
-/// let i = 7;
-///
 /// let import_object = imports! {
 ///     "env" => {
 ///         "foo" => func!(func),
-///         // A closure with a captured environment.
-///         "bar" => func!(move |_: &mut vm::Ctx, n: i32| -> i32 {
-///             n + i
-///         }),
+///         "bar" => func!(|_: &mut vm::Ctx, n: i32| -> i32 {
+///             n + 7
+///          }),
 ///     },
 /// };
 /// ```

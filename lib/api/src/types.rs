@@ -13,7 +13,7 @@ pub use wasmer_types::{
 /// * Floating-point (32 or 64 bit width)
 /// * Vectors (128 bits, with 32 or 64 bit lanes)
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#values
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
 pub type Val = Value<Function>;
 
 impl StoreObject for Val {
@@ -73,16 +73,22 @@ impl ValFuncRef for Val {
             .engine()
             .lookup_signature(item.type_index)
             .expect("Signature not found in store");
-        let export = wasmer_vm::ExportFunction {
-            address: item.func_ptr,
-            signature,
-            // All functions in tables are already Static (as dynamic functions
-            // are converted to use the trampolines with static signatures).
-            kind: wasmer_vm::VMFunctionKind::Static,
-            vmctx: item.vmctx,
-            call_trampoline: None,
+        let export = wasmer_engine::ExportFunction {
+            // TODO:
+            // figure out if we ever need a value here: need testing with complicated import patterns
+            import_init_function_ptr: None,
+            vm_function: wasmer_vm::VMExportFunction {
+                address: item.func_ptr,
+                signature,
+                // All functions in tables are already Static (as dynamic functions
+                // are converted to use the trampolines with static signatures).
+                kind: wasmer_vm::VMFunctionKind::Static,
+                vmctx: item.vmctx,
+                call_trampoline: None,
+                instance_allocator: None,
+            },
         };
-        let f = Function::from_export(store, export);
+        let f = Function::from_vm_export(store, export);
         Self::FuncRef(f)
     }
 }

@@ -31,17 +31,13 @@ fn _native_prefixer(bytes: &[u8]) -> String {
 #[cfg(feature = "test-jit")]
 fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
     let compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(&JIT::new(&compiler_config).features(features).engine())
+    Store::new(&JIT::new(compiler_config).features(features).engine())
 }
 
 #[cfg(feature = "test-native")]
 fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
     let mut compiler_config = get_compiler(try_nan_canonicalization);
-    Store::new(
-        &Native::new(&mut compiler_config)
-            .features(features)
-            .engine(),
-    )
+    Store::new(&Native::new(compiler_config).features(features).engine())
 }
 
 pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
@@ -95,10 +91,6 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
             "Validation error: invalid result arity: func type returns multiple values",
             "Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled",
         ]);
-    } else if compiler == "cranelift" && cfg!(windows) {
-        // Cranelift 0.63 have a bug on multivalue in Windows
-        // It's fixed by: https://github.com/bytecodealliance/wasmtime/pull/1774/files
-        wast.allow_instantiation_failures(&["Compilation error: Implementation limit exceeded"]);
     }
     wast.fail_fast = false;
     let path = Path::new(wast_path);

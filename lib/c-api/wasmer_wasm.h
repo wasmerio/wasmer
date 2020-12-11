@@ -145,10 +145,18 @@ intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_le
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
 bool wasi_env_set_instance(wasi_env_t *env, const wasm_instance_t *instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * This function is deprecated. You may safely remove all calls to it and everything
+ * will continue to work.
+ */
 void wasi_env_set_memory(wasi_env_t *env, const wasm_memory_t *memory);
 #endif
 
@@ -172,13 +180,79 @@ wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 
 #if defined(WASMER_COMPILER_ENABLED)
 /**
- * Configure the compiler to use.
+ * Updates the configuration to specify a particular compiler to use.
+ *
+ * This is a Wasmer-specific function.
+ *
+ * # Example
+ *
+ * ```rust,no_run
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create the configuration.
+ *     wasm_config_t* config = wasm_config_new();
+ *
+ *     // Use the Cranelift compiler.
+ *     wasm_config_set_compiler(config, CRANELIFT);
+ *
+ *     // Create the engine.
+ *     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+ *
+ *     // Check we have an engine!
+ *     assert(engine);
+ *
+ *     // Free everything.
+ *     wasm_engine_delete(engine);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
  */
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
 #endif
 
 /**
- * Configure the engine to use.
+ * Updates the configuration to specify a particular engine to use.
+ *
+ * This is a Wasmer-specific function.
+ *
+ * # Example
+ *
+ * ```rust,no_run
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create the configuration.
+ *     wasm_config_t* config = wasm_config_new();
+ *
+ *     // Use the JIT engine.
+ *     wasm_config_set_engine(config, JIT);
+ *
+ *     // Create the engine.
+ *     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+ *
+ *     // Check we have an engine!
+ *     assert(engine);
+ *
+ *     // Free everything.
+ *     wasm_engine_delete(engine);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
  */
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
@@ -232,8 +306,8 @@ int wasmer_last_error_message(char *buffer, int length);
  * Parses in-memory bytes as either the WAT format, or a binary Wasm
  * module. This is wasmer-specific.
  *
- * In case of failure, `wat2wasm` returns `NULL`.
+ * In case of failure, `wat2wasm` sets the `out->data = NULL` and `out->size = 0`.
  */
-wasm_byte_vec_t *wat2wasm(const wasm_byte_vec_t *wat);
+void wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
 
 #endif /* WASMER_WASM_H */

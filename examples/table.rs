@@ -51,7 +51,7 @@ fn main() -> anyhow::Result<()> {
     )?;
 
     // We set up our store with an engine and a compiler.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
     // Then compile our Wasm.
     let module = Module::new(&store, wasm_bytes)?;
     let import_object = imports! {};

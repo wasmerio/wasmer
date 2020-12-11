@@ -17,12 +17,12 @@ use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
 use std::fmt;
-use wasmer_vm::Export;
+use wasmer_engine::Export;
 
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#external-values
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
 #[derive(Clone)]
 pub enum Extern {
     /// A external [`Function`].
@@ -46,13 +46,13 @@ impl Extern {
         }
     }
 
-    /// Create an `Extern` from an `Export`.
-    pub fn from_export(store: &Store, export: Export) -> Self {
+    /// Create an `Extern` from an `wasmer_vm::Export`.
+    pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
-            Export::Function(f) => Self::Function(Function::from_export(store, f)),
-            Export::Memory(m) => Self::Memory(Memory::from_export(store, m)),
-            Export::Global(g) => Self::Global(Global::from_export(store, g)),
-            Export::Table(t) => Self::Table(Table::from_export(store, t)),
+            Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),
+            Export::Memory(m) => Self::Memory(Memory::from_vm_export(store, m)),
+            Export::Global(g) => Self::Global(Global::from_vm_export(store, g)),
+            Export::Table(t) => Self::Table(Table::from_vm_export(store, t)),
         }
     }
 }

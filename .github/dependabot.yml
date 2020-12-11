@@ -1,0 +1,12 @@
+version: 2
+
+updates:
+  - package-ecosystem: "cargo"
+    directory: "/"
+    allow:
+      - dependency-type: "all"
+    rebase-strategy: "auto"
+    schedule:
+      interval: "weekly"
+      day: "sunday"
+    versioning-strategy: "auto"

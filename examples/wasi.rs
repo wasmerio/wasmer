@@ -32,7 +32,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -50,9 +50,6 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // and attach it to the Wasm instance.
     let import_object = wasi_env.import_object(&module)?;
     let instance = Instance::new(&module, &import_object)?;
-
-    // WASI requires to explicitly set the memory for the `WasiEnv`
-    wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
 
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!

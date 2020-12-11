@@ -23,7 +23,7 @@ To create a compiler, one needs to implement two traits:
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler + Send>;
+    fn compiler(&self) -> Box<dyn Compiler>;
 }
 
 /// An implementation of a compiler from parsed WebAssembly module to compiled native code.
@@ -34,7 +34,7 @@ pub trait Compiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,

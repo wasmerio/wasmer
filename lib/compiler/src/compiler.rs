@@ -7,7 +7,7 @@ use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
-use crate::translator::FunctionMiddlewareGenerator;
+use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
@@ -37,7 +37,7 @@ pub trait CompilerConfig {
     }
 
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler + Send>;
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
     fn default_features_for_target(&self, _target: &Target) -> Features {
@@ -45,11 +45,20 @@ pub trait CompilerConfig {
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
+}
+
+impl<T> From<T> for Box<dyn CompilerConfig + 'static>
+where
+    T: CompilerConfig + 'static,
+{
+    fn from(other: T) -> Self {
+        Box::new(other)
+    }
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler {
+pub trait Compiler: Send {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
@@ -84,7 +93,7 @@ pub trait Compiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        module: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -96,7 +105,7 @@ pub trait Compiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         _target: &Target,
-        _module: &'module CompileModuleInfo,
+        _module: &'module mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
