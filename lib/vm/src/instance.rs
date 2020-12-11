@@ -89,14 +89,12 @@ pub(crate) struct Instance {
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
-    /// Functions to initialize the host environments in the imports
-    /// and pointers to the environments. These function pointers all
-    /// come from `WasmerEnv::init_with_instance`.
+    /// Functions to operate on host environments in the imports
+    /// and pointers to the environments.
     ///
     /// TODO: Be sure to test with serialize/deserialize and imported
     /// functions from other Wasm modules.
-    /// TODO: update this comment
-    import_envs: BoxedSlice<FunctionIndex, ImportEnv>,
+    imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
@@ -110,7 +108,7 @@ pub(crate) struct Instance {
 /// Due to invariants in the `HostEnv` variant, this type should only
 /// be constructed by one of the given methods, not directly.
 #[derive(Debug)]
-pub enum ImportEnv {
+pub enum ImportFunctionEnv {
     /// The `vmctx` pointer does not refer to a host env, there is no
     /// metadata about it.
     NoEnv,
@@ -146,7 +144,7 @@ pub enum ImportEnv {
     },
 }
 
-impl ImportEnv {
+impl ImportFunctionEnv {
     /// Make a new `Self::HostEnv`.
     pub fn new_host_env(
         env: *mut std::ffi::c_void,
@@ -188,7 +186,7 @@ impl ImportEnv {
     }
 }
 
-impl Clone for ImportEnv {
+impl Clone for ImportFunctionEnv {
     fn clone(&self) -> Self {
         match &self {
             Self::NoEnv => Self::NoEnv,
@@ -222,18 +220,18 @@ impl Clone for ImportEnv {
     }
 }
 
-impl Drop for ImportEnv {
+impl Drop for ImportFunctionEnv {
     fn drop(&mut self) {
         match self {
-            ImportEnv::DynamicHostEnvWithNoInnerEnv {
+            ImportFunctionEnv::DynamicHostEnvWithNoInnerEnv {
                 env, destructor, ..
             }
-            | ImportEnv::HostEnv {
+            | ImportFunctionEnv::HostEnv {
                 env, destructor, ..
             } => {
                 (destructor)(*env);
             }
-            ImportEnv::NoEnv => (),
+            ImportFunctionEnv::NoEnv => (),
         }
     }
 }
@@ -284,7 +282,7 @@ impl Instance {
         &self,
         index: FunctionIndex,
     ) -> Option<ImportInitializerFuncPtr> {
-        self.import_envs[index].initializer()
+        self.imported_function_envs[index].initializer()
     }
 
     /// Return a pointer to the `VMFunctionImport`s.
@@ -1136,7 +1134,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
-        import_envs: BoxedSlice<FunctionIndex, ImportEnv>,
+        imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
         // `NonNull<u8>` here actually means `NonNull<Instance>`. See
         // `Self::allocate_instance` to understand why.
@@ -1164,7 +1162,7 @@ impl InstanceHandle {
                 passive_data,
                 host_state,
                 signal_handler: Cell::new(None),
-                import_envs,
+                imported_function_envs,
                 vmctx: VMContext {},
             };
 
@@ -1540,9 +1538,9 @@ impl InstanceHandle {
     ) -> Result<(), Err> {
         let instance_ref = self.instance.as_mut();
 
-        for import_env in instance_ref.import_envs.values_mut() {
-            match import_env {
-                ImportEnv::HostEnv {
+        for import_function_env in instance_ref.imported_function_envs.values_mut() {
+            match import_function_env {
+                ImportFunctionEnv::HostEnv {
                     env,
                     ref mut initializer,
                     ..
@@ -1557,7 +1555,7 @@ impl InstanceHandle {
                     }
                     *initializer = None;
                 }
-                ImportEnv::DynamicHostEnvWithNoInnerEnv { .. } | ImportEnv::NoEnv => (),
+                ImportFunctionEnv::DynamicHostEnvWithNoInnerEnv { .. } | ImportFunctionEnv::NoEnv => (),
             }
         }
         Ok(())

@@ -7,7 +7,7 @@ use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    FunctionBodyPtr, ImportEnv, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
     VMTableImport,
 };
@@ -207,17 +207,17 @@ pub fn resolve_imports(
                 let initializer = f.metadata.as_ref().and_then(|m| m.import_init_function_ptr);
                 let clone = f.metadata.as_ref().map(|m| m.host_env_clone_fn);
                 let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
-                let import_env = if let (Some(clone), Some(destructor)) = (clone, destructor) {
+                let import_function_env = if let (Some(clone), Some(destructor)) = (clone, destructor) {
                     if let Some(initializer) = initializer {
-                        ImportEnv::new_host_env(env, clone, initializer, destructor)
+                        ImportFunctionEnv::new_host_env(env, clone, initializer, destructor)
                     } else {
-                        ImportEnv::new_dynamic_host_env_with_no_inner_env(env, clone, destructor)
+                        ImportFunctionEnv::new_dynamic_host_env_with_no_inner_env(env, clone, destructor)
                     }
                 } else {
-                    ImportEnv::new_no_env()
+                    ImportFunctionEnv::new_no_env()
                 };
 
-                host_function_env_initializers.push(import_env);
+                host_function_env_initializers.push(import_function_env);
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {

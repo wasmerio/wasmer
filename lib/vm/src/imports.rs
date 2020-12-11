@@ -1,7 +1,7 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-use crate::instance::ImportEnv;
+use crate::instance::ImportFunctionEnv;
 use crate::vmcontext::{VMFunctionImport, VMGlobalImport, VMMemoryImport, VMTableImport};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
@@ -17,7 +17,7 @@ pub struct Imports {
     /// space may affect Wasm runtime performance due to increased cache pressure.
     ///
     /// We make it optional so that we can free the data after use.
-    pub host_function_env_initializers: Option<BoxedSlice<FunctionIndex, ImportEnv>>,
+    pub host_function_env_initializers: Option<BoxedSlice<FunctionIndex, ImportFunctionEnv>>,
 
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
@@ -33,7 +33,7 @@ impl Imports {
     /// Construct a new `Imports` instance.
     pub fn new(
         function_imports: PrimaryMap<FunctionIndex, VMFunctionImport>,
-        host_function_env_initializers: PrimaryMap<FunctionIndex, ImportEnv>,
+        host_function_env_initializers: PrimaryMap<FunctionIndex, ImportFunctionEnv>,
         table_imports: PrimaryMap<TableIndex, VMTableImport>,
         memory_imports: PrimaryMap<MemoryIndex, VMMemoryImport>,
         global_imports: PrimaryMap<GlobalIndex, VMGlobalImport>,
@@ -63,7 +63,7 @@ impl Imports {
     ///
     /// This function can only be called once, it deletes the data it returns after
     /// returning it to ensure that it's not called more than once.
-    pub fn get_import_initializers(&mut self) -> BoxedSlice<FunctionIndex, ImportEnv> {
+    pub fn get_imported_function_envs(&mut self) -> BoxedSlice<FunctionIndex, ImportFunctionEnv> {
         self.host_function_env_initializers
             .take()
             .unwrap_or_else(|| PrimaryMap::new().into_boxed_slice())
