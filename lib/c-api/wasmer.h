@@ -1,8 +1,8 @@
 // The Wasmer C/C++ header file.
 
-#if !defined(WASMER_H_MACROS)
+#if !defined(WASMER_H_PRELUDE)
 
-#define WASMER_H_MACROS
+#define WASMER_H_PRELUDE
 
 // Define the `ARCH_X86_X64` constant.
 #if defined(MSVC) && defined(_M_AMD64)
@@ -30,7 +30,11 @@
 
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-#endif // WASMER_H_MACROS
+
+// This file corresponds to the following Wasmer version.
+#define WASMER_VERSION "1.0.0-beta1"
+
+#endif // WASMER_H_PRELUDE
 
 
 //
