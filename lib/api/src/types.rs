@@ -13,7 +13,7 @@ pub use wasmer_types::{
 /// * Floating-point (32 or 64 bit width)
 /// * Vectors (128 bits, with 32 or 64 bit lanes)
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#values
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#values>
 pub type Val = Value<Function>;
 
 impl StoreObject for Val {

@@ -22,7 +22,7 @@ use wasmer_engine::Export;
 /// An `Extern` is the runtime representation of an entity that
 /// can be imported or exported.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#external-values
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
 #[derive(Clone)]
 pub enum Extern {
     /// A external [`Function`].

@@ -16,7 +16,7 @@ use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
 /// A table created by the host or in WebAssembly code will be accessible and
 /// mutable from both host and WebAssembly.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#table-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Clone)]
 pub struct Table {
     store: Store,
