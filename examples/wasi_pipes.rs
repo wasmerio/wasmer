@@ -28,7 +28,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Note that we don't need to specify the engine/compiler if we want to use
     // the default provided by Wasmer.
     // You can use `Store::default()` for that.
-    let store = Store::new(&JIT::new(&Cranelift::default()).engine());
+    let store = Store::new(&JIT::new(Cranelift::default()).engine());
 
     println!("Compiling module...");
     // Let's compile the Wasm module.
@@ -49,18 +49,18 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let import_object = wasi_env.import_object(&module)?;
     let instance = Instance::new(&module, &import_object)?;
 
-    // WASI requires to explicitly set the memory for the `WasiEnv`
-    wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
-
     let msg = "racecar go zoom";
     println!("Writing \"{}\" to the WASI stdin...", msg);
     // To write to the stdin, we need a mutable reference to the pipe
-    let mut state = wasi_env.state();
-    let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
-    // Then we can write to it!
-    writeln!(wasi_stdin, "{}", msg)?;
-    // Forgetting to drop state will deadlock `start.call()` later on!
-    drop(state);
+    //
+    // We access WasiState in a nested scope to ensure we're not holding
+    // the mutex after we need it.
+    {
+        let mut state = wasi_env.state();
+        let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
+        // Then we can write to it!
+        writeln!(wasi_stdin, "{}", msg)?;
+    }
 
     println!("Call WASI `_start` function...");
     // And we just call the `_start` function!
