@@ -25,14 +25,17 @@ macro_rules! wasm_declare_vec {
             }
 
             impl<'a> From<Vec<[<wasm_ $name _t>]>> for [<wasm_ $name _vec_t>] {
-                fn from(other: Vec<[<wasm_ $name _t>]>) -> Self {
-                    let mut boxed_slice = other.into_boxed_slice();
-                    let size = boxed_slice.len();
-                    let data = boxed_slice.as_mut_ptr();
-                    ::std::mem::forget(boxed_slice);
+                fn from(mut vec: Vec<[<wasm_ $name _t>]>) -> Self {
+                    vec.shrink_to_fit();
+
+                    let length = vec.len();
+                    let pointer = vec.as_mut_ptr();
+
+                    ::std::mem::forget(vec);
+
                     Self {
-                        size,
-                        data,
+                        size: length,
+                        data: pointer,
                     }
                 }
             }
@@ -99,7 +102,6 @@ macro_rules! wasm_declare_vec {
                 (*out).size = length;
                 ::std::mem::forget(bytes);
             }
-
 
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut [<wasm_ $name _vec_t>]>) {
