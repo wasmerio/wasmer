@@ -8,7 +8,7 @@
 use glob::glob;
 use std::fs;
 use std::path::{Path, PathBuf};
-use std::process::Command;
+use std::process::{Command, Stdio};
 
 use std::io;
 use std::io::prelude::*;
@@ -32,6 +32,7 @@ fn generate_native_output(
     file: &str,
     normalized_name: &str,
     args: &[String],
+    options: &WasiOptions,
 ) -> io::Result<NativeOutput> {
     let executable_path = temp_dir.join(normalized_name);
     println!(
@@ -69,18 +70,44 @@ fn generate_native_output(
     );
     // workspace root
     const EXECUTE_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/wasi");
-    let result = Command::new(&executable_path)
+    let mut native_command = Command::new(&executable_path)
         .current_dir(EXECUTE_DIR)
-        .output()
-        .expect("Failed to execute native program");
-    util::print_info_on_error(&result, "NATIVE PROGRAM FAILED");
+        .stdin(Stdio::piped())
+        .stdout(Stdio::piped())
+        .stderr(Stdio::piped())
+        .spawn()
+        .unwrap();
 
-    let stdout = String::from_utf8(result.stdout).unwrap();
-    let stderr = String::from_utf8(result.stderr).unwrap();
-    let result = result.status.code().unwrap() as i64;
+    if let Some(stdin_str) = &options.provide_stdin {
+        write!(native_command.stdin.as_ref().unwrap(), "{}", stdin_str).unwrap();
+    }
+
+    let result = native_command
+        .wait()
+        .expect("Failed to execute native program");
+
+    let stdout_str = {
+        let mut stdout = native_command.stdout.unwrap();
+        let mut s = String::new();
+        stdout.read_to_string(&mut s).unwrap();
+        s
+    };
+    let stderr_str = {
+        let mut stderr = native_command.stderr.unwrap();
+        let mut s = String::new();
+        stderr.read_to_string(&mut s).unwrap();
+        s
+    };
+    if !result.success() {
+        println!("NATIVE PROGRAM FAILED");
+        println!("stdout:\n{}", stdout_str);
+        eprintln!("stderr:\n{}", stderr_str);
+    }
+
+    let result = result.code().unwrap() as i64;
     Ok(NativeOutput {
-        stdout,
-        stderr,
+        stdout: stdout_str,
+        stderr: stderr_str,
         result,
     })
 }
@@ -184,7 +211,7 @@ fn compile(temp_dir: &Path, file: &str, wasi_versions: &[WasiVersion]) {
         stdout,
         stderr,
         result,
-    } = generate_native_output(temp_dir, &file, &rs_mod_name, &options.args)
+    } = generate_native_output(temp_dir, &file, &rs_mod_name, &options.args, &options)
         .expect("Generate native output");
 
     let test = WasiTest {
@@ -308,6 +335,9 @@ impl WasiTest {
         }
 
         out += &format!("\n  (assert_return (i64.const {}))", self.result);
+        if let Some(provide_stdin) = &self.options.provide_stdin {
+            out += &format!("\n  (provide_stdin {:?})", provide_stdin);
+        }
 
         if !self.stdout.is_empty() {
             out += &format!("\n  (assert_stdout {:?})", self.stdout);
@@ -335,6 +365,8 @@ pub struct WasiOptions {
     pub dir: Vec<String>,
     /// The alias of the temporary directory to use
     pub tempdir: Vec<String>,
+    /// Stdin to give to the native program and WASI program.
+    pub provide_stdin: Option<String>,
 }
 
 /// Pulls args to the program out of a comment at the top of the file starting with "// WasiOptions:"
@@ -346,48 +378,51 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
             .skip(1)
             .take_while(|line| line.starts_with("// "))
         {
-            let tokenized = arg_line
-                .split_whitespace()
-                // skip trailing space
-                .skip(1)
-                .map(String::from)
-                .collect::<Vec<String>>();
-            let command_name = {
-                let mut cn = tokenized[0].clone();
-                assert_eq!(
-                    cn.pop(),
-                    Some(':'),
-                    "Final character of argname must be a colon"
-                );
-                cn
-            };
+            let arg_line = arg_line.strip_prefix("// ").unwrap();
+            let arg_line = arg_line.trim();
+            let colon_idx = arg_line
+                .find(':')
+                .expect("directives provided at the top must be separated by a `:`");
+
+            let (command_name, value) = arg_line.split_at(colon_idx);
+            let value = value.strip_prefix(':').unwrap();
+            let value = value.trim();
 
             match command_name.as_ref() {
                 "mapdir" => {
-                    if let [alias, real_dir] = &tokenized[1].split(':').collect::<Vec<&str>>()[..] {
+                    if let [alias, real_dir] = value.split(':').collect::<Vec<&str>>()[..] {
                         args.mapdir.push((alias.to_string(), real_dir.to_string()));
                     } else {
-                        eprintln!(
-                            "Parse error in mapdir {} not parsed correctly",
-                            &tokenized[1]
-                        );
+                        eprintln!("Parse error in mapdir {} not parsed correctly", value);
                     }
                 }
                 "env" => {
-                    if let [name, val] = &tokenized[1].split('=').collect::<Vec<&str>>()[..] {
+                    if let [name, val] = value.split('=').collect::<Vec<&str>>()[..] {
                         args.env.push((name.to_string(), val.to_string()));
                     } else {
-                        eprintln!("Parse error in env {} not parsed correctly", &tokenized[1]);
+                        eprintln!("Parse error in env {} not parsed correctly", value);
                     }
                 }
                 "dir" => {
-                    args.dir.push(tokenized[1].to_string());
+                    args.dir.push(value.to_string());
                 }
                 "arg" => {
-                    args.args.push(tokenized[1].to_string());
+                    args.args.push(value.to_string());
                 }
                 "tempdir" => {
-                    args.tempdir.push(tokenized[1].to_string());
+                    args.tempdir.push(value.to_string());
+                }
+                "provide_stdin" => {
+                    assert!(args.provide_stdin.is_none(), "Only the first `provide_stdin` directive is used! Please correct this or update this code");
+                    let s = value;
+                    let s = s
+                        .strip_prefix('"')
+                        .expect("expected leading '\"' in provide_stdin");
+                    let s = s
+                        .trim_end()
+                        .strip_suffix("\"")
+                        .expect("expected trailing '\"' in provide_stdin");
+                    args.provide_stdin = Some(s.to_string());
                 }
                 e => {
                     eprintln!("WARN: comment arg: `{}` is not supported", e);
