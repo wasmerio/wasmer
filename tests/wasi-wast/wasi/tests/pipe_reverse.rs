@@ -1,3 +1,6 @@
+// WASI:
+// provide_stdin: "Hello, world!"
+
 use std::io;
 
 fn main() {

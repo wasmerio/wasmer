@@ -2,5 +2,6 @@
 
 (wasi_test "pipe_reverse.wasm"
   (assert_return (i64.const 0))
-  (assert_stdout "\n")
+  (provide_stdin "Hello, world!")
+  (assert_stdout "!dlrow ,olleH\n")
 )
