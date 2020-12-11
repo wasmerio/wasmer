@@ -27,10 +27,10 @@
     )
 )]
 
-//! This crate contains the wasmer API. The wasmer API facilitates the efficient,
+//! This crate contains the `wasmer` API. The `wasmer` API facilitates the efficient,
 //! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.
 //!
-//! Here's an example of the wasmer API in action:
+//! Here's an example of the `wasmer` API in action:
 //! ```
 //! use wasmer::{Store, Module, Instance, Value, imports};
 //!
@@ -58,7 +58,7 @@
 //! }
 //! ```
 //!
-//! For more examples of using the wasmer API, check out the
+//! For more examples of using the `wasmer` API, check out the
 //! [wasmer examples][wasmer-examples].
 //!
 //! ---------
@@ -78,7 +78,7 @@
 //!
 //!
 //! # Wasm Primitives
-//! In order to make use of the power of the wasmer API, it's important
+//! In order to make use of the power of the `wasmer` API, it's important
 //! to understand the primitives around which the API is built.
 //!
 //! Wasm only deals with a small number of core data types, these data
@@ -99,15 +99,15 @@
 //! # fn imports_example(store: &Store) -> ImportObject {
 //! let memory = Memory::new(&store, MemoryType::new(1, None, false)).unwrap();
 //! imports! {
-//!   "env" => {
-//!      "my_function" => Function::new_native(store, || println!("Hello")),
-//!      "memory" => memory,
-//!   }
+//!     "env" => {
+//!          "my_function" => Function::new_native(store, || println!("Hello")),
+//!          "memory" => memory,
+//!     }
 //! }
 //! # }
 //! ```
 //!
-//! And to access an exported extern, see the [`Exports`][] API, accessible
+//! And to access an exported extern, see the [`Exports`] API, accessible
 //! from any instance via `instance.exports`:
 //!
 //! ```
@@ -122,12 +122,12 @@
 //! # }
 //! ```
 //!
-//! These are the primary types that the wasmer API uses.
+//! These are the primary types that the `wasmer` API uses.
 //!
 //! ### Functions
-//! There are 2 types of functions in wasmer:
-//! - Wasm functions
-//! - Host functions
+//! There are 2 types of functions in `wasmer`:
+//! 1. Wasm functions
+//! 2. Host functions
 //!
 //! A Wasm function is a function defined in a WebAssembly module that can
 //! only perform computation without side effects and call other functions.
@@ -139,8 +139,8 @@
 //! A Host function is any function implemented on the host, in this case in
 //! Rust.
 //!
-//! Host functions can optionally be created with an enivronment that
-//! implements [`WasmerEnv`]. This enivronment is useful for maintaining
+//! Host functions can optionally be created with an environment that
+//! implements [`WasmerEnv`]. This environment is useful for maintaining
 //! host state (for example the filesystem in WASI).
 //!
 //! Thus WebAssembly modules by themselves cannot do anything but computation
@@ -151,8 +151,8 @@
 //! in, check out the [`wasmer-wasi`][] crate for our implementation of WASI,
 //! the WebAssembly System Interface.
 //!
-//! In the Wasmer API we support functions which take their arguments and
-//! return their results dynamically, [`Function`] and functions which
+//! In the `wasmer` API we support functions which take their arguments and
+//! return their results dynamically, [`Function`], and functions which
 //! take their arguments and return their results statically, [`NativeFunc`].
 //!
 //! ### Memories
@@ -180,7 +180,7 @@
 //! <img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" />
 //! </div>
 //!
-//! While this crate is the top level API for Wasmer, we also publish crates built
+//! While this crate is the top level API, we also publish crates built
 //! on top of this API that you may be interested in using, including:
 //!
 //! - [wasmer-cache][] for caching compiled Wasm modules.
@@ -191,22 +191,22 @@
 //! --------
 //!
 //! The Wasmer project has two major abstractions:
-//! - [Engines][wasmer-engine]
-//! - [Compilers][wasmer-compiler]
+//! 1. [Engines][wasmer-engine]
+//! 2. [Compilers][wasmer-compiler]
 //!
 //! These two abstractions have multiple options that can be enabled
 //! with features.
 //!
 //! ### Engines
 //!
-//! In the wasmer API, an engine is a system that uses a compiler to make
-//! a WebAssembly module executable.
+//! An engine is a system that uses a compiler to make a WebAssembly
+//! module executable.
 //!
 //! ### Compilers
 //!
-//! In the wasmer API, a compiler is a system that handles the details of
-//! making a Wasm module executable. For example, by generating native
-//! machine code for each Wasm function.
+//! A compiler is a system that handles the details of making a Wasm
+//! module executable. For example, by generating native machine code
+//! for each Wasm function.
 //!
 //!
 //! ## Features
@@ -217,17 +217,17 @@
 //! The features that enable new functionality are:
 //! - `jit` - enable the JIT engine. (See [wasmer-jit][])
 //! - `native` - enable the native engine. (See [wasmer-native][])
-//! - `cranelift` - enable wasmer's Cranelift compiler. (See [wasmer-cranelift][])
-//! - `llvm` - enable wasmer's LLVM compiler. (See [wasmer-llvm][])
-//! - `singlepass` - enable wasmer's Singlepass compiler. (See [wasmer-singlepass][])
-//! - `wat` - enable wasmer to parse the WebAssembly text format.
+//! - `cranelift` - enable Wasmer's Cranelift compiler. (See [wasmer-cranelift][])
+//! - `llvm` - enable Wasmer's LLVM compiler. (See [wasmer-llvm][])
+//! - `singlepass` - enable Wasmer's Singlepass compiler. (See [wasmer-singlepass][])
+//! - `wat` - enable `wasmer` to parse the WebAssembly text format.
 //!
 //! The features that set defaults come in sets that are mutually exclusive.
 //!
 //! The first set is the default compiler set:
-//! - `default-cranelift` - set wasmer's Cranelift compiler as the default.
-//! - `default-llvm` - set wasmer's LLVM compiler as the default.
-//! - `default-singlepass` - set wasmer's Singlepass compiler as the default.
+//! - `default-cranelift` - set Wasmer's Cranelift compiler as the default.
+//! - `default-llvm` - set Wasmer's LLVM compiler as the default.
+//! - `default-singlepass` - set Wasmer's Singlepass compiler as the default.
 //!
 //! The next set is the default engine set:
 //! - `default-jit` - set the JIT engine as the default.
@@ -242,16 +242,16 @@
 //!
 //! [wasm]: https://webassembly.org/
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/exmples
-//! [wasmer-cache]: https://docs.rs/wasmer-cache/1.0.0-beta1/wasmer_cache/
-//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/1.0.0-beta1/wasmer_compiler/
-//! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/1.0.0-beta1/wasmer_cranelift/
-//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/1.0.0-beta1/wasmer_emscripten/
-//! [wasmer-engine]: https://docs.rs/wasmer-engine/1.0.0-beta1/wasmer_engine/
-//! [wasmer-jit]: https://docs.rs/wasmer-jit/1.0.0-beta1/wasmer_jit/
-//! [wasmer-native]: https://docs.rs/wasmer-native/1.0.0-beta1/wasmer_native/
-//! [wasmer-singlepass]: https://docs.rs/wasmer-singlepass/1.0.0-beta1/wasmer_singlepass/
-//! [wasmer-llvm]: https://docs.rs/wasmer-llvm/1.0.0-beta1/wasmer_llvm/
-//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/1.0.0-beta1/wasmer_wasi/
+//! [wasmer-cache]: https://docs.rs/wasmer-cache/*/wasmer_cache/
+//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/*/wasmer_compiler/
+//! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/*/wasmer_cranelift/
+//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/
+//! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/
+//! [wasmer-jit]: https://docs.rs/wasmer-jit/*/wasmer_jit/
+//! [wasmer-native]: https://docs.rs/wasmer-native/*/wasmer_native/
+//! [wasmer-singlepass]: https://docs.rs/wasmer-singlepass/*/wasmer_singlepass/
+//! [wasmer-llvm]: https://docs.rs/wasmer-llvm/*/wasmer_llvm/
+//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/
 
 mod env;
 mod exports;
