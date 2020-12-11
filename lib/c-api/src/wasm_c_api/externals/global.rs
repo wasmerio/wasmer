@@ -95,16 +95,17 @@ mod tests {
                 wasm_val_t forty_two = WASM_F32_VAL(42);
                 wasm_val_t forty_three = WASM_F32_VAL(43);
 
-                wasm_valtype_t* type = wasm_valtype_new_i32();
-                wasm_globaltype_t* global_type = wasm_globaltype_new(type, WASM_CONST);
+                wasm_valtype_t* valtype = wasm_valtype_new_i32();
+                wasm_globaltype_t* global_type = wasm_globaltype_new(valtype, WASM_CONST);
                 wasm_global_t* global = wasm_global_new(store, global_type, &forty_two);
+
+                wasm_globaltype_delete(global_type);
 
                 wasm_global_set(global, &forty_three);
 
                 assert(wasmer_last_error_length() > 0);
 
-                wasm_globaltype_delete(global_type);
-                wasm_valtype_delete(type);
+                wasm_global_delete(global);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 

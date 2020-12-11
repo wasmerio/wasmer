@@ -180,13 +180,79 @@ wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 
 #if defined(WASMER_COMPILER_ENABLED)
 /**
- * Configure the compiler to use.
+ * Updates the configuration to specify a particular compiler to use.
+ *
+ * This is a Wasmer-specific function.
+ *
+ * # Example
+ *
+ * ```rust,no_run
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create the configuration.
+ *     wasm_config_t* config = wasm_config_new();
+ *
+ *     // Use the Cranelift compiler.
+ *     wasm_config_set_compiler(config, CRANELIFT);
+ *
+ *     // Create the engine.
+ *     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+ *
+ *     // Check we have an engine!
+ *     assert(engine);
+ *
+ *     // Free everything.
+ *     wasm_engine_delete(engine);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
  */
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
 #endif
 
 /**
- * Configure the engine to use.
+ * Updates the configuration to specify a particular engine to use.
+ *
+ * This is a Wasmer-specific function.
+ *
+ * # Example
+ *
+ * ```rust,no_run
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create the configuration.
+ *     wasm_config_t* config = wasm_config_new();
+ *
+ *     // Use the JIT engine.
+ *     wasm_config_set_engine(config, JIT);
+ *
+ *     // Create the engine.
+ *     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+ *
+ *     // Check we have an engine!
+ *     assert(engine);
+ *
+ *     // Free everything.
+ *     wasm_engine_delete(engine);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
  */
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 

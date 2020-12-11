@@ -42,10 +42,12 @@ pub struct ObjectFileArtifact {
     symbol_registry: ModuleMetadataSymbolRegistry,
 }
 
+#[allow(dead_code)]
 fn to_compile_error(err: impl Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
 }
 
+#[allow(dead_code)]
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
 impl ObjectFileArtifact {

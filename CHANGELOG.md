@@ -16,12 +16,14 @@
 
 ### Changed
 
+- [#1851](https://github.com/wasmerio/wasmer/pull/1851) Improve test suite and documentation of the Wasmer C API
 - [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)
 - [#1880](https://github.com/wasmerio/wasmer/pull/1880) Remove cmake dependency for tests
 
 ### Fixed
 
 - [#1870](https://github.com/wasmerio/wasmer/pull/1870) Fixed Trap instruction address maps in Singlepass
+* [#1914](https://github.com/wasmerio/wasmer/pull/1914) Implemented `TryFrom<Bytes> for Pages` instead of `From<Bytes> for Pages` to properly handle overflow errors
 
 ## 1.0.0-beta1 - 2020-12-01
 

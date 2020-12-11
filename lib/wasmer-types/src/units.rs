@@ -1,8 +1,10 @@
+use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ops::{Add, Sub};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
+use thiserror::Error;
 
 /// WebAssembly page sizes are fixed to be 64KiB.
 /// Note: large page support may be added in an opt-in manner in the [future].
@@ -108,9 +110,19 @@ where
     }
 }
 
-impl From<Bytes> for Pages {
-    fn from(bytes: Bytes) -> Self {
-        Self((bytes.0 / WASM_PAGE_SIZE) as u32)
+/// The only error that can happen when converting `Bytes` to `Pages`
+#[derive(Debug, Clone, Copy, PartialEq, Error)]
+#[error("Number of pages exceeds uint32 range")]
+pub struct PageCountOutOfRange;
+
+impl TryFrom<Bytes> for Pages {
+    type Error = PageCountOutOfRange;
+
+    fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
+        let pages: u32 = (bytes.0 / WASM_PAGE_SIZE)
+            .try_into()
+            .or(Err(PageCountOutOfRange))?;
+        Ok(Self(pages))
     }
 }
 
@@ -131,5 +143,37 @@ where
     type Output = Self;
     fn add(self, rhs: T) -> Self {
         Self(self.0 + rhs.into().0)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn convert_bytes_to_pages() {
+        // rounds down
+        let pages = Pages::try_from(Bytes(0)).unwrap();
+        assert_eq!(pages, Pages(0));
+        let pages = Pages::try_from(Bytes(1)).unwrap();
+        assert_eq!(pages, Pages(0));
+        let pages = Pages::try_from(Bytes(WASM_PAGE_SIZE - 1)).unwrap();
+        assert_eq!(pages, Pages(0));
+        let pages = Pages::try_from(Bytes(WASM_PAGE_SIZE)).unwrap();
+        assert_eq!(pages, Pages(1));
+        let pages = Pages::try_from(Bytes(WASM_PAGE_SIZE + 1)).unwrap();
+        assert_eq!(pages, Pages(1));
+        let pages = Pages::try_from(Bytes(28 * WASM_PAGE_SIZE + 42)).unwrap();
+        assert_eq!(pages, Pages(28));
+        let pages = Pages::try_from(Bytes((u32::MAX as usize) * WASM_PAGE_SIZE)).unwrap();
+        assert_eq!(pages, Pages(u32::MAX));
+        let pages = Pages::try_from(Bytes((u32::MAX as usize) * WASM_PAGE_SIZE + 1)).unwrap();
+        assert_eq!(pages, Pages(u32::MAX));
+
+        // Errors when page count cannot be represented as u32
+        let result = Pages::try_from(Bytes((u32::MAX as usize + 1) * WASM_PAGE_SIZE));
+        assert_eq!(result.unwrap_err(), PageCountOutOfRange);
+        let result = Pages::try_from(Bytes(usize::MAX));
+        assert_eq!(result.unwrap_err(), PageCountOutOfRange);
     }
 }
