@@ -205,9 +205,17 @@ fn add_wasmer_version(pre_header: &mut String) {
     pre_header.push_str(&format!(
         r#"
 // This file corresponds to the following Wasmer version.
-#define WASMER_VERSION "{version}"
+#define WASMER_VERSION "{full}"
+#define WASMER_VERSION_MAJOR {major}
+#define WASMER_VERSION_MINOR {minor}
+#define WASMER_VERSION_PATCH {patch}
+#define WASMER_VERSION_PRE "{pre}"
 "#,
-        version = env!("CARGO_PKG_VERSION")
+        full = env!("CARGO_PKG_VERSION"),
+        major = env!("CARGO_PKG_VERSION_MAJOR"),
+        minor = env!("CARGO_PKG_VERSION_MINOR"),
+        patch = env!("CARGO_PKG_VERSION_PATCH"),
+        pre = env!("CARGO_PKG_VERSION_PRE"),
     ));
 }
 

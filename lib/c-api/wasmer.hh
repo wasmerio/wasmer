@@ -33,6 +33,10 @@
 
 // This file corresponds to the following Wasmer version.
 #define WASMER_VERSION "1.0.0-beta1"
+#define WASMER_VERSION_MAJOR 1
+#define WASMER_VERSION_MINOR 0
+#define WASMER_VERSION_PATCH 0
+#define WASMER_VERSION_PRE "beta1"
 
 #endif // WASMER_H_PRELUDE
 
@@ -1176,36 +1180,6 @@ wasmer_result_t wasmer_trap(const wasmer_instance_context_t *_ctx, const char *e
 /// }
 /// ```
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
-
-/// Gets the version of the Wasmer C API.
-///
-/// The returned string is guaranteed to be a valid C string. The
-/// caller owns the string, so it's up to the caller to free it.
-///
-/// # Example
-///
-/// ```rust
-/// # use inline_c::assert_c;
-/// # fn main() {
-/// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
-/// #
-/// int main() {
-///     // Read and print the version.
-///     char* version = wasmer_version();
-///     printf("%s", version);
-///
-///     // Free it, as we own it.
-///     free(version);
-///
-///     return 0;
-/// }
-/// #    })
-/// #    .success()
-/// #    .stdout(std::env::var("CARGO_PKG_VERSION").unwrap());
-/// # }
-/// ```
-char *wasmer_version();
 
 #if defined(WASMER_WASI_ENABLED)
 /// Convenience function that creates a WASI import object with no arguments,
