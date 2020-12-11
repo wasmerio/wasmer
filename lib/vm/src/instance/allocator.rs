@@ -1,4 +1,4 @@
-use super::{Instance, InstanceAllocator};
+use super::{Instance, InstanceRef};
 use crate::vmcontext::{VMMemoryDefinition, VMTableDefinition};
 use crate::{ModuleInfo, VMOffsets};
 use std::alloc::{self, Layout};
@@ -14,11 +14,11 @@ use wasmer_types::{LocalMemoryIndex, LocalTableIndex};
 /// This type will free the allocated memory if it's dropped before
 /// being used.
 ///
-/// The [`InstanceBuilder::instance_layout`] computes the correct
+/// The [`InstanceAllocator::instance_layout`] computes the correct
 /// layout to represent the wanted [`Instance`].
 ///
 /// Then we use this layout to allocate an empty `Instance` properly.
-pub struct InstanceBuilder {
+pub struct InstanceAllocator {
     /// The buffer that will contain the [`Instance`] and dynamic fields.
     instance_ptr: NonNull<Instance>,
     /// The layout of the `instance_ptr` buffer.
@@ -32,7 +32,7 @@ pub struct InstanceBuilder {
     consumed: bool,
 }
 
-impl Drop for InstanceBuilder {
+impl Drop for InstanceAllocator {
     fn drop(&mut self) {
         if !self.consumed {
             // If `consumed` has not been set, then we still have ownership
@@ -45,7 +45,7 @@ impl Drop for InstanceBuilder {
     }
 }
 
-impl InstanceBuilder {
+impl InstanceAllocator {
     /// Allocates instance data for use with [`InstanceHandle::new`].
     ///
     /// Returns a wrapper type around the allocation and 2 vectors of
@@ -56,7 +56,7 @@ impl InstanceBuilder {
     pub fn new(
         module: &ModuleInfo,
     ) -> (
-        InstanceBuilder,
+        InstanceAllocator,
         Vec<NonNull<VMMemoryDefinition>>,
         Vec<NonNull<VMTableDefinition>>,
     ) {
@@ -72,7 +72,7 @@ impl InstanceBuilder {
             alloc::handle_alloc_error(instance_layout);
         };
 
-        let unprepared = Self {
+        let allocator = Self {
             instance_ptr,
             instance_layout,
             offsets,
@@ -83,10 +83,10 @@ impl InstanceBuilder {
         // Both of these calls are safe because we allocate the pointer
         // above with the same `offsets` that these functions use.
         // Thus there will be enough valid memory for both of them.
-        let memories = unsafe { unprepared.memory_definition_locations() };
-        let tables = unsafe { unprepared.table_definition_locations() };
+        let memories = unsafe { allocator.memory_definition_locations() };
+        let tables = unsafe { allocator.table_definition_locations() };
 
-        (unprepared, memories, tables)
+        (allocator, memories, tables)
     }
 
     /// Calculate the appropriate layout for the [`Instance`].
@@ -170,7 +170,7 @@ impl InstanceBuilder {
     }
 
     /// Finish preparing by writing the [`Instance`] into memory.
-    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceAllocator {
+    pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceRef {
         // prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;
@@ -178,7 +178,7 @@ impl InstanceBuilder {
         unsafe {
             // `instance` is moved at `instance_ptr`. This pointer has
             // been allocated by `Self::allocate_instance` (so by
-            // `InstanceAllocator::allocate_instance`.
+            // `InstanceRef::allocate_instance`.
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
@@ -187,7 +187,7 @@ impl InstanceBuilder {
 
         // This is correct because of the invariants of `Self` and
         // because we write `Instance` to the pointer in this function.
-        unsafe { InstanceAllocator::new(instance, instance_layout) }
+        unsafe { InstanceRef::new(instance, instance_layout) }
     }
 
     /// Get the [`VMOffsets`] for the allocated buffer.

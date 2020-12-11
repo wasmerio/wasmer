@@ -3,13 +3,13 @@
 
 //! An `Instance` contains all the runtime state used by execution of
 //! a WebAssembly module (except its callstack and register state). An
-//! `InstanceAllocator` is a wrapper around `Instance` that manages
+//! `InstanceRef` is a wrapper around `Instance` that manages
 //! how it is allocated and deallocated. An `InstanceHandle` is a
-//! wrapper around an `InstanceAllocator`.
+//! wrapper around an `InstanceRef`.
 
-mod builder;
+mod allocator;
 
-pub use builder::InstanceBuilder;
+pub use allocator::InstanceAllocator;
 
 use crate::export::VMExport;
 use crate::global::Global;
@@ -693,15 +693,15 @@ impl Instance {
 }
 
 /// TODO: update these docs
-/// An `InstanceAllocator` is responsible to allocate, to deallocate,
+/// An `InstanceRef` is responsible to allocate, to deallocate,
 /// and to give access to an `Instance`, in such a way that `Instance`
 /// is unique, can be shared, safely, across threads, without
-/// duplicating the pointer in multiple locations. `InstanceAllocator`
+/// duplicating the pointer in multiple locations. `InstanceRef`
 /// must be the only “owner” of an `Instance`.
 ///
 /// Consequently, one must not share `Instance` but
-/// `InstanceAllocator`. It acts like an Atomically Reference Counted
-/// to `Instance`. In short, `InstanceAllocator` is roughly a
+/// `InstanceRef`. It acts like an Atomically Reference Counted
+/// to `Instance`. In short, `InstanceRef` is roughly a
 /// simplified version of `std::sync::Arc`.
 ///
 /// It is important to remind that `Instance` is dynamically-sized
@@ -712,12 +712,12 @@ impl Instance {
 /// 1. Define the correct layout for `Instance` (size and alignment),
 /// 2. Allocate it properly.
 ///
-/// This allocation must be freed with [`InstanceAllocator::deallocate_instance`]
+/// This allocation must be freed with [`InstanceRef::deallocate_instance`]
 /// if and only if it has been set correctly. The `Drop` implementation of
-/// [`InstanceAllocator`] calls its `deallocate_instance` method without
+/// [`InstanceRef`] calls its `deallocate_instance` method without
 /// checking if this  property holds, only when `Self.strong` is equal to 1.
 ///
-/// Note for the curious reader: [`InstanceBuilder::new`]
+/// Note for the curious reader: [`InstanceAllocator::new`]
 /// and [`InstanceHandle::new`] will respectively allocate a proper
 /// `Instance` and will fill it correctly.
 ///
@@ -730,7 +730,7 @@ impl Instance {
 /// dynamically-sized, and the `instance` field must be last.
 #[derive(Debug)]
 #[repr(C)]
-pub struct InstanceAllocator {
+pub struct InstanceRef {
     /// Number of `Self` in the nature. It increases when `Self` is
     /// cloned, and it decreases when `Self` is dropped.
     strong: Arc<atomic::AtomicUsize>,
@@ -739,7 +739,7 @@ pub struct InstanceAllocator {
     instance_layout: Layout,
 
     /// The `Instance` itself. It must be the last field of
-    /// `InstanceAllocator` since `Instance` is dyamically-sized.
+    /// `InstanceRef` since `Instance` is dyamically-sized.
     ///
     /// `Instance` must not be dropped manually by Rust, because it's
     /// allocated manually with `alloc` and a specific layout (Rust
@@ -751,8 +751,8 @@ pub struct InstanceAllocator {
     instance: NonNull<Instance>,
 }
 
-impl InstanceAllocator {
-    /// Create a new `InstanceAllocator`. It allocates nothing. It
+impl InstanceRef {
+    /// Create a new `InstanceRef`. It allocates nothing. It
     /// fills nothing. The `Instance` must be already valid and
     /// filled. `self_ptr` and `self_layout` must be the pointer and
     /// the layout returned by `Self::allocate_self` used to build
@@ -762,7 +762,7 @@ impl InstanceAllocator {
     ///
     /// `instance` must a non-null, non-dangling, properly aligned,
     /// and correctly initialized pointer to `Instance`. See
-    /// [`InstanceBuilder::new`] for an example of how to correctly use
+    /// [`InstanceAllocator::new`] for an example of how to correctly use
     /// this API.
     /// TODO: update docs
     pub(crate) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
@@ -773,7 +773,7 @@ impl InstanceAllocator {
         }
     }
 
-    /// A soft limit on the amount of references that may be made to an `InstanceAllocator`.
+    /// A soft limit on the amount of references that may be made to an `InstanceRef`.
     ///
     /// Going above this limit will make the program to panic at exactly
     /// `MAX_REFCOUNT` references.
@@ -793,7 +793,7 @@ impl InstanceAllocator {
     }
 
     /// Get the number of strong references pointing to this
-    /// `InstanceAllocator`.
+    /// `InstanceRef`.
     pub fn strong_count(&self) -> usize {
         self.strong.load(atomic::Ordering::SeqCst)
     }
@@ -814,13 +814,13 @@ impl InstanceAllocator {
 }
 
 /// TODO: Review this super carefully.
-unsafe impl Send for InstanceAllocator {}
-unsafe impl Sync for InstanceAllocator {}
+unsafe impl Send for InstanceRef {}
+unsafe impl Sync for InstanceRef {}
 
-impl Clone for InstanceAllocator {
-    /// Makes a clone of `InstanceAllocator`.
+impl Clone for InstanceRef {
+    /// Makes a clone of `InstanceRef`.
     ///
-    /// This creates another `InstanceAllocator` using the same
+    /// This creates another `InstanceRef` using the same
     /// `instance` pointer, increasing the strong reference count.
     #[inline]
     fn clone(&self) -> Self {
@@ -840,7 +840,7 @@ impl Clone for InstanceAllocator {
         let old_size = self.strong.fetch_add(1, atomic::Ordering::Relaxed);
 
         // However we need to guard against massive refcounts in case
-        // someone is `mem::forget`ing `InstanceAllocator`. If we
+        // someone is `mem::forget`ing `InstanceRef`. If we
         // don't do this the count can overflow and users will
         // use-after free. We racily saturate to `isize::MAX` on the
         // assumption that there aren't ~2 billion threads
@@ -851,7 +851,7 @@ impl Clone for InstanceAllocator {
         // and we don't care to support it.
 
         if old_size > Self::MAX_REFCOUNT {
-            panic!("Too many references of `InstanceAllocator`");
+            panic!("Too many references of `InstanceRef`");
         }
 
         Self {
@@ -862,16 +862,16 @@ impl Clone for InstanceAllocator {
     }
 }
 
-impl PartialEq for InstanceAllocator {
-    /// Two `InstanceAllocator` are equal if and only if
+impl PartialEq for InstanceRef {
+    /// Two `InstanceRef` are equal if and only if
     /// `Self.instance` points to the same location.
     fn eq(&self, other: &Self) -> bool {
         self.instance == other.instance
     }
 }
 
-impl Drop for InstanceAllocator {
-    /// Drop the `InstanceAllocator`.
+impl Drop for InstanceRef {
+    /// Drop the `InstanceRef`.
     ///
     /// This will decrement the strong reference count. If it reaches
     /// 1, then the `Self.instance` will be deallocated with
@@ -905,24 +905,24 @@ impl Drop for InstanceAllocator {
         // Now we can deallocate the instance. Note that we don't
         // check the pointer to `Instance` is correctly initialized,
         // but the way `InstanceHandle` creates the
-        // `InstanceAllocator` ensures that.
+        // `InstanceRef` ensures that.
         unsafe { Self::deallocate_instance(self) };
     }
 }
 
-/// A handle holding an `InstanceAllocator`, which holds an `Instance`
+/// A handle holding an `InstanceRef`, which holds an `Instance`
 /// of a WebAssembly module.
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
 #[derive(Debug, PartialEq)]
 pub struct InstanceHandle {
-    /// The `InstanceAllocator`. See its documentation to learn more.
-    instance: InstanceAllocator,
+    /// The `InstanceRef`. See its documentation to learn more.
+    instance: InstanceRef,
 }
 
 impl InstanceHandle {
-    /// Create a new `InstanceHandle` pointing at a new `InstanceAllocator`.
+    /// Create a new `InstanceHandle` pointing at a new `InstanceRef`.
     ///
     /// # Safety
     ///
@@ -945,7 +945,7 @@ impl InstanceHandle {
     ///   all the local memories.
     #[allow(clippy::too_many_arguments)]
     pub unsafe fn new(
-        unprepared: InstanceBuilder,
+        allocator: InstanceAllocator,
         module: Arc<ModuleInfo>,
         finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
         finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -965,7 +965,7 @@ impl InstanceHandle {
         let passive_data = RefCell::new(module.passive_data.clone());
 
         let handle = {
-            let offsets = unprepared.offsets().clone();
+            let offsets = allocator.offsets().clone();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
@@ -983,7 +983,7 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
 
-            let instance_allocator = unprepared.write_instance(instance);
+            let instance_allocator = allocator.write_instance(instance);
 
             Self {
                 instance: instance_allocator,
@@ -1041,7 +1041,7 @@ impl InstanceHandle {
     }
 
     /// Return a reference to the contained `Instance`.
-    pub(crate) fn instance(&self) -> &InstanceAllocator {
+    pub(crate) fn instance(&self) -> &InstanceRef {
         &self.instance
     }
 
