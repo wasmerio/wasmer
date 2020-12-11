@@ -1142,6 +1142,7 @@ auto Extern::memory() const -> const Memory * {
 }
 
 class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
+  // TODO: this should be at the top level
   static auto cxx_val_to_c_val(Val cxx_val) -> wasm_val_t {
     wasm_val_t c_val;
     switch (cxx_val.kind()) {
@@ -1197,34 +1198,43 @@ class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
 public:
   explicit WasmerFunc(
       c_own<wasm_func_t> &&func,
-      std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv>
+      std::unique_ptr<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>
           func_env)
       : WasmerExternWrapper(wasm_func_as_ref(func.get()), FUNC),
-        func_env(func_env), func(std::move(func)) {}
-
-  explicit WasmerFunc(
-      wasm_store_t *store, const wasm_functype_t *functype,
-      std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv>
-          func_env)
-      : WasmerExternWrapper(wasm_func_as_ref(func.get()), FUNC),
-        func_env(func_env), func(std::move(func)) {}
+        func_env(std::move(func_env)), func(std::move(func)) {}
 
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback cb) -> own<Func> {
-    WasmerFuncEnv func_env;
-    func_env.cb = cb;
-    new WasmerFunc(make_c_own(wasm_func_new_with_env(store->store.get(), functype->functype.get(), func_env.shim, ?, ?)), func_env));
-    return make_own(
+    auto func_env =
+        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
+            WasmerFuncEnv{cb});
+    auto &inner = std::get<WasmerFuncEnv>(*func_env);
+    return make_own(new WasmerFunc(
+        make_c_own(wasm_func_new_with_env(store->store.get(),
+                                          functype->functype.get(), inner.shim,
+                                          func_env.get(), inner.finalizer)),
+        std::move(func_env)));
   }
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback_with_env cb, void *env,
                    void (*finalizer)(void *) = nullptr) -> own<Func> {
-    abort();
+    auto func_env =
+        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
+            WasmerFuncEnvWithEnv{cb, finalizer, env});
+    auto &inner = std::get<WasmerFuncEnvWithEnv>(*func_env);
+    return make_own(new WasmerFunc(
+        make_c_own(wasm_func_new_with_env(store->store.get(),
+                                          functype->functype.get(), inner.shim,
+                                          func_env.get(), inner.finalizer)),
+        std::move(func_env)));
   }
 
   auto copy() const -> own<Func> {
-    return make_own(
-        new WasmerFunc(make_c_own(wasm_func_copy(func.get())), func_env));
+    auto func_env =
+        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
+            *this->func_env);
+    return make_own(new WasmerFunc(make_c_own(wasm_func_copy(func.get())),
+                                   std::move(func_env)));
   }
 
   auto type() const -> own<FuncType> {
@@ -1248,7 +1258,7 @@ public:
     */
   }
 
-  std::variant<std::monostate, WasmerFuncEnv, WasmerFuncEnvWithEnv> func_env;
+  std::unique_ptr<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>> func_env;
   c_own<wasm_func_t> func;
 };
 
