@@ -9,7 +9,9 @@ use std::string::ToString;
 pub struct Hash([u8; 32]);
 
 impl Hash {
-    /// Creates a new hash. Has to be encodable as a hex format.
+    /// Creates a new instance from 32 raw bytes.
+    /// Does not perform any hashing. In order to create a hash from data,
+    /// use `Hash::generate`.
     pub fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
