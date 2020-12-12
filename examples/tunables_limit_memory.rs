@@ -28,7 +28,7 @@ impl<T: Tunables> LimitingTunables<T> {
         Self { limit, base }
     }
 
-    /// Takes in input memory type as requested by the guest and sets
+    /// Takes an input memory type as requested by the guest and sets
     /// a maximum if missing. The resulting memory type is final if
     /// valid. However, this can produce invalid types, such that
     /// validate_memory must be called before creating the memory.
