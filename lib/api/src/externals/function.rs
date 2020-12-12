@@ -53,7 +53,7 @@ pub enum FunctionDefinition {
 /// The module instance is used to resolve references to other definitions
 /// during execution of the function.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#function-instances>
 ///
 /// # Panics
 /// - Closures (functions with captured environments) are not currently supported

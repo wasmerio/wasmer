@@ -2723,6 +2723,7 @@ version = "1.0.0-beta1"
 dependencies = [
  "cranelift-entity 0.68.0",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

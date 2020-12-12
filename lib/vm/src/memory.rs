@@ -318,7 +318,7 @@ impl Memory for LinearMemory {
         unsafe {
             let md_ptr = self.get_vm_memory_definition();
             let md = md_ptr.as_ref();
-            Bytes::from(md.current_length).into()
+            Bytes::from(md.current_length).try_into().unwrap()
         }
     }
 
@@ -376,7 +376,7 @@ impl Memory for LinearMemory {
                     .checked_add(guard_bytes)
                     .ok_or_else(|| MemoryError::CouldNotGrow {
                         current: new_pages,
-                        attempted_delta: Bytes(guard_bytes).into(),
+                        attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
                     })?;
 
             let mut new_mmap =

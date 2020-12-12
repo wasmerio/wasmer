@@ -82,6 +82,12 @@ impl V128 {
     }
 }
 
+impl From<[u8; 16]> for V128 {
+    fn from(array: [u8; 16]) -> Self {
+        Self(array)
+    }
+}
+
 impl From<&[u8]> for V128 {
     fn from(slice: &[u8]) -> Self {
         assert_eq!(slice.len(), 16);

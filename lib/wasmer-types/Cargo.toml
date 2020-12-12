@@ -15,6 +15,7 @@ edition = "2018"
 # some useful data structures
 cranelift-entity = "0.68"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
+thiserror = "1.0"
 
 [features]
 default = ["std", "enable-serde"]
