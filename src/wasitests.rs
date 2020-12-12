@@ -78,7 +78,7 @@ fn generate_native_output(
         .spawn()
         .unwrap();
 
-    if let Some(stdin_str) = &options.provide_stdin {
+    if let Some(stdin_str) = &options.stdin {
         write!(native_command.stdin.as_ref().unwrap(), "{}", stdin_str).unwrap();
     }
 
@@ -335,8 +335,8 @@ impl WasiTest {
         }
 
         out += &format!("\n  (assert_return (i64.const {}))", self.result);
-        if let Some(provide_stdin) = &self.options.provide_stdin {
-            out += &format!("\n  (provide_stdin {:?})", provide_stdin);
+        if let Some(stdin) = &self.options.stdin {
+            out += &format!("\n  (stdin {:?})", stdin);
         }
 
         if !self.stdout.is_empty() {
@@ -366,7 +366,7 @@ pub struct WasiOptions {
     /// The alias of the temporary directory to use
     pub tempdir: Vec<String>,
     /// Stdin to give to the native program and WASI program.
-    pub provide_stdin: Option<String>,
+    pub stdin: Option<String>,
 }
 
 /// Pulls args to the program out of a comment at the top of the file starting with "// WasiOptions:"
@@ -390,6 +390,11 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
 
             match command_name.as_ref() {
                 "mapdir" => {
+                    // We try first splitting by `::`
+                    if let [alias, real_dir] = value.split("::").collect::<Vec<&str>>()[..] {
+                        args.mapdir.push((alias.to_string(), real_dir.to_string()));
+                    } else
+                    // And then we try splitting by `:` (for compatibility with previous API)
                     if let [alias, real_dir] = value.split(':').collect::<Vec<&str>>()[..] {
                         args.mapdir.push((alias.to_string(), real_dir.to_string()));
                     } else {
@@ -412,17 +417,15 @@ fn extract_args_from_source_file(source_code: &str) -> Option<WasiOptions> {
                 "tempdir" => {
                     args.tempdir.push(value.to_string());
                 }
-                "provide_stdin" => {
-                    assert!(args.provide_stdin.is_none(), "Only the first `provide_stdin` directive is used! Please correct this or update this code");
+                "stdin" => {
+                    assert!(args.stdin.is_none(), "Only the first `stdin` directive is used! Please correct this or update this code");
                     let s = value;
-                    let s = s
-                        .strip_prefix('"')
-                        .expect("expected leading '\"' in provide_stdin");
+                    let s = s.strip_prefix('"').expect("expected leading '\"' in stdin");
                     let s = s
                         .trim_end()
                         .strip_suffix("\"")
-                        .expect("expected trailing '\"' in provide_stdin");
-                    args.provide_stdin = Some(s.to_string());
+                        .expect("expected trailing '\"' in stdin");
+                    args.stdin = Some(s.to_string());
                 }
                 e => {
                     eprintln!("WARN: comment arg: `{}` is not supported", e);

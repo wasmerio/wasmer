@@ -1,5 +1,5 @@
 // WASI:
-// provide_stdin: "Hello, world!"
+// stdin: "Hello, world!"
 
 use std::io;
 
