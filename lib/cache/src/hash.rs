@@ -20,7 +20,7 @@ impl Hash {
         Self::new(hash.into())
     }
 
-    pub(crate) fn into_array(self) -> [u8; 32] {
+    pub(crate) fn to_array(&self) -> [u8; 32] {
         self.0
     }
 }
@@ -29,7 +29,7 @@ impl ToString for Hash {
     /// Create the hexadecimal representation of the
     /// stored hash.
     fn to_string(&self) -> String {
-        hex::encode(&self.into_array())
+        hex::encode(&self.to_array())
     }
 }
 
@@ -60,13 +60,13 @@ mod tests {
     use super::*;
 
     #[test]
-    fn hash_into_array_works() {
+    fn hash_to_array_works() {
         let original = [
             0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
             0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD,
             0xEE, 0xFF, 0x12, 0x65,
         ];
         let hash = Hash::new(original);
-        assert_eq!(hash.into_array(), original);
+        assert_eq!(hash.to_array(), original);
     }
 }
