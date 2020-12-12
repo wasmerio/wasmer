@@ -29,7 +29,7 @@ impl ToString for Hash {
     /// Create the hexadecimal representation of the
     /// stored hash.
     fn to_string(&self) -> String {
-        hex::encode(&self.into_array() as &[u8])
+        hex::encode(&self.into_array())
     }
 }
 
