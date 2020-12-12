@@ -21,9 +21,7 @@ impl Hash {
     }
 
     pub(crate) fn into_array(self) -> [u8; 32] {
-        let mut total = [0u8; 32];
-        total[0..32].copy_from_slice(&self.0);
-        total
+        self.0
     }
 }
 
@@ -54,5 +52,21 @@ impl FromStr for Hash {
         Ok(Self(bytes[0..32].try_into().map_err(|e| {
             DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
         })?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_into_array_works() {
+        let original = [
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+            0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD,
+            0xEE, 0xFF, 0x12, 0x65,
+        ];
+        let hash = Hash::new(original);
+        assert_eq!(hash.into_array(), original);
     }
 }
