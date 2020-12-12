@@ -21,7 +21,7 @@ pub struct WasiTest<'a> {
     mapped_dirs: Vec<(&'a str, &'a str)>,
     temp_dirs: Vec<&'a str>,
     assert_return: Option<AssertReturn>,
-    provide_stdin: Option<ProvideStdin<'a>>,
+    stdin: Option<Stdin<'a>>,
     assert_stdout: Option<AssertStdout<'a>>,
     assert_stderr: Option<AssertStderr<'a>>,
 }
@@ -86,7 +86,7 @@ impl<'a> WasiTest<'a> {
         let instance = Instance::new(&module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
-        if let Some(stdin) = &self.provide_stdin {
+        if let Some(stdin) = &self.stdin {
             let mut state = env.state();
             let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
             // Then we can write to it!
@@ -190,7 +190,7 @@ mod wasi_kw {
     wast::custom_keyword!(map_dirs);
     wast::custom_keyword!(temp_dirs);
     wast::custom_keyword!(assert_return);
-    wast::custom_keyword!(provide_stdin);
+    wast::custom_keyword!(stdin);
     wast::custom_keyword!(assert_stdout);
     wast::custom_keyword!(assert_stderr);
     wast::custom_keyword!(fake_i64_const = "i64.const");
@@ -240,8 +240,8 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 None
             };
 
-            let provide_stdin = if parser.peek2::<wasi_kw::provide_stdin>() {
-                Some(parser.parens(|p| p.parse::<ProvideStdin>())?)
+            let stdin = if parser.peek2::<wasi_kw::stdin>() {
+                Some(parser.parens(|p| p.parse::<Stdin>())?)
             } else {
                 None
             };
@@ -266,7 +266,7 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 mapped_dirs,
                 temp_dirs,
                 assert_return,
-                provide_stdin,
+                stdin,
                 assert_stdout,
                 assert_stderr,
             })
@@ -388,13 +388,13 @@ impl<'a> Parse<'a> for AssertReturn {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
-struct ProvideStdin<'a> {
+struct Stdin<'a> {
     stream: &'a str,
 }
 
-impl<'a> Parse<'a> for ProvideStdin<'a> {
+impl<'a> Parse<'a> for Stdin<'a> {
     fn parse(parser: Parser<'a>) -> parser::Result<Self> {
-        parser.parse::<wasi_kw::provide_stdin>()?;
+        parser.parse::<wasi_kw::stdin>()?;
         Ok(Self {
             stream: parser.parse()?,
         })
@@ -441,7 +441,7 @@ mod test {
                     (args "hello" "world" "--help")
                     (preopens "." "src/io")
                     (assert_return (i64.const 0))
-                    (provide_stdin "This is another \"string\" inside a string!")
+                    (stdin "This is another \"string\" inside a string!")
                     (assert_stdout "This is a \"string\" inside a string!")
                     (assert_stderr "")
 )"#,
@@ -461,7 +461,7 @@ mod test {
             "This is a \"string\" inside a string!"
         );
         assert_eq!(
-            result.provide_stdin.unwrap().stream,
+            result.stdin.unwrap().stream,
             "This is another \"string\" inside a string!"
         );
         assert_eq!(result.assert_stderr.unwrap().expected, "");
