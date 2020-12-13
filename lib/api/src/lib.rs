@@ -358,7 +358,7 @@ pub use wasmer_compiler_singlepass::Singlepass;
 pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 
 #[cfg(feature = "llvm")]
-pub use wasmer_compiler_llvm::LLVM;
+pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
 #[cfg(feature = "jit")]
 pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};
