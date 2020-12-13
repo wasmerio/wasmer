@@ -2465,7 +2465,6 @@ version = "1.0.0-beta1"
 dependencies = [
  "blake3",
  "hex",
- "memmap",
  "thiserror",
  "wasmer",
 ]
