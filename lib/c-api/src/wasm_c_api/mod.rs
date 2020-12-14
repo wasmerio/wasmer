@@ -21,6 +21,7 @@
 //! Every module comes with examples and entry points to guide the
 //! discovery of this API.
 
+/// Private Rust macros.
 #[macro_use]
 pub mod macros;
 
