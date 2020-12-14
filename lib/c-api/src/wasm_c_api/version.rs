@@ -35,7 +35,7 @@ pub unsafe extern "C" fn wasmer_version() -> *const c_char {
 
 /// Get the major version of the Wasmer C API.
 ///
-/// See `wasmer_version` to learn more.
+/// See [`wasmer_version`] to learn more.
 ///
 /// # Example
 ///
