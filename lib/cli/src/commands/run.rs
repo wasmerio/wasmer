@@ -54,6 +54,12 @@ pub struct Run {
     #[structopt(flatten)]
     wasi: Wasi,
 
+    /// Allow the Wasm module to be executed in an unsandboxed way with
+    /// the `Emscripten` ABI.
+    #[cfg(feature = "emscripten")]
+    #[structopt(long = "allow-emscripten")]
+    allow_emscripten: bool,
+
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
     #[structopt(long = "enable-io-devices")]
@@ -114,6 +120,9 @@ impl Run {
             };
             // TODO: refactor this
             if is_emscripten_module(&module) {
+                if !self.allow_emscripten {
+                    bail!("Emscripten Wasm module detected, please opt-in to running this in an unsandboxed way with `--allow-emscripten`");
+                }
                 let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
