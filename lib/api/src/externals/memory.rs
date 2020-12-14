@@ -22,7 +22,7 @@ use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
 /// A memory created by the host or in WebAssembly code will be accessible and
 /// mutable from both host and WebAssembly.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
 #[derive(Debug, Clone)]
 pub struct Memory {
     store: Store,

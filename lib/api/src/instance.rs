@@ -16,7 +16,7 @@ use wasmer_vm::{InstanceHandle, VMContext};
 /// functions, memories, tables and globals that allow
 /// interacting with WebAssembly.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#module-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#module-instances>
 #[derive(Clone)]
 pub struct Instance {
     handle: Arc<Mutex<InstanceHandle>>,
