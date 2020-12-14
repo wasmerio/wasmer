@@ -753,8 +753,7 @@ impl InstanceRef {
     /// and correctly initialized pointer to `Instance`. See
     /// [`InstanceAllocator`] for an example of how to correctly use
     /// this API.
-    /// TODO: update docs
-    pub(crate) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
+    pub(self) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
         Self {
             strong: Arc::new(atomic::AtomicUsize::new(1)),
             instance_layout,
