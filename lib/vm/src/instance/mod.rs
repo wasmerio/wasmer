@@ -692,27 +692,18 @@ impl Instance {
     }
 }
 
-/// TODO: update these docs
-/// An `InstanceRef` is responsible to allocate, to deallocate,
+/// An `InstanceRef` is responsible to properly deallocate,
 /// and to give access to an `Instance`, in such a way that `Instance`
 /// is unique, can be shared, safely, across threads, without
 /// duplicating the pointer in multiple locations. `InstanceRef`
 /// must be the only “owner” of an `Instance`.
 ///
 /// Consequently, one must not share `Instance` but
-/// `InstanceRef`. It acts like an Atomically Reference Counted
+/// `InstanceRef`. It acts like an Atomically Reference Counter
 /// to `Instance`. In short, `InstanceRef` is roughly a
 /// simplified version of `std::sync::Arc`.
 ///
-/// It is important to remind that `Instance` is dynamically-sized
-/// based on `VMOffsets`: The `Instance.vmctx` field represents a
-/// dynamically-sized array that extends beyond the nominal end of the
-/// type. So in order to create an instance of it, we must:
-///
-/// 1. Define the correct layout for `Instance` (size and alignment),
-/// 2. Allocate it properly.
-///
-/// This allocation must be freed with [`InstanceRef::deallocate_instance`]
+/// This `InstanceRef` must be freed with [`InstanceRef::deallocate_instance`]
 /// if and only if it has been set correctly. The `Drop` implementation of
 /// [`InstanceRef`] calls its `deallocate_instance` method without
 /// checking if this  property holds, only when `Self.strong` is equal to 1.
@@ -752,17 +743,15 @@ pub struct InstanceRef {
 }
 
 impl InstanceRef {
-    /// Create a new `InstanceRef`. It allocates nothing. It
-    /// fills nothing. The `Instance` must be already valid and
-    /// filled. `self_ptr` and `self_layout` must be the pointer and
-    /// the layout returned by `Self::allocate_self` used to build
-    /// `Self`.
+    /// Create a new `InstanceRef`. It allocates nothing. It fills
+    /// nothing. The `Instance` must be already valid and
+    /// filled.
     ///
     /// # Safety
     ///
     /// `instance` must a non-null, non-dangling, properly aligned,
     /// and correctly initialized pointer to `Instance`. See
-    /// [`InstanceAllocator::new`] for an example of how to correctly use
+    /// [`InstanceAllocator`] for an example of how to correctly use
     /// this API.
     /// TODO: update docs
     pub(crate) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
@@ -917,12 +906,12 @@ impl Drop for InstanceRef {
 /// providing useful higher-level API.
 #[derive(Debug, PartialEq)]
 pub struct InstanceHandle {
-    /// The `InstanceRef`. See its documentation to learn more.
+    /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,
 }
 
 impl InstanceHandle {
-    /// Create a new `InstanceHandle` pointing at a new `InstanceRef`.
+    /// Create a new `InstanceHandle` pointing at a new [`InstanceRef`].
     ///
     /// # Safety
     ///
@@ -983,10 +972,10 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
 
-            let instance_allocator = allocator.write_instance(instance);
+            let instance_ref = allocator.write_instance(instance);
 
             Self {
-                instance: instance_allocator,
+                instance: instance_ref,
             }
         };
         let instance = handle.instance().as_ref();

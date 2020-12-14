@@ -14,6 +14,14 @@ use wasmer_types::{LocalMemoryIndex, LocalTableIndex};
 /// This type will free the allocated memory if it's dropped before
 /// being used.
 ///
+/// It is important to remind that [`Instance`] is dynamically-sized
+/// based on `VMOffsets`: The `Instance.vmctx` field represents a
+/// dynamically-sized array that extends beyond the nominal end of the
+/// type. So in order to create an instance of it, we must:
+///
+/// 1. Define the correct layout for `Instance` (size and alignment),
+/// 2. Allocate it properly.
+///
 /// The [`InstanceAllocator::instance_layout`] computes the correct
 /// layout to represent the wanted [`Instance`].
 ///
@@ -21,11 +29,14 @@ use wasmer_types::{LocalMemoryIndex, LocalTableIndex};
 pub struct InstanceAllocator {
     /// The buffer that will contain the [`Instance`] and dynamic fields.
     instance_ptr: NonNull<Instance>,
+
     /// The layout of the `instance_ptr` buffer.
     instance_layout: Layout,
+
     /// Information about the offsets into the `instance_ptr` buffer for
     /// the dynamic fields.
     offsets: VMOffsets,
+
     /// Whether or not this type has transferred ownership of the
     /// `instance_ptr` buffer. If it has not when being dropped,
     /// the buffer should be freed.
@@ -38,6 +49,7 @@ impl Drop for InstanceAllocator {
             // If `consumed` has not been set, then we still have ownership
             // over the buffer and must free it.
             let instance_ptr = self.instance_ptr.as_ptr();
+
             unsafe {
                 std::alloc::dealloc(instance_ptr as *mut u8, self.instance_layout);
             }
@@ -56,7 +68,7 @@ impl InstanceAllocator {
     pub fn new(
         module: &ModuleInfo,
     ) -> (
-        InstanceAllocator,
+        Self,
         Vec<NonNull<VMMemoryDefinition>>,
         Vec<NonNull<VMTableDefinition>>,
     ) {
@@ -110,9 +122,10 @@ impl InstanceAllocator {
     /// memory in the VM.
     ///
     /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the
-    ///   offsets in `offsets` point to valid locations in memory,
-    ///   i.e. `instance_ptr` must have been allocated by
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn memory_definition_locations(&self) -> Vec<NonNull<VMMemoryDefinition>> {
         let num_memories = self.offsets.num_local_memories;
@@ -143,9 +156,10 @@ impl InstanceAllocator {
     /// memory in the VM.
     ///
     /// # Safety
-    /// - `instance_ptr` must point to enough memory that all of the
-    ///   offsets in `offsets` point to valid locations in memory,
-    ///   i.e. `instance_ptr` must have been allocated by
+    ///
+    /// - `Self.instance_ptr` must point to enough memory that all of
+    ///   the offsets in `Self.offsets` point to valid locations in
+    ///   memory, i.e. `Self.instance_ptr` must have been allocated by
     ///   `Self::new`.
     unsafe fn table_definition_locations(&self) -> Vec<NonNull<VMTableDefinition>> {
         let num_tables = self.offsets.num_local_tables;
@@ -169,16 +183,17 @@ impl InstanceAllocator {
         out
     }
 
-    /// Finish preparing by writing the [`Instance`] into memory.
+    /// Finish preparing by writing the [`Instance`] into memory, and
+    /// consume this `InstanceAllocator`.
     pub(crate) fn write_instance(mut self, instance: Instance) -> InstanceRef {
-        // prevent the old state's drop logic from being called as we
+        // Prevent the old state's drop logic from being called as we
         // transition into the new state.
         self.consumed = true;
 
         unsafe {
-            // `instance` is moved at `instance_ptr`. This pointer has
-            // been allocated by `Self::allocate_instance` (so by
-            // `InstanceRef::allocate_instance`.
+            // `instance` is moved at `Self.instance_ptr`. This
+            // pointer has been allocated by `Self::allocate_instance`
+            // (so by `InstanceRef::allocate_instance`).
             ptr::write(self.instance_ptr.as_ptr(), instance);
             // Now `instance_ptr` is correctly initialized!
         }
