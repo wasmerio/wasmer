@@ -46,6 +46,8 @@ pub mod types;
 /// cbindgen:ignore
 pub mod value;
 
+pub mod version;
+
 #[cfg(feature = "wasi")]
 pub mod wasi;
 

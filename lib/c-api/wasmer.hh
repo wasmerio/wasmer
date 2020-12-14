@@ -1,8 +1,8 @@
 // The Wasmer C/C++ header file.
 
-#if !defined(WASMER_H_MACROS)
+#if !defined(WASMER_H_PRELUDE)
 
-#define WASMER_H_MACROS
+#define WASMER_H_PRELUDE
 
 // Define the `ARCH_X86_X64` constant.
 #if defined(MSVC) && defined(_M_AMD64)
@@ -30,7 +30,15 @@
 
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-#endif // WASMER_H_MACROS
+
+// This file corresponds to the following Wasmer version.
+#define WASMER_VERSION "1.0.0-beta1"
+#define WASMER_VERSION_MAJOR 1
+#define WASMER_VERSION_MINOR 0
+#define WASMER_VERSION_PATCH 0
+#define WASMER_VERSION_PRE "beta1"
+
+#endif // WASMER_H_PRELUDE
 
 
 //
@@ -1172,6 +1180,118 @@ wasmer_result_t wasmer_trap(const wasmer_instance_context_t *_ctx, const char *e
 /// }
 /// ```
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
+
+/// Get the version of the Wasmer C API.
+///
+/// The `.h` files already define variables like `WASMER_VERSION*`,
+/// but if this file is unreachable, one can use this function to
+/// retrieve the full semver version of the Wasmer C API.
+///
+/// The returned string is statically allocated. It must _not_ be
+/// freed!
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Get and print the version.
+///     const char* version = wasmer_version();
+///     printf("%s", version);
+///
+///     // No need to free the string. It's statically allocated on
+///     // the Rust side.
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(env!("CARGO_PKG_VERSION"));
+/// # }
+/// ```
+const char *wasmer_version();
+
+/// Get the major version of the Wasmer C API.
+///
+/// See `wasmer_version` to learn more.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Get and print the version components.
+///     uint8_t version_major = wasmer_version_major();
+///     uint8_t version_minor = wasmer_version_minor();
+///     uint8_t version_patch = wasmer_version_patch();
+///
+///     printf("%d.%d.%d", version_major, version_minor, version_patch);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(
+/// #         format!(
+/// #             "{}.{}.{}",
+/// #             env!("CARGO_PKG_VERSION_MAJOR"),
+/// #             env!("CARGO_PKG_VERSION_MINOR"),
+/// #             env!("CARGO_PKG_VERSION_PATCH")
+/// #         )
+/// #     );
+/// # }
+/// ```
+uint8_t wasmer_version_major();
+
+/// Get the minor version of the Wasmer C API.
+///
+/// See `wasmer_version_major` to learn more and get an example.
+uint8_t wasmer_version_minor();
+
+/// Get the patch version of the Wasmer C API.
+///
+/// See `wasmer_version_major` to learn more and get an example.
+uint8_t wasmer_version_patch();
+
+/// Get the minor version of the Wasmer C API.
+///
+/// See `wasmer_version_major` to learn more.
+///
+/// The returned string is statically allocated. It must _not_ be
+/// freed!
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Get and print the pre version.
+///     const char* version_pre = wasmer_version_pre();
+///     printf("%s", version_pre);
+///
+///     // No need to free the string. It's statically allocated on
+///     // the Rust side.
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(env!("CARGO_PKG_VERSION_PRE"));
+/// # }
+/// ```
+const char *wasmer_version_pre();
 
 #if defined(WASMER_WASI_ENABLED)
 /// Convenience function that creates a WASI import object with no arguments,
