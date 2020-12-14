@@ -276,5 +276,39 @@ pub mod wasi;
 
 pub mod wasmer;
 
+/// Wasmer-specific API to transform the WAT format into Wasm bytes.
+///
+/// It is used mostly for testing or for small program purposes.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Our WAT module.
+///     wasm_byte_vec_t wat;
+///     wasm_byte_vec_new(&wat, 8, "(module)");
+///
+///     // Our Wasm bytes.
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&wat, &wasm);
+///
+///     // It works!
+///     assert(wasm.size > 0);
+///
+///     // Free everything.
+///     wasm_byte_vec_delete(&wasm);
+///     wasm_byte_vec_delete(&wat);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[cfg(feature = "wat")]
 pub mod wat;
