@@ -1,4 +1,13 @@
-//! Entrypoints for the standard C API
+//! Implementation of the [official WebAssembly C
+//! API](https://github.com/WebAssembly/wasm-c-api) for Wasmer.
+//!
+//! We would like to remind the reader that this official standard can
+//! be characterized as a _living standard_. As such, the API is not
+//! yet stable, even though it shows maturity over time. The API is
+//! described by the `wasm.h` C header, which is included by
+//! `wasmer_wasm.h` C header file (which contains extension of the
+//! standard API, for example to provide WASI or vendor-specific
+//! features).
 
 #[macro_use]
 pub mod macros;
