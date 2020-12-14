@@ -27,27 +27,7 @@ lazy_static! {
 ///
 /// # Example
 ///
-/// ```rust
-/// # use inline_c::assert_c;
-/// # fn main() {
-/// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
-/// #
-/// int main() {
-///     // Get and print the version.
-///     const char* version = wasmer_version();
-///     printf("%s", version);
-///
-///     // No need to free the string. It's statically allocated on
-///     // the Rust side.
-///
-///     return 0;
-/// }
-/// #    })
-/// #    .success()
-/// #    .stdout(env!("CARGO_PKG_VERSION"));
-/// # }
-/// ```
+/// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_version() -> *const c_char {
     VERSION.as_ptr() as *const _
@@ -94,7 +74,7 @@ pub unsafe extern "C" fn wasmer_version_major() -> u8 {
 
 /// Get the minor version of the Wasmer C API.
 ///
-/// See `wasmer_version_major` to learn more and get an example.  
+/// See [`wasmer_version_major`] to learn more and get an example.  
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_version_minor() -> u8 {
     *VERSION_MINOR
@@ -102,7 +82,7 @@ pub unsafe extern "C" fn wasmer_version_minor() -> u8 {
 
 /// Get the patch version of the Wasmer C API.
 ///
-/// See `wasmer_version_major` to learn more and get an example.  
+/// See [`wasmer_version_major`] to learn more and get an example.  
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
     *VERSION_PATCH
@@ -110,7 +90,7 @@ pub unsafe extern "C" fn wasmer_version_patch() -> u8 {
 
 /// Get the minor version of the Wasmer C API.
 ///
-/// See `wasmer_version_major` to learn more.
+/// See [`wasmer_version_major`] to learn more.
 ///
 /// The returned string is statically allocated. It must _not_ be
 /// freed!

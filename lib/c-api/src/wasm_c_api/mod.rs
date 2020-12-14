@@ -233,6 +233,42 @@ pub mod types;
 /// cbindgen:ignore
 pub mod value;
 
+/// Wasmer-specific API to get or query the version of this Wasm C API.
+///
+/// The `wasmer_wasm.h` file provides the `WASMER_VERSION`,
+/// `WASMER_VERSION_MAJOR`, `WASMER_VERSION_MINOR`,
+/// `WASMER_VERSION_PATCH` and `WASMER_VERSION_PRE`
+/// constants. However, in absence of this header file, it is possible
+/// to retrieve the same information with their respective functions,
+/// namely [`wasmer_version`][version::wasmer_version],
+/// [`wasmer_version_major`][version::wasmer_version_major],
+/// [`wasmer_version_minor`][version::wasmer_version_minor],
+/// [`wasmer_version_patch`][version::wasmer_version_patch], and
+/// [`wasmer_version_pre`][version::wasmer_version_pre].
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Get and print the version.
+///     const char* version = wasmer_version();
+///     printf("%s", version);
+///
+///     // No need to free the string. It's statically allocated on
+///     // the Rust side.
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(env!("CARGO_PKG_VERSION"));
+/// # }
+/// ```
 pub mod version;
 
 #[cfg(feature = "wasi")]
