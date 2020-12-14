@@ -176,6 +176,50 @@ pub mod instance;
 /// cbindgen:ignore
 pub mod module;
 
+/// A store represents all global state that can be manipulated by
+/// WebAssembly programs. It consists of the runtime representation of
+/// all instances of functions, tables, memories, and globals that
+/// have been allocated during the lifetime of the abstract machine.
+///
+/// The store holds the [engine] (that is —amonst many things— used to
+/// compile the Wasm bytes into a valid [module] artifact), in addition
+/// to extra private types.
+///
+/// Entry points: A store is created with
+/// [`wasm_store_new`][store::wasm_store_new] and freed with
+/// [`wasm_store_delete`][store::wasm_store_delete]. To customize the
+/// engine the store holds, see
+/// [`wasm_config_new`][config::wasm_config_new].
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new();
+///
+///     // Create the store.
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // It works!
+///     assert(store);
+///    
+///     // Free everything.
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
 /// cbindgen:ignore
 pub mod store;
 
