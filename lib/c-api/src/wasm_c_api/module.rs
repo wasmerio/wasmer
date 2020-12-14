@@ -44,7 +44,7 @@ pub unsafe extern "C" fn wasm_module_new(
     }))
 }
 
-/// Destruct a WebAssembly module.
+/// Deletes a WebAssembly module.
 ///
 /// # Example
 ///
