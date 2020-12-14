@@ -27,42 +27,7 @@ pub struct wasm_module_t {
 ///
 /// # Example
 ///
-/// ```rust
-/// # use inline_c::assert_c;
-/// # fn main() {
-/// #    (assert_c! {
-/// # #include "tests/wasmer_wasm.h"
-/// #
-/// int main() {
-///     // Create the engine and the store.
-///     wasm_engine_t* engine = wasm_engine_new();
-///     wasm_store_t* store = wasm_store_new(engine);
-///
-///     // Create a WebAssembly module from a WAT definition.
-///     wasm_byte_vec_t wat;
-///     wasmer_byte_vec_new_from_string(&wat, "(module)");
-///     wasm_byte_vec_t wasm;
-///     wat2wasm(&wat, &wasm);
-///    
-///     // Create the module.
-///     wasm_module_t* module = wasm_module_new(store, &wasm);
-
-///     // It works!
-///     assert(module);
-///    
-///     // Free everything.
-///     wasm_byte_vec_delete(&wasm);
-///     wasm_byte_vec_delete(&wat);
-///     wasm_module_delete(module);
-///     wasm_store_delete(store);
-///     wasm_engine_delete(engine);
-///
-///     return 0;
-/// }
-/// #    })
-/// #    .success();
-/// # }
-/// ```
+/// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_new(
     store: Option<&wasm_store_t>,
@@ -83,15 +48,15 @@ pub unsafe extern "C" fn wasm_module_new(
 ///
 /// # Example
 ///
-/// See `wasm_module_new`.
+/// See [`wasm_module_new`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>) {}
 
 /// Validates a new WebAssembly module given the configuration
-/// in the `wasm_store_t`.
+/// in the [store][super::store].
 ///
 /// This validation is normally pretty fast and checks the enabled
-/// WebAssembly features in the store engine (`wasm_engine_t`) to
+/// WebAssembly features in the [store engine][super::engine] to
 /// assure deterministic validation of the module.
 ///
 /// # Example
@@ -530,12 +495,13 @@ pub unsafe extern "C" fn wasm_module_deserialize(
     ))))
 }
 
-/// Serializes a module into a binary representation that the engine
-/// (`wasm_engine_t`) can later process via `wasm_module_deserialize`.
+/// Serializes a module into a binary representation that the
+/// [engine][super::engine] can later process via
+/// [`wasm_module_deserialize`].
 ///
 /// # Example
 ///
-/// See `wasm_module_deserialize`.
+/// See [`wasm_module_deserialize`].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_module_serialize(
     module: &wasm_module_t,

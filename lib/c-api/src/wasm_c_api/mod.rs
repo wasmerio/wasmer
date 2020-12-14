@@ -24,7 +24,7 @@
 #[macro_use]
 pub mod macros;
 
-/// The engine drives the compilation and the runtime.
+/// An engine drives the compilation and the runtime.
 ///
 /// Entry points: A default engine is created with
 /// [`wasm_engine_new`][engine::wasm_engine_new] and freed with
@@ -131,7 +131,47 @@ pub mod instance;
 /// already been compiled and can be instantiated multiple times.
 ///
 /// Entry points: A WebAssembly module is created with
-/// `wasm_module_new` and freed with `wasm_module_delete`.
+/// [`wasm_module_new`][module::wasm_module_new] and freed with
+/// [`wasm_module_delete`][module::wasm_module_delete].
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(&wat, "(module)");
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&wat, &wasm);
+///    
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, &wasm);
+///
+///     // It works!
+///     assert(module);
+///    
+///     // Free everything.
+///     wasm_byte_vec_delete(&wasm);
+///     wasm_byte_vec_delete(&wat);
+///     wasm_module_delete(module);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 ///
 /// cbindgen:ignore
 pub mod module;
