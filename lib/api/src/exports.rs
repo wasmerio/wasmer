@@ -59,6 +59,8 @@ pub enum ExportError {
 
 /// Exports is a special kind of map that allows easily unwrapping
 /// the types of instances.
+///
+/// TODO: add examples of using exports
 #[derive(Clone, Default)]
 pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,

@@ -78,7 +78,7 @@ pub unsafe extern "C" fn wasm_func_new(
 
         Ok(processed_results)
     };
-    let function = Function::new(&store.inner, &func_sig, inner_callback);
+    let function = Function::new(&store.inner, func_sig, inner_callback);
 
     Some(Box::new(wasm_func_t {
         instance: None,
@@ -154,7 +154,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     let function = Function::new_with_env(
         &store.inner,
-        &func_sig,
+        func_sig,
         WrapperEnv { env, finalizer },
         inner_callback,
     );

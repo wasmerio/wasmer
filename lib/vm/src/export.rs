@@ -2,7 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 use crate::global::Global;
-use crate::instance::InstanceAllocator;
+use crate::instance::InstanceRef;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
@@ -49,8 +49,8 @@ pub struct VMExportFunction {
     pub call_trampoline: Option<VMTrampoline>,
 
     /// A “reference” to the instance through the
-    /// `InstanceAllocator`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceAllocator>,
+    /// `InstanceRef`. `None` if it is a host function.
+    pub instance_allocator: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -74,8 +74,8 @@ pub struct VMExportTable {
     pub from: Arc<dyn Table>,
 
     /// A “reference” to the instance through the
-    /// `InstanceAllocator`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceAllocator>,
+    /// `InstanceRef`. `None` if it is a host function.
+    pub instance_allocator: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -120,8 +120,8 @@ pub struct VMExportMemory {
     pub from: Arc<dyn Memory>,
 
     /// A “reference” to the instance through the
-    /// `InstanceAllocator`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceAllocator>,
+    /// `InstanceRef`. `None` if it is a host function.
+    pub instance_allocator: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -166,8 +166,8 @@ pub struct VMExportGlobal {
     pub from: Arc<Global>,
 
     /// A “reference” to the instance through the
-    /// `InstanceAllocator`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceAllocator>,
+    /// `InstanceRef`. `None` if it is a host function.
+    pub instance_allocator: Option<InstanceRef>,
 }
 
 /// # Safety

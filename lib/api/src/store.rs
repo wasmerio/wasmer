@@ -15,7 +15,7 @@ use wasmer_engine::Tunables as BaseTunables;
 /// the Wasm bytes into a valid module artifact), in addition to the
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#store
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,

@@ -38,14 +38,14 @@ mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         pub use alloc::{borrow, boxed, format, rc, slice, string, vec};
-        pub use core::{any, cell, fmt, hash, marker, ops, ptr, sync};
+        pub use core::{any, cell, convert, fmt, hash, marker, ops, ptr, sync};
     }
 
     #[cfg(feature = "std")]
     pub mod std {
         pub use std::{
-            any, borrow, boxed, cell, fmt, format, hash, marker, ops, ptr, rc, slice, string, sync,
-            vec,
+            any, borrow, boxed, cell, convert, fmt, format, hash, marker, ops, ptr, rc, slice,
+            string, sync, vec,
         };
     }
 }
@@ -77,7 +77,9 @@ pub use crate::initializers::{
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::r#ref::{ExternRef, HostInfo, HostRef};
-pub use crate::units::{Bytes, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
+pub use crate::units::{
+    Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+};
 pub use crate::values::Value;
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,

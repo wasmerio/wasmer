@@ -52,7 +52,7 @@ pub enum FunctionDefinition {
 /// The module instance is used to resolve references to other definitions
 /// during execution of the function.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#function-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#function-instances>
 ///
 /// # Panics
 /// - Closures (functions with captured environments) are not currently supported
@@ -69,7 +69,7 @@ pub struct Function {
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value};
@@ -82,11 +82,27 @@ impl Function {
     ///     Ok(vec![Value::I32(sum)])
     /// });
     /// ```
+    ///
+    /// With constant signature:
+    ///
+    /// ```
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value};
+    /// # let store = Store::default();
+    /// #
+    /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
+    ///
+    /// let f = Function::new(&store, I32_I32_TO_I32, |args| {
+    ///     let sum = args[0].unwrap_i32() + args[1].unwrap_i32();
+    ///     Ok(vec![Value::I32(sum)])
+    /// });
+    /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new<F>(store: &Store, ty: &FunctionType, func: F) -> Self
+    pub fn new<FT, F>(store: &Store, ty: FT, func: F) -> Self
     where
+        FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
+        let ty: FunctionType = ty.into();
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
             func: Box::new(func),
             function_type: ty.clone(),
@@ -108,7 +124,7 @@ impl Function {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
-                    signature: ty.clone(),
+                    signature: ty,
                     call_trampoline: None,
                     instance_allocator: None,
                 },
@@ -118,7 +134,7 @@ impl Function {
 
     /// Creates a new host `Function` (dynamic) with the provided signature and environment.
     ///
-    /// # Example
+    /// # Examples
     ///
     /// ```
     /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
@@ -137,12 +153,33 @@ impl Function {
     ///     Ok(vec![Value::I32(result)])
     /// });
     /// ```
+    ///
+    /// With constant signature:
+    ///
+    /// ```
+    /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
+    /// # let store = Store::default();
+    /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
+    ///
+    /// #[derive(WasmerEnv)]
+    /// struct Env {
+    ///   multiplier: i32,
+    /// };
+    /// let env = Env { multiplier: 2 };
+    ///
+    /// let f = Function::new_with_env(&store, I32_I32_TO_I32, env, |env, args| {
+    ///     let result = env.multiplier * (args[0].unwrap_i32() + args[1].unwrap_i32());
+    ///     Ok(vec![Value::I32(result)])
+    /// });
+    /// ```
     #[allow(clippy::cast_ptr_alignment)]
-    pub fn new_with_env<F, Env>(store: &Store, ty: &FunctionType, env: Env, func: F) -> Self
+    pub fn new_with_env<FT, F, Env>(store: &Store, ty: FT, env: Env, func: F) -> Self
     where
+        FT: Into<FunctionType>,
         F: Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
         Env: Sized + WasmerEnv + 'static,
     {
+        let ty: FunctionType = ty.into();
         let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
             env: Box::new(env),
             func: Box::new(func),
@@ -171,7 +208,7 @@ impl Function {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
-                    signature: ty.clone(),
+                    signature: ty,
                     call_trampoline: None,
                     instance_allocator: None,
                 },

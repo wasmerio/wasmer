@@ -33,6 +33,7 @@ const fn align(offset: u32, width: u32) -> u32 {
 /// related structs that JIT code accesses directly.
 ///
 /// [`VMContext`]: crate::vmcontext::VMContext
+#[derive(Clone, Debug)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pub pointer_size: u8,
