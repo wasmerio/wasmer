@@ -250,6 +250,8 @@ fn function_new_env() -> Result<()> {
 #[test]
 fn function_new_dynamic() -> Result<()> {
     let store = Store::default();
+
+    // Using &FunctionType signature
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
@@ -265,6 +267,13 @@ fn function_new_dynamic() -> Result<()> {
     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
+
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new(&store, function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+
     Ok(())
 }
 
@@ -275,6 +284,7 @@ fn function_new_dynamic_env() -> Result<()> {
     struct MyEnv {};
     let my_env = MyEnv {};
 
+    // Using &FunctionType signature
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new_with_env(
         &store,
@@ -315,6 +325,18 @@ fn function_new_dynamic_env() -> Result<()> {
         |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
+
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new_with_env(
+        &store,
+        function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+
     Ok(())
 }
 

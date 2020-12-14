@@ -225,7 +225,7 @@ fn native_function_works_for_wasm_function_manyparams_dynamic() -> Result<()> {
 
     let import_object = imports! {
         "env" => {
-            "longf" => Function::new(&store, &FunctionType::new(vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I64 , ValType::I64 ,ValType::I32, ValType::I32], vec![ValType::I64]), long_f_dynamic),
+            "longf" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I64 , ValType::I64 ,ValType::I32, ValType::I32], vec![ValType::I64]), long_f_dynamic),
         },
     };
 
@@ -377,7 +377,7 @@ fn dynamic_host_function_without_env() -> anyhow::Result<()> {
 
     let f = Function::new(
         &store,
-        &FunctionType::new(
+        FunctionType::new(
             vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
             vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
         ),
@@ -415,7 +415,7 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
     let env = Env(Rc::new(RefCell::new(100)));
     let f = Function::new_with_env(
         &store,
-        &FunctionType::new(
+        FunctionType::new(
             vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
             vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
         ),

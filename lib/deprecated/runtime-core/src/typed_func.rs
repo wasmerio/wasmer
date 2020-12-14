@@ -265,6 +265,7 @@ impl DynamicFunc {
 
         Self {
             new_function: new::wasmer::Function::new_with_env::<
+                _,
                 fn(&DynamicCtx, &[Value]) -> Result<Vec<Value>, RuntimeError>,
                 DynamicCtx,
             >(&get_global_store(), signature, ctx, inner),
