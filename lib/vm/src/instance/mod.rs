@@ -1119,7 +1119,7 @@ impl InstanceHandle {
                     signature,
                     vmctx,
                     call_trampoline,
-                    instance_allocator: Some(instance),
+                    instance_ref: Some(instance),
                 }
                 .into()
             }
@@ -1132,7 +1132,7 @@ impl InstanceHandle {
                 };
                 VMExportTable {
                     from,
-                    instance_allocator: Some(instance),
+                    instance_ref: Some(instance),
                 }
                 .into()
             }
@@ -1145,7 +1145,7 @@ impl InstanceHandle {
                 };
                 VMExportMemory {
                     from,
-                    instance_allocator: Some(instance),
+                    instance_ref: Some(instance),
                 }
                 .into()
             }
@@ -1160,7 +1160,7 @@ impl InstanceHandle {
                 };
                 VMExportGlobal {
                     from,
-                    instance_allocator: Some(instance),
+                    instance_ref: Some(instance),
                 }
                 .into()
             }
