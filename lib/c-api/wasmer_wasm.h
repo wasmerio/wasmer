@@ -310,7 +310,7 @@ int wasmer_last_error_length(void);
 int wasmer_last_error_message(char *buffer, int length);
 
 /**
- * Get the version of Wasmer.
+ * Get the version of the Wasmer C API.
  *
  * The `.h` files already define variables like `WASMER_VERSION*`,
  * but if this file is unreachable, one can use this function to
@@ -344,6 +344,92 @@ int wasmer_last_error_message(char *buffer, int length);
  * ```
  */
 const char *wasmer_version(void);
+
+/**
+ * Get the major version of the Wasmer C API.
+ *
+ * See `wasmer_version` to learn more.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Get and print the version components.
+ *     uint8_t version_major = wasmer_version_major();
+ *     uint8_t version_minor = wasmer_version_minor();
+ *     uint8_t version_patch = wasmer_version_patch();
+ *
+ *     printf("%d.%d.%d", version_major, version_minor, version_patch);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(
+ * #         format!(
+ * #             "{}.{}.{}",
+ * #             env!("CARGO_PKG_VERSION_MAJOR"),
+ * #             env!("CARGO_PKG_VERSION_MINOR"),
+ * #             env!("CARGO_PKG_VERSION_PATCH")
+ * #         )
+ * #     );
+ * # }
+ * ```
+ */
+uint8_t wasmer_version_major(void);
+
+/**
+ * Get the minor version of the Wasmer C API.
+ *
+ * See `wasmer_version_major` to learn more and get an example.
+ */
+uint8_t wasmer_version_minor(void);
+
+/**
+ * Get the patch version of the Wasmer C API.
+ *
+ * See `wasmer_version_major` to learn more and get an example.
+ */
+uint8_t wasmer_version_patch(void);
+
+/**
+ * Get the minor version of the Wasmer C API.
+ *
+ * See `wasmer_version_major` to learn more.
+ *
+ * The returned string is statically allocated. It must _not_ be
+ * freed!
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Get and print the pre version.
+ *     const char* version_pre = wasmer_version_pre();
+ *     printf("%s", version_pre);
+ *
+ *     // No need to free the string. It's statically allocated on
+ *     // the Rust side.
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(env!("CARGO_PKG_VERSION_PRE"));
+ * # }
+ * ```
+ */
+const char *wasmer_version_pre(void);
 
 /**
  * Parses in-memory bytes as either the WAT format, or a binary Wasm
