@@ -14,19 +14,27 @@ using namespace wasm;
 extern "C" {
 WASM_API_EXTERN void wasm_config_delete(wasm_config_t *) { abort(); }
 WASM_API_EXTERN void wasm_foreign_delete(wasm_foreign_t *) { abort(); }
-// WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) { abort(); }
-WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *) {
-  return nullptr;
+WASM_API_EXTERN wasm_ref_t *wasm_module_as_ref(wasm_module_t *ptr) {
+  return (wasm_ref_t *)ptr;
 }
-WASM_API_EXTERN wasm_ref_t *wasm_foreign_as_ref(wasm_foreign_t *) { abort(); }
-// WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { abort(); }
-WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *) { return nullptr; }
-WASM_API_EXTERN wasm_ref_t *wasm_instance_as_ref(wasm_instance_t *) { abort(); }
-WASM_API_EXTERN wasm_ref_t *wasm_trap_as_ref(wasm_trap_t *) { abort(); }
-WASM_API_EXTERN wasm_extern_t *wasm_ref_as_extern(wasm_ref_t *) { abort(); }
+WASM_API_EXTERN wasm_ref_t *wasm_foreign_as_ref(wasm_foreign_t *ptr) {
+  return (wasm_ref_t *)ptr;
+}
+WASM_API_EXTERN wasm_ref_t *wasm_func_as_ref(wasm_func_t *ptr) {
+  return (wasm_ref_t *)wasm_func_as_extern(ptr);
+}
+WASM_API_EXTERN wasm_ref_t *wasm_instance_as_ref(wasm_instance_t *ptr) {
+  return (wasm_ref_t *)ptr;
+}
+WASM_API_EXTERN wasm_ref_t *wasm_trap_as_ref(wasm_trap_t *ptr) {
+  return (wasm_ref_t *)ptr;
+}
+WASM_API_EXTERN wasm_extern_t *wasm_ref_as_extern(wasm_ref_t *ptr) {
+  return (wasm_extern_t *)ptr;
+}
 WASM_API_EXTERN const wasm_extern_t *
-wasm_ref_as_extern_const(const wasm_ref_t *) {
-  abort();
+wasm_ref_as_extern_const(const wasm_ref_t *ptr) {
+  return (wasm_extern_t *)ptr;
 }
 WASM_API_EXTERN wasm_globaltype_t *
 wasm_globaltype_copy(const wasm_globaltype_t *) {
@@ -1306,7 +1314,7 @@ public:
   static auto make(WasmerStore *store, const WasmerModule *module,
                    const vec<Extern *> &imports, own<WasmerTrap> &trap)
       -> own<WasmerInstance> {
-    wasm_trap_t *c_trap;
+    wasm_trap_t *c_trap = nullptr;
     auto c_imports = cxx_vec_to_c_vec(imports.copy(), cxx_extern_to_c_extern);
     auto instance = make_own(new WasmerInstance(make_c_own(wasm_instance_new(
         store->store.get(), module->module.get(), &c_imports, &c_trap))));
