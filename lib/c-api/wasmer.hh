@@ -1181,6 +1181,40 @@ wasmer_result_t wasmer_trap(const wasmer_instance_context_t *_ctx, const char *e
 /// ```
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
+/// Get the version of Wasmer.
+///
+/// The `.h` files already define variables like `WASMER_VERSION*`,
+/// but if this file is unreachable, one can use this function to
+/// retrieve the full semver version of the Wasmer C API.
+///
+/// The returned string is statically allocated. It must _not_ be
+/// freed!
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Get and print the version.
+///     const char* version = wasmer_version();
+///     printf("%s", version);
+///
+///     // No need to free the string. It's statically allocated on
+///     // the Rust side.
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success()
+/// #    .stdout(env!("CARGO_PKG_VERSION"));
+/// # }
+/// ```
+const char *wasmer_version();
+
 #if defined(WASMER_WASI_ENABLED)
 /// Convenience function that creates a WASI import object with no arguments,
 /// environment variables, preopened files, or mapped directories.

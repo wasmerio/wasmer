@@ -310,6 +310,42 @@ int wasmer_last_error_length(void);
 int wasmer_last_error_message(char *buffer, int length);
 
 /**
+ * Get the version of Wasmer.
+ *
+ * The `.h` files already define variables like `WASMER_VERSION*`,
+ * but if this file is unreachable, one can use this function to
+ * retrieve the full semver version of the Wasmer C API.
+ *
+ * The returned string is statically allocated. It must _not_ be
+ * freed!
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Get and print the version.
+ *     const char* version = wasmer_version();
+ *     printf("%s", version);
+ *
+ *     // No need to free the string. It's statically allocated on
+ *     // the Rust side.
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(env!("CARGO_PKG_VERSION"));
+ * # }
+ * ```
+ */
+const char *wasmer_version(void);
+
+/**
  * Parses in-memory bytes as either the WAT format, or a binary Wasm
  * module. This is wasmer-specific.
  *
