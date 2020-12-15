@@ -190,7 +190,7 @@ pub mod module;
 /// [`wasm_store_new`][store::wasm_store_new] and freed with
 /// [`wasm_store_delete`][store::wasm_store_delete]. To customize the
 /// engine the store holds, see
-/// [`wasm_config_new`][config::wasm_config_new].
+/// [`wasm_config_new`][engine::wasm_config_new].
 ///
 /// # Example
 ///
