@@ -2,11 +2,12 @@
 
 use super::module::wasm_module_t;
 use super::types::wasm_name_t;
+use std::ptr;
 use std::str;
 use std::sync::Arc;
 
 /// Non-standard Wasmer-specific API to get the module's name,
-/// otherwise `out` is untouched.
+/// otherwise `out->size` is set to `0` and `out->data` to `NULL`.
 ///
 /// # Example
 ///
@@ -60,7 +61,12 @@ pub unsafe extern "C" fn wasm_module_name(
 ) {
     let name = match module.inner.name() {
         Some(name) => name,
-        None => return,
+        None => {
+            out.data = ptr::null_mut();
+            out.size = 0;
+
+            return;
+        }
     };
 
     *out = name.as_bytes().to_vec().into();
@@ -95,7 +101,6 @@ pub unsafe extern "C" fn wasm_module_name(
 ///     // Read the module's name. There is none for the moment.
 ///     {
 ///         wasm_name_t name;
-///         name.size = 0;
 ///         wasm_module_name(module, &name);
 ///
 ///         assert(name.size == 0);
