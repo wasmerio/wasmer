@@ -69,6 +69,9 @@ pub struct Function {
 impl Function {
     /// Creates a new host `Function` (dynamic) with the provided signature.
     ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Function::new_native`] for less runtime overhead.
+    ///
     /// # Examples
     ///
     /// ```
@@ -133,6 +136,10 @@ impl Function {
     }
 
     /// Creates a new host `Function` (dynamic) with the provided signature and environment.
+    ///
+    /// If you know the signature of the host function at compile time,
+    /// consider using [`Function::new_native_with_env`] for less runtime
+    /// overhead.
     ///
     /// # Examples
     ///
