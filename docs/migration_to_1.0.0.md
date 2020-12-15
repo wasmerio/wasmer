@@ -118,6 +118,10 @@ To get more information on how instantiation now works, have a look at the [dedi
 With Wasmer 0.x passing host functions to the guest was primarily done using the `func!` macro or by directly using 
 `Func::new` or `DynamicFunc::new`.
 
+In Wasmer 1.0 the equivalent of `Func::new` is `Function::new_native` /
+`Function::new_native_with_env` and the equivalent of `DynamicFunc::new` 
+is `Function::new` / `Function::new_with_env`.
+
 Given we have a function like:
 
 ```rust
@@ -141,7 +145,7 @@ let import_object = imports! {
 The above example illustrates how to import what we call "native functions". There were already available in Wasmer 
 0.x through the `func!` macro or with `Func::new`.
 
-There is a second flavor for imported functions: dynamic functions. With Wasmer 0;x you would have created such a 
+There is a second flavor for imported functions: dynamic functions. With Wasmer 0.x you would have created such a 
 function using `DynamicFunc::new`, here is how it's done with Wasmer 1.x:
 
 ```rust
@@ -166,38 +170,37 @@ access to the context of the currently running instance.
 
 With Wasmer 1.0.0 this was changed to provide a simpler yet powerful API.
 
-Let's see an example where we want to have access to the module memory. Here is how we would have done that with Wasmer 
-0.x:
+Let's see an example where we want to have access to the module memory. Here is how that changed from 0.x to 1.0.0:
 
 ```diff
-- let get_at = |ctx: &mut vm::Ctx, idx: i32, len: i32| {
++ #[derive(WasmerEnv, Clone, Default)]
++ struct MyEnv {
++     #[wasmer(export)]
++     memory: LazyInit<Memory>,
++ }
++ let env = MyEnv::default();
++
+- let get_at = |ctx: &mut vm::Ctx, ptr: WasmPtr<u8, Array>, len: u32| {
++ let get_at = |env: &MyEnv, ptr: WasmPtr<u8, Array>, len: u32| {
 -     let mem_desc = ctx.memory(0);
 -     let mem = mem_desc.deref();
-- 
--     println!("Memory: {:?}", mem);
-- 
--     let view: MemoryView<u8> = mem.view();
--     let bytes = view[idx as usize..len as usize].iter().map(Cell::get).collect();
-- 
--     println!("string: {}", String::from_utf8(bytes).unwrap());
-- };
++     let mem = env.memory_ref().unwrap();
+  
+      println!("Memory: {:?}", mem);
+  
+      let string = ptr.get_utf8_string(mem, len).unwrap();
+      println!("string: {}", string);
+  };
 
-- let import_object = imports! {
--     "env" => {
+  let import_object = imports! {
+      "env" => {
 -         "get_at" => func!(get_at),
--     }
-- };
-+ let import_object = imports! {};
++         "get_at" => Function::new_native_with_env(&store, env.clone(), get_at),
+      }
+  };
 
 - let instance = instantiate(wasm_bytes, &import_object)?;
 + let instance = Instance::new(&wasm_bytes, &import_object)?;
-
-+ let memory = instance.exports.get_memory("mem")?;
-+ let get = instance
-+     .exports
-+     .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("get")?;
-+ let (ptr, length) = get.call()?;
-+ let str = ptr.get_utf8_string(memory, length as u32)?;
 ```
 
 Here we have a module which provides one exported function: `get`. Each time we call this function it will in turn 
@@ -207,6 +210,17 @@ The `get_at` function is responsible for reading the guest module-s memory throu
 
 With Wasmer 1.0.0 (where the `vm::Ctx` does not exist anymore) we can achieve the same result with something more 
 natural: we only use imports and exports to read from the memory and write to it.
+
+However in order to provide an easy to use interface, we now have a trait
+that can be implemented with a derive macro: `WasmerEnv`. We must make our
+env types implement `WasmerEnv` and `Clone`. We mark an internal field
+wrapped with `LazyInit` with `#[wasmer(export)]` to indicate that the type
+should be found in the Wasm exports with the name of the field
+(`"memory"`). The derive macro then generates helper functions such as
+`memory_ref` on the type for easy access to these fields.
+
+See the [`WasmerEnv`](https://docs.rs/wasmer/*/wasmer/trait.WasmerEnv.html)
+docs for more information.
 
 Take a look at the following examples to get more details:
 * [Interacting with memory][memory]
@@ -218,6 +232,7 @@ with Wasmer 1.x:
 ```rust
 let shared_counter: Arc<RefCell<i32>> = Arc::new(RefCell::new(0));
 
+#[derive(WasmerEnv, Clone)]
 struct Env {
     counter: Arc<RefCell<i32>>,
 }
