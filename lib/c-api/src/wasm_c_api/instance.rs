@@ -32,6 +32,10 @@ pub struct wasm_instance_t {
 ///
 /// The `store` argument is ignored. The store from the given module
 /// will be used.
+///
+/// # Example
+///
+/// See the module's documentation.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_new(
     _store: Option<&wasm_store_t>,
