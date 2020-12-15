@@ -70,8 +70,20 @@
  * manipulating it.
  */
 typedef enum {
+  /**
+   * Variant to represent the Cranelift compiler. See the
+   * [`wasmer_compiler_cranelift`] Rust crate.
+   */
   CRANELIFT = 0,
+  /**
+   * Variant to represent the LLVM compiler. See the
+   * [`wasmer_compiler_llvm`] Rust crate.
+   */
   LLVM = 1,
+  /**
+   * Variant to represent the Singlepass compiler. See the
+   * [`wasmer_compiler_singlepass`] Rust crate.
+   */
   SINGLEPASS = 2,
 } wasmer_compiler_t;
 #endif
@@ -83,8 +95,20 @@ typedef enum {
  * manipulating it.
  */
 typedef enum {
+  /**
+   * Variant to represent the JIT engine. See the
+   * [`wasmer_engine_jit`] Rust crate.
+   */
   JIT = 0,
+  /**
+   * Variant to represent the Native engine. See the
+   * [`wasmer_engine_native`] Rust crate.
+   */
   NATIVE = 1,
+  /**
+   * Variant to represent the Object File engine. See the
+   * [`wasmer_engine_object_file`] Rust crate.
+   */
   OBJECT_FILE = 2,
 } wasmer_engine_t;
 
@@ -268,12 +292,14 @@ void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 bool wasm_module_set_name(wasm_module_t *module, wasm_name_t *name);
 
 /**
- * Gets the length in bytes of the last error if any.
+ * Gets the length in bytes of the last error if any, zero otherwise.
  *
  * This can be used to dynamically allocate a buffer with the correct number of
  * bytes needed to store a message.
  *
- * See `wasmer_last_error_message()` to get a full example.
+ * # Example
+ *
+ * See this module's documentation to get a complete example.
  */
 int wasmer_last_error_length(void);
 
@@ -283,29 +309,23 @@ int wasmer_last_error_length(void);
  *
  * The `length` parameter must be large enough to store the last
  * error message. Ideally, the value should come from
- * `wasmer_last_error_length()`.
+ * [`wasmer_last_error_length`].
  *
  * The function returns the length of the string in bytes, `-1` if an
  * error occurs. Potential errors are:
  *
- *  * The buffer is a null pointer,
- *  * The buffer is too small to hold the error message.
+ *  * The `buffer` is a null pointer,
+ *  * The `buffer` is too small to hold the error message.
  *
  * Note: The error message always has a trailing NUL character.
  *
- * Example:
+ * Important note: If the provided `buffer` is non-null, once this
+ * function has been called, regardless whether it fails or succeeds,
+ * the error is cleared.
  *
- * ```c
- * int error_length = wasmer_last_error_length();
+ * # Example
  *
- * if (error_length > 0) {
- *     char *error_message = malloc(error_length);
- *     wasmer_last_error_message(error_message, error_length);
- *     printf("Error message: `%s`\n", error_message);
- * } else {
- *     printf("No error message\n");
- * }
- * ```
+ * See this module's documentation to get a complete example.
  */
 int wasmer_last_error_message(char *buffer, int length);
 
@@ -321,34 +341,14 @@ int wasmer_last_error_message(char *buffer, int length);
  *
  * # Example
  *
- * ```rust
- * # use inline_c::assert_c;
- * # fn main() {
- * #    (assert_c! {
- * # #include "tests/wasmer_wasm.h"
- * #
- * int main() {
- *     // Get and print the version.
- *     const char* version = wasmer_version();
- *     printf("%s", version);
- *
- *     // No need to free the string. It's statically allocated on
- *     // the Rust side.
- *
- *     return 0;
- * }
- * #    })
- * #    .success()
- * #    .stdout(env!("CARGO_PKG_VERSION"));
- * # }
- * ```
+ * See the module's documentation.
  */
 const char *wasmer_version(void);
 
 /**
  * Get the major version of the Wasmer C API.
  *
- * See `wasmer_version` to learn more.
+ * See [`wasmer_version`] to learn more.
  *
  * # Example
  *
@@ -386,21 +386,21 @@ uint8_t wasmer_version_major(void);
 /**
  * Get the minor version of the Wasmer C API.
  *
- * See `wasmer_version_major` to learn more and get an example.
+ * See [`wasmer_version_major`] to learn more and get an example.
  */
 uint8_t wasmer_version_minor(void);
 
 /**
  * Get the patch version of the Wasmer C API.
  *
- * See `wasmer_version_major` to learn more and get an example.
+ * See [`wasmer_version_major`] to learn more and get an example.
  */
 uint8_t wasmer_version_patch(void);
 
 /**
  * Get the minor version of the Wasmer C API.
  *
- * See `wasmer_version_major` to learn more.
+ * See [`wasmer_version_major`] to learn more.
  *
  * The returned string is statically allocated. It must _not_ be
  * freed!
@@ -436,6 +436,10 @@ const char *wasmer_version_pre(void);
  * module. This is wasmer-specific.
  *
  * In case of failure, `wat2wasm` sets the `out->data = NULL` and `out->size = 0`.
+ *
+ * # Example
+ *
+ * See the module's documentation.
  */
 void wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
 
