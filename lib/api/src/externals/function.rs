@@ -126,7 +126,7 @@ impl Function {
                     vmctx,
                     signature: ty,
                     call_trampoline: None,
-                    instance_allocator: None,
+                    instance_ref: None,
                 },
             },
         }
@@ -210,7 +210,7 @@ impl Function {
                     vmctx,
                     signature: ty,
                     call_trampoline: None,
-                    instance_allocator: None,
+                    instance_ref: None,
                 },
             },
         }
@@ -264,7 +264,7 @@ impl Function {
                     signature,
                     kind: VMFunctionKind::Static,
                     call_trampoline: None,
-                    instance_allocator: None,
+                    instance_ref: None,
                 },
             },
         }
@@ -334,7 +334,7 @@ impl Function {
                     vmctx,
                     signature,
                     call_trampoline: None,
-                    instance_allocator: None,
+                    instance_ref: None,
                 },
             },
         }
@@ -387,7 +387,7 @@ impl Function {
                     vmctx,
                     signature,
                     call_trampoline: None,
-                    instance_allocator: None,
+                    instance_ref: None,
                 },
             },
         }

@@ -250,7 +250,7 @@ impl<'a> Exportable<'a> for Memory {
         ExportMemory {
             vm_memory: VMExportMemory {
                 from: self.memory.clone(),
-                instance_allocator: None,
+                instance_ref: None,
             },
         }
         .into()

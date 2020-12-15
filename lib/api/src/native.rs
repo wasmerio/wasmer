@@ -75,7 +75,7 @@ where
             signature,
             kind: other.arg_kind,
             call_trampoline: None,
-            instance_allocator: None,
+            instance_ref: None,
         }
     }
 }*/
