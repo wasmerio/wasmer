@@ -89,6 +89,87 @@ pub unsafe extern "C" fn wasm_instance_new(
 pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instance_t>>) {}
 
 /// Gets the exports of the instance.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the engine and the store.
+///     wasm_engine_t* engine = wasm_engine_new();
+///     wasm_store_t* store = wasm_store_new(engine);
+///
+///     // Create a WebAssembly module from a WAT definition.
+///     wasm_byte_vec_t wat;
+///     wasmer_byte_vec_new_from_string(
+///         &wat,
+///         "(module\n"
+///         "  (func (export \"function\") (param i32 i64))\n"
+///         "  (global (export \"global\") i32 (i32.const 7))\n"
+///         "  (table (export \"table\") 0 funcref)\n"
+///         "  (memory (export \"memory\") 1))"
+///     );
+///     wasm_byte_vec_t wasm;
+///     wat2wasm(&wat, &wasm);
+///
+///     // Create the module.
+///     wasm_module_t* module = wasm_module_new(store, &wasm);
+///
+///     // Instantiate the module.
+///     wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+///     wasm_trap_t* traps = NULL;
+///
+///     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+///     assert(instance);
+///
+///     // Read the exports.
+///     wasm_extern_vec_t exports;
+///     wasm_instance_exports(instance, &exports);
+///
+///     // We have 4 of them.
+///     assert(exports.size == 4);
+///
+///     // The first one is a function. Use `wasm_extern_as_func`
+///     // to go further.
+///     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);
+///
+///     // The second one is a global. Use `wasm_extern_as_global` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[1]) == WASM_EXTERN_GLOBAL);
+///
+///     // The third one is a table. Use `wasm_extern_as_table` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[2]) == WASM_EXTERN_TABLE);
+///
+///     // The fourth one is a memory. Use `wasm_extern_as_memory` to
+///     // go further.
+///     assert(wasm_extern_kind(exports.data[3]) == WASM_EXTERN_MEMORY);
+///
+///     // Free everything.
+///     wasm_instance_delete(instance);
+///     wasm_module_delete(module);
+///     wasm_byte_vec_delete(&wasm);
+///     wasm_byte_vec_delete(&wat);
+///     wasm_store_delete(store);
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+///
+/// To go further:
+///
+/// * [`wasm_extern_as_func`][super::externals::wasm_extern_as_func],
+/// * [`wasm_extern_as_global`][super::externals::wasm_extern_as_global],
+/// * [`wasm_extern_as_table`][super::externals::wasm_extern_as_table],
+/// * [`wasm_extern_as_memory`][super::externals::wasm_extern_as_memory].
 #[no_mangle]
 pub unsafe extern "C" fn wasm_instance_exports(
     instance: &wasm_instance_t,
