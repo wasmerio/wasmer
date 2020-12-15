@@ -1,8 +1,6 @@
 // Implementation of the wasm-c-api C++ API for wasmer on top of the Wasmer C++
 // API and the wasm C API.
 
-#include <variant>
-
 #include "wasm.h"
 #include "wasm.hh"
 
@@ -1204,45 +1202,28 @@ class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
   };
 
 public:
-  explicit WasmerFunc(
-      c_own<wasm_func_t> &&func,
-      std::unique_ptr<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>
-          func_env)
+  explicit WasmerFunc(c_own<wasm_func_t> &&func)
       : WasmerExternWrapper(wasm_func_as_ref(func.get()), FUNC),
-        func_env(std::move(func_env)), func(std::move(func)) {}
+        func(std::move(func)) {}
 
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback cb) -> own<Func> {
-    auto func_env =
-        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
-            WasmerFuncEnv{cb});
-    auto &inner = std::get<WasmerFuncEnv>(*func_env);
-    return make_own(new WasmerFunc(
-        make_c_own(wasm_func_new_with_env(store->store.get(),
-                                          functype->functype.get(), inner.shim,
-                                          func_env.get(), inner.finalizer)),
-        std::move(func_env)));
+    auto func_env = new WasmerFuncEnv{cb};
+    return make_own(new WasmerFunc(make_c_own(wasm_func_new_with_env(
+        store->store.get(), functype->functype.get(), &func_env->shim, func_env,
+        &func_env->finalizer))));
   }
   static auto make(WasmerStore *store, const WasmerFuncType *functype,
                    callback_with_env cb, void *env,
                    void (*finalizer)(void *) = nullptr) -> own<Func> {
-    auto func_env =
-        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
-            WasmerFuncEnvWithEnv{cb, finalizer, env});
-    auto &inner = std::get<WasmerFuncEnvWithEnv>(*func_env);
-    return make_own(new WasmerFunc(
-        make_c_own(wasm_func_new_with_env(store->store.get(),
-                                          functype->functype.get(), inner.shim,
-                                          func_env.get(), inner.finalizer)),
-        std::move(func_env)));
+    auto func_env = new WasmerFuncEnvWithEnv{cb, finalizer, env};
+    return make_own(new WasmerFunc(make_c_own(wasm_func_new_with_env(
+        store->store.get(), functype->functype.get(), &func_env->shim, func_env,
+        &func_env->finalizer))));
   }
 
   auto copy() const -> own<Func> {
-    auto func_env =
-        std::make_unique<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>>(
-            *this->func_env);
-    return make_own(new WasmerFunc(make_c_own(wasm_func_copy(func.get())),
-                                   std::move(func_env)));
+    return make_own(new WasmerFunc(make_c_own(wasm_func_copy(func.get()))));
   }
 
   auto type() const -> own<FuncType> {
@@ -1266,7 +1247,6 @@ public:
     */
   }
 
-  std::unique_ptr<std::variant<WasmerFuncEnv, WasmerFuncEnvWithEnv>> func_env;
   c_own<wasm_func_t> func;
 };
 
@@ -1327,7 +1307,15 @@ public:
         new WasmerInstance(make_c_own(wasm_instance_copy(instance.get()))));
   }
 
-  auto exports() const -> ownvec<Extern> { abort(); }
+  auto exports() const -> ownvec<Extern> {
+    own<Extern> c_extern_to_cxx_extern(wasm_extern_t *);
+
+    wasm_extern_vec_t c_externs;
+    wasm_instance_exports(instance.get(), &c_externs);
+    auto ret = c_vec_to_cxx_ownvec(&c_externs, c_extern_to_cxx_extern);
+    wasm_extern_vec_delete(&c_externs);
+    return ret;
+  }
 
   c_own<wasm_instance_t> instance;
 };
@@ -1444,6 +1432,22 @@ auto WasmerExtern::type() const -> own<ExternType> {
   // WasmerTable *>(extern_)->type(); case ExternKind::MEMORY: return
   // static_cast<const WasmerMemory *>(extern_)->type();
   default:
+    abort();
+  }
+}
+
+own<Extern> c_extern_to_cxx_extern(wasm_extern_t *own_extern) {
+  auto c_extern = make_c_own(own_extern);
+  switch (wasm_extern_kind(c_extern.get())) {
+  case WASM_EXTERN_FUNC:
+    return make_own(
+        new WasmerFunc(make_c_own(wasm_extern_as_func(c_extern.release()))));
+    break;
+  case WASM_EXTERN_GLOBAL:
+    abort();
+  case WASM_EXTERN_TABLE:
+    abort();
+  case WASM_EXTERN_MEMORY:
     abort();
   }
 }
