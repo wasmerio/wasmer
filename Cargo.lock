@@ -2433,7 +2433,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-engine",
  "wasmer-engine-jit",
- "wasmer-engine-native",
+ "wasmer-engine-shared-library",
  "wasmer-types",
  "wasmer-vm",
  "wat",
@@ -2462,8 +2462,8 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-jit",
- "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-shared-library",
  "wasmer-types",
  "wasmer-wasi",
 ]
@@ -2501,8 +2501,8 @@ dependencies = [
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-jit",
- "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-shared-library",
  "wasmer-types",
  "wasmer-vm",
  "wasmer-wasi",
@@ -2663,25 +2663,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-native"
-version = "1.0.0-beta1"
-dependencies = [
- "bincode",
- "cfg-if 0.1.10",
- "leb128",
- "libloading",
- "serde",
- "tempfile",
- "tracing",
- "wasmer-compiler",
- "wasmer-engine",
- "wasmer-object",
- "wasmer-types",
- "wasmer-vm",
- "which",
-]
-
-[[package]]
 name = "wasmer-engine-object-file"
 version = "1.0.0-beta1"
 dependencies = [
@@ -2697,6 +2678,25 @@ dependencies = [
  "wasmer-object",
  "wasmer-types",
  "wasmer-vm",
+]
+
+[[package]]
+name = "wasmer-engine-shared-library"
+version = "1.0.0-beta1"
+dependencies = [
+ "bincode",
+ "cfg-if 0.1.10",
+ "leb128",
+ "libloading",
+ "serde",
+ "tempfile",
+ "tracing",
+ "wasmer-compiler",
+ "wasmer-engine",
+ "wasmer-object",
+ "wasmer-types",
+ "wasmer-vm",
+ "which",
 ]
 
 [[package]]
@@ -2821,8 +2821,8 @@ dependencies = [
  "wasmer-engine",
  "wasmer-engine-dummy",
  "wasmer-engine-jit",
- "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-engine-shared-library",
  "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",

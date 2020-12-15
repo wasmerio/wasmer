@@ -236,19 +236,19 @@ example.
 
    </details>
 
-2. [**Native engine**][engine-native], explains what a native engine
-   is, and how to set it up. The example completes itself with the
-   compilation of the Wasm module, its instantiation, and finally, by
-   calling an exported function.
+2. [**Shared Library engine**][engine-shared-library], explains what a
+   shared library engine is, and how to set it up. The example
+   completes itself with the compilation of the Wasm module, its
+   instantiation, and finally, by calling an exported function.
    
-   _Keywords_: native, engine, shared library, dynamic library,
+   _Keywords_: Shared Library, engine, native, dynamic library,
    executable code.
 
    <details>
    <summary><em>Execute the example</em></summary>
 
    ```shell
-   $ cargo run --example engine-native --release --features "cranelift"
+   $ cargo run --example engine-shared-library --release --features "cranelift"
    ```
 
    </details>
@@ -347,7 +347,7 @@ example.
    </details>
 
 [engine-jit]: ./engine_jit.rs
-[engine-native]: ./engine_native.rs
+[engine-shared-library]: ./engine_shared_library.rs
 [engine-headless]: ./engine_headless.rs
 [compiler-singlepass]: ./compiler_singlepass.rs
 [compiler-cranelift]: ./compiler_cranelift.rs

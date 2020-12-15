@@ -19,8 +19,8 @@ path = "../lib/compiler-llvm"
 path = "../lib/compiler-singlepass"
 [dependencies.wasmer-engine-jit]
 path = "../lib/engine-jit"
-[dependencies.wasmer-engine-native]
-path = "../lib/engine-native"
+[dependencies.wasmer-engine-shared-library]
+path = "../lib/engine-shared-library"
 [dependencies.libfuzzer-sys]
 git = "https://github.com/rust-fuzz/libfuzzer-sys.git"
 
@@ -45,5 +45,5 @@ name = "jit_singlepass"
 path = "fuzz_targets/jit_singlepass.rs"
 
 [[bin]]
-name = "native_cranelift"
-path = "fuzz_targets/native_cranelift.rs"
+name = "shared_library_cranelift"
+path = "fuzz_targets/shared_library_cranelift.rs"

@@ -4,10 +4,10 @@ use std::sync::Arc;
 use wasmer::Engine;
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
-#[cfg(feature = "native")]
-use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
 use wasmer_engine_object_file::ObjectFile;
+#[cfg(feature = "shared-library")]
+use wasmer_engine_shared_library::SharedLibrary;
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -48,7 +48,7 @@ impl Default for wasmer_compiler_t {
 #[allow(non_camel_case_types)]
 pub enum wasmer_engine_t {
     JIT = 0,
-    NATIVE = 1,
+    SHARED_LIBRARY = 1,
     OBJECT_FILE = 2,
 }
 
@@ -57,8 +57,8 @@ impl Default for wasmer_engine_t {
         cfg_if! {
             if #[cfg(feature = "jit")] {
                 Self::JIT
-            } else if #[cfg(feature = "native")] {
-                Self::NATIVE
+            } else if #[cfg(feature = "shared-library")] {
+                Self::SHARED_LIBRARY
             } else if #[cfg(feature = "object-file")] {
                 Self::OBJECT_FILE
             } else {
@@ -252,8 +252,8 @@ cfg_if! {
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(JIT::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(all(feature = "native", feature = "compiler"))] {
-        /// Creates a new native engine with the default compiler.
+    } else if #[cfg(all(feature = "shared-library", feature = "compiler"))] {
+        /// Creates a new shared library engine with the default compiler.
         ///
         /// # Example
         ///
@@ -263,11 +263,11 @@ cfg_if! {
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
             let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(compiler_config).engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(SharedLibrary::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
-    } else if #[cfg(feature = "native")] {
-        /// Creates a new headless native engine.
+    } else if #[cfg(feature = "shared-library")] {
+        /// Creates a new headless shared library engine.
         ///
         /// # Example
         ///
@@ -276,7 +276,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::headless().engine());
+            let engine: Arc<dyn Engine + Send + Sync> = Arc::new(SharedLibrary::headless().engine());
             Box::new(wasm_engine_t { inner: engine })
         }
     }
@@ -407,12 +407,12 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::NATIVE => {
+                wasmer_engine_t::SHARED_LIBRARY => {
                     cfg_if! {
-                        if #[cfg(feature = "native")] {
-                            Arc::new(Native::new(compiler_config).engine())
+                        if #[cfg(feature = "shared-library")] {
+                            Arc::new(SharedLibrary::new(compiler_config).engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `shared-library` feature.");
                         }
                     }
                 },
@@ -440,12 +440,12 @@ pub extern "C" fn wasm_engine_new_with_config(
                         }
                     }
                 },
-                wasmer_engine_t::NATIVE => {
+                wasmer_engine_t::SHARED_LIBRARY => {
                     cfg_if! {
-                        if #[cfg(feature = "native")] {
-                            Arc::new(Native::headless().engine())
+                        if #[cfg(feature = "shared-library")] {
+                            Arc::new(SharedLibrary::headless().engine())
                         } else {
-                            return return_with_error("Wasmer has not been compiled with the `native` feature.");
+                            return return_with_error("Wasmer has not been compiled with the `shared-library` feature.");
                         }
                     }
                 },

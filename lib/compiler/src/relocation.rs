@@ -4,10 +4,10 @@
 //!
 //! Source: https://en.wikipedia.org/wiki/Relocation_(computing)
 //!
-//! Each time a `Compiler` compiles a WebAssembly function (into machine code),
-//! it also attaches if there are any relocations that need to be patched into
-//! the generated machine code, so a given frontend (JIT or native) can
-//! do the corresponding work to run it.
+//! Each time a `Compiler` compiles a WebAssembly function (into
+//! machine code), it also attaches if there are any relocations that
+//! need to be patched into the generated machine code, so a given
+//! engine can do the corresponding work to run it.
 
 use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;

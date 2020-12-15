@@ -10,7 +10,7 @@ Wasmer Engines are mainly responsible for two things:
 
 It currently has two implementations:
 1. JIT with [`wasmer-engine-jit`],
-2. Native with [`wasmer-engine-native`].
+2. Native with [`wasmer-engine-shared-library`].
 
 ## Example Implementation
 
@@ -27,7 +27,7 @@ attributions of the project.
 
 
 [`wasmer-engine-jit`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-jit
-[`wasmer-engine-native`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-native
+[`wasmer-engine-shared-library`]: https://github.com/wasmerio/wasmer/tree/master/lib/engine-shared-library
 [`wasmer-engine-dummy`]: https://github.com/wasmerio/wasmer/tree/master/tests/lib/engine-dummy
 [`wasmtime-api`]: https://crates.io/crates/wasmtime
 [Wasmer `ATTRIBUTIONS`]: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md

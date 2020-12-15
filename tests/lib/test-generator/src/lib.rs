@@ -47,8 +47,8 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
     let file = File::open(path)?;
     let reader = BufReader::new(file);
     let host = Triple::host().to_string();
-    let engine = if cfg!(feature = "test-native") {
-        Some("native")
+    let engine = if cfg!(feature = "test-shared-library") {
+        Some("shared-library")
     } else if cfg!(feature = "test-jit") {
         Some("jit")
     } else {

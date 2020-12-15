@@ -9,5 +9,5 @@ anyhow = "1.0"
 target-lexicon = "0.11"
 
 [features]
-test-native = []
+test-shared-library = []
 test-jit = []

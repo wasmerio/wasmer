@@ -111,7 +111,7 @@
 ### Fixed
 
 - [#1620](https://github.com/wasmerio/wasmer/pull/1620) Fix bug causing the Wapm binary to not be packaged with the release
-- [#1619](https://github.com/wasmerio/wasmer/pull/1619) Improve error message in engine-native when C compiler is missing
+- [#1619](https://github.com/wasmerio/wasmer/pull/1619) Improve error message in engine-shared-library when C compiler is missing
 
 ## 1.0.0-alpha02.0 - 2020-09-11
 

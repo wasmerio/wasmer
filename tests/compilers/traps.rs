@@ -41,7 +41,7 @@ fn test_trap_return() -> Result<()> {
 #[cfg_attr(
     any(
         feature = "test-singlepass",
-        feature = "test-native",
+        feature = "test-shared-library",
         target_arch = "aarch64",
     ),
     ignore
@@ -128,7 +128,7 @@ fn test_trap_trace_cb() -> Result<()> {
 #[cfg_attr(
     any(
         feature = "test-singlepass",
-        feature = "test-native",
+        feature = "test-shared-library",
         target_arch = "aarch64",
     ),
     ignore
@@ -167,7 +167,7 @@ fn test_trap_stack_overflow() -> Result<()> {
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native",
+        feature = "test-shared-library",
         target_arch = "aarch64",
     ),
     ignore
@@ -208,7 +208,7 @@ RuntimeError: unreachable
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native",
+        feature = "test-shared-library",
         target_arch = "aarch64",
     ),
     ignore
@@ -423,7 +423,7 @@ fn mismatched_arguments() -> Result<()> {
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native",
+        feature = "test-shared-library",
         all(target_os = "macos", target_arch = "aarch64")
     ),
     ignore
@@ -462,7 +462,7 @@ RuntimeError: indirect call type mismatch
     any(
         feature = "test-singlepass",
         feature = "test-llvm",
-        feature = "test-native",
+        feature = "test-shared-library",
         target_arch = "aarch64",
     ),
     ignore

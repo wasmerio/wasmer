@@ -43,9 +43,11 @@ impl Compile {
         target_triple: &Triple,
     ) -> &'static str {
         match engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
+            #[cfg(feature = "shared-library")]
+            EngineType::SharedLibrary => {
+                wasmer_engine_shared_library::SharedLibraryArtifact::get_default_extension(
+                    target_triple,
+                )
             }
             #[cfg(feature = "jit")]
             EngineType::JIT => wasmer_engine_jit::JITArtifact::get_default_extension(target_triple),
@@ -53,7 +55,7 @@ impl Compile {
             EngineType::ObjectFile => {
                 wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
             }
-            #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
+            #[cfg(not(all(feature = "shared-library", feature = "jit", feature = "object-file")))]
             _ => bail!("selected engine type is not compiled in"),
         }
     }

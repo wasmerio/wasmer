@@ -22,7 +22,7 @@ impl Compiler {
 #[derive(Debug, Copy, Clone)]
 pub enum Engine {
     Jit,
-    Native,
+    SharedLibrary,
     ObjectFile,
 }
 
@@ -30,7 +30,7 @@ impl Engine {
     pub const fn to_flag(self) -> &'static str {
         match self {
             Engine::Jit => "--jit",
-            Engine::Native => "--native",
+            Engine::SharedLibrary => "--shared-library",
             Engine::ObjectFile => "--object-file",
         }
     }

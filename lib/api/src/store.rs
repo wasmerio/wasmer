@@ -100,8 +100,8 @@ impl Default for Store {
                 if #[cfg(feature = "default-jit")] {
                     wasmer_engine_jit::JIT::new(config)
                         .engine()
-                } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_native::Native::new(config)
+                } else if #[cfg(feature = "default-shared-library")] {
+                    wasmer_engine_shared_library::SharedLibrary::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")

@@ -84,7 +84,7 @@ typedef enum {
  */
 typedef enum {
   JIT = 0,
-  NATIVE = 1,
+  SHARED_LIBRARY = 1,
   OBJECT_FILE = 2,
 } wasmer_engine_t;
 

@@ -1,9 +1,9 @@
 [package]
-name = "wasmer-engine-native"
+name = "wasmer-engine-shared-library"
 version = "1.0.0-beta1"
 description = "Wasmer Native Engine"
 categories = ["wasm"]
-keywords = ["wasm", "webassembly", "engine", "native"]
+keywords = ["wasm", "webassembly", "engine", "native", "object", "shared-library"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
 license = "MIT"

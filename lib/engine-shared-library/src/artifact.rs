@@ -1,7 +1,7 @@
-//! Define `NativeArtifact` to allow compiling and instantiating to be
+//! Define `SharedLibraryArtifact` to allow compiling and instantiating to be
 //! done as separate steps.
 
-use crate::engine::{NativeEngine, NativeEngineInner};
+use crate::engine::{SharedLibraryEngine, SharedLibraryEngineInner};
 use crate::serialize::ModuleMetadata;
 use libloading::{Library, Symbol as LibrarySymbol};
 use std::error::Error;
@@ -37,7 +37,7 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
-pub struct NativeArtifact {
+pub struct SharedLibraryArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -52,7 +52,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
 
-impl NativeArtifact {
+impl SharedLibraryArtifact {
     // Mach-O header in Mac
     #[allow(dead_code)]
     const MAGIC_HEADER_MH_CIGAM_64: &'static [u8] = &[207, 250, 237, 254];
@@ -69,7 +69,7 @@ impl NativeArtifact {
     #[allow(dead_code)]
     const MAGIC_HEADER_COFF_64: &'static [u8] = &[b'M', b'Z'];
 
-    /// Check if the provided bytes look like `NativeArtifact`.
+    /// Check if the provided bytes look like `SharedLibraryArtifact`.
     ///
     /// This means, if the bytes look like a shared object file in the target
     /// system.
@@ -137,10 +137,10 @@ impl NativeArtifact {
         ))
     }
 
-    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `SharedLibraryArtifact`, which may then be instantiated.
     #[cfg(feature = "compiler")]
     pub fn new(
-        engine: &NativeEngine,
+        engine: &SharedLibraryEngine,
         data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
@@ -204,7 +204,7 @@ impl NativeArtifact {
             Some(obj_bytes) => {
                 let obj_bytes = obj_bytes?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_native")
+                    .prefix("wasmer_shared_library")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -227,7 +227,7 @@ impl NativeArtifact {
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
-                    .prefix("wasmer_native")
+                    .prefix("wasmer_shared_library")
                     .suffix(".o")
                     .tempfile()
                     .map_err(to_compile_error)?;
@@ -244,7 +244,7 @@ impl NativeArtifact {
         let shared_filepath = {
             let suffix = format!(".{}", Self::get_default_extension(&target_triple));
             let shared_file = tempfile::Builder::new()
-                .prefix("wasmer_native")
+                .prefix("wasmer_shared_library")
                 .suffix(&suffix)
                 .tempfile()
                 .map_err(to_compile_error)?;
@@ -333,7 +333,7 @@ impl NativeArtifact {
         }
     }
 
-    /// Construct a `NativeArtifact` from component parts.
+    /// Construct a `SharedLibraryArtifact` from component parts.
     pub fn from_parts_crosscompiled(
         metadata: ModuleMetadata,
         sharedobject_path: PathBuf,
@@ -356,9 +356,9 @@ impl NativeArtifact {
         })
     }
 
-    /// Construct a `NativeArtifact` from component parts.
+    /// Construct a `SharedLibraryArtifact` from component parts.
     pub fn from_parts(
-        engine_inner: &mut NativeEngineInner,
+        engine_inner: &mut SharedLibraryEngineInner,
         metadata: ModuleMetadata,
         sharedobject_path: PathBuf,
         lib: Library,
@@ -459,26 +459,26 @@ impl NativeArtifact {
         })
     }
 
-    /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
+    /// Compile a data buffer into a `SharedLibraryArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
-    pub fn new(_engine: &NativeEngine, _data: &[u8]) -> Result<Self, CompileError> {
+    pub fn new(_engine: &SharedLibraryEngine, _data: &[u8]) -> Result<Self, CompileError> {
         Err(CompileError::Codegen(
             "Compilation is not enabled in the engine".to_string(),
         ))
     }
 
-    /// Deserialize a `NativeArtifact` from bytes.
+    /// Deserialize a `SharedLibraryArtifact` from bytes.
     ///
     /// # Safety
     ///
     /// The bytes must represent a serialized WebAssembly module.
     pub unsafe fn deserialize(
-        engine: &NativeEngine,
+        engine: &SharedLibraryEngine,
         bytes: &[u8],
     ) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(&bytes) {
             return Err(DeserializeError::Incompatible(
-                "The provided bytes are not in any native format Wasmer can understand".to_string(),
+                "The provided bytes are not in any format Wasmer can understand".to_string(),
             ));
         }
         // Dump the bytes into a file, so we can read it with our `dlopen`
@@ -490,13 +490,13 @@ impl NativeArtifact {
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `NativeArtifact` from a file path.
+    /// Deserialize a `SharedLibraryArtifact` from a file path.
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file(
-        engine: &NativeEngine,
+        engine: &SharedLibraryEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let mut file = File::open(&path)?;
@@ -505,19 +505,19 @@ impl NativeArtifact {
         file.read_exact(&mut buffer)?;
         if !Self::is_deserializable(&buffer) {
             return Err(DeserializeError::Incompatible(
-                "The provided bytes are not in any native format Wasmer can understand".to_string(),
+                "The provided bytes are not in any format Wasmer can understand".to_string(),
             ));
         }
         Self::deserialize_from_file_unchecked(&engine, &path)
     }
 
-    /// Deserialize a `NativeArtifact` from a file path (unchecked).
+    /// Deserialize a `SharedLibraryArtifact` from a file path (unchecked).
     ///
     /// # Safety
     ///
     /// The file's content must represent a serialized WebAssembly module.
     pub unsafe fn deserialize_from_file_unchecked(
-        engine: &NativeEngine,
+        engine: &SharedLibraryEngine,
         path: &Path,
     ) -> Result<Self, DeserializeError> {
         let lib = Library::new(&path).map_err(|e| {
@@ -554,7 +554,7 @@ impl NativeArtifact {
     }
 }
 
-impl Artifact for NativeArtifact {
+impl Artifact for SharedLibraryArtifact {
     fn module(&self) -> Arc<ModuleInfo> {
         self.metadata.compile_info.module.clone()
     }
@@ -607,7 +607,7 @@ impl Artifact for NativeArtifact {
         Ok(())
     }
 
-    /// Serialize a NativeArtifact
+    /// Serialize a SharedLibraryArtifact
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         Ok(std::fs::read(&self.sharedobject_path)?)
     }

@@ -9,8 +9,9 @@
 //!
 //! Once a Wasm module is compiled into executable code and stored
 //! somewhere (e.g. in memory with the JIT engine, or in a native
-//! object with the native engine), the module can be instantiated and
-//! executed. But imagine for a second the following scenario:
+//! object with the shared library engine or the object file engine),
+//! the module can be instantiated and executed. But imagine for a
+//! second the following scenario:
 //!
 //!   * Modules are compiled ahead of time, to be instantiated later
 //!     on.
@@ -52,7 +53,7 @@ use wasmer::Module;
 use wasmer::Store;
 use wasmer::Value;
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_native::Native;
+use wasmer_engine_shared_library::SharedLibrary;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First step, let's compile the Wasm module and serialize it.
@@ -79,16 +80,16 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         // compile the Wasm module into executable code.
         let compiler_config = Cranelift::default();
 
-        println!("Creating Native engine...");
+        println!("Creating Shared Library engine...");
         // Define the engine that will drive everything.
         //
-        // In this case, the engine is `wasmer_engine_native` which
-        // means that a native object is going to be generated. So
+        // In this case, the engine is `wasmer_engine_shared_library` which
+        // means that a shared object library is going to be generated. So
         // when we are going to serialize the compiled Wasm module, we
         // are going to store it in a file with the `.so` extension
         // for example (or `.dylib`, or `.dll` depending of the
         // platform).
-        let engine = Native::new(compiler_config).engine();
+        let engine = SharedLibrary::new(compiler_config).engine();
 
         // Create a store, that holds the engine.
         let store = Store::new(&engine);
@@ -109,9 +110,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Second step, deserialize the compiled Wasm module, and execute
     // it, for example with Wasmer without a compiler.
     {
-        println!("Creating headless Native engine...");
-        // We create a headless Native engine.
-        let engine = Native::headless().engine();
+        println!("Creating headless Shared Library engine...");
+        // We create a headless Shared Library engine.
+        let engine = SharedLibrary::headless().engine();
         let store = Store::new(&engine);
 
         println!("Deserializing module...");

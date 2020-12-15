@@ -170,10 +170,10 @@ impl Run {
 
     fn get_module(&self) -> Result<Module> {
         let contents = std::fs::read(self.path.clone())?;
-        #[cfg(feature = "native")]
+        #[cfg(feature = "shared-library")]
         {
-            if wasmer_engine_native::NativeArtifact::is_deserializable(&contents) {
-                let engine = wasmer_engine_native::Native::headless().engine();
+            if wasmer_engine_shared_library::SharedLibraryArtifact::is_deserializable(&contents) {
+                let engine = wasmer_engine_shared_library::SharedLibrary::headless().engine();
                 let store = Store::new(&engine);
                 let module = unsafe { Module::deserialize_from_file(&store, &self.path)? };
                 return Ok(module);
@@ -265,10 +265,12 @@ impl Run {
         // to recognize as well.
         #[allow(unreachable_patterns)]
         let extension = match *engine_type {
-            #[cfg(feature = "native")]
-            EngineType::Native => {
-                wasmer_engine_native::NativeArtifact::get_default_extension(&Triple::host())
-                    .to_string()
+            #[cfg(feature = "shared-library")]
+            EngineType::SharedLibrary => {
+                wasmer_engine_shared_library::SharedLibraryArtifact::get_default_extension(
+                    &Triple::host(),
+                )
+                .to_string()
             }
             #[cfg(feature = "jit")]
             EngineType::JIT => {

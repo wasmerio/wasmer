@@ -19,7 +19,7 @@ wasmer-compiler = { path = "../compiler", version = "1.0.0-beta1" }
 wasmer-derive = { path = "../derive", version = "1.0.0-beta1" }
 wasmer-engine = { path = "../engine", version = "1.0.0-beta1" }
 wasmer-engine-jit = { path = "../engine-jit", version = "1.0.0-beta1", optional = true }
-wasmer-engine-native = { path = "../engine-native", version = "1.0.0-beta1", optional = true }
+wasmer-engine-shared-library = { path = "../engine-shared-library", version = "1.0.0-beta1", optional = true }
 wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta1" }
 indexmap = { version = "1.4", features = ["serde-1"] }
 cfg-if = "0.1"
@@ -45,15 +45,15 @@ maintenance = { status = "actively-developed" }
 default = ["wat", "default-cranelift", "default-jit"]
 compiler = [
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-shared-library/compiler",
 ]
 engine = []
 jit = [
     "wasmer-engine-jit",
     "engine"
 ]
-native = [
-    "wasmer-engine-native",
+shared-library = [
+    "wasmer-engine-shared-library",
     "engine"
 ]
 singlepass = [
@@ -94,7 +94,7 @@ default-jit = [
     "jit",
     "default-engine"
 ]
-default-native = [
-    "native",
+default-shared-library = [
+    "shared-library",
     "default-engine"
 ]

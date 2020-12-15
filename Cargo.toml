@@ -18,7 +18,7 @@ wasmer-compiler-llvm = { version = "1.0.0-beta1", path = "lib/compiler-llvm", op
 wasmer-emscripten = { version = "1.0.0-beta1", path = "lib/emscripten", optional = true }
 wasmer-engine = { version = "1.0.0-beta1", path = "lib/engine" }
 wasmer-engine-jit = { version = "1.0.0-beta1", path = "lib/engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-beta1", path = "lib/engine-native", optional = true }
+wasmer-engine-shared-library = { version = "1.0.0-beta1", path = "lib/engine-shared-library", optional = true }
 wasmer-engine-object-file = { version = "1.0.0-beta1", path = "lib/engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.0-beta1", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.0-beta1", path = "tests/lib/wast", optional = true }
@@ -41,7 +41,7 @@ members = [
     "lib/emscripten",
     "lib/engine",
     "lib/engine-jit",
-    "lib/engine-native",
+    "lib/engine-shared-library",
     "lib/engine-object-file",
     "lib/object",
     "lib/vm",
@@ -77,7 +77,7 @@ default = [
     "wat",
     "wast",
     "jit",
-    "native",
+    "shared-library",
     "object-file",
     "cache",
     "wasi",
@@ -89,8 +89,8 @@ jit = [
     "wasmer-engine-jit",
     "engine",
 ]
-native = [
-    "wasmer-engine-native",
+shared-library = [
+    "wasmer-engine-shared-library",
     "engine",
 ]
 object-file = [
@@ -106,7 +106,7 @@ compiler = [
     "wasmer/compiler",
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-shared-library/compiler",
     "wasmer-engine-object-file/compiler",
 ]
 singlepass = [
@@ -134,9 +134,9 @@ test-llvm = [
     "llvm",
 ]
 
-test-native = [
-    "native",
-    "test-generator/test-native",
+test-shared-library = [
+    "shared-library",
+    "test-generator/test-shared-library",
 ]
 test-jit = [
     "jit",
@@ -162,8 +162,8 @@ path = "examples/engine_jit.rs"
 required-features = ["cranelift"]
 
 [[example]]
-name = "engine-native"
-path = "examples/engine_native.rs"
+name = "engine-shared-library"
+path = "examples/engine_shared_library.rs"
 required-features = ["cranelift"]
 
 [[example]]

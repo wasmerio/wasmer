@@ -585,6 +585,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memmap2"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d9b70ca2a6103ac8b665dc150b142ef0e4e89df640c9e6cf295d189c3caebe5a"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memoffset"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1163,7 +1172,7 @@ dependencies = [
  "wasmer-derive",
  "wasmer-engine",
  "wasmer-engine-jit",
- "wasmer-engine-native",
+ "wasmer-engine-shared-library",
  "wasmer-types",
  "wasmer-vm",
  "wat",
@@ -1176,7 +1185,6 @@ version = "1.0.0-beta1"
 dependencies = [
  "blake3",
  "hex",
- "memmap",
  "thiserror",
  "wasmer",
 ]
@@ -1270,6 +1278,7 @@ dependencies = [
  "backtrace",
  "bincode",
  "lazy_static",
+ "memmap2",
  "more-asserts",
  "rustc-demangle",
  "serde",
@@ -1298,7 +1307,7 @@ dependencies = [
 ]
 
 [[package]]
-name = "wasmer-engine-native"
+name = "wasmer-engine-shared-library"
 version = "1.0.0-beta1"
 dependencies = [
  "bincode",
@@ -1350,6 +1359,7 @@ version = "1.0.0-beta1"
 dependencies = [
  "cranelift-entity",
  "serde",
+ "thiserror",
 ]
 
 [[package]]

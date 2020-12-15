@@ -22,7 +22,7 @@ use std::str::FromStr;
 use wasmer::{wat2wasm, Module, RuntimeError, Store};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine_native::Native;
+use wasmer_engine_shared_library::SharedLibrary;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's declare the Wasm module with the text representation.
@@ -67,12 +67,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Define the engine that will drive everything.
     //
-    // In this case, the engine is `wasmer_engine_native` which means
-    // that a native object is going to be generated.
+    // In this case, the engine is `wasmer_engine_shared_library` which means
+    // that a shared object library is going to be generated.
     //
     // That's where we specify the target for the compiler.
-    // Use the native engine.
-    let engine = Native::new(compiler_config)
+    // Use the shared library engine.
+    let engine = SharedLibrary::new(compiler_config)
         // Here we go.
         // Pass the target to the engine! The engine will share
         // this information with the compiler.
@@ -101,7 +101,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[test]
 #[cfg(not(any(
     windows,
-    // We don't support yet crosscompilation in macOS with Apple Silicon
+    // We don't support yet cross-compilation in macOS with Apple Silicon
     all(target_os = "macos", target_arch = "aarch64")
 )))]
 fn test_cross_compilation() -> Result<(), Box<dyn std::error::Error>> {

@@ -25,7 +25,7 @@ wasmer-compiler-llvm = { version = "1.0.0-beta1", path = "../compiler-llvm", opt
 wasmer-emscripten = { version = "1.0.0-beta1", path = "../emscripten", optional = true }
 wasmer-engine = { version = "1.0.0-beta1", path = "../engine" }
 wasmer-engine-jit = { version = "1.0.0-beta1", path = "../engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0-beta1", path = "../engine-native", optional = true }
+wasmer-engine-shared-library = { version = "1.0.0-beta1", path = "../engine-shared-library", optional = true }
 wasmer-engine-object-file = { version = "1.0.0-beta1", path = "../engine-object-file", optional = true }
 wasmer-vm = { version = "1.0.0-beta1", path = "../vm" }
 wasmer-wasi = { version = "1.0.0-beta1", path = "../wasi", optional = true }
@@ -54,7 +54,7 @@ default = [
     "wat",
     "wast",
     "jit",
-    "native",
+    "shared-library",
     "object-file",
     "cache",
     "wasi",
@@ -65,8 +65,8 @@ jit = [
     "wasmer-engine-jit",
     "engine",
 ]
-native = [
-    "wasmer-engine-native",
+shared-library = [
+    "wasmer-engine-shared-library",
     "engine",
 ]
 object-file = [
@@ -81,7 +81,7 @@ wat = ["wasmer/wat"]
 compiler = [
     "wasmer-compiler/translator",
     "wasmer-engine-jit/compiler",
-    "wasmer-engine-native/compiler",
+    "wasmer-engine-shared-library/compiler",
     "wasmer-engine-object-file/compiler",
 ]
 experimental-io-devices = [

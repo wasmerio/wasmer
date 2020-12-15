@@ -1,9 +1,9 @@
 //! This module define the required structures to emit custom
 //! Sections in a `Compilation`.
 //!
-//! The functions that access a custom [`CustomSection`] would need
-//! to emit a custom relocation: `RelocationTarget::CustomSection`, so
-//! it can be patched later by the engine (native or JIT).
+//! The functions that access a custom [`CustomSection`] would need to
+//! emit a custom relocation: `RelocationTarget::CustomSection`, so it
+//! can be patched later by an engine.
 
 use crate::lib::std::vec::Vec;
 use crate::Relocation;

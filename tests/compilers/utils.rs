@@ -4,8 +4,8 @@ use wasmer_compiler::CompilerConfig;
 use wasmer_engine::Engine;
 #[cfg(feature = "test-jit")]
 use wasmer_engine_jit::JIT;
-#[cfg(feature = "test-native")]
-use wasmer_engine_native::Native;
+#[cfg(feature = "test-shared-library")]
+use wasmer_engine_shared_library::SharedLibrary;
 
 pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
     cfg_if::cfg_if! {
@@ -40,10 +40,10 @@ pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
     let compiler_config = get_compiler(canonicalize_nans);
     JIT::new(compiler_config).engine()
 }
-#[cfg(feature = "test-native")]
+#[cfg(feature = "test-shared-library")]
 pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
     let mut compiler_config = get_compiler(canonicalize_nans);
-    Native::new(compiler_config).engine()
+    SharedLibrary::new(compiler_config).engine()
 }
 
 pub fn get_store(canonicalize_nans: bool) -> Store {
@@ -59,8 +59,8 @@ pub fn get_store_with_middlewares<I: Iterator<Item = Arc<dyn ModuleMiddleware>>>
     }
     #[cfg(feature = "test-jit")]
     let engine = JIT::new(compiler_config).engine();
-    #[cfg(feature = "test-native")]
-    let engine = Native::new(compiler_config).engine();
+    #[cfg(feature = "test-shared-library")]
+    let engine = SharedLibrary::new(compiler_config).engine();
     Store::new(&engine)
 }
 
@@ -69,7 +69,7 @@ pub fn get_headless_store() -> Store {
     Store::new(&JIT::headless().engine())
 }
 
-#[cfg(feature = "test-native")]
+#[cfg(feature = "test-shared-library")]
 pub fn get_headless_store() -> Store {
-    Store::new(&Native::headless().engine())
+    Store::new(&SharedLibrary::headless().engine())
 }

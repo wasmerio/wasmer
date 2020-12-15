@@ -1,16 +1,16 @@
-use crate::NativeEngine;
+use crate::SharedLibraryEngine;
 use wasmer_compiler::{CompilerConfig, Features, Target};
 
-/// The Native builder
-pub struct Native {
+/// The Shared Library builder
+pub struct SharedLibrary {
     compiler_config: Option<Box<dyn CompilerConfig>>,
     target: Option<Target>,
     features: Option<Features>,
 }
 
-impl Native {
+impl SharedLibrary {
     #[cfg(feature = "compiler")]
-    /// Create a new Native
+    /// Create a new SharedLibrary
     pub fn new<T>(compiler_config: T) -> Self
     where
         T: Into<Box<dyn CompilerConfig>>,
@@ -25,7 +25,7 @@ impl Native {
         }
     }
 
-    /// Create a new headless Native
+    /// Create a new headless SharedLibrary
     pub fn headless() -> Self {
         Self {
             compiler_config: None,
@@ -46,8 +46,8 @@ impl Native {
         self
     }
 
-    /// Build the `NativeEngine` for this configuration
-    pub fn engine(self) -> NativeEngine {
+    /// Build the `SharedLibraryEngine` for this configuration
+    pub fn engine(self) -> SharedLibraryEngine {
         if let Some(_compiler_config) = self.compiler_config {
             #[cfg(feature = "compiler")]
             {
@@ -57,15 +57,17 @@ impl Native {
                     .features
                     .unwrap_or_else(|| compiler_config.default_features_for_target(&target));
                 let compiler = compiler_config.compiler();
-                NativeEngine::new(compiler, target, features)
+                SharedLibraryEngine::new(compiler, target, features)
             }
 
             #[cfg(not(feature = "compiler"))]
             {
-                unreachable!("Cannot call `NativeEngine::new` without the `compiler` feature")
+                unreachable!(
+                    "Cannot call `SharedLibraryEngine::new` without the `compiler` feature"
+                )
             }
         } else {
-            NativeEngine::headless()
+            SharedLibraryEngine::headless()
         }
     }
 }
@@ -105,13 +107,13 @@ mod tests {
     #[should_panic(expected = "compiler not implemented")]
     fn build_engine() {
         let mut compiler_config = TestCompilerConfig::default();
-        let native = Native::new(compiler_config);
-        let _engine = native.engine();
+        let shared_library = SharedLibrary::new(compiler_config);
+        let _engine = shared_library.engine();
     }
 
     #[test]
     fn build_headless_engine() {
-        let native = Native::headless();
-        let _engine = native.engine();
+        let shared_library = SharedLibrary::headless();
+        let _engine = shared_library.engine();
     }
 }

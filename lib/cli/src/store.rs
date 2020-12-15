@@ -19,16 +19,16 @@ pub struct StoreOptions {
     #[structopt(flatten)]
     compiler: CompilerOptions,
 
-    /// Use JIT Engine.
-    #[structopt(long, conflicts_with_all = &["native", "object_file"])]
+    /// Use the JIT Engine.
+    #[structopt(long, conflicts_with_all = &["shared_library", "object_file"])]
     jit: bool,
 
-    /// Use Native Engine.
+    /// Use the Shared Library Engine.
     #[structopt(long, conflicts_with_all = &["jit", "object_file"])]
-    native: bool,
+    shared_library: bool,
 
-    /// Use ObjectFile Engine.
-    #[structopt(long, conflicts_with_all = &["jit", "native"])]
+    /// Use the Object File Engine.
+    #[structopt(long, conflicts_with_all = &["jit", "shared_library"])]
     object_file: bool,
 }
 
@@ -143,9 +143,9 @@ impl CompilerOptions {
                     .target(target)
                     .engine(),
             ),
-            #[cfg(feature = "native")]
-            EngineType::Native => Box::new(
-                wasmer_engine_native::Native::new(compiler_config)
+            #[cfg(feature = "shared-library")]
+            EngineType::SharedLibrary => Box::new(
+                wasmer_engine_shared_library::SharedLibrary::new(compiler_config)
                     .target(target)
                     .features(features)
                     .engine(),
@@ -157,7 +157,7 @@ impl CompilerOptions {
                     .features(features)
                     .engine(),
             ),
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "jit", feature = "shared-library", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()
@@ -359,8 +359,8 @@ impl FromStr for CompilerType {
 pub enum EngineType {
     /// JIT Engine
     JIT,
-    /// Native Engine
-    Native,
+    /// Shared Library Engine
+    SharedLibrary,
     /// Object File Engine
     ObjectFile,
 }
@@ -369,7 +369,7 @@ impl ToString for EngineType {
     fn to_string(&self) -> String {
         match self {
             Self::JIT => "jit".to_string(),
-            Self::Native => "native".to_string(),
+            Self::SharedLibrary => "sharedlibrary".to_string(),
             Self::ObjectFile => "objectfile".to_string(),
         }
     }
@@ -413,16 +413,16 @@ impl StoreOptions {
     fn get_engine(&self) -> Result<EngineType> {
         if self.jit {
             Ok(EngineType::JIT)
-        } else if self.native {
-            Ok(EngineType::Native)
+        } else if self.shared_library {
+            Ok(EngineType::SharedLibrary)
         } else if self.object_file {
             Ok(EngineType::ObjectFile)
         } else {
             // Auto mode, we choose the best engine for that platform
             if cfg!(feature = "jit") {
                 Ok(EngineType::JIT)
-            } else if cfg!(feature = "native") {
-                Ok(EngineType::Native)
+            } else if cfg!(feature = "shared-library") {
+                Ok(EngineType::SharedLibrary)
             } else if cfg!(feature = "object-file") {
                 Ok(EngineType::ObjectFile)
             } else {
@@ -440,13 +440,15 @@ impl StoreOptions {
         let engine: Arc<dyn Engine + Send + Sync> = match engine_type {
             #[cfg(feature = "jit")]
             EngineType::JIT => Arc::new(wasmer_engine_jit::JIT::headless().engine()),
-            #[cfg(feature = "native")]
-            EngineType::Native => Arc::new(wasmer_engine_native::Native::headless().engine()),
+            #[cfg(feature = "shared-library")]
+            EngineType::SharedLibrary => {
+                Arc::new(wasmer_engine_shared_library::SharedLibrary::headless().engine())
+            }
             #[cfg(feature = "object-file")]
             EngineType::ObjectFile => {
                 Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
             }
-            #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
+            #[cfg(not(all(feature = "jit", feature = "shared-library", feature = "object-file")))]
             engine => bail!(
                 "The `{}` engine is not included in this binary.",
                 engine.to_string()

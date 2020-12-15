@@ -363,8 +363,8 @@ pub use wasmer_compiler_llvm::LLVM;
 #[cfg(feature = "jit")]
 pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};
 
-#[cfg(feature = "native")]
-pub use wasmer_engine_native::{Native, NativeArtifact, NativeEngine};
+#[cfg(feature = "shared-library")]
+pub use wasmer_engine_shared_library::{SharedLibrary, SharedLibraryArtifact, SharedLibraryEngine};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
