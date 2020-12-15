@@ -507,6 +507,35 @@ pub unsafe fn wasmer_call_trampoline(
     })
 }
 
+/// Call the wasm function pointed to by `callee`, *not* wrapped into `catch_traps`.
+///
+/// This is a performance optimization for making function calls in batch.
+/// It must be called within a callback passed to `catch_traps` invocation.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// Wildly unsafe because it calls raw function pointers and reads/writes raw
+/// function pointers.
+pub unsafe fn wasmer_call_trampoline_unchecked(
+    vmctx: VMFunctionEnvironment,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+) {
+    mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
+        trampoline,
+    )(vmctx, callee, values_vec);
+}
+
 /// Catches any wasm traps that happen within the execution of `closure`,
 /// returning them as a `Result`.
 ///

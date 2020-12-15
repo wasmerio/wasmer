@@ -113,8 +113,26 @@ macro_rules! impl_native_traits {
             $( $x: FromToNativeWasmType, )*
             Rets: WasmTypeList,
         {
+
             /// Call the typed func and return results.
             pub fn call(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                self.call_(true, $( $x, )*)
+            }
+
+            /// Call the typed func and return results.
+            /// This would not catch any traps and must be called within a callback passed to `wasmer_vm::catch_traps`.
+            pub fn call_unchecked(&self, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
+                self.call_(false, $( $x, )*)
+            }
+
+            /// Get a VM Context to manually handle traps when calling `call_unchecked`.
+            pub fn get_vmctx(&self) -> VMFunctionEnvironment {
+                self.exported.vm_function.vmctx
+            }
+
+            /// Call the typed func and return results.
+            /// When calling a wasm function, allows to do checked or unchecked call.
+            fn call_(&self, trampoline_checked: bool, $( $x: $x, )* ) -> Result<Rets, RuntimeError> {
                 match self.definition {
                     FunctionDefinition::Wasm(WasmFunctionDefinition {
                         trampoline
@@ -135,14 +153,25 @@ macro_rules! impl_native_traits {
                             }
                             rets_list.as_mut()
                         };
-                        unsafe {
-                            wasmer_vm::wasmer_call_trampoline(
-                                self.vmctx(),
-                                trampoline,
-                                self.address(),
-                                args_rets.as_mut_ptr() as *mut u8,
-                            )
-                        }?;
+                        if trampoline_checked {
+                            unsafe {
+                                wasmer_vm::wasmer_call_trampoline(
+                                    self.vmctx(),
+                                    trampoline,
+                                    self.address(),
+                                    args_rets.as_mut_ptr() as *mut u8,
+                                )
+                            }?;
+                        } else {
+                            unsafe {
+                                wasmer_vm::wasmer_call_trampoline_unchecked(
+                                    self.vmctx(),
+                                    trampoline,
+                                    self.address(),
+                                    args_rets.as_mut_ptr() as *mut u8,
+                                )
+                            };
+                        }
                         let num_rets = rets_list.len();
                         if !using_rets_array && num_rets > 0 {
                             let src_pointer = params_list.as_ptr();
