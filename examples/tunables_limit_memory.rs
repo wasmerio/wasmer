@@ -4,11 +4,10 @@ use std::sync::Arc;
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
-    wat2wasm, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
-    Tunables as ReferenceTunables,
+    wat2wasm, BaseTunables, Instance, Memory, MemoryType, Module, Pages, Store, TableType, Target,
+    Tunables,
 };
 use wasmer_compiler_cranelift::Cranelift;
-use wasmer_engine::Tunables;
 use wasmer_engine_jit::JIT;
 
 /// A custom tunables that allows you to set a memory limit.
@@ -29,7 +28,7 @@ impl<T: Tunables> LimitingTunables<T> {
         Self { limit, base }
     }
 
-    /// Takes in input memory type as requested by the guest and sets
+    /// Takes an input memory type as requested by the guest and sets
     /// a maximum if missing. The resulting memory type is final if
     /// valid. However, this can produce invalid types, such that
     /// validate_memory must be called before creating the memory.
@@ -147,7 +146,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Here is where the fun begins
 
-    let base = ReferenceTunables::for_target(&Target::default());
+    let base = BaseTunables::for_target(&Target::default());
     let tunables = LimitingTunables::new(base, Pages(24));
 
     // Create a store, that holds the engine and our custom tunables

@@ -1,10 +1,9 @@
-use crate::tunables::Tunables;
+use crate::tunables::BaseTunables;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::Engine;
-use wasmer_engine::Tunables as BaseTunables;
+use wasmer_engine::{Engine, Tunables};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -19,7 +18,7 @@ use wasmer_engine::Tunables as BaseTunables;
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
-    tunables: Arc<dyn BaseTunables + Send + Sync>,
+    tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
 impl Store {
@@ -30,15 +29,12 @@ impl Store {
     {
         Self {
             engine: engine.cloned(),
-            tunables: Arc::new(Tunables::for_target(engine.target())),
+            tunables: Arc::new(BaseTunables::for_target(engine.target())),
         }
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables<E>(
-        engine: &E,
-        tunables: impl BaseTunables + Send + Sync + 'static,
-    ) -> Self
+    pub fn new_with_tunables<E>(engine: &E, tunables: impl Tunables + Send + Sync + 'static) -> Self
     where
         E: Engine + ?Sized,
     {
@@ -49,7 +45,7 @@ impl Store {
     }
 
     /// Returns the [`Tunables`].
-    pub fn tunables(&self) -> &dyn BaseTunables {
+    pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
     }
 
@@ -111,7 +107,7 @@ impl Default for Store {
 
         let config = get_config();
         let engine = get_engine(config);
-        let tunables = Tunables::for_target(engine.target());
+        let tunables = BaseTunables::for_target(engine.target());
         Store {
             engine: Arc::new(engine),
             tunables: Arc::new(tunables),
