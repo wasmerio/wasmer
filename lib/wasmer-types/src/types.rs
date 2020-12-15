@@ -276,6 +276,39 @@ impl fmt::Display for FunctionType {
     }
 }
 
+// Macro needed until https://rust-lang.github.io/rfcs/2000-const-generics.html is stable.
+// See https://users.rust-lang.org/t/how-to-implement-trait-for-fixed-size-array-of-any-size/31494
+macro_rules! implement_from_pair_to_functiontype {
+    ($($N:literal,$M:literal)+) => {
+        $(
+            impl From<([Type; $N], [Type; $M])> for FunctionType {
+                fn from(pair: ([Type; $N], [Type; $M])) -> Self {
+                    Self::new(pair.0, pair.1)
+                }
+            }
+        )+
+    }
+}
+
+implement_from_pair_to_functiontype! {
+    0,0 0,1 0,2 0,3 0,4 0,5 0,6 0,7 0,8 0,9
+    1,0 1,1 1,2 1,3 1,4 1,5 1,6 1,7 1,8 1,9
+    2,0 2,1 2,2 2,3 2,4 2,5 2,6 2,7 2,8 2,9
+    3,0 3,1 3,2 3,3 3,4 3,5 3,6 3,7 3,8 3,9
+    4,0 4,1 4,2 4,3 4,4 4,5 4,6 4,7 4,8 4,9
+    5,0 5,1 5,2 5,3 5,4 5,5 5,6 5,7 5,8 5,9
+    6,0 6,1 6,2 6,3 6,4 6,5 6,6 6,7 6,8 6,9
+    7,0 7,1 7,2 7,3 7,4 7,5 7,6 7,7 7,8 7,9
+    8,0 8,1 8,2 8,3 8,4 8,5 8,6 8,7 8,8 8,9
+    9,0 9,1 9,2 9,3 9,4 9,5 9,6 9,7 9,8 9,9
+}
+
+impl From<&FunctionType> for FunctionType {
+    fn from(as_ref: &FunctionType) -> Self {
+        as_ref.clone()
+    }
+}
+
 /// Indicator of whether a global is mutable or not
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
@@ -564,5 +597,39 @@ impl<T> ExportType<T> {
     /// Returns the type of this export.
     pub fn ty(&self) -> &T {
         &self.ty
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VOID_TO_VOID: ([Type; 0], [Type; 0]) = ([], []);
+    const I32_I32_TO_VOID: ([Type; 2], [Type; 0]) = ([Type::I32, Type::I32], []);
+    const V128_I64_TO_I32: ([Type; 2], [Type; 1]) = ([Type::V128, Type::I64], [Type::I32]);
+    const NINE_V128_TO_NINE_I32: ([Type; 9], [Type; 9]) = ([Type::V128; 9], [Type::I32; 9]);
+
+    #[test]
+    fn convert_tuple_to_functiontype() {
+        let ty: FunctionType = VOID_TO_VOID.into();
+        assert_eq!(ty.params().len(), 0);
+        assert_eq!(ty.results().len(), 0);
+
+        let ty: FunctionType = I32_I32_TO_VOID.into();
+        assert_eq!(ty.params().len(), 2);
+        assert_eq!(ty.params()[0], Type::I32);
+        assert_eq!(ty.params()[1], Type::I32);
+        assert_eq!(ty.results().len(), 0);
+
+        let ty: FunctionType = V128_I64_TO_I32.into();
+        assert_eq!(ty.params().len(), 2);
+        assert_eq!(ty.params()[0], Type::V128);
+        assert_eq!(ty.params()[1], Type::I64);
+        assert_eq!(ty.results().len(), 1);
+        assert_eq!(ty.results()[0], Type::I32);
+
+        let ty: FunctionType = NINE_V128_TO_NINE_I32.into();
+        assert_eq!(ty.params().len(), 9);
+        assert_eq!(ty.results().len(), 9);
     }
 }

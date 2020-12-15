@@ -22,8 +22,8 @@ mod utils;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder,
+    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
@@ -132,7 +132,7 @@ fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
     #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
     let path_open = Function::new_with_env(
         store,
-        &FunctionType::new(
+        FunctionType::new(
             vec![
                 ValType::I32,
                 ValType::I32,

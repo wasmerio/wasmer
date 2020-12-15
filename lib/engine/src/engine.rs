@@ -2,6 +2,7 @@
 
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
+use memmap2::Mmap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
@@ -51,8 +52,9 @@ pub trait Engine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        let bytes = std::fs::read(file_ref)?;
-        self.deserialize(&bytes)
+        let file = std::fs::File::open(file_ref)?;
+        let mmap = Mmap::map(&file)?;
+        self.deserialize(&mmap)
     }
 
     /// A unique identifier for this object.

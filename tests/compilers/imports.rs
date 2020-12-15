@@ -52,22 +52,22 @@ fn dynamic_function() -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new(&store, &FunctionType::new(vec![], vec![]), |_values| {
+                "0" => Function::new(&store, FunctionType::new(vec![], vec![]), |_values| {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), |values| {
+                "1" => Function::new(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), |values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), |values| {
+                "2" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), |values| {
+                "3" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -107,22 +107,22 @@ fn dynamic_function_with_env() -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_with_env(&store, &FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                "0" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
+                "1" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
+                "2" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
+                "3" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -332,7 +332,7 @@ fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
         &module,
         &imports! {
             "host" => {
-                "fn" => Function::new_with_env(&store, &FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                "fn" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
                     assert!(env.memory_ref().is_some());
                     Ok(vec![])
                 }),
