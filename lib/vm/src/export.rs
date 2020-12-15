@@ -10,7 +10,7 @@ use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum VMExport {
     /// A function export value.
     Function(VMExportFunction),

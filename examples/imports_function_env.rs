@@ -19,8 +19,7 @@
 //!
 //! Ready?
 
-use std::cell::RefCell;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasmer::{imports, wat2wasm, Function, Instance, Module, Store, WasmerEnv};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
@@ -57,11 +56,11 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let module = Module::new(&store, wasm_bytes)?;
 
     // We create some shared data here, `Arc` is required because we may
-    // move our WebAssembly instance to another thread to run it. RefCell
+    // move our WebAssembly instance to another thread to run it. Mutex
     // lets us get shared mutabilty which is fine because we know we won't
     // run host calls concurrently.  If concurrency is a possibilty, we'd have
     // to use a `Mutex`.
-    let shared_counter: Arc<RefCell<i32>> = Arc::new(RefCell::new(0));
+    let shared_counter: Arc<Mutex<i32>> = Arc::new(Mutex::new(0));
 
     // Once we have our counter we'll wrap it inside en `Env` which we'll pass
     // to our imported functions.
@@ -70,17 +69,17 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // possible to know the size of the `Env` at compile time (i.e it has to
     // implement the `Sized` trait) and that it implement the `WasmerEnv` trait.
     // We derive a default implementation of `WasmerEnv` here.
-    #[derive(WasmerEnv)]
+    #[derive(WasmerEnv, Clone)]
     struct Env {
-        counter: Arc<RefCell<i32>>,
+        counter: Arc<Mutex<i32>>,
     }
 
     // Create the functions
     fn get_counter(env: &Env) -> i32 {
-        *env.counter.borrow()
+        *env.counter.lock().unwrap()
     }
     fn add_to_counter(env: &Env, add: i32) -> i32 {
-        let mut counter_ref = env.counter.borrow_mut();
+        let mut counter_ref = env.counter.lock().unwrap();
 
         *counter_ref += add;
         *counter_ref
@@ -106,7 +105,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
         .get_function("increment_counter_loop")?
         .native::<i32, i32>()?;
 
-    let counter_value: i32 = *shared_counter.borrow();
+    let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("Initial ounter value: {:?}", counter_value);
 
     println!("Calling `increment_counter_loop` function...");
@@ -115,7 +114,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // It will loop five times thus incrementing our counter five times.
     let result = increment_counter_loop.call(5)?;
 
-    let counter_value: i32 = *shared_counter.borrow();
+    let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("New counter value (host): {:?}", counter_value);
     assert_eq!(counter_value, 5);
 

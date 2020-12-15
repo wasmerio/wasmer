@@ -12,7 +12,8 @@ pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
 use std::cmp::max;
 use std::fmt;
-use wasmer_engine::{Export, ExportFunction};
+use std::sync::Arc;
+use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
     VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
@@ -106,23 +107,48 @@ impl Function {
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static,
     {
         let ty: FunctionType = ty.into();
-        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithoutEnv {
-            func: Box::new(func),
-            function_type: ty.clone(),
-        });
+        let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> =
+            VMDynamicFunctionContext::from_context(DynamicFunctionWithoutEnv {
+                func: Arc::new(func),
+                function_type: ty.clone(),
+            });
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
+        let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = ptr as _;
+                let item: &VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
+        };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe {
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv>)
+            };
         };
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
-                import_init_function_ptr: None,
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            None,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -147,7 +173,7 @@ impl Function {
     /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
     /// # let store = Store::default();
     /// #
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -168,7 +194,7 @@ impl Function {
     /// # let store = Store::default();
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -187,30 +213,65 @@ impl Function {
         Env: Sized + WasmerEnv + 'static,
     {
         let ty: FunctionType = ty.into();
-        let dynamic_ctx = VMDynamicFunctionContext::from_context(VMDynamicFunctionWithEnv {
-            env: Box::new(env),
-            func: Box::new(func),
-            function_type: ty.clone(),
-        });
+        let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> =
+            VMDynamicFunctionContext::from_context(DynamicFunctionWithEnv {
+                env: Box::new(env),
+                func: Arc::new(func),
+                function_type: ty.clone(),
+            });
+
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
         let address = std::ptr::null() as *const VMFunctionBody;
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(Box::new(dynamic_ctx)) as *mut _,
-        };
-        // TODO: look into removing transmute by changing API type signatures
+        let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let import_init_function_ptr: fn(_, _) -> Result<(), _> =
+            |ptr: *mut std::ffi::c_void, instance: *const std::ffi::c_void| {
+                let ptr = ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>;
+                unsafe {
+                    let env = &mut *ptr;
+                    let env: &mut Env = &mut *env.ctx.env;
+                    let instance = &*(instance as *const crate::Instance);
+                    Env::init_with_instance(env, instance)
+                }
+            };
         let import_init_function_ptr = Some(unsafe {
             std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
-                Env::init_with_instance,
+                import_init_function_ptr,
             )
         });
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env: VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = unsafe {
+                let ptr: *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = ptr as _;
+                let item: &VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>> = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
+        };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe {
+                Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>)
+            };
+        };
 
         Self {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            import_init_function_ptr,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -264,7 +325,7 @@ impl Function {
             exported: ExportFunction {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
-                import_init_function_ptr: None,
+                metadata: None,
                 vm_function: VMExportFunction {
                     address,
                     vmctx,
@@ -288,7 +349,7 @@ impl Function {
     /// # use wasmer::{Store, Function, WasmerEnv};
     /// # let store = Store::default();
     /// #
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///     multiplier: i32,
     /// };
@@ -318,10 +379,20 @@ impl Function {
         // Wasm-defined functions have a `VMContext`.
         // In the case of Host-defined functions `VMContext` is whatever environment
         // the user want to attach to the function.
-        let box_env = Box::new(env);
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(box_env) as *mut _,
+        let host_env = Box::into_raw(Box::new(env)) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env = unsafe {
+                let ptr: *mut Env = ptr as _;
+                let item: &Env = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
         };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            unsafe { Box::from_raw(ptr as *mut Env) };
+        };
+
         // TODO: look into removing transmute by changing API type signatures
         let import_init_function_ptr = Some(unsafe {
             std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
@@ -334,7 +405,19 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            import_init_function_ptr,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
@@ -373,9 +456,20 @@ impl Function {
         let address = function.address();
 
         let box_env = Box::new(env);
-        let vmctx = VMFunctionEnvironment {
-            host_env: Box::into_raw(box_env) as *mut _,
+        let host_env = Box::into_raw(box_env) as *mut _;
+        let vmctx = VMFunctionEnvironment { host_env };
+        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+            let duped_env: Env = {
+                let ptr: *mut Env = ptr as _;
+                let item: &Env = &*ptr;
+                item.clone()
+            };
+            Box::into_raw(Box::new(duped_env)) as _
         };
+        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+            Box::from_raw(ptr as *mut Env);
+        };
+
         let signature = function.ty();
         // TODO: look into removing transmute by changing API type signatures
         let import_init_function_ptr = Some(std::mem::transmute::<
@@ -387,7 +481,17 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                import_init_function_ptr,
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    ExportFunctionMetadata::new(
+                        host_env,
+                        import_init_function_ptr,
+                        host_env_clone_fn,
+                        host_env_drop_fn,
+                    ),
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
@@ -756,13 +860,14 @@ pub(crate) trait VMDynamicFunction {
     fn function_type(&self) -> &FunctionType;
 }
 
-pub(crate) struct VMDynamicFunctionWithoutEnv {
+#[derive(Clone)]
+pub(crate) struct DynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    func: Arc<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
     function_type: FunctionType,
 }
 
-impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
+impl VMDynamicFunction for DynamicFunctionWithoutEnv {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError> {
         (*self.func)(&args)
     }
@@ -771,19 +876,27 @@ impl VMDynamicFunction for VMDynamicFunctionWithoutEnv {
     }
 }
 
-#[repr(C)]
-pub(crate) struct VMDynamicFunctionWithEnv<Env>
+pub(crate) struct DynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {
-    // This field _must_ come first in this struct.
-    env: Box<Env>,
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
-    func: Box<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static>,
+    env: Box<Env>,
 }
 
-impl<Env> VMDynamicFunction for VMDynamicFunctionWithEnv<Env>
+impl<Env: Sized + Clone + 'static> Clone for DynamicFunctionWithEnv<Env> {
+    fn clone(&self) -> Self {
+        Self {
+            env: self.env.clone(),
+            function_type: self.function_type.clone(),
+            func: self.func.clone(),
+        }
+    }
+}
+
+impl<Env> VMDynamicFunction for DynamicFunctionWithEnv<Env>
 where
     Env: Sized + 'static,
 {

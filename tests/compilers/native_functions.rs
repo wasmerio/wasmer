@@ -1,8 +1,7 @@
 use crate::utils::get_store;
 use anyhow::Result;
-use std::cell::RefCell;
 use std::convert::Infallible;
-use std::rc::Rc;
+use std::sync::{Arc, Mutex};
 
 use wasmer::*;
 
@@ -315,24 +314,26 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
     let store = get_store(false);
 
     fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        assert_eq!(*env.0.borrow(), 100);
-        env.0.replace(101);
+        let mut guard = env.0.lock().unwrap();
+        assert_eq!(*guard, 100);
+        *guard = 101;
 
         (d * 4.0, c * 3.0, b * 2, a * 1)
     }
 
     fn f_ok(env: &Env, a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
-        assert_eq!(*env.0.borrow(), 100);
-        env.0.replace(101);
+        let mut guard = env.0.lock().unwrap();
+        assert_eq!(*guard, 100);
+        *guard = 101;
 
         Ok((d * 4.0, c * 3.0, b * 2, a * 1))
     }
 
     #[derive(WasmerEnv, Clone)]
-    struct Env(Rc<RefCell<i32>>);
+    struct Env(Arc<Mutex<i32>>);
 
     impl std::ops::Deref for Env {
-        type Target = Rc<RefCell<i32>>;
+        type Target = Arc<Mutex<i32>>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }
@@ -340,32 +341,32 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
 
     // Native static host function that returns a tuple.
     {
-        let env = Env(Rc::new(RefCell::new(100)));
+        let env = Env(Arc::new(Mutex::new(100)));
 
         let f = Function::new_native_with_env(&store, env.clone(), f);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
-        assert_eq!(*env.0.borrow(), 100);
+        assert_eq!(*env.0.lock().unwrap(), 100);
 
         let result = f_native.call(1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.0.borrow(), 101);
+        assert_eq!(*env.0.lock().unwrap(), 101);
     }
 
     // Native static host function that returns a result of a tuple.
     {
-        let env = Env(Rc::new(RefCell::new(100)));
+        let env = Env(Arc::new(Mutex::new(100)));
 
         let f = Function::new_native_with_env(&store, env.clone(), f_ok);
         let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
-        assert_eq!(*env.0.borrow(), 100);
+        assert_eq!(*env.0.lock().unwrap(), 100);
 
         let result = f_native.call(1, 3, 5.0, 7.0)?;
 
         assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.0.borrow(), 101);
+        assert_eq!(*env.0.lock().unwrap(), 101);
     }
 
     Ok(())
@@ -403,16 +404,16 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
     let store = get_store(false);
 
     #[derive(WasmerEnv, Clone)]
-    struct Env(Rc<RefCell<i32>>);
+    struct Env(Arc<Mutex<i32>>);
 
     impl std::ops::Deref for Env {
-        type Target = Rc<RefCell<i32>>;
+        type Target = Arc<Mutex<i32>>;
         fn deref(&self) -> &Self::Target {
             &self.0
         }
     }
 
-    let env = Env(Rc::new(RefCell::new(100)));
+    let env = Env(Arc::new(Mutex::new(100)));
     let f = Function::new_with_env(
         &store,
         FunctionType::new(
@@ -421,9 +422,10 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
         ),
         env.clone(),
         |env, values| {
-            assert_eq!(*env.0.borrow(), 100);
+            let mut guard = env.0.lock().unwrap();
+            assert_eq!(*guard, 100);
 
-            env.0.replace(101);
+            *guard = 101;
 
             Ok(vec![
                 Value::F64(values[3].unwrap_f64() * 4.0),
@@ -436,12 +438,12 @@ fn dynamic_host_function_with_env() -> anyhow::Result<()> {
 
     let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
 
-    assert_eq!(*env.0.borrow(), 100);
+    assert_eq!(*env.0.lock().unwrap(), 100);
 
     let result = f_native.call(1, 3, 5.0, 7.0)?;
 
     assert_eq!(result, (28.0, 15.0, 6, 1));
-    assert_eq!(*env.0.borrow(), 101);
+    assert_eq!(*env.0.lock().unwrap(), 101);
 
     Ok(())
 }

@@ -34,7 +34,9 @@ pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
-pub use crate::export::{Export, ExportFunction, ExportGlobal, ExportMemory, ExportTable};
+pub use crate::export::{
+    Export, ExportFunction, ExportFunctionMetadata, ExportGlobal, ExportMemory, ExportTable,
+};
 pub use crate::resolver::{
     resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
     Resolver,
