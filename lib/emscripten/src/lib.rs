@@ -14,7 +14,6 @@
 extern crate log;
 
 use lazy_static::lazy_static;
-use std::cell::Cell;
 use std::collections::HashMap;
 use std::f64;
 use std::path::PathBuf;
@@ -117,6 +116,7 @@ impl std::ops::Deref for LibcDirWrapper {
 }
 
 unsafe impl Send for LibcDirWrapper {}
+unsafe impl Sync for LibcDirWrapper {}
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -149,7 +149,7 @@ pub struct EmscriptenData {
     pub memset: LazyInit<NativeFunc<(u32, u32, u32), u32>>,
     #[wasmer(export)]
     pub stack_alloc: LazyInit<NativeFunc<u32, u32>>,
-    pub jumps: Vec<Cell<[u32; 27]>>,
+    pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
     pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
 
     #[wasmer(export)]

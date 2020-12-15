@@ -640,8 +640,9 @@ pub(crate) struct LegacyEnv {
 }
 
 /// Because this type requires unsafe to do any meaningful operation, we
-/// can implement `Send`. All operations must be synchronized.
+/// can implement `Send` and `Sync`. All operations must be synchronized.
 unsafe impl Send for LegacyEnv {}
+unsafe impl Sync for LegacyEnv {}
 
 impl LegacyEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {

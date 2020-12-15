@@ -111,6 +111,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     // Only relevant when using multiple threads in the C API;
     // Synchronization will be done via the C API / on the C side.
     unsafe impl Send for WrapperEnv {}
+    unsafe impl Sync for WrapperEnv {}
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {

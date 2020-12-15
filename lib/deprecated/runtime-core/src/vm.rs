@@ -47,6 +47,7 @@ unsafe impl UnsafeMutableEnv for Ctx {}
 /// it's not correct in general though, so we should be careful when
 /// updating this type.
 unsafe impl Send for Ctx {}
+unsafe impl Sync for Ctx {}
 
 impl Ctx {
     pub(crate) unsafe fn new_uninit() -> Self {
