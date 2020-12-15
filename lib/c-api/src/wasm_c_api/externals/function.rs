@@ -108,6 +108,10 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         finalizer: Option<wasm_env_finalizer_t>,
     };
 
+    // Only relevant when using multiple threads in the C API;
+    // Synchronization will be done via the C API / on the C side.
+    unsafe impl Send for WrapperEnv {}
+
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
             if let Some(finalizer) = self.finalizer {

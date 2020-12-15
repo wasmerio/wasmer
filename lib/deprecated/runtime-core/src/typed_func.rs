@@ -224,11 +224,7 @@ pub struct DynamicFunc {
     new_function: new::wasmer::Function,
 }
 
-use std::{
-    cell::{RefCell, RefMut},
-    ops::DerefMut,
-    rc::Rc,
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Specific context for `DynamicFunc`. It's a hack.
 ///
@@ -237,30 +233,31 @@ use std::{
 /// `module::Module::instantiate`.
 #[derive(WasmerEnv, Clone)]
 pub(crate) struct DynamicCtx {
-    pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
-    inner_func:
-        Rc<dyn Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + 'static>,
+    pub(crate) vmctx: Arc<Mutex<vm::Ctx>>,
+    inner_func: Arc<
+        dyn Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + Sync + 'static,
+    >,
 }
 
 impl DynamicFunc {
     /// Create a new `DynamicFunc`.
     pub fn new<F>(signature: &FuncSig, func: F) -> Self
     where
-        F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + 'static,
+        F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + Sync + 'static,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = DynamicCtx {
-            vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
-            inner_func: Rc::new(func),
+            vmctx: Arc::new(Mutex::new(unsafe { vm::Ctx::new_uninit() })),
+            inner_func: Arc::new(func),
         };
 
         // Wrapper to safely extract a `&mut vm::Ctx` to pass
         // to `func`.
         fn inner(dyn_ctx: &DynamicCtx, params: &[Value]) -> Result<Vec<Value>, RuntimeError> {
-            let cell: Rc<RefCell<vm::Ctx>> = dyn_ctx.vmctx.clone();
-            let mut vmctx: RefMut<vm::Ctx> = cell.borrow_mut();
+            let cell: Arc<Mutex<vm::Ctx>> = dyn_ctx.vmctx.clone();
+            let mut vmctx: MutexGuard<vm::Ctx> = cell.lock().unwrap();
 
-            (dyn_ctx.inner_func)(vmctx.deref_mut(), params)
+            (dyn_ctx.inner_func)(&mut *vmctx, params)
         }
 
         Self {

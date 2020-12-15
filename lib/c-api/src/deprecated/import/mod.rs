@@ -639,6 +639,10 @@ pub(crate) struct LegacyEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
 }
 
+/// Because this type requires unsafe to do any meaningful operation, we
+/// can implement `Send`. All operations must be synchronized.
+unsafe impl Send for LegacyEnv {}
+
 impl LegacyEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
         self.instance_ptr

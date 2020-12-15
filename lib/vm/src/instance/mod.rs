@@ -130,7 +130,11 @@ pub enum ImportFunctionEnv {
         /// initialization.
         initializer: Option<ImportInitializerFuncPtr>,
         /// The destructor to clean up the type in `env`.
-        destructor: fn(*mut std::ffi::c_void),
+        ///
+        /// # Safety
+        /// - This function must be called ina synchronized way. For
+        ///   example, in the `Drop` implementation of this type.
+        destructor: unsafe fn(*mut std::ffi::c_void),
     },
 }
 
@@ -172,7 +176,12 @@ impl Drop for ImportFunctionEnv {
             ImportFunctionEnv::Env {
                 env, destructor, ..
             } => {
-                (destructor)(*env);
+                // # Safety
+                // - This is correct because we know no other references
+                //   to this data can exist if we're dropping it.
+                unsafe {
+                    (destructor)(*env);
+                }
             }
             ImportFunctionEnv::NoEnv => (),
         }

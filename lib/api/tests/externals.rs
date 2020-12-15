@@ -403,7 +403,7 @@ fn function_outlives_instance() -> Result<()> {
 #[test]
 fn manually_generate_wasmer_env() -> Result<()> {
     let store = Store::default();
-    #[derive(WasmerEnv)]
+    #[derive(WasmerEnv, Clone)]
     struct MyEnv {
         val: u32,
         memory: LazyInit<Memory>,

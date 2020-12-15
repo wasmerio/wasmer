@@ -136,12 +136,19 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata::new(
-                    host_env,
-                    None,
-                    host_env_clone_fn,
-                    host_env_drop_fn,
-                ))),
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            None,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -166,7 +173,7 @@ impl Function {
     /// # use wasmer::{Function, FunctionType, Type, Store, Value, WasmerEnv};
     /// # let store = Store::default();
     /// #
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -187,7 +194,7 @@ impl Function {
     /// # let store = Store::default();
     /// const I32_I32_TO_I32: ([Type; 2], [Type; 1]) = ([Type::I32, Type::I32], [Type::I32]);
     ///
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///   multiplier: i32,
     /// };
@@ -252,12 +259,19 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata::new(
-                    host_env,
-                    import_init_function_ptr,
-                    host_env_clone_fn,
-                    host_env_drop_fn,
-                ))),
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            import_init_function_ptr,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
@@ -335,7 +349,7 @@ impl Function {
     /// # use wasmer::{Store, Function, WasmerEnv};
     /// # let store = Store::default();
     /// #
-    /// #[derive(WasmerEnv)]
+    /// #[derive(WasmerEnv, Clone)]
     /// struct Env {
     ///     multiplier: i32,
     /// };
@@ -391,12 +405,19 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata::new(
-                    host_env,
-                    import_init_function_ptr,
-                    host_env_clone_fn,
-                    host_env_drop_fn,
-                ))),
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    unsafe {
+                        ExportFunctionMetadata::new(
+                            host_env,
+                            import_init_function_ptr,
+                            host_env_clone_fn,
+                            host_env_drop_fn,
+                        )
+                    },
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,
@@ -460,12 +481,17 @@ impl Function {
             store: store.clone(),
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
-                metadata: Some(Arc::new(ExportFunctionMetadata {
-                    host_env,
-                    host_env_clone_fn,
-                    host_env_drop_fn,
-                    import_init_function_ptr,
-                })),
+                metadata: Some(Arc::new(
+                    // # Safety
+                    // - All these functions work on all threads
+                    // - The host env is `Send`.
+                    ExportFunctionMetadata::new(
+                        host_env,
+                        import_init_function_ptr,
+                        host_env_clone_fn,
+                        host_env_drop_fn,
+                    ),
+                )),
                 vm_function: VMExportFunction {
                     address,
                     kind: VMFunctionKind::Static,

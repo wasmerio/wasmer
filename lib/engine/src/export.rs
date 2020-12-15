@@ -79,13 +79,28 @@ pub struct ExportFunctionMetadata {
     /// A function analogous to `Clone::clone` that returns a leaked `Box`.
     pub(crate) host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
     /// The destructor to free the host environment.
-    pub(crate) host_env_drop_fn: fn(*mut std::ffi::c_void),
+    ///
+    /// # Safety
+    /// - This function should only be called in when properly synchronized.
+    /// For example, in the `Drop` implementation of this type.
+    pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
 }
+
+/// This can be `Send` because `host_env` comes from `WasmerEnv` which is
+/// `Send`. Therefore all operations should work on any thread.
+unsafe impl Send for ExportFunctionMetadata {}
+/// This data may be shared across threads, `drop` is an unsafe function
+/// pointer, so care must be taken when calling it.
+unsafe impl Sync for ExportFunctionMetadata {}
 
 impl ExportFunctionMetadata {
     /// Create an `ExportFunctionMetadata` type with information about
     /// the exported function.
-    pub fn new(
+    ///
+    /// # Safety
+    /// - the `host_env` must be `Send`.
+    /// - all function pointers must work on any thread.
+    pub unsafe fn new(
         host_env: *mut std::ffi::c_void,
         import_init_function_ptr: Option<ImportInitializerFuncPtr>,
         host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
@@ -105,7 +120,12 @@ impl ExportFunctionMetadata {
 impl Drop for ExportFunctionMetadata {
     fn drop(&mut self) {
         if !self.host_env.is_null() {
-            (self.host_env_drop_fn)(self.host_env);
+            // # Safety
+            // - This is correct because we know no other references
+            //   to this data can exist if we're dropping it.
+            unsafe {
+                (self.host_env_drop_fn)(self.host_env);
+            }
         }
     }
 }

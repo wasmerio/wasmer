@@ -67,7 +67,7 @@ impl From<ExportError> for HostEnvInitError {
 ///     }
 /// }
 /// ```
-pub trait WasmerEnv: Clone {
+pub trait WasmerEnv: Clone + Send {
     /// The function that Wasmer will call on your type to let it finish
     /// setting up the environment with data from the `Instance`.
     ///
