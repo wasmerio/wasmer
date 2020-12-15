@@ -230,6 +230,9 @@ pub mod trap;
 /// cbindgen:ignore
 pub mod types;
 
+/// Possible runtime values that a WebAssembly module can either
+/// consume or produce.
+///
 /// cbindgen:ignore
 pub mod value;
 
