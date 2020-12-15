@@ -17,6 +17,11 @@ pub struct Imports {
     /// space may affect Wasm runtime performance due to increased cache pressure.
     ///
     /// We make it optional so that we can free the data after use.
+    ///
+    /// We move this data in `get_imported_function_envs` because there's
+    /// no value to keeping it around; host functions must be initialized
+    /// exactly once so we save some memory and improve correctness by
+    /// moving this data.
     pub host_function_env_initializers: Option<BoxedSlice<FunctionIndex, ImportFunctionEnv>>,
 
     /// Resolved addresses for imported tables.

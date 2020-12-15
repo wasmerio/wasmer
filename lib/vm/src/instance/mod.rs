@@ -107,10 +107,7 @@ pub(crate) struct Instance {
     vmctx: VMContext,
 }
 
-/// A collection of data about host envs.
-///
-/// Due to invariants in the `HostEnv` variant, this type should only
-/// be constructed by one of the given methods, not directly.
+/// A collection of data about host envs used by imported functions.
 #[derive(Debug)]
 pub enum ImportFunctionEnv {
     /// The `vmctx` pointer does not refer to a host env, there is no
@@ -122,69 +119,26 @@ pub enum ImportFunctionEnv {
     /// directly) or wrapped. i.e. in the case of Dynamic functions, we
     /// store our own extra data along with the user supplied env,
     /// thus the `env` pointer here points to the outermost type.
-    HostEnv {
+    Env {
         /// The function environment. This is not always the user-supplied
         /// env.
         env: *mut std::ffi::c_void,
         /// A clone function for duplicating the env.
         clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
-        /// This type must start out as Some. `None` indicates that the
-        /// initializer has been called and must not be called again.
+        /// This field is not always present. When it is present, it
+        /// should be set to `None` after use to prevent double
+        /// initialization.
         initializer: Option<ImportInitializerFuncPtr>,
-        /// The destructor to clean up the type in `env`.
-        destructor: fn(*mut std::ffi::c_void),
-    },
-    /// Like `Self::HostEnv` but contains no user supplied env.
-    ///
-    /// i.e. Dynamic functions without an env.
-    DynamicHostEnvWithNoInnerEnv {
-        /// Some type that does not contain a user supplied env at all,
-        /// thus we have no need to initialize it.
-        env: *mut std::ffi::c_void,
-        /// A clone function for duplicating the env.
-        clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
         /// The destructor to clean up the type in `env`.
         destructor: fn(*mut std::ffi::c_void),
     },
 }
 
 impl ImportFunctionEnv {
-    /// Make a new `Self::HostEnv`.
-    pub fn new_host_env(
-        env: *mut std::ffi::c_void,
-        clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
-        initializer: ImportInitializerFuncPtr,
-        destructor: fn(*mut std::ffi::c_void),
-    ) -> Self {
-        Self::HostEnv {
-            env,
-            clone,
-            initializer: Some(initializer),
-            destructor,
-        }
-    }
-
-    /// Make a new `Self::DynamicHostEnvWithNoInnerEnv`.
-    pub fn new_dynamic_host_env_with_no_inner_env(
-        env: *mut std::ffi::c_void,
-        clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
-        destructor: fn(*mut std::ffi::c_void),
-    ) -> Self {
-        Self::DynamicHostEnvWithNoInnerEnv {
-            env,
-            clone,
-            destructor,
-        }
-    }
-
-    /// Make a new `Self::NoEnv`.
-    pub fn new_no_env() -> Self {
-        Self::NoEnv
-    }
-
+    /// Get the `initializer` function pointer if it exists.
     fn initializer(&self) -> Option<ImportInitializerFuncPtr> {
         match self {
-            Self::HostEnv { initializer, .. } => *initializer,
+            Self::Env { initializer, .. } => *initializer,
             _ => None,
         }
     }
@@ -194,30 +148,18 @@ impl Clone for ImportFunctionEnv {
     fn clone(&self) -> Self {
         match &self {
             Self::NoEnv => Self::NoEnv,
-            Self::HostEnv {
+            Self::Env {
                 env,
                 clone,
                 destructor,
                 initializer,
             } => {
                 let new_env = (*clone)(*env);
-                Self::HostEnv {
+                Self::Env {
                     env: new_env,
                     clone: *clone,
                     destructor: *destructor,
                     initializer: *initializer,
-                }
-            }
-            Self::DynamicHostEnvWithNoInnerEnv {
-                env,
-                clone,
-                destructor,
-            } => {
-                let new_env = (*clone)(*env);
-                Self::DynamicHostEnvWithNoInnerEnv {
-                    env: new_env,
-                    clone: *clone,
-                    destructor: *destructor,
                 }
             }
         }
@@ -227,10 +169,7 @@ impl Clone for ImportFunctionEnv {
 impl Drop for ImportFunctionEnv {
     fn drop(&mut self) {
         match self {
-            ImportFunctionEnv::DynamicHostEnvWithNoInnerEnv {
-                env, destructor, ..
-            }
-            | ImportFunctionEnv::HostEnv {
+            ImportFunctionEnv::Env {
                 env, destructor, ..
             } => {
                 (destructor)(*env);
@@ -1396,7 +1335,7 @@ impl InstanceHandle {
 
         for import_function_env in instance_ref.imported_function_envs.values_mut() {
             match import_function_env {
-                ImportFunctionEnv::HostEnv {
+                ImportFunctionEnv::Env {
                     env,
                     ref mut initializer,
                     ..
@@ -1411,8 +1350,7 @@ impl InstanceHandle {
                     }
                     *initializer = None;
                 }
-                ImportFunctionEnv::DynamicHostEnvWithNoInnerEnv { .. }
-                | ImportFunctionEnv::NoEnv => (),
+                ImportFunctionEnv::NoEnv => (),
             }
         }
         Ok(())

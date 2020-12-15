@@ -209,15 +209,14 @@ pub fn resolve_imports(
                 let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
                 let import_function_env =
                     if let (Some(clone), Some(destructor)) = (clone, destructor) {
-                        if let Some(initializer) = initializer {
-                            ImportFunctionEnv::new_host_env(env, clone, initializer, destructor)
-                        } else {
-                            ImportFunctionEnv::new_dynamic_host_env_with_no_inner_env(
-                                env, clone, destructor,
-                            )
+                        ImportFunctionEnv::Env {
+                            env,
+                            clone,
+                            initializer,
+                            destructor,
                         }
                     } else {
-                        ImportFunctionEnv::new_no_env()
+                        ImportFunctionEnv::NoEnv
                     };
 
                 host_function_env_initializers.push(import_function_env);
