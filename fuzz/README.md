@@ -10,7 +10,7 @@ $ cargo install cargo-fuzz
 
 `cargo-fuzz` is documented in the [Rust Fuzz Book](https://rust-fuzz.github.io/book/cargo-fuzz.html).
 
-## Running a fuzzer (validate, jit_llvm, shared-library_cranelift, ...)
+## Running a fuzzer (validate, jit_llvm, shared_library_cranelift, ...)
 
 Once `cargo-fuzz` is installed, you can run the `validate` fuzzer with
 ```sh
