@@ -142,9 +142,6 @@ impl JITArtifact {
 
         let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
 
-        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-
         let serializable: SerializableModule = bincode::deserialize(inner_bytes)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
@@ -312,9 +309,6 @@ impl Artifact for JITArtifact {
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // let mut s = flexbuffers::FlexbufferSerializer::new();
-        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
-        // Ok(s.take_buffer())
         let bytes = bincode::serialize(&self.serializable)
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
 
