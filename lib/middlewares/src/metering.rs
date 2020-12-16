@@ -186,3 +186,73 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
         Ok(())
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::Arc;
+    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, JIT};
+
+    fn cost_function(operator: &Operator) -> u64 {
+        match operator {
+            Operator::LocalGet { .. } | Operator::I32Const { .. } => 1,
+            Operator::I32Add { .. } => 2,
+            _ => 0,
+        }
+    }
+
+    fn bytecode() -> Vec<u8> {
+        wat2wasm(
+            br#"
+            (module
+            (type $add_t (func (param i32) (result i32)))
+            (func $add_one_f (type $add_t) (param $value i32) (result i32)
+                local.get $value
+                i32.const 1
+                i32.add)
+            (export "add_one" (func $add_one_f)))
+            "#,
+        )
+        .unwrap()
+        .into()
+    }
+
+    #[test]
+    fn get_remaining_points_works() {
+        let metering = Arc::new(Metering::new(10, cost_function));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering.clone());
+        let store = Store::new(&JIT::new(compiler_config).engine());
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        // Instantiate
+        let instance = Instance::new(&module, &imports! {}).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 10);
+
+        // First call
+        //
+        // Calling add_one costs 4 points. Here are the details of how it has been computed:
+        // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
+        // * `i32.const` is a `Operator::I32Const` which costs 1 point;
+        // * `i32.add` is a `Operator::I32Add` which costs 2 points.
+        let add_one = instance
+            .exports
+            .get_function("add_one")
+            .unwrap()
+            .native::<i32, i32>()
+            .unwrap();
+        add_one.call(1).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 6);
+
+        // Second call
+        add_one.call(1).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 2);
+
+        // Third call fails due to limit
+        assert!(add_one.call(1).is_err());
+        // TODO: what do we expect now? 0 or 2? See https://github.com/wasmerio/wasmer/issues/1931
+        // assert_eq!(metering.get_remaining_points(&instance), 2);
+        // assert_eq!(metering.get_remaining_points(&instance), 0);
+    }
+}
