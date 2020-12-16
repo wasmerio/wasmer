@@ -53,31 +53,6 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
             remaining_points_index: Mutex::new(None),
         }
     }
-
-    /// Get the remaining points in an Instance.
-    ///
-    /// Important: the instance Module must been processed with the `Metering` middleware.
-    pub fn get_remaining_points(&self, instance: &Instance) -> u64 {
-        instance
-            .exports
-            .get_global("remaining_points")
-            .expect("Can't get `remaining_points` from Instance")
-            .get()
-            .try_into()
-            .expect("`remaining_points` from Instance has wrong type")
-    }
-
-    /// Set the provided remaining points in an Instance.
-    ///
-    /// Important: the instance Module must been processed with the `Metering` middleware.
-    pub fn set_remaining_points(&self, instance: &Instance, points: u64) {
-        instance
-            .exports
-            .get_global("remaining_points")
-            .expect("Can't get `remaining_points` from Instance")
-            .set(points.into())
-            .expect("Can't set `remaining_points` in Instance");
-    }
 }
 
 impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Metering<F> {
@@ -189,6 +164,43 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
     }
 }
 
+/// Get the remaining points in an `Instance`.
+///
+/// This can be used in a headless engine after an ahead-of-time compilation
+/// as all required state lives in the instance.
+///
+/// # Panic
+///
+/// The instance Module must have been processed with the [`Metering`] middleware
+/// at compile time, otherwise this will panic.
+pub fn get_remaining_points(instance: &Instance) -> u64 {
+    instance
+        .exports
+        .get_global("remaining_points")
+        .expect("Can't get `remaining_points` from Instance")
+        .get()
+        .try_into()
+        .expect("`remaining_points` from Instance has wrong type")
+}
+
+/// Set the provided remaining points in an `Instance`.
+///
+/// This can be used in a headless engine after an ahead-of-time compilation
+/// as all required state lives in the instance.
+///
+/// # Panic
+///
+/// The instance Module must have been processed with the [`Metering`] middleware
+/// at compile time, otherwise this will panic.
+pub fn set_remaining_points(instance: &Instance, points: u64) {
+    instance
+        .exports
+        .get_global("remaining_points")
+        .expect("Can't get `remaining_points` from Instance")
+        .set(points.into())
+        .expect("Can't set `remaining_points` in Instance");
+}
+
 #[cfg(test)]
 mod tests {
     use super::*;
@@ -230,7 +242,7 @@ mod tests {
 
         // Instantiate
         let instance = Instance::new(&module, &imports! {}).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 10);
+        assert_eq!(get_remaining_points(&instance), 10);
 
         // First call
         //
@@ -245,11 +257,11 @@ mod tests {
             .native::<i32, i32>()
             .unwrap();
         add_one.call(1).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 6);
+        assert_eq!(get_remaining_points(&instance), 6);
 
         // Second call
         add_one.call(1).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 2);
+        assert_eq!(get_remaining_points(&instance), 2);
 
         // Third call fails due to limit
         assert!(add_one.call(1).is_err());
@@ -268,7 +280,7 @@ mod tests {
 
         // Instantiate
         let instance = Instance::new(&module, &imports! {}).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 10);
+        assert_eq!(get_remaining_points(&instance), 10);
         let add_one = instance
             .exports
             .get_function("add_one")
@@ -277,14 +289,14 @@ mod tests {
             .unwrap();
 
         // Increase a bit to have enough for 3 calls
-        metering.set_remaining_points(&instance, 12);
+        set_remaining_points(&instance, 12);
 
         // Ensure we can use the new points now
         add_one.call(1).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 8);
+        assert_eq!(get_remaining_points(&instance), 8);
         add_one.call(1).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 4);
+        assert_eq!(get_remaining_points(&instance), 4);
         add_one.call(1).unwrap();
-        assert_eq!(metering.get_remaining_points(&instance), 0);
+        assert_eq!(get_remaining_points(&instance), 0);
     }
 }
