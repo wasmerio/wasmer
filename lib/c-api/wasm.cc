@@ -1240,9 +1240,18 @@ class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
     callback_with_env cb;
     void (*c_finalizer)(void *);
     void *env;
-    static wasm_trap_t *shim(void *env, const wasm_val_vec_t *args,
-                             wasm_val_vec_t *results) {
-      abort();
+    static wasm_trap_t *shim(void *ptr, const wasm_val_vec_t *c_args,
+                             wasm_val_vec_t *c_results) {
+      WasmerFuncEnvWithEnv *self = static_cast<WasmerFuncEnvWithEnv *>(ptr);
+      auto cxx_args = c_vec_to_cxx_vec(c_args, c_val_to_cxx_val);
+      vec<Val> cxx_results = vec<Val>::make_uninitialized(c_results->size);
+      auto trap = self->cb(self->env, cxx_args, cxx_results);
+      cxx_vec_into_c_vec_ptr(cxx_results, cxx_val_to_c_val, c_results);
+      if (trap) {
+        return WasmerTrap::from(std::move(trap))->release();
+      } else {
+        return nullptr;
+      }
     }
     static void finalizer(void *ptr) {
       auto self = static_cast<WasmerFuncEnvWithEnv *>(ptr);
