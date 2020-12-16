@@ -1,4 +1,4 @@
-use crate::{ptr::WasmPtr, varargs::VarArgs};
+use crate::{ptr::WasmPtr, varargs::VarArgs, LibcDirWrapper};
 #[cfg(target_os = "macos")]
 use libc::size_t;
 /// NOTE: TODO: These syscalls only support wasm_32 for now because they assume offsets are u32
@@ -1064,12 +1064,12 @@ pub fn ___syscall220(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     // let dir: *mut libc::DIR = unsafe { libc::fdopendir(fd) };
     let dir = &*opened_dirs
         .entry(fd)
-        .or_insert_with(|| unsafe { Box::new(libc::fdopendir(fd)) });
+        .or_insert_with(|| unsafe { Box::new(LibcDirWrapper(libc::fdopendir(fd))) });
 
     let mut pos = 0;
     let offset = 256 + 12;
     while pos + offset <= count as usize {
-        let dirent = unsafe { readdir(**dir) };
+        let dirent = unsafe { readdir(***dir) };
         if dirent.is_null() {
             break;
         }

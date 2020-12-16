@@ -43,6 +43,11 @@ pub struct Ctx {
 
 /// We mark `Ctx` as a legacy env that can be passed by `&mut`.
 unsafe impl UnsafeMutableEnv for Ctx {}
+/// This is correct because of the way we use the data in `Ctx`;
+/// it's not correct in general though, so we should be careful when
+/// updating this type.
+unsafe impl Send for Ctx {}
+unsafe impl Sync for Ctx {}
 
 impl Ctx {
     pub(crate) unsafe fn new_uninit() -> Self {

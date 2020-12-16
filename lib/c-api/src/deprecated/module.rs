@@ -192,7 +192,8 @@ pub unsafe extern "C" fn wasmer_module_import_instantiate(
     };
     let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
     for to_update in import_object.instance_pointers_to_update.iter_mut() {
-        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+        let mut to_update_guard = to_update.lock().unwrap();
+        to_update_guard.instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
     }
     *instance = c_api_instance_pointer as *mut wasmer_instance_t;
 

@@ -4,7 +4,7 @@ use std::ptr::NonNull;
 use std::sync::Arc;
 use target_lexicon::{OperatingSystem, PointerWidth};
 use wasmer_compiler::Target;
-use wasmer_engine::Tunables as BaseTunables;
+use wasmer_engine::Tunables;
 use wasmer_vm::MemoryError;
 use wasmer_vm::{
     LinearMemory, LinearTable, Memory, MemoryStyle, Table, TableStyle, VMMemoryDefinition,
@@ -12,8 +12,15 @@ use wasmer_vm::{
 };
 
 /// Tunable parameters for WebAssembly compilation.
+/// This is the reference implementation of the `Tunables` trait,
+/// used by default.
+///
+/// You can use this as a template for creating a custom Tunables
+/// implementation or use composition to wrap your Tunables around
+/// this one. The later approach is demonstrated in the
+/// tunables-limit-memory example.
 #[derive(Clone)]
-pub struct Tunables {
+pub struct BaseTunables {
     /// For static heaps, the size in wasm pages of the heap protected by bounds checking.
     pub static_memory_bound: Pages,
 
@@ -24,8 +31,8 @@ pub struct Tunables {
     pub dynamic_memory_offset_guard_size: u64,
 }
 
-impl Tunables {
-    /// Get the `Tunables` for a specific Target
+impl BaseTunables {
+    /// Get the `BaseTunables` for a specific Target
     pub fn for_target(target: &Target) -> Self {
         let triple = target.triple();
         let pointer_width: PointerWidth = triple.pointer_width().unwrap();
@@ -61,7 +68,7 @@ impl Tunables {
     }
 }
 
-impl BaseTunables for Tunables {
+impl Tunables for BaseTunables {
     /// Get a `MemoryStyle` for the provided `MemoryType`
     fn memory_style(&self, memory: &MemoryType) -> MemoryStyle {
         // A heap with a maximum that doesn't exceed the static memory bound specified by the
@@ -148,7 +155,7 @@ mod tests {
 
     #[test]
     fn memory_style() {
-        let tunables = Tunables {
+        let tunables = BaseTunables {
             static_memory_bound: Pages(2048),
             static_memory_offset_guard_size: 128,
             dynamic_memory_offset_guard_size: 256,

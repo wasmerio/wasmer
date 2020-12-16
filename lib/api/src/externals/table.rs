@@ -158,7 +158,7 @@ impl<'a> Exportable<'a> for Table {
         ExportTable {
             vm_table: VMExportTable {
                 from: self.table.clone(),
-                instance_allocator: None,
+                instance_ref: None,
             },
         }
         .into()

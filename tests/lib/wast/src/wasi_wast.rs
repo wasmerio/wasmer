@@ -6,8 +6,8 @@ use std::path::PathBuf;
 use wasmer::{ImportObject, Instance, Module, Store};
 use wasmer_wasi::types::{__wasi_filesize_t, __wasi_timestamp_t};
 use wasmer_wasi::{
-    generate_import_object_from_env, get_wasi_version, WasiEnv, WasiFile, WasiFsError, WasiState,
-    WasiVersion,
+    generate_import_object_from_env, get_wasi_version, Pipe, WasiEnv, WasiFile, WasiFsError,
+    WasiState, WasiVersion,
 };
 use wast::parser::{self, Parse, ParseBuffer, Parser};
 
@@ -21,6 +21,7 @@ pub struct WasiTest<'a> {
     mapped_dirs: Vec<(&'a str, &'a str)>,
     temp_dirs: Vec<&'a str>,
     assert_return: Option<AssertReturn>,
+    stdin: Option<Stdin<'a>>,
     assert_stdout: Option<AssertStdout<'a>>,
     assert_stderr: Option<AssertStderr<'a>>,
 }
@@ -85,6 +86,12 @@ impl<'a> WasiTest<'a> {
         let instance = Instance::new(&module, &imports)?;
 
         let start = instance.exports.get_function("_start")?;
+        if let Some(stdin) = &self.stdin {
+            let mut state = env.state();
+            let wasi_stdin = state.fs.stdin_mut()?.as_mut().unwrap();
+            // Then we can write to it!
+            write!(wasi_stdin, "{}", stdin.stream)?;
+        }
         // TODO: handle errors here when the error fix gets shipped
         match start.call(&[]) {
             Ok(_) => {}
@@ -119,6 +126,10 @@ impl<'a> WasiTest<'a> {
     /// Create the wasi env with the given metadata.
     fn create_wasi_env(&self) -> anyhow::Result<(WasiEnv, Vec<tempfile::TempDir>)> {
         let mut builder = WasiState::new(self.wasm_path);
+
+        let stdin_pipe = Pipe::new();
+        builder.stdin(Box::new(stdin_pipe));
+
         for (name, value) in &self.envs {
             builder.env(name, value);
         }
@@ -179,6 +190,7 @@ mod wasi_kw {
     wast::custom_keyword!(map_dirs);
     wast::custom_keyword!(temp_dirs);
     wast::custom_keyword!(assert_return);
+    wast::custom_keyword!(stdin);
     wast::custom_keyword!(assert_stdout);
     wast::custom_keyword!(assert_stderr);
     wast::custom_keyword!(fake_i64_const = "i64.const");
@@ -228,6 +240,12 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 None
             };
 
+            let stdin = if parser.peek2::<wasi_kw::stdin>() {
+                Some(parser.parens(|p| p.parse::<Stdin>())?)
+            } else {
+                None
+            };
+
             let assert_stdout = if parser.peek2::<wasi_kw::assert_stdout>() {
                 Some(parser.parens(|p| p.parse::<AssertStdout>())?)
             } else {
@@ -248,6 +266,7 @@ impl<'a> Parse<'a> for WasiTest<'a> {
                 mapped_dirs,
                 temp_dirs,
                 assert_return,
+                stdin,
                 assert_stdout,
                 assert_stderr,
             })
@@ -369,6 +388,20 @@ impl<'a> Parse<'a> for AssertReturn {
 }
 
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
+struct Stdin<'a> {
+    stream: &'a str,
+}
+
+impl<'a> Parse<'a> for Stdin<'a> {
+    fn parse(parser: Parser<'a>) -> parser::Result<Self> {
+        parser.parse::<wasi_kw::stdin>()?;
+        Ok(Self {
+            stream: parser.parse()?,
+        })
+    }
+}
+
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
 struct AssertStdout<'a> {
     expected: &'a str,
 }
@@ -408,6 +441,7 @@ mod test {
                     (args "hello" "world" "--help")
                     (preopens "." "src/io")
                     (assert_return (i64.const 0))
+                    (stdin "This is another \"string\" inside a string!")
                     (assert_stdout "This is a \"string\" inside a string!")
                     (assert_stderr "")
 )"#,
@@ -425,6 +459,10 @@ mod test {
         assert_eq!(
             result.assert_stdout.unwrap().expected,
             "This is a \"string\" inside a string!"
+        );
+        assert_eq!(
+            result.stdin.unwrap().stream,
+            "This is another \"string\" inside a string!"
         );
         assert_eq!(result.assert_stderr.unwrap().expected, "");
     }

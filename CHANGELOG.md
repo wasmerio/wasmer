@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-beta2 - 2020-12-16
+
 ### Added
  
 * [#1916](https://github.com/wasmerio/wasmer/pull/1916) Add the `WASMER_VERSION*` constants with the `wasmer_version*` functions in the Wasmer C API
@@ -18,12 +20,15 @@
 
 ### Changed
 
+- [#1865](https://github.com/wasmerio/wasmer/pull/1865) Require that implementors of `WasmerEnv` also implement `Send`, `Sync`, and `Clone`.
 - [#1851](https://github.com/wasmerio/wasmer/pull/1851) Improve test suite and documentation of the Wasmer C API
 - [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)
 - [#1880](https://github.com/wasmerio/wasmer/pull/1880) Remove cmake dependency for tests
+- [#1924](https://github.com/wasmerio/wasmer/pull/1924) Rename reference implementation `wasmer::Tunables` to `wasmer::BaseTunables`. Export trait `wasmer_engine::Tunables` as `wasmer::Tunables`.
 
 ### Fixed
 
+- [#1865](https://github.com/wasmerio/wasmer/pull/1865) Fix memory leaks with host function environments.
 - [#1870](https://github.com/wasmerio/wasmer/pull/1870) Fixed Trap instruction address maps in Singlepass
 * [#1914](https://github.com/wasmerio/wasmer/pull/1914) Implemented `TryFrom<Bytes> for Pages` instead of `From<Bytes> for Pages` to properly handle overflow errors
 

@@ -220,7 +220,7 @@ impl<'a> Exportable<'a> for Global {
         ExportGlobal {
             vm_global: VMExportGlobal {
                 from: self.global.clone(),
-                instance_allocator: None,
+                instance_ref: None,
             },
         }
         .into()

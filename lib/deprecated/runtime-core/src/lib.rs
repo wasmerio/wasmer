@@ -40,7 +40,6 @@
 //! customize the wasmer runtime.
 
 pub(crate) mod new {
-    pub use wasmer_types;
     pub use wasmer;
     pub use wasmer_cache;
     pub use wasmer_compiler;
@@ -52,6 +51,7 @@ pub(crate) mod new {
     pub use wasmer_compiler_singlepass;
     pub use wasmer_engine;
     pub use wasmer_engine_jit;
+    pub use wasmer_types;
     pub use wasmer_vm;
 }
 
@@ -115,8 +115,7 @@ impl GlobalStore {
         }
 
         #[allow(unused_variables)]
-        let update = |engine: new::wasmer_engine_jit::JIT,
-                      global_store: &GlobalStore| {
+        let update = |engine: new::wasmer_engine_jit::JIT, global_store: &GlobalStore| {
             let engine = engine.engine();
             *self.store.lock().unwrap() = Arc::new(new::wasmer::Store::new(&engine));
         };
@@ -124,18 +123,25 @@ impl GlobalStore {
         match compiler {
             #[cfg(feature = "singlepass")]
             Backend::Singlepass => update(
-                new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_singlepass::Singlepass::default()),
+                new::wasmer_engine_jit::JIT::new(
+                    new::wasmer_compiler_singlepass::Singlepass::default(),
+                ),
                 &self,
             ),
 
             #[cfg(feature = "cranelift")]
-            Backend::Cranelift => {
-                update(
-                    new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_cranelift::Cranelift::default()), &self)
-            }
+            Backend::Cranelift => update(
+                new::wasmer_engine_jit::JIT::new(
+                    new::wasmer_compiler_cranelift::Cranelift::default(),
+                ),
+                &self,
+            ),
 
             #[cfg(feature = "llvm")]
-            Backend::LLVM => update(new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_llvm::LLVM::default()), &self),
+            Backend::LLVM => update(
+                new::wasmer_engine_jit::JIT::new(new::wasmer_compiler_llvm::LLVM::default()),
+                &self,
+            ),
 
             Backend::Auto => *self.store.lock().unwrap() = Arc::new(Default::default()),
         };

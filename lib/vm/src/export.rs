@@ -10,7 +10,7 @@ use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
-#[derive(Debug, Clone)]
+#[derive(Debug)]
 pub enum VMExport {
     /// A function export value.
     Function(VMExportFunction),
@@ -50,7 +50,7 @@ pub struct VMExportFunction {
 
     /// A “reference” to the instance through the
     /// `InstanceRef`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceRef>,
+    pub instance_ref: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -74,8 +74,8 @@ pub struct VMExportTable {
     pub from: Arc<dyn Table>,
 
     /// A “reference” to the instance through the
-    /// `InstanceRef`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceRef>,
+    /// `InstanceRef`. `None` if it is a host table.
+    pub instance_ref: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -120,8 +120,8 @@ pub struct VMExportMemory {
     pub from: Arc<dyn Memory>,
 
     /// A “reference” to the instance through the
-    /// `InstanceRef`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceRef>,
+    /// `InstanceRef`. `None` if it is a host memory.
+    pub instance_ref: Option<InstanceRef>,
 }
 
 /// # Safety
@@ -166,8 +166,8 @@ pub struct VMExportGlobal {
     pub from: Arc<Global>,
 
     /// A “reference” to the instance through the
-    /// `InstanceRef`. `None` if it is a host function.
-    pub instance_allocator: Option<InstanceRef>,
+    /// `InstanceRef`. `None` if it is a host global.
+    pub instance_ref: Option<InstanceRef>,
 }
 
 /// # Safety

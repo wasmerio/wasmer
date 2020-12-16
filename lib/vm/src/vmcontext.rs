@@ -106,6 +106,15 @@ pub struct VMDynamicFunctionContext<T: Sized> {
     pub ctx: T,
 }
 
+impl<T: Sized + Clone> Clone for VMDynamicFunctionContext<T> {
+    fn clone(&self) -> Self {
+        Self {
+            address: self.address,
+            ctx: self.ctx.clone(),
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_vmdynamicfunction_import_context {
     use super::VMDynamicFunctionContext;
