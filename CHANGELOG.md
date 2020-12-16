@@ -13,6 +13,8 @@
 
 ### Changed
 
+- [#1941](https://github.com/wasmerio/wasmer/pull/1941) Turn `get_remaining_points`/`set_remaining_points` of the `Metering` middleware into free functions to allow using them in an ahead-of-time compilation setup
+
 ### Fixed
 
 ## 1.0.0-beta2 - 2020-12-16
