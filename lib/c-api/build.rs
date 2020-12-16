@@ -417,6 +417,8 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
 fn build_inline_c_env_vars() {
     use std::ffi::OsStr;
 
+    // We start from `OUT_DIR` because `cargo publish` uses a different directory
+    // so traversing from `CARGO_MANIFEST_DIR` is less reliable.
     let mut shared_object_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("out")));
@@ -433,7 +435,7 @@ fn build_inline_c_env_vars() {
 
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("build")));
     shared_object_dir.pop();
-    shared_object_dir.pop();
+    shared_object_dir.pop(); // "debug" or "release"
 
     assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("target")));
     shared_object_dir.push(env::var("PROFILE").unwrap());
