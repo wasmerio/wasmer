@@ -255,4 +255,34 @@ mod tests {
         // assert_eq!(metering.get_remaining_points(&instance), 2);
         // assert_eq!(metering.get_remaining_points(&instance), 0);
     }
+
+    #[test]
+    fn set_remaining_points_works() {
+        let metering = Arc::new(Metering::new(10, cost_function));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering.clone());
+        let store = Store::new(&JIT::new(compiler_config).engine());
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        // Instantiate
+        let instance = Instance::new(&module, &imports! {}).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 10);
+        let add_one = instance
+            .exports
+            .get_function("add_one")
+            .unwrap()
+            .native::<i32, i32>()
+            .unwrap();
+
+        // Increase a bit to have enough for 3 calls
+        metering.set_remaining_points(&instance, 12);
+
+        // Ensure we can use the new points now
+        add_one.call(1).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 8);
+        add_one.call(1).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 4);
+        add_one.call(1).unwrap();
+        assert_eq!(metering.get_remaining_points(&instance), 0);
+    }
 }
