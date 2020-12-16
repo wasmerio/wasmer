@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-beta2 - 2020-12-16
+
 ### Added
  
 * [#1916](https://github.com/wasmerio/wasmer/pull/1916) Add the `WASMER_VERSION*` constants with the `wasmer_version*` functions in the Wasmer C API
@@ -26,6 +28,7 @@
 
 ### Fixed
 
+- [#1865](https://github.com/wasmerio/wasmer/pull/1865) Fix memory leaks with host function environments.
 - [#1870](https://github.com/wasmerio/wasmer/pull/1870) Fixed Trap instruction address maps in Singlepass
 * [#1914](https://github.com/wasmerio/wasmer/pull/1914) Implemented `TryFrom<Bytes> for Pages` instead of `From<Bytes> for Pages` to properly handle overflow errors
 
