@@ -1,6 +1,7 @@
 //! `metering` is a middleware for tracking how many operators are executed in total
 //! and putting a limit on the total number of operators executed.
 
+use std::convert::TryInto;
 use std::fmt;
 use std::sync::Mutex;
 use wasmer::wasmparser::{
@@ -8,7 +9,7 @@ use wasmer::wasmparser::{
 };
 use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
-    MiddlewareReaderState, ModuleMiddleware, Mutability, Type, Value,
+    MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
@@ -62,7 +63,8 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
             .get_global("remaining_points")
             .expect("Can't get `remaining_points` from Instance")
             .get()
-            .unwrap_i64() as _
+            .try_into()
+            .expect("`remaining_points` from Instance has wrong type")
     }
 
     /// Set the provided remaining points in an Instance.
@@ -73,7 +75,7 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
             .exports
             .get_global("remaining_points")
             .expect("Can't get `remaining_points` from Instance")
-            .set(Value::I64(points as _))
+            .set(points.into())
             .expect("Can't set `remaining_points` in Instance");
     }
 }
