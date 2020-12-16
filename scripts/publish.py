@@ -74,6 +74,7 @@ location = {
     "wasmer-emscripten": "emscripten",
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
     "wasmer-c-api": "c-api",
+    "wasmer-middlewares": "middlewares",
 }
 
 no_dry_run = False
