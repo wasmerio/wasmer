@@ -100,6 +100,8 @@ struct wasmer_delete_c_type {
   WASMER_DECLARE_DELETE(extern)
   WASMER_DECLARE_DELETE(instance)
   WASMER_DECLARE_DELETE(module)
+  // wasm_val_delete exists but is not declared by macro
+  WASMER_DECLARE_DELETE(val)
 #undef WASMER_DECLARE_DELETE
 };
 } // namespace
@@ -147,7 +149,7 @@ template <typename T> struct c_vec;
   };
 // This list should match all WASM_DECLARE_VEC(type) in wasm.h.
 DEFINE_C_VEC_SPECIALIZATION(byte, )
-DEFINE_C_VEC_SPECIALIZATION(val, *)
+DEFINE_C_VEC_SPECIALIZATION(val, )
 DEFINE_C_VEC_SPECIALIZATION(frame, *)
 DEFINE_C_VEC_SPECIALIZATION(extern, *)
 DEFINE_C_VEC_SPECIALIZATION(valtype, *)
@@ -180,6 +182,26 @@ typename c_vec<S2>::type cxx_vec_to_c_vec(vec<T> &&cxx_vec, S2 (*convert)(S1)) {
   return v;
 }
 
+template <typename T, typename S1, typename S2>
+typename c_vec<S2>::type cxx_vec_copy_into_c_vec(const vec<T> &cxx_vec,
+                                                 S2 (*convert)(const S1 &)) {
+  typename c_vec<S2>::type v;
+  c_vec<S2>::new_uninitialized(&v, cxx_vec.size());
+  for (int i = 0, e = cxx_vec.size(); i != e; ++i) {
+    v.data[i] = std::move(convert(cxx_vec[i]));
+  }
+  return v;
+}
+
+template <typename T, typename S1, typename S2>
+void cxx_vec_into_c_vec_ptr(const vec<T> &cxx_vec, S2 (*convert)(const S1 &),
+                            typename c_vec<S2>::type *out) {
+  c_vec<S2>::new_uninitialized(out, cxx_vec.size());
+  for (int i = 0, e = cxx_vec.size(); i != e; ++i) {
+    out->data[i] = std::move(convert(cxx_vec[i]));
+  }
+}
+
 template <typename Base, typename Derived> struct From : Base {
   static auto from(own<Base> &&base) -> own<Derived> {
     return make_own(from(base.release()));
@@ -188,10 +210,10 @@ template <typename Base, typename Derived> struct From : Base {
   static auto from(own<const Base> &&base) -> own<const Derived> {
     return make_own(from(base.release()));
   }
-  static auto from(Base &base) -> Derived &{
+  static auto from(Base &base) -> Derived & {
     return static_cast<Derived &>(base);
   }
-  static auto from(const Base &base) -> const Derived &{
+  static auto from(const Base &base) -> const Derived & {
     return static_cast<const Derived &>(base);
   }
   */
@@ -933,6 +955,8 @@ public:
     return c_vec_to_cxx_ownvec(&trace, c_frame_to_cxx_frame);
   }
 
+  auto release() -> wasm_trap_t * { return trap.release(); }
+
   c_own<wasm_trap_t> trap;
 };
 
@@ -1149,7 +1173,7 @@ auto Extern::memory() const -> const Memory * {
 
 class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
   // TODO: this should be at the top level
-  static auto cxx_val_to_c_val(Val cxx_val) -> wasm_val_t {
+  static auto cxx_val_to_c_val(const Val &cxx_val) -> wasm_val_t {
     wasm_val_t c_val;
     switch (cxx_val.kind()) {
     case ValKind::I32:
@@ -1175,14 +1199,40 @@ class WasmerFunc : WasmerExternWrapper, public From<Func, WasmerFunc> {
     }
   };
 
-  struct WasmerFuncEnv {
-    callback cb;
-    static wasm_trap_t *shim(void *env, const wasm_val_vec_t *args,
-                             wasm_val_vec_t *results) {
+  static auto c_val_to_cxx_val(wasm_val_t c_val) -> Val {
+    switch (c_val.kind) {
+    case WASM_I32:
+      return Val::make(c_val.of.i32);
+    case WASM_I64:
+      return Val::make(c_val.of.i64);
+    case WASM_F32:
+      return Val::make(c_val.of.f32);
+    case WASM_F64:
+      return Val::make(c_val.of.f64);
+    // case WASM_ANYREF:
+    // case WASM_FUNCREF:
+    default:
       abort();
     }
-    static void finalizer(void *ptr) {
-      delete static_cast<WasmerFuncEnvWithEnv *>(ptr);
+  };
+
+  struct WasmerFuncEnv {
+    callback cb;
+    static wasm_trap_t *shim(void *env, const wasm_val_vec_t *c_args,
+                             wasm_val_vec_t *c_results) {
+      WasmerFuncEnv *self = static_cast<WasmerFuncEnv *>(env);
+      auto cxx_args = c_vec_to_cxx_vec(c_args, c_val_to_cxx_val);
+      vec<Val> cxx_results = vec<Val>::make_uninitialized(c_results->size);
+      auto trap = self->cb(cxx_args, cxx_results);
+      cxx_vec_into_c_vec_ptr(cxx_results, cxx_val_to_c_val, c_results);
+      if (trap) {
+        return WasmerTrap::from(std::move(trap))->release();
+      } else {
+        return nullptr;
+      }
+    }
+    static void finalizer(void *env) {
+      delete static_cast<WasmerFuncEnv *>(env);
     }
   };
 
@@ -1238,13 +1288,16 @@ public:
 
   auto call(const vec<Val> &cxx_args, vec<Val> &cxx_results) const
       -> own<Trap> {
-    /*
-    auto c_args = cxx_vec_to_c_vec(cxx_args, cxx_val_to_c_val);
+    auto c_args = cxx_vec_copy_into_c_vec(cxx_args, cxx_val_to_c_val);
     wasm_val_vec_t c_results;
     wasm_val_vec_new_uninitialized(&c_results, cxx_results.size());
-    auto trap = make_own(new WasmerTrap(make_c_own(wasm_func_call(func.get(),
-    c_args, c_results)))); c_vec_to_cxx_vec( return
-    */
+    auto c_trap = wasm_func_call(func.get(), &c_args, &c_results);
+    cxx_results = c_vec_to_cxx_vec(&c_results, c_val_to_cxx_val);
+    if (c_trap) {
+      return make_own(new WasmerTrap(make_c_own(c_trap)));
+    } else {
+      return nullptr;
+    }
   }
 
   c_own<wasm_func_t> func;
