@@ -437,7 +437,11 @@ fn build_inline_c_env_vars() {
     shared_object_dir.pop();
     shared_object_dir.pop(); // "debug" or "release"
 
-    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("target")));
+    // We either find `target` or the target triple if cross-compiling.
+    if shared_object_dir.file_name() != Some(OsStr::new("target")) {
+        let target = env::var("TARGET").unwrap();
+        assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+    }
     shared_object_dir.push(env::var("PROFILE").unwrap());
 
     let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
