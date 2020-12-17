@@ -90,7 +90,7 @@ impl wasm_functype_t {
     }
 }
 
-wasm_declare_vec!(functype);
+wasm_declare_boxed_vec!(functype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
