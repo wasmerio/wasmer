@@ -48,4 +48,4 @@ pub unsafe extern "C" fn wasm_frame_module_offset(frame: &wasm_frame_t) -> usize
     frame.info.module_offset()
 }
 
-wasm_declare_vec!(frame);
+wasm_declare_boxed_vec!(frame);
