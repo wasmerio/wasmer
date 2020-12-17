@@ -3,8 +3,31 @@
 macro_rules! wasm_declare_vec_inner {
     ($name:ident) => {
         paste::paste! {
-            /// Creates an empty vector of
-            #[doc = "Creates an empty vector of [`wasm_" $name "_t`]."]
+            #[doc = "Creates an empty vector of [`wasm_" $name "_t`].
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer_wasm.h\"
+#
+int main() {
+    // Creates an empty vector of `wasm_" $name "_t`.
+    wasm_" $name "_vec_t vector;
+    wasm_" $name "_vec_new_empty(&vector);
+
+    // Check that it is empty.
+    assert(vector.size == 0);
+
+    // Free it.
+    wasm_" $name "_vec_delete(&vector);
+}
+#    })
+#    .success();
+# }
+```"]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_empty>](out: *mut [<wasm_ $name _vec_t>]) {
                 // TODO: actually implement this
@@ -19,7 +42,37 @@ macro_rules! wasm_declare_vec_inner {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::paste! {
-            #[doc = "Represents of a vector of [`wasm_" $name "_t`]."]
+            #[doc = "Represents of a vector of `wasm_" $name "_t`.
+
+Read the documentation of [`wasm_" $name "_t`] to see more concrete examples.
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer_wasm.h\"
+#
+int main() {
+    // Create a vector of 2 `wasm_" $name "_t`.
+    wasm_" $name "_t x;
+    wasm_" $name "_t y;
+    wasm_" $name "_t* items[2] = {&x, &y};
+
+    wasm_" $name "_vec_t vector;
+    wasm_" $name "_vec_new(&vector, 2, (wasm_" $name "_t*) items);
+
+    // Check that it contains 2 items.
+    assert(vector.size == 2);
+
+    // Free it.
+    wasm_" $name "_vec_delete(&vector);
+}
+#    })
+#    .success();
+# }
+```"]
             #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
