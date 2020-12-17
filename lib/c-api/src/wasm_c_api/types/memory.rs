@@ -48,7 +48,7 @@ impl wasm_memorytype_t {
     }
 }
 
-wasm_declare_vec!(memorytype);
+wasm_declare_boxed_vec!(memorytype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
