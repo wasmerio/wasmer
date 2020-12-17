@@ -42,7 +42,7 @@ int main() {
 macro_rules! wasm_declare_vec {
     ($name:ident) => {
         paste::paste! {
-            #[doc = "Represents of a vector of `wasm_" $name "_t`.
+            #[doc = "Represents a vector of `wasm_" $name "_t`.
 
 Read the documentation of [`wasm_" $name "_t`] to see more concrete examples.
 
@@ -107,6 +107,7 @@ int main() {
                         .into_boxed_slice();
                     let data = copied_data.as_mut_ptr();
                     ::std::mem::forget(copied_data);
+
                     Self {
                         size,
                         data,
@@ -183,7 +184,9 @@ int main() {
 macro_rules! wasm_declare_boxed_vec {
     ($name:ident) => {
         paste::paste! {
-            #[doc = "Represents of a vector of [`wasm_" $name "_t`]."]
+            #[doc = "Represents a vector of `wasm_" $name "_t`.
+
+Read the documentation of [`wasm_" $name "_t`] to see more concrete examples."]
             #[derive(Debug)]
             #[repr(C)]
             pub struct [<wasm_ $name _vec_t>] {
@@ -199,6 +202,27 @@ macro_rules! wasm_declare_boxed_vec {
                     let data = boxed_slice.as_mut_ptr();
 
                     ::std::mem::forget(boxed_slice);
+                    Self {
+                        size,
+                        data,
+                    }
+                }
+            }
+
+            impl<'a, T: Into<[<wasm_ $name _t>]> + Clone> From<&'a [T]> for [<wasm_ $name _vec_t>] {
+                fn from(other: &'a [T]) -> Self {
+                    let size = other.len();
+                    let mut copied_data = other
+                        .iter()
+                        .cloned()
+                        .map(Into::into)
+                        .map(Box::new)
+                        .map(Box::into_raw)
+                        .collect::<Vec<*mut [<wasm_ $name _t>]>>()
+                        .into_boxed_slice();
+                    let data = copied_data.as_mut_ptr();
+                    ::std::mem::forget(copied_data);
+
                     Self {
                         size,
                         data,
