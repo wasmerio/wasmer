@@ -274,7 +274,14 @@ Read the documentation of [`wasm_" $name "_t`] to see more concrete examples."]
                 let vec = &mut *ptr;
                 if !vec.data.is_null() {
                     let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    let _data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
+
+                    // If the vector has been initialized (we check
+                    // only the first item), we can transmute items to
+                    // `Box`es.
+                    if vec.size > 0 && !data[0].is_null() {
+                        let _data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
+                    }
+
                     vec.data = ::std::ptr::null_mut();
                     vec.size = 0;
                 }
@@ -299,7 +306,6 @@ macro_rules! wasm_declare_ref_base {
             }
 
             // TODO: finish this...
-
         }
     };
 }
