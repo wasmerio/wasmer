@@ -138,31 +138,68 @@ int main() {
             }
 
             // TODO: investigate possible memory leak on `init` (owned pointer)
-            #[doc = "Creates a new vector of [`wasm_" $name "_t`]."]
+            #[doc = "Creates a new vector of [`wasm_" $name "_t`].
+
+# Example
+
+See the [`wasm_" $name "_vec_t`] type to get an example."]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
+
                 for i in 0..length {
                     bytes.push(::std::ptr::read(init.add(i)));
                 }
+
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
+
                 (*out).data = pointer;
                 (*out).size = length;
                 ::std::mem::forget(bytes);
             }
 
-            #[doc = "Creates a new uninitialized vector of [`wasm_" $name "_t`]."]
+            #[doc = "Creates a new uninitialized vector of [`wasm_" $name "_t`].
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer_wasm.h\"
+#
+int main() {
+    // Creates an empty vector of `wasm_" $name "_t`.
+    wasm_" $name "_vec_t vector;
+    wasm_" $name "_vec_new_uninitialized(&vector, 3);
+
+    // Check that it contains 3 items.
+    assert(vector.size == 3);
+
+    // Free it.
+    wasm_" $name "_vec_delete(&vector);
+}
+#    })
+#    .success();
+# }
+```"]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
                 let mut bytes: Vec<[<wasm_ $name _t>]> = Vec::with_capacity(length);
                 let pointer = bytes.as_mut_ptr();
+
                 (*out).data = pointer;
                 (*out).size = length;
+
                 ::std::mem::forget(bytes);
             }
 
-            #[doc = "Deletes a vector of [`wasm_" $name "_t`]."]
+            #[doc = "Deletes a vector of [`wasm_" $name "_t`].
+
+# Example
+
+See the [`wasm_" $name "_vec_t`] type to get an example."]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut [<wasm_ $name _vec_t>]>) {
                 if let Some(vec) = ptr {
@@ -248,30 +285,65 @@ Read the documentation of [`wasm_" $name "_t`] to see more concrete examples."]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new>](out: *mut [<wasm_ $name _vec_t>], length: usize, init: *const *mut [<wasm_ $name _t>]) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
+
                 for i in 0..length {
                     bytes.push(*init.add(i));
                 }
+
                 let pointer = bytes.as_mut_ptr();
                 debug_assert!(bytes.len() == bytes.capacity());
+
                 (*out).data = pointer;
                 (*out).size = length;
+
                 ::std::mem::forget(bytes);
             }
 
-            #[doc = "Creates a new uninitialized vector of [`wasm_" $name "_t`]."]
+            #[doc = "Creates a new uninitialized vector of [`wasm_" $name "_t`].
+
+# Example
+
+```rust
+# use inline_c::assert_c;
+# fn main() {
+#    (assert_c! {
+# #include \"tests/wasmer_wasm.h\"
+#
+int main() {
+    // Creates an empty vector of `wasm_" $name "_t`.
+    wasm_" $name "_vec_t vector;
+    wasm_" $name "_vec_new_uninitialized(&vector, 3);
+
+    // Check that it contains 3 items.
+    assert(vector.size == 3);
+
+    // Free it.
+    wasm_" $name "_vec_delete(&vector);
+}
+#    })
+#    .success();
+# }
+```"]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
                 let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
                 let pointer = bytes.as_mut_ptr();
+
                 (*out).data = pointer;
                 (*out).size = length;
+
                 ::std::mem::forget(bytes);
             }
 
-            #[doc = "Deletes a vector of [`wasm_" $name "_t`]."]
+            #[doc = "Deletes a vector of [`wasm_" $name "_t`].
+
+# Example
+
+See the [`wasm_" $name "_vec_t`] type to get an example."]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
                 let vec = &mut *ptr;
+
                 if !vec.data.is_null() {
                     let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
 
