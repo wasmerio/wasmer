@@ -1,6 +1,6 @@
 //! WARNING: the API exposed here is unstable and very experimental.  Certain things are not ready
 //! yet and may be broken in patch releases.  If you're using this and have any specific needs,
-//! please let us know here https://github.com/wasmerio/wasmer/issues/583 or by filing an issue.
+//! please [let us know here](https://github.com/wasmerio/wasmer/issues/583) or by filing an issue.
 //!
 //! Wasmer always has a virtual root directory located at `/` at which all pre-opened directories can
 //! be found.  It's possible to traverse between preopened directories this way as well (for example
@@ -539,7 +539,7 @@ impl WasiFs {
     /// # Safety
     /// - Virtual directories created with this function must not conflict with
     ///   the standard operation of the WASI filesystem.  This is vague and
-    ///   unlikely in pratice.  Join the discussion at https://github.com/wasmerio/wasmer/issues/1219
+    ///   unlikely in pratice.  [Join the discussion](https://github.com/wasmerio/wasmer/issues/1219)
     ///   for what the newer, safer WASI FS APIs should look like.
     #[allow(dead_code)]
     pub unsafe fn open_dir_all(
