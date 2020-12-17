@@ -1,7 +1,4 @@
-use super::{
-    wasm_externtype_t, wasm_valtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType,
-};
-use std::mem;
+use super::{wasm_externtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType};
 use wasmer::{ExternType, FunctionType, ValType};
 
 #[derive(Debug)]
@@ -13,44 +10,8 @@ pub(crate) struct WasmFunctionType {
 
 impl WasmFunctionType {
     pub(crate) fn new(function_type: FunctionType) -> Self {
-        let params = {
-            let mut valtypes = function_type
-                .params()
-                .iter()
-                .cloned()
-                .map(Into::into)
-                .map(Box::new)
-                .map(Box::into_raw)
-                .collect::<Vec<*mut wasm_valtype_t>>();
-
-            let valtypes_vec = Box::new(wasm_valtype_vec_t {
-                size: valtypes.len(),
-                data: valtypes.as_mut_ptr(),
-            });
-
-            mem::forget(valtypes);
-
-            valtypes_vec
-        };
-        let results = {
-            let mut valtypes = function_type
-                .results()
-                .iter()
-                .cloned()
-                .map(Into::into)
-                .map(Box::new)
-                .map(Box::into_raw)
-                .collect::<Vec<*mut wasm_valtype_t>>();
-
-            let valtypes_vec = Box::new(wasm_valtype_vec_t {
-                size: valtypes.len(),
-                data: valtypes.as_mut_ptr(),
-            });
-
-            mem::forget(valtypes);
-
-            valtypes_vec
-        };
+        let params: Box<wasm_valtype_vec_t> = Box::new(function_type.params().into());
+        let results: Box<wasm_valtype_vec_t> = Box::new(function_type.results().into());
 
         Self {
             function_type,
