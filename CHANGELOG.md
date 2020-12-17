@@ -7,9 +7,15 @@
 
 ## **[Unreleased]**
 
+### Added
+
+* [#1894](https://github.com/wasmerio/wasmer/pull/1894) Added exports `wasmer::{CraneliftOptLevel, LLVMOptLevel}` to allow using `Cranelift::opt_level` and `LLVM::opt_level` directly via the `wasmer` crate
+
 ### Changed
 
 - [#1936](https://github.com/wasmerio/wasmer/pull/1936) Rename the `wasmer-engine-native` to `wasmer-engine-shared-library`
+
+### Fixed
 
 ## 1.0.0-beta2 - 2020-12-16
 
