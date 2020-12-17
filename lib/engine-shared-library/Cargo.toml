@@ -1,7 +1,7 @@
 [package]
 name = "wasmer-engine-shared-library"
-version = "1.0.0-beta1"
-description = "Wasmer Native Engine"
+version = "1.0.0-beta2"
+description = "Wasmer Shared Library Engine"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine", "native", "object", "shared-library"]
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
@@ -11,11 +11,11 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta1" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0-beta1" }
-wasmer-vm = { path = "../vm", version = "1.0.0-beta1" }
-wasmer-engine = { path = "../engine", version = "1.0.0-beta1" }
-wasmer-object = { path = "../object", version = "1.0.0-beta1" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta2" }
+wasmer-compiler = { path = "../compiler", version = "1.0.0-beta2" }
+wasmer-vm = { path = "../vm", version = "1.0.0-beta2" }
+wasmer-engine = { path = "../engine", version = "1.0.0-beta2" }
+wasmer-object = { path = "../object", version = "1.0.0-beta2" }
 serde = { version = "1.0", features = ["derive", "rc"] }
 cfg-if = "0.1"
 tracing = "0.1"

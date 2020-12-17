@@ -17,8 +17,16 @@ use wasmer_engine_shared_library::SharedLibrary;
 #[derive(Debug, Copy, Clone)]
 #[repr(C)]
 pub enum wasmer_compiler_t {
+    /// Variant to represent the Cranelift compiler. See the
+    /// [`wasmer_compiler_cranelift`] Rust crate.
     CRANELIFT = 0,
+
+    /// Variant to represent the LLVM compiler. See the
+    /// [`wasmer_compiler_llvm`] Rust crate.
     LLVM = 1,
+
+    /// Variant to represent the Singlepass compiler. See the
+    /// [`wasmer_compiler_singlepass`] Rust crate.
     SINGLEPASS = 2,
 }
 
@@ -47,8 +55,16 @@ impl Default for wasmer_compiler_t {
 #[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasmer_engine_t {
+    /// Variant to represent the JIT engine. See the
+    /// [`wasmer_engine_jit`] Rust crate.
     JIT = 0,
+
+    /// Variant to represent the Native engine. See the
+    /// [`wasmer_engine_shared_library`] Rust crate.
     SHARED_LIBRARY = 1,
+
+    /// Variant to represent the Object File engine. See the
+    /// [`wasmer_engine_object_file`] Rust crate.
     OBJECT_FILE = 2,
 }
 
@@ -230,7 +246,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -244,7 +260,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -257,7 +273,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -271,7 +287,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -287,7 +303,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -300,7 +316,7 @@ cfg_if! {
         ///
         /// # Example
         ///
-        /// See `wasm_engine_delete`.
+        /// See [`wasm_engine_delete`].
         ///
         /// cbindgen:ignore
         #[no_mangle]
@@ -345,7 +361,7 @@ pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>)
 ///
 /// # Example
 ///
-/// See `wasm_config_new`.
+/// See [`wasm_config_new`].
 ///
 /// cbindgen:ignore
 #[no_mangle]

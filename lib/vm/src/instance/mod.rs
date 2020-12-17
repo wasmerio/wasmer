@@ -49,11 +49,6 @@ use wasmer_types::{
 pub type ImportInitializerFuncPtr =
     fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
 
-/// This type holds thunks (delayed computations) for initializing the imported
-/// function's environments with the [`Instance`].
-pub(crate) type ImportInitializerThunks =
-    Vec<(Option<ImportInitializerFuncPtr>, *mut std::ffi::c_void)>;
-
 /// A WebAssembly instance.
 ///
 /// The type is dynamically-sized. Indeed, the `vmctx` field can
@@ -98,19 +93,99 @@ pub(crate) struct Instance {
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
-    /// Functions to initialize the host environments in the imports
-    /// and pointers to the environments. These function pointers all
-    /// come from `WasmerEnv::init_with_instance`.
+    /// Functions to operate on host environments in the imports
+    /// and pointers to the environments.
     ///
     /// TODO: Be sure to test with serialize/deserialize and imported
     /// functions from other Wasm modules.
-    import_initializers: ImportInitializerThunks,
+    imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
 
     /// Additional context used by compiled WebAssembly code. This
     /// field is last, and represents a dynamically-sized array that
     /// extends beyond the nominal end of the struct (similar to a
     /// flexible array member).
     vmctx: VMContext,
+}
+
+/// A collection of data about host envs used by imported functions.
+#[derive(Debug)]
+pub enum ImportFunctionEnv {
+    /// The `vmctx` pointer does not refer to a host env, there is no
+    /// metadata about it.
+    NoEnv,
+    /// We're dealing with a user-defined host env.
+    ///
+    /// This host env may be either unwrapped (the user-supplied host env
+    /// directly) or wrapped. i.e. in the case of Dynamic functions, we
+    /// store our own extra data along with the user supplied env,
+    /// thus the `env` pointer here points to the outermost type.
+    Env {
+        /// The function environment. This is not always the user-supplied
+        /// env.
+        env: *mut std::ffi::c_void,
+        /// A clone function for duplicating the env.
+        clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+        /// This field is not always present. When it is present, it
+        /// should be set to `None` after use to prevent double
+        /// initialization.
+        initializer: Option<ImportInitializerFuncPtr>,
+        /// The destructor to clean up the type in `env`.
+        ///
+        /// # Safety
+        /// - This function must be called ina synchronized way. For
+        ///   example, in the `Drop` implementation of this type.
+        destructor: unsafe fn(*mut std::ffi::c_void),
+    },
+}
+
+impl ImportFunctionEnv {
+    /// Get the `initializer` function pointer if it exists.
+    fn initializer(&self) -> Option<ImportInitializerFuncPtr> {
+        match self {
+            Self::Env { initializer, .. } => *initializer,
+            _ => None,
+        }
+    }
+}
+
+impl Clone for ImportFunctionEnv {
+    fn clone(&self) -> Self {
+        match &self {
+            Self::NoEnv => Self::NoEnv,
+            Self::Env {
+                env,
+                clone,
+                destructor,
+                initializer,
+            } => {
+                let new_env = (*clone)(*env);
+                Self::Env {
+                    env: new_env,
+                    clone: *clone,
+                    destructor: *destructor,
+                    initializer: *initializer,
+                }
+            }
+        }
+    }
+}
+
+impl Drop for ImportFunctionEnv {
+    fn drop(&mut self) {
+        match self {
+            ImportFunctionEnv::Env {
+                env, destructor, ..
+            } => {
+                // # Safety
+                // - This is correct because we know no other references
+                //   to this data can exist if we're dropping it.
+                unsafe {
+                    (destructor)(*env);
+                }
+            }
+            ImportFunctionEnv::NoEnv => (),
+        }
+    }
 }
 
 impl fmt::Debug for Instance {
@@ -159,7 +234,7 @@ impl Instance {
         &self,
         index: FunctionIndex,
     ) -> Option<ImportInitializerFuncPtr> {
-        self.import_initializers[index.as_u32() as usize].0
+        self.imported_function_envs[index].initializer()
     }
 
     /// Return a pointer to the `VMFunctionImport`s.
@@ -943,7 +1018,7 @@ impl InstanceHandle {
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
         host_state: Box<dyn Any>,
-        import_initializers: ImportInitializerThunks,
+        imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
         let vmctx_globals = finished_globals
             .values()
@@ -967,7 +1042,7 @@ impl InstanceHandle {
                 passive_data,
                 host_state,
                 signal_handler: Cell::new(None),
-                import_initializers,
+                imported_function_envs,
                 vmctx: VMContext {},
             };
 
@@ -1255,19 +1330,26 @@ impl InstanceHandle {
     ) -> Result<(), Err> {
         let instance_ref = self.instance.as_mut();
 
-        for (func, env) in instance_ref.import_initializers.drain(..) {
-            if let Some(ref f) = func {
-                // transmute our function pointer into one with the correct error type
-                let f = mem::transmute::<
-                    &ImportInitializerFuncPtr,
-                    &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
-                >(f);
-                f(env, instance_ptr)?;
+        for import_function_env in instance_ref.imported_function_envs.values_mut() {
+            match import_function_env {
+                ImportFunctionEnv::Env {
+                    env,
+                    ref mut initializer,
+                    ..
+                } => {
+                    if let Some(f) = initializer {
+                        // transmute our function pointer into one with the correct error type
+                        let f = mem::transmute::<
+                            &ImportInitializerFuncPtr,
+                            &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
+                        >(f);
+                        f(*env, instance_ptr)?;
+                    }
+                    *initializer = None;
+                }
+                ImportFunctionEnv::NoEnv => (),
             }
         }
-        // free memory now that it's empty.
-        instance_ref.import_initializers.shrink_to_fit();
-
         Ok(())
     }
 }

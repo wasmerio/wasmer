@@ -3,9 +3,27 @@ use crate::error::{update_last_error, CApiError};
 use std::convert::{TryFrom, TryInto};
 use wasmer::Val;
 
+/// Represents the kind of values. The variants of this C enum is
+/// defined in `wasm.h` to list the following:
+///
+/// * `WASM_I32`, a 32-bit integer,
+/// * `WASM_I64`, a 64-bit integer,
+/// * `WASM_F32`, a 32-bit float,
+/// * `WASM_F64`, a 64-bit float,
+/// * `WASM_ANYREF`, a WebAssembly reference,
+/// * `WASM_FUNCREF`, a WebAssembly reference.
 #[allow(non_camel_case_types)]
 pub type wasm_valkind_t = u8;
 
+/// A Rust union, compatible with C, that holds a value of kind
+/// [`wasm_valkind_t`] (see [`wasm_val_t`] to get the complete
+/// picture). Members of the union are:
+///
+/// * `int32_t` if the value is a 32-bit integer,
+/// * `int64_t` if the value is a 64-bit integer,
+/// * `float32_t` if the value is a 32-bit float,
+/// * `float64_t` if the value is a 64-bit float,
+/// * `wref` (`wasm_ref_t`) if the value is a WebAssembly reference.
 #[allow(non_camel_case_types)]
 #[derive(Clone, Copy)]
 pub union wasm_val_inner {
@@ -16,10 +34,46 @@ pub union wasm_val_inner {
     pub(crate) wref: *mut wasm_ref_t,
 }
 
+/// A WebAssembly value composed of its type and its value.
+///
+/// Note that `wasm.h` defines macros to create Wasm values more
+/// easily: `WASM_I32_VAL`, `WASM_I64_VAL`, `WASM_F32_VAL`,
+/// `WASM_F64_VAL`, and `WASM_REF_VAL`.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create a 32-bit integer Wasm value.
+///     wasm_val_t value1 = {
+///         .kind = WASM_I32,
+///         .of = { .i32 = 7 },
+///     };
+///
+///     // Create the same value with the `wasm.h` macro.
+///     wasm_val_t value2 = WASM_I32_VAL(7);
+///
+///     assert(value2.kind == WASM_I32);
+///     assert(value1.of.i32 == value2.of.i32);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasm_val_t {
+    /// The kind of the value.
     pub kind: wasm_valkind_t,
+
+    /// The real value.
     pub of: wasm_val_inner,
 }
 

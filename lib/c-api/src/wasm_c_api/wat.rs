@@ -4,6 +4,10 @@ use super::types::wasm_byte_vec_t;
 /// module. This is wasmer-specific.
 ///
 /// In case of failure, `wat2wasm` sets the `out->data = NULL` and `out->size = 0`.
+///
+/// # Example
+///
+/// See the module's documentation.
 #[cfg(feature = "wat")]
 #[no_mangle]
 pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {

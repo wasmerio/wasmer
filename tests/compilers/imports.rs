@@ -343,3 +343,50 @@ fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
     f.call()?;
     Ok(())
 }
+
+#[test]
+fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
+    let store = get_store(false);
+    let module = get_module2(&store)?;
+
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    struct Env {
+        memory: LazyInit<Memory>,
+    };
+
+    impl WasmerEnv for Env {
+        fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+            let memory = instance.exports.get_memory("memory")?.clone();
+            self.memory.initialize(memory);
+            Ok(())
+        }
+    }
+
+    let env: Env = Env {
+        memory: LazyInit::default(),
+    };
+    fn host_fn(env: &Env) {
+        assert!(env.memory.get_ref().is_some());
+        println!("Hello, world!");
+    }
+
+    let imports = imports! {
+        "host" => {
+            "fn" => Function::new_native_with_env(&store, env.clone(), host_fn),
+        },
+    };
+    let instance1 = Instance::new(&module, &imports)?;
+    let instance2 = Instance::new(&module, &imports)?;
+    {
+        let f1: NativeFunc<(), ()> = instance1.exports.get_native_function("main")?;
+        f1.call()?;
+    }
+    drop(instance1);
+    {
+        let f2: NativeFunc<(), ()> = instance2.exports.get_native_function("main")?;
+        f2.call()?;
+    }
+    drop(instance2);
+    Ok(())
+}

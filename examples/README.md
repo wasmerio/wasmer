@@ -346,6 +346,20 @@ example.
 
    </details>
 
+2. [**WASI Pipes**][wasi-pipes], builds on the WASI example to show off
+   stdio piping in Wasmer.
+
+   _Keywords_: wasi, system, interface
+
+   <details>
+   <summary><em>Execute the example</em></summary>
+
+   ```shell
+   $ cargo run --example wasi-pipes --release --features "cranelift,wasi"
+   ```
+
+   </details>
+
 [engine-jit]: ./engine_jit.rs
 [engine-shared-library]: ./engine_shared_library.rs
 [engine-headless]: ./engine_headless.rs
@@ -360,6 +374,7 @@ example.
 [imported-function]: ./imports_function.rs
 [instance]: ./instance.rs
 [wasi]: ./wasi.rs
+[wasi-pipes]: ./wasi_pipes.rs
 [table]: ./table.rs
 [memory]: ./memory.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
