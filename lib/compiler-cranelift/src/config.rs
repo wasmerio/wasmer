@@ -11,7 +11,7 @@ use wasmer_compiler::{
 /// Possible optimization levels for the Cranelift codegen backend.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum OptLevel {
+pub enum CraneliftOptLevel {
     /// No optimizations performed, minimizes compilation time by disabling most
     /// optimizations.
     None,
@@ -33,7 +33,7 @@ pub struct Cranelift {
     enable_verifier: bool,
     enable_simd: bool,
     enable_pic: bool,
-    opt_level: OptLevel,
+    opt_level: CraneliftOptLevel,
     /// The middleware chain.
     pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
@@ -45,7 +45,7 @@ impl Cranelift {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
-            opt_level: OptLevel::Speed,
+            opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
             enable_simd: true,
             middlewares: vec![],
@@ -68,7 +68,7 @@ impl Cranelift {
     }
 
     /// The optimization levels when optimizing the IR.
-    pub fn opt_level(&mut self, opt_level: OptLevel) -> &mut Self {
+    pub fn opt_level(&mut self, opt_level: CraneliftOptLevel) -> &mut Self {
         self.opt_level = opt_level;
         self
     }
@@ -156,9 +156,9 @@ impl Cranelift {
             "none"
         } else {
             match self.opt_level {
-                OptLevel::None => "none",
-                OptLevel::Speed => "speed",
-                OptLevel::SpeedAndSize => "speed_and_size",
+                CraneliftOptLevel::None => "none",
+                CraneliftOptLevel::Speed => "speed",
+                CraneliftOptLevel::SpeedAndSize => "speed_and_size",
             }
         };
 
