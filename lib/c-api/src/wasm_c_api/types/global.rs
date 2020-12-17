@@ -46,7 +46,7 @@ impl wasm_globaltype_t {
     }
 }
 
-wasm_declare_vec!(globaltype);
+wasm_declare_boxed_vec!(globaltype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_new(
