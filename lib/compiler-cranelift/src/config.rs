@@ -25,7 +25,7 @@ pub enum OptLevel {
 /// Global configuration options used to create an
 /// `wasmer_engine::Engine` and customize its behavior.
 ///
-/// This structure exposed a builder-like interface and is primarily
+/// This structure exposes a builder-like interface and is primarily
 /// consumed by `wasmer_engine::Engine::new`.
 #[derive(Debug, Clone)]
 pub struct Cranelift {
