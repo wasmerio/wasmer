@@ -27,6 +27,33 @@ macro_rules! wasm_declare_vec {
                 pub data: *mut [<wasm_ $name _t>],
             }
 
+            impl Clone for [<wasm_ $name _vec_t>] {
+                fn clone(&self) -> Self {
+                    if self.data.is_null() {
+                        return Self {
+                            size: self.size,
+                            data: ::std::ptr::null_mut(),
+                        };
+                    }
+                    let data =
+                        unsafe {
+                            let vec = Vec::from_raw_parts(self.data, self.size, self.size);
+                            let mut vec_copy = vec.clone().into_boxed_slice();
+                            let new_ptr = vec_copy.as_mut_ptr();
+
+                            ::std::mem::forget(vec);
+                            ::std::mem::forget(vec_copy);
+
+                            new_ptr
+                        };
+
+                    Self {
+                        size: self.size,
+                        data,
+                    }
+                }
+            }
+
             impl<'a> From<Vec<[<wasm_ $name _t>]>> for [<wasm_ $name _vec_t>] {
                 fn from(mut vec: Vec<[<wasm_ $name _t>]>) -> Self {
                     vec.shrink_to_fit();
@@ -108,6 +135,15 @@ macro_rules! wasm_declare_vec {
                 ::std::mem::forget(bytes);
             }
 
+            #[doc = "Performs a deep copy of a vector of [`wasm_" $name "_t`]."]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_copy>](
+                out_ptr: &mut [<wasm_ $name _vec_t>],
+                in_ptr: & [<wasm _$name _vec_t>])
+            {
+                *out_ptr = in_ptr.clone();
+            }
+
             #[doc = "Deletes a vector of [`wasm_" $name "_t`]."]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut [<wasm_ $name _vec_t>]>) {
@@ -136,6 +172,34 @@ macro_rules! wasm_declare_boxed_vec {
             pub struct [<wasm_ $name _vec_t>] {
                 pub size: usize,
                 pub data: *mut *mut [<wasm_ $name _t>],
+            }
+
+            impl Clone for [<wasm_ $name _vec_t>] {
+                fn clone(&self) -> Self {
+                    if self.data.is_null() {
+                        return Self {
+                            size: self.size,
+                            data: ::std::ptr::null_mut(),
+                        };
+                    }
+                    let data =
+                        unsafe {
+                            let data: *mut Option<Box<[<wasm_ $name _t>]>> = self.data as _;
+                            let vec = Vec::from_raw_parts(data, self.size, self.size);
+                            let mut vec_copy = vec.clone().into_boxed_slice();
+                            let new_ptr = vec_copy.as_mut_ptr() as *mut *mut [<wasm_ $name _t>];
+
+                            ::std::mem::forget(vec);
+                            ::std::mem::forget(vec_copy);
+
+                            new_ptr
+                        };
+
+                    Self {
+                        size: self.size,
+                        data,
+                    }
+                }
             }
 
             impl<'a> From<Vec<Box<[<wasm_ $name _t>]>>> for [<wasm_ $name _vec_t>] {
@@ -174,11 +238,11 @@ macro_rules! wasm_declare_boxed_vec {
                 for i in 0..length {
                     bytes.push(*init.add(i));
                 }
-                let pointer = bytes.as_mut_ptr();
-                debug_assert!(bytes.len() == bytes.capacity());
+                let mut boxed_vec = bytes.into_boxed_slice();
+                let pointer = boxed_vec.as_mut_ptr();
                 (*out).data = pointer;
                 (*out).size = length;
-                ::std::mem::forget(bytes);
+                ::std::mem::forget(boxed_vec);
             }
 
             #[doc = "Creates a new uninitialized vector of [`wasm_" $name "_t`]."]
@@ -191,15 +255,27 @@ macro_rules! wasm_declare_boxed_vec {
                 ::std::mem::forget(bytes);
             }
 
+            #[doc = "Performs a deep copy of a vector of [`wasm_" $name "_t`]."]
+            #[no_mangle]
+            pub unsafe extern "C" fn [<wasm_ $name _vec_copy>](
+                out_ptr: &mut [<wasm_ $name _vec_t>],
+                in_ptr: & [<wasm _$name _vec_t>])
+            {
+                *out_ptr = in_ptr.clone();
+            }
+
+
             #[doc = "Deletes a vector of [`wasm_" $name "_t`]."]
             #[no_mangle]
-            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: *mut [<wasm_ $name _vec_t>]) {
-                let vec = &mut *ptr;
-                if !vec.data.is_null() {
-                    let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                    let _data: Vec<Box<[<wasm_ $name _t>]>> = ::std::mem::transmute(data);
-                    vec.data = ::std::ptr::null_mut();
-                    vec.size = 0;
+            pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut[<wasm_ $name _vec_t>]>) {
+                if let Some(vec) = ptr {
+                    if !vec.data.is_null() {
+                        let ptr: *mut Option<Box<[<wasm_ $name _t>]>> = vec.data as _;
+                        let data: Vec<Option<Box<[<wasm_ $name _t>]>>> = Vec::from_raw_parts(ptr, vec.size, vec.size);
+
+                        vec.data = ::std::ptr::null_mut();
+                        vec.size = 0;
+                    }
                 }
             }
         }

@@ -23,7 +23,7 @@ impl WasmGlobalType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct wasm_globaltype_t {
     pub(crate) extern_type: wasm_externtype_t,

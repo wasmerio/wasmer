@@ -2,6 +2,7 @@ use super::{wasm_externtype_t, wasm_name_t};
 use wasmer::ImportType;
 
 #[allow(non_camel_case_types)]
+#[derive(Clone)]
 pub struct wasm_importtype_t {
     module: Box<wasm_name_t>,
     name: Box<wasm_name_t>,

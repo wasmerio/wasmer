@@ -7,6 +7,19 @@
 
 #define own
 
+int wasmer_last_error_length(void);
+void wasmer_last_error_message(char*, int);
+
+// Use the last_error API to retrieve error messages
+void print_wasmer_error()
+{
+  int error_len = wasmer_last_error_length();
+  printf("Error len: `%d`\n", error_len);
+  char *error_str = malloc(error_len);
+  wasmer_last_error_message(error_str, error_len);
+  printf("Error str: `%s`\n", error_str);
+}
+
 // A function to be called from Wasm code.
 own wasm_trap_t* callback(
   const wasm_val_vec_t* args, wasm_val_vec_t* results
@@ -121,7 +134,7 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   wasm_val_t vals[4] = {
-    WASM_I32_VAL(1), WASM_I32_VAL(2), WASM_I32_VAL(3), WASM_I32_VAL(4)
+    WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
   };
   wasm_val_t res[4] = {
     WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL
@@ -130,6 +143,7 @@ int main(int argc, const char* argv[]) {
   wasm_val_vec_t results = WASM_ARRAY_VEC(res);
   if (wasm_func_call(run_func, &args, &results)) {
     printf("> Error calling function!\n");
+    print_wasmer_error();
     return 1;
   }
 
