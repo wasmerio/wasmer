@@ -82,8 +82,8 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 #[derive(Debug, PartialEq, Eq, Clone)]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.
-    /// More info:
-    /// https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html
+    /// [Learn
+    /// more](https://refspecs.linuxfoundation.org/LSB_3.0.0/LSB-PDA/LSB-PDA/ehframechpt.html).
     pub eh_frame: SectionIndex,
 }
 

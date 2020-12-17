@@ -359,9 +359,9 @@ pub struct GlobalType {
 
 /// A WebAssembly global descriptor.
 ///
-/// This type describes an instance of a global in a WebAssembly module. Globals
-/// are local to an [`Instance`](crate::Instance) and are either immutable or
-/// mutable.
+/// This type describes an instance of a global in a WebAssembly
+/// module. Globals are local to an `Instance` and are either
+/// immutable or mutable.
 impl GlobalType {
     /// Create a new Global variable
     /// # Usage:
@@ -520,10 +520,10 @@ impl fmt::Display for MemoryType {
 
 /// A descriptor for an imported value into a wasm module.
 ///
-/// This type is primarily accessed from the
-/// [`Module::imports`](crate::Module::imports) API. Each [`ImportType`]
-/// describes an import into the wasm module with the module/name that it's
-/// imported from as well as the type of item that's being imported.
+/// This type is primarily accessed from the `Module::imports`
+/// API. Each `ImportType` describes an import into the wasm module
+/// with the module/name that it's imported from as well as the type
+/// of item that's being imported.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
@@ -564,10 +564,9 @@ impl<T> ImportType<T> {
 
 /// A descriptor for an exported WebAssembly value.
 ///
-/// This type is primarily accessed from the
-/// [`Module::exports`](crate::Module::exports) accessor and describes what
-/// names are exported from a wasm module and the type of the item that is
-/// exported.
+/// This type is primarily accessed from the `Module::exports`
+/// accessor and describes what names are exported from a wasm module
+/// and the type of the item that is exported.
 ///
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
