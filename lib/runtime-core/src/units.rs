@@ -5,6 +5,7 @@ use std::{
     fmt,
     ops::{Add, Sub},
 };
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// The page size in bytes of a wasm page.
 pub const WASM_PAGE_SIZE: usize = 65_536;
@@ -15,7 +16,7 @@ pub const WASM_MAX_PAGES: usize = 65_536;
 pub const WASM_MIN_PAGES: usize = 256;
 
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
-#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord)]
+#[derive(Serialize, Deserialize, Copy, Clone, PartialEq, Eq, PartialOrd, Ord, BorshSerialize, BorshDeserialize)]
 pub struct Pages(pub u32);
 
 impl Pages {

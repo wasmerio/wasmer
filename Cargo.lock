@@ -7,6 +7,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "5d2e7343e7fc9de883d1b0341e0b13970f764c14101234857d2ddafa1cb1cac2"
 
 [[package]]
+name = "ahash"
+version = "0.4.7"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "739f4a8db6605981345c5654f3a85b056ce52f37a39d34da03f25bf2151ea16e"
+
+[[package]]
 name = "aho-corasick"
 version = "0.7.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -125,6 +131,46 @@ dependencies = [
  "constant_time_eq",
  "crypto-mac",
  "digest",
+]
+
+[[package]]
+name = "borsh"
+version = "0.8.0"
+source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+dependencies = [
+ "borsh-derive",
+ "hashbrown",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "0.8.0"
+source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+dependencies = [
+ "borsh-derive-internal",
+ "borsh-schema-derive-internal",
+ "proc-macro-crate",
+ "syn 1.0.16",
+]
+
+[[package]]
+name = "borsh-derive-internal"
+version = "0.8.0"
+source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.2",
+ "syn 1.0.16",
+]
+
+[[package]]
+name = "borsh-schema-derive-internal"
+version = "0.8.0"
+source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+dependencies = [
+ "proc-macro2 1.0.24",
+ "quote 1.0.2",
+ "syn 1.0.16",
 ]
 
 [[package]]
@@ -860,6 +906,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "hashbrown"
+version = "0.9.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d7afe4a420e3fe79967a00898cc1f4db7c8a49a9333a29f8a4bd76a253d5cd04"
+dependencies = [
+ "ahash",
+]
+
+[[package]]
 name = "heck"
 version = "0.3.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1523,6 +1578,15 @@ name = "ppv-lite86"
 version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "74490b50b9fbe561ac330df47c08f3f33073d2d00c150f719147d7c54522fa1b"
+
+[[package]]
+name = "proc-macro-crate"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
+dependencies = [
+ "toml",
+]
 
 [[package]]
 name = "proc-macro-error"
@@ -2883,6 +2947,7 @@ version = "0.17.1"
 dependencies = [
  "bincode",
  "blake3",
+ "borsh",
  "cc",
  "digest",
  "errno",

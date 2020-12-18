@@ -19,6 +19,7 @@ pub use self::static_::StaticMemory;
 pub use self::view::{Atomically, MemoryView};
 
 use parking_lot::Mutex;
+use borsh::{BorshSerialize, BorshDeserialize};
 
 mod dynamic;
 pub mod ptr;
@@ -173,7 +174,7 @@ impl fmt::Debug for Memory {
 }
 
 /// A kind a memory.
-#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Serialize, Deserialize, Debug, Clone, Copy, PartialEq, Eq, Hash, BorshSerialize, BorshDeserialize)]
 pub enum MemoryType {
     /// A dynamic memory.
     Dynamic,

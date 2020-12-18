@@ -354,6 +354,7 @@ fn resolve_func_index(module: &ModuleInner, name: &str) -> ResolveResult<FuncInd
         module
             .info
             .exports
+            .0
             .get(name)
             .ok_or_else(|| ResolveError::ExportNotFound {
                 name: name.to_string(),
@@ -475,7 +476,7 @@ impl InstanceInner {
 
 impl LikeNamespace for Instance {
     fn get_export(&self, name: &str) -> Option<Export> {
-        let export_index = self.module.info.exports.get(name)?;
+        let export_index = self.module.info.exports.0.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
@@ -492,7 +493,7 @@ impl LikeNamespace for Instance {
 use std::rc::Rc;
 impl LikeNamespace for Rc<Instance> {
     fn get_export(&self, name: &str) -> Option<Export> {
-        let export_index = self.module.info.exports.get(name)?;
+        let export_index = self.module.info.exports.0.get(name)?;
 
         Some(self.inner.get_export_from_index(&self.module, export_index))
     }
@@ -509,7 +510,7 @@ impl LikeNamespace for Rc<Instance> {
 impl LikeNamespace for Arc<Mutex<Instance>> {
     fn get_export(&self, name: &str) -> Option<Export> {
         let instance = self.lock().unwrap();
-        let export_index = instance.module.info.exports.get(name)?;
+        let export_index = instance.module.info.exports.0.get(name)?;
 
         Some(
             instance
@@ -783,6 +784,7 @@ impl<'a> Exportable<'a> for Memory {
             module
                 .info
                 .exports
+                .0
                 .get(name)
                 .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),
@@ -804,6 +806,7 @@ impl<'a> Exportable<'a> for Table {
             module
                 .info
                 .exports
+                .0
                 .get(name)
                 .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),
@@ -825,6 +828,7 @@ impl<'a> Exportable<'a> for Global {
             module
                 .info
                 .exports
+                .0
                 .get(name)
                 .ok_or_else(|| ResolveError::ExportNotFound {
                     name: name.to_string(),

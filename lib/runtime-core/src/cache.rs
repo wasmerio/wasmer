@@ -4,6 +4,7 @@
 
 use crate::{module::ModuleInfo, sys::Memory};
 use std::{io, mem, slice};
+use borsh::{BorshSerialize, BorshDeserialize};
 
 /// Indicates the invalid type of invalid cache file
 #[derive(Debug)]
@@ -148,7 +149,7 @@ impl ArtifactHeader {
     }
 }
 
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 struct ArtifactInner {
     info: Box<ModuleInfo>,
     #[serde(with = "serde_bytes")]
@@ -181,7 +182,7 @@ impl Artifact {
     pub fn deserialize(bytes: &[u8]) -> Result<Self, Error> {
         let (_, body_slice) = ArtifactHeader::read_from_slice(bytes)?;
 
-        let inner = serde_bench::deserialize(body_slice)
+        let inner = ArtifactInner::try_from_slice(body_slice)
             .map_err(|e| Error::DeserializeError(format!("{:#?}", e)))?;
 
         Ok(Artifact { inner })
@@ -211,8 +212,8 @@ impl Artifact {
 
         let mut buffer = cache_header.as_slice().to_vec();
 
-        serde_bench::serialize(&mut buffer, &self.inner)
-            .map_err(|e| Error::SerializeError(e.to_string()))?;
+        let mut encoded = self.inner.try_to_vec().map_err(|e| Error::SerializeError(e.to_string()))?;
+        buffer.append(&mut encoded);
 
         let data_len = (buffer.len() - mem::size_of::<ArtifactHeader>()) as u64;
 
