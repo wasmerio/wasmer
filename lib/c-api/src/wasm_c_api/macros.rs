@@ -345,7 +345,7 @@ See the [`wasm_" $name "_vec_t`] type to get an example."]
                 if let Some(vec) = ptr {
                     if !vec.data.is_null() {
                         let data = vec.data as *mut Option<Box<[<wasm_ $name _t>]>>;
-                        let data: Vec<Option<Box<[<wasm_ $name _t>]>>> = Vec::from_raw_parts(data, vec.size, vec.size);
+                        let _data: Vec<Option<Box<[<wasm_ $name _t>]>>> = Vec::from_raw_parts(data, vec.size, vec.size);
 
                         vec.data = ::std::ptr::null_mut();
                         vec.size = 0;
