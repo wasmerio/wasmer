@@ -2,7 +2,7 @@
 //! code and data of a program and adjusting the code and data to reflect the
 //! assigned addresses.
 //!
-//! Source: https://en.wikipedia.org/wiki/Relocation_(computing)
+//! [Learn more](https://en.wikipedia.org/wiki/Relocation_(computing)).
 //!
 //! Each time a `Compiler` compiles a WebAssembly function (into
 //! machine code), it also attaches if there are any relocations that

@@ -2,7 +2,7 @@
 //! to another part of a program (or a different program that may have
 //! been dynamically loaded) using a table of branch or jump instructions.
 //!
-//! Source: https://en.wikipedia.org/wiki/Branch_table
+//! [Learn more](https://en.wikipedia.org/wiki/Branch_table).
 
 use super::CodeOffset;
 #[cfg(feature = "enable-serde")]

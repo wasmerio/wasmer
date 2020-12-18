@@ -32,9 +32,8 @@ pub struct Memory {
 impl Memory {
     /// Creates a new host `Memory` from the provided [`MemoryType`].
     ///
-    /// This function will construct the `Memory` using the store [`Tunables`].
-    ///
-    /// [`Tunables`]: crate::tunables::Tunables
+    /// This function will construct the `Memory` using the store
+    /// [`BaseTunables`][crate::tunables::BaseTunables].
     ///
     /// # Example
     ///
