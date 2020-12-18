@@ -24,5 +24,6 @@ jobs:
           components: rustfmt, clippy
       - run: make lint
       - name: Assert no files have changed
-        run:
-          git status -s | grep --invert-match '.*'
+        run: |
+          git status
+          ! [[ $(git status -s) ]]

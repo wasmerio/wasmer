@@ -344,8 +344,8 @@ See the [`wasm_" $name "_vec_t`] type to get an example."]
             pub unsafe extern "C" fn [<wasm_ $name _vec_delete>](ptr: Option<&mut [<wasm_ $name _vec_t>]>) {
                 if let Some(vec) = ptr {
                     if !vec.data.is_null() {
-                        let data: Vec<*mut [<wasm_ $name _t>]> = Vec::from_raw_parts(vec.data, vec.size, vec.size);
-                        let _data: Vec<Option<Box<[<wasm_ $name _t>]>>> = ::std::mem::transmute(data);
+                        let data = vec.data as *mut Option<Box<[<wasm_ $name _t>]>>;
+                        let data: Vec<Option<Box<[<wasm_ $name _t>]>>> = Vec::from_raw_parts(data, vec.size, vec.size);
 
                         vec.data = ::std::ptr::null_mut();
                         vec.size = 0;
