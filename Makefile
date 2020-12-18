@@ -369,7 +369,6 @@ lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine-jit
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-cranelift
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-llvm
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-singlepass
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cli
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
