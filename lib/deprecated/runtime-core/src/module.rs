@@ -10,10 +10,10 @@ use crate::{
 };
 use new::wasmer::Export;
 use std::{
-    cell::RefCell,
     collections::HashMap,
     convert::{AsRef, Infallible},
     ptr,
+    sync::{Arc, Mutex},
 };
 
 pub use new::wasmer_types::{DataInitializer, ExportIndex, TableInitializer};
@@ -126,20 +126,22 @@ impl Module {
                                 // is the same!
                                 struct VMDynamicFunctionWithEnv<Env>
                                 where
-                                    Env: Sized + 'static,
+                                    Env: Sized + 'static + Send + Sync,
                                 {
                                     #[allow(unused)]
                                     function_type: FuncSig,
                                     #[allow(unused)]
-                                    func: Box<
+                                    func: Arc<
                                         dyn Fn(
                                                 &mut Env,
                                                 &[Value],
                                             )
                                                 -> Result<Vec<Value>, RuntimeError>
-                                            + 'static,
+                                            + 'static
+                                            + Send
+                                            + Sync,
                                     >,
-                                    env: RefCell<Env>,
+                                    env: Box<Mutex<Env>>,
                                 }
 
                                 // Get back the `vmctx` as it is
@@ -154,7 +156,10 @@ impl Module {
                                 };
 
                                 // Replace the environment by ours.
-                                vmctx.ctx.env.borrow_mut().vmctx = pre_instance.vmctx();
+                                {
+                                    let mut guard = vmctx.ctx.env.lock().unwrap();
+                                    guard.vmctx = pre_instance.vmctx();
+                                }
 
                                 // … without anyone noticing…
                                 function.vm_function.vmctx.host_env = Box::into_raw(vmctx) as _;
