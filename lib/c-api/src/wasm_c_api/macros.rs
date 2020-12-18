@@ -326,7 +326,7 @@ int main() {
 ```"]
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_new_uninitialized>](out: *mut [<wasm_ $name _vec_t>], length: usize) {
-                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = Vec::with_capacity(length);
+                let mut bytes: Vec<*mut [<wasm_ $name _t>]> = vec![::std::ptr::null_mut(); length];
                 let pointer = bytes.as_mut_ptr();
 
                 (*out).data = pointer;
