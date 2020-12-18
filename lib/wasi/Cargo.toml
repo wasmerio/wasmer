@@ -18,7 +18,7 @@ generational-arena = { version = "0.2", features = ["serde"] }
 libc = { version = "^0.2", default-features = false }
 tracing = { version = "0.1", features = ["log"] }
 getrandom = "0.2"
-time = "0.1"
+time = "0.2"
 typetag = "0.1"
 serde = { version = "1.0", features = ["derive"] }
 wasmer = { path = "../api", version = "1.0.0-beta2", default-features = false }
