@@ -171,7 +171,7 @@ mod test_vmfunction_body {
 #[repr(C)]
 pub enum VMFunctionKind {
     /// A static function has the native signature:
-    /// extern "C" (vmctx, arg1, arg2...) -> (result1, result2, ...)
+    /// `extern "C" (vmctx, arg1, arg2...) -> (result1, result2, ...)`.
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, natively
@@ -179,7 +179,7 @@ pub enum VMFunctionKind {
     Static,
 
     /// A dynamic function has the native signature:
-    /// extern "C" (ctx, &[Value]) -> Vec<Value>
+    /// `extern "C" (ctx, &[Value]) -> Vec<Value>`.
     ///
     /// This is the default for functions that are defined:
     /// 1. In the Host, dynamically
