@@ -95,7 +95,7 @@ mod test_vmfunction_import {
 /// containing the relevant context for running the function indicated
 /// in `address`.
 #[repr(C)]
-pub struct VMDynamicFunctionContext<T: Sized> {
+pub struct VMDynamicFunctionContext<T: Sized + Send + Sync> {
     /// The address of the inner dynamic function.
     ///
     /// Note: The function must be on the form of
@@ -106,7 +106,14 @@ pub struct VMDynamicFunctionContext<T: Sized> {
     pub ctx: T,
 }
 
-impl<T: Sized + Clone> Clone for VMDynamicFunctionContext<T> {
+// The `ctx` itself must be `Send`, `address` can be passed between
+// threads because all usage is `unsafe` and synchronized.
+unsafe impl<T: Sized + Send + Sync> Send for VMDynamicFunctionContext<T> {}
+// The `ctx` itself must be `Sync`, `address` can be shared between
+// threads because all usage is `unsafe` and synchronized.
+unsafe impl<T: Sized + Send + Sync> Sync for VMDynamicFunctionContext<T> {}
+
+impl<T: Sized + Clone + Send + Sync> Clone for VMDynamicFunctionContext<T> {
     fn clone(&self) -> Self {
         Self {
             address: self.address,
