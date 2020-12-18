@@ -83,15 +83,15 @@ where
         )
     });
     let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
-        let duped_env: Env = unsafe {
-            let ptr: *mut Env = ptr as _;
-            let item: &Env = &*ptr;
-            item.clone()
+        let env_ref: &Env = unsafe {
+            ptr.cast::<Env>()
+                .as_ref()
+                .expect("`ptr` to the environment is null when cloning it")
         };
-        Box::into_raw(Box::new(duped_env)) as _
+        Box::into_raw(Box::new(env_ref.clone())) as _
     };
-    let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
-        unsafe { Box::from_raw(ptr as *mut Env) };
+    let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr| {
+        unsafe { Box::from_raw(ptr.cast::<Env>()) };
     };
     let env = Box::into_raw(Box::new(env)) as _;
 
