@@ -1,5 +1,4 @@
 use super::{wasm_externtype_t, wasm_valtype_vec_delete, wasm_valtype_vec_t, WasmExternType};
-use std::mem;
 use wasmer::{ExternType, FunctionType, ValType};
 
 #[derive(Debug)]
@@ -56,11 +55,11 @@ wasm_declare_boxed_vec!(functype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_functype_new(
-    params: Option<Box<wasm_valtype_vec_t>>,
-    results: Option<Box<wasm_valtype_vec_t>>,
+    params: Option<&mut wasm_valtype_vec_t>,
+    results: Option<&mut wasm_valtype_vec_t>,
 ) -> Option<Box<wasm_functype_t>> {
-    let mut params = params?;
-    let mut results = results?;
+    let params = params?;
+    let results = results?;
 
     let params_as_valtype: Vec<ValType> = params
         .into_slice()?
@@ -73,11 +72,8 @@ pub unsafe extern "C" fn wasm_functype_new(
         .map(|val| val.as_ref().into())
         .collect::<Vec<_>>();
 
-    wasm_valtype_vec_delete(Some(params.as_mut()));
-    wasm_valtype_vec_delete(Some(results.as_mut()));
-
-    mem::forget(params);
-    mem::forget(results);
+    wasm_valtype_vec_delete(Some(params));
+    wasm_valtype_vec_delete(Some(results));
 
     Some(Box::new(wasm_functype_t::new(FunctionType::new(
         params_as_valtype,
