@@ -53,7 +53,7 @@ impl wasm_tabletype_t {
     }
 }
 
-wasm_declare_vec!(tabletype);
+wasm_declare_boxed_vec!(tabletype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(
