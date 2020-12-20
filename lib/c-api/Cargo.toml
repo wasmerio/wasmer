@@ -47,6 +47,7 @@ default = [
     "deprecated",
     "wat",
     "cranelift",
+    "jit",
     "wasi",
 ]
 wat = ["wasmer/wat"]

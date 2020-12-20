@@ -22,11 +22,11 @@ pub enum CraneliftOptLevel {
     SpeedAndSize,
 }
 
-/// Global configuration options used to create an [`Engine`] and customize its
-/// behavior.
+/// Global configuration options used to create an
+/// `wasmer_engine::Engine` and customize its behavior.
 ///
-/// This structure exposed a builder-like interface and is primarily consumed by
-/// [`Engine::new()`]
+/// This structure exposes a builder-like interface and is primarily
+/// consumed by `wasmer_engine::Engine::new`.
 #[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,

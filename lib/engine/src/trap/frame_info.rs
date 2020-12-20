@@ -292,13 +292,14 @@ pub fn register(
     Some(GlobalFrameInfoRegistration { key: max })
 }
 
-/// Description of a frame in a backtrace for a [`Trap`].
+/// Description of a frame in a backtrace for a [`RuntimeError::trace`](crate::RuntimeError::trace).
 ///
-/// Whenever a WebAssembly trap occurs an instance of [`Trap`] is created. Each
-/// [`Trap`] has a backtrace of the WebAssembly frames that led to the trap, and
-/// each frame is described by this structure.
+/// Whenever a WebAssembly trap occurs an instance of [`RuntimeError`]
+/// is created. Each [`RuntimeError`] has a backtrace of the
+/// WebAssembly frames that led to the trap, and each frame is
+/// described by this structure.
 ///
-/// [`Trap`]: crate::Trap
+/// [`RuntimeError`]: crate::RuntimeError
 #[derive(Debug, Clone)]
 pub struct FrameInfo {
     module_name: String,

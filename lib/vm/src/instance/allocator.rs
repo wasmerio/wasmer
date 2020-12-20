@@ -65,6 +65,8 @@ impl InstanceAllocator {
     /// correspond to the location in memory for the local memories and
     /// tables respectively. These pointers should be written to before
     /// calling [`InstanceHandle::new`].
+    ///
+    /// [`InstanceHandle::new`]: super::InstanceHandle::new
     pub fn new(
         module: &ModuleInfo,
     ) -> (
