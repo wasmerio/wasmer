@@ -45,7 +45,7 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
-use wasmer_compiler::{to_wasm_error, WasmResult};
+use wasmer_compiler::WasmResult;
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 
@@ -383,10 +383,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::BrIf { relative_depth } => translate_br_if(*relative_depth, builder, state),
         Operator::BrTable { table } => {
-            let mut depths = table
-                .targets()
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(to_wasm_error)?;
+            let mut depths = table.targets().collect::<Result<Vec<_>, _>>()?;
             let default = depths.pop().unwrap().0;
             let mut min_depth = default;
             for (depth, _) in depths.iter() {
