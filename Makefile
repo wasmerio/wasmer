@@ -361,6 +361,7 @@ update-testsuite:
 RUSTFLAGS := "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-c-api
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-vm
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-types
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-wasi
