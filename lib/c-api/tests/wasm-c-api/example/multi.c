@@ -121,7 +121,7 @@ int main(int argc, const char* argv[]) {
   // Call.
   printf("Calling export...\n");
   wasm_val_t vals[4] = {
-    WASM_I32_VAL(1), WASM_I32_VAL(2), WASM_I32_VAL(3), WASM_I32_VAL(4)
+    WASM_I32_VAL(1), WASM_I64_VAL(2), WASM_I64_VAL(3), WASM_I32_VAL(4)
   };
   wasm_val_t res[4] = {
     WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL, WASM_INIT_VAL

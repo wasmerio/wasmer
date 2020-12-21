@@ -28,7 +28,7 @@ impl Clone for WasmFunctionType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct wasm_functype_t {
     pub(crate) extern_type: wasm_externtype_t,
@@ -90,9 +90,7 @@ pub unsafe extern "C" fn wasm_functype_copy(
 ) -> Option<Box<wasm_functype_t>> {
     let function_type = function_type?;
 
-    Some(Box::new(wasm_functype_t::new(
-        function_type.inner().function_type.clone(),
-    )))
+    Some(Box::new(function_type.clone()))
 }
 
 #[no_mangle]

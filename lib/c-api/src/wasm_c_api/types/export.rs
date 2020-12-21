@@ -2,6 +2,7 @@ use super::{wasm_externtype_t, wasm_name_t};
 use wasmer::ExportType;
 
 #[allow(non_camel_case_types)]
+#[derive(Clone)]
 pub struct wasm_exporttype_t {
     name: Box<wasm_name_t>,
     extern_type: Box<wasm_externtype_t>,
