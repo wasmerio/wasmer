@@ -307,7 +307,7 @@ pub use wasmer_compiler::{
     wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
 };
 pub use wasmer_compiler::{
-    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError,
+    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError, WasmResult,
 };
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,

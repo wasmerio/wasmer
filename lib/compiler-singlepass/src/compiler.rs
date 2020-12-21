@@ -9,7 +9,6 @@ use crate::codegen_x64::{
 use crate::config::Singlepass;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
-use wasmer_compiler::wasmparser::BinaryReaderError;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
     Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
@@ -92,9 +91,9 @@ impl Compiler for SinglepassCompiler {
 
                 // This local list excludes arguments.
                 let mut locals = vec![];
-                let num_locals = reader.read_local_count().map_err(to_compile_error)?;
+                let num_locals = reader.read_local_count()?;
                 for _ in 0..num_locals {
-                    let (count, ty) = reader.read_local_decl().map_err(to_compile_error)?;
+                    let (count, ty) = reader.read_local_decl()?;
                     for _ in 0..count {
                         locals.push(ty);
                     }
@@ -113,7 +112,7 @@ impl Compiler for SinglepassCompiler {
 
                 while generator.has_control_frames() {
                     generator.set_srcloc(reader.original_position() as u32);
-                    let op = reader.read_operator().map_err(to_compile_error)?;
+                    let op = reader.read_operator()?;
                     generator.feed_operator(op).map_err(to_compile_error)?;
                 }
 
@@ -155,12 +154,6 @@ impl Compiler for SinglepassCompiler {
 
 trait ToCompileError {
     fn to_compile_error(self) -> CompileError;
-}
-
-impl ToCompileError for BinaryReaderError {
-    fn to_compile_error(self) -> CompileError {
-        CompileError::Codegen(self.message().into())
-    }
 }
 
 impl ToCompileError for CodegenError {
