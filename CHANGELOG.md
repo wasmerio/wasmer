@@ -16,6 +16,7 @@
 * [#1941](https://github.com/wasmerio/wasmer/pull/1941) Turn `get_remaining_points`/`set_remaining_points` of the `Metering` middleware into free functions to allow using them in an ahead-of-time compilation setup
 * [#1955](https://github.com/wasmerio/wasmer/pull/1955) Set `jit` as a default feature of the `wasmer-wasm-c-api` crate
 * [#1944](https://github.com/wasmerio/wasmer/pull/1944) Require `WasmerEnv` to be `Send + Sync` even in dynamic functions.
+* [#1963](https://github.com/wasmerio/wasmer/pull/1963) Deprecated `to_wasm_error` in favour of `impl From<BinaryReaderError> for WasmError`
 
 ### Fixed
 

@@ -8,10 +8,17 @@ macro_rules! wasm_unsupported {
     ($($arg:tt)*) => { $crate::WasmError::Unsupported(format!($($arg)*)) }
 }
 
-/// Converts a Wasm binary reading error to a runtime Wasm error
-pub fn to_wasm_error(e: BinaryReaderError) -> WasmError {
-    WasmError::InvalidWebAssembly {
-        message: e.message().into(),
-        offset: e.offset(),
+impl From<BinaryReaderError> for WasmError {
+    fn from(original: BinaryReaderError) -> Self {
+        Self::InvalidWebAssembly {
+            message: original.message().into(),
+            offset: original.offset(),
+        }
     }
+}
+
+/// Converts a Wasm binary reading error to a runtime Wasm error
+#[deprecated(since = "1.0.0-beta3", note = "Use WasmError::from")]
+pub fn to_wasm_error(e: BinaryReaderError) -> WasmError {
+    e.into()
 }
