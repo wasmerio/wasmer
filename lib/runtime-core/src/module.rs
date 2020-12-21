@@ -38,7 +38,10 @@ pub struct ModuleInner {
 
 /// Wrapper of IndexMap to impl BorshSerialize and BorshDeserialize on it
 #[derive(Clone, Debug, Serialize, Deserialize, Default)]
-pub struct ExportsMap(pub IndexMap<String, ExportIndex>);
+pub struct ExportsMap {
+    /// Actual IndexMap
+    pub map: IndexMap<String, ExportIndex>
+}
 
 /// Container for module data including memories, globals, tables, imports, and exports.
 #[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
@@ -108,10 +111,10 @@ pub struct ModuleInfo {
 impl BorshSerialize for ExportsMap
 {
     fn serialize<W: Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        u32::try_from(self.0.len())
+        u32::try_from(self.map.len())
             .map_err(|_| std::io::ErrorKind::InvalidInput)?
             .serialize(writer)?;
-        for (key, value) in &self.0 {
+        for (key, value) in &self.map {
             key.serialize(writer)?;
             value.serialize(writer)?;
         }
@@ -132,7 +135,7 @@ impl BorshDeserialize for ExportsMap
             let value = ExportIndex::deserialize(buf)?;
             result.insert(key, value);
         }
-        Ok(ExportsMap(result))
+        Ok(ExportsMap{map: result})
     }
 }
 
@@ -315,7 +318,7 @@ impl ModuleInner {
     pub(crate) fn exports_iter(&self) -> impl Iterator<Item = ExportDescriptor> + '_ {
         self.info
             .exports
-            .0
+            .map
             .iter()
             .map(move |(name, &ei)| ExportDescriptor {
                 name,

@@ -82,7 +82,7 @@ impl<'a> ExportIter<'a> {
     pub(crate) fn new(module: &'a ModuleInner, inner: &'a InstanceInner) -> Self {
         Self {
             inner,
-            iter: module.info.exports.0.iter(),
+            iter: module.info.exports.map.iter(),
             module,
         }
     }

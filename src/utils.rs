@@ -29,7 +29,7 @@ pub fn parse_args(
     let export_index = module
         .info()
         .exports
-        .0
+        .map
         .get(fn_name)
         .ok_or(InvokeError::CouldNotFindFunction)?;
 

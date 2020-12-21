@@ -240,7 +240,7 @@ pub fn read_module<
                 info.write()
                     .unwrap()
                     .exports
-                    .0
+                    .map
                     .insert(field.to_string(), export_index);
             }
             ParserState::StartSectionEntry(start_index) => {
