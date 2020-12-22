@@ -257,6 +257,8 @@ jobs:
         with:
           name: ${{ matrix.artifact_name }}
           path: dist
+          if-no-files-found: error
+          retention-days: 1
 
   test-cross-compile-on-linux:
     name: Test cross-compile on linux
