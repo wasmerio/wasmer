@@ -10,7 +10,7 @@ license = "MIT OR Apache-2.0 WITH LLVM-exception"
 readme = "README.md"
 edition = "2018"
 
-[build.'cfg(target_os = "linux")']
+[target.'cfg(target_os = "linux")']
 rustflags = [
   "-C", "link-arg=-Wl,-E"
 ]
