@@ -84,9 +84,6 @@ pub use crate::target::{
     PointerWidth, Target, Triple,
 };
 #[cfg(feature = "translator")]
-#[allow(deprecated)]
-pub use crate::translator::to_wasm_error;
-#[cfg(feature = "translator")]
 pub use crate::translator::{
     translate_module, wptype_to_type, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
     MiddlewareReaderState, ModuleEnvironment, ModuleInfoTranslation, ModuleMiddleware,

@@ -14,8 +14,6 @@ mod error;
 mod sections;
 
 pub use self::environ::{FunctionBodyData, ModuleEnvironment, ModuleInfoTranslation};
-#[allow(deprecated)]
-pub use self::error::to_wasm_error;
 pub use self::middleware::{
     FunctionMiddleware, MiddlewareBinaryReader, MiddlewareReaderState, ModuleMiddleware,
     ModuleMiddlewareChain,

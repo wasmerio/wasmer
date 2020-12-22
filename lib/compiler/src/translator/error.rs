@@ -16,9 +16,3 @@ impl From<BinaryReaderError> for WasmError {
         }
     }
 }
-
-/// Converts a Wasm binary reading error to a runtime Wasm error
-#[deprecated(since = "1.0.0-beta3", note = "Use WasmError::from")]
-pub fn to_wasm_error(e: BinaryReaderError) -> WasmError {
-    e.into()
-}
