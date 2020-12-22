@@ -28,7 +28,7 @@ impl FunctionMiddleware for Add2Mul {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WasmResult<()> {
+    ) -> Result<(), MiddlewareError> {
         match operator {
             Operator::I32Add => {
                 state.push_operator(Operator::I32Mul);
@@ -66,7 +66,7 @@ impl FunctionMiddleware for Fusion {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WasmResult<()> {
+    ) -> Result<(), MiddlewareError> {
         match (operator, self.state) {
             (Operator::I32Add, 0) => {
                 self.state = 1;

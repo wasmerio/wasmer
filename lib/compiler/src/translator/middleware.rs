@@ -9,7 +9,7 @@ use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
 use wasmparser::{BinaryReader, Operator, Type};
 
-use crate::error::WasmResult;
+use crate::error::{MiddlewareError, WasmResult};
 
 /// A shared builder for function middlewares.
 pub trait ModuleMiddleware: Debug + Send + Sync {
@@ -34,7 +34,7 @@ pub trait FunctionMiddleware: Debug {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WasmResult<()> {
+    ) -> Result<(), MiddlewareError> {
         state.push_operator(operator);
         Ok(())
     }
