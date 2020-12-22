@@ -11,7 +11,6 @@
 //! is handled, according to the semantics of WebAssembly, to only specific expressions that are
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
-use super::error::to_wasm_error;
 use super::state::ModuleTranslationState;
 use crate::wasm_unsupported;
 use crate::{WasmError, WasmResult};
@@ -94,7 +93,7 @@ pub fn parse_import_section<'data>(
     environ.reserve_imports(imports.get_count())?;
 
     for entry in imports {
-        let import = entry.map_err(to_wasm_error)?;
+        let import = entry?;
         let module_name = import.module;
         let field_name = import.field;
 
@@ -168,7 +167,7 @@ pub fn parse_function_section(
     environ.reserve_func_types(num_functions)?;
 
     for entry in functions {
-        let sigindex = entry.map_err(to_wasm_error)?;
+        let sigindex = entry?;
         environ.declare_func_type(SignatureIndex::from_u32(sigindex))?;
     }
 
@@ -183,7 +182,7 @@ pub fn parse_table_section(
     environ.reserve_tables(tables.get_count())?;
 
     for entry in tables {
-        let table = entry.map_err(to_wasm_error)?;
+        let table = entry?;
         environ.declare_table(TableType {
             ty: wptype_to_type(table.element_type).unwrap(),
             minimum: table.limits.initial,
@@ -202,7 +201,7 @@ pub fn parse_memory_section(
     environ.reserve_memories(memories.get_count())?;
 
     for entry in memories {
-        let memory = entry.map_err(to_wasm_error)?;
+        let memory = entry?;
         match memory {
             WPMemoryType::M32 { limits, shared } => {
                 environ.declare_memory(MemoryType {
@@ -232,9 +231,9 @@ pub fn parse_global_section(
                 mutable,
             },
             init_expr,
-        } = entry.map_err(to_wasm_error)?;
+        } = entry?;
         let mut init_expr_reader = init_expr.get_binary_reader();
-        let initializer = match init_expr_reader.read_operator().map_err(to_wasm_error)? {
+        let initializer = match init_expr_reader.read_operator()? {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
             Operator::I64Const { value } => GlobalInit::I64Const(value),
             Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
@@ -276,7 +275,7 @@ pub fn parse_export_section<'data>(
             field,
             ref kind,
             index,
-        } = entry.map_err(to_wasm_error)?;
+        } = entry?;
 
         // The input has already been validated, so we should be able to
         // assume valid UTF-8 and use `from_utf8_unchecked` if performance
@@ -310,10 +309,10 @@ pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmR
 }
 
 fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
-    let items_reader = items.get_items_reader().map_err(to_wasm_error)?;
+    let items_reader = items.get_items_reader()?;
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
-        let elem = match item.map_err(to_wasm_error)? {
+        let elem = match item? {
             ElementItem::Null(_ty) => FunctionIndex::reserved_value(),
             ElementItem::Func(index) => FunctionIndex::from_u32(index),
         };
@@ -330,7 +329,7 @@ pub fn parse_element_section<'data>(
     environ.reserve_table_initializers(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
-        let Element { kind, items, ty } = entry.map_err(to_wasm_error)?;
+        let Element { kind, items, ty } = entry?;
         if ty != wasmparser::Type::FuncRef {
             return Err(wasm_unsupported!(
                 "unsupported table element type: {:?}",
@@ -344,19 +343,18 @@ pub fn parse_element_section<'data>(
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) =
-                    match init_expr_reader.read_operator().map_err(to_wasm_error)? {
-                        Operator::I32Const { value } => (None, value as u32 as usize),
-                        Operator::GlobalGet { global_index } => {
-                            (Some(GlobalIndex::from_u32(global_index)), 0)
-                        }
-                        ref s => {
-                            return Err(wasm_unsupported!(
-                                "unsupported init expr in element section: {:?}",
-                                s
-                            ));
-                        }
-                    };
+                let (base, offset) = match init_expr_reader.read_operator()? {
+                    Operator::I32Const { value } => (None, value as u32 as usize),
+                    Operator::GlobalGet { global_index } => {
+                        (Some(GlobalIndex::from_u32(global_index)), 0)
+                    }
+                    ref s => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in element section: {:?}",
+                            s
+                        ));
+                    }
+                };
                 environ.declare_table_initializers(
                     TableIndex::from_u32(table_index),
                     base,
@@ -382,26 +380,25 @@ pub fn parse_data_section<'data>(
     environ.reserve_data_initializers(data.get_count())?;
 
     for (index, entry) in data.into_iter().enumerate() {
-        let Data { kind, data } = entry.map_err(to_wasm_error)?;
+        let Data { kind, data } = entry?;
         match kind {
             DataKind::Active {
                 memory_index,
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) =
-                    match init_expr_reader.read_operator().map_err(to_wasm_error)? {
-                        Operator::I32Const { value } => (None, value as u32 as usize),
-                        Operator::GlobalGet { global_index } => {
-                            (Some(GlobalIndex::from_u32(global_index)), 0)
-                        }
-                        ref s => {
-                            return Err(wasm_unsupported!(
-                                "unsupported init expr in data section: {:?}",
-                                s
-                            ))
-                        }
-                    };
+                let (base, offset) = match init_expr_reader.read_operator()? {
+                    Operator::I32Const { value } => (None, value as u32 as usize),
+                    Operator::GlobalGet { global_index } => {
+                        (Some(GlobalIndex::from_u32(global_index)), 0)
+                    }
+                    ref s => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in data section: {:?}",
+                            s
+                        ))
+                    }
+                };
                 environ.declare_data_initialization(
                     MemoryIndex::from_u32(memory_index),
                     base,
