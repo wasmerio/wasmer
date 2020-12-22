@@ -5,6 +5,8 @@ updates:
     directory: "/"
     allow:
       - dependency-type: "all"
+    ignore:
+      - dependency-name: "time"
     rebase-strategy: "auto"
     schedule:
       interval: "weekly"
