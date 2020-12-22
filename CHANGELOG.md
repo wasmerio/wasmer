@@ -17,6 +17,7 @@
 * [#1955](https://github.com/wasmerio/wasmer/pull/1955) Set `jit` as a default feature of the `wasmer-wasm-c-api` crate
 * [#1944](https://github.com/wasmerio/wasmer/pull/1944) Require `WasmerEnv` to be `Send + Sync` even in dynamic functions.
 * [#1963](https://github.com/wasmerio/wasmer/pull/1963) Removed `to_wasm_error` in favour of `impl From<BinaryReaderError> for WasmError`
+* [#1962](https://github.com/wasmerio/wasmer/pull/1962) Replace `wasmparser::Result<()>` with `Result<(), MiddlewareError>` in middleware, allowing implementors to return errors in `FunctionMiddleware::feed`
 
 ### Fixed
 

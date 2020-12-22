@@ -2,7 +2,7 @@ use crate::utils::get_store_with_middlewares;
 use anyhow::Result;
 
 use std::sync::Arc;
-use wasmer::wasmparser::{Operator, Result as WpResult};
+use wasmer::wasmparser::Operator;
 use wasmer::*;
 
 #[derive(Debug)]
@@ -28,7 +28,7 @@ impl FunctionMiddleware for Add2Mul {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WpResult<()> {
+    ) -> Result<(), MiddlewareError> {
         match operator {
             Operator::I32Add => {
                 state.push_operator(Operator::I32Mul);
@@ -66,7 +66,7 @@ impl FunctionMiddleware for Fusion {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WpResult<()> {
+    ) -> Result<(), MiddlewareError> {
         match (operator, self.state) {
             (Operator::I32Add, 0) => {
                 self.state = 1;

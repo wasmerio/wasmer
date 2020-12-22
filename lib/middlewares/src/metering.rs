@@ -4,12 +4,10 @@
 use std::convert::TryInto;
 use std::fmt;
 use std::sync::Mutex;
-use wasmer::wasmparser::{
-    Operator, Result as WpResult, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
-};
+use wasmer::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
-    MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
+    MiddlewareError, MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
@@ -118,7 +116,7 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WpResult<()> {
+    ) -> Result<(), MiddlewareError> {
         // Get the cost of the current operator, and add it to the accumulator.
         // This needs to be done before the metering logic, to prevent operators like `Call` from escaping metering in some
         // corner cases.

@@ -48,6 +48,27 @@ impl From<WasmError> for CompileError {
     }
 }
 
+/// A error in the middleware.
+#[derive(Debug)]
+#[cfg_attr(feature = "std", derive(Error))]
+#[cfg_attr(feature = "std", error("Error in middleware {name}: {message}"))]
+pub struct MiddlewareError {
+    /// The name of the middleware where the error was created
+    pub name: String,
+    /// The error message
+    pub message: String,
+}
+
+impl MiddlewareError {
+    /// Create a new `MiddlewareError`
+    pub fn new<A: Into<String>, B: Into<String>>(name: A, message: B) -> Self {
+        Self {
+            name: name.into(),
+            message: message.into(),
+        }
+    }
+}
+
 /// A WebAssembly translation error.
 ///
 /// When a WebAssembly function can't be translated, one of these error codes will be returned
@@ -80,9 +101,19 @@ pub enum WasmError {
     #[cfg_attr(feature = "std", error("Implementation limit exceeded"))]
     ImplLimitExceeded,
 
+    /// An error from the middleware error.
+    #[cfg_attr(feature = "std", error("{0}"))]
+    Middleware(MiddlewareError),
+
     /// A generic error.
     #[cfg_attr(feature = "std", error("{0}"))]
     Generic(String),
+}
+
+impl From<MiddlewareError> for WasmError {
+    fn from(original: MiddlewareError) -> Self {
+        Self::Middleware(original)
+    }
 }
 
 /// The error that can happen while parsing a `str`
@@ -97,3 +128,28 @@ pub enum ParseCpuFeatureError {
 
 /// A convenient alias for a `Result` that uses `WasmError` as the error type.
 pub type WasmResult<T> = Result<T, WasmError>;
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn middleware_error_can_be_created() {
+        let msg = String::from("Something went wrong");
+        let error = MiddlewareError::new("manipulator3000", msg);
+        assert_eq!(error.name, "manipulator3000");
+        assert_eq!(error.message, "Something went wrong");
+    }
+
+    #[test]
+    fn middleware_error_be_converted_to_wasm_error() {
+        let error = WasmError::from(MiddlewareError::new("manipulator3000", "foo"));
+        match error {
+            WasmError::Middleware(MiddlewareError { name, message }) => {
+                assert_eq!(name, "manipulator3000");
+                assert_eq!(message, "foo");
+            }
+            err => panic!("Unexpected error: {:?}", err),
+        }
+    }
+}
