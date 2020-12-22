@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-vm"
-version = "1.0.0-beta1"
+version = "1.0.0-beta2"
 description = "Runtime library support for Wasmer"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly"]
@@ -16,7 +16,7 @@ rustflags = [
 ]
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta1" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.0-beta2" }
 region = "2.2"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"

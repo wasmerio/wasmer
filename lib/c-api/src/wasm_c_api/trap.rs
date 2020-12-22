@@ -38,7 +38,9 @@ pub unsafe extern "C" fn wasm_trap_message(
     out: &mut wasm_byte_vec_t,
 ) {
     let message = trap.inner.message();
-    let byte_vec: wasm_byte_vec_t = message.into_bytes().into();
+    let mut byte_vec = message.into_bytes();
+    byte_vec.push(0); // append NUL
+    let byte_vec: wasm_byte_vec_t = byte_vec.into();
 
     out.size = byte_vec.size;
     out.data = byte_vec.data;

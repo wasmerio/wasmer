@@ -95,7 +95,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         self.preinstantiate()?;
 
         let module = self.module();
-        let (imports, import_initializers) = {
+        let (imports, import_function_envs) = {
             let mut imports = resolve_imports(
                 &module,
                 resolver,
@@ -107,9 +107,9 @@ pub trait Artifact: Send + Sync + Upcastable {
 
             // Get the `WasmerEnv::init_with_instance` function pointers and the pointers
             // to the envs to call it on.
-            let import_initializers: Vec<(_, _)> = imports.get_import_initializers();
+            let import_function_envs = imports.get_imported_function_envs();
 
-            (imports, import_initializers)
+            (imports, import_function_envs)
         };
 
         // Get pointers to where metadata about local memories should live in VM memory.
@@ -143,7 +143,7 @@ pub trait Artifact: Send + Sync + Upcastable {
             imports,
             self.signatures().clone(),
             host_state,
-            import_initializers,
+            import_function_envs,
         )
         .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))?;
         Ok(handle)

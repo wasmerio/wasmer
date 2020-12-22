@@ -1,15 +1,15 @@
 //! Define the `Resolver` trait, allowing custom resolution for external
 //! references.
 
-use crate::{Export, ImportError, LinkError};
+use crate::{Export, ExportFunctionMetadata, ImportError, LinkError};
 use more_asserts::assert_ge;
 use wasmer_types::entity::{BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{ExternType, FunctionIndex, ImportIndex, MemoryIndex, TableIndex};
 
 use wasmer_vm::{
-    FunctionBodyPtr, Imports, MemoryStyle, ModuleInfo, TableStyle, VMDynamicFunctionContext,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalImport, VMMemoryImport,
-    VMTableImport,
+    FunctionBodyPtr, ImportFunctionEnv, Imports, MemoryStyle, ModuleInfo, TableStyle,
+    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalImport,
+    VMMemoryImport, VMTableImport,
 };
 
 /// Import resolver connects imports with available exported values.
@@ -155,36 +155,13 @@ pub fn resolve_imports(
         }
         match resolved {
             Export::Function(ref f) => {
-                let (address, env_ptr) = match f.vm_function.kind {
+                let address = match f.vm_function.kind {
                     VMFunctionKind::Dynamic => {
                         // If this is a dynamic imported function,
                         // the address of the function is the address of the
                         // reverse trampoline.
                         let index = FunctionIndex::new(function_imports.len());
-                        let address = finished_dynamic_function_trampolines[index].0
-                            as *mut VMFunctionBody as _;
-                        let env_ptr = if f.import_init_function_ptr.is_some() {
-                            // Our function env looks like:
-                            // Box<VMDynamicFunctionContext<VMDynamicFunctionWithEnv<Env>>>
-                            // Which we can interpret as `*const <field offset> *const Env` (due to
-                            // the precise layout of these types via `repr(C)`)
-                            // We extract the `*const Env`:
-                            unsafe {
-                                // Box<VMDynamicFunctionContext<...>>
-                                let dyn_func_ctx_ptr = f.vm_function.vmctx.host_env
-                                    as *mut VMDynamicFunctionContext<*mut std::ffi::c_void>;
-                                // maybe report error here if it's null?
-                                // invariants of these types are not enforced.
-
-                                // &VMDynamicFunctionContext<...>
-                                let dyn_func_ctx = &*dyn_func_ctx_ptr;
-                                dyn_func_ctx.ctx
-                            }
-                        } else {
-                            std::ptr::null_mut()
-                        };
-
-                        (address, env_ptr)
+                        finished_dynamic_function_trampolines[index].0 as *mut VMFunctionBody as _
 
                         // TODO: We should check that the f.vmctx actually matches
                         // the shape of `VMDynamicFunctionImportContext`
@@ -198,17 +175,51 @@ pub fn resolve_imports(
                             assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
                         }
 
-                        (f.vm_function.address, unsafe {
-                            f.vm_function.vmctx.host_env
-                        })
+                        f.vm_function.address
                     }
                 };
+
+                // Clone the host env for this `Instance`.
+                let env = if let Some(ExportFunctionMetadata {
+                    host_env_clone_fn: clone,
+                    ..
+                }) = f.metadata.as_ref().map(|x| &**x)
+                {
+                    // TODO: maybe start adding asserts in all these
+                    // unsafe blocks to prevent future changes from
+                    // horribly breaking things.
+                    unsafe {
+                        assert!(!f.vm_function.vmctx.host_env.is_null());
+                        (clone)(f.vm_function.vmctx.host_env)
+                    }
+                } else {
+                    // No `clone` function means we're dealing with some
+                    // other kind of `vmctx`, not a host env of any
+                    // kind.
+                    unsafe { f.vm_function.vmctx.host_env }
+                };
+
                 function_imports.push(VMFunctionImport {
                     body: address,
-                    environment: f.vm_function.vmctx,
+                    environment: VMFunctionEnvironment { host_env: env },
                 });
 
-                host_function_env_initializers.push((f.import_init_function_ptr, env_ptr));
+                let initializer = f.metadata.as_ref().and_then(|m| m.import_init_function_ptr);
+                let clone = f.metadata.as_ref().map(|m| m.host_env_clone_fn);
+                let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
+                let import_function_env =
+                    if let (Some(clone), Some(destructor)) = (clone, destructor) {
+                        ImportFunctionEnv::Env {
+                            env,
+                            clone,
+                            initializer,
+                            destructor,
+                        }
+                    } else {
+                        ImportFunctionEnv::NoEnv
+                    };
+
+                host_function_env_initializers.push(import_function_env);
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {

@@ -18,7 +18,7 @@ use thiserror::Error;
 pub enum CompileError {
     /// A Wasm translation error occured.
     #[cfg_attr(feature = "std", error("WebAssembly translation error: {0}"))]
-    Wasm(#[cfg_attr(feature = "std", from)] WasmError),
+    Wasm(WasmError),
 
     /// A compilation error occured.
     #[cfg_attr(feature = "std", error("Compilation error: {0}"))]
@@ -40,6 +40,12 @@ pub enum CompileError {
     /// Insufficient resources available for execution.
     #[cfg_attr(feature = "std", error("Insufficient resources: {0}"))]
     Resource(String),
+}
+
+impl From<WasmError> for CompileError {
+    fn from(original: WasmError) -> Self {
+        Self::Wasm(original)
+    }
 }
 
 /// A WebAssembly translation error.
@@ -80,7 +86,7 @@ pub enum WasmError {
 }
 
 /// The error that can happen while parsing a `str`
-/// to retrieve a [`CpuFeature`].
+/// to retrieve a [`CpuFeature`](crate::target::CpuFeature).
 #[derive(Debug)]
 #[cfg_attr(feature = "std", derive(Error))]
 pub enum ParseCpuFeatureError {

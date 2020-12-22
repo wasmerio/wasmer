@@ -4,7 +4,6 @@
 //! Translation skeleton that traverses the whole WebAssembly module and call helper functions
 //! to deal with each part of it.
 use super::environ::ModuleEnvironment;
-use super::error::to_wasm_error;
 use super::sections::{
     parse_data_section, parse_element_section, parse_export_section, parse_function_section,
     parse_global_section, parse_import_section, parse_memory_section, parse_name_section,
@@ -23,7 +22,7 @@ pub fn translate_module<'data>(
     let mut module_translation_state = ModuleTranslationState::new();
 
     for payload in Parser::new(0).parse_all(data) {
-        match payload.map_err(to_wasm_error)? {
+        match payload? {
             Payload::Version { .. } | Payload::End => {}
 
             Payload::TypeSection(types) => {
@@ -69,7 +68,7 @@ pub fn translate_module<'data>(
                 let offset = code.original_position();
                 environ.define_function_body(
                     &module_translation_state,
-                    code.read_bytes(size).map_err(to_wasm_error)?,
+                    code.read_bytes(size)?,
                     offset,
                 )?;
             }
@@ -94,10 +93,7 @@ pub fn translate_module<'data>(
                 name: "name",
                 data,
                 data_offset,
-            } => parse_name_section(
-                NameSectionReader::new(data, data_offset).map_err(to_wasm_error)?,
-                environ,
-            )?,
+            } => parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?,
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,
 

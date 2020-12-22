@@ -3,7 +3,7 @@ use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
     TargetTriple,
 };
-use inkwell::OptimizationLevel;
+pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
@@ -41,7 +41,7 @@ pub trait LLVMCallbacks: Debug + Send + Sync {
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,
-    pub(crate) opt_level: OptimizationLevel,
+    pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
@@ -55,7 +55,7 @@ impl LLVM {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
-            opt_level: OptimizationLevel::Aggressive,
+            opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
@@ -72,7 +72,7 @@ impl LLVM {
     }
 
     /// The optimization levels when optimizing the IR.
-    pub fn opt_level(&mut self, opt_level: OptimizationLevel) -> &mut Self {
+    pub fn opt_level(&mut self, opt_level: LLVMOptLevel) -> &mut Self {
         self.opt_level = opt_level;
         self
     }

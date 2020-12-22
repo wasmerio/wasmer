@@ -1,6 +1,7 @@
 //! `metering` is a middleware for tracking how many operators are executed in total
 //! and putting a limit on the total number of operators executed.
 
+use std::convert::TryInto;
 use std::fmt;
 use std::sync::Mutex;
 use wasmer::wasmparser::{
@@ -8,7 +9,7 @@ use wasmer::wasmparser::{
 };
 use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
-    MiddlewareReaderState, ModuleMiddleware, Mutability, Type, Value,
+    MiddlewareReaderState, ModuleMiddleware, Mutability, Type,
 };
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
@@ -51,30 +52,6 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
             cost_function,
             remaining_points_index: Mutex::new(None),
         }
-    }
-
-    /// Get the remaining points in an Instance.
-    ///
-    /// Important: the instance Module must been processed with the `Metering` middleware.
-    pub fn get_remaining_points(&self, instance: &Instance) -> u64 {
-        instance
-            .exports
-            .get_global("remaining_points")
-            .expect("Can't get `remaining_points` from Instance")
-            .get()
-            .unwrap_i64() as _
-    }
-
-    /// Set the provided remaining points in an Instance.
-    ///
-    /// Important: the instance Module must been processed with the `Metering` middleware.
-    pub fn set_remaining_points(&self, instance: &Instance, points: u64) {
-        instance
-            .exports
-            .get_global("remaining_points")
-            .expect("Can't get `remaining_points` from Instance")
-            .set(Value::I64(points as _))
-            .expect("Can't set `remaining_points` in Instance");
     }
 }
 
@@ -184,5 +161,142 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
         state.push_operator(operator);
 
         Ok(())
+    }
+}
+
+/// Get the remaining points in an `Instance`.
+///
+/// This can be used in a headless engine after an ahead-of-time compilation
+/// as all required state lives in the instance.
+///
+/// # Panic
+///
+/// The instance Module must have been processed with the [`Metering`] middleware
+/// at compile time, otherwise this will panic.
+pub fn get_remaining_points(instance: &Instance) -> u64 {
+    instance
+        .exports
+        .get_global("remaining_points")
+        .expect("Can't get `remaining_points` from Instance")
+        .get()
+        .try_into()
+        .expect("`remaining_points` from Instance has wrong type")
+}
+
+/// Set the provided remaining points in an `Instance`.
+///
+/// This can be used in a headless engine after an ahead-of-time compilation
+/// as all required state lives in the instance.
+///
+/// # Panic
+///
+/// The instance Module must have been processed with the [`Metering`] middleware
+/// at compile time, otherwise this will panic.
+pub fn set_remaining_points(instance: &Instance, points: u64) {
+    instance
+        .exports
+        .get_global("remaining_points")
+        .expect("Can't get `remaining_points` from Instance")
+        .set(points.into())
+        .expect("Can't set `remaining_points` in Instance");
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    use std::sync::Arc;
+    use wasmer::{imports, wat2wasm, CompilerConfig, Cranelift, Module, Store, JIT};
+
+    fn cost_function(operator: &Operator) -> u64 {
+        match operator {
+            Operator::LocalGet { .. } | Operator::I32Const { .. } => 1,
+            Operator::I32Add { .. } => 2,
+            _ => 0,
+        }
+    }
+
+    fn bytecode() -> Vec<u8> {
+        wat2wasm(
+            br#"
+            (module
+            (type $add_t (func (param i32) (result i32)))
+            (func $add_one_f (type $add_t) (param $value i32) (result i32)
+                local.get $value
+                i32.const 1
+                i32.add)
+            (export "add_one" (func $add_one_f)))
+            "#,
+        )
+        .unwrap()
+        .into()
+    }
+
+    #[test]
+    fn get_remaining_points_works() {
+        let metering = Arc::new(Metering::new(10, cost_function));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering.clone());
+        let store = Store::new(&JIT::new(compiler_config).engine());
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        // Instantiate
+        let instance = Instance::new(&module, &imports! {}).unwrap();
+        assert_eq!(get_remaining_points(&instance), 10);
+
+        // First call
+        //
+        // Calling add_one costs 4 points. Here are the details of how it has been computed:
+        // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
+        // * `i32.const` is a `Operator::I32Const` which costs 1 point;
+        // * `i32.add` is a `Operator::I32Add` which costs 2 points.
+        let add_one = instance
+            .exports
+            .get_function("add_one")
+            .unwrap()
+            .native::<i32, i32>()
+            .unwrap();
+        add_one.call(1).unwrap();
+        assert_eq!(get_remaining_points(&instance), 6);
+
+        // Second call
+        add_one.call(1).unwrap();
+        assert_eq!(get_remaining_points(&instance), 2);
+
+        // Third call fails due to limit
+        assert!(add_one.call(1).is_err());
+        // TODO: what do we expect now? 0 or 2? See https://github.com/wasmerio/wasmer/issues/1931
+        // assert_eq!(metering.get_remaining_points(&instance), 2);
+        // assert_eq!(metering.get_remaining_points(&instance), 0);
+    }
+
+    #[test]
+    fn set_remaining_points_works() {
+        let metering = Arc::new(Metering::new(10, cost_function));
+        let mut compiler_config = Cranelift::default();
+        compiler_config.push_middleware(metering.clone());
+        let store = Store::new(&JIT::new(compiler_config).engine());
+        let module = Module::new(&store, bytecode()).unwrap();
+
+        // Instantiate
+        let instance = Instance::new(&module, &imports! {}).unwrap();
+        assert_eq!(get_remaining_points(&instance), 10);
+        let add_one = instance
+            .exports
+            .get_function("add_one")
+            .unwrap()
+            .native::<i32, i32>()
+            .unwrap();
+
+        // Increase a bit to have enough for 3 calls
+        set_remaining_points(&instance, 12);
+
+        // Ensure we can use the new points now
+        add_one.call(1).unwrap();
+        assert_eq!(get_remaining_points(&instance), 8);
+        add_one.call(1).unwrap();
+        assert_eq!(get_remaining_points(&instance), 4);
+        add_one.call(1).unwrap();
+        assert_eq!(get_remaining_points(&instance), 0);
     }
 }

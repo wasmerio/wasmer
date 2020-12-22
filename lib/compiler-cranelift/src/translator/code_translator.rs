@@ -45,7 +45,7 @@ use smallvec::SmallVec;
 use std::vec::Vec;
 
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
-use wasmer_compiler::{to_wasm_error, WasmResult};
+use wasmer_compiler::WasmResult;
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
 use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
 
@@ -216,15 +216,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 // destination block following the whole `if...end`. If we do end
                 // up discovering an `else`, then we will allocate a block for it
                 // and go back and patch the jump.
-                let destination = block_with_params(builder, results.clone(), environ)?;
+                let destination = block_with_params(builder, results, environ)?;
                 let branch_inst =
                     canonicalise_then_brz(builder, val, destination, state.peekn(params.len()));
                 (destination, ElseData::NoElse { branch_inst })
             } else {
                 // The `if` type signature is not valid without an `else` block,
                 // so we eagerly allocate the `else` block here.
-                let destination = block_with_params(builder, results.clone(), environ)?;
-                let else_block = block_with_params(builder, params.clone(), environ)?;
+                let destination = block_with_params(builder, results, environ)?;
+                let else_block = block_with_params(builder, params, environ)?;
                 canonicalise_then_brz(builder, val, else_block, state.peekn(params.len()));
                 builder.seal_block(else_block);
                 (destination, ElseData::WithElse { else_block })
@@ -271,8 +271,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                                 let (params, _results) =
                                     module_translation_state.blocktype_params_results(blocktype)?;
                                 debug_assert_eq!(params.len(), num_return_values);
-                                let else_block =
-                                    block_with_params(builder, params.clone(), environ)?;
+                                let else_block = block_with_params(builder, params, environ)?;
                                 canonicalise_then_jump(
                                     builder,
                                     destination,
@@ -384,10 +383,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         }
         Operator::BrIf { relative_depth } => translate_br_if(*relative_depth, builder, state),
         Operator::BrTable { table } => {
-            let mut depths = table
-                .targets()
-                .collect::<Result<Vec<_>, _>>()
-                .map_err(to_wasm_error)?;
+            let mut depths = table.targets().collect::<Result<Vec<_>, _>>()?;
             let default = depths.pop().unwrap().0;
             let mut min_depth = default;
             for (depth, _) in depths.iter() {

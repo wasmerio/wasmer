@@ -77,6 +77,39 @@ pub struct wasm_val_t {
     pub of: wasm_val_inner,
 }
 
+impl std::fmt::Debug for wasm_val_t {
+    fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
+        let mut ds = f.debug_struct("wasm_val_t");
+        ds.field("kind", &self.kind);
+
+        match self.kind.try_into() {
+            Ok(wasm_valkind_enum::WASM_I32) => {
+                ds.field("i32", &unsafe { self.of.int32_t });
+            }
+            Ok(wasm_valkind_enum::WASM_I64) => {
+                ds.field("i64", &unsafe { self.of.int64_t });
+            }
+            Ok(wasm_valkind_enum::WASM_F32) => {
+                ds.field("f32", &unsafe { self.of.float32_t });
+            }
+            Ok(wasm_valkind_enum::WASM_F64) => {
+                ds.field("f64", &unsafe { self.of.float64_t });
+            }
+            Ok(wasm_valkind_enum::WASM_ANYREF) => {
+                ds.field("anyref", &unsafe { self.of.wref });
+            }
+
+            Ok(wasm_valkind_enum::WASM_FUNCREF) => {
+                ds.field("funcref", &unsafe { self.of.wref });
+            }
+            Err(_) => {
+                ds.field("value", &"Invalid value type");
+            }
+        }
+        ds.finish()
+    }
+}
+
 wasm_declare_vec!(val);
 
 impl Clone for wasm_val_t {
