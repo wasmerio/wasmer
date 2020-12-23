@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0-rc1 - 2020-12-23
+
 ### Added
 
 * [#1894](https://github.com/wasmerio/wasmer/pull/1894) Added exports `wasmer::{CraneliftOptLevel, LLVMOptLevel}` to allow using `Cranelift::opt_level` and `LLVM::opt_level` directly via the `wasmer` crate
