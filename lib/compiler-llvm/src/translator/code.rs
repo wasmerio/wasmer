@@ -241,10 +241,9 @@ impl FuncTranslator {
         }
 
         pass_manager.add_type_based_alias_analysis_pass();
-        pass_manager.add_ipsccp_pass();
+        pass_manager.add_sccp_pass();
         pass_manager.add_prune_eh_pass();
         pass_manager.add_dead_arg_elimination_pass();
-        pass_manager.add_function_inlining_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
@@ -258,7 +257,7 @@ impl FuncTranslator {
         pass_manager.add_licm_pass();
         pass_manager.add_loop_vectorize_pass();
         pass_manager.add_instruction_combining_pass();
-        pass_manager.add_ipsccp_pass();
+        pass_manager.add_sccp_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_gvn_pass();
