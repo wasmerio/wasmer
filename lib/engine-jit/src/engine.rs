@@ -1,4 +1,4 @@
-//! JIT compilation.
+//! Just-in-time compilation.
 
 use crate::{CodeMemory, JITArtifact};
 use std::sync::{Arc, Mutex};

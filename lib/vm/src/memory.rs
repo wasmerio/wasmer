@@ -93,6 +93,16 @@ impl MemoryStyle {
             } => *offset_guard_size,
         }
     }
+
+    /// Is this memory always located at the same spot
+    /// or will it move around?
+    pub fn is_static(&self) -> bool {
+        if let Self::Static{..} = self {
+            true
+        } else {
+            false
+        }
+    }
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
@@ -109,6 +119,9 @@ pub trait Memory: fmt::Debug + Send + Sync {
     /// Grow memory by the specified amount of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError>;
 
+    /// Create a full copy of this memory
+    fn deep_clone(&self) -> Box<dyn Memory>;
+
     /// Return a [`VMMemoryDefinition`] for exposing the memory to compiled wasm code.
     ///
     /// The pointer returned in [`VMMemoryDefinition`] must be valid for the lifetime of this memory.
@@ -118,10 +131,10 @@ pub trait Memory: fmt::Debug + Send + Sync {
 /// A linear memory instance.
 #[derive(Debug)]
 pub struct LinearMemory {
-    // The underlying allocation.
+    /// The underlying allocation.
     mmap: Mutex<WasmMmap>,
 
-    // The optional maximum size in wasm pages of this linear memory.
+    /// The optional maximum size in wasm pages of this linear memory.
     maximum: Option<Pages>,
 
     /// The WebAssembly linear memory description.
@@ -129,10 +142,6 @@ pub struct LinearMemory {
 
     /// Our chosen implementation style.
     style: MemoryStyle,
-
-    // Size in bytes of extra guard pages after the end to optimize loads and stores with
-    // constant offsets.
-    offset_guard_size: usize,
 
     /// The owned memory definition used by the generated code
     vm_memory_definition: VMMemoryDefinitionOwnership,
@@ -173,6 +182,15 @@ struct WasmMmap {
     alloc: Mmap,
     // The current logical size in wasm pages of this linear memory.
     size: Pages,
+}
+
+impl WasmMmap {
+    fn deep_clone(&self) -> Self {
+        let alloc = self.alloc.deep_clone().expect("Failed to duplicate mmap");
+        let size = self.size.clone();
+
+        Self{ alloc, size }
+    }
 }
 
 impl LinearMemory {
@@ -229,12 +247,10 @@ impl LinearMemory {
             }
         }
 
-        let offset_guard_bytes = style.offset_guard_size() as usize;
-
         // If we have an offset guard, or if we're doing the static memory
         // allocation strategy, we need signal handlers to catch out of bounds
-        // acceses.
-        let needs_signal_handlers = offset_guard_bytes > 0
+        // accesses.
+        let needs_signal_handlers = style.offset_guard_size() > 0
             || match style {
                 MemoryStyle::Dynamic { .. } => false,
                 MemoryStyle::Static { .. } => true,
@@ -247,8 +263,9 @@ impl LinearMemory {
                 *bound
             }
         };
+
         let minimum_bytes = minimum_pages.bytes().0;
-        let request_bytes = minimum_bytes.checked_add(offset_guard_bytes).unwrap();
+        let request_bytes = minimum_bytes.checked_add(style.offset_guard_size() as usize).unwrap();
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
@@ -260,27 +277,27 @@ impl LinearMemory {
 
         let base_ptr = mmap.alloc.as_mut_ptr();
         let mem_length = memory.minimum.bytes().0.try_into().unwrap();
+        let vm_memory_definition = if let Some(mem_loc) = vm_memory_location {
+            {
+                let mut ptr = mem_loc.clone();
+                let md = ptr.as_mut();
+                md.base = base_ptr;
+                md.current_length = mem_length;
+            }
+            VMMemoryDefinitionOwnership::VMOwned(mem_loc)
+        } else {
+            VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
+                VMMemoryDefinition {
+                    base: base_ptr,
+                    current_length: mem_length,
+                },
+            )))
+        };
+
         Ok(Self {
             mmap: Mutex::new(mmap),
             maximum: memory.maximum,
-            offset_guard_size: offset_guard_bytes,
-            needs_signal_handlers,
-            vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
-                {
-                    let mut ptr = mem_loc.clone();
-                    let md = ptr.as_mut();
-                    md.base = base_ptr;
-                    md.current_length = mem_length;
-                }
-                VMMemoryDefinitionOwnership::VMOwned(mem_loc)
-            } else {
-                VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
-                    VMMemoryDefinition {
-                        base: base_ptr,
-                        current_length: mem_length,
-                    },
-                )))
-            },
+            needs_signal_handlers, vm_memory_definition,
             memory: *memory,
             style: style.clone(),
         })
@@ -305,6 +322,41 @@ impl Memory for LinearMemory {
     /// Returns the type for this memory.
     fn ty(&self) -> &MemoryType {
         &self.memory
+    }
+
+    fn deep_clone(&self) -> Box<dyn Memory> {
+        if self.style.is_static() {
+            panic!("Cannot clone static memory!");
+        }
+
+        let memory = self.memory.clone();
+        let maximum = self.maximum.clone();
+        let style = self.style.clone();
+
+        let mut mmap = {
+            let lock = self.mmap.lock().unwrap();
+            lock.deep_clone()
+        };
+
+        let vm_memory_definition = match self.vm_memory_definition {
+            VMMemoryDefinitionOwnership::VMOwned(_) => {
+                panic!("Not supported!");
+            },
+            VMMemoryDefinitionOwnership::HostOwned(_) => {
+                let base = mmap.alloc.as_mut_ptr();
+                let current_length = memory.minimum.bytes().0.try_into().unwrap();
+
+                VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
+                    VMMemoryDefinition{ base, current_length }
+                )))
+            }
+        };
+
+        Box::new(Self{
+            memory, maximum, style, vm_memory_definition,
+            mmap: Mutex::new(mmap),
+            needs_signal_handlers: self.needs_signal_handlers
+        })
     }
 
     /// Returns the memory style for this memory.
@@ -364,13 +416,13 @@ impl Memory for LinearMemory {
         }
 
         let delta_bytes = delta.bytes().0;
-        let prev_bytes = prev_pages.bytes().0;
         let new_bytes = new_pages.bytes().0;
+        let offset_guard_size = self.style.offset_guard_size() as usize;
 
-        if new_bytes > mmap.alloc.len() - self.offset_guard_size {
+        if new_bytes > mmap.alloc.len() - offset_guard_size {
             // If the new size is within the declared maximum, but needs more memory than we
             // have on hand, it's a dynamic heap and it can move.
-            let guard_bytes = self.offset_guard_size;
+            let guard_bytes = offset_guard_size;
             let request_bytes =
                 new_bytes
                     .checked_add(guard_bytes)
@@ -382,14 +434,14 @@ impl Memory for LinearMemory {
             let mut new_mmap =
                 Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
 
-            let copy_len = mmap.alloc.len() - self.offset_guard_size;
+            let copy_len = mmap.alloc.len() - offset_guard_size;
             new_mmap.as_mut_slice()[..copy_len].copy_from_slice(&mmap.alloc.as_slice()[..copy_len]);
 
             mmap.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
             mmap.alloc
-                .make_accessible(prev_bytes, delta_bytes)
+                .make_accessible(delta_bytes)
                 .map_err(MemoryError::Region)?;
         }
 
