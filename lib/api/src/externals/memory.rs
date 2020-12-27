@@ -54,6 +54,14 @@ impl Memory {
         })
     }
 
+    /// Return a full copy of the underlying memory
+    pub fn deep_clone(&self) -> Result<Self, MemoryError> {
+        let store = self.store.clone();
+        let memory = self.memory.deep_clone();
+
+        Ok( Self{ store, memory: memory.into() } )
+    }
+
     /// Returns the [`MemoryType`] of the `Memory`.
     ///
     /// # Example
