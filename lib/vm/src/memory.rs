@@ -275,21 +275,21 @@ impl LinearMemory {
             size: memory.minimum,
         };
 
-        let base_ptr = mmap.alloc.as_mut_ptr();
-        let mem_length = memory.minimum.bytes().0.try_into().unwrap();
+        let base = mmap.alloc.as_mut_ptr();
+        let current_length = memory.minimum.bytes().0.try_into().unwrap();
+
         let vm_memory_definition = if let Some(mem_loc) = vm_memory_location {
             {
                 let mut ptr = mem_loc.clone();
                 let md = ptr.as_mut();
-                md.base = base_ptr;
-                md.current_length = mem_length;
+                md.base = base;
+                md.current_length = current_length;
             }
             VMMemoryDefinitionOwnership::VMOwned(mem_loc)
         } else {
             VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
                 VMMemoryDefinition {
-                    base: base_ptr,
-                    current_length: mem_length,
+                    base, current_length
                 },
             )))
         };
@@ -338,9 +338,20 @@ impl Memory for LinearMemory {
             lock.deep_clone()
         };
 
+        let base = mmap.alloc.as_mut_ptr();
+        let current_length = memory.minimum.bytes().0.try_into().unwrap();
+
         let vm_memory_definition = match self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::VMOwned(_) => {
-                panic!("Not supported!");
+            VMMemoryDefinitionOwnership::VMOwned(mem_loc) => {
+                let mut mem_loc = mem_loc.clone();
+
+                unsafe {
+                    let md = mem_loc.as_mut();
+                    md.base = base;
+                    md.current_length = current_length;
+                }
+
+                VMMemoryDefinitionOwnership::VMOwned(mem_loc)
             },
             VMMemoryDefinitionOwnership::HostOwned(_) => {
                 let base = mmap.alloc.as_mut_ptr();
