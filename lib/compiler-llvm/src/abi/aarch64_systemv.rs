@@ -393,17 +393,18 @@ impl Abi for Aarch64SystemV {
             })
             .collect::<Result<Vec<i32>, _>>()?;
 
-        Ok(!matches!(func_sig_returns_bitwidths.as_slice(),
-            []
-            | [_]
-            | [32, 32]
-            | [32, 64]
-            | [64, 32]
-            | [64, 64]
-            | [32, 32, 32]
-            | [32, 32, 64]
-            | [64, 32, 32]
-            | [32, 32, 32, 32]))
+        Ok(!matches!(
+            func_sig_returns_bitwidths.as_slice(),
+            [] | [_]
+                | [32, 32]
+                | [32, 64]
+                | [64, 32]
+                | [64, 64]
+                | [32, 32, 32]
+                | [32, 32, 64]
+                | [64, 32, 32]
+                | [32, 32, 32, 32]
+        ))
     }
 
     fn pack_values_for_register_return<'ctx>(

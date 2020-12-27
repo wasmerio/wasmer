@@ -48,8 +48,12 @@ impl Mmap {
 
         //FIXME use COW here
         if let Ok(res) = &result {
-            unsafe{
-                libc::memcpy(res.ptr as *mut std::ffi::c_void, self.ptr as *const std::ffi::c_void, self.access_len);
+            unsafe {
+                libc::memcpy(
+                    res.ptr as *mut std::ffi::c_void,
+                    self.ptr as *const std::ffi::c_void,
+                    self.access_len,
+                );
             }
         };
 
@@ -101,7 +105,7 @@ impl Mmap {
             Self {
                 ptr: ptr as usize,
                 len: mapping_size,
-                access_len: accessible_size
+                access_len: accessible_size,
             }
         } else {
             // Reserve the mapping size.
@@ -122,7 +126,7 @@ impl Mmap {
             let mut result = Self {
                 ptr: ptr as usize,
                 len: mapping_size,
-                access_len: 0
+                access_len: 0,
             };
 
             if accessible_size != 0 {
@@ -211,8 +215,9 @@ impl Mmap {
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
-        let result = unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
-            .map_err(|e| e.to_string());
+        let result =
+            unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
+                .map_err(|e| e.to_string());
 
         if result.is_ok() {
             self.access_len += len;

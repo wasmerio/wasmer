@@ -97,7 +97,7 @@ impl MemoryStyle {
     /// Is this memory always located at the same spot
     /// or will it move around?
     pub fn is_static(&self) -> bool {
-        if let Self::Static{..} = self {
+        if let Self::Static { .. } = self {
             true
         } else {
             false
@@ -189,7 +189,7 @@ impl WasmMmap {
         let alloc = self.alloc.deep_clone().expect("Failed to duplicate mmap");
         let size = self.size.clone();
 
-        Self{ alloc, size }
+        Self { alloc, size }
     }
 }
 
@@ -265,7 +265,9 @@ impl LinearMemory {
         };
 
         let minimum_bytes = minimum_pages.bytes().0;
-        let request_bytes = minimum_bytes.checked_add(style.offset_guard_size() as usize).unwrap();
+        let request_bytes = minimum_bytes
+            .checked_add(style.offset_guard_size() as usize)
+            .unwrap();
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
@@ -287,17 +289,17 @@ impl LinearMemory {
             }
             VMMemoryDefinitionOwnership::VMOwned(mem_loc)
         } else {
-            VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
-                VMMemoryDefinition {
-                    base, current_length
-                },
-            )))
+            VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                base,
+                current_length,
+            })))
         };
 
         Ok(Self {
             mmap: Mutex::new(mmap),
             maximum: memory.maximum,
-            needs_signal_handlers, vm_memory_definition,
+            needs_signal_handlers,
+            vm_memory_definition,
             memory: *memory,
             style: style.clone(),
         })
@@ -352,21 +354,27 @@ impl Memory for LinearMemory {
                 }
 
                 VMMemoryDefinitionOwnership::VMOwned(mem_loc)
-            },
+            }
             VMMemoryDefinitionOwnership::HostOwned(_) => {
                 let base = mmap.alloc.as_mut_ptr();
                 let current_length = memory.minimum.bytes().0.try_into().unwrap();
 
                 VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
-                    VMMemoryDefinition{ base, current_length }
+                    VMMemoryDefinition {
+                        base,
+                        current_length,
+                    },
                 )))
             }
         };
 
-        Box::new(Self{
-            memory, maximum, style, vm_memory_definition,
+        Box::new(Self {
+            memory,
+            maximum,
+            style,
+            vm_memory_definition,
             mmap: Mutex::new(mmap),
-            needs_signal_handlers: self.needs_signal_handlers
+            needs_signal_handlers: self.needs_signal_handlers,
         })
     }
 

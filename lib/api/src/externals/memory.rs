@@ -59,7 +59,10 @@ impl Memory {
         let store = self.store.clone();
         let memory = self.memory.deep_clone();
 
-        Ok( Self{ store, memory: memory.into() } )
+        Ok(Self {
+            store,
+            memory: memory.into(),
+        })
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
