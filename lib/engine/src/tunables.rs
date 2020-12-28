@@ -36,6 +36,7 @@ pub trait Tunables {
         ty: &MemoryType,
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
+        from: Option<&dyn Memory>,
     ) -> Result<Arc<dyn Memory>, MemoryError>;
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -67,17 +68,30 @@ pub trait Tunables {
         module: &ModuleInfo,
         memory_styles: &PrimaryMap<MemoryIndex, MemoryStyle>,
         memory_definition_locations: &[NonNull<VMMemoryDefinition>],
+        from: Option<&[&dyn Memory]>,
     ) -> Result<PrimaryMap<LocalMemoryIndex, Arc<dyn Memory>>, LinkError> {
         let num_imports = module.num_imported_memories;
         let mut memories: PrimaryMap<LocalMemoryIndex, _> =
             PrimaryMap::with_capacity(module.memories.len() - num_imports);
+
+        if let Some(mems) = from {
+            assert_eq!(mems.len(), module.memories.len());
+        }
+
         for index in num_imports..module.memories.len() {
             let mi = MemoryIndex::new(index);
             let ty = &module.memories[mi];
             let style = &memory_styles[mi];
             let mdl = memory_definition_locations[index];
+
+            let src_mem = if let Some(mems) = from {
+                Some(mems[index])
+            } else {
+                None
+            };
+
             memories.push(
-                self.create_vm_memory(ty, style, mdl)
+                self.create_vm_memory(ty, style, mdl, src_mem)
                     .map_err(|e| LinkError::Resource(format!("Failed to create memory: {}", e)))?,
             );
         }

@@ -119,13 +119,13 @@ pub trait Memory: fmt::Debug + Send + Sync {
     /// Grow memory by the specified amount of wasm pages.
     fn grow(&self, delta: Pages) -> Result<Pages, MemoryError>;
 
-    /// Create a full copy of this memory
-    fn deep_clone(&self) -> Box<dyn Memory>;
-
     /// Return a [`VMMemoryDefinition`] for exposing the memory to compiled wasm code.
     ///
     /// The pointer returned in [`VMMemoryDefinition`] must be valid for the lifetime of this memory.
     fn vmmemory(&self) -> NonNull<VMMemoryDefinition>;
+
+    /// Helper to cast Memory to the concrete implementation
+    fn as_any(&self) -> &dyn std::any::Any;
 }
 
 /// A linear memory instance.
@@ -215,6 +215,61 @@ impl LinearMemory {
         vm_memory_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Self, MemoryError> {
         Self::new_internal(memory, style, Some(vm_memory_location))
+    }
+
+    /// Create a new memory as a copy of an existing memory
+    pub unsafe fn from_source_memory(
+        memory: &MemoryType,
+        style: &MemoryStyle,
+        vm_memory_location: Option<NonNull<VMMemoryDefinition>>,
+        source: &LinearMemory,
+    ) -> Result<Self, MemoryError> {
+        if style.is_static() {
+            panic!("Cannot clone static memory!");
+        }
+
+        if &*style != &source.style {
+            panic!("Source memory has a different style");
+        }
+
+        if &source.memory != memory {
+            panic!("Source memory type is different");
+        }
+
+        let maximum = source.maximum.clone();
+        let style = source.style.clone();
+
+        let mut mmap = {
+            let lock = source.mmap.lock().unwrap();
+            lock.deep_clone()
+        };
+
+        let base = mmap.alloc.as_mut_ptr();
+        let current_length = memory.minimum.bytes().0.try_into().unwrap();
+
+        let vm_memory_definition = if let Some(mem_loc) = vm_memory_location {
+            {
+                let mut ptr = mem_loc.clone();
+                let md = ptr.as_mut();
+                md.base = base;
+                md.current_length = current_length;
+            }
+            VMMemoryDefinitionOwnership::VMOwned(mem_loc)
+        } else {
+            VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(VMMemoryDefinition {
+                base,
+                current_length,
+            })))
+        };
+
+        Ok(Self {
+            memory: *memory,
+            maximum,
+            style,
+            vm_memory_definition,
+            mmap: Mutex::new(mmap),
+            needs_signal_handlers: source.needs_signal_handlers,
+        })
     }
 
     /// Build a `LinearMemory` with either self-owned or VM owned metadata.
@@ -326,56 +381,8 @@ impl Memory for LinearMemory {
         &self.memory
     }
 
-    fn deep_clone(&self) -> Box<dyn Memory> {
-        if self.style.is_static() {
-            panic!("Cannot clone static memory!");
-        }
-
-        let memory = self.memory.clone();
-        let maximum = self.maximum.clone();
-        let style = self.style.clone();
-
-        let mut mmap = {
-            let lock = self.mmap.lock().unwrap();
-            lock.deep_clone()
-        };
-
-        let base = mmap.alloc.as_mut_ptr();
-        let current_length = memory.minimum.bytes().0.try_into().unwrap();
-
-        let vm_memory_definition = match self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::VMOwned(mem_loc) => {
-                let mut mem_loc = mem_loc.clone();
-
-                unsafe {
-                    let md = mem_loc.as_mut();
-                    md.base = base;
-                    md.current_length = current_length;
-                }
-
-                VMMemoryDefinitionOwnership::VMOwned(mem_loc)
-            }
-            VMMemoryDefinitionOwnership::HostOwned(_) => {
-                let base = mmap.alloc.as_mut_ptr();
-                let current_length = memory.minimum.bytes().0.try_into().unwrap();
-
-                VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
-                    VMMemoryDefinition {
-                        base,
-                        current_length,
-                    },
-                )))
-            }
-        };
-
-        Box::new(Self {
-            memory,
-            maximum,
-            style,
-            vm_memory_definition,
-            mmap: Mutex::new(mmap),
-            needs_signal_handlers: self.needs_signal_handlers,
-        })
+    fn as_any(&self) -> &dyn std::any::Any {
+        self
     }
 
     /// Returns the memory style for this memory.

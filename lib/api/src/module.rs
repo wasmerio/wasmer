@@ -10,7 +10,7 @@ use wasmer_compiler::CompileError;
 #[cfg(feature = "wat")]
 use wasmer_compiler::WasmError;
 use wasmer_engine::{Artifact, DeserializeError, Resolver, SerializeError};
-use wasmer_vm::{ExportsIterator, ImportsIterator, InstanceHandle, ModuleInfo};
+use wasmer_vm::{ExportsIterator, ImportsIterator, InstanceHandle, Memory, ModuleInfo};
 
 #[derive(Error, Debug)]
 pub enum IoCompileError {
@@ -261,11 +261,15 @@ impl Module {
     pub(crate) fn instantiate(
         &self,
         resolver: &dyn Resolver,
+        src_memory: Option<&[&dyn Memory]>,
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
-            let instance_handle =
-                self.artifact
-                    .instantiate(self.store.tunables(), resolver, Box::new(()))?;
+            let instance_handle = self.artifact.instantiate(
+                self.store.tunables(),
+                resolver,
+                Box::new(()),
+                src_memory,
+            )?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any

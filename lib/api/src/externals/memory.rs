@@ -54,17 +54,6 @@ impl Memory {
         })
     }
 
-    /// Return a full copy of the underlying memory
-    pub fn deep_clone(&self) -> Result<Self, MemoryError> {
-        let store = self.store.clone();
-        let memory = self.memory.deep_clone();
-
-        Ok(Self {
-            store,
-            memory: memory.into(),
-        })
-    }
-
     /// Returns the [`MemoryType`] of the `Memory`.
     ///
     /// # Example
@@ -252,6 +241,10 @@ impl Memory {
     /// ```
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.memory, &other.memory)
+    }
+
+    pub(crate) fn get_inner(&self) -> &dyn wasmer_vm::Memory {
+        &*self.memory
     }
 }
 

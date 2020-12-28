@@ -12,8 +12,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
-    VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, Memory, MemoryStyle, ModuleInfo,
+    TableStyle, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -91,6 +91,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         tunables: &dyn Tunables,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
+        from: Option<&[&dyn Memory]>,
     ) -> Result<InstanceHandle, InstantiationError> {
         self.preinstantiate()?;
 
@@ -117,8 +118,14 @@ pub trait Artifact: Send + Sync + Upcastable {
 
         let (allocator, memory_definition_locations, table_definition_locations) =
             InstanceAllocator::new(&*module);
+
         let finished_memories = tunables
-            .create_memories(&module, self.memory_styles(), &memory_definition_locations)
+            .create_memories(
+                &module,
+                self.memory_styles(),
+                &memory_definition_locations,
+                from,
+            )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables
