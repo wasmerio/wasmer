@@ -91,7 +91,10 @@ cfg_if::cfg_if! {
         unsafe fn thread_stack() -> (usize, usize) {
             let this_thread = libc::pthread_self();
             let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+            #[cfg(not(target_os = "freebsd"))]
             libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+            #[cfg(target_os = "freebsd")]
+            libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
             let mut stackaddr: *mut libc::c_void = ptr::null_mut();
             let mut stacksize: libc::size_t = 0;
             libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
@@ -223,6 +226,51 @@ cfg_if::cfg_if! {
                     let cx = &*(cx as *const libc::ucontext_t);
                     let uc_mcontext = mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss);
                     (*uc_mcontext).__pc as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.mc_rip as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct gpregs {
+                        pub gp_x: [libc::register_t; 30],
+                        pub gp_lr: libc::register_t,
+                        pub gp_sp: libc::register_t,
+                        pub gp_elr: libc::register_t,
+                        pub gp_spsr: u32,
+                        pub gp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct fpregs {
+                        pub fp_q: [u128; 32],
+                        pub fp_sr: u32,
+                        pub fp_cr: u32,
+                        pub fp_flags: libc::c_int,
+                        pub fp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct mcontext_t {
+                        pub mc_gpregs: gpregs,
+                        pub mc_fpregs: fpregs,
+                        pub mc_flags: libc::c_int,
+                        pub mc_pad: libc::c_int,
+                        pub mc_spare: [u64; 8],
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct ucontext_t {
+                        pub uc_sigmask: libc::sigset_t,
+                        pub uc_mcontext: mcontext_t,
+                        pub uc_link: *mut ucontext_t,
+                        pub uc_stack: libc::stack_t,
+                        pub uc_flags: libc::c_int,
+                        __spare__: [libc::c_int; 4],
+                    }
+
+                    let cx = &*(cx as *const ucontext_t);
+                    cx.uc_mcontext.mc_gpregs.gp_elr as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }

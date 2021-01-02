@@ -89,6 +89,7 @@ qjs >
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
 | ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Docs][c# docs] |
+| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Docs][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Docs][python docs] |
 | ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Docs][js docs] |
 | ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Docs][go docs] |
@@ -115,6 +116,11 @@ qjs >
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
 [`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
+
+[d logo]: ./assets/languages/d.svg
+[d integration]: https://github.com/chances/wasmer-d
+[`wasmer` Dub package]: https://code.dlang.org/packages/wasmer
+[d docs]: https://chances.github.io/wasmer-d
 
 [python logo]: ./assets/languages/python.svg
 [python integration]: https://github.com/wasmerio/wasmer-python
