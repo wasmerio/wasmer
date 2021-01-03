@@ -1,4 +1,4 @@
-;; Web Assembly SIMD-related type conversion tests
+;; WebAssembly SIMD-related type conversion tests
 
 (module
   ;; Floating point to integer with saturation

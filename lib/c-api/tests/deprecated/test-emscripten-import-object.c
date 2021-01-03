@@ -6,7 +6,7 @@
 
 static bool host_print_called = false;
 
-// Host function that will be imported into the Web Assembly Instance
+// Host function that will be imported into the WebAssembly Instance
 void host_print(const wasmer_instance_context_t *ctx, int32_t ptr, int32_t len)
 {
     host_print_called = true;
