@@ -185,14 +185,18 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
 
     /// Get a UTF-8 string from the `WasmPtr` with the given length.
     ///
-    /// Note that this method returns a reference to Wasm linear memory. The
+    /// Note that . The
     /// underlying data can be mutated if the Wasm is allowed to execute or
     /// an aliasing `WasmPtr` is used to mutate memory.
     ///
     /// # Safety
+    /// This method returns a reference to Wasm linear memory. The underlying
+    /// data can be mutated if the Wasm is allowed to execute or an aliasing
+    /// `WasmPtr` is used to mutate memory.
+    ///
     /// `str` has invariants that must not be broken by mutating Wasm memory.
-    /// Thus the caller must ensure exclusive access to memory or otherwise ensure
-    /// that the backing memory is not modified while the reference is held.
+    /// Thus the caller must ensure that the backing memory is not modified
+    /// while the reference is held.
     ///
     /// Additionally, if `memory` is dynamic, the caller must also ensure that `memory`
     /// is not grown while the reference is held.
@@ -209,10 +213,8 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
         std::str::from_utf8(slice).ok()
     }
 
-    /// Get a UTF-8 string from the `WasmPtr` with the given length.
+    /// Get a UTF-8 `String` from the `WasmPtr` with the given length.
     ///
-    /// Note that this method returns a reference to Wasm linear memory. The
-    /// underlying data can be mutated if the Wasm is allowed to execute or
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
         unsafe { self.get_utf8_str(memory, str_len).map(|s| s.to_owned()) }
@@ -222,10 +224,6 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ///
     /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
     /// [`WasmPtr::get_utf8_str`] has to be used for those.
-    ///
-    /// Also note that this method returns a reference to Wasm linear memory. The
-    /// underlying data can be mutated if the Wasm is allowed to execute or
-    /// an aliasing `WasmPtr` is used to mutate memory.
     ///
     /// # Safety
     /// This method behaves similarly to [`WasmPtr::get_utf8_str`], all safety invariants on
@@ -238,14 +236,10 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
             .and_then(|length| self.get_utf8_str(memory, length as u32))
     }
 
-    /// Get a UTF-8 string from the `WasmPtr`, where the string is nul-terminated.
+    /// Get a UTF-8 `String` from the `WasmPtr`, where the string is nul-terminated.
     ///
     /// Note that this does not account for UTF-8 strings that _contain_ nul themselves,
     /// [`WasmPtr::get_utf8_string`] has to be used for those.
-    ///
-    /// Also note that this method returns a reference to Wasm linear memory. The
-    /// underlying data can be mutated if the Wasm is allowed to execute or
-    /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string_with_nul(self, memory: &Memory) -> Option<String> {
         unsafe { self.get_utf8_str_with_nul(memory) }.map(|s| s.to_owned())
     }
