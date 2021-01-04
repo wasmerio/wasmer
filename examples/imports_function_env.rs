@@ -2,7 +2,7 @@
 //! globals and tables.
 //!
 //! In this example, we'll create a system for getting and adjusting a counter value. However, host
-//! functions are not limited to storing data outside of WASM, they're normal host functions and
+//! functions are not limited to storing data outside of Wasm, they're normal host functions and
 //! can do anything that the host can do.
 //!
 //!   1. There will be a `get_counter` function that will return an i32 of

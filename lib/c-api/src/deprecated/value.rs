@@ -90,7 +90,7 @@ impl From<wasmer_value_t> for Val {
                     tag: wasmer_value_tag::WASM_F64,
                     value: wasmer_value { F64 },
                 } => Val::F64(F64),
-                _ => unreachable!("unknown WASM type"),
+                _ => unreachable!("unknown Wasm type"),
             }
         }
     }
@@ -145,7 +145,7 @@ impl From<wasmer_value_tag> for ValType {
             wasmer_value_tag::WASM_I64 => ValType::I64,
             wasmer_value_tag::WASM_F32 => ValType::F32,
             wasmer_value_tag::WASM_F64 => ValType::F64,
-            _ => unreachable!("unknown WASM type"),
+            _ => unreachable!("unknown Wasm type"),
         }
     }
 }
