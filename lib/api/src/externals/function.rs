@@ -634,6 +634,25 @@ impl Function {
         Ok(results.into_boxed_slice())
     }
 
+    /// Same as call but creates a custom stack that can then be yielded from host functions
+    #[ cfg(feature="async") ]
+    pub async fn call_with_stack<Stack: switcheroo::stack::Stack + Unpin>(&self, params: &[Val], stack: Stack) -> Result<Box<[Val]>, RuntimeError> {
+        let task = async_wormhole::AsyncWormhole::new(stack, |yielder| {
+            let mut results = vec![Val::null(); self.result_arity()];
+
+            match &self.definition {
+                FunctionDefinition::Wasm(wasm) => {
+                    self.call_wasm(&wasm, params, &mut results)?;
+                }
+                _ => unimplemented!("The function definition isn't supported for the moment"),
+            }
+
+            Ok(results.into_boxed_slice())
+        }).expect("Failed to create async function call");
+
+        task.await.unwrap()
+    }
+
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
         if let Some(trampoline) = wasmer_export.vm_function.call_trampoline {
             Self {

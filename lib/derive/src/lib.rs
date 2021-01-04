@@ -67,6 +67,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
 
 fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut finish = vec![];
+    #[cfg(feature="async")] let mut yielder = vec![];
     let mut helpers = vec![];
     //let mut assign_tokens = vec![];
     let mut touched_fields = vec![];
@@ -123,23 +124,19 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 helpers.push(helper_tokens);
             }
             match wasmer_attr {
-                WasmerAttr::Export { identifier, span } => {
-                    let finish_tokens = if let Some(name) = name {
-                        let name_str = name.to_string();
+                WasmerAttr::Export{ identifier, span } => {
+                    let (var_name, item_name)  = if let Some(var_name) = name {
+                        let name_str = var_name.to_string();
                         let item_name =
-                            identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
-                        quote_spanned! {f.span()=>
-                                let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
-                                self.#name.initialize(#name);
-                        }
+                            identifier.unwrap_or_else(|| LitStr::new(&name_str, var_name.span()));
+
+                        (var_name, item_name)
                     } else {
-                        if let Some(identifier) = identifier {
-                            let local_var =
-                                Ident::new(&format!("field_{}", field_num), identifier.span());
-                            quote_spanned! {f.span()=>
-                                    let #local_var: #inner_type = instance.exports.get_with_generics(#identifier)?;
-                                    self.#field_num.initialize(#local_var);
-                            }
+                        if let Some(item_name) = identifier {
+                            let var_name =
+                                Ident::new(&format!("field_{}", field_num), item_name.span());
+
+                            (var_name, item_name)
                         } else {
                             abort!(
                                 span,
@@ -148,18 +145,60 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                         }
                     };
 
+                    let finish_tokens = quote_spanned! {f.span()=>
+                        let #var_name: #inner_type = instance.exports.get_with_generics(#item_name)?;
+                        self.#var_name.initialize(#var_name);
+                    };
+
                     finish.push(finish_tokens);
+                }
+                #[ cfg(feature="async") ]
+                WasmerAttr::Yielder{ identifier, span } => {
+                    let var_name = if let Some(var_name) = name {
+                        var_name
+                    } else {
+                        if let Some(item_name) = identifier {
+                            let var_name =
+                                Ident::new(&format!("field_{}", field_num), item_name.span());
+                            var_name
+                        } else {
+                            abort!(
+                                span,
+                                "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
+                            );
+                        }
+                    };
+
+                    let yielder_tokens = quote_spanned! {f.span()=>
+                        let obj = wasmer::Yielder::new(yielder_ptr);
+                        self.#var_name.initialize(obj);
+                    };
+
+                    yielder.push(yielder_tokens);
                 }
             }
         }
     }
 
+    #[ cfg(feature="async") ]
+    let trait_methods = quote! {
+        fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
+            #(#finish)*
+            Ok(())
+        }
+
+        fn set_yielder(&mut self, yielder_ptr: *const ()) {
+            #(#yielder)*
+        }
+    };
+    #[ cfg(not(feature="async")) ]
     let trait_methods = quote! {
         fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
             Ok(())
         }
     };
+
 
     let helper_methods = quote! {
         #(#helpers)*

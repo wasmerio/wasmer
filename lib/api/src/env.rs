@@ -76,6 +76,10 @@ pub trait WasmerEnv: Clone + Send + Sync {
     fn init_with_instance(&mut self, _instance: &Instance) -> Result<(), HostEnvInitError> {
         Ok(())
     }
+
+    #[ cfg(feature="async") ]
+    /// Set the thread-specific yielder
+    fn set_yielder(&mut self, _: *const ()) {}
 }
 
 impl WasmerEnv for u8 {}

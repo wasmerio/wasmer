@@ -3,6 +3,9 @@ mod global;
 mod memory;
 mod table;
 
+#[cfg(feature = "async")]
+mod yielder;
+
 pub use self::function::{
     FromToNativeWasmType, Function, HostFunction, WasmTypeList, WithEnv, WithoutEnv,
 };
@@ -12,6 +15,9 @@ pub use self::function::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 pub use self::global::Global;
 pub use self::memory::Memory;
 pub use self::table::Table;
+
+#[cfg(feature = "async")]
+pub use self::yielder::Yielder;
 
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};

@@ -13,6 +13,10 @@ pub enum WasmerAttr {
         identifier: Option<LitStr>,
         span: Span,
     },
+    Yielder {
+        identifier: Option<LitStr>,
+        span: Span,
+    }
 }
 
 struct ExportExpr {
@@ -80,6 +84,22 @@ impl Parse for WasmerAttrInner {
                 };
 
                 WasmerAttr::Export {
+                    identifier: name,
+                    span,
+                }
+            }
+            "yielder" => {
+                let export_expr;
+                let name = if input.peek(token::Paren) {
+                    let _: token::Paren = parenthesized!(export_expr in input);
+
+                    let expr = export_expr.parse::<ExportExpr>()?;
+                    expr.name
+                } else {
+                    None
+                };
+
+                WasmerAttr::Yielder {
                     identifier: name,
                     span,
                 }
