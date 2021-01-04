@@ -102,7 +102,16 @@ impl<T: Copy + ValueType> WasmPtr<T, wasmer::Array> {
     }
 
     #[inline(always)]
-    pub fn get_utf8_string<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+    pub unsafe fn get_utf8_str<'a>(self, memory: &'a Memory, str_len: u32) -> Option<&'a str> {
+        if self.0.offset() == 0 {
+            None
+        } else {
+            self.0.get_utf8_str(memory, str_len)
+        }
+    }
+
+    #[inline(always)]
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
         if self.0.offset() == 0 {
             None
         } else {
