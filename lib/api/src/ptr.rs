@@ -217,7 +217,25 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ///
     /// an aliasing `WasmPtr` is used to mutate memory.
     pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
-        unsafe { self.get_utf8_str(memory, str_len).map(|s| s.to_owned()) }
+        let memory_size = memory.size().bytes().0;
+        if self.offset as usize + str_len as usize > memory.size().bytes().0
+            || self.offset as usize >= memory_size
+        {
+            return None;
+        }
+
+        // TODO: benchmark the internals of this function: there is likely room for
+        // micro-optimization here and this may be a fairly common function in user code.
+        let view = memory.view::<u8>();
+
+        let mut vec: Vec<u8> = Vec::with_capacity(str_len as usize);
+        let base = self.offset as usize;
+        for i in 0..(str_len as usize) {
+            let byte = view[base + i].get();
+            vec.push(byte);
+        }
+
+        String::from_utf8(vec).ok()
     }
 
     /// Get a UTF-8 string from the `WasmPtr`, where the string is nul-terminated.
