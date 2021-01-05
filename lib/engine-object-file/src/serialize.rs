@@ -13,8 +13,9 @@ pub struct ModuleMetadata {
     pub function_body_lengths: PrimaryMap<LocalFunctionIndex, u64>,
 }
 
+/// Symbol registry of the [`ModuleMetadata`].
 pub struct ModuleMetadataSymbolRegistry {
-    pub prefix: String,
+    pub(crate) prefix: String,
 }
 
 impl ModuleMetadata {

@@ -39,7 +39,7 @@ pub struct ObjectFileArtifact {
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
     /// Length of the serialized metadata
     metadata_length: usize,
-    symbol_registry: ModuleMetadataSymbolRegistry,
+    symbol_registry: Arc<ModuleMetadataSymbolRegistry>,
 }
 
 #[allow(dead_code)]
@@ -276,7 +276,7 @@ impl ObjectFileArtifact {
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             metadata_length,
-            symbol_registry,
+            symbol_registry: Arc::new(symbol_registry),
         })
     }
 
@@ -384,12 +384,12 @@ impl ObjectFileArtifact {
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
             metadata_length: 0,
-            symbol_registry,
+            symbol_registry: Arc::new(symbol_registry),
         })
     }
 
-    /// Get the `SymbolRegistry` used to generate the names used in the Artifact.
-    pub fn symbol_registry(&self) -> &dyn SymbolRegistry {
+    /// Get the `SymbolRegistry` used to generate the names used in the artifact.
+    pub fn symbol_registry(&self) -> &Arc<ModuleMetadataSymbolRegistry> {
         &self.symbol_registry
     }
 

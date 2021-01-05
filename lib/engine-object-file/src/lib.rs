@@ -29,6 +29,7 @@ mod serialize;
 pub use crate::artifact::ObjectFileArtifact;
 pub use crate::builder::ObjectFile;
 pub use crate::engine::ObjectFileEngine;
+pub use crate::serialize::ModuleMetadataSymbolRegistry;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

@@ -8,6 +8,7 @@ use std::path::{Path, PathBuf};
 use std::process::Command;
 use structopt::StructOpt;
 use wasmer::*;
+use wasmer_engine_object_file::ObjectFileArtifact;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
 
@@ -81,17 +82,24 @@ impl CreateExe {
             Module::from_file(&store, &wasm_module_path).context("failed to compile Wasm")?;
         let _ = module.serialize_to_file(&wasm_object_path)?;
 
-        let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
-            module.artifact().as_ref().downcast_ref().context(
-                "Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact",
-            )?;
-        let symbol_registry = artifact.symbol_registry();
-        let metadata_length = artifact.metadata_length();
+        let symbol_registry = unsafe {
+            module.query_artifact(|artifact: &ObjectFileArtifact| {
+                Some(Arc::clone(artifact.symbol_registry()))
+            })
+        };
+        let metadata_length = unsafe {
+            module.query_artifact(|artifact: &ObjectFileArtifact| {
+                Some(Arc::new(artifact.metadata_length()))
+            })
+        };
+
         let module_info = module.info();
         let header_file_src = crate::c_gen::object_file_header::generate_header_file(
             module_info,
-            symbol_registry,
-            metadata_length,
+            symbol_registry
+                .expect("Failed to fetch the symbol registry from the artifact")
+                .as_ref(),
+            metadata_length.expect("Failed to fetch the metadata length from the artifact"),
         );
 
         generate_header(header_file_src.as_bytes())?;

@@ -2,6 +2,7 @@ use crate::store::{EngineType, StoreOptions};
 use crate::warning;
 use anyhow::{Context, Result};
 use std::path::PathBuf;
+use std::sync::Arc;
 use structopt::StructOpt;
 use wasmer::*;
 
@@ -105,15 +106,26 @@ impl Compile {
 
         #[cfg(feature = "object-file")]
         if engine_type == EngineType::ObjectFile {
-            let artifact: &wasmer_engine_object_file::ObjectFileArtifact =
-                module.artifact().as_ref().downcast_ref().context("Engine type is ObjectFile but could not downcast artifact into ObjectFileArtifact")?;
-            let symbol_registry = artifact.symbol_registry();
-            let metadata_length = artifact.metadata_length();
+            use wasmer_engine_object_file::ObjectFileArtifact;
+
+            let symbol_registry = unsafe {
+                module.query_artifact(|artifact: &ObjectFileArtifact| {
+                    Some(Arc::clone(artifact.symbol_registry()))
+                })
+            };
+            let metadata_length = unsafe {
+                module.query_artifact(|artifact: &ObjectFileArtifact| {
+                    Some(Arc::new(artifact.metadata_length()))
+                })
+            };
+
             let module_info = module.info();
             let header_file_src = crate::c_gen::object_file_header::generate_header_file(
                 module_info,
-                symbol_registry,
-                metadata_length,
+                symbol_registry
+                    .expect("Failed to fetch the symbol registry from the artifact")
+                    .as_ref(),
+                *metadata_length.expect("Failed to fetch the metadata length from the artifact"),
             );
 
             let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {
