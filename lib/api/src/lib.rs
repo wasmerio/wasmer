@@ -294,7 +294,7 @@ pub use crate::module::Module;
 pub use crate::native::NativeFunc;
 pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
-pub use crate::tunables::Tunables;
+pub use crate::tunables::BaseTunables;
 pub use crate::types::{
     ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Val, ValType,
@@ -304,14 +304,15 @@ pub use crate::utils::is_wasm;
 pub use target_lexicon::{Architecture, CallingConvention, OperatingSystem, Triple, HOST};
 #[cfg(feature = "compiler")]
 pub use wasmer_compiler::{
-    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareReaderState, ModuleMiddleware,
+    wasmparser, CompilerConfig, FunctionMiddleware, MiddlewareError, MiddlewareReaderState,
+    ModuleMiddleware,
 };
 pub use wasmer_compiler::{
-    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError,
+    CompileError, CpuFeature, Features, ParseCpuFeatureError, Target, WasmError, WasmResult,
 };
 pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
-    NamedResolverChain, Resolver, RuntimeError, SerializeError,
+    NamedResolverChain, Resolver, RuntimeError, SerializeError, Tunables,
 };
 pub use wasmer_types::{
     Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
@@ -355,10 +356,10 @@ let store = Store::new(&engine);
 pub use wasmer_compiler_singlepass::Singlepass;
 
 #[cfg(feature = "cranelift")]
-pub use wasmer_compiler_cranelift::Cranelift;
+pub use wasmer_compiler_cranelift::{Cranelift, CraneliftOptLevel};
 
 #[cfg(feature = "llvm")]
-pub use wasmer_compiler_llvm::LLVM;
+pub use wasmer_compiler_llvm::{LLVMOptLevel, LLVM};
 
 #[cfg(feature = "jit")]
 pub use wasmer_engine_jit::{JITArtifact, JITEngine, JIT};

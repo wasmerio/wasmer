@@ -10,8 +10,8 @@
 use std::marker::PhantomData;
 
 use crate::externals::function::{
-    FunctionDefinition, HostFunctionDefinition, VMDynamicFunction, VMDynamicFunctionWithEnv,
-    VMDynamicFunctionWithoutEnv, WasmFunctionDefinition,
+    DynamicFunctionWithEnv, DynamicFunctionWithoutEnv, FunctionDefinition, HostFunctionDefinition,
+    VMDynamicFunction, WasmFunctionDefinition,
 };
 use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
@@ -21,6 +21,7 @@ use wasmer_vm::{VMDynamicFunctionContext, VMFunctionBody, VMFunctionEnvironment,
 
 /// A WebAssembly function that can be called natively
 /// (using the Native ABI).
+#[derive(Clone)]
 pub struct NativeFunc<Args = (), Rets = ()> {
     definition: FunctionDefinition,
     store: Store,
@@ -75,7 +76,7 @@ where
             signature,
             kind: other.arg_kind,
             call_trampoline: None,
-            instance_allocator: None,
+            instance_ref: None,
         }
     }
 }*/
@@ -183,13 +184,13 @@ macro_rules! impl_native_traits {
                             VMFunctionKind::Dynamic => {
                                 let params_list = [ $( $x.to_native().to_value() ),* ];
                                 let results = if !has_env {
-                                    type VMContextWithoutEnv = VMDynamicFunctionContext<VMDynamicFunctionWithoutEnv>;
+                                    type VMContextWithoutEnv = VMDynamicFunctionContext<DynamicFunctionWithoutEnv>;
                                     unsafe {
                                         let ctx = self.vmctx().host_env as *mut VMContextWithoutEnv;
                                         (*ctx).ctx.call(&params_list)?
                                     }
                                 } else {
-                                    type VMContextWithEnv = VMDynamicFunctionContext<VMDynamicFunctionWithEnv<std::ffi::c_void>>;
+                                    type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunctionWithEnv<std::ffi::c_void>>;
                                     unsafe {
                                         let ctx = self.vmctx().host_env as *mut VMContextWithEnv;
                                         (*ctx).ctx.call(&params_list)?

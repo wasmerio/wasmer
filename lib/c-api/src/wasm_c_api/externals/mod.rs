@@ -11,6 +11,7 @@ pub use table::*;
 use wasmer::{Extern, Instance};
 
 #[allow(non_camel_case_types)]
+#[derive(Clone)]
 pub struct wasm_extern_t {
     // this is how we ensure the instance stays alive
     pub(crate) instance: Option<Arc<Instance>>,

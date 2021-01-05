@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    to_wasm_error, wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader,
-    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
+    ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -182,9 +182,9 @@ impl FuncTranslator {
         }
 
         let mut locals = vec![];
-        let num_locals = reader.read_local_count().map_err(to_wasm_error)?;
+        let num_locals = reader.read_local_count()?;
         for _ in 0..num_locals {
-            let (count, ty) = reader.read_local_decl().map_err(to_wasm_error)?;
+            let (count, ty) = reader.read_local_decl()?;
             let ty = wptype_to_type(ty).map_err(to_compile_error)?;
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
@@ -224,7 +224,7 @@ impl FuncTranslator {
 
         while fcg.state.has_control_frames() {
             let pos = reader.current_position() as u32;
-            let op = reader.read_operator().map_err(to_wasm_error)?;
+            let op = reader.read_operator()?;
             fcg.translate_operator(op, pos)?;
         }
 
@@ -241,10 +241,9 @@ impl FuncTranslator {
         }
 
         pass_manager.add_type_based_alias_analysis_pass();
-        pass_manager.add_ipsccp_pass();
+        pass_manager.add_sccp_pass();
         pass_manager.add_prune_eh_pass();
         pass_manager.add_dead_arg_elimination_pass();
-        pass_manager.add_function_inlining_pass();
         pass_manager.add_lower_expect_intrinsic_pass();
         pass_manager.add_scalar_repl_aggregates_pass();
         pass_manager.add_instruction_combining_pass();
@@ -258,7 +257,7 @@ impl FuncTranslator {
         pass_manager.add_licm_pass();
         pass_manager.add_loop_vectorize_pass();
         pass_manager.add_instruction_combining_pass();
-        pass_manager.add_ipsccp_pass();
+        pass_manager.add_sccp_pass();
         pass_manager.add_reassociate_pass();
         pass_manager.add_cfg_simplification_pass();
         pass_manager.add_gvn_pass();
@@ -1530,10 +1529,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .get_insert_block()
                     .ok_or_else(|| CompileError::Codegen("not currently in a block".to_string()))?;
 
-                let mut label_depths = table
-                    .targets()
-                    .collect::<Result<Vec<_>, _>>()
-                    .map_err(to_wasm_error)?;
+                let mut label_depths = table.targets().collect::<Result<Vec<_>, _>>()?;
                 let default_depth = label_depths.pop().unwrap().0;
 
                 let index = self.state.pop1()?;

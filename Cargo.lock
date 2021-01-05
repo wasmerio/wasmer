@@ -1188,9 +1188,9 @@ dependencies = [
 
 [[package]]
 name = "memmap2"
-version = "0.1.0"
+version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9b70ca2a6103ac8b665dc150b142ef0e4e89df640c9e6cf295d189c3caebe5a"
+checksum = "e73be3b7d04a0123e933fea1d50d126cc7196bbc0362c0ce426694f777194eee"
 dependencies = [
  "libc",
 ]
@@ -1388,22 +1388,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "0.1.18"
+version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45ca20c77d80be666aef2b45486da86238fabe33e38306bd3118fe4af33fa880"
-dependencies = [
- "paste-impl",
- "proc-macro-hack",
-]
-
-[[package]]
-name = "paste-impl"
-version = "0.1.18"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d95a7db200b97ef370c8e6de0088252f7e0dfff7d047a28528e47456c0fc98b6"
-dependencies = [
- "proc-macro-hack",
-]
+checksum = "c5d65c4d95931acda4498f675e332fcbdc9a06705cd07086c510e9b6009cd1c1"
 
 [[package]]
 name = "pest"
@@ -1502,12 +1489,6 @@ dependencies = [
  "quote",
  "version_check",
 ]
-
-[[package]]
-name = "proc-macro-hack"
-version = "0.5.19"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "dbf0c48bc1d91375ae5c3cd81e3722dff1abcf81a30960240640d223f59fe0e5"
 
 [[package]]
 name = "proc-macro2"
@@ -2416,7 +2397,7 @@ checksum = "7e7811dd7f9398f14cc76efd356f98f03aa30419dea46aa810d71e819fc97158"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "anyhow",
  "cfg-if 0.1.10",
@@ -2442,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2470,7 +2451,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "blake3",
  "hex",
@@ -2480,7 +2461,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "anyhow",
  "atty",
@@ -2512,7 +2493,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "enumset",
  "hashbrown 0.9.1",
@@ -2529,7 +2510,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cranelift-codegen 0.67.0",
  "cranelift-codegen 0.68.0",
@@ -2550,7 +2531,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "byteorder",
  "cc",
@@ -2572,7 +2553,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2591,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2603,7 +2584,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "byteorder",
  "getrandom 0.2.0",
@@ -2616,7 +2597,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "backtrace",
  "bincode",
@@ -2635,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "serde",
@@ -2648,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2664,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2683,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-object-file"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2701,7 +2682,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -2709,7 +2690,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -2718,7 +2699,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "object",
  "thiserror",
@@ -2728,7 +2709,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cranelift-entity 0.68.0",
  "serde",
@@ -2737,7 +2718,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "backtrace",
  "cc",
@@ -2755,7 +2736,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2773,7 +2754,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "minifb",
  "ref_thread_local",
@@ -2785,7 +2766,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "anyhow",
  "serde",
@@ -2799,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "anyhow",
  "blake3",

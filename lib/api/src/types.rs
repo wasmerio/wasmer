@@ -76,7 +76,7 @@ impl ValFuncRef for Val {
         let export = wasmer_engine::ExportFunction {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
-            import_init_function_ptr: None,
+            metadata: None,
             vm_function: wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,
@@ -85,7 +85,7 @@ impl ValFuncRef for Val {
                 kind: wasmer_vm::VMFunctionKind::Static,
                 vmctx: item.vmctx,
                 call_trampoline: None,
-                instance_allocator: None,
+                instance_ref: None,
             },
         };
         let f = Function::from_vm_export(store, export);

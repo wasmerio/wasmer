@@ -32,7 +32,7 @@ impl WasmTableType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct wasm_tabletype_t {
     pub(crate) extern_type: wasm_externtype_t,
@@ -53,7 +53,7 @@ impl wasm_tabletype_t {
     }
 }
 
-wasm_declare_vec!(tabletype);
+wasm_declare_boxed_vec!(tabletype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_tabletype_new(

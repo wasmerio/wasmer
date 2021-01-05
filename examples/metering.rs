@@ -21,7 +21,10 @@ use wasmer::CompilerConfig;
 use wasmer::{imports, wat2wasm, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
-use wasmer_middlewares::Metering;
+use wasmer_middlewares::{
+    metering::{get_remaining_points, set_remaining_points, MeteringPoints},
+    Metering,
+};
 
 fn main() -> anyhow::Result<()> {
     // Let's declare the Wasm module.
@@ -55,14 +58,13 @@ fn main() -> anyhow::Result<()> {
 
     // Now let's create our metering middleware.
     //
-    // `Metering` needs to be configured with a limit (the gas limit) and
-    // a cost function.
+    // `Metering` needs to be configured with a limit and a cost function.
     //
     // For each `Operator`, the metering middleware will call the cost
-    // function and subtract the cost from the gas.
+    // function and subtract the cost from the remaining points.
     let metering = Arc::new(Metering::new(10, cost_function));
     let mut compiler_config = Cranelift::default();
-    compiler_config.push_middleware(metering.clone());
+    compiler_config.push_middleware(metering);
 
     // Create a Store.
     //
@@ -93,14 +95,17 @@ fn main() -> anyhow::Result<()> {
     println!("Calling `add_one` function once...");
     add_one.call(1)?;
 
-    // As you can see here, after the first call we have 6 remaining gas points.
+    // As you can see here, after the first call we have 6 remaining points.
     //
     // This is correct, here are the details of how it has been computed:
     // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
     // * `i32.const` is a `Operator::I32Const` which costs 1 point;
     // * `i32.add` is a `Operator::I32Add` which costs 2 points.
-    let remaining_points_after_first_call = metering.get_remaining_points(&instance);
-    assert_eq!(remaining_points_after_first_call, 6);
+    let remaining_points_after_first_call = get_remaining_points(&instance);
+    assert_eq!(
+        remaining_points_after_first_call,
+        MeteringPoints::Remaining(6)
+    );
 
     println!(
         "Remaining points after the first call: {:?}",
@@ -110,18 +115,21 @@ fn main() -> anyhow::Result<()> {
     println!("Calling `add_one` function twice...");
     add_one.call(1)?;
 
-    // We spent 4 more gas points with the second call.
+    // We spent 4 more points with the second call.
     // We have 2 remaining points.
-    let remaining_points_after_second_call = metering.get_remaining_points(&instance);
-    assert_eq!(remaining_points_after_second_call, 2);
+    let remaining_points_after_second_call = get_remaining_points(&instance);
+    assert_eq!(
+        remaining_points_after_second_call,
+        MeteringPoints::Remaining(2)
+    );
 
     println!(
         "Remaining points after the second call: {:?}",
         remaining_points_after_second_call
     );
 
-    // Because calling our `add_one` function consumes 4 gas points,
-    // calling it a third time will fail: we already consume 8 gas
+    // Because calling our `add_one` function consumes 4 points,
+    // calling it a third time will fail: we already consume 8
     // points, there are only two remaining.
     println!("Calling `add_one` function a third time...");
     match add_one.call(1) {
@@ -132,27 +140,27 @@ fn main() -> anyhow::Result<()> {
             );
         }
         Err(_) => {
-            println!("Calling `add_one` failed: not enough gas points remaining.");
+            println!("Calling `add_one` failed.");
+
+            // Because the last needed more than the remaining points, we should have an error.
+            let remaining_points = get_remaining_points(&instance);
+
+            match remaining_points {
+                MeteringPoints::Remaining(..) => {
+                    bail!("No metering error: there are remaining points")
+                }
+                MeteringPoints::Exhausted => println!("Not enough points remaining"),
+            }
         }
     }
 
-    // Becasue the previous call failed, it did not consume any gas point.
-    // We still have 2 remaining points.
-    let remaining_points_after_third_call = metering.get_remaining_points(&instance);
-    assert_eq!(remaining_points_after_third_call, 2);
-
-    println!(
-        "Remaining points after third call: {:?}",
-        remaining_points_after_third_call
-    );
-
     // Now let's see how we can set a new limit...
-    println!("Set new remaining points points to 10");
+    println!("Set new remaining points to 10");
     let new_limit = 10;
-    metering.set_remaining_points(&instance, new_limit);
+    set_remaining_points(&instance, new_limit);
 
-    let remaining_points = metering.get_remaining_points(&instance);
-    assert_eq!(remaining_points, new_limit);
+    let remaining_points = get_remaining_points(&instance);
+    assert_eq!(remaining_points, MeteringPoints::Remaining(new_limit));
 
     println!("Remaining points: {:?}", remaining_points);
 

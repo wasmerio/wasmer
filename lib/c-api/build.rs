@@ -417,15 +417,31 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
 fn build_inline_c_env_vars() {
     use std::ffi::OsStr;
 
-    let mut shared_object_dir = PathBuf::from(env::var("CARGO_MANIFEST_DIR").unwrap());
+    // We start from `OUT_DIR` because `cargo publish` uses a different directory
+    // so traversing from `CARGO_MANIFEST_DIR` is less reliable.
+    let mut shared_object_dir = PathBuf::from(env::var("OUT_DIR").unwrap());
 
-    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("c-api")));
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("out")));
     shared_object_dir.pop();
 
-    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("lib")));
+    assert!(shared_object_dir
+        .file_name()
+        .as_ref()
+        .unwrap()
+        .to_string_lossy()
+        .to_string()
+        .starts_with("wasmer-c-api"));
     shared_object_dir.pop();
 
-    shared_object_dir.push("target");
+    assert_eq!(shared_object_dir.file_name(), Some(OsStr::new("build")));
+    shared_object_dir.pop();
+    shared_object_dir.pop(); // "debug" or "release"
+
+    // We either find `target` or the target triple if cross-compiling.
+    if shared_object_dir.file_name() != Some(OsStr::new("target")) {
+        let target = env::var("TARGET").unwrap();
+        assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
+    }
     shared_object_dir.push(env::var("PROFILE").unwrap());
 
     let shared_object_dir = shared_object_dir.as_path().to_string_lossy();

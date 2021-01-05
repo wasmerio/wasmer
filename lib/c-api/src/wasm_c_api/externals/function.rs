@@ -101,12 +101,17 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let func_sig = &function_type.inner().function_type;
     let num_rets = func_sig.results().len();
 
-    #[derive(wasmer::WasmerEnv)]
+    #[derive(wasmer::WasmerEnv, Clone)]
     #[repr(C)]
     struct WrapperEnv {
         env: *mut c_void,
         finalizer: Option<wasm_env_finalizer_t>,
     };
+
+    // Only relevant when using multiple threads in the C API;
+    // Synchronization will be done via the C API / on the C side.
+    unsafe impl Send for WrapperEnv {}
+    unsafe impl Sync for WrapperEnv {}
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {

@@ -585,6 +585,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "memmap2"
+version = "0.2.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "e73be3b7d04a0123e933fea1d50d126cc7196bbc0362c0ce426694f777194eee"
+dependencies = [
+ "libc",
+]
+
+[[package]]
 name = "memoffset"
 version = "0.5.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1149,7 +1158,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
@@ -1172,18 +1181,17 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "blake3",
  "hex",
- "memmap",
  "thiserror",
  "wasmer",
 ]
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "enumset",
  "raw-cpuid",
@@ -1199,7 +1207,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
@@ -1216,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "byteorder",
  "cc",
@@ -1238,7 +1246,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -1255,7 +1263,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -1265,11 +1273,12 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "backtrace",
  "bincode",
  "lazy_static",
+ "memmap2",
  "more-asserts",
  "rustc-demangle",
  "serde",
@@ -1283,7 +1292,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1299,7 +1308,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1318,7 +1327,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "object 0.22.0",
  "thiserror",
@@ -1353,15 +1362,16 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "cranelift-entity",
  "serde",
+ "thiserror",
 ]
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0-beta1"
+version = "1.0.0-rc1"
 dependencies = [
  "backtrace",
  "cc",

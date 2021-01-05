@@ -7,7 +7,9 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
-use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
+use wasmparser::{BinaryReader, Operator, Type};
+
+use crate::error::{MiddlewareError, WasmResult};
 
 /// A shared builder for function middlewares.
 pub trait ModuleMiddleware: Debug + Send + Sync {
@@ -32,7 +34,7 @@ pub trait FunctionMiddleware: Debug {
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WpResult<()> {
+    ) -> Result<(), MiddlewareError> {
         state.push_operator(operator);
         Ok(())
     }
@@ -127,22 +129,22 @@ impl<'a> MiddlewareBinaryReader<'a> {
     }
 
     /// Read a `count` indicating the number of times to call `read_local_decl`.
-    pub fn read_local_count(&mut self) -> WpResult<u32> {
-        self.state.inner.read_var_u32()
+    pub fn read_local_count(&mut self) -> WasmResult<u32> {
+        Ok(self.state.inner.read_var_u32()?)
     }
 
     /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self) -> WpResult<(u32, Type)> {
+    pub fn read_local_decl(&mut self) -> WasmResult<(u32, Type)> {
         let count = self.state.inner.read_var_u32()?;
         let ty = self.state.inner.read_type()?;
         Ok((count, ty))
     }
 
     /// Reads the next available `Operator`.
-    pub fn read_operator(&mut self) -> WpResult<Operator<'a>> {
+    pub fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
         if self.chain.is_empty() {
             // We short-circuit in case no chain is used
-            return self.state.inner.read_operator();
+            return Ok(self.state.inner.read_operator()?);
         }
 
         // Try to fill the `self.pending_operations` buffer, until it is non-empty.

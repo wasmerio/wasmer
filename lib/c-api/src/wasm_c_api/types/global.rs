@@ -23,7 +23,7 @@ impl WasmGlobalType {
 }
 
 #[allow(non_camel_case_types)]
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 pub struct wasm_globaltype_t {
     pub(crate) extern_type: wasm_externtype_t,
@@ -46,7 +46,7 @@ impl wasm_globaltype_t {
     }
 }
 
-wasm_declare_vec!(globaltype);
+wasm_declare_boxed_vec!(globaltype);
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_globaltype_new(

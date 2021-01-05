@@ -93,7 +93,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 
     // Here we go.
     //
-    // The WASM module exports some entities:
+    // The Wasm module exports some entities:
     //   * A function: `guest_function`
     //   * A global: `guest_global`
     //   * A memory: `guest_memory`

@@ -14,7 +14,6 @@
 extern crate log;
 
 use lazy_static::lazy_static;
-use std::cell::UnsafeCell;
 use std::collections::HashMap;
 use std::f64;
 use std::path::PathBuf;
@@ -105,6 +104,20 @@ impl EmEnv {
     }
 }
 
+#[derive(Debug, Clone)]
+pub struct LibcDirWrapper(pub *mut LibcDir);
+
+impl std::ops::Deref for LibcDirWrapper {
+    type Target = *mut LibcDir;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl Send for LibcDirWrapper {}
+unsafe impl Sync for LibcDirWrapper {}
+
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
 // TODO: make this variable
@@ -122,7 +135,7 @@ lazy_static! {
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
-#[derive(WasmerEnv, Default)]
+#[derive(WasmerEnv, Clone, Default)]
 pub struct EmscriptenData {
     pub globals: EmscriptenGlobalsData,
 
@@ -136,8 +149,8 @@ pub struct EmscriptenData {
     pub memset: LazyInit<NativeFunc<(u32, u32, u32), u32>>,
     #[wasmer(export)]
     pub stack_alloc: LazyInit<NativeFunc<u32, u32>>,
-    pub jumps: Vec<UnsafeCell<[u32; 27]>>,
-    pub opened_dirs: HashMap<i32, Box<*mut LibcDir>>,
+    pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
+    pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
 
     #[wasmer(export)]
     pub dyn_call_i: LazyInit<NativeFunc<i32, i32>>,

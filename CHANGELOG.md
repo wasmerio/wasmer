@@ -8,6 +8,39 @@
 ## **[Unreleased]**
 
 ### Added
+
+- [#1969](https://github.com/wasmerio/wasmer/pull/1969) Added D integration to the README
+
+### Changed
+
+- [#1979](https://github.com/wasmerio/wasmer/pull/1979) `WasmPtr::get_utf8_string` was renamed to `WasmPtr::get_utf8_str` and made `unsafe`.
+- [#1932](https://github.com/wasmerio/wasmer/pull/1932) Emscripten execution with `wasmer run` is now behind a flag: `--allow-emscripten` as our implementation of the Emscripten ABI is not fully sandboxed.
+
+### Fixed
+- [#1979](https://github.com/wasmerio/wasmer/pull/1979) `WasmPtr::get_utf8_string` now returns a `String`, fixing a soundness issue in certain circumstances. The old functionality is available under a new `unsafe` function, `WasmPtr::get_utf8_str`.
+
+## 1.0.0-rc1 - 2020-12-23
+
+### Added
+
+* [#1894](https://github.com/wasmerio/wasmer/pull/1894) Added exports `wasmer::{CraneliftOptLevel, LLVMOptLevel}` to allow using `Cranelift::opt_level` and `LLVM::opt_level` directly via the `wasmer` crate
+
+### Changed
+
+* [#1941](https://github.com/wasmerio/wasmer/pull/1941) Turn `get_remaining_points`/`set_remaining_points` of the `Metering` middleware into free functions to allow using them in an ahead-of-time compilation setup
+* [#1955](https://github.com/wasmerio/wasmer/pull/1955) Set `jit` as a default feature of the `wasmer-wasm-c-api` crate
+* [#1944](https://github.com/wasmerio/wasmer/pull/1944) Require `WasmerEnv` to be `Send + Sync` even in dynamic functions.
+* [#1963](https://github.com/wasmerio/wasmer/pull/1963) Removed `to_wasm_error` in favour of `impl From<BinaryReaderError> for WasmError`
+* [#1962](https://github.com/wasmerio/wasmer/pull/1962) Replace `wasmparser::Result<()>` with `Result<(), MiddlewareError>` in middleware, allowing implementors to return errors in `FunctionMiddleware::feed`
+
+### Fixed
+
+- [#1949](https://github.com/wasmerio/wasmer/pull/1949) `wasm_<type>_vec_delete` functions no longer crash when the given vector is uninitialized, in the Wasmer C API
+- [#1949](https://github.com/wasmerio/wasmer/pull/1949) The `wasm_frame_vec_t`, `wasm_functype_vec_t`, `wasm_globaltype_vec_t`, `wasm_memorytype_vec_t`, and `wasm_tabletype_vec_t` are now boxed vectors in the Wasmer C API
+
+## 1.0.0-beta2 - 2020-12-16
+
+### Added
  
 * [#1916](https://github.com/wasmerio/wasmer/pull/1916) Add the `WASMER_VERSION*` constants with the `wasmer_version*` functions in the Wasmer C API
 * [#1867](https://github.com/wasmerio/wasmer/pull/1867) Added `Metering::get_remaining_points` and `Metering::set_remaining_points` 
@@ -18,13 +51,15 @@
 
 ### Changed
 
-- [#1932](https://github.com/wasmerio/wasmer/pull/1932) Emscripten execution with `wasmer run` is now behind a flag: `--allow-emscripten` as our implementation of the Emscripten ABI is not fully sandboxed.
+- [#1865](https://github.com/wasmerio/wasmer/pull/1865) Require that implementors of `WasmerEnv` also implement `Send`, `Sync`, and `Clone`.
 - [#1851](https://github.com/wasmerio/wasmer/pull/1851) Improve test suite and documentation of the Wasmer C API
 - [#1874](https://github.com/wasmerio/wasmer/pull/1874) Set `CompilerConfig` to be owned (following wasm-c-api)
 - [#1880](https://github.com/wasmerio/wasmer/pull/1880) Remove cmake dependency for tests
+- [#1924](https://github.com/wasmerio/wasmer/pull/1924) Rename reference implementation `wasmer::Tunables` to `wasmer::BaseTunables`. Export trait `wasmer_engine::Tunables` as `wasmer::Tunables`.
 
 ### Fixed
 
+- [#1865](https://github.com/wasmerio/wasmer/pull/1865) Fix memory leaks with host function environments.
 - [#1870](https://github.com/wasmerio/wasmer/pull/1870) Fixed Trap instruction address maps in Singlepass
 * [#1914](https://github.com/wasmerio/wasmer/pull/1914) Implemented `TryFrom<Bytes> for Pages` instead of `From<Bytes> for Pages` to properly handle overflow errors
 

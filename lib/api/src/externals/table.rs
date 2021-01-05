@@ -36,9 +36,8 @@ impl Table {
     ///
     /// All the elements in the table will be set to the `init` value.
     ///
-    /// This function will construct the `Table` using the store [`Tunables`].
-    ///
-    /// [`Tunables`]: crate::tunables::Tunables
+    /// This function will construct the `Table` using the store
+    /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
@@ -158,7 +157,7 @@ impl<'a> Exportable<'a> for Table {
         ExportTable {
             vm_table: VMExportTable {
                 from: self.table.clone(),
-                instance_allocator: None,
+                instance_ref: None,
             },
         }
         .into()
