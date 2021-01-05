@@ -429,3 +429,81 @@ impl fmt::Debug for Module {
             .finish()
     }
 }
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+    use crate::{Cranelift, ImportObject, Instance, JIT};
+
+    const INCREMENTER_WAT: &str = r#"(module
+        (type $t0 (func (param i32) (result i32)))
+        (func $add_one (export "add_one") (type $t0) (param $p0 i32) (result i32)
+            get_local $p0
+            i32.const 1
+            i32.add)
+    )"#;
+
+    #[test]
+    fn from_artifact_works() {
+        let wasm = wat::parse_str(INCREMENTER_WAT).unwrap();
+
+        // Compile module
+        let config = Cranelift::default();
+        let compile_time_store = Store::new(&JIT::new(config).engine());
+        let original = Module::new(&compile_time_store, &wasm).unwrap();
+
+        // Ensure original module can be executed
+        {
+            let instance = Instance::new(&original, &ImportObject::new()).unwrap();
+            let add_one = instance.exports.get_function("add_one").unwrap();
+            let result = add_one.call(&[42.into()]).unwrap();
+            assert_eq!(result[0].unwrap_i32(), 43);
+        }
+
+        // Create second module via artifact
+        let artifact: Arc<dyn Artifact> = Arc::clone(original.artifact());
+        let run_time_store = Store::new(&JIT::headless().engine());
+        let restored = Module::from_artifact(&run_time_store, artifact);
+
+        // Ensure restored module can be executed
+        {
+            let instance = Instance::new(&restored, &ImportObject::new()).unwrap();
+            let add_one = instance.exports.get_function("add_one").unwrap();
+            let result = add_one.call(&[42.into()]).unwrap();
+            assert_eq!(result[0].unwrap_i32(), 43);
+        }
+    }
+
+    #[test]
+    fn from_artifact_works_when_original_store_drops() {
+        let wasm = wat::parse_str(INCREMENTER_WAT).unwrap();
+
+        // Create artifact
+        let artifact: Arc<dyn Artifact> = {
+            // Compile module
+            let config = Cranelift::default();
+            let compile_time_store = Store::new(&JIT::new(config).engine());
+            let original = Module::new(&compile_time_store, &wasm).unwrap();
+
+            // Ensure original module can be executed
+            {
+                let instance = Instance::new(&original, &ImportObject::new()).unwrap();
+                let add_one = instance.exports.get_function("add_one").unwrap();
+                let result = add_one.call(&[42.into()]).unwrap();
+                assert_eq!(result[0].unwrap_i32(), 43);
+            }
+
+            Arc::clone(original.artifact())
+        };
+        let run_time_store = Store::new(&JIT::headless().engine());
+        let restored = Module::from_artifact(&run_time_store, artifact);
+
+        // Ensure restored module can be executed
+        {
+            let instance = Instance::new(&restored, &ImportObject::new()).unwrap();
+            let add_one = instance.exports.get_function("add_one").unwrap();
+            let result = add_one.call(&[42.into()]).unwrap();
+            assert_eq!(result[0].unwrap_i32(), 43);
+        }
+    }
+}
