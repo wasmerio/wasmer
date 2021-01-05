@@ -7,6 +7,8 @@
 
 ## **[Unreleased]**
 
+## 1.0.0 - 2021-01-05
+
 ### Added
 
 - [#1969](https://github.com/wasmerio/wasmer/pull/1969) Added D integration to the README
