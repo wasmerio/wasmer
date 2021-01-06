@@ -73,6 +73,7 @@ fn build_export_function_metadata<Env>(
         &'a mut Env,
         &'a crate::Instance,
     ) -> Result<(), crate::HostEnvInitError>,
+    host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void)
 ) -> (*mut std::ffi::c_void, ExportFunctionMetadata)
 where
     Env: Clone + Sized + 'static + Send + Sync,
@@ -103,6 +104,7 @@ where
             env,
             import_init_function_ptr,
             host_env_clone_fn,
+            host_env_set_yielder_fn,
             host_env_drop_fn,
         )
     };
@@ -169,11 +171,16 @@ impl Function {
             };
             Box::into_raw(Box::new(duped_env)) as _
         };
-        let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr: *mut std::ffi::c_void| {
+        let host_env_drop_fn = |ptr: *mut std::ffi::c_void| {
             unsafe {
                 Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv>)
             };
         };
+        let host_env_set_yielder_fn = |_, _| {
+            //no-op
+            println!("No-op");
+        };
+
 
         Self {
             store: store.clone(),
@@ -188,6 +195,7 @@ impl Function {
                             host_env,
                             None,
                             host_env_clone_fn,
+                            host_env_set_yielder_fn,
                             host_env_drop_fn,
                         )
                     },
@@ -269,9 +277,14 @@ impl Function {
                 Env::init_with_instance(&mut *env.ctx.env, instance)
             };
 
+        let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
+            let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
+            env.set_yielder(yielder_ptr);
+        };
+
         let (host_env, metadata) = build_export_function_metadata::<
             VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-        >(dynamic_ctx, import_init_function_ptr);
+        >(dynamic_ctx, import_init_function_ptr, host_env_set_yielder_fn);
 
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
@@ -386,8 +399,13 @@ impl Function {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
+        let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
+            let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
+            env.set_yielder(yielder_ptr);
+        };
+
         let (host_env, metadata) =
-            build_export_function_metadata::<Env>(env, Env::init_with_instance);
+            build_export_function_metadata::<Env>(env, Env::init_with_instance, host_env_set_yielder_fn);
 
         let vmctx = VMFunctionEnvironment { host_env };
         let signature = function.ty();
@@ -483,7 +501,7 @@ impl Function {
         &self.store
     }
 
-    fn call_wasm(
+    pub(crate) fn call_wasm(
         &self,
         func: &WasmFunctionDefinition,
         params: &[Val],
@@ -632,25 +650,6 @@ impl Function {
         }
 
         Ok(results.into_boxed_slice())
-    }
-
-    /// Same as call but creates a custom stack that can then be yielded from host functions
-    #[ cfg(feature="async") ]
-    pub async fn call_with_stack<Stack: switcheroo::stack::Stack + Unpin>(&self, params: &[Val], stack: Stack) -> Result<Box<[Val]>, RuntimeError> {
-        let task = async_wormhole::AsyncWormhole::new(stack, |yielder| {
-            let mut results = vec![Val::null(); self.result_arity()];
-
-            match &self.definition {
-                FunctionDefinition::Wasm(wasm) => {
-                    self.call_wasm(&wasm, params, &mut results)?;
-                }
-                _ => unimplemented!("The function definition isn't supported for the moment"),
-            }
-
-            Ok(results.into_boxed_slice())
-        }).expect("Failed to create async function call");
-
-        task.await.unwrap()
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {

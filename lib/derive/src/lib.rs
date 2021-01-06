@@ -187,7 +187,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
             Ok(())
         }
 
-        fn set_yielder(&mut self, yielder_ptr: *const ()) {
+        fn set_yielder(&mut self, yielder_ptr: *const std::ffi::c_void) {
             #(#yielder)*
         }
     };

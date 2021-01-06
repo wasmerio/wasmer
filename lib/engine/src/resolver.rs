@@ -207,11 +207,14 @@ pub fn resolve_imports(
                 let initializer = f.metadata.as_ref().and_then(|m| m.import_init_function_ptr);
                 let clone = f.metadata.as_ref().map(|m| m.host_env_clone_fn);
                 let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
+                let set_yielder = f.metadata.as_ref().map(|m| m.host_env_set_yielder_fn);
+
                 let import_function_env =
-                    if let (Some(clone), Some(destructor)) = (clone, destructor) {
+                    if let (Some(clone), Some(destructor), Some(set_yielder)) = (clone, destructor, set_yielder) {
                         ImportFunctionEnv::Env {
                             env,
                             clone,
+                            set_yielder,
                             initializer,
                             destructor,
                         }

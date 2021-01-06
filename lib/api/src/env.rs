@@ -79,7 +79,7 @@ pub trait WasmerEnv: Clone + Send + Sync {
 
     #[ cfg(feature="async") ]
     /// Set the thread-specific yielder
-    fn set_yielder(&mut self, _: *const ()) {}
+    fn set_yielder(&mut self, _: *const std::ffi::c_void) {}
 }
 
 impl WasmerEnv for u8 {}

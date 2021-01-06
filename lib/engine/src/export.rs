@@ -68,7 +68,8 @@ pub struct ExportFunctionMetadata {
     ///
     /// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of
     /// this pointer that is used by the VM when creating an `Instance`.
-    pub(crate) host_env: *mut std::ffi::c_void,
+    pub host_env: *mut std::ffi::c_void,
+
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
     /// This function is called to finish setting up the environment after
@@ -84,6 +85,9 @@ pub struct ExportFunctionMetadata {
     /// - This function should only be called in when properly synchronized.
     /// For example, in the `Drop` implementation of this type.
     pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
+
+    ///TODO
+    pub host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
 }
 
 /// This can be `Send` because `host_env` comes from `WasmerEnv` which is
@@ -104,11 +108,13 @@ impl ExportFunctionMetadata {
         host_env: *mut std::ffi::c_void,
         import_init_function_ptr: Option<ImportInitializerFuncPtr>,
         host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+        host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
         host_env_drop_fn: fn(*mut std::ffi::c_void),
     ) -> Self {
         Self {
             host_env,
             import_init_function_ptr,
+            host_env_set_yielder_fn,
             host_env_clone_fn,
             host_env_drop_fn,
         }

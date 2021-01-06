@@ -135,6 +135,9 @@ pub enum ImportFunctionEnv {
         /// - This function must be called ina synchronized way. For
         ///   example, in the `Drop` implementation of this type.
         destructor: unsafe fn(*mut std::ffi::c_void),
+
+        ///TODO
+        set_yielder: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
     },
 }
 
@@ -157,11 +160,13 @@ impl Clone for ImportFunctionEnv {
                 clone,
                 destructor,
                 initializer,
+                set_yielder,
             } => {
                 let new_env = (*clone)(*env);
                 Self::Env {
                     env: new_env,
                     clone: *clone,
+                    set_yielder: *set_yielder,
                     destructor: *destructor,
                     initializer: *initializer,
                 }
@@ -1156,6 +1161,17 @@ impl InstanceHandle {
         let export = self.module_ref().exports.get(field)?;
 
         Some(self.lookup_by_declaration(&export))
+    }
+
+    ///TODO
+    pub fn set_yielder(&self, yield_ptr: *const std::ffi::c_void) {
+        let instance = self.instance.as_ref();
+
+        for (_, exp) in instance.imported_function_envs.iter() {
+            if let ImportFunctionEnv::Env{env, set_yielder, ..} = exp {
+                (set_yielder)(*env, yield_ptr);
+            }
+        }
     }
 
     /// Lookup an export with the given export declaration.
