@@ -241,7 +241,7 @@
 //!
 //!
 //! [wasm]: https://webassembly.org/
-//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/exmples
+//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
 //! [wasmer-cache]: https://docs.rs/wasmer-cache/*/wasmer_cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/*/wasmer_compiler/
 //! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/*/wasmer_cranelift/
