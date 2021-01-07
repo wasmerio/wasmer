@@ -119,8 +119,19 @@ impl Run {
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
-                let mut instance = Instance::new(&module, &import_object)
-                    .with_context(|| "Can't instantiate emscripten module")?;
+                let mut instance = match Instance::new(&module, &import_object) {
+                    Ok(instance) => instance,
+                    Err(e) => {
+                        let err: Result<(), _> = Err(e);
+                        #[cfg(feature = "wasi")]
+                        {
+                            if Wasi::has_wasi_imports(&module) {
+                                return err.with_context(|| "This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.");
+                            }
+                        }
+                        return err.with_context(|| "Can't instantiate emscripten module");
+                    }
+                };
 
                 run_emscripten_instance(
                     &mut instance,

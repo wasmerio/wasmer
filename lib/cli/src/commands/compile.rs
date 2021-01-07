@@ -54,7 +54,7 @@ impl Compile {
                 wasmer_engine_object_file::ObjectFileArtifact::get_default_extension(target_triple)
             }
             #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
-            _ => bail!("selected engine type is not compiled in"),
+            _ => panic!("selected engine type is not compiled in"),
         }
     }
 
