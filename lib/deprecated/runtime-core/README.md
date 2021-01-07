@@ -1,4 +1,4 @@
-# `wasmer-runtime-core` [DEPRECATED] [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-runtime-core` [DEPRECATED] [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) ![crates.io](https://img.shields.io/crates/v/wasmer-runtime-core.svg)
 
 ## Deprecation notice: please read
 
@@ -6,7 +6,7 @@ Thanks to users feedback, collected experience and various use cases,
 Wasmer has decided to entirely improve its API to offer the best user
 experience and the best features to as many users as possible.
 
-The new version of Wasmer (`1.0.0-rc`) includes many improvements
+The new version of Wasmer (`1.0.0`) includes many improvements
 in terms of performance or the memory consumption, in addition to a ton
 of new features and much better flexibility!
 You can check revamped new API in the [`wasmer`] crate.
