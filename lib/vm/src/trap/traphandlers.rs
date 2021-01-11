@@ -221,7 +221,7 @@ cfg_if::cfg_if! {
                         pub __pc: u64,   /* Program counter */
                         pub __cpsr: u32,  /* Current program status register */
                         pub __pad: u32,   /* Same size for 32-bit or 64-bit clients */
-                    };
+                    }
 
                     let cx = &*(cx as *const libc::ucontext_t);
                     let uc_mcontext = mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss);
