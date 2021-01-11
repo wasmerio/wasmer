@@ -234,6 +234,7 @@ test-packages:
 	cargo test -p wasmer-cli --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
+	cargo test -p wasmer-derive --release
 
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
