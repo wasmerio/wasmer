@@ -100,6 +100,24 @@ build-wasmer:
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
 
+# For best results ensure the release profile looks like the following
+# in Cargo.toml:
+# [profile.release]
+# opt-level = 'z'
+# debug = false
+# debug-assertions = false
+# overflow-checks = false
+# lto = true
+# panic = 'abort'
+# incremental = false
+# codegen-units = 1
+# rpath = false
+build-wasmer-headless-minimal:
+	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
+  echo $$HOST_TARGET ;\
+	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features disable-all-logging,native,wasi ;\
+	strip target/$$HOST_TARGET/release/wasmer
+
 WAPM_VERSION = master # v0.5.0
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
