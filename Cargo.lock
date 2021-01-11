@@ -2397,7 +2397,7 @@ checksum = "7e7811dd7f9398f14cc76efd356f98f03aa30419dea46aa810d71e819fc97158"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "cfg-if 0.1.10",
@@ -2423,7 +2423,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2451,7 +2451,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "blake3",
  "hex",
@@ -2461,7 +2461,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "atty",
@@ -2493,7 +2493,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "enumset",
  "hashbrown 0.9.1",
@@ -2510,7 +2510,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "cranelift-codegen 0.67.0",
  "cranelift-codegen 0.68.0",
@@ -2531,7 +2531,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "byteorder",
  "cc",
@@ -2553,7 +2553,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2572,7 +2572,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2584,7 +2584,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "byteorder",
  "getrandom 0.2.0",
@@ -2597,7 +2597,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "backtrace",
  "bincode",
@@ -2616,7 +2616,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "bincode",
  "serde",
@@ -2629,7 +2629,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2645,7 +2645,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2664,7 +2664,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-object-file"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2682,7 +2682,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -2690,7 +2690,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -2699,7 +2699,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "object",
  "thiserror",
@@ -2709,7 +2709,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "cranelift-entity 0.68.0",
  "serde",
@@ -2718,7 +2718,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "backtrace",
  "cc",
@@ -2736,7 +2736,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2754,7 +2754,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "minifb",
  "ref_thread_local",
@@ -2766,7 +2766,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "serde",
@@ -2780,7 +2780,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "1.0.0-rc1"
+version = "1.0.0"
 dependencies = [
  "anyhow",
  "blake3",

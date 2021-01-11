@@ -1,16 +1,8 @@
-# `wasmer-compiler-llvm` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE)
+# `wasmer-compiler-llvm` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer-compiler-llvm.svg)](https://crates.io/crates/wasmer-compiler-llvm)
 
 This crate contains a compiler implementation based on [the LLVM Compiler Infrastructure][LLVM].
 
 ## Usage
-
-First, add this crate into your `Cargo.toml` dependencies:
-
-```toml
-wasmer-compiler-llvm = "1.0.0-rc"
-```
-
-And then:
 
 ```rust
 use wasmer::{Store, JIT};
