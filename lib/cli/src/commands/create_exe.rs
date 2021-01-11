@@ -88,9 +88,7 @@ impl CreateExe {
             })
         };
         let metadata_length = unsafe {
-            module.query_artifact(|artifact: &ObjectFileArtifact| {
-                Some(Arc::new(artifact.metadata_length()))
-            })
+            module.query_artifact(|artifact: &ObjectFileArtifact| Some(artifact.metadata_length()))
         };
 
         let module_info = module.info();

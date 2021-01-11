@@ -115,7 +115,7 @@ impl Compile {
             };
             let metadata_length = unsafe {
                 module.query_artifact(|artifact: &ObjectFileArtifact| {
-                    Some(Arc::new(artifact.metadata_length()))
+                    Some(artifact.metadata_length())
                 })
             };
 
@@ -125,7 +125,7 @@ impl Compile {
                 symbol_registry
                     .expect("Failed to fetch the symbol registry from the artifact")
                     .as_ref(),
-                *metadata_length.expect("Failed to fetch the metadata length from the artifact"),
+                metadata_length.expect("Failed to fetch the metadata length from the artifact"),
             );
 
             let header_path = self.header_path.as_ref().cloned().unwrap_or_else(|| {

@@ -439,11 +439,11 @@ impl Module {
     /// this functionality is required for some core functionality though, like
     /// the [`wasmer-engine-object-file`].
     #[doc(hidden)]
-    pub unsafe fn query_artifact<A, Q, R>(&self, query: Q) -> Option<Arc<R>>
+    pub unsafe fn query_artifact<A, Q, R>(&self, query: Q) -> Option<R>
     where
         A: Artifact + 'static,
-        Q: FnOnce(&A) -> Option<Arc<R>>,
-        R: ?Sized,
+        Q: FnOnce(&A) -> Option<R>,
+        R: ?Sized + Clone,
     {
         let artifact_ref: &A = self.artifact.downcast_ref()?;
 
