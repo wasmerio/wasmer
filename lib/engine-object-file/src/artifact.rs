@@ -7,7 +7,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
+use wasmer_compiler::{CompileError, Features, OperatingSystem, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
