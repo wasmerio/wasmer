@@ -438,6 +438,10 @@ impl Module {
     /// This API is hidden because it's not necessarily stable;
     /// this functionality is required for some core functionality though, like
     /// the [`wasmer-engine-object-file`].
+    ///
+    /// # Safety
+    ///
+    /// This function is marked as `unsafe` because it's unstable.
     #[doc(hidden)]
     pub unsafe fn query_artifact<A, Q, R>(&self, query: Q) -> Option<R>
     where
