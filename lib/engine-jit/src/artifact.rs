@@ -48,14 +48,14 @@ impl JITArtifact {
     #[cfg(feature = "compiler")]
     pub fn new(
         jit: &JITEngine,
-        binary: &[u8],
+        data: &[u8],
         tunables: &dyn Tunables,
     ) -> Result<Self, CompileError> {
         let environ = ModuleEnvironment::new();
         let mut inner_jit = jit.inner_mut();
         let features = inner_jit.features();
 
-        let translation = environ.translate(binary).map_err(CompileError::Wasm)?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
             .module
