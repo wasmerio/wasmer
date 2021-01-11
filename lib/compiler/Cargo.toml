@@ -20,7 +20,7 @@ hashbrown = { version = "0.9", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
-smallvec = "1.5" 
+smallvec = "1.6" 
 
 [target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
 raw-cpuid = "7.0"

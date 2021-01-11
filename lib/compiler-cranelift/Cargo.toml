@@ -23,7 +23,7 @@ rayon = "1.5"
 serde = { version = "1.0", features = ["derive"] }
 more-asserts = "0.2"
 gimli = { version = "0.22", optional = true }
-smallvec = "1.5"
+smallvec = "1.6"
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }
