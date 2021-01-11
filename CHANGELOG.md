@@ -14,6 +14,7 @@
 - [#1985](https://github.com/wasmerio/wasmer/pull/1985) Bump minimum supported Rust version to 1.48
 
 ### Fixed
+- [#2007](https://github.com/wasmerio/wasmer/pull/2007) Fix packaging of wapm on Windows
 - [#2005](https://github.com/wasmerio/wasmer/pull/2005) Emscripten is now working again.
 
 ## 1.0.0 - 2021-01-05

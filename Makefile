@@ -286,12 +286,16 @@ test-integration:
 #############
 
 package-wapm:
-ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
+ifneq ($(OS), Windows_NT)
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/; \
-		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
-		chmod +x package/bin/wax; \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
+		chmod +x package/bin/wax ;\
+	fi
+else
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
 	fi
 endif
 
