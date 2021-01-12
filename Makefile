@@ -123,7 +123,7 @@ build-wasmer-debug:
 build-wasmer-headless-minimal:
 	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
   echo $$HOST_TARGET ;\
-	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
+	RUSTFLAGS="-C panic=abort" xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
 	strip target/$$HOST_TARGET/release/wasmer
 
 WAPM_VERSION = master # v0.5.0
