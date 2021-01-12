@@ -16,7 +16,7 @@ byteorder = "1.3"
 thiserror = "1"
 generational-arena = { version = "0.2", features = ["serde"] }
 libc = { version = "^0.2", default-features = false }
-tracing = { version = "0.1", features = ["log"] }
+tracing = { version = "0.1" }
 getrandom = "0.2"
 time = "0.1"
 typetag = "0.1"
@@ -25,3 +25,8 @@ wasmer = { path = "../api", version = "1.0.0", default-features = false }
 
 [target.'cfg(windows)'.dependencies]
 winapi = "0.3"
+
+[features]
+default = ["logging"]
+logging = ["tracing/log"]
+disable-all-logging = ["tracing/release_max_level_off", "tracing/max_level_off"]
