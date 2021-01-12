@@ -1,5 +1,5 @@
 use anyhow::Result;
-#[cfg(feature = "compile")]
+#[cfg(feature = "compiler")]
 use wasmer_cli::commands::Compile;
 #[cfg(all(feature = "object-file", feature = "compiler"))]
 use wasmer_cli::commands::CreateExe;
@@ -11,18 +11,7 @@ use wasmer_cli::error::PrettyError;
 use structopt::{clap::ErrorKind, StructOpt};
 
 #[derive(Debug, StructOpt)]
-#[cfg_attr(
-    not(feature = "headless"),
-    structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)
-)]
-#[cfg_attr(
-    feature = "headless",
-    structopt(
-        name = "wasmer-headless",
-        about = "Headless WebAssembly standalone runtime.",
-        author
-    )
-)]
+#[structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wat
