@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-engine-jit"
-version = "1.0.0"
+version = "1.0.1"
 description = "Wasmer JIT Engine"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "engine", "jit"]
@@ -11,10 +11,10 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.0" }
-wasmer-compiler = { path = "../compiler", version = "1.0.0", features = ["translator"] }
-wasmer-vm = { path = "../vm", version = "1.0.0" }
-wasmer-engine = { path = "../engine", version = "1.0.0" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.1" }
+wasmer-compiler = { path = "../compiler", version = "1.0.1", features = ["translator"] }
+wasmer-vm = { path = "../vm", version = "1.0.1" }
+wasmer-engine = { path = "../engine", version = "1.0.1" }
 # flexbuffers = { path = "../../../flatbuffers/rust/flexbuffers", version = "0.1.0" }
 region = "2.2"
 serde = { version = "1.0", features = ["derive", "rc"] }

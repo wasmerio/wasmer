@@ -8,6 +8,14 @@
 ## **[Unreleased]**
 
 ### Added
+
+### Changed
+
+### Fixed
+
+## 1.0.1 - 2021-01-12
+
+### Added
 - [#2005](https://github.com/wasmerio/wasmer/pull/2005) Added the arguments `alias` and `optional` to `WasmerEnv` derive's `export` attribute.
 
 ### Changed

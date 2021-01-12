@@ -1136,7 +1136,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
@@ -1159,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "blake3",
  "hex",
@@ -1169,7 +1169,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "raw-cpuid",
  "serde",
@@ -1185,7 +1185,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
@@ -1202,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -1224,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -1241,7 +1241,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -1251,7 +1251,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "bincode",
@@ -1270,7 +1270,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1286,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1305,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "object 0.22.0",
  "thiserror",
@@ -1333,7 +1333,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-entity",
  "serde",
@@ -1342,7 +1342,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "cc",

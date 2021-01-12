@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler"
-version = "1.0.0"
+version = "1.0.1"
 description = "Base compiler abstraction for Wasmer WebAssembly runtime"
 categories = ["wasm", "no-std"]
 keywords = ["wasm", "webassembly", "compiler"]
@@ -11,8 +11,8 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "1.0.0" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0", default-features = false }
+wasmer-vm = { path = "../vm", version = "1.0.1" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.1", default-features = false }
 wasmparser = { version = "0.65", optional = true, default-features = false }
 target-lexicon = { version = "0.11", default-features = false }
 wasmer_enumset = "1.0"

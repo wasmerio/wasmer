@@ -1,6 +1,6 @@
 # Wasmer Engine Object File
 
-This is an [engine](https://crates.io/crates/wasmer-engine) for the [wasmer](https://crates.io/crates/wasmer/1.0.0) WebAssembly VM.
+This is an [engine](https://crates.io/crates/wasmer-engine) for the [wasmer](https://crates.io/crates/wasmer) WebAssembly VM.
 
 This engine is used to produce a native object file that can be linked
 against providing a sandboxed WebAssembly runtime environment for the
