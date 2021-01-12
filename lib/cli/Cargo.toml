@@ -113,4 +113,5 @@ llvm = [
 ]
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
-headless = ["disable-all-logging", "wasi", "native", "jit"]
+headless = []
+headless-minimal = ["headless", "disable-all-logging", "wasi", "native", "jit"]
