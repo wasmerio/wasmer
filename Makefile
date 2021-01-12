@@ -54,6 +54,7 @@ endif
 # Using filter as a logical OR
 # https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
 use_system_ffi =
+cross_compiling_to_mac_aarch64 =
 ifneq (,$(filter $(ARCH),aarch64 arm64))
 	test_compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
@@ -62,6 +63,7 @@ ifneq (,$(filter $(ARCH),aarch64 arm64))
 	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(UNAME_S), Darwin)
 		use_system_ffi = yes
+		cross_compiling_to_mac_aarch64 = yes
 	endif
 endif
 
@@ -121,7 +123,7 @@ build-wasmer-debug:
 build-wasmer-headless-minimal:
 	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
   echo $$HOST_TARGET ;\
-	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features disable-all-logging,native,wasi ;\
+	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
 	strip target/$$HOST_TARGET/release/wasmer
 
 WAPM_VERSION = master # v0.5.0
@@ -326,6 +328,18 @@ ifeq ($(UNAME_S), Darwin)
 endif
 endif
 
+package-minimal-headless-wasmer:
+ifdef cross_compiling_to_mac_aarch64
+	if [ -f "target/aarch64-apple-darwin/release/wasmer" ]; then \
+		cp target/aarch64-apple-darwin/release/wasmer package/bin/wasmer-headless ;\
+	fi
+else
+	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
+	if [ -f "target/$$HOST_TARGET/release/wasmer" ]; then \
+		cp target/$$HOST_TARGET/release/wasmer package/bin/wasmer-headless ;\
+	fi
+endif
+
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(OS), Windows_NT)
@@ -369,7 +383,7 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
-package: package-wapm package-wasmer package-capi
+package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
 distribution: package
 	cp LICENSE package/LICENSE

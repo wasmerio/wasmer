@@ -1,15 +1,28 @@
 use anyhow::Result;
+#[cfg(feature = "compile")]
+use wasmer_cli::commands::Compile;
 #[cfg(all(feature = "object-file", feature = "compiler"))]
 use wasmer_cli::commands::CreateExe;
 #[cfg(feature = "wast")]
 use wasmer_cli::commands::Wast;
-use wasmer_cli::commands::{Cache, Compile, Config, Inspect, Run, SelfUpdate, Validate};
+use wasmer_cli::commands::{Cache, Config, Inspect, Run, SelfUpdate, Validate};
 use wasmer_cli::error::PrettyError;
 
 use structopt::{clap::ErrorKind, StructOpt};
 
 #[derive(Debug, StructOpt)]
-#[structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)]
+#[cfg_attr(
+    not(feature = "headless"),
+    structopt(name = "wasmer", about = "WebAssembly standalone runtime.", author)
+)]
+#[cfg_attr(
+    feature = "headless",
+    structopt(
+        name = "wasmer-headless",
+        about = "Headless WebAssembly standalone runtime.",
+        author
+    )
+)]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {
     /// Run a WebAssembly file. Formats accepted: wasm, wat
@@ -25,6 +38,7 @@ enum WasmerCLIOptions {
     Validate(Validate),
 
     /// Compile a WebAssembly binary
+    #[cfg(feature = "compiler")]
     #[structopt(name = "compile")]
     Compile(Compile),
 
@@ -59,6 +73,7 @@ impl WasmerCLIOptions {
             Self::SelfUpdate(options) => options.execute(),
             Self::Cache(cache) => cache.execute(),
             Self::Validate(validate) => validate.execute(),
+            #[cfg(feature = "compiler")]
             Self::Compile(compile) => compile.execute(),
             #[cfg(all(feature = "object-file", feature = "compiler"))]
             Self::CreateExe(create_exe) => create_exe.execute(),
