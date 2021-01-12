@@ -1,6 +1,6 @@
 //! The commands available in the Wasmer binary.
 mod cache;
-#[cfg(feature = "compile")]
+#[cfg(feature = "compiler")]
 mod compile;
 mod config;
 #[cfg(all(feature = "object-file", feature = "compiler"))]
@@ -12,7 +12,7 @@ mod validate;
 #[cfg(feature = "wast")]
 mod wast;
 
-#[cfg(feature = "compile")]
+#[cfg(feature = "compiler")]
 pub use compile::*;
 #[cfg(all(feature = "object-file", feature = "compiler"))]
 pub use create_exe::*;

@@ -1,5 +1,5 @@
 use anyhow::Result;
-#[cfg(feature = "compile")]
+#[cfg(feature = "compiler")]
 use wasmer_cli::commands::Compile;
 #[cfg(all(feature = "object-file", feature = "compiler"))]
 use wasmer_cli::commands::CreateExe;
