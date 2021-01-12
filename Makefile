@@ -54,7 +54,6 @@ endif
 # Using filter as a logical OR
 # https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
 use_system_ffi =
-cross_compiling_to_mac_aarch64 =
 ifneq (,$(filter $(ARCH),aarch64 arm64))
 	test_compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
@@ -63,7 +62,6 @@ ifneq (,$(filter $(ARCH),aarch64 arm64))
 	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(UNAME_S), Darwin)
 		use_system_ffi = yes
-		cross_compiling_to_mac_aarch64 = yes
 	endif
 endif
 
@@ -90,6 +88,9 @@ endif
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
 
+HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
 $(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
@@ -103,10 +104,10 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
@@ -121,10 +122,12 @@ build-wasmer-debug:
 # codegen-units = 1
 # rpath = false
 build-wasmer-headless-minimal:
-	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
-  echo $$HOST_TARGET ;\
-	RUSTFLAGS="-C panic=abort" xargo build --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless ;\
-	strip -s required_symbols.txt target/$$HOST_TARGET/release/wasmer-headless
+	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+ifeq ($(UNAME_S), Darwin)
+	strip -u target/$(HOST_TARGET)/release/wasmer-headless
+else
+	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
+endif
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
@@ -329,16 +332,9 @@ endif
 endif
 
 package-minimal-headless-wasmer:
-ifdef cross_compiling_to_mac_aarch64
-	if [ -f "target/aarch64-apple-darwin/release/wasmer-headless" ]; then \
-		cp target/aarch64-apple-darwin/release/wasmer-headless package/bin/ ;\
+	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer-headless package/bin ;\
 	fi
-else
-	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
-	if [ -f "target/$$HOST_TARGET/release/wasmer-headless" ]; then \
-		cp target/$$HOST_TARGET/release/wasmer-headless package/bin/ ;\
-	fi
-endif
 
 package-wasmer:
 	mkdir -p "package/bin"
