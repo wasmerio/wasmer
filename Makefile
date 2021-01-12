@@ -126,7 +126,7 @@ build-wasmer-headless-minimal:
 ifeq ($(UNAME_S), Darwin)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
-	strip --keep-file-symbols target/$(HOST_TARGET)/release/wasmer-headless
+	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
 endif
 
 WAPM_VERSION = master # v0.5.0
