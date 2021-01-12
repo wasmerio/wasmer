@@ -122,7 +122,7 @@ build-wasmer-debug:
 # codegen-units = 1
 # rpath = false
 build-wasmer-headless-minimal:
-	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless --bin wasmer-headless
+	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(UNAME_S), Darwin)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
