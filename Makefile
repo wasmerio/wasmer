@@ -90,6 +90,9 @@ endif
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
 
+HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
 $(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
@@ -121,10 +124,8 @@ build-wasmer-debug:
 # codegen-units = 1
 # rpath = false
 build-wasmer-headless-minimal:
-	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
-  echo $$HOST_TARGET ;\
-	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
-	strip target/$$HOST_TARGET/release/wasmer
+	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
+	strip target/$(HOST_TARGET)/release/wasmer
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
