@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-c-api"
-version = "1.0.0"
+version = "1.0.1"
 description = "Wasmer C API library"
 categories = ["wasm", "api-bindings"]
 keywords = ["wasm", "webassembly", "runtime"]
@@ -15,18 +15,18 @@ edition = "2018"
 crate-type = ["cdylib", "rlib", "staticlib"]
 
 [dependencies]
-wasmer = { version = "1.0.0", path = "../api", default-features = false }
-wasmer-compiler = { version = "1.0.0", path = "../compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.0", path = "../emscripten", optional = true }
-wasmer-engine = { version = "1.0.0", path = "../engine" }
-wasmer-engine-jit = { version = "1.0.0", path = "../engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0", path = "../engine-native", optional = true }
-wasmer-engine-object-file = { version = "1.0.0", path = "../engine-object-file", optional = true }
-wasmer-wasi = { version = "1.0.0", path = "../wasi", optional = true }
-wasmer-types = { version = "1.0.0", path = "../wasmer-types" }
+wasmer = { version = "1.0.1", path = "../api", default-features = false }
+wasmer-compiler = { version = "1.0.1", path = "../compiler" }
+wasmer-compiler-cranelift = { version = "1.0.1", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.1", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.1", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "1.0.1", path = "../emscripten", optional = true }
+wasmer-engine = { version = "1.0.1", path = "../engine" }
+wasmer-engine-jit = { version = "1.0.1", path = "../engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.1", path = "../engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.1", path = "../engine-object-file", optional = true }
+wasmer-wasi = { version = "1.0.1", path = "../wasi", optional = true }
+wasmer-types = { version = "1.0.1", path = "../wasmer-types" }
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }
@@ -37,7 +37,7 @@ typetag = { version = "0.1", optional = true }
 paste = "1.0"
 # for generating code in the same way thot the wasm-c-api does
 # Commented out for now until we can find a solution to the exported function problem
-# wasmer-wasm-c-api = { version = "1.0.0", path = "crates/wasm-c-api" }
+# wasmer-wasm-c-api = { version = "1.0.1", path = "crates/wasm-c-api" }
 
 [dev-dependencies]
 inline-c = "0.1.4"

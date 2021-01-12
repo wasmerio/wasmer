@@ -340,11 +340,11 @@ you'll be able to delegate most of the work to Wasmer:
 ``` 
 
 [examples]: https://docs.wasmer.io/integrations/examples
-[wasmer]: https://crates.io/crates/wasmer/1.0.0
-[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0
-[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0
-[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0
-[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0
+[wasmer]: https://crates.io/crates/wasmer
+[wasmer-wasi]: https://crates.io/crates/wasmer-wasi
+[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten
+[wasmer-engine]: https://crates.io/crates/wasmer-engine
+[wasmer-compiler]: https://crates.io/crates/wasmer-compiler
 [wasmer.io]: https://wasmer.io
 [wasmer-nightly]: https://github.com/wasmerio/wasmer-nightly/
 [getting-started]: https://docs.wasmer.io/ecosystem/wasmer/getting-started
