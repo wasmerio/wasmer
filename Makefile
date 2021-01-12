@@ -22,8 +22,14 @@ ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
+	ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		compilers += llvm
+	endif
 else
 	ifneq (, $(shell which llvm-config-10 2>/dev/null))
+		compilers += llvm
+	endif
+	ifneq (, $(shell which llvm-config-11 2>/dev/null))
 		compilers += llvm
 	endif
 endif
@@ -297,6 +303,9 @@ else
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 	fi
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wapm
+endif
 endif
 
 package-wasmer:
@@ -305,6 +314,9 @@ ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer.exe package/bin/
 else
 	cp target/release/wasmer package/bin/
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wasmer
+endif
 endif
 
 package-capi:
