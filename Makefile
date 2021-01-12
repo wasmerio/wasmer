@@ -123,8 +123,8 @@ build-wasmer-debug:
 build-wasmer-headless-minimal:
 	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
   echo $$HOST_TARGET ;\
-	RUSTFLAGS="-C panic=abort" xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal ;\
-	strip target/$$HOST_TARGET/release/wasmer
+	RUSTFLAGS="-C panic=abort" xargo build --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless ;\
+	strip -s required_symbols.txt target/$$HOST_TARGET/release/wasmer-headless
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
@@ -330,13 +330,13 @@ endif
 
 package-minimal-headless-wasmer:
 ifdef cross_compiling_to_mac_aarch64
-	if [ -f "target/aarch64-apple-darwin/release/wasmer" ]; then \
-		cp target/aarch64-apple-darwin/release/wasmer package/bin/wasmer-headless ;\
+	if [ -f "target/aarch64-apple-darwin/release/wasmer-headless" ]; then \
+		cp target/aarch64-apple-darwin/release/wasmer-headless package/bin/ ;\
 	fi
 else
 	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
-	if [ -f "target/$$HOST_TARGET/release/wasmer" ]; then \
-		cp target/$$HOST_TARGET/release/wasmer package/bin/wasmer-headless ;\
+	if [ -f "target/$$HOST_TARGET/release/wasmer-headless" ]; then \
+		cp target/$$HOST_TARGET/release/wasmer-headless package/bin/ ;\
 	fi
 endif
 
