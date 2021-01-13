@@ -256,7 +256,7 @@ unsafe impl ValueType for __wasi_prestat_u_dir_t {}
 #[derive(Copy, Clone)]
 #[repr(C)]
 pub union __wasi_prestat_u {
-    dir: __wasi_prestat_u_dir_t,
+    pub dir: __wasi_prestat_u_dir_t,
 }
 
 impl fmt::Debug for __wasi_prestat_u {

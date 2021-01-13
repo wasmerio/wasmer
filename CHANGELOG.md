@@ -12,6 +12,7 @@
 ### Changed
 
 ### Fixed
+ - [#2019](https://github.com/wasmerio/wasmer/pull/2019) Made field of `wasmer_io::types::__wasi_prestat_u` public
 
 ## 1.0.1 - 2021-01-12
 
