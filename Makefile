@@ -88,6 +88,9 @@ endif
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
 
+HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
 $(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
@@ -101,10 +104,10 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 # For best results ensure the release profile looks like the following
 # in Cargo.toml:
@@ -119,10 +122,12 @@ build-wasmer-debug:
 # codegen-units = 1
 # rpath = false
 build-wasmer-headless-minimal:
-	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
-  echo $$HOST_TARGET ;\
-	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features disable-all-logging,native,wasi ;\
-	strip target/$$HOST_TARGET/release/wasmer
+	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+ifeq ($(UNAME_S), Darwin)
+	strip -u target/$(HOST_TARGET)/release/wasmer-headless
+else
+	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
+endif
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
@@ -326,6 +331,11 @@ ifeq ($(UNAME_S), Darwin)
 endif
 endif
 
+package-minimal-headless-wasmer:
+	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer-headless package/bin ;\
+	fi
+
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(OS), Windows_NT)
@@ -369,7 +379,7 @@ package-docs: build-docs build-docs-capi
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
 
-package: package-wapm package-wasmer package-capi
+package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
 distribution: package
 	cp LICENSE package/LICENSE
