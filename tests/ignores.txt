@@ -1,6 +1,7 @@
 # Compilers
 singlepass::spec::multi_value
 singlepass::spec::simd
+singlepass::spec::skip_stack_guard_page
 
 ## SIMD in Cranelift 0.67 has a small bug
 cranelift::spec::simd::simd_f64x2_arith
