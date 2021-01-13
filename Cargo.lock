@@ -711,28 +711,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e78d4f1cc4ae33bbfc157ed5d5a5ef3bc29227303d595861deb238fcec4e9457"
 
 [[package]]
-name = "enumset"
-version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "959a80a2062fedd66ed41d99736212de987b3a8c83a4c2cef243968075256bd1"
-dependencies = [
- "enumset_derive",
- "num-traits",
-]
-
-[[package]]
-name = "enumset_derive"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74bef436ac71820c5cf768d7af9ba33121246b09a00e09a55d94ef8095a875ac"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "erased-serde"
 version = "0.3.12"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2006,9 +1984,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.5.1"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "ae524f056d7d770e174287294f562e95044c68e88dec909a00d2094805db9d75"
+checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "socket2"
@@ -2397,7 +2375,7 @@ checksum = "7e7811dd7f9398f14cc76efd356f98f03aa30419dea46aa810d71e819fc97158"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "cfg-if 0.1.10",
@@ -2423,7 +2401,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-c-api"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
@@ -2451,7 +2429,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "blake3",
  "hex",
@@ -2461,7 +2439,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "atty",
@@ -2493,9 +2471,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "enumset",
  "hashbrown 0.9.1",
  "raw-cpuid",
  "serde",
@@ -2505,12 +2482,13 @@ dependencies = [
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
+ "wasmer_enumset",
  "wasmparser",
 ]
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-codegen 0.67.0",
  "cranelift-codegen 0.68.0",
@@ -2531,7 +2509,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -2553,7 +2531,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -2572,7 +2550,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "compiletest_rs",
  "proc-macro-error",
@@ -2584,7 +2562,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-emscripten"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "getrandom 0.2.0",
@@ -2597,7 +2575,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "bincode",
@@ -2616,7 +2594,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-dummy"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "serde",
@@ -2629,7 +2607,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2645,7 +2623,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2664,7 +2642,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-object-file"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -2682,7 +2660,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-integration-tests-cli"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "tempfile",
@@ -2690,7 +2668,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-middlewares"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "wasmer",
  "wasmer-types",
@@ -2699,7 +2677,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "object",
  "thiserror",
@@ -2709,7 +2687,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-entity 0.68.0",
  "serde",
@@ -2718,7 +2696,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -2736,7 +2714,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "byteorder",
@@ -2754,7 +2732,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wasi-experimental-io-devices"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "minifb",
  "ref_thread_local",
@@ -2766,7 +2744,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-wast"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "serde",
@@ -2780,7 +2758,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-workspace"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "anyhow",
  "blake3",
@@ -2808,6 +2786,28 @@ dependencies = [
  "wasmer-types",
  "wasmer-wasi",
  "wasmer-wast",
+]
+
+[[package]]
+name = "wasmer_enumset"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf088cc1f7d247fd96dff0df46fb1bbb747d8a69ae1ecd71aed55c55e354b2d8"
+dependencies = [
+ "num-traits",
+ "wasmer_enumset_derive",
+]
+
+[[package]]
+name = "wasmer_enumset_derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d1b32d98e11194200baf6d3f85eb2d6cfe56f6d9af0dd617f90ca48f958a88"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

@@ -27,12 +27,20 @@ pub struct Wasi {
     enable_experimental_io_devices: bool,
 }
 
+#[allow(dead_code)]
 impl Wasi {
     /// Gets the WASI version (if any) for the provided module
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
-        // Get the wasi version on strict mode, so no other imports are
+        // Get the wasi version in strict mode, so no other imports are
         // allowed.
         get_wasi_version(&module, true)
+    }
+
+    /// Checks if a given module has any WASI imports at all.
+    pub fn has_wasi_imports(module: &Module) -> bool {
+        // Get the wasi version in non-strict mode, so no other imports
+        // are allowed
+        get_wasi_version(&module, false).is_some()
     }
 
     /// Helper function for executing Wasi from the `Run` command.

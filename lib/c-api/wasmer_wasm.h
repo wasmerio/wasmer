@@ -39,10 +39,10 @@
 #define WASMER_WASI_ENABLED
 
 // This file corresponds to the following Wasmer version.
-#define WASMER_VERSION "1.0.0"
+#define WASMER_VERSION "1.0.1"
 #define WASMER_VERSION_MAJOR 1
 #define WASMER_VERSION_MINOR 0
-#define WASMER_VERSION_PATCH 0
+#define WASMER_VERSION_PATCH 1
 #define WASMER_VERSION_PRE ""
 
 #endif // WASMER_WASM_H_PRELUDE

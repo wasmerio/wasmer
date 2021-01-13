@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cache"
-version = "1.0.0"
+version = "1.0.1"
 description = "Cache system for Wasmer WebAssembly runtime"
 categories = ["wasm", "caching"]
 keywords = ["wasm", "webassembly", "cache"]
@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "1.0.0", default-features = false }
+wasmer = { path = "../api", version = "1.0.1", default-features = false }
 hex = "0.4"
 thiserror = "1"
 blake3 = "0.3"

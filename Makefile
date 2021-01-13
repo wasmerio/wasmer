@@ -22,8 +22,14 @@ ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
+	ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		compilers += llvm
+	endif
 else
 	ifneq (, $(shell which llvm-config-10 2>/dev/null))
+		compilers += llvm
+	endif
+	ifneq (, $(shell which llvm-config-11 2>/dev/null))
 		compilers += llvm
 	endif
 endif
@@ -99,6 +105,24 @@ build-wasmer:
 
 build-wasmer-debug:
 	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+
+# For best results ensure the release profile looks like the following
+# in Cargo.toml:
+# [profile.release]
+# opt-level = 'z'
+# debug = false
+# debug-assertions = false
+# overflow-checks = false
+# lto = true
+# panic = 'abort'
+# incremental = false
+# codegen-units = 1
+# rpath = false
+build-wasmer-headless-minimal:
+	HOST_TARGET=$$(rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ') ;\
+  echo $$HOST_TARGET ;\
+	xargo build -v --target $$HOST_TARGET --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features disable-all-logging,native,wasi ;\
+	strip target/$$HOST_TARGET/release/wasmer
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
@@ -234,6 +258,7 @@ test-packages:
 	cargo test -p wasmer-cli --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
+	cargo test -p wasmer-derive --release
 
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
@@ -285,13 +310,20 @@ test-integration:
 #############
 
 package-wapm:
-ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
+ifneq ($(OS), Windows_NT)
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/; \
-		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
-		chmod +x package/bin/wax; \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
+		chmod +x package/bin/wax ;\
 	fi
+else
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
+	fi
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wapm
+endif
 endif
 
 package-wasmer:
@@ -300,6 +332,9 @@ ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer.exe package/bin/
 else
 	cp target/release/wasmer package/bin/
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wasmer
+endif
 endif
 
 package-capi:
