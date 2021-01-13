@@ -122,11 +122,15 @@ build-wasmer-debug:
 # codegen-units = 1
 # rpath = false
 build-wasmer-headless-minimal:
-	RUSTFLAGS="-C panic=abort" xargo build -v --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(UNAME_S), Darwin)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
-	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
+	ifeq ($(OS), Windows_NT)
+		strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
+	else
+		strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
+	endif
 endif
 
 WAPM_VERSION = master # v0.5.0
@@ -332,9 +336,15 @@ endif
 endif
 
 package-minimal-headless-wasmer:
+ifeq ($(OS), Windows_NT)
+	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer-headless.exe package/bin ;\
+	fi
+else
 	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless" ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer-headless package/bin ;\
 	fi
+endif
 
 package-wasmer:
 	mkdir -p "package/bin"
