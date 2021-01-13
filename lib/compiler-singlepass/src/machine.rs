@@ -3,9 +3,9 @@ use crate::emitter_x64::*;
 use crate::x64_decl::{new_machine_state, X64Register};
 use smallvec::smallvec;
 use smallvec::SmallVec;
+use std::cmp;
 use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
-use std::cmp;
 
 const NATIVE_PAGE_SIZE: usize = 4096;
 
@@ -458,31 +458,35 @@ impl Machine {
         );
 
         // Stack probe.
-        // 
+        //
         // `rep stosq` writes data from low address to high address and may skip the stack guard page.
         // so here we probe it explicitly when needed.
-        for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {	
+        for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {
             a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
         }
-        
+
         //Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
         let mut last_stack_loc = Location::Memory(GPR::RBP, i32::MAX);
         for i in n_params..n {
             match locations[i] {
                 Location::Memory(_, _) => {
-                    init_stack_loc_cnt+=1;
+                    init_stack_loc_cnt += 1;
                     last_stack_loc = cmp::min(last_stack_loc, locations[i]);
-                },
+                }
                 Location::GPR(_) => {
                     a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
-                },
+                }
                 _ => unreachable!(),
             }
-        }       
+        }
         if init_stack_loc_cnt > 0 {
             // Since this assemblies takes up 24 bytes, If initialize more than 2 slots, These assemblies are smallar.
-            a.emit_mov(Size::S64, Location::Imm64(init_stack_loc_cnt as u64), Location::GPR(GPR::RCX));
+            a.emit_mov(
+                Size::S64,
+                Location::Imm64(init_stack_loc_cnt as u64),
+                Location::GPR(GPR::RCX),
+            );
             a.emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
             a.emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
             a.emit_rep_stosq();
