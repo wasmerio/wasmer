@@ -7,6 +7,8 @@ use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
 use std::cmp;
 
+const NATIVE_PAGE_SIZE: usize = 4096;
+
 struct MachineStackOffset(usize);
 
 pub struct Machine {
@@ -454,6 +456,14 @@ impl Machine {
             Self::get_param_location(0),
             Location::GPR(GPR::R15),
         );
+
+        // Stack probe.
+        // 
+        // `rep stosq` writes data from low address to high address and may skip the stack guard page.
+        // so here we probe it explicitly when needed.
+        for i in (n_params..n).step_by(NATIVE_PAGE_SIZE / 8).skip(1) {	
+            a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
+        }
         
         //Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
