@@ -201,6 +201,7 @@ jobs:
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
         run: |
+          cargo install xargo
           echo "\n[profile.release]\nopt-level = 'z'\ndebug = false\ndebug-assertions = false\noverflow-checks = false\nlto = true\npanic = 'abort'\nincremental = false\ncodegen-units = 1\nrpath = false" >> Cargo.toml
           make build-wasmer-headless-minimal
         if: needs.setup.outputs.DOING_RELEASE == '1'
