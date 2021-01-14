@@ -465,7 +465,7 @@ impl Machine {
             a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
         }
 
-        //Initialize all normal locals to zero.
+        // Initialize all normal locals to zero.
         let mut init_stack_loc_cnt = 0;
         let mut last_stack_loc = Location::Memory(GPR::RBP, i32::MAX);
         for i in n_params..n {
