@@ -16,6 +16,12 @@ name = "wasmer"
 path = "src/bin/wasmer.rs"
 doc = false
 
+[[bin]]
+name = "wasmer-headless"
+path = "src/bin/wasmer_headless.rs"
+doc = false
+required-features = ["headless"]
+
 [dependencies]
 wasmer = { version = "1.0.1", path = "../api", default-features = false }
 wasmer-compiler = { version = "1.0.1", path = "../compiler" }
@@ -107,3 +113,5 @@ llvm = [
 ]
 debug = ["fern", "log", "wasmer-wasi/logging"]
 disable-all-logging = ["wasmer-wasi/disable-all-logging"]
+headless = []
+headless-minimal = ["headless", "disable-all-logging", "wasi", "native", "jit"]
