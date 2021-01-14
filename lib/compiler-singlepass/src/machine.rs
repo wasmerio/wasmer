@@ -481,7 +481,7 @@ impl Machine {
             }
         }
         if init_stack_loc_cnt > 0 {
-            // Since this assemblies takes up 24 bytes, If initialize more than 2 slots, These assemblies are smallar.
+            // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
             a.emit_mov(
                 Size::S64,
                 Location::Imm64(init_stack_loc_cnt as u64),
