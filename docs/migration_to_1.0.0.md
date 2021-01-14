@@ -88,7 +88,7 @@ to implement custom compilers and engines respectively.
 ### Instantiating modules
 
 With Wasmer 0.x, instantiating a module was a matter of calling `wasmer::compiler::compile` and then calling 
-`instanciate` on the compiled module.
+`instantiate` on the compiled module.
 
 While simple, this did not give you full-control over Wasmer's configuration. For example, choosing another compiler
 was not straightforward.
@@ -304,10 +304,10 @@ with this topic:
 * [Handling Errors][errors]
 * [Interrupting Execution][exit-early]
 
-Note than with Wasmer 1.0.0, each function that is part of the API has its own kind of error. For example:
+Note that with Wasmer 1.0.0, each function that is part of the API has its own kind of error. For example:
 * Instantiating a module may return `InstantiationError`s;
 * Getting exports from the guest module may return `ExportError`s;
-* Calling a exported function may return `RuntimeError`s;
+* Calling an exported function may return `RuntimeError`s;
 * ...
 
 ### Caching modules
