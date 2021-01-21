@@ -383,11 +383,11 @@ endif
 
 package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs"
-	mkdir -p "package/docs/c"
+	mkdir -p "package/docs/c/runtime-c-api"
 	cp -R target/doc package/docs/crates
-	cp -R lib/c-api/doc/html package/docs/c-api
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
+	cp -R lib/c-api/doc/deprecated/html/ package/docs/c/runtime-c-api
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
 package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
@@ -437,10 +437,3 @@ lint: lint-formatting lint-packages
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
-
-publish-docs:
-	git clone -b "gh-pages" --depth=1 https://wasmerbot:$(GITHUB_DOCS_TOKEN)@github.com/wasmerio/wasmer.git api-docs-repo
-	cp -R package/docs/* api-docs-repo/
-	cd api-docs-repo && git add index.html crates/* c-api/*
-	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
-	# cd api-docs-repo && git push origin gh-pages
