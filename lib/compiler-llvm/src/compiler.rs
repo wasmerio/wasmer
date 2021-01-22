@@ -7,6 +7,7 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
+use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
@@ -87,9 +88,7 @@ impl LLVMCompiler {
 
         // TODO: https:/github.com/rayon-rs/rayon/issues/822
 
-        let function_body_inputs = function_body_inputs.into_iter().collect::<Vec<_>>();
-
-        let merged_bitcode = function_body_inputs.par_iter().map_init(
+        let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
                 FuncTranslator::new(target_machine)
@@ -98,7 +97,7 @@ impl LLVMCompiler {
                 let module = func_translator.translate_to_module(
                     &compile_info.module,
                     module_translation,
-                    i,
+                    &i,
                     input,
                     self.config(),
                     &compile_info.memory_styles,
@@ -109,38 +108,35 @@ impl LLVMCompiler {
             },
         );
 
-        let trampolines = compile_info.module.signatures.iter().collect::<Vec<_>>();
-
-        let trampolines_bitcode = trampolines.par_iter().map_init(
+        let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
                 FuncTrampoline::new(target_machine)
             },
             |func_trampoline, (i, sig)| {
-                let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(*i));
+                let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
                 let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
                 Ok(module.write_bitcode_to_memory().as_slice().to_vec())
             },
         );
 
-        let dynamic_trampolines = compile_info.module.functions.iter().collect::<Vec<_>>();
-
-        let dynamic_trampolines_bitcode = dynamic_trampolines.par_iter().map_init(
-            || {
-                let target_machine = self.config().target_machine(target);
-                (
-                    FuncTrampoline::new(target_machine),
-                    &compile_info.module.signatures,
-                )
-            },
-            |(func_trampoline, signatures), (i, sig)| {
-                let sig = &signatures[**sig];
-                let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(*i));
-                let module =
-                    func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
-                Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-            },
-        );
+        let dynamic_trampolines_bitcode =
+            compile_info.module.functions.iter().par_bridge().map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    (
+                        FuncTrampoline::new(target_machine),
+                        &compile_info.module.signatures,
+                    )
+                },
+                |(func_trampoline, signatures), (i, sig)| {
+                    let sig = &signatures[*sig];
+                    let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
+                    let module =
+                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
+                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                },
+            );
 
         let merged_bitcode = merged_bitcode
             .chain(trampolines_bitcode)
