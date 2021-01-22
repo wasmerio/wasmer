@@ -8,11 +8,29 @@
 ## **[Unreleased]**
 
 ### Added
+- [#2026](https://github.com/wasmerio/wasmer/pull/2010) Expose trap code of a `RuntimeError`, if it's a `Trap`.
 
 ### Changed
+
+### Fixed
+
+## 1.0.1 - 2021-01-12
+
+This release includes a breaking change in the API (changing the trait `enumset::EnumsetType` to `wasmer_enumset::EnumSetType` and changing `enumset::EnumSet` in signatures to `wasmer_enumset::EnumSet` to work around a breaking change introduced by `syn`) but is being released as a minor version because `1.0.0` is also in a broken state due to a breaking change introduced by `syn` which affects `enumset` and thus `wasmer`.
+
+This change is unlikely to affect any users of `wasmer`, but if it does please change uses of the `enumset` crate to the `wasmer_enumset` crate where possible.
+
+### Added
+- [#2010](https://github.com/wasmerio/wasmer/pull/2010) A new, experimental, minified build of `wasmer` called `wasmer-headless` will now be included with releases. `wasmer-headless` is the `wasmer` VM without any compilers attached, so it can only run precompiled Wasm modules.
+- [#2005](https://github.com/wasmerio/wasmer/pull/2005) Added the arguments `alias` and `optional` to `WasmerEnv` derive's `export` attribute.
+
+### Changed
+- [#2006](https://github.com/wasmerio/wasmer/pull/2006) Use `wasmer_enumset`, a fork of the `enumset` crate to work around a breaking change in `syn`
 - [#1985](https://github.com/wasmerio/wasmer/pull/1985) Bump minimum supported Rust version to 1.48
 
 ### Fixed
+- [#2007](https://github.com/wasmerio/wasmer/pull/2007) Fix packaging of wapm on Windows
+- [#2005](https://github.com/wasmerio/wasmer/pull/2005) Emscripten is now working again.
 
 ## 1.0.0 - 2021-01-05
 

@@ -1,6 +1,6 @@
 [package]
 name = "wasmer"
-version = "1.0.0"
+version = "1.0.1"
 description = "High-performant WebAssembly runtime"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "runtime", "vm"]
@@ -11,16 +11,16 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "1.0.0" }
-wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.0", optional = true }
-wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.0", optional = true }
-wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.0", optional = true }
-wasmer-compiler = { path = "../compiler", version = "1.0.0" }
-wasmer-derive = { path = "../derive", version = "1.0.0" }
-wasmer-engine = { path = "../engine", version = "1.0.0" }
-wasmer-engine-jit = { path = "../engine-jit", version = "1.0.0", optional = true }
-wasmer-engine-native = { path = "../engine-native", version = "1.0.0", optional = true }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0" }
+wasmer-vm = { path = "../vm", version = "1.0.1" }
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.1", optional = true }
+wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.1", optional = true }
+wasmer-compiler-llvm = { path = "../compiler-llvm", version = "1.0.1", optional = true }
+wasmer-compiler = { path = "../compiler", version = "1.0.1" }
+wasmer-derive = { path = "../derive", version = "1.0.1" }
+wasmer-engine = { path = "../engine", version = "1.0.1" }
+wasmer-engine-jit = { path = "../engine-jit", version = "1.0.1", optional = true }
+wasmer-engine-native = { path = "../engine-native", version = "1.0.1", optional = true }
+wasmer-types = { path = "../wasmer-types", version = "1.0.1" }
 indexmap = { version = "1.4", features = ["serde-1"] }
 cfg-if = "0.1"
 wat = { version = "1.0", optional = true }

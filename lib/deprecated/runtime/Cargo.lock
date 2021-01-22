@@ -340,28 +340,6 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "bb1f6b1ce1c140482ea30ddd3335fc0024ac7ee112895426e0a629a6c20adfe3"
 
 [[package]]
-name = "enumset"
-version = "1.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3691ce759534316ad900d57dd8e688e2c4263f9750c0f7c1e9b9a4516d4ca241"
-dependencies = [
- "enumset_derive",
- "num-traits",
-]
-
-[[package]]
-name = "enumset_derive"
-version = "0.5.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "74bef436ac71820c5cf768d7af9ba33121246b09a00e09a55d94ef8095a875ac"
-dependencies = [
- "darling",
- "proc-macro2",
- "quote",
- "syn",
-]
-
-[[package]]
 name = "fallible-iterator"
 version = "0.2.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1002,9 +980,9 @@ dependencies = [
 
 [[package]]
 name = "smallvec"
-version = "1.5.0"
+version = "1.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "7acad6f34eb9e8a259d3283d1e8c1d34d7415943d4895f65cc73813c7396fc85"
+checksum = "fe0f37c9e8f3c5a4a66ad655a93c74daac4ad00c441533bf5c6e7990bb42604e"
 
 [[package]]
 name = "stable_deref_trait"
@@ -1158,7 +1136,7 @@ checksum = "cccddf32554fecc6acb585f82a32a72e28b48f8c4c1883ddfeeeaa96f7d8e519"
 
 [[package]]
 name = "wasmer"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
@@ -1181,7 +1159,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-cache"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "blake3",
  "hex",
@@ -1191,9 +1169,8 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
- "enumset",
  "raw-cpuid",
  "serde",
  "serde_bytes",
@@ -1202,12 +1179,13 @@ dependencies = [
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
+ "wasmer_enumset",
  "wasmparser",
 ]
 
 [[package]]
 name = "wasmer-compiler-cranelift"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-codegen",
  "cranelift-frontend",
@@ -1224,7 +1202,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-llvm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "cc",
@@ -1246,7 +1224,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-compiler-singlepass"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "byteorder",
  "dynasm",
@@ -1263,7 +1241,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-derive"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "proc-macro-error",
  "proc-macro2",
@@ -1273,7 +1251,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "bincode",
@@ -1292,7 +1270,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-jit"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1308,7 +1286,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-engine-native"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
@@ -1327,7 +1305,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-object"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "object 0.22.0",
  "thiserror",
@@ -1362,7 +1340,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-types"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "cranelift-entity",
  "serde",
@@ -1371,7 +1349,7 @@ dependencies = [
 
 [[package]]
 name = "wasmer-vm"
-version = "1.0.0"
+version = "1.0.1"
 dependencies = [
  "backtrace",
  "cc",
@@ -1385,6 +1363,28 @@ dependencies = [
  "thiserror",
  "wasmer-types",
  "winapi",
+]
+
+[[package]]
+name = "wasmer_enumset"
+version = "1.0.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf088cc1f7d247fd96dff0df46fb1bbb747d8a69ae1ecd71aed55c55e354b2d8"
+dependencies = [
+ "num-traits",
+ "wasmer_enumset_derive",
+]
+
+[[package]]
+name = "wasmer_enumset_derive"
+version = "0.5.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "a8d1b32d98e11194200baf6d3f85eb2d6cfe56f6d9af0dd617f90ca48f958a88"
+dependencies = [
+ "darling",
+ "proc-macro2",
+ "quote",
+ "syn",
 ]
 
 [[package]]

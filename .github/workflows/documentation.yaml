@@ -1,0 +1,29 @@
+on:
+  push:
+    branches:
+      - 'master'
+
+name: Documentation
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libxkbcommon-dev doxygen
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.48.0
+          override: true
+      - name: Build & package documentation
+        run: make package-docs
+      - name: Publish documentation
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./package/docs

@@ -22,8 +22,14 @@ ifneq (, $(shell which llvm-config 2>/dev/null))
 	ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
+	ifneq (, $(findstring 11,$(LLVM_VERSION)))
+		compilers += llvm
+	endif
 else
 	ifneq (, $(shell which llvm-config-10 2>/dev/null))
+		compilers += llvm
+	endif
+	ifneq (, $(shell which llvm-config-11 2>/dev/null))
 		compilers += llvm
 	endif
 endif
@@ -82,6 +88,9 @@ endif
 compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
 
+HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
 $(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
@@ -95,10 +104,34 @@ bench:
 	cargo bench $(compiler_features)
 
 build-wasmer:
-	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --release --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
 
 build-wasmer-debug:
-	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	cargo build --manifest-path lib/cli/Cargo.toml $(compiler_features) --bin wasmer
+
+# For best results ensure the release profile looks like the following
+# in Cargo.toml:
+# [profile.release]
+# opt-level = 'z'
+# debug = false
+# debug-assertions = false
+# overflow-checks = false
+# lto = true
+# panic = 'abort'
+# incremental = false
+# codegen-units = 1
+# rpath = false
+build-wasmer-headless-minimal:
+	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+ifeq ($(UNAME_S), Darwin)
+	strip -u target/$(HOST_TARGET)/release/wasmer-headless
+else
+ifeq ($(OS), Windows_NT)
+	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
+else
+	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
+endif
+endif
 
 WAPM_VERSION = master # v0.5.0
 get-wapm:
@@ -234,6 +267,7 @@ test-packages:
 	cargo test -p wasmer-cli --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
+	cargo test -p wasmer-derive --release
 
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
@@ -285,12 +319,30 @@ test-integration:
 #############
 
 package-wapm:
-ifneq ($(OS), Windows_NT)
 	mkdir -p "package/bin"
+ifneq ($(OS), Windows_NT)
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/; \
-		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax; \
-		chmod +x package/bin/wax; \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
+		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
+		chmod +x package/bin/wax ;\
+	fi
+else
+	if [ -d "wapm-cli" ]; then \
+		cp wapm-cli/target/release/wapm package/bin/ ;\
+	fi
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wapm
+endif
+endif
+
+package-minimal-headless-wasmer:
+ifeq ($(OS), Windows_NT)
+	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer-headless.exe package/bin ;\
+	fi
+else
+	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless" ]; then \
+		cp target/$(HOST_TARGET)/release/wasmer-headless package/bin ;\
 	fi
 endif
 
@@ -300,6 +352,9 @@ ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer.exe package/bin/
 else
 	cp target/release/wasmer package/bin/
+ifeq ($(UNAME_S), Darwin)
+	codesign -s - package/bin/wasmer
+endif
 endif
 
 package-capi:
@@ -328,13 +383,13 @@ endif
 
 package-docs: build-docs build-docs-capi
 	mkdir -p "package/docs"
-	mkdir -p "package/docs/c"
+	mkdir -p "package/docs/c/runtime-c-api"
 	cp -R target/doc package/docs/crates
-	cp -R lib/c-api/doc/html package/docs/c-api
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=rust/wasmer_vm/index.html">' > package/docs/index.html
-	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer_vm/index.html">' > package/docs/crates/index.html
+	cp -R lib/c-api/doc/deprecated/html/ package/docs/c/runtime-c-api
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
+	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
-package: package-wapm package-wasmer package-capi
+package: package-wapm package-wasmer package-minimal-headless-wasmer package-capi
 
 distribution: package
 	cp LICENSE package/LICENSE
@@ -382,10 +437,3 @@ lint: lint-formatting lint-packages
 
 install-local: package
 	tar -C ~/.wasmer -zxvf wasmer.tar.gz
-
-publish-docs:
-	git clone -b "gh-pages" --depth=1 https://wasmerbot:$(GITHUB_DOCS_TOKEN)@github.com/wasmerio/wasmer.git api-docs-repo
-	cp -R package/docs/* api-docs-repo/
-	cd api-docs-repo && git add index.html crates/* c-api/*
-	cd api-docs-repo && (git diff-index --quiet HEAD || git commit -m "Publishing GitHub Pages")
-	# cd api-docs-repo && git push origin gh-pages

@@ -123,22 +123,71 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 helpers.push(helper_tokens);
             }
             match wasmer_attr {
-                WasmerAttr::Export { identifier, span } => {
+                WasmerAttr::Export {
+                    identifier,
+                    optional,
+                    aliases,
+                    span,
+                } => {
                     let finish_tokens = if let Some(name) = name {
                         let name_str = name.to_string();
                         let item_name =
                             identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
-                        quote_spanned! {f.span()=>
-                                let #name: #inner_type = instance.exports.get_with_generics(#item_name)?;
-                                self.#name.initialize(#name);
+                        let mut access_expr = quote_spanned! {
+                            f.span() =>
+                                instance.exports.get_with_generics::<#inner_type, _, _>(#item_name)
+                        };
+                        for alias in aliases {
+                            access_expr = quote_spanned! {
+                                f.span()=>
+                                    #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                            };
+                        }
+                        if optional {
+                            quote_spanned! {
+                                f.span()=>
+                                    match #access_expr {
+                                        Ok(#name) => { self.#name.initialize(#name); },
+                                        Err(_) => (),
+                                    };
+                            }
+                        } else {
+                            quote_spanned! {
+                                f.span()=>
+                                    let #name: #inner_type = #access_expr?;
+                                    self.#name.initialize(#name);
+                            }
                         }
                     } else {
                         if let Some(identifier) = identifier {
+                            let mut access_expr = quote_spanned! {
+                                f.span() =>
+                                    instance.exports.get_with_generics::<#inner_type, _, _>(#identifier)
+                            };
+                            for alias in aliases {
+                                access_expr = quote_spanned! {
+                                    f.span()=>
+                                        #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                                };
+                            }
                             let local_var =
                                 Ident::new(&format!("field_{}", field_num), identifier.span());
-                            quote_spanned! {f.span()=>
-                                    let #local_var: #inner_type = instance.exports.get_with_generics(#identifier)?;
+                            if optional {
+                                quote_spanned! {
+                                    f.span()=>
+                                        match #access_expr {
+                                            Ok(#local_var) => {
+                                                self.#field_num.initialize(#local_var);
+                                            },
+                                            Err(_) => (),
+                                        }
+                                }
+                            } else {
+                                quote_spanned! {
+                                    f.span()=>
+                                        let #local_var: #inner_type = #access_expr?;
                                     self.#field_num.initialize(#local_var);
+                                }
                             }
                         } else {
                             abort!(
