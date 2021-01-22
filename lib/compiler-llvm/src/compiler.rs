@@ -3,12 +3,11 @@ use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
 use crate::CompiledKind;
 use inkwell::context::Context;
-use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
@@ -72,6 +71,25 @@ impl SymbolRegistry for ShortNames {
     }
 }
 
+struct SendModule<'a> {
+    module: Arc<Mutex<Module<'a>>>,
+}
+impl<'a> SendModule<'a> {
+    fn new(module: Module<'a>) -> Self {
+        SendModule {
+            module: Arc::new(Mutex::new(module)),
+        }
+    }
+    fn into_inner(self) -> Module<'a> {
+        Arc::try_unwrap(self.module).unwrap().into_inner().unwrap()
+    }
+    fn link_in_module(&self, linked: SendModule<'a>) {
+        self.module.lock().unwrap().link_in_module(linked.into_inner());
+    }
+}
+
+unsafe impl Send for SendModule<'_> {}
+
 impl LLVMCompiler {
     fn compile_native_object<'data, 'module>(
         &self,
@@ -105,7 +123,7 @@ impl LLVMCompiler {
                         &compile_info.table_styles,
                         symbol_registry,
                     )?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                    Ok(SendModule::new(module))
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
@@ -125,7 +143,7 @@ impl LLVMCompiler {
                 |func_trampoline, (i, sig)| {
                     let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(*i));
                     let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                    Ok(SendModule::new(module))
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
@@ -151,7 +169,7 @@ impl LLVMCompiler {
                         symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(*i));
                     let module =
                         func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                    Ok(SendModule::new(module))
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
@@ -160,18 +178,12 @@ impl LLVMCompiler {
         let merged_bitcode = merged_bitcode
             .chain(trampolines_bitcode)
             .chain(dynamic_trampolines_bitcode)
-            .reduce_with(|bc1, bc2| {
-                let ctx = Context::create();
-                let membuf = MemoryBuffer::create_from_memory_range(&bc1, "");
-                let m1 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                let membuf = MemoryBuffer::create_from_memory_range(&bc2, "");
-                let m2 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                m1.link_in_module(m2).unwrap();
-                m1.write_bitcode_to_memory().as_slice().to_vec()
+            .reduce_with(|m1, m2| {
+                m1.link_in_module(m2);
+                m1
             });
-        let merged_module = if let Some(bc) = merged_bitcode {
-            let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-            Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap()
+        let merged_module = if let Some(m) = merged_bitcode {
+            m.into_inner()
         } else {
             ctx.create_module("")
         };
