@@ -11,6 +11,7 @@
 - [#2026](https://github.com/wasmerio/wasmer/pull/2010) Expose trap code of a `RuntimeError`, if it's a `Trap`.
 
 ### Changed
+- [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.
 
 ### Fixed
 
