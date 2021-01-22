@@ -378,6 +378,7 @@ example.
 [wasi-pipes]: ./wasi_pipes.rs
 [table]: ./table.rs
 [memory]: ./memory.rs
+[errors]: ./errors.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
