@@ -42,6 +42,8 @@ pub fn parse_mapdir(entry: &str) -> Result<(String, PathBuf)> {
 
 /// Parses an environment variable.
 pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
+    let entry = entry.trim();
+
     match entry.find('=') {
         None => bail!(
             "Environment variable must be of the form `<name>=<value>`; found `{}`",
@@ -58,7 +60,7 @@ pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
             &entry
         ),
 
-        Some(position) => dbg!(Ok((entry[..position].into(), entry[position + 1..].into()))),
+        Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),
     }
 }
 
@@ -81,6 +83,7 @@ mod tests {
             "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `A=`"
         );
         assert_eq!(parse_envvar("A=B").unwrap(), ("A".into(), "B".into()));
+        assert_eq!(parse_envvar("   A=B\t").unwrap(), ("A".into(), "B".into()));
         assert_eq!(
             parse_envvar("A=B=C=D").unwrap(),
             ("A".into(), "B=C=D".into())
