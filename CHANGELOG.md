@@ -14,6 +14,7 @@
 - [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.
 
 ### Fixed
+- [#2044](https://github.com/wasmerio/wasmer/pull/2044) Do not build C headers on docs.rs.
 
 ## 1.0.1 - 2021-01-12
 
