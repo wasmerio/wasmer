@@ -219,6 +219,11 @@ impl Instance {
         &*self.module
     }
 
+    /// Offsets in the `vmctx` region.
+    fn offsets(&self) -> &VMOffsets {
+        &self.offsets
+    }
+
     /// Return a pointer to the `VMSharedSignatureIndex`s.
     fn signature_ids_ptr(&self) -> *mut VMSharedSignatureIndex {
         unsafe { self.vmctx_plus_offset(self.offsets.vmctx_signature_ids_begin()) }
@@ -934,6 +939,13 @@ impl InstanceHandle {
     /// Return a raw pointer to the vmctx used by compiled wasm code.
     pub fn vmctx_ptr(&self) -> *mut VMContext {
         self.instance().as_ref().vmctx_ptr()
+    }
+
+    /// Return a reference to the `VMOffsets` to get offsets in the
+    /// `Self::vmctx_ptr` region. Be careful when doing pointer
+    /// arithmetic!
+    pub fn vmoffsets(&self) -> &VMOffsets {
+        self.instance().as_ref().offsets()
     }
 
     /// Return a reference-counting pointer to a module.
