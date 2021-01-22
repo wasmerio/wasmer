@@ -91,7 +91,7 @@ fn dynamic_function_with_env() -> Result<()> {
     #[derive(WasmerEnv, Clone)]
     struct Env {
         counter: Arc<AtomicUsize>,
-    };
+    }
 
     impl std::ops::Deref for Env {
         type Target = Arc<AtomicUsize>;
@@ -323,7 +323,7 @@ fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
     struct Env {
         #[wasmer(export)]
         memory: LazyInit<Memory>,
-    };
+    }
 
     let env: Env = Env {
         memory: LazyInit::default(),
@@ -353,7 +353,7 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
     #[derive(Clone)]
     struct Env {
         memory: LazyInit<Memory>,
-    };
+    }
 
     impl WasmerEnv for Env {
         fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
