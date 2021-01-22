@@ -85,6 +85,8 @@ impl LLVMCompiler {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
 
+        // TODO: https:/github.com/rayon-rs/rayon/issues/822
+
         let merged_bitcode = function_body_inputs
             .into_iter()
             .collect::<Vec<_>>()
