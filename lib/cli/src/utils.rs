@@ -40,14 +40,53 @@ pub fn parse_mapdir(entry: &str) -> Result<(String, PathBuf)> {
     }
 }
 
-/// Parses a mapdir from an env var
+/// Parses an environment variable.
 pub fn parse_envvar(entry: &str) -> Result<(String, String)> {
-    if let [env_var, value] = entry.split('=').collect::<Vec<&str>>()[..] {
-        Ok((env_var.to_string(), value.to_string()))
-    } else {
-        bail!(
-            "Env vars must be of the form <var_name>=<value>. Found {}",
+    let entry = entry.trim();
+
+    match entry.find('=') {
+        None => bail!(
+            "Environment variable must be of the form `<name>=<value>`; found `{}`",
             &entry
+        ),
+
+        Some(0) => bail!(
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `{}`",
+            &entry
+        ),
+
+        Some(position) if position == entry.len() - 1 => bail!(
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `{}`",
+            &entry
+        ),
+
+        Some(position) => Ok((entry[..position].into(), entry[position + 1..].into())),
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::parse_envvar;
+
+    #[test]
+    fn test_parse_envvar() {
+        assert_eq!(
+            parse_envvar("A").unwrap_err().to_string(),
+            "Environment variable must be of the form `<name>=<value>`; found `A`"
+        );
+        assert_eq!(
+            parse_envvar("=A").unwrap_err().to_string(),
+            "Environment variable is not well formed, the `name` is missing in `<name>=<value>`; got `=A`"
+        );
+        assert_eq!(
+            parse_envvar("A=").unwrap_err().to_string(),
+            "Environment variable is not well formed, the `value` is missing in `<name>=<value>`; got `A=`"
+        );
+        assert_eq!(parse_envvar("A=B").unwrap(), ("A".into(), "B".into()));
+        assert_eq!(parse_envvar("   A=B\t").unwrap(), ("A".into(), "B".into()));
+        assert_eq!(
+            parse_envvar("A=B=C=D").unwrap(),
+            ("A".into(), "B=C=D".into())
         );
     }
 }

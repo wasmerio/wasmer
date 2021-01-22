@@ -1,3 +1,8 @@
+//! This build script aims at:
+//!
+//! * generating the C header files for the C API,
+//! * setting `inline-c` up.
+
 use cbindgen::{Builder, Language};
 use std::{env, fs, path::PathBuf};
 
@@ -59,9 +64,20 @@ fn main() {
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
 
-    build_wasm_c_api_headers(&crate_dir, &out_dir);
-    build_wasmer_headers(&crate_dir, &out_dir);
+    if building_c_api_headers() {
+        build_wasm_c_api_headers(&crate_dir, &out_dir);
+        build_wasmer_c_api_headers(&crate_dir, &out_dir);
+    }
+
     build_inline_c_env_vars();
+}
+
+/// Check whether we should build the C API headers.
+///
+/// For the moment, it's always enabled, unless if the `DOCS_RS`
+/// environment variable is present.
+fn building_c_api_headers() -> bool {
+    env::var("DOCS_RS").is_err()
 }
 
 /// Build the header files for the `wasm_c_api` API.
@@ -126,7 +142,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
 }
 
 /// Build the header files for the `deprecated` API.
-fn build_wasmer_headers(crate_dir: &str, out_dir: &str) {
+fn build_wasmer_c_api_headers(crate_dir: &str, out_dir: &str) {
     let mut crate_header_file = PathBuf::from(crate_dir);
     crate_header_file.push("wasmer");
 

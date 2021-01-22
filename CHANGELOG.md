@@ -11,9 +11,11 @@
 - [#2026](https://github.com/wasmerio/wasmer/pull/2010) Expose trap code of a `RuntimeError`, if it's a `Trap`.
 
 ### Changed
+- [#2042](https://github.com/wasmerio/wasmer/pull/2042) Parse more exotic environment variables in `wasmer run`.
 - [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.
 
 ### Fixed
+- [#2044](https://github.com/wasmerio/wasmer/pull/2044) Do not build C headers on docs.rs.
 
 ## 1.0.1 - 2021-01-12
 
