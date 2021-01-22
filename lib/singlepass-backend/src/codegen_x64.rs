@@ -34,7 +34,7 @@ use wasmer_runtime_core::{
     state::{
         x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
         FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
-        WasmAbstractValue,
+        WasmAbstractValue, borsh_serialize_usize_vec, borsh_deserialize_usize_vec
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -45,6 +45,7 @@ use wasmer_runtime_core::{
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
     wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
 };
+use borsh::{BorshSerialize, BorshDeserialize};
 
 #[cfg(target_arch = "aarch64")]
 #[allow(dead_code)]
@@ -398,6 +399,30 @@ pub struct CacheImage {
 
     /// An exception table that maps instruction offsets to exception codes.
     exception_table: ExceptionTable,
+}
+
+impl BorshSerialize for CacheImage {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        BorshSerialize::serialize(&self.code, writer)?;
+        borsh_serialize_usize_vec(&self.function_pointers, writer)?;
+        borsh_serialize_usize_vec(&self.function_offsets, writer)?;
+        BorshSerialize::serialize(&(self.func_import_count as u64), writer)?;
+        BorshSerialize::serialize(&self.msm, writer)?;
+        BorshSerialize::serialize(&self.exception_table, writer)
+    }
+}
+
+impl BorshDeserialize for CacheImage {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let code: Vec<u8> = BorshDeserialize::deserialize(buf)?;
+        let function_pointers = borsh_deserialize_usize_vec(buf)?;
+        let function_offsets = borsh_deserialize_usize_vec(buf)?;
+        let func_import_count: u64 = BorshDeserialize::deserialize(buf)?;
+        let func_import_count = func_import_count as usize;
+        let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
+        let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
+        Ok(Self {code, function_pointers, function_offsets, func_import_count, msm, exception_table})
+    }
 }
 
 #[derive(Debug)]
@@ -978,7 +1003,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         let cache = SinglepassCache {
-            buffer: Arc::from(bincode::serialize(&cache_image).unwrap().into_boxed_slice()),
+            buffer: Arc::from(&cache_image.try_to_vec().unwrap().into_boxed_slice()),
         };
 
         Ok((
@@ -1156,7 +1181,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         let (info, _, memory) = artifact.consume();
 
-        let cache_image: CacheImage = bincode::deserialize(memory.as_slice())
+        let cache_image: CacheImage = CacheImage::read_from_slice(memory.as_slice())
             .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
 
         let mut code_mem = CodeMemory::new(cache_image.code.len());

@@ -135,8 +135,8 @@ dependencies = [
 
 [[package]]
 name = "borsh"
-version = "0.8.0"
-source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=69cb28ce0ccdc94a0ab3809f7a279993d0156e33#69cb28ce0ccdc94a0ab3809f7a279993d0156e33"
 dependencies = [
  "borsh-derive",
  "hashbrown",
@@ -144,19 +144,20 @@ dependencies = [
 
 [[package]]
 name = "borsh-derive"
-version = "0.8.0"
-source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=69cb28ce0ccdc94a0ab3809f7a279993d0156e33#69cb28ce0ccdc94a0ab3809f7a279993d0156e33"
 dependencies = [
  "borsh-derive-internal",
  "borsh-schema-derive-internal",
  "proc-macro-crate",
+ "proc-macro2 1.0.24",
  "syn 1.0.16",
 ]
 
 [[package]]
 name = "borsh-derive-internal"
-version = "0.8.0"
-source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=69cb28ce0ccdc94a0ab3809f7a279993d0156e33#69cb28ce0ccdc94a0ab3809f7a279993d0156e33"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.2",
@@ -165,8 +166,8 @@ dependencies = [
 
 [[package]]
 name = "borsh-schema-derive-internal"
-version = "0.8.0"
-source = "git+https://github.com/near/borsh?rev=949f0da7134845fd3155a1c70722b8a2c8962865#949f0da7134845fd3155a1c70722b8a2c8962865"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=69cb28ce0ccdc94a0ab3809f7a279993d0156e33#69cb28ce0ccdc94a0ab3809f7a279993d0156e33"
 dependencies = [
  "proc-macro2 1.0.24",
  "quote 1.0.2",
@@ -2975,6 +2976,7 @@ name = "wasmer-singlepass-backend"
 version = "0.17.1"
 dependencies = [
  "bincode",
+ "borsh",
  "byteorder",
  "dynasm",
  "dynasmrt",

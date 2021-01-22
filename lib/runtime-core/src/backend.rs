@@ -18,6 +18,8 @@ use std::{any::Any, ptr::NonNull};
 
 use std::collections::HashMap;
 
+use borsh::{BorshSerialize, BorshDeserialize};
+
 pub mod sys {
     pub use crate::sys::*;
 }
@@ -189,7 +191,7 @@ impl CompilerConfig {
 }
 
 /// An exception table for a `RunnableModule`.
-#[derive(Clone, Debug, Default, Serialize, Deserialize)]
+#[derive(Clone, Debug, Default, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct ExceptionTable {
     /// Mappings from offsets in generated machine code to the corresponding exception code.
     pub offset_to_code: HashMap<usize, ExceptionCode>,
@@ -202,7 +204,7 @@ impl ExceptionTable {
 }
 
 /// The code of an exception.
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub enum ExceptionCode {
     /// An `unreachable` opcode was executed.
     Unreachable = 0,
