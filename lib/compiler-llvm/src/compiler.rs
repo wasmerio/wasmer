@@ -157,7 +157,9 @@ impl LLVMCompiler {
             .collect::<Result<Vec<_>, CompileError>>()?
             .into_par_iter();
 
-        let merged_bitcode = merged_bitcode.chain(trampolines_bitcode).chain(dynamic_trampolines_bitcode)
+        let merged_bitcode = merged_bitcode
+            .chain(trampolines_bitcode)
+            .chain(dynamic_trampolines_bitcode)
             .reduce_with(|bc1, bc2| {
                 let ctx = Context::create();
                 let membuf = MemoryBuffer::create_from_memory_range(&bc1, "");
