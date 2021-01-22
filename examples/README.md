@@ -360,6 +360,7 @@ example.
 
    </details>
 
+[hello-world]: ./hello_world.rs
 [engine-jit]: ./engine_jit.rs
 [engine-native]: ./engine_native.rs
 [engine-headless]: ./engine_headless.rs
