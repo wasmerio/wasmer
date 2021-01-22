@@ -70,13 +70,13 @@ example.
 3. [**Handling errors**][errors], explains the basics of interacting with
    Wasm module memory.
    
-   _Keywords_: memory, module.
+   _Keywords_: instance, error.
    
    <details>
     <summary><em>Execute the example</em></summary>
 
     ```shell
-    $ cargo run --example memory --release --features "cranelift"
+    $ cargo run --example errors --release --features "cranelift"
     ```
 
    </details>
@@ -204,7 +204,7 @@ example.
 
 ### Tunables
 
-1. **Limit memory**, explains how to use Tunables to limit the
+1. [**Limit memory**][tunables-limit-memory], explains how to use Tunables to limit the
    size of an exported Wasm memory
 
    _Keywords_: basic, tunables, memory
@@ -379,6 +379,7 @@ example.
 [table]: ./table.rs
 [memory]: ./memory.rs
 [errors]: ./errors.rs
+[tunables-limit-memory]: ./tunables_limit_memory.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
