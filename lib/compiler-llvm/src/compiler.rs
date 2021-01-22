@@ -7,7 +7,7 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
@@ -84,12 +84,8 @@ impl LLVMCompiler {
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
-        let merged_module = ctx.create_module("");
 
-        // TODO: make these steps run in parallel instead of in three phases
-        // with a serial step in between them.
-
-        function_body_inputs
+        let merged_bitcode = function_body_inputs
             .into_iter()
             .collect::<Vec<_>>()
             .par_iter()
@@ -113,14 +109,9 @@ impl LLVMCompiler {
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
-            });
+            .into_par_iter();
 
-        compile_info
+        let trampolines_bitcode = compile_info
             .module
             .signatures
             .iter()
@@ -138,14 +129,9 @@ impl LLVMCompiler {
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
-            });
+            .into_par_iter();
 
-        compile_info
+        let dynamic_trampolines_bitcode = compile_info
             .module
             .functions
             .iter()
@@ -169,12 +155,24 @@ impl LLVMCompiler {
                 },
             )
             .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
+            .into_par_iter();
+
+        let merged_bitcode = merged_bitcode.chain(trampolines_bitcode).chain(dynamic_trampolines_bitcode)
+            .reduce_with(|bc1, bc2| {
+                let ctx = Context::create();
+                let membuf = MemoryBuffer::create_from_memory_range(&bc1, "");
+                let m1 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                let membuf = MemoryBuffer::create_from_memory_range(&bc2, "");
+                let m2 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                m1.link_in_module(m2).unwrap();
+                m1.write_bitcode_to_memory().as_slice().to_vec()
             });
+        let merged_module = if let Some(bc) = merged_bitcode {
+            let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
+            Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap()
+        } else {
+            ctx.create_module("")
+        };
 
         let i8_ty = ctx.i8_type();
         let metadata_init = i8_ty.const_array(
