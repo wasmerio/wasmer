@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["ModuleInfoMemoryOffset","Memory definition offset in the VMContext structure."]],"struct":[["ModuleInfoVmctxInfo","ModuleInfo `vmctx` related info."]],"type":[["StackSlots","Stack slots for functions."],["ValueLabelsRanges","Value ranges for functions."]]});

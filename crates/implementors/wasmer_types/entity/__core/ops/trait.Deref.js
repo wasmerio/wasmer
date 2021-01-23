@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_types"] = [{"text":"impl&lt;'a, T&gt; Deref for MemoryView&lt;'a, T, NonAtomically&gt;","synthetic":false,"types":[]},{"text":"impl&lt;'a, T&gt; Deref for MemoryView&lt;'a, T, Atomically&gt;","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

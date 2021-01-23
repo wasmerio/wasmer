@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["get_cache_dir","Get the cache dir"]],"struct":[["PrestandardFeatures",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["TableStyle","Implementation styles for WebAssembly tables."],["VMTableDefinitionOwnership","A type to help manage who is responsible for the backing table of the `VMTableDefinition`."]],"struct":[["LinearTable","A table instance."]],"trait":[["Table","Trait for implementing the interface of a Wasm table."]]});

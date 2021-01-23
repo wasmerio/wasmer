@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["record_lift",""],["record_lift_","Build an `InterfaceValue::Record` based on values on the stack."],["record_lower",""]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["FileSystemCache","Representation of a directory that contains compiled wasm artifacts."]]});

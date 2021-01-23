@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["Tunables","An engine delegates the creation of memories, tables, and globals to a foreign implementor of this trait."]]});

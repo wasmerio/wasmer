@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_types"] = [{"text":"impl Display for Type","synthetic":false,"types":[]},{"text":"impl Display for FunctionType","synthetic":false,"types":[]},{"text":"impl Display for GlobalType","synthetic":false,"types":[]},{"text":"impl Display for TableType","synthetic":false,"types":[]},{"text":"impl Display for MemoryType","synthetic":false,"types":[]},{"text":"impl Display for PageCountOutOfRange","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

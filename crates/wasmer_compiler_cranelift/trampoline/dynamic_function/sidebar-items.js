@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["make_trampoline_dynamic_function","Create a trampoline for invoking a WebAssembly function."]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["TRAP_EARLY_DATA",""]],"enum":[["CallProtError",""]],"fn":[["call_protected",""],["throw",""],["trigger_trap",""]]});

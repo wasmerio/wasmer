@@ -1,0 +1,94 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `deprecated` mod in crate `wasmer_c_api`."><meta name="keywords" content="rust, rustlang, rust-lang, deprecated"><title>wasmer_c_api::deprecated - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a><p class='location'>Module deprecated</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li></ul></div><p class='location'><a href='../index.html'>wasmer_c_api</a></p><script>window.sidebarCurrent = {name: 'deprecated', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/wasmer_c_api/deprecated/mod.rs.html#1-174' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>wasmer_c_api</a>::<wbr><a class="mod" href=''>deprecated</a></span></h1><div class='docblock'><h1 id="wasmer-runtime-c-api" class="section-header"><a href="#wasmer-runtime-c-api">Wasmer Runtime C API</a></h1>
+<p>Wasmer is a standalone JIT WebAssembly runtime, aiming to be fully
+compatible with Emscripten, Rust and Go. <a href="https://github.com/wasmerio/wasmer">Learn
+more</a>.</p>
+<p>This crate exposes a C and C++ API for the Wasmer runtime.</p>
+<h1 id="usage" class="section-header"><a href="#usage">Usage</a></h1>
+<p>The C and C++ header files can be found in the source tree of this
+crate, respectively <a href="./wasmer.h"><code>wasmer.h</code></a> and
+<a href="./wasmer.hh"><code>wasmer.hh</code></a>. They are automatically generated, and always
+up-to-date in this repository.</p>
+<p>Here is a simple example to use the C API:</p>
+<pre><code class="language-c">#include &lt;stdio.h&gt;
+#include &quot;wasmer.h&quot;
+#include &lt;assert.h&gt;
+#include &lt;stdint.h&gt;
+
+int main()
+{
+    // Read the Wasm file bytes.
+    FILE *file = fopen(&quot;sum.wasm&quot;, &quot;r&quot;);
+    fseek(file, 0, SEEK_END);
+    long len = ftell(file);
+    uint8_t *bytes = malloc(len);
+    fseek(file, 0, SEEK_SET);
+    fread(bytes, 1, len, file);
+    fclose(file);
+
+    // Prepare the imports.
+    wasmer_import_t imports[] = {};
+
+    // Instantiate!
+    wasmer_instance_t *instance = NULL;
+    wasmer_result_t instantiation_result = wasmer_instantiate(&amp;instance, bytes, len, imports, 0);
+
+    assert(instantiation_result == WASMER_OK);
+
+    // Let's call a function.
+    // Start by preparing the arguments.
+
+    // Value of argument #1 is `7i32`.
+    wasmer_value_t argument_one;
+    argument_one.tag = WASM_I32;
+    argument_one.value.I32 = 7;
+
+    // Value of argument #2 is `8i32`.
+    wasmer_value_t argument_two;
+    argument_two.tag = WASM_I32;
+    argument_two.value.I32 = 8;
+
+    // Prepare the arguments.
+    wasmer_value_t arguments[] = {argument_one, argument_two};
+
+    // Prepare the return value.
+    wasmer_value_t result_one;
+    wasmer_value_t results[] = {result_one};
+
+    // Call the `sum` function with the prepared arguments and the return value.
+    wasmer_result_t call_result = wasmer_instance_call(instance, &quot;sum&quot;, arguments, 2, results, 1);
+
+    // Let's display the result.
+    printf(&quot;Call result:  %d\n&quot;, call_result);
+    printf(&quot;Result: %d\n&quot;, results[0].value.I32);
+
+    // `sum(7, 8) == 15`.
+    assert(results[0].value.I32 == 15);
+    assert(call_result == WASMER_OK);
+
+    wasmer_instance_destroy(instance);
+
+    return 0;
+}
+</code></pre>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="export/index.html" title='wasmer_c_api::deprecated::export mod'>export</a></td><td class='docblock-short'><p>Create, read, destroy export definitions (function, global, memory
+and table) on an instance.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="global/index.html" title='wasmer_c_api::deprecated::global mod'>global</a></td><td class='docblock-short'><p>Create, set, get and destroy global variables of an instance.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="import/index.html" title='wasmer_c_api::deprecated::import mod'>import</a></td><td class='docblock-short'><p>Create, read, destroy import definitions (function, global, memory
+and table) on an instance.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="instance/index.html" title='wasmer_c_api::deprecated::instance mod'>instance</a></td><td class='docblock-short'><p>Instantiate a module, call functions, and read exports.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="memory/index.html" title='wasmer_c_api::deprecated::memory mod'>memory</a></td><td class='docblock-short'><p>Create, read, write, grow, destroy memory of an instance.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="module/index.html" title='wasmer_c_api::deprecated::module mod'>module</a></td><td class='docblock-short'><p>Compile, validate, instantiate, serialize, and destroy modules.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="table/index.html" title='wasmer_c_api::deprecated::table mod'>table</a></td><td class='docblock-short'><p>Create, grow, destroy tables of an instance.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="value/index.html" title='wasmer_c_api::deprecated::value mod'>value</a></td><td class='docblock-short'><p>Create and map Rust to WebAssembly values.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.wasmer_byte_array.html" title='wasmer_c_api::deprecated::wasmer_byte_array struct'>wasmer_byte_array</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="struct" href="struct.wasmer_limit_option_t.html" title='wasmer_c_api::deprecated::wasmer_limit_option_t struct'>wasmer_limit_option_t</a></td><td class='docblock-short'><p>The <code>wasmer_limit_option_t</code> struct represents an optional limit
+for <code>wasmer_limits_t</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.wasmer_limits_t.html" title='wasmer_c_api::deprecated::wasmer_limits_t struct'>wasmer_limits_t</a></td><td class='docblock-short'><p>The <code>wasmer_limits_t</code> struct is a type that describes the limits of something
+such as a memory or a table. See the <code>wasmer_memory_new()</code> function to get
+more information.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.wasmer_result_t.html" title='wasmer_c_api::deprecated::wasmer_result_t enum'>wasmer_result_t</a></td><td class='docblock-short'><p>The <code>wasmer_result_t</code> enum is a type that represents either a
+success, or a failure.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_c_api";</script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["wasm_mutability_enum",""]],"type":[["wasm_mutability_t",""]]});

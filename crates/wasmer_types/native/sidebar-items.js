@@ -1,0 +1,1 @@
+initSidebarItems({"trait":[["NativeWasmType","`NativeWasmType` represents a Wasm type that has a direct representation on the host (hence the “native” term)."],["ValueType","Trait for a Value type. A Value type is a type that is always valid and may be safely copied."]]});

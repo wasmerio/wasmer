@@ -1,9 +1,4 @@
 (function() {var implementors = {};
-implementors["wasmer_llvm_backend"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/bit/trait.BitAnd.html\" title=\"trait core::ops::bit::BitAnd\">BitAnd</a>&lt;<a class=\"struct\" href=\"wasmer_llvm_backend/state/struct.ExtraInfo.html\" title=\"struct wasmer_llvm_backend::state::ExtraInfo\">ExtraInfo</a>&gt; for <a class=\"struct\" href=\"wasmer_llvm_backend/state/struct.ExtraInfo.html\" title=\"struct wasmer_llvm_backend::state::ExtraInfo\">ExtraInfo</a>","synthetic":false,"types":["wasmer_llvm_backend::state::ExtraInfo"]}];
-
-            if (window.register_implementors) {
-                window.register_implementors(implementors);
-            } else {
-                window.pending_implementors = implementors;
-            }
-        })()
+implementors["wasmer_compiler"] = [{"text":"impl&lt;O:&nbsp;Into&lt;EnumSet&lt;CpuFeature&gt;&gt;&gt; BitAnd&lt;O&gt; for CpuFeature","synthetic":false,"types":[]}];
+implementors["wasmer_compiler_llvm"] = [{"text":"impl BitAnd&lt;ExtraInfo&gt; for ExtraInfo","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

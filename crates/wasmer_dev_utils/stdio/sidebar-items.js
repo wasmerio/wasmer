@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["close",""],["dup","`dup` creates a new `fd`, make sure you `close` it when you're done with it!!"],["dup2",""],["pipe",""]],"struct":[["StdioCapturer",""]]});

@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_derive"] = [{"text":"impl Parse for ExportOptions","synthetic":false,"types":[]},{"text":"impl Parse for ExportExpr","synthetic":false,"types":[]},{"text":"impl Parse for WasmerAttrInner","synthetic":false,"types":[]},{"text":"impl Parse for WasmerAttr","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

@@ -1,0 +1,38 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `store` mod in crate `wasmer_c_api`."><meta name="keywords" content="rust, rustlang, rust-lang, store"><title>wasmer_c_api::wasm_c_api::store - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a><p class='location'>Module store</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#structs">Structs</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>wasm_c_api</a></p><script>window.sidebarCurrent = {name: 'store', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/wasmer_c_api/wasm_c_api/store.rs.html#1-31' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>wasm_c_api</a>::<wbr><a class="mod" href=''>store</a></span></h1><div class='docblock'><p>A store represents all global state that can be manipulated by
+WebAssembly programs. It consists of the runtime representation of
+all instances of functions, tables, memories, and globals that
+have been allocated during the lifetime of the abstract machine.</p>
+<p>The store holds the <a href="../../../wasmer_c_api/wasm_c_api/engine/index.html" title="engine">engine</a> (that is —amonst many things— used to
+compile the Wasm bytes into a valid <a href="../../../wasmer_c_api/wasm_c_api/module/index.html" title="module">module</a> artifact), in addition
+to extra private types.</p>
+<p>Entry points: A store is created with
+<a href="../../../wasmer_c_api/wasm_c_api/store/fn.wasm_store_new.html" title="store::wasm_store_new"><code>wasm_store_new</code></a> and freed with
+<a href="../../../wasmer_c_api/wasm_c_api/store/fn.wasm_store_delete.html" title="store::wasm_store_delete"><code>wasm_store_delete</code></a>. To customize the
+engine the store holds, see
+<a href="../../../wasmer_c_api/wasm_c_api/engine/fn.wasm_config_new.html" title="engine::wasm_config_new"><code>wasm_config_new</code></a>.</p>
+<h1 id="example" class="section-header"><a href="#example">Example</a></h1>
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="ident">int</span> <span class="ident">main</span>() {
+    <span class="comment">// Create the engine.</span>
+    <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
+
+    <span class="comment">// Create the store.</span>
+    <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+
+    <span class="comment">// It works!</span>
+    <span class="ident">assert</span>(<span class="ident">store</span>);
+    
+    <span class="comment">// Free everything.</span>
+    <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
+    <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
+
+    <span class="kw">return</span> <span class="number">0</span>;
+}</pre></div>
+<p>cbindgen:ignore</p>
+</div><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.wasm_store_t.html" title='wasmer_c_api::wasm_c_api::store::wasm_store_t struct'>wasm_store_t</a></td><td class='docblock-short'><p>Opaque type representing a WebAssembly store.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.wasm_store_delete.html" title='wasmer_c_api::wasm_c_api::store::wasm_store_delete fn'>wasm_store_delete</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Deletes a WebAssembly store.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasm_store_new.html" title='wasmer_c_api::wasm_c_api::store::wasm_store_new fn'>wasm_store_new</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Creates a new WebAssembly store given a specific <a href="../../../wasmer_c_api/wasm_c_api/engine/index.html" title="super::engine">engine</a>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_c_api";</script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

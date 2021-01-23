@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["set_table_item",""]],"struct":[["Table","A WebAssembly `table` instance."]]});

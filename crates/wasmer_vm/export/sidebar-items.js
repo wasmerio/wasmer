@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["VMExport","The value of an export passed from one instance to another."]],"struct":[["VMExportFunction","A function export value."],["VMExportGlobal","A global export value."],["VMExportMemory","A memory export value."],["VMExportTable","A table export value."]]});

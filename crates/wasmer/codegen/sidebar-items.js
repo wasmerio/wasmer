@@ -1,1 +1,0 @@
-initSidebarItems({"trait":[["ModuleCodeGenerator","A trait that represents the functions needed to be implemented to generate code for a module."]]});

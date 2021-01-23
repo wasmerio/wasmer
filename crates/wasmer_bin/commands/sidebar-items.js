@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Cache",""]],"mod":[["cache",""],["run",""],["selfupdate","When wasmer self-update is executed, this is what gets executed"],["validate",""]],"struct":[["LLVMCLIOptions","LLVM backend flags."],["Run",""],["SelfUpdate",""],["Validate",""]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["generate_export_signature",""],["generate_func","This function generates a trampoline for the specific signature passed into it."],["generate_trampoline_signature",""],["round_up",""],["wasm_ty_to_clif",""]],"struct":[["NullRelocSink",""],["Trampolines",""]]});

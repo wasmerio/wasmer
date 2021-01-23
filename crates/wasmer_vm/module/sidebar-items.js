@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["ExportsIterator","This iterator allows us to iterate over the exports and offer nice API ergonomics over it."],["ImportsIterator","This iterator allows us to iterate over the imports and offer nice API ergonomics over it."],["ModuleId",""],["ModuleInfo","A translated WebAssembly module, excluding the function bodies and memory initializers."]]});

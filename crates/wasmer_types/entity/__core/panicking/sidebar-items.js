@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["panic","The underlying implementation of libcore's `panic!` macro when no formatting is used."],["panic_fmt","The underlying implementation of libcore's `panic!` macro when formatting is used."]]});

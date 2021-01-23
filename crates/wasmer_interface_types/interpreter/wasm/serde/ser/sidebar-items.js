@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["SerializeError","Represents an error while serializing."]],"fn":[["to_interface_value","Serialize a type `T` that implements the `Serialize` trait to an `InterfaceValue`."]],"struct":[["Serializer","The serializer."]]});

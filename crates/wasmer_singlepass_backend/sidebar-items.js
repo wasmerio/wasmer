@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["codegen_x64",""],["emitter_x64",""],["machine",""]],"struct":[["FunctionCodeGenerator",""],["ModuleCodeGenerator",""]],"type":[["SinglePassCompiler",""]]});

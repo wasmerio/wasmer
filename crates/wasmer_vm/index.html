@@ -1,0 +1,122 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `wasmer_vm` crate."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer_vm"><title>wasmer_vm - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate wasmer_vm</p><div class='block version'><p>Version 1.0.1</p></div><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all wasmer_vm's items</p></a><div class="block items"><ul><li><a href="#modules">Modules</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#statics">Statics</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li><li><a href="#unions">Unions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'wasmer_vm', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/wasmer_vm/lib.rs.html#1-96' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>wasmer_vm</a></span></h1><div class='docblock'><p>Runtime library support for Wasmer.</p>
+</div><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="export/index.html" title='wasmer_vm::export mod'>export</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="global/index.html" title='wasmer_vm::global mod'>global</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="imports/index.html" title='wasmer_vm::imports mod'>imports</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="instance/index.html" title='wasmer_vm::instance mod'>instance</a></td><td class='docblock-short'><p>An <code>Instance</code> contains all the runtime state used by execution of
+a WebAssembly module (except its callstack and register state). An
+<code>InstanceRef</code> is a wrapper around <code>Instance</code> that manages
+how it is allocated and deallocated. An <code>InstanceHandle</code> is a
+wrapper around an <code>InstanceRef</code>.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="libcalls/index.html" title='wasmer_vm::libcalls mod'>libcalls</a></td><td class='docblock-short'><p>Runtime library calls.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="memory/index.html" title='wasmer_vm::memory mod'>memory</a></td><td class='docblock-short'><p>Memory management for linear memories.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="mmap/index.html" title='wasmer_vm::mmap mod'>mmap</a></td><td class='docblock-short'><p>Low-level abstraction for allocating and managing zero-filled pages
+of memory.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="module/index.html" title='wasmer_vm::module mod'>module</a></td><td class='docblock-short'><p>Data structure for representing WebAssembly modules in a
+<code>wasmer::Module</code>.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="probestack/index.html" title='wasmer_vm::probestack mod'>probestack</a></td><td class='docblock-short'><p>This section defines the <code>PROBESTACK</code> intrinsic which is used in the
+implementation of &quot;stack probes&quot; on certain platforms.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="sig_registry/index.html" title='wasmer_vm::sig_registry mod'>sig_registry</a></td><td class='docblock-short'><p>Implement a registry of function signatures, for fast indirect call
+signature checking.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="table/index.html" title='wasmer_vm::table mod'>table</a></td><td class='docblock-short'><p>Memory management for tables.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="trap/index.html" title='wasmer_vm::trap mod'>trap</a></td><td class='docblock-short'><p>This is the module that facilitates the usage of Traps
+in Wasmer Runtime</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="vmcontext/index.html" title='wasmer_vm::vmcontext mod'>vmcontext</a></td><td class='docblock-short'><p>This file declares <code>VMContext</code> and several related structs which contain
+fields that compiled wasm code accesses directly.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="vmoffsets/index.html" title='wasmer_vm::vmoffsets mod'>vmoffsets</a></td><td class='docblock-short'><p>Offsets and sizes of various structs in wasmer-vm's vmcontext
+module.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.ExportsIterator.html" title='wasmer_vm::ExportsIterator struct'>ExportsIterator</a></td><td class='docblock-short'><p>This iterator allows us to iterate over the exports
+and offer nice API ergonomics over it.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.FunctionBodyPtr.html" title='wasmer_vm::FunctionBodyPtr struct'>FunctionBodyPtr</a></td><td class='docblock-short'><p>A safe wrapper around <code>VMFunctionBody</code>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Global.html" title='wasmer_vm::Global struct'>Global</a></td><td class='docblock-short'><p>A Global instance</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Imports.html" title='wasmer_vm::Imports struct'>Imports</a></td><td class='docblock-short'><p>Resolved import pointers.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ImportsIterator.html" title='wasmer_vm::ImportsIterator struct'>ImportsIterator</a></td><td class='docblock-short'><p>This iterator allows us to iterate over the imports
+and offer nice API ergonomics over it.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.InstanceAllocator.html" title='wasmer_vm::InstanceAllocator struct'>InstanceAllocator</a></td><td class='docblock-short'><p>This is an intermediate type that manages the raw allocation and
+metadata when creating an <a href="../wasmer_vm/instance/struct.Instance.html" title="Instance"><code>Instance</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.InstanceHandle.html" title='wasmer_vm::InstanceHandle struct'>InstanceHandle</a></td><td class='docblock-short'><p>A handle holding an <code>InstanceRef</code>, which holds an <code>Instance</code>
+of a WebAssembly module.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.LinearMemory.html" title='wasmer_vm::LinearMemory struct'>LinearMemory</a></td><td class='docblock-short'><p>A linear memory instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.LinearTable.html" title='wasmer_vm::LinearTable struct'>LinearTable</a></td><td class='docblock-short'><p>A table instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Mmap.html" title='wasmer_vm::Mmap struct'>Mmap</a></td><td class='docblock-short'><p>A simple struct consisting of a page-aligned pointer to page-aligned
+and initially-zeroed memory and a length.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ModuleInfo.html" title='wasmer_vm::ModuleInfo struct'>ModuleInfo</a></td><td class='docblock-short'><p>A translated WebAssembly module, excluding the function bodies and
+memory initializers.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.SectionBodyPtr.html" title='wasmer_vm::SectionBodyPtr struct'>SectionBodyPtr</a></td><td class='docblock-short'><p>Pointers to section data.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.SignatureRegistry.html" title='wasmer_vm::SignatureRegistry struct'>SignatureRegistry</a></td><td class='docblock-short'><p>WebAssembly requires that the caller and callee signatures in an indirect
+call must match. To implement this efficiently, keep a registry of all
+signatures, shared by all instances, so that call sites can just do an
+index comparison.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.TargetSharedSignatureIndex.html" title='wasmer_vm::TargetSharedSignatureIndex struct'>TargetSharedSignatureIndex</a></td><td class='docblock-short'><p>Target specific type for shared signature index.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMBuiltinFunctionIndex.html" title='wasmer_vm::VMBuiltinFunctionIndex struct'>VMBuiltinFunctionIndex</a></td><td class='docblock-short'><p>An index type for builtin functions.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMCallerCheckedAnyfunc.html" title='wasmer_vm::VMCallerCheckedAnyfunc struct'>VMCallerCheckedAnyfunc</a></td><td class='docblock-short'><p>The VM caller-checked &quot;anyfunc&quot; record, for caller-side signature checking.
+It consists of the actual function pointer and a signature id to be checked
+by the caller.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMContext.html" title='wasmer_vm::VMContext struct'>VMContext</a></td><td class='docblock-short'><p>The VM &quot;context&quot;, which is pointed to by the <code>vmctx</code> arg in the compiler.
+This has information about globals, memories, tables, and other runtime
+state associated with the current instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMDynamicFunctionContext.html" title='wasmer_vm::VMDynamicFunctionContext struct'>VMDynamicFunctionContext</a></td><td class='docblock-short'><p>The <code>VMDynamicFunctionContext</code> is the context that dynamic
+functions will receive when called (rather than <code>vmctx</code>).
+A dynamic function is a function for which we don't know the signature
+until runtime.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMExportFunction.html" title='wasmer_vm::VMExportFunction struct'>VMExportFunction</a></td><td class='docblock-short'><p>A function export value.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMExportGlobal.html" title='wasmer_vm::VMExportGlobal struct'>VMExportGlobal</a></td><td class='docblock-short'><p>A global export value.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMExportMemory.html" title='wasmer_vm::VMExportMemory struct'>VMExportMemory</a></td><td class='docblock-short'><p>A memory export value.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMExportTable.html" title='wasmer_vm::VMExportTable struct'>VMExportTable</a></td><td class='docblock-short'><p>A table export value.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMFunctionBody.html" title='wasmer_vm::VMFunctionBody struct'>VMFunctionBody</a></td><td class='docblock-short'><p>A placeholder byte-sized type which is just used to provide some amount of type
+safety when dealing with pointers to JIT-compiled function bodies. Note that it's
+deliberately not Copy, as we shouldn't be carelessly copying function body bytes
+around.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMFunctionImport.html" title='wasmer_vm::VMFunctionImport struct'>VMFunctionImport</a></td><td class='docblock-short'><p>An imported function.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMGlobalDefinition.html" title='wasmer_vm::VMGlobalDefinition struct'>VMGlobalDefinition</a></td><td class='docblock-short'><p>The storage for a WebAssembly global defined within the instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMGlobalImport.html" title='wasmer_vm::VMGlobalImport struct'>VMGlobalImport</a></td><td class='docblock-short'><p>The fields compiled code needs to access to utilize a WebAssembly global
+variable imported from another instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMMemoryDefinition.html" title='wasmer_vm::VMMemoryDefinition struct'>VMMemoryDefinition</a></td><td class='docblock-short'><p>The fields compiled code needs to access to utilize a WebAssembly linear
+memory defined within the instance, namely the start address and the
+size in bytes.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMMemoryImport.html" title='wasmer_vm::VMMemoryImport struct'>VMMemoryImport</a></td><td class='docblock-short'><p>The fields compiled code needs to access to utilize a WebAssembly linear
+memory imported from another instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMOffsets.html" title='wasmer_vm::VMOffsets struct'>VMOffsets</a></td><td class='docblock-short'><p>This class computes offsets to fields within <a href="../wasmer_vm/struct.VMContext.html"><code>VMContext</code></a> and other
+related structs that JIT code accesses directly.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMSharedSignatureIndex.html" title='wasmer_vm::VMSharedSignatureIndex struct'>VMSharedSignatureIndex</a></td><td class='docblock-short'><p>An index into the shared signature registry, usable for checking signatures
+at indirect calls.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMTableDefinition.html" title='wasmer_vm::VMTableDefinition struct'>VMTableDefinition</a></td><td class='docblock-short'><p>The fields compiled code needs to access to utilize a WebAssembly table
+defined within the instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.VMTableImport.html" title='wasmer_vm::VMTableImport struct'>VMTableImport</a></td><td class='docblock-short'><p>The fields compiled code needs to access to utilize a WebAssembly table
+imported from another instance.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.GlobalError.html" title='wasmer_vm::GlobalError enum'>GlobalError</a></td><td class='docblock-short'><p>Error type describing things that can go wrong when operating on Wasm Globals.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ImportFunctionEnv.html" title='wasmer_vm::ImportFunctionEnv enum'>ImportFunctionEnv</a></td><td class='docblock-short'><p>A collection of data about host envs used by imported functions.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.MemoryError.html" title='wasmer_vm::MemoryError enum'>MemoryError</a></td><td class='docblock-short'><p>Error type describing things that can go wrong when operating on Wasm Memories.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.MemoryStyle.html" title='wasmer_vm::MemoryStyle enum'>MemoryStyle</a></td><td class='docblock-short'><p>Implementation styles for WebAssembly linear memory.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.TableStyle.html" title='wasmer_vm::TableStyle enum'>TableStyle</a></td><td class='docblock-short'><p>Implementation styles for WebAssembly tables.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Trap.html" title='wasmer_vm::Trap enum'>Trap</a></td><td class='docblock-short'><p>Stores trace message with backtrace.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.TrapCode.html" title='wasmer_vm::TrapCode enum'>TrapCode</a></td><td class='docblock-short'><p>A trap code describing the reason for a trap.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.VMExport.html" title='wasmer_vm::VMExport enum'>VMExport</a></td><td class='docblock-short'><p>The value of an export passed from one instance to another.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.VMFunctionKind.html" title='wasmer_vm::VMFunctionKind enum'>VMFunctionKind</a></td><td class='docblock-short'><p>A function kind is a calling convention into and out of wasm code.</p>
+</td></tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table><tr class='module-item'><td><a class="constant" href="constant.VERSION.html" title='wasmer_vm::VERSION constant'>VERSION</a></td><td class='docblock-short'><p>Version number of this crate.</p>
+</td></tr></table><h2 id='statics' class='section-header'><a href="#statics">Statics</a></h2>
+<table><tr class='module-item'><td><a class="static" href="static.PROBESTACK.html" title='wasmer_vm::PROBESTACK static'>PROBESTACK</a></td><td class='docblock-short'><p>The probestack based on the Rust probestack</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.Memory.html" title='wasmer_vm::Memory trait'>Memory</a></td><td class='docblock-short'><p>Trait for implementing Wasm Memory used by Wasmer.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Table.html" title='wasmer_vm::Table trait'>Table</a></td><td class='docblock-short'><p>Trait for implementing the interface of a Wasm table.</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.catch_traps.html" title='wasmer_vm::catch_traps fn'>catch_traps</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Catches any wasm traps that happen within the execution of <code>closure</code>,
+returning them as a <code>Result</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.catch_traps_with_result.html" title='wasmer_vm::catch_traps_with_result fn'>catch_traps_with_result</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Catches any wasm traps that happen within the execution of <code>closure</code>,
+returning them as a <code>Result</code>, with the closure contents.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.init_traps.html" title='wasmer_vm::init_traps fn'>init_traps</a></td><td class='docblock-short'><p>This function performs the low-overhead signal handler initialization that
+we want to do eagerly to ensure a more-deterministic global process state.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.raise_lib_trap.html" title='wasmer_vm::raise_lib_trap fn'>raise_lib_trap</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Raises a trap from inside library code immediately.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.raise_user_trap.html" title='wasmer_vm::raise_user_trap fn'>raise_user_trap</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Raises a user-defined trap immediately.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.resume_panic.html" title='wasmer_vm::resume_panic fn'>resume_panic</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Carries a Rust panic across wasm code and resumes the panic on the other
+side.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_call_trampoline.html" title='wasmer_vm::wasmer_call_trampoline fn'>wasmer_call_trampoline</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Call the wasm function pointed to by <code>callee</code>.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.ImportInitializerFuncPtr.html" title='wasmer_vm::ImportInitializerFuncPtr type'>ImportInitializerFuncPtr</a></td><td class='docblock-short'><p>The function pointer to call with data and an <a href="../wasmer_vm/instance/struct.Instance.html" title="Instance"><code>Instance</code></a> pointer to
+finish initializing the host env.</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.VMTrampoline.html" title='wasmer_vm::VMTrampoline type'>VMTrampoline</a></td><td class='docblock-short'></td></tr></table><h2 id='unions' class='section-header'><a href="#unions">Unions</a></h2>
+<table><tr class='module-item'><td><a class="union" href="union.VMFunctionEnvironment.html" title='wasmer_vm::VMFunctionEnvironment union'>VMFunctionEnvironment</a></td><td class='docblock-short'><p>Union representing the first parameter passed when calling a function.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "wasmer_vm";</script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["PTR",""]],"fn":[["set","Configures thread local state such that for the duration of the execution of `closure` any call to `with` will yield `ptr`, unless this is recursively called again."],["with","Returns the last pointer configured with `set` above. Panics if `set` has not been previously called."]]});

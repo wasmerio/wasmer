@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["get_compiler",""],["wat2wasm","Translate wasm text source to wasm binary format."]]});

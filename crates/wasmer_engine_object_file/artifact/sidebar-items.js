@@ -1,0 +1,1 @@
+initSidebarItems({"constant":[["WASMER_METADATA_SYMBOL",""]],"fn":[["to_compile_error",""]],"struct":[["ObjectFileArtifact","A compiled wasm module, ready to be instantiated."]]});

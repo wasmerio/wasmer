@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Array","Array."],["Item","Item."],["WasmPtr","A pointer to a Wasm item."]]});

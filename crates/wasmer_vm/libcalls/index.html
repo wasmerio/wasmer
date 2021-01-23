@@ -1,0 +1,65 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `libcalls` mod in crate `wasmer_vm`."><meta name="keywords" content="rust, rustlang, rust-lang, libcalls"><title>wasmer_vm::libcalls - Rust</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a><p class='location'>Module libcalls</p><div class="sidebar-elems"><div class="block items"><ul><li><a href="#enums">Enums</a></li><li><a href="#statics">Statics</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'><a href='../index.html'>wasmer_vm</a></p><script>window.sidebarCurrent = {name: 'libcalls', ty: 'mod', relpath: '../'};</script><script defer src="../sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../src/wasmer_vm/libcalls.rs.html#4-485' title='goto source code'>[src]</a></span><span class='in-band'>Module <a href='../index.html'>wasmer_vm</a>::<wbr><a class="mod" href=''>libcalls</a></span></h1><div class='docblock'><p>Runtime library calls.</p>
+<p>Note that Wasm compilers may sometimes perform these inline rather than
+calling them, particularly when CPUs have special instructions which compute
+them directly.</p>
+<p>These functions are called by compiled Wasm code, and therefore must take
+certain care about some things:</p>
+<ul>
+<li>
+<p>They must always be <code>pub extern &quot;C&quot;</code> and should only contain basic, raw
+i32/i64/f32/f64/pointer parameters that are safe to pass across the system
+ABI!</p>
+</li>
+<li>
+<p>If any nested function propagates an <code>Err(trap)</code> out to the library
+function frame, we need to raise it. This involves some nasty and quite
+unsafe code under the covers! Notable, after raising the trap, drops
+<strong>will not</strong> be run for local variables! This can lead to things like
+leaking <code>InstanceHandle</code>s which leads to never deallocating JIT code,
+instances, and modules! Therefore, always use nested blocks to ensure
+drops run before raising a trap:</p>
+
+<div class='information'><div class='tooltip ignore'>ⓘ<span class='tooltiptext'>This example is not tested</span></div></div><div class="example-wrap"><pre class="rust rust-example-rendered ignore">
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">my_lib_function</span>(...) {
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> {
+        <span class="comment">// Do everything in here so drops run at the end of the block.</span>
+        ...
+    };
+    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="ident">trap</span>) <span class="op">=</span> <span class="ident">result</span> {
+        <span class="comment">// Now we can safely raise the trap without leaking!</span>
+        <span class="ident">raise_lib_trap</span>(<span class="ident">trap</span>);
+    }
+}</pre></div>
+</li>
+</ul>
+</div><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.LibCall.html" title='wasmer_vm::libcalls::LibCall enum'>LibCall</a></td><td class='docblock-short'><p>The name of a runtime library routine.</p>
+</td></tr></table><h2 id='statics' class='section-header'><a href="#statics">Statics</a></h2>
+<table><tr class='module-item'><td><a class="static" href="static.wasmer_probestack.html" title='wasmer_vm::libcalls::wasmer_probestack static'>wasmer_probestack</a></td><td class='docblock-short'><p>Probestack check</p>
+</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.wasmer_data_drop.html" title='wasmer_vm::libcalls::wasmer_data_drop fn'>wasmer_data_drop</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>data.drop</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_elem_drop.html" title='wasmer_vm::libcalls::wasmer_elem_drop fn'>wasmer_elem_drop</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>elem.drop</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f32_ceil.html" title='wasmer_vm::libcalls::wasmer_f32_ceil fn'>wasmer_f32_ceil</a></td><td class='docblock-short'><p>Implementation of f32.ceil</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f32_floor.html" title='wasmer_vm::libcalls::wasmer_f32_floor fn'>wasmer_f32_floor</a></td><td class='docblock-short'><p>Implementation of f32.floor</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f32_nearest.html" title='wasmer_vm::libcalls::wasmer_f32_nearest fn'>wasmer_f32_nearest</a></td><td class='docblock-short'><p>Implementation of f32.nearest</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f32_trunc.html" title='wasmer_vm::libcalls::wasmer_f32_trunc fn'>wasmer_f32_trunc</a></td><td class='docblock-short'><p>Implementation of f32.trunc</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f64_ceil.html" title='wasmer_vm::libcalls::wasmer_f64_ceil fn'>wasmer_f64_ceil</a></td><td class='docblock-short'><p>Implementation of f64.ceil</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f64_floor.html" title='wasmer_vm::libcalls::wasmer_f64_floor fn'>wasmer_f64_floor</a></td><td class='docblock-short'><p>Implementation of f64.floor</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f64_nearest.html" title='wasmer_vm::libcalls::wasmer_f64_nearest fn'>wasmer_f64_nearest</a></td><td class='docblock-short'><p>Implementation of f64.nearest</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_f64_trunc.html" title='wasmer_vm::libcalls::wasmer_f64_trunc fn'>wasmer_f64_trunc</a></td><td class='docblock-short'><p>Implementation of f64.trunc</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_imported_memory32_grow.html" title='wasmer_vm::libcalls::wasmer_imported_memory32_grow fn'>wasmer_imported_memory32_grow</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of memory.grow for imported 32-bit memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_imported_memory32_size.html" title='wasmer_vm::libcalls::wasmer_imported_memory32_size fn'>wasmer_imported_memory32_size</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of memory.size for imported 32-bit memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_imported_memory_copy.html" title='wasmer_vm::libcalls::wasmer_imported_memory_copy fn'>wasmer_imported_memory_copy</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>memory.copy</code> for imported memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_imported_memory_fill.html" title='wasmer_vm::libcalls::wasmer_imported_memory_fill fn'>wasmer_imported_memory_fill</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>memory.fill</code> for imported memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_local_memory_copy.html" title='wasmer_vm::libcalls::wasmer_local_memory_copy fn'>wasmer_local_memory_copy</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>memory.copy</code> for locally defined memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_memory32_grow.html" title='wasmer_vm::libcalls::wasmer_memory32_grow fn'>wasmer_memory32_grow</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of memory.grow for locally-defined 32-bit memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_memory32_size.html" title='wasmer_vm::libcalls::wasmer_memory32_size fn'>wasmer_memory32_size</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of memory.size for locally-defined 32-bit memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_memory_fill.html" title='wasmer_vm::libcalls::wasmer_memory_fill fn'>wasmer_memory_fill</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>memory.fill</code> for locally defined memories.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_memory_init.html" title='wasmer_vm::libcalls::wasmer_memory_init fn'>wasmer_memory_init</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>memory.init</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_raise_trap.html" title='wasmer_vm::libcalls::wasmer_raise_trap fn'>wasmer_raise_trap</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation for raising a trap</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_table_copy.html" title='wasmer_vm::libcalls::wasmer_table_copy fn'>wasmer_table_copy</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>table.copy</code>.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wasmer_table_init.html" title='wasmer_vm::libcalls::wasmer_table_init fn'>wasmer_table_init</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Implementation of <code>table.init</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_vm";</script><script src="../../main.js"></script><script defer src="../../search-index.js"></script></body></html>

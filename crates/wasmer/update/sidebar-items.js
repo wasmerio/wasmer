@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["self_update",""]]});

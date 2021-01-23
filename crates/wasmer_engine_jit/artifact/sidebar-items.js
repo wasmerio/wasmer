@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["JITArtifact","A compiled wasm module, ready to be instantiated."]]});

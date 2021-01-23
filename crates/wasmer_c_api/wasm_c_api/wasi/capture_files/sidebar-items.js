@@ -1,0 +1,1 @@
+initSidebarItems({"static":[["__init10097507074841848185",""]],"struct":[["OutputCapturer","For capturing stdout/stderr. Stores all output in a string."]]});

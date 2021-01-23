@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["round_down_to_page_size","Round `size` down to the nearest multiple of `page_size`."],["round_up_to_page_size","Round `size` up to the nearest multiple of `page_size`."]],"mod":[["unix",""]]});

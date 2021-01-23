@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["ShellExitOperation","Kind of shell exit operation."]],"fn":[["do_optimize",""],["run_tiering","Runs an instance with tiering."]],"struct":[["CtxWrapper",""],["Defer",""],["InteractiveShellContext","Context for an interactive shell."],["OptimizationOutcome",""],["OptimizationState",""]]});

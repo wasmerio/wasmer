@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["_IMPL_DESERIALIZE_FOR_Protect",""],["_IMPL_SERIALIZE_FOR_Protect",""]],"enum":[["Protect","Kinds of memory protection."]],"struct":[["Memory","Data for a sized and protected region of memory."],["RawFd",""]]});

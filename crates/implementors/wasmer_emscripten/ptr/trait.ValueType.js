@@ -1,0 +1,3 @@
+(function() {var implementors = {};
+implementors["wasmer_emscripten"] = [{"text":"impl ValueType for EmAddrInfo","synthetic":false,"types":[]},{"text":"impl ValueType for EmSockAddr","synthetic":false,"types":[]},{"text":"impl&lt;T:&nbsp;Copy, Ty&gt; ValueType for WasmPtr&lt;T, Ty&gt;","synthetic":false,"types":[]},{"text":"impl ValueType for EmPollFd","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

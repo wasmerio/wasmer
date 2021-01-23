@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["RelocationKind","Relocation kinds for every ISA."],["RelocationTarget","Destination function. Can be either user function or some special one, like `memory.grow`."]],"struct":[["Relocation","A record of a relocation to perform."]],"type":[["Relocations","Relocations to apply to function bodies."]]});

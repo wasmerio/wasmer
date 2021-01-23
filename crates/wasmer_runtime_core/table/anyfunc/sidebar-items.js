@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["AnyfuncInner",""]],"struct":[["Anyfunc","Anyfunc data type."],["AnyfuncTable",""]]});

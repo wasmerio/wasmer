@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Protect","Kinds of memory protection."]],"struct":[["Memory","Data for a sized and protected region of memory."]]});

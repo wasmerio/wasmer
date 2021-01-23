@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["DynFunc","A representation of an exported WebAssembly function."],["Instance","An instantiated WebAssembly module."]]});

@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["dummy_function",""],["dummy_trampoline",""]],"struct":[["DummyArtifact","A Dummy artifact."],["DummyArtifactMetadata","Serializable struct for the artifact"]]});

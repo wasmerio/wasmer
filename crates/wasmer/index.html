@@ -1,4 +1,334 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `wasmer` crate."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer"><title>wasmer - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../dark.css"><link rel="stylesheet" type="text/css" href="../light.css" id="themeStyle"><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="../favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../wasmer/index.html'><div class='logo-container'><img src='../rust-logo.png' alt='logo'></div></a><p class='location'>Crate wasmer</p><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all wasmer's items</p></a><div class="block items"><ul><li><a href="#enums">Enums</a></li><li><a href="#functions">Functions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'wasmer', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/wasmer/wasmer.rs.html#1-95' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>wasmer</a></span></h1><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
-<table><tr class='module-item'><td><a class="enum" href="enum.CLIOptions.html" title='wasmer::CLIOptions enum'>CLIOptions</a></td><td class='docblock-short'><p>The options for the wasmer Command Line Interface</p>
-</td></tr></table><h2 id='functions' class='section-header'><a href="#functions">Functions</a></h2>
-<table><tr class='module-item'><td><a class="fn" href="fn.main.html" title='wasmer::main fn'>main</a></td><td class='docblock-short'></td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "wasmer";</script><script src="../aliases.js"></script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `wasmer` crate."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer"><title>wasmer - Rust</title><link rel="stylesheet" type="text/css" href="../normalize.css"><link rel="stylesheet" type="text/css" href="../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../ayu.css" disabled ><script src="../storage.js"></script><noscript><link rel="stylesheet" href="../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../down-arrow.svg");}</style></head><body class="rustdoc mod"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../wasmer/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a><p class='location'>Crate wasmer</p><div class='block version'><p>Version 1.0.1</p></div><div class="sidebar-elems"><a id='all-types' href='all.html'><p>See all wasmer's items</p></a><div class="block items"><ul><li><a href="#reexports">Re-exports</a></li><li><a href="#modules">Modules</a></li><li><a href="#macros">Macros</a></li><li><a href="#structs">Structs</a></li><li><a href="#enums">Enums</a></li><li><a href="#constants">Constants</a></li><li><a href="#traits">Traits</a></li><li><a href="#functions">Functions</a></li><li><a href="#types">Type Definitions</a></li></ul></div><p class='location'></p><script>window.sidebarCurrent = {name: 'wasmer', ty: 'mod', relpath: '../'};</script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../settings.html"><img src="../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../src/wasmer/lib.rs.html#1-371' title='goto source code'>[src]</a></span><span class='in-band'>Crate <a class="mod" href=''>wasmer</a></span></h1><div class='docblock'><p>This crate contains the <code>wasmer</code> API. The <code>wasmer</code> API facilitates the efficient,
+sandboxed execution of <a href="https://webassembly.org/">WebAssembly (Wasm)</a> modules.</p>
+<p>Here's an example of the <code>wasmer</code> API in action:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Store</span>, <span class="ident">Module</span>, <span class="ident">Instance</span>, <span class="ident">Value</span>, <span class="ident">imports</span>};
+
+<span class="kw">fn</span> <span class="ident">main</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">anyhow</span>::<span class="prelude-ty">Result</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">module_wat</span> <span class="op">=</span> <span class="string">r#&quot;
+    (module
+    (type $t0 (func (param i32) (result i32)))
+    (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)
+        get_local $p0
+        i32.const 1
+        i32.add))
+    &quot;#</span>;
+
+    <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">Store</span>::<span class="ident">default</span>();
+    <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">Module</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">module_wat</span>)<span class="question-mark">?</span>;
+    <span class="comment">// The module doesn&#39;t import anything, so we create an empty import object.</span>
+    <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="macro">imports</span><span class="macro">!</span> {};
+    <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>)<span class="question-mark">?</span>;
+
+    <span class="kw">let</span> <span class="ident">add_one</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;add_one&quot;</span>)<span class="question-mark">?</span>;
+    <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">add_one</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[<span class="ident">Value</span>::<span class="ident">I32</span>(<span class="number">42</span>)])<span class="question-mark">?</span>;
+    <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>[<span class="number">0</span>], <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="number">43</span>));
+
+    <span class="prelude-val">Ok</span>(())
+}</pre></div>
+<p>For more examples of using the <code>wasmer</code> API, check out the
+<a href="https://github.com/wasmerio/wasmer/tree/master/examples">wasmer examples</a>.</p>
+<hr />
+<h1 id="table-of-contents" class="section-header"><a href="#table-of-contents">Table of Contents</a></h1>
+<ul>
+<li><a href="#wasm-primitives">Wasm Primitives</a>
+<ul>
+<li><a href="#externs">Externs</a>
+<ul>
+<li><a href="#functions">Functions</a></li>
+<li><a href="#memories">Memories</a></li>
+<li><a href="#globals">Globals</a></li>
+<li><a href="#tables">Tables</a></li>
+</ul>
+</li>
+</ul>
+</li>
+<li><a href="#project-layout">Project Layout</a>
+<ul>
+<li><a href="#engines">Engines</a></li>
+<li><a href="#compilers">Compilers</a></li>
+</ul>
+</li>
+<li><a href="#features">Features</a></li>
+</ul>
+<h1 id="wasm-primitives" class="section-header"><a href="#wasm-primitives">Wasm Primitives</a></h1>
+<p>In order to make use of the power of the <code>wasmer</code> API, it's important
+to understand the primitives around which the API is built.</p>
+<p>Wasm only deals with a small number of core data types, these data
+types can be found in the <a href="../wasmer/types/type.Val.html" title="Value"><code>Value</code></a> type.</p>
+<p>In addition to the core Wasm types, the core types of the API are
+referred to as &quot;externs&quot;.</p>
+<h2 id="externs" class="section-header"><a href="#externs">Externs</a></h2>
+<p>An <a href="../wasmer/enum.Extern.html" title="Extern"><code>Extern</code></a> is a type that can be imported or exported from a Wasm
+module.</p>
+<p>To import an extern, simply give it a namespace and a name with the
+<a href="../wasmer/macro.imports.html" title="imports"><code>imports</code></a> macro:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">Memory</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">store</span>, <span class="ident">MemoryType</span>::<span class="ident">new</span>(<span class="number">1</span>, <span class="prelude-val">None</span>, <span class="bool-val">false</span>)).<span class="ident">unwrap</span>();
+<span class="macro">imports</span><span class="macro">!</span> {
+    <span class="string">&quot;env&quot;</span> <span class="op">=</span><span class="op">&gt;</span> {
+         <span class="string">&quot;my_function&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Function</span>::<span class="ident">new_native</span>(<span class="ident">store</span>, <span class="op">|</span><span class="op">|</span> <span class="macro">println</span><span class="macro">!</span>(<span class="string">&quot;Hello&quot;</span>)),
+         <span class="string">&quot;memory&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">memory</span>,
+    }
+}</pre></div>
+<p>And to access an exported extern, see the <a href="../wasmer/struct.Exports.html" title="Exports"><code>Exports</code></a> API, accessible
+from any instance via <code>instance.exports</code>:</p>
+
+<div class="example-wrap"><pre class="rust rust-example-rendered">
+<span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_memory</span>(<span class="string">&quot;memory&quot;</span>)<span class="question-mark">?</span>;
+<span class="kw">let</span> <span class="ident">memory</span>: <span class="kw-2">&amp;</span><span class="ident">Memory</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>(<span class="string">&quot;some_other_memory&quot;</span>)<span class="question-mark">?</span>;
+<span class="kw">let</span> <span class="ident">add</span>: <span class="ident">NativeFunc</span><span class="op">&lt;</span>(<span class="ident">i32</span>, <span class="ident">i32</span>), <span class="ident">i32</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_native_function</span>(<span class="string">&quot;add&quot;</span>)<span class="question-mark">?</span>;
+<span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">add</span>.<span class="ident">call</span>(<span class="number">5</span>, <span class="number">37</span>)<span class="question-mark">?</span>;
+<span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">result</span>, <span class="number">42</span>);</pre></div>
+<p>These are the primary types that the <code>wasmer</code> API uses.</p>
+<h3 id="functions" class="section-header"><a href="#functions">Functions</a></h3>
+<p>There are 2 types of functions in <code>wasmer</code>:</p>
+<ol>
+<li>Wasm functions</li>
+<li>Host functions</li>
+</ol>
+<p>A Wasm function is a function defined in a WebAssembly module that can
+only perform computation without side effects and call other functions.</p>
+<p>Wasm functions take 0 or more arguments and return 0 or more results.
+Wasm functions can only deal with the primitive types defined in
+<a href="../wasmer/types/type.Val.html" title="Value"><code>Value</code></a>.</p>
+<p>A Host function is any function implemented on the host, in this case in
+Rust.</p>
+<p>Host functions can optionally be created with an environment that
+implements <a href="../wasmer/env/trait.WasmerEnv.html" title="WasmerEnv"><code>WasmerEnv</code></a>. This environment is useful for maintaining
+host state (for example the filesystem in WASI).</p>
+<p>Thus WebAssembly modules by themselves cannot do anything but computation
+on the core types in <a href="../wasmer/types/type.Val.html" title="Value"><code>Value</code></a>. In order to make them more useful we
+give them access to the outside world with <a href="../wasmer/macro.imports.html" title="imports"><code>imports</code></a>.</p>
+<p>If you're looking for a sandboxed, POSIX-like environment to execute Wasm
+in, check out the <a href="https://docs.rs/wasmer-wasi/*/wasmer_wasi/"><code>wasmer-wasi</code></a> crate for our implementation of WASI,
+the WebAssembly System Interface.</p>
+<p>In the <code>wasmer</code> API we support functions which take their arguments and
+return their results dynamically, <a href="../wasmer/struct.Function.html" title="Function"><code>Function</code></a>, and functions which
+take their arguments and return their results statically, <a href="../wasmer/struct.NativeFunc.html" title="NativeFunc"><code>NativeFunc</code></a>.</p>
+<h3 id="memories" class="section-header"><a href="#memories">Memories</a></h3>
+<p>Memories store data.</p>
+<p>In most Wasm programs, nearly all data will live in a <a href="../wasmer/struct.Memory.html" title="Memory"><code>Memory</code></a>.</p>
+<p>This data can be shared between the host and guest to allow for more
+interesting programs.</p>
+<h3 id="globals" class="section-header"><a href="#globals">Globals</a></h3>
+<p>A <a href="../wasmer/struct.Global.html" title="Global"><code>Global</code></a> is a type that may be either mutable or immutable, and
+contains one of the core Wasm types defined in <a href="../wasmer/types/type.Val.html" title="Value"><code>Value</code></a>.</p>
+<h3 id="tables" class="section-header"><a href="#tables">Tables</a></h3>
+<p>A <a href="../wasmer/struct.Table.html" title="Table"><code>Table</code></a> is an indexed list of items.</p>
+<h2 id="project-layout" class="section-header"><a href="#project-layout">Project Layout</a></h2>
+<p>The Wasmer project is divided into a number of crates, below is a dependency
+graph with transitive dependencies removed.</p>
+<div>
+<img src="https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg" />
+</div>
+<p>While this crate is the top level API, we also publish crates built
+on top of this API that you may be interested in using, including:</p>
+<ul>
+<li><a href="https://docs.rs/wasmer-cache/*/wasmer_cache/">wasmer-cache</a> for caching compiled Wasm modules.</li>
+<li><a href="https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/">wasmer-emscripten</a> for running Wasm modules compiled to the
+Emscripten ABI.</li>
+<li><a href="https://docs.rs/wasmer-wasi/*/wasmer_wasi/">wasmer-wasi</a> for running Wasm modules compiled to the WASI ABI.</li>
+</ul>
+<hr />
+<p>The Wasmer project has two major abstractions:</p>
+<ol>
+<li><a href="https://docs.rs/wasmer-engine/*/wasmer_engine/">Engines</a></li>
+<li><a href="https://docs.rs/wasmer-compiler/*/wasmer_compiler/">Compilers</a></li>
+</ol>
+<p>These two abstractions have multiple options that can be enabled
+with features.</p>
+<h3 id="engines" class="section-header"><a href="#engines">Engines</a></h3>
+<p>An engine is a system that uses a compiler to make a WebAssembly
+module executable.</p>
+<h3 id="compilers" class="section-header"><a href="#compilers">Compilers</a></h3>
+<p>A compiler is a system that handles the details of making a Wasm
+module executable. For example, by generating native machine code
+for each Wasm function.</p>
+<h2 id="features" class="section-header"><a href="#features">Features</a></h2>
+<p>This crate's features can be broken down into 2 kinds, features that
+enable new functionality and features that set defaults.</p>
+<p>The features that enable new functionality are:</p>
+<ul>
+<li><code>jit</code> - enable the JIT engine. (See <a href="https://docs.rs/wasmer-jit/*/wasmer_jit/">wasmer-jit</a>)</li>
+<li><code>native</code> - enable the native engine. (See <a href="https://docs.rs/wasmer-native/*/wasmer_native/">wasmer-native</a>)</li>
+<li><code>cranelift</code> - enable Wasmer's Cranelift compiler. (See <a href="https://docs.rs/wasmer-cranelift/*/wasmer_cranelift/">wasmer-cranelift</a>)</li>
+<li><code>llvm</code> - enable Wasmer's LLVM compiler. (See <a href="https://docs.rs/wasmer-llvm/*/wasmer_llvm/">wasmer-llvm</a>)</li>
+<li><code>singlepass</code> - enable Wasmer's Singlepass compiler. (See <a href="https://docs.rs/wasmer-singlepass/*/wasmer_singlepass/">wasmer-singlepass</a>)</li>
+<li><code>wat</code> - enable <code>wasmer</code> to parse the WebAssembly text format.</li>
+</ul>
+<p>The features that set defaults come in sets that are mutually exclusive.</p>
+<p>The first set is the default compiler set:</p>
+<ul>
+<li><code>default-cranelift</code> - set Wasmer's Cranelift compiler as the default.</li>
+<li><code>default-llvm</code> - set Wasmer's LLVM compiler as the default.</li>
+<li><code>default-singlepass</code> - set Wasmer's Singlepass compiler as the default.</li>
+</ul>
+<p>The next set is the default engine set:</p>
+<ul>
+<li><code>default-jit</code> - set the JIT engine as the default.</li>
+<li><code>default-native</code> - set the native engine as the default.</li>
+</ul>
+<hr />
+<p>By default the <code>wat</code>, <code>default-cranelift</code>, and <code>default-jit</code> features
+are enabled.</p>
+</div><h2 id='reexports' class='section-header'><a href="#reexports">Re-exports</a></h2>
+<table><tr><td><code>pub use wasmer_compiler::wasmparser;</code></td></tr></table><h2 id='modules' class='section-header'><a href="#modules">Modules</a></h2>
+<table><tr class='module-item'><td><a class="mod" href="env/index.html" title='wasmer::env mod'>env</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="exports/index.html" title='wasmer::exports mod'>exports</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="externals/index.html" title='wasmer::externals mod'>externals</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="import_object/index.html" title='wasmer::import_object mod'>import_object</a></td><td class='docblock-short'><p>The import module contains the implementation data structures and helper functions used to
+manipulate and access a wasm module's imports including memories, tables, globals, and
+functions.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="instance/index.html" title='wasmer::instance mod'>instance</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="module/index.html" title='wasmer::module mod'>module</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="native/index.html" title='wasmer::native mod'>native</a></td><td class='docblock-short'><p>Native Functions.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="ptr/index.html" title='wasmer::ptr mod'>ptr</a></td><td class='docblock-short'><p>Types for a reusable pointer abstraction for accessing Wasm linear memory.</p>
+</td></tr><tr class='module-item'><td><a class="mod" href="store/index.html" title='wasmer::store mod'>store</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="tunables/index.html" title='wasmer::tunables mod'>tunables</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="types/index.html" title='wasmer::types mod'>types</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="utils/index.html" title='wasmer::utils mod'>utils</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="mod" href="vm/index.html" title='wasmer::vm mod'>vm</a></td><td class='docblock-short'><p>The vm module re-exports wasmer-vm types.</p>
+</td></tr></table><h2 id='macros' class='section-header'><a href="#macros">Macros</a></h2>
+<table><tr class='module-item'><td><a class="macro" href="macro.imports.html" title='wasmer::imports macro'>imports</a></td><td class='docblock-short'><p>Generate an <a href="struct.ImportObject.html"><code>ImportObject</code></a> easily with the <code>imports!</code> macro.</p>
+</td></tr></table><h2 id='structs' class='section-header'><a href="#structs">Structs</a></h2>
+<table><tr class='module-item'><td><a class="struct" href="struct.Array.html" title='wasmer::Array struct'>Array</a></td><td class='docblock-short'><p>The <code>Array</code> marker type. This type can be used like <code>WasmPtr&lt;T, Array&gt;</code>
+to get access to methods</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Atomically.html" title='wasmer::Atomically struct'>Atomically</a></td><td class='docblock-short'><p>Atomically.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.BaseTunables.html" title='wasmer::BaseTunables struct'>BaseTunables</a></td><td class='docblock-short'><p>Tunable parameters for WebAssembly compilation.
+This is the reference implementation of the <code>Tunables</code> trait,
+used by default.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Bytes.html" title='wasmer::Bytes struct'>Bytes</a></td><td class='docblock-short'><p>Units of WebAssembly memory in terms of 8-bit bytes.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Cranelift.html" title='wasmer::Cranelift struct'>Cranelift</a></td><td class='docblock-short'><p>Global configuration options used to create an
+<code>wasmer_engine::Engine</code> and customize its behavior.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ExportType.html" title='wasmer::ExportType struct'>ExportType</a></td><td class='docblock-short'><p>A descriptor for an exported WebAssembly value.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Exports.html" title='wasmer::Exports struct'>Exports</a></td><td class='docblock-short'><p>Exports is a special kind of map that allows easily unwrapping
+the types of instances.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ExportsIterator.html" title='wasmer::ExportsIterator struct'>ExportsIterator</a></td><td class='docblock-short'><p>An iterator over exports.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Features.html" title='wasmer::Features struct'>Features</a></td><td class='docblock-short'><p>Controls which experimental features will be enabled.
+Features usually have a corresponding <a href="https://github.com/WebAssembly/proposals">WebAssembly proposal</a>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.FrameInfo.html" title='wasmer::FrameInfo struct'>FrameInfo</a></td><td class='docblock-short'><p>Description of a frame in a backtrace for a <a href="../wasmer/struct.RuntimeError.html#method.trace"><code>RuntimeError::trace</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Function.html" title='wasmer::Function struct'>Function</a></td><td class='docblock-short'><p>A WebAssembly <code>function</code> instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.FunctionType.html" title='wasmer::FunctionType struct'>FunctionType</a></td><td class='docblock-short'><p>The signature of a function that is either implemented
+in a Wasm module or exposed to Wasm by the host.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Global.html" title='wasmer::Global struct'>Global</a></td><td class='docblock-short'><p>A WebAssembly <code>global</code> instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.GlobalType.html" title='wasmer::GlobalType struct'>GlobalType</a></td><td class='docblock-short'><p>WebAssembly global.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.HostRef.html" title='wasmer::HostRef struct'>HostRef</a></td><td class='docblock-short'><p>Represents a piece of data located in the host environment.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ImportObject.html" title='wasmer::ImportObject struct'>ImportObject</a></td><td class='docblock-short'><p>All of the import data used when instantiating.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ImportObjectIterator.html" title='wasmer::ImportObjectIterator struct'>ImportObjectIterator</a></td><td class='docblock-short'><p>Iterator for an <code>ImportObject</code>'s exports.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.ImportType.html" title='wasmer::ImportType struct'>ImportType</a></td><td class='docblock-short'><p>A descriptor for an imported value into a wasm module.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Instance.html" title='wasmer::Instance struct'>Instance</a></td><td class='docblock-short'><p>A WebAssembly Instance is a stateful, executable
+instance of a WebAssembly <a href="../wasmer/struct.Module.html" title="Module"><code>Module</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Item.html" title='wasmer::Item struct'>Item</a></td><td class='docblock-short'><p>The <code>Item</code> marker type. This is the default and does not usually need to be
+specified.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.JIT.html" title='wasmer::JIT struct'>JIT</a></td><td class='docblock-short'><p>The JIT builder</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.JITArtifact.html" title='wasmer::JITArtifact struct'>JITArtifact</a></td><td class='docblock-short'><p>A compiled wasm module, ready to be instantiated.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.JITEngine.html" title='wasmer::JITEngine struct'>JITEngine</a></td><td class='docblock-short'><p>A WebAssembly <code>JIT</code> Engine.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.LazyInit.html" title='wasmer::LazyInit struct'>LazyInit</a></td><td class='docblock-short'><p>Lazily init an item</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.LocalFunctionIndex.html" title='wasmer::LocalFunctionIndex struct'>LocalFunctionIndex</a></td><td class='docblock-short'><p>Index type of a function defined locally inside the WebAssembly module.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Memory.html" title='wasmer::Memory struct'>Memory</a></td><td class='docblock-short'><p>A WebAssembly <code>memory</code> instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.MemoryType.html" title='wasmer::MemoryType struct'>MemoryType</a></td><td class='docblock-short'><p>A descriptor for a WebAssembly memory type.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.MemoryView.html" title='wasmer::MemoryView struct'>MemoryView</a></td><td class='docblock-short'><p>A view into a memory.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.MiddlewareError.html" title='wasmer::MiddlewareError struct'>MiddlewareError</a></td><td class='docblock-short'><p>A error in the middleware.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.MiddlewareReaderState.html" title='wasmer::MiddlewareReaderState struct'>MiddlewareReaderState</a></td><td class='docblock-short'><p>The state of the binary reader. Exposed to middlewares to push their outputs.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Module.html" title='wasmer::Module struct'>Module</a></td><td class='docblock-short'><p>A WebAssembly Module contains stateless WebAssembly
+code that has already been compiled and can be instantiated
+multiple times.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.NamedResolverChain.html" title='wasmer::NamedResolverChain struct'>NamedResolverChain</a></td><td class='docblock-short'><p>A <a href="../wasmer/trait.Resolver.html" title="Resolver"><code>Resolver</code></a> that links two resolvers together in a chain.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.NativeFunc.html" title='wasmer::NativeFunc struct'>NativeFunc</a></td><td class='docblock-short'><p>A WebAssembly function that can be called natively
+(using the Native ABI).</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Pages.html" title='wasmer::Pages struct'>Pages</a></td><td class='docblock-short'><p>Units of WebAssembly pages (as specified to be 65,536 bytes).</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.RuntimeError.html" title='wasmer::RuntimeError struct'>RuntimeError</a></td><td class='docblock-short'><p>A struct representing an aborted instruction execution, with a message
+indicating the cause.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Store.html" title='wasmer::Store struct'>Store</a></td><td class='docblock-short'><p>The store represents all global state that can be manipulated by
+WebAssembly programs. It consists of the runtime representation
+of all instances of functions, tables, memories, and globals that
+have been allocated during the lifetime of the abstract machine.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Table.html" title='wasmer::Table struct'>Table</a></td><td class='docblock-short'><p>A WebAssembly <code>table</code> instance.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.TableType.html" title='wasmer::TableType struct'>TableType</a></td><td class='docblock-short'><p>A descriptor for a table in a WebAssembly module.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Target.html" title='wasmer::Target struct'>Target</a></td><td class='docblock-short'><p>This is the target that we will use for compiling
+the WebAssembly ModuleInfo, and then run it.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.Triple.html" title='wasmer::Triple struct'>Triple</a></td><td class='docblock-short'><p>A target &quot;triple&quot;. Historically such things had three fields, though they've
+added additional fields over time.</p>
+</td></tr><tr class='module-item'><td><a class="struct" href="struct.WasmPtr.html" title='wasmer::WasmPtr struct'>WasmPtr</a></td><td class='docblock-short'><p>A zero-cost type that represents a pointer to something in Wasm linear
+memory.</p>
+</td></tr></table><h2 id='enums' class='section-header'><a href="#enums">Enums</a></h2>
+<table><tr class='module-item'><td><a class="enum" href="enum.Architecture.html" title='wasmer::Architecture enum'>Architecture</a></td><td class='docblock-short'><p>The &quot;architecture&quot; field, which in some cases also specifies a specific
+subarchitecture.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.CallingConvention.html" title='wasmer::CallingConvention enum'>CallingConvention</a></td><td class='docblock-short'><p>The calling convention, which specifies things like which registers are
+used for passing arguments, which registers are callee-saved, and so on.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.CompileError.html" title='wasmer::CompileError enum'>CompileError</a></td><td class='docblock-short'><p>The WebAssembly.CompileError object indicates an error during
+WebAssembly decoding or validation.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.CpuFeature.html" title='wasmer::CpuFeature enum'>CpuFeature</a></td><td class='docblock-short'><p>The nomenclature is inspired by the <a href="https://docs.rs/cpuid/0.1.1/cpuid/enum.CpuFeature.html"><code>cpuid</code> crate</a>.
+The list of supported features was initially retrieved from
+<a href="https://github.com/bytecodealliance/cranelift/blob/6988545fd20249b084c53f4761b8c861266f5d31/cranelift-native/src/lib.rs#L51-L92"><code>cranelift-native</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.CraneliftOptLevel.html" title='wasmer::CraneliftOptLevel enum'>CraneliftOptLevel</a></td><td class='docblock-short'><p>Possible optimization levels for the Cranelift codegen backend.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.DeserializeError.html" title='wasmer::DeserializeError enum'>DeserializeError</a></td><td class='docblock-short'><p>The Deserialize error can occur when loading a
+compiled Module from a binary.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Export.html" title='wasmer::Export enum'>Export</a></td><td class='docblock-short'><p>The value of an export passed from one instance to another.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ExportError.html" title='wasmer::ExportError enum'>ExportError</a></td><td class='docblock-short'><p>The <code>ExportError</code> can happen when trying to get a specific
+export <a href="../wasmer/enum.Extern.html" title="Extern"><code>Extern</code></a> from the <a href="../wasmer/struct.Instance.html"><code>Instance</code></a> exports.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ExportIndex.html" title='wasmer::ExportIndex enum'>ExportIndex</a></td><td class='docblock-short'><p>An entity to export.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Extern.html" title='wasmer::Extern enum'>Extern</a></td><td class='docblock-short'><p>An <code>Extern</code> is the runtime representation of an entity that
+can be imported or exported.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ExternRef.html" title='wasmer::ExternRef enum'>ExternRef</a></td><td class='docblock-short'><p>Represents an opaque reference to any data within WebAssembly.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ExternType.html" title='wasmer::ExternType enum'>ExternType</a></td><td class='docblock-short'><p>A list of all possible types which can be externally referenced from a
+WebAssembly module.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.GlobalInit.html" title='wasmer::GlobalInit enum'>GlobalInit</a></td><td class='docblock-short'><p>Globals are initialized via the <code>const</code> operators or by referring to another import.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.HostEnvInitError.html" title='wasmer::HostEnvInitError enum'>HostEnvInitError</a></td><td class='docblock-short'><p>An error while initializing the user supplied host env with the <code>WasmerEnv</code> trait.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.InstantiationError.html" title='wasmer::InstantiationError enum'>InstantiationError</a></td><td class='docblock-short'><p>An error while instantiating a module.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.LinkError.html" title='wasmer::LinkError enum'>LinkError</a></td><td class='docblock-short'><p>The WebAssembly.LinkError object indicates an error during
+module instantiation (besides traps from the start function).</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.MemoryError.html" title='wasmer::MemoryError enum'>MemoryError</a></td><td class='docblock-short'><p>Error type describing things that can go wrong when operating on Wasm Memories.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Mutability.html" title='wasmer::Mutability enum'>Mutability</a></td><td class='docblock-short'><p>Indicator of whether a global is mutable or not</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.OperatingSystem.html" title='wasmer::OperatingSystem enum'>OperatingSystem</a></td><td class='docblock-short'><p>The &quot;operating system&quot; field, which sometimes implies an environment, and
+sometimes isn't an actual operating system.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ParseCpuFeatureError.html" title='wasmer::ParseCpuFeatureError enum'>ParseCpuFeatureError</a></td><td class='docblock-short'><p>The error that can happen while parsing a <code>str</code>
+to retrieve a <a href="../wasmer/enum.CpuFeature.html"><code>CpuFeature</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.SerializeError.html" title='wasmer::SerializeError enum'>SerializeError</a></td><td class='docblock-short'><p>The Serialize error can occur when serializing a
+compiled Module into a binary.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.Type.html" title='wasmer::Type enum'>Type</a></td><td class='docblock-short'><p>A list of all possible value types in WebAssembly.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.VMExport.html" title='wasmer::VMExport enum'>VMExport</a></td><td class='docblock-short'><p>The value of an export passed from one instance to another.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.ValType.html" title='wasmer::ValType enum'>ValType</a></td><td class='docblock-short'><p>A list of all possible value types in WebAssembly.</p>
+</td></tr><tr class='module-item'><td><a class="enum" href="enum.WasmError.html" title='wasmer::WasmError enum'>WasmError</a></td><td class='docblock-short'><p>A WebAssembly translation error.</p>
+</td></tr></table><h2 id='constants' class='section-header'><a href="#constants">Constants</a></h2>
+<table><tr class='module-item'><td><a class="constant" href="constant.HOST.html" title='wasmer::HOST constant'>HOST</a></td><td class='docblock-short'><p>The <code>Triple</code> of the current host.</p>
+</td></tr><tr class='module-item'><td><a class="constant" href="constant.VERSION.html" title='wasmer::VERSION constant'>VERSION</a></td><td class='docblock-short'><p>Version number of this crate.</p>
+</td></tr><tr class='module-item'><td><a class="constant" href="constant.WASM_MAX_PAGES.html" title='wasmer::WASM_MAX_PAGES constant'>WASM_MAX_PAGES</a></td><td class='docblock-short'><p>The number of pages we can have before we run out of byte index space.</p>
+</td></tr><tr class='module-item'><td><a class="constant" href="constant.WASM_MIN_PAGES.html" title='wasmer::WASM_MIN_PAGES constant'>WASM_MIN_PAGES</a></td><td class='docblock-short'><p>The minimum number of pages allowed.</p>
+</td></tr><tr class='module-item'><td><a class="constant" href="constant.WASM_PAGE_SIZE.html" title='wasmer::WASM_PAGE_SIZE constant'>WASM_PAGE_SIZE</a></td><td class='docblock-short'><p>WebAssembly page sizes are fixed to be 64KiB.
+Note: large page support may be added in an opt-in manner in the <a href="https://webassembly.org/docs/future-features/#large-page-support">future</a>.</p>
+</td></tr></table><h2 id='traits' class='section-header'><a href="#traits">Traits</a></h2>
+<table><tr class='module-item'><td><a class="trait" href="trait.ChainableNamedResolver.html" title='wasmer::ChainableNamedResolver trait'>ChainableNamedResolver</a></td><td class='docblock-short'><p>A trait for chaining resolvers together.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.CompilerConfig.html" title='wasmer::CompilerConfig trait'>CompilerConfig</a></td><td class='docblock-short'><p>The compiler configuration options.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Engine.html" title='wasmer::Engine trait'>Engine</a></td><td class='docblock-short'><p>A unimplemented Wasmer <code>Engine</code>.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Exportable.html" title='wasmer::Exportable trait'>Exportable</a></td><td class='docblock-short'><p>This trait is used to mark types as gettable from an <a href="../wasmer/struct.Instance.html"><code>Instance</code></a>.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.FromToNativeWasmType.html" title='wasmer::FromToNativeWasmType trait'>FromToNativeWasmType</a></td><td class='docblock-short'><p>A trait to convert a Rust value to a <code>WasmNativeType</code> value,
+or to convert <code>WasmNativeType</code> value to a Rust value.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.FunctionMiddleware.html" title='wasmer::FunctionMiddleware trait'>FunctionMiddleware</a></td><td class='docblock-short'><p>A function middleware specialized for a single function.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.HostFunction.html" title='wasmer::HostFunction trait'>HostFunction</a></td><td class='docblock-short'><p>The <code>HostFunction</code> trait represents the set of functions that
+can be used as host function. To uphold this statement, it is
+necessary for a function to be transformed into a pointer to
+<code>VMFunctionBody</code>.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.HostInfo.html" title='wasmer::HostInfo trait'>HostInfo</a></td><td class='docblock-short'></td></tr><tr class='module-item'><td><a class="trait" href="trait.LikeNamespace.html" title='wasmer::LikeNamespace trait'>LikeNamespace</a></td><td class='docblock-short'><p>The <code>LikeNamespace</code> trait represents objects that act as a namespace for imports.
+For example, an <code>Instance</code> or <code>Namespace</code> could be
+considered namespaces that could provide imports to an instance.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.ModuleMiddleware.html" title='wasmer::ModuleMiddleware trait'>ModuleMiddleware</a></td><td class='docblock-short'><p>A shared builder for function middlewares.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.NamedResolver.html" title='wasmer::NamedResolver trait'>NamedResolver</a></td><td class='docblock-short'><p>Import resolver connects imports with available exported values.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Resolver.html" title='wasmer::Resolver trait'>Resolver</a></td><td class='docblock-short'><p>Import resolver connects imports with available exported values.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.StoreObject.html" title='wasmer::StoreObject trait'>StoreObject</a></td><td class='docblock-short'><p>A trait represinting any object that lives in the <code>Store</code>.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.Tunables.html" title='wasmer::Tunables trait'>Tunables</a></td><td class='docblock-short'><p>An engine delegates the creation of memories, tables, and globals
+to a foreign implementor of this trait.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.ValueType.html" title='wasmer::ValueType trait'>ValueType</a></td><td class='docblock-short'><p>Trait for a Value type. A Value type is a type that is always valid and may
+be safely copied.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.WasmTypeList.html" title='wasmer::WasmTypeList trait'>WasmTypeList</a></td><td class='docblock-short'><p>The <code>WasmTypeList</code> trait represents a tuple (list) of Wasm
+typed values. It is used to get low-level representation of
+such a tuple.</p>
+</td></tr><tr class='module-item'><td><a class="trait" href="trait.WasmerEnv.html" title='wasmer::WasmerEnv trait'>WasmerEnv</a></td><td class='docblock-short'><p>Trait for initializing the environments passed to host functions after
+instantiation but before execution.</p>
+</td></tr></table><h2 id='functions-1' class='section-header'><a href="#functions-1">Functions</a></h2>
+<table><tr class='module-item'><td><a class="fn" href="fn.is_wasm.html" title='wasmer::is_wasm fn'>is_wasm</a></td><td class='docblock-short'><p>Check if the provided bytes are wasm-like</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.raise_user_trap.html" title='wasmer::raise_user_trap fn'>raise_user_trap</a><a title='unsafe function' href='#'><sup>⚠</sup></a></td><td class='docblock-short'><p>Raises a user-defined trap immediately.</p>
+</td></tr><tr class='module-item'><td><a class="fn" href="fn.wat2wasm.html" title='wasmer::wat2wasm fn'>wat2wasm</a></td><td class='docblock-short'><p>Parses in-memory bytes as either the <a href="http://webassembly.github.io/spec/core/text/index.html">WebAssembly Text format</a>, or a
+binary WebAssembly module.</p>
+</td></tr></table><h2 id='types' class='section-header'><a href="#types">Type Definitions</a></h2>
+<table><tr class='module-item'><td><a class="type" href="type.Val.html" title='wasmer::Val type'>Val</a></td><td class='docblock-short'><p>WebAssembly computations manipulate values of basic value types:</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.Value.html" title='wasmer::Value type'>Value</a></td><td class='docblock-short'><p>WebAssembly computations manipulate values of basic value types:</p>
+</td></tr><tr class='module-item'><td><a class="type" href="type.WasmResult.html" title='wasmer::WasmResult type'>WasmResult</a></td><td class='docblock-short'><p>A convenient alias for a <code>Result</code> that uses <code>WasmError</code> as the error type.</p>
+</td></tr></table><h2 id='derives' class='section-header'><a href="#derives">Derive Macros</a></h2>
+<table><tr class='module-item'><td><a class="derive" href="derive.WasmerEnv.html" title='wasmer::WasmerEnv derive'>WasmerEnv</a></td><td class='docblock-short'><p>Implement <a href="../wasmer/derive.WasmerEnv.html" title="WasmerEnv"><code>WasmerEnv</code></a> for your type with <code>#[derive(WasmerEnv)]</code>.</p>
+</td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../";window.currentCrate = "wasmer";</script><script src="../main.js"></script><script defer src="../search-index.js"></script></body></html>

@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["DeserializeError","Represents an error while deserializing."]],"fn":[["from_interface_values","Deserialize a set of `InterfaceValue`s to a type `T` that implements the `Deserialize` trait."]],"struct":[["Deserializer","The deserializer. The iterator iterates over `InterfaceValue`s, all flatten, see `FlattenInterfaceValueIterator`."],["Sequence",""]]});

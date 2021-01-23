@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Global","Container with a descriptor and a reference to a global value."]]});

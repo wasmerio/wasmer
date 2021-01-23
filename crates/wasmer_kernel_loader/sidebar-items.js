@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["service",""]],"struct":[["KernelInstance",""],["KernelLoader",""]]});

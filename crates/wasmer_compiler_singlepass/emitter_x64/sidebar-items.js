@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Condition",""],["GPROrMemory",""],["Location",""],["Size",""],["XMMOrMemory",""]],"fn":[["_dummy","Dynasm proc-macro checks for an `.arch` expression in a source file to determine the architecture it should use."]],"trait":[["Emitter",""]]});

@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["Instruction","Represents all the possible WIT instructions."]],"fn":[["to_native","Just a short helper to map the error of a cast from an `InterfaceValue` to a native value."]],"mod":[["argument_get",""],["call_core",""],["numbers",""],["records",""],["strings",""]]});

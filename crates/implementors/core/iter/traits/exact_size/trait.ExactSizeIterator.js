@@ -1,0 +1,4 @@
+(function() {var implementors = {};
+implementors["wasmer"] = [{"text":"impl&lt;'a, I&gt; ExactSizeIterator for ExportsIterator&lt;'a, I&gt; <span class=\"where fmt-newline\">where<br>&nbsp;&nbsp;&nbsp;&nbsp;I: Iterator&lt;Item = (&amp;'a String, &amp;'a Extern)&gt; + ExactSizeIterator + Sized,&nbsp;</span>","synthetic":false,"types":[]}];
+implementors["wasmer_vm"] = [{"text":"impl&lt;I:&nbsp;Iterator&lt;Item = ExportType&gt; + Sized&gt; ExactSizeIterator for ExportsIterator&lt;I&gt;","synthetic":false,"types":[]},{"text":"impl&lt;I:&nbsp;Iterator&lt;Item = ImportType&gt; + Sized&gt; ExactSizeIterator for ImportsIterator&lt;I&gt;","synthetic":false,"types":[]}];
+if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

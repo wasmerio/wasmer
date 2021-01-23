@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BaseTunables","Tunable parameters for WebAssembly compilation. This is the reference implementation of the `Tunables` trait, used by default."]]});

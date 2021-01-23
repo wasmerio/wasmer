@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["dummy_trampoline",""]],"struct":[["DummyEngine","A WebAssembly `Dummy` Engine."]]});

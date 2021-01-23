@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["SelfUpdate","The options for the `wasmer self-update` subcommand"]]});

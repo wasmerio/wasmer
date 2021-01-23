@@ -1,1 +1,1 @@
-initSidebarItems({"enum":[["ExternDescriptor","Information about an import such as its type and metadata."]],"struct":[["ExportDescriptor","Type describing an export that the [`Module`] provides."],["ImportDescriptor","A type describing an import that a [`Module`] needs to be instantiated."],["Module","A compiled WebAssembly module."]]});
+initSidebarItems({"enum":[["IoCompileError",""]],"struct":[["Module","A WebAssembly Module contains stateless WebAssembly code that has already been compiled and can be instantiated multiple times."]]});

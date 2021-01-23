@@ -1,1 +1,0 @@
-initSidebarItems({"constant":[["_IMPL_DESERIALIZE_FOR_Map",""],["_IMPL_SERIALIZE_FOR_Map",""]],"struct":[["IntoIter",""],["Iter","Iterator for a `Map`."],["IterMut","Mutable iterator for a `Map`."],["Map","Dense item map"]]});

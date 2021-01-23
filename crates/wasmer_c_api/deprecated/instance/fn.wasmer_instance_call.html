@@ -1,0 +1,47 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `wasmer_instance_call` fn in crate `wasmer_c_api`."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer_instance_call"><title>wasmer_c_api::deprecated::instance::wasmer_instance_call - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>deprecated</a>::<wbr><a href='index.html'>instance</a></p><script>window.sidebarCurrent = {name: 'wasmer_instance_call', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/wasmer_c_api/deprecated/instance.rs.html#316-409' title='goto source code'>[src]</a></span><span class='in-band'>Function <a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>deprecated</a>::<wbr><a href='index.html'>instance</a>::<wbr><a class="fn" href=''>wasmer_instance_call</a></span></h1><pre class='rust fn'><span class="docblock attributes">#[no_mangle]</span>pub unsafe extern &quot;C&quot; fn wasmer_instance_call(<br>&nbsp;&nbsp;&nbsp;&nbsp;instance: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../../../wasmer_c_api/deprecated/instance/struct.wasmer_instance_t.html" title="struct wasmer_c_api::deprecated::instance::wasmer_instance_t">wasmer_instance_t</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;name: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a>c_char, <br>&nbsp;&nbsp;&nbsp;&nbsp;params: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const </a><a class="struct" href="../../../wasmer_c_api/deprecated/value/struct.wasmer_value_t.html" title="struct wasmer_c_api::deprecated::value::wasmer_value_t">wasmer_value_t</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;params_len: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;results: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../../../wasmer_c_api/deprecated/value/struct.wasmer_value_t.html" title="struct wasmer_c_api::deprecated::value::wasmer_value_t">wasmer_value_t</a>, <br>&nbsp;&nbsp;&nbsp;&nbsp;results_len: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.u32.html">u32</a><br>) -&gt; <a class="enum" href="../../../wasmer_c_api/deprecated/enum.wasmer_result_t.html" title="enum wasmer_c_api::deprecated::wasmer_result_t">wasmer_result_t</a></pre><div class='docblock'><p>Calls an exported function of a WebAssembly instance by <code>name</code>
+with the provided parameters. The exported function results are
+stored on the provided <code>results</code> pointer.</p>
+<p>This function returns <code>wasmer_result_t::WASMER_OK</code> upon success,
+<code>wasmer_result_t::WASMER_ERROR</code> otherwise. You can use
+<code>wasmer_last_error_message()</code> to get the generated error message.</p>
+<p>Potential errors are the following:</p>
+<ul>
+<li><code>instance</code> is a null pointer,</li>
+<li><code>name</code> is a null pointer,</li>
+<li><code>params</code> is a null pointer.</li>
+</ul>
+<p>Example of calling an exported function that needs two parameters, and returns one value:</p>
+<pre><code class="language-c">// First argument.
+wasmer_value_t argument_one = {
+    .tag = WASM_I32,
+    .value.I32 = 3,
+};
+
+// Second argument.
+wasmer_value_t argument_two = {
+    .tag = WASM_I32,
+    .value.I32 = 4,
+};
+
+// First result.
+wasmer_value_t result_one;
+
+// All arguments and results.
+wasmer_value_t arguments[] = {argument_one, argument_two};
+wasmer_value_t results[]   = {result_one};
+
+wasmer_result_t call_result = wasmer_instance_call(
+    instance,  // instance pointer
+    &quot;sum&quot;,     // the exported function name
+    arguments, // the arguments
+    2,         // the number of arguments
+    results,   // the results
+    1          // the number of results
+);
+
+if (call_result == WASMER_OK) {
+    printf(&quot;Result is: %d\n&quot;, results[0].value.I32);
+}
+</code></pre>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_c_api";</script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

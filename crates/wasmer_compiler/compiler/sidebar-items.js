@@ -1,0 +1,1 @@
+initSidebarItems({"enum":[["Symbol","The kinds of wasmer_types objects that might be found in a native object file."]],"trait":[["Compiler","An implementation of a Compiler from parsed WebAssembly module to Compiled native code."],["CompilerConfig","The compiler configuration options."],["SymbolRegistry","This trait facilitates symbol name lookups in a native object file."]]});

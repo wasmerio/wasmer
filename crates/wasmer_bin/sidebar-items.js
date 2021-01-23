@@ -1,1 +1,0 @@
-initSidebarItems({"mod":[["commands",""],["common",""],["utils","Utility functions for the WebAssembly module"]]});

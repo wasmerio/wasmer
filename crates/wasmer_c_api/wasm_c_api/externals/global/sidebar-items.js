@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["wasm_global_copy",""],["wasm_global_delete",""],["wasm_global_get",""],["wasm_global_new",""],["wasm_global_same",""],["wasm_global_set","Note: This function returns nothing by design but it can raise an error if setting a new value fails."],["wasm_global_type",""]],"struct":[["wasm_global_t",""]]});

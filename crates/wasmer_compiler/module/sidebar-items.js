@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["CompileModuleInfo","The required info for compiling a module."]]});

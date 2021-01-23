@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["GPR","General-purpose registers."],["X64Register","A machine register under the x86-64 architecture."],["XMM","XMM registers."]],"struct":[["ArgumentRegisterAllocator","An allocator that allocates registers for function arguments according to the System V ABI."]]});

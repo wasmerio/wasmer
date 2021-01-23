@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["Location","A struct containing information about the location of a panic."],["PanicInfo","A struct providing information about a panic."]]});

@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/emscripten/src/time.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>time.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/emscripten/src/time.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>time.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_emscripten/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -456,16 +457,9 @@
 <span id="456">456</span>
 <span id="457">457</span>
 <span id="458">458</span>
-<span id="459">459</span>
-<span id="460">460</span>
-<span id="461">461</span>
-<span id="462">462</span>
-<span id="463">463</span>
-<span id="464">464</span>
-<span id="465">465</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">utils</span>::{<span class="ident">copy_cstr_into_wasm</span>, <span class="ident">write_to_buf</span>};
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">allocate_on_stack</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">allocate_on_stack</span>, <span class="ident">EmEnv</span>};
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">c_char</span>, <span class="ident">c_int</span>};
 <span class="comment">// use libc::{c_char, c_int, clock_getres, clock_settime};</span>
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
@@ -492,7 +486,6 @@
 <span class="kw">use</span> <span class="ident">time</span>;
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">env</span>;
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>;
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;linux&quot;</span>, <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;android&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">libc</span>::{<span class="ident">CLOCK_MONOTONIC</span>, <span class="ident">CLOCK_MONOTONIC_COARSE</span>, <span class="ident">CLOCK_REALTIME</span>};
@@ -519,7 +512,7 @@
 
 <span class="doccomment">/// emscripten: _gettimeofday</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gettimeofday</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>, <span class="ident">tz</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gettimeofday</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>, <span class="ident">tz</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_gettimeofday {} {}&quot;</span>, <span class="ident">tp</span>, <span class="ident">tz</span>);
     <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
     <span class="kw">struct</span> <span class="ident">GuestTimeVal</span> {
@@ -542,7 +535,7 @@
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_getres</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_getres</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_clock_getres&quot;</span>);
     <span class="comment">// clock_getres(clk_id, tp)</span>
     <span class="number">0</span>
@@ -550,7 +543,7 @@
 
 <span class="doccomment">/// emscripten: _clock_gettime</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_gettime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_gettime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_clock_gettime {} {}&quot;</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>);
     <span class="comment">// debug!(&quot;Memory {:?}&quot;, ctx.memory(0)[..]);</span>
     <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
@@ -582,41 +575,41 @@
     <span class="number">0</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_settime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock_settime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_clk_id</span>: <span class="ident">i32</span>, <span class="ident">_tp</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_clock_settime&quot;</span>);
     <span class="comment">// clock_settime(clk_id, tp)</span>
     <span class="number">0</span>
 }
 
 <span class="doccomment">/// emscripten: ___clock_gettime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___clock_gettime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___clock_gettime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">clk_id</span>: <span class="ident">clockid_t</span>, <span class="ident">tp</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::___clock_gettime {} {}&quot;</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>);
     <span class="ident">_clock_gettime</span>(<span class="ident">ctx</span>, <span class="ident">clk_id</span>, <span class="ident">tp</span>)
 }
 
 <span class="doccomment">/// emscripten: _clock</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_clock</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_clock&quot;</span>);
     <span class="number">0</span> <span class="comment">// TODO: unimplemented</span>
 }
 
 <span class="doccomment">/// emscripten: _difftime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_difftime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">t0</span>: <span class="ident">u32</span>, <span class="ident">t1</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_difftime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">t0</span>: <span class="ident">u32</span>, <span class="ident">t1</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">f64</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_difftime&quot;</span>);
     (<span class="ident">t0</span> <span class="op">-</span> <span class="ident">t1</span>) <span class="kw">as</span> <span class="kw">_</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime_r</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime_r</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>, <span class="ident">_two</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_gmtime_r&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_mktime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_mktime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_mktime&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_gmtime</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_one</span>: <span class="ident">i32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_gmtime&quot;</span>);
     <span class="op">-</span><span class="number">1</span>
 }
@@ -637,13 +630,13 @@
 }
 
 <span class="doccomment">/// emscripten: _tvset</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_tvset</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_tvset</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>) {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_tvset UNIMPLEMENTED&quot;</span>);
 }
 
 <span class="doccomment">/// formats time as a C string</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">fmt_time</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span> {
+<span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">fmt_time</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">c_char</span> {
     <span class="kw">let</span> <span class="ident">date</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">time</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">guest_tm</span>);
 
     <span class="kw">let</span> <span class="ident">days</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="string">&quot;Sun&quot;</span>, <span class="string">&quot;Mon&quot;</span>, <span class="string">&quot;Tue&quot;</span>, <span class="string">&quot;Wed&quot;</span>, <span class="string">&quot;Thu&quot;</span>, <span class="string">&quot;Fri&quot;</span>, <span class="string">&quot;Sat&quot;</span>];
@@ -668,7 +661,7 @@
 }
 
 <span class="doccomment">/// emscripten: _asctime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_asctime {}&quot;</span>, <span class="ident">time</span>);
 
     <span class="kw">unsafe</span> {
@@ -682,7 +675,7 @@
 }
 
 <span class="doccomment">/// emscripten: _asctime_r</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_asctime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_asctime_r {}, {}&quot;</span>, <span class="ident">time</span>, <span class="ident">buf</span>);
 
     <span class="kw">unsafe</span> {
@@ -701,14 +694,14 @@
 
 <span class="doccomment">/// emscripten: _localtime</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_localtime {}&quot;</span>, <span class="ident">time_p</span>);
     <span class="comment">// NOTE: emscripten seems to want tzset() called in this function</span>
     <span class="comment">//      https://stackoverflow.com/questions/19170721/real-time-awareness-of-timezone-change-in-localtime-vs-localtime-r</span>
 
     <span class="kw">let</span> <span class="ident">timespec</span> <span class="op">=</span> <span class="kw">unsafe</span> {
         <span class="kw">let</span> <span class="ident">time_p_addr</span> <span class="op">=</span> <span class="macro">emscripten_memory_pointer</span><span class="macro">!</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="ident">time_p</span>) <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i64</span>;
-        <span class="kw">let</span> <span class="ident">seconds</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">time_p_addr</span>.<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">seconds</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">time_p_addr</span>;
         <span class="ident">time</span>::<span class="ident">Timespec</span>::<span class="ident">new</span>(<span class="ident">seconds</span>, <span class="number">0</span>)
     };
     <span class="kw">let</span> <span class="ident">result_tm</span> <span class="op">=</span> <span class="ident">time</span>::<span class="ident">at</span>(<span class="ident">timespec</span>);
@@ -739,7 +732,7 @@
 }
 <span class="doccomment">/// emscripten: _localtime_r</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">result</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_localtime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">result</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">c_int</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_localtime_r {}&quot;</span>, <span class="ident">time_p</span>);
 
     <span class="comment">// NOTE: emscripten seems to want tzset() called in this function</span>
@@ -776,7 +769,7 @@
 
 <span class="doccomment">/// emscripten: _time</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_time</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_time</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_time {}&quot;</span>, <span class="ident">time_p</span>);
 
     <span class="kw">unsafe</span> {
@@ -785,7 +778,7 @@
     }
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime_r</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>, <span class="ident">buf</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_ctime_r {} {}&quot;</span>, <span class="ident">time_p</span>, <span class="ident">buf</span>);
 
     <span class="comment">// var stack = stackSave();</span>
@@ -796,7 +789,7 @@
     <span class="ident">rv</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_ctime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_p</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_ctime {}&quot;</span>, <span class="ident">time_p</span>);
     <span class="kw">let</span> <span class="ident">tm_current</span> <span class="op">=</span> <span class="number">2414544</span>;
     <span class="ident">_ctime_r</span>(<span class="ident">ctx</span>, <span class="ident">time_p</span>, <span class="ident">tm_current</span>)
@@ -805,7 +798,7 @@
 <span class="doccomment">/// emscripten: _timegm</span>
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">cast_ptr_alignment</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">time_ptr</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">time_ptr</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;emscripten::_timegm {}&quot;</span>, <span class="ident">time_ptr</span>);
 
     <span class="kw">unsafe</span> {
@@ -845,7 +838,7 @@
 }
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>)]</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">_time_ptr</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_timegm</span>(<span class="ident">_ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">_time_ptr</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(
         <span class="string">&quot;emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}&quot;</span>,
         <span class="ident">_time_ptr</span>
@@ -854,13 +847,7 @@
 }
 
 <span class="doccomment">/// emscripten: _strftime</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_strftime</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
-    <span class="ident">s_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">maxsize</span>: <span class="ident">u32</span>,
-    <span class="ident">format_ptr</span>: <span class="ident">c_int</span>,
-    <span class="ident">tm_ptr</span>: <span class="ident">c_int</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_strftime</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>, <span class="ident">s_ptr</span>: <span class="ident">c_int</span>, <span class="ident">maxsize</span>: <span class="ident">u32</span>, <span class="ident">format_ptr</span>: <span class="ident">c_int</span>, <span class="ident">tm_ptr</span>: <span class="ident">c_int</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">i32</span> {
     <span class="macro">debug</span><span class="macro">!</span>(
         <span class="string">&quot;emscripten::_strftime {} {} {} {}&quot;</span>,
         <span class="ident">s_ptr</span>, <span class="ident">maxsize</span>, <span class="ident">format_ptr</span>, <span class="ident">tm_ptr</span>
@@ -915,7 +902,7 @@
 
 <span class="doccomment">/// emscripten: _strftime_l</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">_strftime_l</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="ident">EmEnv</span>,
     <span class="ident">s_ptr</span>: <span class="ident">c_int</span>,
     <span class="ident">maxsize</span>: <span class="ident">u32</span>,
     <span class="ident">format_ptr</span>: <span class="ident">c_int</span>,
@@ -930,4 +917,4 @@
     <span class="ident">_strftime</span>(<span class="ident">ctx</span>, <span class="ident">s_ptr</span>, <span class="ident">maxsize</span>, <span class="ident">format_ptr</span>, <span class="ident">tm_ptr</span>)
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_emscripten";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_emscripten";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

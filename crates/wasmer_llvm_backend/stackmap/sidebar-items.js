@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["LocationType",""],["StackmapEntryKind",""],["ValueSemantic",""]],"fn":[["deref_global",""],["deref_table_base",""],["deref_table_bound",""]],"struct":[["Constant",""],["LiveOut",""],["Location",""],["StackMap",""],["StackmapEntry",""],["StackmapRegistry",""],["StkMapRecord",""],["StkSizeRecord",""]]});

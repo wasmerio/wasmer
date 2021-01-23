@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/api/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css"><link rel="stylesheet" type="text/css" href="../../light.css" id="themeStyle"><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/api/src/lib.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>lib.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">  1</span>
 <span id="2">  2</span>
 <span id="3">  3</span>
 <span id="4">  4</span>
@@ -369,457 +370,377 @@
 <span id="369">369</span>
 <span id="370">370</span>
 <span id="371">371</span>
-<span id="372">372</span>
-<span id="373">373</span>
-<span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
-<span id="378">378</span>
-<span id="379">379</span>
-<span id="380">380</span>
-<span id="381">381</span>
-<span id="382">382</span>
-<span id="383">383</span>
-<span id="384">384</span>
-<span id="385">385</span>
-<span id="386">386</span>
-<span id="387">387</span>
-<span id="388">388</span>
-<span id="389">389</span>
-<span id="390">390</span>
-<span id="391">391</span>
-<span id="392">392</span>
-<span id="393">393</span>
-<span id="394">394</span>
-<span id="395">395</span>
-<span id="396">396</span>
-<span id="397">397</span>
-<span id="398">398</span>
-<span id="399">399</span>
-<span id="400">400</span>
-<span id="401">401</span>
-<span id="402">402</span>
-<span id="403">403</span>
-<span id="404">404</span>
-<span id="405">405</span>
-<span id="406">406</span>
-<span id="407">407</span>
-<span id="408">408</span>
-<span id="409">409</span>
-<span id="410">410</span>
-<span id="411">411</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="attribute">#![<span class="ident">deny</span>(
-    <span class="ident">dead_code</span>,
-<span class="comment">//    missing_docs,</span>
-    <span class="ident">nonstandard_style</span>,
-    <span class="ident">unused_imports</span>,
-    <span class="ident">unused_mut</span>,
-    <span class="ident">unused_variables</span>,
-    <span class="ident">unused_unsafe</span>,
-    <span class="ident">unreachable_patterns</span>
+<span class="attribute">#![<span class="ident">doc</span>(
+    <span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
+    <span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/static/icons/favicon.ico&quot;</span>
 )]</span>
-<span class="comment">// Aspirational. I hope to have no unsafe code in this crate.</span>
-<span class="attribute">#![<span class="ident">forbid</span>(<span class="ident">unsafe_code</span>)]</span>
-<span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/static/icons/favicon.ico&quot;</span>)]</span>
-<span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://avatars3.githubusercontent.com/u/44205449?s=200&amp;v=4&quot;</span>)]</span>
+<span class="attribute">#![<span class="ident">deny</span>(
+    <span class="ident">missing_docs</span>,
+    <span class="ident">trivial_numeric_casts</span>,
+    <span class="ident">unused_extern_crates</span>,
+    <span class="ident">broken_intra_doc_links</span>
+)]</span>
+<span class="attribute">#![<span class="ident">warn</span>(<span class="ident">unused_import_braces</span>)]</span>
+<span class="attribute">#![<span class="ident">cfg_attr</span>(
+    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
+    <span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">new_without_default</span>, <span class="ident">vtable_address_comparisons</span>)
+)]</span>
+<span class="attribute">#![<span class="ident">cfg_attr</span>(
+    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cargo-clippy&quot;</span>,
+    <span class="ident">warn</span>(
+        <span class="ident">clippy</span>::<span class="ident">float_arithmetic</span>,
+        <span class="ident">clippy</span>::<span class="ident">mut_mut</span>,
+        <span class="ident">clippy</span>::<span class="ident">nonminimal_bool</span>,
+        <span class="ident">clippy</span>::<span class="ident">option_map_unwrap_or</span>,
+        <span class="ident">clippy</span>::<span class="ident">option_map_unwrap_or_else</span>,
+        <span class="ident">clippy</span>::<span class="ident">print_stdout</span>,
+        <span class="ident">clippy</span>::<span class="ident">unicode_not_nfc</span>,
+        <span class="ident">clippy</span>::<span class="ident">use_self</span>
+    )
+)]</span>
 
-<span class="doccomment">//! TODO: Write high value, high-level API intro docs here</span>
-<span class="doccomment">//! Intro/background information</span>
+<span class="doccomment">//! This crate contains the `wasmer` API. The `wasmer` API facilitates the efficient,</span>
+<span class="doccomment">//! sandboxed execution of [WebAssembly (Wasm)][wasm] modules.</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! quick links to places in this document/other crates/standards etc.</span>
+<span class="doccomment">//! Here&#39;s an example of the `wasmer` API in action:</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//! use wasmer::{Store, Module, Instance, Value, imports};</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! example code, link to projects using it</span>
+<span class="doccomment">//! fn main() -&gt; anyhow::Result&lt;()&gt; {</span>
+<span class="doccomment">//!     let module_wat = r#&quot;</span>
+<span class="doccomment">//!     (module</span>
+<span class="doccomment">//!     (type $t0 (func (param i32) (result i32)))</span>
+<span class="doccomment">//!     (func $add_one (export &quot;add_one&quot;) (type $t0) (param $p0 i32) (result i32)</span>
+<span class="doccomment">//!         get_local $p0</span>
+<span class="doccomment">//!         i32.const 1</span>
+<span class="doccomment">//!         i32.add))</span>
+<span class="doccomment">//!     &quot;#;</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//! more info, what to do if you run into problems</span>
+<span class="doccomment">//!     let store = Store::default();</span>
+<span class="doccomment">//!     let module = Module::new(&amp;store, &amp;module_wat)?;</span>
+<span class="doccomment">//!     // The module doesn&#39;t import anything, so we create an empty import object.</span>
+<span class="doccomment">//!     let import_object = imports! {};</span>
+<span class="doccomment">//!     let instance = Instance::new(&amp;module, &amp;import_object)?;</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!     let add_one = instance.exports.get_function(&quot;add_one&quot;)?;</span>
+<span class="doccomment">//!     let result = add_one.call(&amp;[Value::I32(42)])?;</span>
+<span class="doccomment">//!     assert_eq!(result[0], Value::I32(43));</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!     Ok(())</span>
+<span class="doccomment">//! }</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! For more examples of using the `wasmer` API, check out the</span>
+<span class="doccomment">//! [wasmer examples][wasmer-examples].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ---------</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Table of Contents</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! - [Wasm Primitives](#wasm-primitives)</span>
+<span class="doccomment">//!   - [Externs](#externs)</span>
+<span class="doccomment">//!     - [Functions](#functions)</span>
+<span class="doccomment">//!     - [Memories](#memories)</span>
+<span class="doccomment">//!     - [Globals](#globals)</span>
+<span class="doccomment">//!     - [Tables](#tables)</span>
+<span class="doccomment">//! - [Project Layout](#project-layout)</span>
+<span class="doccomment">//!   - [Engines](#engines)</span>
+<span class="doccomment">//!   - [Compilers](#compilers)</span>
+<span class="doccomment">//! - [Features](#features)</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! # Wasm Primitives</span>
+<span class="doccomment">//! In order to make use of the power of the `wasmer` API, it&#39;s important</span>
+<span class="doccomment">//! to understand the primitives around which the API is built.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! Wasm only deals with a small number of core data types, these data</span>
+<span class="doccomment">//! types can be found in the [`Value`] type.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! In addition to the core Wasm types, the core types of the API are</span>
+<span class="doccomment">//! referred to as &quot;externs&quot;.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## Externs</span>
+<span class="doccomment">//! An [`Extern`] is a type that can be imported or exported from a Wasm</span>
+<span class="doccomment">//! module.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! To import an extern, simply give it a namespace and a name with the</span>
+<span class="doccomment">//! [`imports`] macro:</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//! # use wasmer::{imports, Function, Memory, MemoryType, Store, ImportObject};</span>
+<span class="doccomment">//! # fn imports_example(store: &amp;Store) -&gt; ImportObject {</span>
+<span class="doccomment">//! let memory = Memory::new(&amp;store, MemoryType::new(1, None, false)).unwrap();</span>
+<span class="doccomment">//! imports! {</span>
+<span class="doccomment">//!     &quot;env&quot; =&gt; {</span>
+<span class="doccomment">//!          &quot;my_function&quot; =&gt; Function::new_native(store, || println!(&quot;Hello&quot;)),</span>
+<span class="doccomment">//!          &quot;memory&quot; =&gt; memory,</span>
+<span class="doccomment">//!     }</span>
+<span class="doccomment">//! }</span>
+<span class="doccomment">//! # }</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! And to access an exported extern, see the [`Exports`] API, accessible</span>
+<span class="doccomment">//! from any instance via `instance.exports`:</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//! # use wasmer::{imports, Instance, Function, Memory, NativeFunc};</span>
+<span class="doccomment">//! # fn exports_example(instance: &amp;Instance) -&gt; anyhow::Result&lt;()&gt; {</span>
+<span class="doccomment">//! let memory = instance.exports.get_memory(&quot;memory&quot;)?;</span>
+<span class="doccomment">//! let memory: &amp;Memory = instance.exports.get(&quot;some_other_memory&quot;)?;</span>
+<span class="doccomment">//! let add: NativeFunc&lt;(i32, i32), i32&gt; = instance.exports.get_native_function(&quot;add&quot;)?;</span>
+<span class="doccomment">//! let result = add.call(5, 37)?;</span>
+<span class="doccomment">//! assert_eq!(result, 42);</span>
+<span class="doccomment">//! # Ok(())</span>
+<span class="doccomment">//! # }</span>
+<span class="doccomment">//! ```</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! These are the primary types that the `wasmer` API uses.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Functions</span>
+<span class="doccomment">//! There are 2 types of functions in `wasmer`:</span>
+<span class="doccomment">//! 1. Wasm functions</span>
+<span class="doccomment">//! 2. Host functions</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! A Wasm function is a function defined in a WebAssembly module that can</span>
+<span class="doccomment">//! only perform computation without side effects and call other functions.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! Wasm functions take 0 or more arguments and return 0 or more results.</span>
+<span class="doccomment">//! Wasm functions can only deal with the primitive types defined in</span>
+<span class="doccomment">//! [`Value`].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! A Host function is any function implemented on the host, in this case in</span>
+<span class="doccomment">//! Rust.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! Host functions can optionally be created with an environment that</span>
+<span class="doccomment">//! implements [`WasmerEnv`]. This environment is useful for maintaining</span>
+<span class="doccomment">//! host state (for example the filesystem in WASI).</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! Thus WebAssembly modules by themselves cannot do anything but computation</span>
+<span class="doccomment">//! on the core types in [`Value`]. In order to make them more useful we</span>
+<span class="doccomment">//! give them access to the outside world with [`imports`].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! If you&#39;re looking for a sandboxed, POSIX-like environment to execute Wasm</span>
+<span class="doccomment">//! in, check out the [`wasmer-wasi`][wasmer-wasi] crate for our implementation of WASI,</span>
+<span class="doccomment">//! the WebAssembly System Interface.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! In the `wasmer` API we support functions which take their arguments and</span>
+<span class="doccomment">//! return their results dynamically, [`Function`], and functions which</span>
+<span class="doccomment">//! take their arguments and return their results statically, [`NativeFunc`].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Memories</span>
+<span class="doccomment">//! Memories store data.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! In most Wasm programs, nearly all data will live in a [`Memory`].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! This data can be shared between the host and guest to allow for more</span>
+<span class="doccomment">//! interesting programs.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Globals</span>
+<span class="doccomment">//! A [`Global`] is a type that may be either mutable or immutable, and</span>
+<span class="doccomment">//! contains one of the core Wasm types defined in [`Value`].</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Tables</span>
+<span class="doccomment">//! A [`Table`] is an indexed list of items.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## Project Layout</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The Wasmer project is divided into a number of crates, below is a dependency</span>
+<span class="doccomment">//! graph with transitive dependencies removed.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! &lt;div&gt;</span>
+<span class="doccomment">//! &lt;img src=&quot;https://raw.githubusercontent.com/wasmerio/wasmer/master/docs/deps_dedup.svg&quot; /&gt;</span>
+<span class="doccomment">//! &lt;/div&gt;</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! While this crate is the top level API, we also publish crates built</span>
+<span class="doccomment">//! on top of this API that you may be interested in using, including:</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! - [wasmer-cache][] for caching compiled Wasm modules.</span>
+<span class="doccomment">//! - [wasmer-emscripten][] for running Wasm modules compiled to the</span>
+<span class="doccomment">//!   Emscripten ABI.</span>
+<span class="doccomment">//! - [wasmer-wasi][] for running Wasm modules compiled to the WASI ABI.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! --------</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The Wasmer project has two major abstractions:</span>
+<span class="doccomment">//! 1. [Engines][wasmer-engine]</span>
+<span class="doccomment">//! 2. [Compilers][wasmer-compiler]</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! These two abstractions have multiple options that can be enabled</span>
+<span class="doccomment">//! with features.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Engines</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! An engine is a system that uses a compiler to make a WebAssembly</span>
+<span class="doccomment">//! module executable.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ### Compilers</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! A compiler is a system that handles the details of making a Wasm</span>
+<span class="doccomment">//! module executable. For example, by generating native machine code</span>
+<span class="doccomment">//! for each Wasm function.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! ## Features</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! This crate&#39;s features can be broken down into 2 kinds, features that</span>
+<span class="doccomment">//! enable new functionality and features that set defaults.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The features that enable new functionality are:</span>
+<span class="doccomment">//! - `jit` - enable the JIT engine. (See [wasmer-jit][])</span>
+<span class="doccomment">//! - `native` - enable the native engine. (See [wasmer-native][])</span>
+<span class="doccomment">//! - `cranelift` - enable Wasmer&#39;s Cranelift compiler. (See [wasmer-cranelift][])</span>
+<span class="doccomment">//! - `llvm` - enable Wasmer&#39;s LLVM compiler. (See [wasmer-llvm][])</span>
+<span class="doccomment">//! - `singlepass` - enable Wasmer&#39;s Singlepass compiler. (See [wasmer-singlepass][])</span>
+<span class="doccomment">//! - `wat` - enable `wasmer` to parse the WebAssembly text format.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The features that set defaults come in sets that are mutually exclusive.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The first set is the default compiler set:</span>
+<span class="doccomment">//! - `default-cranelift` - set Wasmer&#39;s Cranelift compiler as the default.</span>
+<span class="doccomment">//! - `default-llvm` - set Wasmer&#39;s LLVM compiler as the default.</span>
+<span class="doccomment">//! - `default-singlepass` - set Wasmer&#39;s Singlepass compiler as the default.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The next set is the default engine set:</span>
+<span class="doccomment">//! - `default-jit` - set the JIT engine as the default.</span>
+<span class="doccomment">//! - `default-native` - set the native engine as the default.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! --------</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! By default the `wat`, `default-cranelift`, and `default-jit` features</span>
+<span class="doccomment">//! are enabled.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [wasm]: https://webassembly.org/</span>
+<span class="doccomment">//! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples</span>
+<span class="doccomment">//! [wasmer-cache]: https://docs.rs/wasmer-cache/*/wasmer_cache/</span>
+<span class="doccomment">//! [wasmer-compiler]: https://docs.rs/wasmer-compiler/*/wasmer_compiler/</span>
+<span class="doccomment">//! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/*/wasmer_cranelift/</span>
+<span class="doccomment">//! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/</span>
+<span class="doccomment">//! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/</span>
+<span class="doccomment">//! [wasmer-jit]: https://docs.rs/wasmer-jit/*/wasmer_jit/</span>
+<span class="doccomment">//! [wasmer-native]: https://docs.rs/wasmer-native/*/wasmer_native/</span>
+<span class="doccomment">//! [wasmer-singlepass]: https://docs.rs/wasmer-singlepass/*/wasmer_singlepass/</span>
+<span class="doccomment">//! [wasmer-llvm]: https://docs.rs/wasmer-llvm/*/wasmer_llvm/</span>
+<span class="doccomment">//! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/</span>
 
-<span class="attribute">#[<span class="ident">macro_use</span>]</span>
-<span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">serde</span>;
+<span class="kw">mod</span> <span class="ident">env</span>;
+<span class="kw">mod</span> <span class="ident">exports</span>;
+<span class="kw">mod</span> <span class="ident">externals</span>;
+<span class="kw">mod</span> <span class="ident">import_object</span>;
+<span class="kw">mod</span> <span class="ident">instance</span>;
+<span class="kw">mod</span> <span class="ident">module</span>;
+<span class="kw">mod</span> <span class="ident">native</span>;
+<span class="kw">mod</span> <span class="ident">ptr</span>;
+<span class="kw">mod</span> <span class="ident">store</span>;
+<span class="kw">mod</span> <span class="ident">tunables</span>;
+<span class="kw">mod</span> <span class="ident">types</span>;
+<span class="kw">mod</span> <span class="ident">utils</span>;
 
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="kw-2">*</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">instance</span>::{<span class="ident">DynFunc</span>, <span class="ident">Instance</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">memory</span>::<span class="ident">Memory</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">table</span>::<span class="ident">Table</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">typed_func</span>::<span class="ident">DynamicFunc</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">Func</span>;
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">func</span>, <span class="ident">imports</span>};
+<span class="doccomment">/// Implement [`WasmerEnv`] for your type with `#[derive(WasmerEnv)]`.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// See the [`WasmerEnv`] trait for more information.</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_derive</span>::<span class="ident">WasmerEnv</span>;
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">module</span> {
-    <span class="doccomment">//! Types and functions for WebAssembly modules.</span>
-    <span class="doccomment">//!</span>
-    <span class="doccomment">//! # Usage</span>
-    <span class="doccomment">//! ## Create a Module</span>
-    <span class="doccomment">//!</span>
-    <span class="doccomment">//! ```</span>
-    <span class="doccomment">//! ```</span>
-    <span class="doccomment">//!</span>
-    <span class="doccomment">//! ## Get the exports from a Module</span>
-    <span class="doccomment">//! ```</span>
-    <span class="doccomment">//! # use wasmer::*;</span>
-    <span class="doccomment">//! # fn get_exports(module: &amp;Module) {</span>
-    <span class="doccomment">//! let exports: Vec&lt;ExportDescriptor&gt; = module.exports().collect();</span>
-    <span class="doccomment">//! # }</span>
-    <span class="doccomment">//! ```</span>
-    <span class="comment">// TODO: verify that this is the type we want to export, with extra methods on it</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
-    <span class="comment">// should this be in here?</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExportDescriptor</span>, <span class="ident">ExternDescriptor</span>, <span class="ident">ImportDescriptor</span>};
-    <span class="comment">// TODO: implement abstract module API</span>
+<span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">internals</span> {
+    <span class="doccomment">//! We use the internals module for exporting types that are only</span>
+    <span class="doccomment">//! intended to use in internal crates such as the compatibility crate</span>
+    <span class="doccomment">//! `wasmer-vm`. Please don&#39;t use any of this types directly, as</span>
+    <span class="doccomment">//! they might change frequently or be removed in the future.</span>
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;deprecated&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::{<span class="ident">UnsafeMutableEnv</span>, <span class="ident">WithUnsafeMutableEnv</span>};
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::{<span class="ident">WithEnv</span>, <span class="ident">WithoutEnv</span>};
 }
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">memory</span> {
-    <span class="doccomment">//! Types and functions for Wasm linear memory.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">memory</span>::{<span class="ident">Atomically</span>, <span class="ident">Memory</span>, <span class="ident">MemoryView</span>};
-}
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">env</span>::{<span class="ident">HostEnvInitError</span>, <span class="ident">LazyInit</span>, <span class="ident">WasmerEnv</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>, <span class="ident">Exports</span>, <span class="ident">ExportsIterator</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::{
+    <span class="ident">Extern</span>, <span class="ident">FromToNativeWasmType</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">HostFunction</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>, <span class="ident">WasmTypeList</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">import_object</span>::{<span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>, <span class="ident">LikeNamespace</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">instance</span>::{<span class="ident">Instance</span>, <span class="ident">InstantiationError</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">native</span>::<span class="ident">NativeFunc</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ptr</span>::{<span class="ident">Array</span>, <span class="ident">Item</span>, <span class="ident">WasmPtr</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::{<span class="ident">Store</span>, <span class="ident">StoreObject</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">tunables</span>::<span class="ident">BaseTunables</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{
+    <span class="ident">ExportType</span>, <span class="ident">ExternRef</span>, <span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalType</span>, <span class="ident">HostInfo</span>, <span class="ident">HostRef</span>, <span class="ident">ImportType</span>,
+    <span class="ident">MemoryType</span>, <span class="ident">Mutability</span>, <span class="ident">TableType</span>, <span class="ident">Val</span>, <span class="ident">ValType</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">Val</span> <span class="kw">as</span> <span class="ident">Value</span>, <span class="ident">ValType</span> <span class="kw">as</span> <span class="ident">Type</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::<span class="ident">is_wasm</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">target_lexicon</span>::{<span class="ident">Architecture</span>, <span class="ident">CallingConvention</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Triple</span>, <span class="ident">HOST</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
+    <span class="ident">wasmparser</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionMiddleware</span>, <span class="ident">MiddlewareError</span>, <span class="ident">MiddlewareReaderState</span>,
+    <span class="ident">ModuleMiddleware</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
+    <span class="ident">CompileError</span>, <span class="ident">CpuFeature</span>, <span class="ident">Features</span>, <span class="ident">ParseCpuFeatureError</span>, <span class="ident">Target</span>, <span class="ident">WasmError</span>, <span class="ident">WasmResult</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{
+    <span class="ident">ChainableNamedResolver</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">Export</span>, <span class="ident">FrameInfo</span>, <span class="ident">LinkError</span>, <span class="ident">NamedResolver</span>,
+    <span class="ident">NamedResolverChain</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
+};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">Atomically</span>, <span class="ident">Bytes</span>, <span class="ident">ExportIndex</span>, <span class="ident">GlobalInit</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryView</span>, <span class="ident">Pages</span>, <span class="ident">ValueType</span>,
+    <span class="ident">WASM_MAX_PAGES</span>, <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,
+};
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasm</span> {
-    <span class="doccomment">//! Various types exposed by the Wasmer Runtime relating to Wasm.</span>
-    <span class="doccomment">//!</span>
-    <span class="doccomment">//! TODO: Add index with links to sub sections</span>
-    <span class="comment">//</span>
-    <span class="doccomment">//! # Globals</span>
-    <span class="doccomment">//!</span>
-    <span class="doccomment">//! # Tables</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">backend</span>::<span class="ident">Features</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">export</span>::<span class="ident">Export</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">global</span>::<span class="ident">Global</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">instance</span>::{<span class="ident">DynFunc</span>, <span class="ident">Instance</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">memory</span>::<span class="ident">Memory</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">table</span>::<span class="ident">Table</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExportDescriptor</span>, <span class="ident">ExternDescriptor</span>, <span class="ident">ImportDescriptor</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{
-        <span class="ident">FuncSig</span>, <span class="ident">GlobalDescriptor</span>, <span class="ident">MemoryDescriptor</span>, <span class="ident">TableDescriptor</span>, <span class="ident">Type</span>, <span class="ident">Value</span>,
-    };
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">Func</span>;
-}
-
+<span class="comment">// TODO: should those be moved into wasmer::vm as well?</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">MemoryError</span>, <span class="ident">VMExport</span>};
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vm</span> {
-    <span class="doccomment">//! Various types exposed by the Wasmer Runtime relating to the VM.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">vm</span>::<span class="ident">Ctx</span>;
-}
+    <span class="doccomment">//! The vm module re-exports wasmer-vm types.</span>
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">compiler</span> {
-    <span class="doccomment">//! Types and functions for compiling wasm;</span>
-    <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">module</span>::<span class="ident">Module</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">backend</span>::{
-        <span class="ident">BackendCompilerConfig</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">Features</span>,
-    };
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with</span>;
-    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">fault</span>::{<span class="ident">pop_code_version</span>, <span class="ident">push_code_version</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">state</span>::<span class="ident">CodeVersion</span>;
-
-    <span class="doccomment">/// Enum used to select which compiler should be used to generate code.</span>
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Backend</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span>
-        <span class="doccomment">/// Singlepass backend</span>
-        <span class="ident">Singlepass</span>,
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
-        <span class="doccomment">/// Cranelift backend</span>
-        <span class="ident">Cranelift</span>,
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
-        <span class="doccomment">/// LLVM backend</span>
-        <span class="ident">LLVM</span>,
-        <span class="doccomment">/// Auto backend</span>
-        <span class="ident">Auto</span>,
-    }
-
-    <span class="kw">impl</span> <span class="ident">Backend</span> {
-        <span class="doccomment">/// Get a list of the currently enabled (via feature flag) backends.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">variants</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span>] {
-            <span class="kw-2">&amp;</span>[
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span>
-                <span class="string">&quot;singlepass&quot;</span>,
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
-                <span class="string">&quot;cranelift&quot;</span>,
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
-                <span class="string">&quot;llvm&quot;</span>,
-                <span class="string">&quot;auto&quot;</span>,
-            ]
-        }
-
-        <span class="doccomment">/// Stable string representation of the backend.</span>
-        <span class="doccomment">/// It can be used as part of a cache key, for example.</span>
-        <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_string</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
-            <span class="kw">match</span> <span class="self">self</span> {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span>
-                <span class="ident">Backend</span>::<span class="ident">Singlepass</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;singlepass&quot;</span>,
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
-                <span class="ident">Backend</span>::<span class="ident">Cranelift</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;cranelift&quot;</span>,
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
-                <span class="ident">Backend</span>::<span class="ident">LLVM</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;llvm&quot;</span>,
-                <span class="ident">Backend</span>::<span class="ident">Auto</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;auto&quot;</span>,
-            }
-        }
-    }
-
-    <span class="kw">impl</span> <span class="ident">Default</span> <span class="kw">for</span> <span class="ident">Backend</span> {
-        <span class="kw">fn</span> <span class="ident">default</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-singlepass&quot;</span>, <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>)))]</span>
-            <span class="kw">return</span> <span class="ident">Backend</span>::<span class="ident">Singlepass</span>;
-
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>))]</span>
-            <span class="kw">return</span> <span class="ident">Backend</span>::<span class="ident">Cranelift</span>;
-
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-llvm&quot;</span>, <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>)))]</span>
-            <span class="kw">return</span> <span class="ident">Backend</span>::<span class="ident">LLVM</span>;
-        }
-    }
-
-    <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span> <span class="kw">for</span> <span class="ident">Backend</span> {
-        <span class="kw">type</span> <span class="prelude-val">Err</span> <span class="op">=</span> <span class="ident">String</span>;
-        <span class="kw">fn</span> <span class="ident">from_str</span>(<span class="ident">s</span>: <span class="kw-2">&amp;</span><span class="ident">str</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Backend</span>, <span class="ident">String</span><span class="op">&gt;</span> {
-            <span class="kw">match</span> <span class="ident">s</span>.<span class="ident">to_lowercase</span>().<span class="ident">as_str</span>() {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span>
-                <span class="string">&quot;singlepass&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Backend</span>::<span class="ident">Singlepass</span>),
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
-                <span class="string">&quot;cranelift&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Backend</span>::<span class="ident">Cranelift</span>),
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
-                <span class="string">&quot;llvm&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Backend</span>::<span class="ident">LLVM</span>),
-                <span class="string">&quot;auto&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">Backend</span>::<span class="ident">Auto</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;The backend {} doesn&#39;t exist&quot;</span>, <span class="ident">s</span>)),
-            }
-        }
-    }
-
-    <span class="doccomment">/// Compile WebAssembly binary code into a [`Module`].</span>
-    <span class="doccomment">/// This function is useful if it is necessary to</span>
-    <span class="doccomment">/// compile a module before it can be instantiated</span>
-    <span class="doccomment">/// (otherwise, the [`instantiate`] function should be used).</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// [`Module`]: struct.Module.html</span>
-    <span class="doccomment">/// [`instantiate`]: fn.instantiate.html</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// # Params:</span>
-    <span class="doccomment">/// * `wasm`: A `&amp;[u8]` containing the</span>
-    <span class="doccomment">///   binary code of the wasm module you want to compile.</span>
-    <span class="doccomment">/// # Errors:</span>
-    <span class="doccomment">/// If the operation fails, the function returns `Err(error::CompileError::...)`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compile</span>(<span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">default_compiler</span>())
-    }
-
-    <span class="doccomment">/// The same as `compile` but takes a `CompilerConfig` for the purpose of</span>
-    <span class="doccomment">/// changing the compiler&#39;s behavior</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compile_with_config</span>(
-        <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">compiler_config</span>: <span class="ident">CompilerConfig</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with_config</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="kw-2">&amp;</span><span class="ident">default_compiler</span>(), <span class="ident">compiler_config</span>)
-    }
-
-    <span class="doccomment">/// The same as `compile_with_config` but takes a `Compiler` for the purpose of</span>
-    <span class="doccomment">/// changing the backend.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compile_with_config_with</span>(
-        <span class="ident">wasm</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>],
-        <span class="ident">compiler_config</span>: <span class="ident">CompilerConfig</span>,
-        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with_config</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>[..], <span class="ident">compiler</span>, <span class="ident">compiler_config</span>)
-    }
-
-    <span class="doccomment">/// Copied from runtime core; TODO: figure out what we want to do here</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">default_compiler</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="kw">impl</span> <span class="ident">Compiler</span> {
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(
-            <span class="ident">all</span>(
-                <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-llvm&quot;</span>,
-                <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>),
-                <span class="ident">any</span>(
-                    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-cranelift&quot;</span>,
-                    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-singlepass&quot;</span>
-                )
-            ),
-            <span class="ident">all</span>(
-                <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>),
-                <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-cranelift&quot;</span>,
-                <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-singlepass&quot;</span>
-            )
-        ))]</span>
-        <span class="macro">compile_error</span><span class="macro">!</span>(
-            <span class="string">&quot;The `default-backend-X` features are mutually exclusive.  Please choose just one&quot;</span>
-        );
-
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-llvm&quot;</span>, <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>)))]</span>
-        <span class="kw">use</span> <span class="ident">wasmer_llvm_backend</span>::<span class="ident">LLVMCompiler</span> <span class="kw">as</span> <span class="ident">DefaultCompiler</span>;
-
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-singlepass&quot;</span>, <span class="ident">not</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>)))]</span>
-        <span class="kw">use</span> <span class="ident">wasmer_singlepass_backend</span>::<span class="ident">SinglePassCompiler</span> <span class="kw">as</span> <span class="ident">DefaultCompiler</span>;
-
-        <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;docs&quot;</span>))]</span>
-        <span class="kw">use</span> <span class="ident">wasmer_clif_backend</span>::<span class="ident">CraneliftCompiler</span> <span class="kw">as</span> <span class="ident">DefaultCompiler</span>;
-
-        <span class="ident">DefaultCompiler</span>::<span class="ident">new</span>()
-    }
-
-    <span class="doccomment">/// Get the `Compiler` as a trait object for the given `Backend`.</span>
-    <span class="doccomment">/// Returns `Option` because support for the requested `Compiler` may</span>
-    <span class="doccomment">/// not be enabled by feature flags.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// To get a list of the enabled backends as strings, call `Backend::variants()`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">compiler_for_backend</span>(<span class="ident">backend</span>: <span class="ident">Backend</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-        <span class="kw">match</span> <span class="ident">backend</span> {
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
-            <span class="ident">Backend</span>::<span class="ident">Cranelift</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_clif_backend</span>::<span class="ident">CraneliftCompiler</span>::<span class="ident">new</span>())),
-
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>))]</span>
-            <span class="ident">Backend</span>::<span class="ident">Singlepass</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(
-                <span class="ident">wasmer_singlepass_backend</span>::<span class="ident">SinglePassCompiler</span>::<span class="ident">new</span>(),
-            )),
-
-            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
-            <span class="ident">Backend</span>::<span class="ident">LLVM</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_llvm_backend</span>::<span class="ident">LLVMCompiler</span>::<span class="ident">new</span>())),
-
-            <span class="ident">Backend</span>::<span class="ident">Auto</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-singlepass&quot;</span>)]</span>
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(
-                    <span class="ident">wasmer_singlepass_backend</span>::<span class="ident">SinglePassCompiler</span>::<span class="ident">new</span>(),
-                ));
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-cranelift&quot;</span>)]</span>
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_clif_backend</span>::<span class="ident">CraneliftCompiler</span>::<span class="ident">new</span>()));
-                <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-backend-llvm&quot;</span>)]</span>
-                <span class="kw">return</span> <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_llvm_backend</span>::<span class="ident">LLVMCompiler</span>::<span class="ident">new</span>()));
-            }
-        }
-    }
-}
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">codegen</span> {
-    <span class="doccomment">//! Types and functions for generating native code.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">codegen</span>::<span class="ident">ModuleCodeGenerator</span>;
-}
-
-<span class="comment">// TODO: `import` or `imports`?</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">import</span> {
-    <span class="doccomment">//! Types and functions for Wasm imports.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">import</span>::{
-        <span class="ident">ImportObject</span>, <span class="ident">ImportObjectIterator</span>, <span class="ident">LikeNamespace</span>, <span class="ident">Namespace</span>,
-    };
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExternDescriptor</span>, <span class="ident">ImportDescriptor</span>};
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">func</span>, <span class="ident">imports</span>};
-}
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">export</span> {
-    <span class="doccomment">//! Types and functions for Wasm exports.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">export</span>::<span class="ident">Export</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{<span class="ident">ExportDescriptor</span>, <span class="ident">ExternDescriptor</span>};
-}
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">units</span> {
-    <span class="doccomment">//! Various unit types.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">units</span>::{<span class="ident">Bytes</span>, <span class="ident">Pages</span>};
-}
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span> {
-    <span class="doccomment">//! Types used in the Wasm runtime and conversion functions.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">types</span>::{
-        <span class="ident">ElementType</span>, <span class="ident">FuncDescriptor</span>, <span class="ident">FuncSig</span>, <span class="ident">GlobalDescriptor</span>, <span class="ident">GlobalInit</span>, <span class="ident">MemoryDescriptor</span>,
-        <span class="ident">TableDescriptor</span>, <span class="ident">Type</span>, <span class="ident">Value</span>, <span class="ident">ValueType</span>,
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
+        <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>,
     };
 }
 
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">error</span> {
-    <span class="doccomment">//! Various error types returned by Wasmer APIs.</span>
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">backend</span>::<span class="ident">ExceptionCode</span>;
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::<span class="ident">error</span>::{
-        <span class="ident">CallError</span>, <span class="ident">CompileError</span>, <span class="ident">CompileResult</span>, <span class="ident">CreationError</span>, <span class="ident">Error</span>, <span class="ident">InvokeError</span>, <span class="ident">LinkError</span>,
-        <span class="ident">ResolveError</span>, <span class="ident">RuntimeError</span>,
-    };
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wat&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wat</span>::<span class="ident">parse_bytes</span> <span class="kw">as</span> <span class="ident">wat2wasm</span>;
 
-    <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
-    <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CompileFromFileError</span> {
-        <span class="ident">CompileError</span>(<span class="ident">CompileError</span>),
-        <span class="ident">IoError</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>),
-    }
+<span class="comment">// The compilers are mutually exclusive</span>
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(
+    <span class="ident">all</span>(
+        <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-llvm&quot;</span>,
+        <span class="ident">any</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-singlepass&quot;</span>)
+    ),
+    <span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;default-singlepass&quot;</span>)
+))]</span>
+<span class="macro">compile_error</span><span class="macro">!</span>(
+    <span class="string">r#&quot;The `default-singlepass`, `default-cranelift` and `default-llvm` features are mutually exclusive.
+If you wish to use more than one compiler, you can simply create the own store. Eg.:
 
-    <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Display</span> <span class="kw">for</span> <span class="ident">CompileFromFileError</span> {
-        <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="ident">Formatter</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">std</span>::<span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
-            <span class="kw">match</span> <span class="self">self</span> {
-                <span class="ident">CompileFromFileError</span>::<span class="ident">CompileError</span>(<span class="ident">ce</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">ce</span>),
-                <span class="ident">CompileFromFileError</span>::<span class="ident">IoError</span>(<span class="ident">ie</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">write</span><span class="macro">!</span>(<span class="ident">f</span>, <span class="string">&quot;{}&quot;</span>, <span class="ident">ie</span>),
-            }
-        }
-    }
+```
+use wasmer::{Store, JIT, Singlepass};
 
-    <span class="kw">impl</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="kw">for</span> <span class="ident">CompileFromFileError</span> {
-        <span class="kw">fn</span> <span class="ident">source</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>(<span class="kw">dyn</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span> <span class="op">+</span> <span class="lifetime">&#39;static</span>)<span class="op">&gt;</span> {
-            <span class="kw">match</span> <span class="self">self</span> {
-                <span class="ident">CompileFromFileError</span>::<span class="ident">CompileError</span>(<span class="ident">ce</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">ce</span>),
-                <span class="ident">CompileFromFileError</span>::<span class="ident">IoError</span>(<span class="ident">ie</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">ie</span>),
-            }
-        }
-    }
+let engine = JIT::new(Singlepass::default()).engine();
+let store = Store::new(&amp;engine);
+```&quot;#</span>
+);
 
-    <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">CompileError</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">CompileFromFileError</span> {
-        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">CompileError</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-            <span class="ident">CompileFromFileError</span>::<span class="ident">CompileError</span>(<span class="ident">other</span>)
-        }
-    }
-    <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">CompileFromFileError</span> {
-        <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Error</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-            <span class="ident">CompileFromFileError</span>::<span class="ident">IoError</span>(<span class="ident">other</span>)
-        }
-    }
-}
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler_singlepass</span>::<span class="ident">Singlepass</span>;
 
-<span class="doccomment">/// Idea for generic trait; consider rename; it will need to be moved somewhere else</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">CompiledModule</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">new_with_compiler</span>(
-        <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>,
-        <span class="ident">compiler</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">compiler</span>::<span class="ident">Compiler</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">from_binary_unchecked</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span>;
-    <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident">error</span>::<span class="ident">CompileFromFileError</span><span class="op">&gt;</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler_cranelift</span>::{<span class="ident">Cranelift</span>, <span class="ident">CraneliftOptLevel</span>};
 
-    <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
-}
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_compiler_llvm</span>::{<span class="ident">LLVMOptLevel</span>, <span class="ident">LLVM</span>};
 
-<span class="comment">// this implementation should be moved</span>
-<span class="kw">impl</span> <span class="ident">CompiledModule</span> <span class="kw">for</span> <span class="ident">Module</span> {
-    <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">as_ref</span>();
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with</span>(<span class="ident">bytes</span>, <span class="kw-2">&amp;</span><span class="ident">compiler</span>::<span class="ident">default_compiler</span>())
-    }
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;jit&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_jit</span>::{<span class="ident">JITArtifact</span>, <span class="ident">JITEngine</span>, <span class="ident">JIT</span>};
 
-    <span class="kw">fn</span> <span class="ident">new_with_compiler</span>(
-        <span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>,
-        <span class="ident">compiler</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">compiler</span>::<span class="ident">Compiler</span><span class="op">&gt;</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">as_ref</span>();
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with</span>(<span class="ident">bytes</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">compiler</span>)
-    }
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;native&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_engine_native</span>::{<span class="ident">Native</span>, <span class="ident">NativeArtifact</span>, <span class="ident">NativeEngine</span>};
 
-    <span class="kw">fn</span> <span class="ident">from_binary</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bytes</span>.<span class="ident">as_ref</span>();
-        <span class="ident">wasmer_runtime_core</span>::<span class="ident">compile_with</span>(<span class="ident">bytes</span>, <span class="kw-2">&amp;</span><span class="ident">compiler</span>::<span class="ident">default_compiler</span>())
-    }
-
-    <span class="kw">fn</span> <span class="ident">from_binary_unchecked</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span><span class="ident">Module</span><span class="op">&gt;</span> {
-        <span class="comment">// TODO: optimize this</span>
-        <span class="self">Self</span>::<span class="ident">from_binary</span>(<span class="ident">bytes</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">from_file</span>(<span class="ident">file</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span><span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Module</span>, <span class="ident">error</span>::<span class="ident">CompileFromFileError</span><span class="op">&gt;</span> {
-        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fs</span>;
-        <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">Read</span>;
-        <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">file</span>.<span class="ident">as_ref</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">fs</span>::<span class="ident">File</span>::<span class="ident">open</span>(<span class="ident">path</span>)<span class="question-mark">?</span>;
-        <span class="comment">// TODO: ideally we can support a streaming compilation API and not have to read in the entire file</span>
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
-        <span class="ident">f</span>.<span class="ident">read_to_end</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">bytes</span>)<span class="question-mark">?</span>;
-
-        <span class="prelude-val">Ok</span>(<span class="ident">Module</span>::<span class="ident">from_binary</span>(<span class="ident">bytes</span>.<span class="ident">as_slice</span>())<span class="question-mark">?</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">validate</span>(<span class="ident">bytes</span>: <span class="kw">impl</span> <span class="ident">AsRef</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">error</span>::<span class="ident">CompileResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="comment">// TODO: optimize this</span>
-        <span class="kw">let</span> <span class="kw">_</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">from_binary</span>(<span class="ident">bytes</span>)<span class="question-mark">?</span>;
-        <span class="prelude-val">Ok</span>(())
-    }
-}
+<span class="doccomment">/// Version number of this crate.</span>
+<span class="kw">pub</span> <span class="kw">const</span> <span class="ident">VERSION</span>: <span class="kw-2">&amp;</span><span class="ident">str</span> <span class="op">=</span> <span class="macro">env</span><span class="macro">!</span>(<span class="string">&quot;CARGO_PKG_VERSION&quot;</span>);
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer";</script><script src="../../aliases.js"></script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

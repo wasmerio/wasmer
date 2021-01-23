@@ -1,0 +1,1 @@
+initSidebarItems({"mod":[["atomic","Atomic types"]]});

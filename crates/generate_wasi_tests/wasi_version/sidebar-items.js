@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["WasiVersion",""]],"static":[["ALL_WASI_VERSIONS",""],["LATEST_WASI_VERSION",""]]});

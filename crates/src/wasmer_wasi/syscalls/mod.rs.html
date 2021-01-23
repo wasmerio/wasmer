@@ -1,4 +1,5 @@
-<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/syscalls/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css"><link rel="stylesheet" type="text/css" href="../../../light.css" id="themeStyle"><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://avatars3.githubusercontent.com/u/44205449?s=200&v=4' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/wasi/src/syscalls/mod.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>mod.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_wasi/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1">   1</span>
 <span id="2">   2</span>
 <span id="3">   3</span>
 <span id="4">   4</span>
@@ -2570,8 +2571,27 @@
 <span id="2570">2570</span>
 <span id="2571">2571</span>
 <span id="2572">2572</span>
+<span id="2573">2573</span>
+<span id="2574">2574</span>
+<span id="2575">2575</span>
+<span id="2576">2576</span>
+<span id="2577">2577</span>
+<span id="2578">2578</span>
+<span id="2579">2579</span>
+<span id="2580">2580</span>
+<span id="2581">2581</span>
+<span id="2582">2582</span>
+<span id="2583">2583</span>
+<span id="2584">2584</span>
+<span id="2585">2585</span>
+<span id="2586">2586</span>
+<span id="2587">2587</span>
+<span id="2588">2588</span>
+<span id="2589">2589</span>
+<span id="2590">2590</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
+<span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>, <span class="ident">clippy</span>::<span class="ident">cognitive_complexity</span>)]</span>
+
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(
     <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>,
@@ -2593,13 +2613,14 @@
         <span class="ident">InodeVal</span>, <span class="ident">Kind</span>, <span class="ident">PollEvent</span>, <span class="ident">PollEventBuilder</span>, <span class="ident">WasiFile</span>, <span class="ident">WasiFsError</span>, <span class="ident">WasiState</span>,
         <span class="ident">MAX_SYMLINKS</span>,
     },
-    <span class="ident">ExitCode</span>,
+    <span class="ident">WasiEnv</span>, <span class="ident">WasiError</span>,
 };
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">Borrow</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">Cell</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::{<span class="ident">Infallible</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::{<span class="self">self</span>, <span class="ident">Read</span>, <span class="ident">Seek</span>, <span class="ident">Write</span>};
-<span class="kw">use</span> <span class="ident">wasmer_runtime_core</span>::{<span class="ident">memory</span>::<span class="ident">Memory</span>, <span class="ident">vm</span>::<span class="ident">Ctx</span>};
+<span class="kw">use</span> <span class="ident">tracing</span>::{<span class="ident">debug</span>, <span class="ident">trace</span>};
+<span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Memory</span>, <span class="ident">RuntimeError</span>, <span class="ident">Value</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(
     <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;freebsd&quot;</span>,
@@ -2611,15 +2632,6 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>))]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">windows</span>::<span class="kw-2">*</span>;
-
-<span class="doccomment">/// This function is not safe</span>
-<span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">mut_from_ref</span>)]</span>
-<span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">get_memory_and_wasi_state</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
-    <span class="ident">mem_index</span>: <span class="ident">u32</span>,
-) <span class="op">-</span><span class="op">&gt;</span> (<span class="kw-2">&amp;</span><span class="ident">Memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">WasiState</span>) {
-    <span class="kw">unsafe</span> { <span class="ident">ctx</span>.<span class="ident">memory_and_data_mut</span>(<span class="ident">mem_index</span>) }
-}
 
 <span class="kw">fn</span> <span class="ident">write_bytes_inner</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">Write</span><span class="op">&gt;</span>(
     <span class="kw-2">mut</span> <span class="ident">write_loc</span>: <span class="ident">T</span>,
@@ -2715,12 +2727,12 @@
 <span class="doccomment">///     A pointer to a buffer to write the argument string data.</span>
 <span class="doccomment">///</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">argv</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">argv_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::args_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">write_buffer_array</span>(<span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">state</span>.<span class="ident">args</span>, <span class="ident">argv</span>, <span class="ident">argv_buf</span>);
 
@@ -2750,12 +2762,12 @@
 <span class="doccomment">/// - `size_t *argv_buf_size`</span>
 <span class="doccomment">///     The size of the argument string data.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">args_sizes_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">argc</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
     <span class="ident">argv_buf_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::args_sizes_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">argc</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">argc</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
     <span class="kw">let</span> <span class="ident">argv_buf_size</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">argv_buf_size</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
@@ -2779,12 +2791,12 @@
 <span class="doccomment">/// - `__wasi_timestamp_t *resolution`</span>
 <span class="doccomment">///     The resolution of the clock in nanoseconds</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clock_res_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
     <span class="ident">resolution</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::clock_res_get&quot;</span>);
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
     <span class="kw">let</span> <span class="ident">out_addr</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">resolution</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
     <span class="ident">platform_clock_res_get</span>(<span class="ident">clock_id</span>, <span class="ident">out_addr</span>)
@@ -2801,7 +2813,7 @@
 <span class="doccomment">/// - `__wasi_timestamp_t *time`</span>
 <span class="doccomment">///     The value of the clock in nanoseconds</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">clock_time_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">clock_id</span>: <span class="ident">__wasi_clockid_t</span>,
     <span class="ident">precision</span>: <span class="ident">__wasi_timestamp_t</span>,
     <span class="ident">time</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_timestamp_t</span><span class="op">&gt;</span>,
@@ -2810,7 +2822,7 @@
         <span class="string">&quot;wasi::clock_time_get clock_id: {}, precision: {}&quot;</span>,
         <span class="ident">clock_id</span>, <span class="ident">precision</span>
     );
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
     <span class="kw">let</span> <span class="ident">out_addr</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">time</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
     <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">platform_clock_time_get</span>(<span class="ident">clock_id</span>, <span class="ident">precision</span>, <span class="ident">out_addr</span>);
@@ -2831,12 +2843,12 @@
 <span class="doccomment">/// - `char *environ_buf`</span>
 <span class="doccomment">///     A pointer to a buffer to write the environment variable string data.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">environ_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">environ</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">environ_buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::environ_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="ident">write_buffer_array</span>(<span class="ident">memory</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">state</span>.<span class="ident">envs</span>, <span class="ident">environ</span>, <span class="ident">environ_buf</span>)
 }
@@ -2849,12 +2861,12 @@
 <span class="doccomment">/// - `size_t *environ_buf_size`</span>
 <span class="doccomment">///     The size of the environment variable string data.</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">environ_sizes_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">environ_count</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
     <span class="ident">environ_buf_size</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::environ_sizes_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">environ_count</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">environ_count</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
     <span class="kw">let</span> <span class="ident">environ_buf_size</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">environ_buf_size</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
@@ -2884,7 +2896,7 @@
 <span class="doccomment">/// - `__wasi_advice_t advice`</span>
 <span class="doccomment">///     The advice to give</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_advise</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
     <span class="ident">len</span>: <span class="ident">__wasi_filesize_t</span>,
@@ -2907,13 +2919,13 @@
 <span class="doccomment">/// - `__wasi_filesize_t len`</span>
 <span class="doccomment">///     The length from the offset marking the end of the allocation</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_allocate</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">offset</span>: <span class="ident">__wasi_filesize_t</span>,
     <span class="ident">len</span>: <span class="ident">__wasi_filesize_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_allocate&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
 
@@ -2952,9 +2964,9 @@
 <span class="doccomment">///     If `fd` is a directory</span>
 <span class="doccomment">/// - `__WASI_EBADF`</span>
 <span class="doccomment">///     If `fd` is invalid or not open</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_close</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_close</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_close: fd={}&quot;</span>, <span class="ident">fd</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
 
@@ -2968,9 +2980,9 @@
 <span class="doccomment">/// Inputs:</span>
 <span class="doccomment">/// - `__wasi_fd_t fd`</span>
 <span class="doccomment">///     The file descriptor to sync</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_datasync</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_datasync</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_datasync&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_DATASYNC</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
@@ -2992,7 +3004,7 @@
 <span class="doccomment">/// - `__wasi_fdstat_t *buf`</span>
 <span class="doccomment">///     The location where the metadata will be written</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_fdstat_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">buf_ptr</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fdstat_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
@@ -3001,7 +3013,7 @@
         <span class="ident">fd</span>,
         <span class="ident">buf_ptr</span>.<span class="ident">offset</span>()
     );
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
 
     <span class="kw">let</span> <span class="ident">stat</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fdstat</span>(<span class="ident">fd</span>));
@@ -3020,12 +3032,12 @@
 <span class="doccomment">/// - `__wasi_fdflags_t flags`</span>
 <span class="doccomment">///     The flags to apply to `fd`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_fdstat_set_flags</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">flags</span>: <span class="ident">__wasi_fdflags_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_fdstat_set_flags&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_FDSTAT_SET_FLAGS</span>) {
@@ -3046,13 +3058,13 @@
 <span class="doccomment">/// - `__wasi_rights_t fs_rights_inheriting`</span>
 <span class="doccomment">///     The inheriting rights to apply to `fd`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_fdstat_set_rights</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">fs_rights_base</span>: <span class="ident">__wasi_rights_t</span>,
     <span class="ident">fs_rights_inheriting</span>: <span class="ident">__wasi_rights_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_fdstat_set_rights&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
 
     <span class="comment">// ensure new rights are a subset of current rights</span>
@@ -3077,12 +3089,12 @@
 <span class="doccomment">/// - `__wasi_filestat_t *buf`</span>
 <span class="doccomment">///     Where the metadata from `fd` will be written</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_filestat_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filestat_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_filestat_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_FILESTAT_GET</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
@@ -3104,12 +3116,12 @@
 <span class="doccomment">/// - `__wasi_filesize_t st_size`</span>
 <span class="doccomment">///     New size that `fd` will be set to</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_filestat_set_size</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">st_size</span>: <span class="ident">__wasi_filesize_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_filestat_set_size&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
 
@@ -3146,28 +3158,29 @@
 <span class="doccomment">/// - `__wasi_fstflags_t fst_flags`</span>
 <span class="doccomment">///     Bit-vector for controlling which times get set</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_filestat_set_times</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">st_atim</span>: <span class="ident">__wasi_timestamp_t</span>,
     <span class="ident">st_mtim</span>: <span class="ident">__wasi_timestamp_t</span>,
     <span class="ident">fst_flags</span>: <span class="ident">__wasi_fstflags_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_filestat_set_times&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_FILESTAT_SET_TIMES</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
 
-    <span class="kw">if</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+    <span class="kw">if</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
         <span class="op">|</span><span class="op">|</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+            <span class="op">&amp;&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
     {
         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">fd_entry</span>.<span class="ident">inode</span>];
+    <span class="kw">let</span> <span class="ident">inode_idx</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
+    <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode_idx</span>];
 
     <span class="kw">if</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
         <span class="kw">let</span> <span class="ident">time_to_set</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
@@ -3177,13 +3190,10 @@
         };
         <span class="ident">inode</span>.<span class="ident">stat</span>.<span class="ident">st_atim</span> <span class="op">=</span> <span class="ident">time_to_set</span>;
         <span class="comment">// TODO: set it for more than just files</span>
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
-            <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                    <span class="ident">handle</span>.<span class="ident">set_last_accessed</span>(<span class="ident">time_to_set</span>);
-                }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
+                <span class="ident">handle</span>.<span class="ident">set_last_accessed</span>(<span class="ident">time_to_set</span>);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
         }
     }
 
@@ -3195,13 +3205,10 @@
         };
         <span class="ident">inode</span>.<span class="ident">stat</span>.<span class="ident">st_mtim</span> <span class="op">=</span> <span class="ident">time_to_set</span>;
         <span class="comment">// TODO: set it for more than just files</span>
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
-            <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                    <span class="ident">handle</span>.<span class="ident">set_last_modified</span>(<span class="ident">time_to_set</span>);
-                }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
+                <span class="ident">handle</span>.<span class="ident">set_last_modified</span>(<span class="ident">time_to_set</span>);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
         }
     }
 
@@ -3224,7 +3231,7 @@
 <span class="doccomment">/// - `size_t nread`</span>
 <span class="doccomment">///     The number of bytes read</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_pread</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">u32</span>,
@@ -3232,7 +3239,7 @@
     <span class="ident">nread</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_pread: fd={}, offset={}&quot;</span>, <span class="ident">fd</span>, <span class="ident">offset</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">iov_cells</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">iovs</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">iovs_len</span>));
     <span class="kw">let</span> <span class="ident">nread_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">nread</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
@@ -3254,7 +3261,7 @@
             <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
 
             <span class="kw">if</span> <span class="op">!</span>(<span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_READ</span>)
-                <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_SEEK</span>))
+                <span class="op">&amp;&amp;</span> <span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_SEEK</span>))
             {
                 <span class="macro">debug</span><span class="macro">!</span>(
                     <span class="string">&quot;Invalid rights on {:X}: expected READ and SEEK&quot;</span>,
@@ -3269,8 +3276,7 @@
                             <span class="ident">h</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>)).<span class="ident">ok</span>(),
                             <span class="ident">__WASI_EIO</span>
                         );
-                        <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">h</span>, <span class="ident">memory</span>, <span class="ident">iov_cells</span>));
-                        <span class="ident">bytes_read</span>
+                        <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">read_bytes</span>(<span class="ident">h</span>, <span class="ident">memory</span>, <span class="ident">iov_cells</span>))
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
                     }
@@ -3298,12 +3304,12 @@
 <span class="doccomment">/// - `__wasi_prestat *buf`</span>
 <span class="doccomment">///     Where the metadata will be written</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_prestat_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_prestat_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_prestat_get: fd={}&quot;</span>, <span class="ident">fd</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">prestat_ptr</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">buf</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
 
@@ -3313,7 +3319,7 @@
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_prestat_dir_name</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
@@ -3322,7 +3328,7 @@
         <span class="string">&quot;wasi::fd_prestat_dir_name: fd={}, path_len={}&quot;</span>,
         <span class="ident">fd</span>, <span class="ident">path_len</span>
     );
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">path_chars</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">path</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">path_len</span>));
 
     <span class="kw">let</span> <span class="ident">real_fd</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
@@ -3373,7 +3379,7 @@
 <span class="doccomment">/// - `u32 *nwritten`</span>
 <span class="doccomment">///     Number of bytes written</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_pwrite</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">u32</span>,
@@ -3382,7 +3388,7 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_pwrite&quot;</span>);
     <span class="comment">// TODO: refactor, this is just copied from `fd_write`...</span>
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">iovs_arr_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">iovs</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">iovs_len</span>));
     <span class="kw">let</span> <span class="ident">nwritten_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">nwritten</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
 
@@ -3410,14 +3416,15 @@
             <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
 
             <span class="kw">if</span> <span class="op">!</span>(<span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_WRITE</span>)
-                <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_SEEK</span>))
+                <span class="op">&amp;&amp;</span> <span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_SEEK</span>))
             {
                 <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
             }
 
-            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">fd_entry</span>.<span class="ident">inode</span>];
+            <span class="kw">let</span> <span class="ident">inode_idx</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
+            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode_idx</span>];
 
-            <span class="kw">let</span> <span class="ident">bytes_written</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
+            <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
                         <span class="ident">handle</span>.<span class="ident">seek</span>(<span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>::<span class="ident">Start</span>(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>));
@@ -3436,9 +3443,7 @@
                     <span class="ident">memory</span>,
                     <span class="ident">iovs_arr_cell</span>
                 )),
-            };
-
-            <span class="ident">bytes_written</span>
+            }
         }
     };
 
@@ -3460,14 +3465,14 @@
 <span class="doccomment">/// - `u32 *nread`</span>
 <span class="doccomment">///     Number of bytes read</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_read</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">u32</span>,
     <span class="ident">nread</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_read: fd={}&quot;</span>, <span class="ident">fd</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">iovs_arr_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">iovs</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">iovs_len</span>));
     <span class="kw">let</span> <span class="ident">nread_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">nread</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
@@ -3492,7 +3497,8 @@
             }
 
             <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">fd_entry</span>.<span class="ident">inode</span>];
+            <span class="kw">let</span> <span class="ident">inode_idx</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
+            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode_idx</span>];
 
             <span class="kw">let</span> <span class="ident">bytes_read</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
@@ -3513,6 +3519,8 @@
                 }
             };
 
+            <span class="comment">// reborrow</span>
+            <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
             <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">bytes_read</span> <span class="kw">as</span> <span class="ident">u64</span>;
 
             <span class="ident">bytes_read</span>
@@ -3540,7 +3548,7 @@
 <span class="doccomment">///     The Number of bytes stored in `buf`; if less than `buf_len` then entire</span>
 <span class="doccomment">///     directory has been read</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_readdir</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">buf_len</span>: <span class="ident">u32</span>,
@@ -3548,7 +3556,7 @@
     <span class="ident">bufused</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_readdir&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="comment">// TODO: figure out how this is supposed to work;</span>
     <span class="comment">// is it supposed to pack the buffer full every time until it can&#39;t? or do one at a time?</span>
 
@@ -3582,7 +3590,7 @@
                     .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">name</span>, <span class="ident">inode</span>)<span class="op">|</span> {
                         <span class="kw">let</span> <span class="ident">entry</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="kw-2">*</span><span class="ident">inode</span>];
                         (
-                            <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{}&quot;</span>, <span class="ident">entry</span>.<span class="ident">name</span>),
+                            <span class="ident">entry</span>.<span class="ident">name</span>.<span class="ident">to_string</span>(),
                             <span class="ident">entry</span>.<span class="ident">stat</span>.<span class="ident">st_filetype</span>,
                             <span class="ident">entry</span>.<span class="ident">stat</span>.<span class="ident">st_ino</span>,
                         )
@@ -3656,9 +3664,9 @@
 <span class="doccomment">///     File descriptor to copy</span>
 <span class="doccomment">/// - `__wasi_fd_t to`</span>
 <span class="doccomment">///     Location to copy file descriptor to</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_renumber</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">from</span>: <span class="ident">__wasi_fd_t</span>, <span class="ident">to</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_renumber</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">from</span>: <span class="ident">__wasi_fd_t</span>, <span class="ident">to</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_renumber: from={}, to={}&quot;</span>, <span class="ident">from</span>, <span class="ident">to</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">from</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
     <span class="kw">let</span> <span class="ident">new_fd_entry</span> <span class="op">=</span> <span class="ident">Fd</span> {
         <span class="comment">// TODO: verify this is correct</span>
@@ -3684,14 +3692,14 @@
 <span class="doccomment">/// - `__wasi_filesize_t *fd`</span>
 <span class="doccomment">///     The new offset relative to the start of the file</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_seek</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">offset</span>: <span class="ident">__wasi_filedelta_t</span>,
     <span class="ident">whence</span>: <span class="ident">__wasi_whence_t</span>,
     <span class="ident">newoffset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_seek: fd={}, offset={}&quot;</span>, <span class="ident">fd</span>, <span class="ident">offset</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">new_offset_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">newoffset</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
 
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
@@ -3705,11 +3713,15 @@
         <span class="ident">__WASI_WHENCE_CUR</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="op">=</span> (<span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">i64</span> <span class="op">+</span> <span class="ident">offset</span>) <span class="kw">as</span> <span class="ident">u64</span>,
         <span class="ident">__WASI_WHENCE_END</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">io</span>::<span class="ident">SeekFrom</span>;
-            <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">fd_entry</span>.<span class="ident">inode</span>].<span class="ident">kind</span> {
+            <span class="kw">let</span> <span class="ident">inode_idx</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
+            <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode_idx</span>].<span class="ident">kind</span> {
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
                     <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
                         <span class="kw">let</span> <span class="ident">end</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">handle</span>.<span class="ident">seek</span>(<span class="ident">SeekFrom</span>::<span class="ident">End</span>(<span class="number">0</span>)).<span class="ident">ok</span>().<span class="ident">ok_or</span>(<span class="ident">__WASI_EIO</span>));
                         <span class="comment">// TODO: handle case if fd_entry.offset uses 64 bits of a u64</span>
+
+                        <span class="comment">// reborrow</span>
+                        <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
                         <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="op">=</span> (<span class="ident">end</span> <span class="kw">as</span> <span class="ident">i64</span> <span class="op">+</span> <span class="ident">offset</span>) <span class="kw">as</span> <span class="ident">u64</span>;
                     } <span class="kw">else</span> {
                         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
@@ -3732,7 +3744,8 @@
         <span class="ident">__WASI_WHENCE_SET</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="op">=</span> <span class="ident">offset</span> <span class="kw">as</span> <span class="ident">u64</span>,
         <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>,
     }
-
+    <span class="comment">// reborrow</span>
+    <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
     <span class="ident">new_offset_cell</span>.<span class="ident">set</span>(<span class="ident">fd_entry</span>.<span class="ident">offset</span>);
 
     <span class="ident">__WASI_ESUCCESS</span>
@@ -3747,10 +3760,10 @@
 <span class="doccomment">/// TODO: figure out which errors this should return</span>
 <span class="doccomment">/// - `__WASI_EPERM`</span>
 <span class="doccomment">/// - `__WASI_ENOTCAPABLE`</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_sync</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_sync</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_sync&quot;</span>);
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd={}&quot;</span>, <span class="ident">fd</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_FD_SYNC</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
@@ -3782,12 +3795,12 @@
 <span class="doccomment">/// - `__wasi_filesize_t *offset`</span>
 <span class="doccomment">///     The offset of `fd` relative to the start of the file</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_tell</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">offset</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filesize_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_tell&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">offset_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">offset</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
 
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
@@ -3816,7 +3829,7 @@
 <span class="doccomment">/// Errors:</span>
 <span class="doccomment">///</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">fd_write</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">iovs</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">iovs_len</span>: <span class="ident">u32</span>,
@@ -3825,12 +3838,12 @@
     <span class="comment">// If we are writing to stdout or stderr</span>
     <span class="comment">// we skip debug to not pollute the stdout/err</span>
     <span class="comment">// and do debugging happily after :)</span>
-    <span class="kw">if</span> <span class="ident">fd</span> <span class="op">!</span><span class="op">=</span> <span class="ident">__WASI_STDOUT_FILENO</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">fd</span> <span class="op">!</span><span class="op">=</span> <span class="ident">__WASI_STDERR_FILENO</span> {
+    <span class="kw">if</span> <span class="ident">fd</span> <span class="op">!</span><span class="op">=</span> <span class="ident">__WASI_STDOUT_FILENO</span> <span class="op">&amp;&amp;</span> <span class="ident">fd</span> <span class="op">!</span><span class="op">=</span> <span class="ident">__WASI_STDERR_FILENO</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_write: fd={}&quot;</span>, <span class="ident">fd</span>);
     } <span class="kw">else</span> {
         <span class="macro">trace</span><span class="macro">!</span>(<span class="string">&quot;wasi::fd_write: fd={}&quot;</span>, <span class="ident">fd</span>);
     }
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">iovs_arr_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">iovs</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">iovs_len</span>));
     <span class="kw">let</span> <span class="ident">nwritten_cell</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">nwritten</span>.<span class="ident">deref</span>(<span class="ident">memory</span>));
 
@@ -3862,7 +3875,8 @@
             }
 
             <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>;
-            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">fd_entry</span>.<span class="ident">inode</span>];
+            <span class="kw">let</span> <span class="ident">inode_idx</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
+            <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode_idx</span>];
 
             <span class="kw">let</span> <span class="ident">bytes_written</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
                 <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
@@ -3883,6 +3897,8 @@
                 }
             };
 
+            <span class="comment">// reborrow</span>
+            <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
             <span class="ident">fd_entry</span>.<span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">bytes_written</span> <span class="kw">as</span> <span class="ident">u64</span>;
             <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">filestat_resync_size</span>(<span class="ident">fd</span>));
 
@@ -3909,13 +3925,13 @@
 <span class="doccomment">/// - __WASI_RIGHT_PATH_CREATE_DIRECTORY</span>
 <span class="doccomment">///     This right must be set on the directory that the file is created in (TODO: verify that this is true)</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_create_directory</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_create_directory&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">working_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">working_dir</span>.<span class="ident">inode</span>].<span class="ident">kind</span> {
@@ -3924,7 +3940,7 @@
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">working_dir</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_CREATE_DIRECTORY</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd: {}, path: {}&quot;</span>, <span class="ident">fd</span>, <span class="kw-2">&amp;</span><span class="ident">path_string</span>);
 
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>::<span class="ident">from</span>(<span class="ident">path_string</span>);
@@ -3968,7 +3984,7 @@
                     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">adjusted_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">clone</span>();
                     <span class="comment">// TODO: double check this doesn&#39;t risk breaking the sandbox</span>
                     <span class="ident">adjusted_path</span>.<span class="ident">push</span>(<span class="ident">comp</span>);
-                    <span class="kw">if</span> <span class="ident">adjusted_path</span>.<span class="ident">exists</span>() <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="op">!</span><span class="ident">adjusted_path</span>.<span class="ident">is_dir</span>() {
+                    <span class="kw">if</span> <span class="ident">adjusted_path</span>.<span class="ident">exists</span>() <span class="op">&amp;&amp;</span> <span class="op">!</span><span class="ident">adjusted_path</span>.<span class="ident">is_dir</span>() {
                         <span class="kw">return</span> <span class="ident">__WASI_ENOTDIR</span>;
                     } <span class="kw">else</span> <span class="kw">if</span> <span class="op">!</span><span class="ident">adjusted_path</span>.<span class="ident">exists</span>() {
                         <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">create_dir</span>(<span class="kw-2">&amp;</span><span class="ident">adjusted_path</span>).<span class="ident">ok</span>(), <span class="ident">__WASI_EIO</span>);
@@ -4012,7 +4028,7 @@
 <span class="doccomment">/// - `__wasi_file_stat_t *buf`</span>
 <span class="doccomment">///     The location where the metadata will be stored</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_filestat_get</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
@@ -4020,14 +4036,14 @@
     <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_filestat_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_filestat_get&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">root_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
 
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">root_dir</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_FILESTAT_GET</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
 
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; base_fd: {}, path: {}&quot;</span>, <span class="ident">fd</span>, <span class="kw-2">&amp;</span><span class="ident">path_string</span>);
 
@@ -4037,7 +4053,7 @@
         <span class="ident">flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_LOOKUP_SYMLINK_FOLLOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>,
     ));
     <span class="kw">let</span> <span class="ident">stat</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">file_inode</span>].<span class="ident">is_preopened</span> {
-        <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">file_inode</span>].<span class="ident">stat</span>.<span class="ident">clone</span>()
+        <span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">file_inode</span>].<span class="ident">stat</span>
     } <span class="kw">else</span> {
         <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>
             .<span class="ident">fs</span>
@@ -4069,7 +4085,7 @@
 <span class="doccomment">/// - `__wasi_fstflags_t fst_flags`</span>
 <span class="doccomment">///     A bitmask controlling which attributes are set</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_filestat_set_times</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
@@ -4079,20 +4095,20 @@
     <span class="ident">fst_flags</span>: <span class="ident">__wasi_fstflags_t</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_filestat_set_times&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="kw">let</span> <span class="ident">fd_entry</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">let</span> <span class="ident">fd_inode</span> <span class="op">=</span> <span class="ident">fd_entry</span>.<span class="ident">inode</span>;
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">fd_entry</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_FILESTAT_SET_TIMES</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">if</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+    <span class="kw">if</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_ATIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
         <span class="op">|</span><span class="op">|</span> (<span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>
-            <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
+            <span class="op">&amp;&amp;</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>)
     {
         <span class="kw">return</span> <span class="ident">__WASI_EINVAL</span>;
     }
 
-    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; base_fd: {}, path: {}&quot;</span>, <span class="ident">fd</span>, <span class="kw-2">&amp;</span><span class="ident">path_string</span>);
 
     <span class="kw">let</span> <span class="ident">file_inode</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(
@@ -4115,13 +4131,10 @@
         };
         <span class="ident">inode</span>.<span class="ident">stat</span>.<span class="ident">st_atim</span> <span class="op">=</span> <span class="ident">time_to_set</span>;
         <span class="comment">// TODO: set it for more than just files</span>
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
-            <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                    <span class="ident">handle</span>.<span class="ident">set_last_accessed</span>(<span class="ident">time_to_set</span>);
-                }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
+                <span class="ident">handle</span>.<span class="ident">set_last_accessed</span>(<span class="ident">time_to_set</span>);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
         }
     }
     <span class="kw">if</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">|</span><span class="op">|</span> <span class="ident">fst_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_FILESTAT_SET_MTIM_NOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
@@ -4132,13 +4145,10 @@
         };
         <span class="ident">inode</span>.<span class="ident">stat</span>.<span class="ident">st_mtim</span> <span class="op">=</span> <span class="ident">time_to_set</span>;
         <span class="comment">// TODO: set it for more than just files</span>
-        <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
-            <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
-                    <span class="ident">handle</span>.<span class="ident">set_last_modified</span>(<span class="ident">time_to_set</span>);
-                }
+        <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">File</span> { <span class="ident">handle</span>, .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inode</span>.<span class="ident">kind</span> {
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">handle</span>) <span class="op">=</span> <span class="ident">handle</span> {
+                <span class="ident">handle</span>.<span class="ident">set_last_modified</span>(<span class="ident">time_to_set</span>);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {}
         }
     }
 
@@ -4163,7 +4173,7 @@
 <span class="doccomment">/// - `u32 old_path_len`</span>
 <span class="doccomment">///     Length of the `new_path` string</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_link</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">old_fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">old_flags</span>: <span class="ident">__wasi_lookupflags_t</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
@@ -4176,9 +4186,9 @@
     <span class="kw">if</span> <span class="ident">old_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_LOOKUP_SYMLINK_FOLLOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;  - will follow symlinks when opening path&quot;</span>);
     }
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">old_path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>);
-    <span class="kw">let</span> <span class="ident">new_path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">old_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>) };
+    <span class="kw">let</span> <span class="ident">new_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>) };
     <span class="kw">let</span> <span class="ident">source_fd</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">old_fd</span>));
     <span class="kw">let</span> <span class="ident">target_fd</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">new_fd</span>));
     <span class="macro">debug</span><span class="macro">!</span>(
@@ -4187,7 +4197,7 @@
     );
 
     <span class="kw">if</span> <span class="op">!</span>(<span class="ident">has_rights</span>(<span class="ident">source_fd</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_LINK_SOURCE</span>)
-        <span class="kw-2">&amp;</span><span class="op">&amp;</span> <span class="ident">has_rights</span>(<span class="ident">target_fd</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_LINK_TARGET</span>))
+        <span class="op">&amp;&amp;</span> <span class="ident">has_rights</span>(<span class="ident">target_fd</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_LINK_TARGET</span>))
     {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
@@ -4246,7 +4256,7 @@
 <span class="doccomment">/// Possible Errors:</span>
 <span class="doccomment">/// - `__WASI_EACCES`, `__WASI_EBADF`, `__WASI_EFAULT`, `__WASI_EFBIG?`, `__WASI_EINVAL`, `__WASI_EIO`, `__WASI_ELOOP`, `__WASI_EMFILE`, `__WASI_ENAMETOOLONG?`, `__WASI_ENFILE`, `__WASI_ENOENT`, `__WASI_ENOTDIR`, `__WASI_EROFS`, and `__WASI_ENOTCAPABLE`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_open</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">dirfd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">dirflags</span>: <span class="ident">__wasi_lookupflags_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
@@ -4261,7 +4271,7 @@
     <span class="kw">if</span> <span class="ident">dirflags</span> <span class="op">&amp;</span> <span class="ident">__WASI_LOOKUP_SYMLINK_FOLLOW</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
         <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;  - will follow symlinks when opening path&quot;</span>);
     }
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
     <span class="comment">/* TODO: find actual upper bound on name size (also this is a path, not a name :think-fish:) */</span>
     <span class="kw">if</span> <span class="ident">path_len</span> <span class="op">&gt;</span> <span class="number">1024</span> <span class="op">*</span> <span class="number">1024</span> {
         <span class="kw">return</span> <span class="ident">__WASI_ENAMETOOLONG</span>;
@@ -4282,7 +4292,7 @@
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">working_dir</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_OPEN</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
 
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; fd: {}, path: {}&quot;</span>, <span class="ident">dirfd</span>, <span class="kw-2">&amp;</span><span class="ident">path_string</span>);
 
@@ -4315,10 +4325,8 @@
                 <span class="kw">if</span> <span class="ident">o_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_O_DIRECTORY</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
                     <span class="kw">return</span> <span class="ident">__WASI_ENOTDIR</span>;
                 }
-                <span class="kw">if</span> <span class="ident">o_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_O_EXCL</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="kw">if</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
-                        <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
-                    }
+                <span class="kw">if</span> <span class="ident">o_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_O_EXCL</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">path</span>.<span class="ident">exists</span>() {
+                    <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
                 }
                 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">open_options</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">OpenOptions</span>::<span class="ident">new</span>();
                 <span class="kw">let</span> <span class="ident">write_permission</span> <span class="op">=</span> <span class="ident">adjusted_rights</span> <span class="op">&amp;</span> <span class="ident">__WASI_RIGHT_FD_WRITE</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span>;
@@ -4361,10 +4369,8 @@
             <span class="ident">Kind</span>::<span class="ident">Buffer</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_open for Buffer type files&quot;</span>),
             <span class="ident">Kind</span>::<span class="ident">Dir</span> { .. } <span class="op">|</span> <span class="ident">Kind</span>::<span class="ident">Root</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// TODO: adjust these to be correct</span>
-                <span class="kw">if</span> <span class="ident">o_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_O_EXCL</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
-                    <span class="kw">if</span> <span class="ident">path_arg</span>.<span class="ident">exists</span>() {
-                        <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
-                    }
+                <span class="kw">if</span> <span class="ident">o_flags</span> <span class="op">&amp;</span> <span class="ident">__WASI_O_EXCL</span> <span class="op">!</span><span class="op">=</span> <span class="number">0</span> <span class="op">&amp;&amp;</span> <span class="ident">path_arg</span>.<span class="ident">exists</span>() {
+                    <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
                 }
             }
             <span class="ident">Kind</span>::<span class="ident">Symlink</span> {
@@ -4424,7 +4430,7 @@
                     <span class="bool-val">true</span>,
                     <span class="bool-val">true</span>,
                     <span class="bool-val">true</span>,
-                )) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>)
+                )) <span class="kw">as</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">WasiFile</span><span class="op">&gt;</span>)
             };
 
             <span class="kw">let</span> <span class="ident">new_inode</span> <span class="op">=</span> {
@@ -4470,6 +4476,33 @@
     <span class="ident">__WASI_ESUCCESS</span>
 }
 
+<span class="comment">// Note: we define path_open_dynamic because native functions with more than 9 params</span>
+<span class="comment">// fail on Apple Silicon (with Cranelift).</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_open_dynamic</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Value</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
+    <span class="kw">let</span> <span class="ident">dirfd</span>: <span class="ident">__wasi_fd_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">0</span>].<span class="ident">unwrap_i32</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">dirflags</span>: <span class="ident">__wasi_lookupflags_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">1</span>].<span class="ident">unwrap_i32</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">2</span>].<span class="ident">unwrap_i32</span>().<span class="ident">into</span>();
+    <span class="kw">let</span> <span class="ident">path_len</span>: <span class="ident">u32</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">3</span>].<span class="ident">unwrap_i32</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">o_flags</span>: <span class="ident">__wasi_oflags_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">4</span>].<span class="ident">unwrap_i32</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">fs_rights_base</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">5</span>].<span class="ident">unwrap_i64</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">fs_rights_inheriting</span>: <span class="ident">__wasi_rights_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">6</span>].<span class="ident">unwrap_i64</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">fs_flags</span>: <span class="ident">__wasi_fdflags_t</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">7</span>].<span class="ident">unwrap_i32</span>() <span class="kw">as</span> <span class="kw">_</span>;
+    <span class="kw">let</span> <span class="ident">fd</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_fd_t</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">params</span>[<span class="number">8</span>].<span class="ident">unwrap_i32</span>().<span class="ident">into</span>();
+
+    <span class="prelude-val">Ok</span>(<span class="macro">vec</span><span class="macro">!</span>[<span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">path_open</span>(
+        <span class="ident">env</span>,
+        <span class="ident">dirfd</span>,
+        <span class="ident">dirflags</span>,
+        <span class="ident">path</span>,
+        <span class="ident">path_len</span>,
+        <span class="ident">o_flags</span>,
+        <span class="ident">fs_rights_base</span>,
+        <span class="ident">fs_rights_inheriting</span>,
+        <span class="ident">fs_flags</span>,
+        <span class="ident">fd</span>,
+    ) <span class="kw">as</span> <span class="ident">i32</span>)])
+}
+
 <span class="doccomment">/// ### `path_readlink()`</span>
 <span class="doccomment">/// Read the value of a symlink</span>
 <span class="doccomment">/// Inputs:</span>
@@ -4487,7 +4520,7 @@
 <span class="doccomment">/// - `u32 buf_used`</span>
 <span class="doccomment">///     The number of bytes written to `buf`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_readlink</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">dir_fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
@@ -4496,13 +4529,13 @@
     <span class="ident">buf_used</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_readlink&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">base_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">dir_fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">base_dir</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_READLINK</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(<span class="ident">dir_fd</span>, <span class="ident">path_str</span>, <span class="bool-val">false</span>));
 
     <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">Symlink</span> { <span class="ident">relative_path</span>, .. } <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">inodes</span>[<span class="ident">inode</span>].<span class="ident">kind</span> {
@@ -4532,17 +4565,17 @@
 
 <span class="doccomment">/// Returns __WASI_ENOTEMTPY if directory is not empty</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_remove_directory</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="comment">// TODO check if fd is a dir, ensure it&#39;s within sandbox, etc.</span>
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_remove_directory&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">base_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>), <span class="ident">__WASI_EBADF</span>);
-    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
 
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(<span class="ident">fd</span>, <span class="ident">path_str</span>, <span class="bool-val">false</span>));
     <span class="kw">let</span> (<span class="ident">parent_inode</span>, <span class="ident">childs_name</span>) <span class="op">=</span>
@@ -4577,7 +4610,7 @@
         ),
     }
 
-    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">remove_dir</span>(<span class="ident">path_str</span>) {
+    <span class="kw">if</span> <span class="ident">std</span>::<span class="ident">fs</span>::<span class="ident">remove_dir</span>(<span class="ident">path_str</span>).<span class="ident">is_err</span>() {
         <span class="comment">// reinsert to prevent FS from being in bad state</span>
         <span class="kw">if</span> <span class="kw">let</span> <span class="ident">Kind</span>::<span class="ident">Dir</span> {
             <span class="kw-2">ref</span> <span class="kw-2">mut</span> <span class="ident">entries</span>, ..
@@ -4608,7 +4641,7 @@
 <span class="doccomment">/// - `u32 new_path_len`</span>
 <span class="doccomment">///     The number of bytes to read from `new_path`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_rename</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">old_fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">old_path_len</span>: <span class="ident">u32</span>,
@@ -4616,12 +4649,16 @@
     <span class="ident">new_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">new_path_len</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
-    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_rename&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">source_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>);
+    <span class="macro">debug</span><span class="macro">!</span>(
+        <span class="string">&quot;wasi::path_rename: old_fd = {}, new_fd = {}&quot;</span>,
+        <span class="ident">old_fd</span>, <span class="ident">new_fd</span>
+    );
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">source_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>) };
     <span class="kw">let</span> <span class="ident">source_path</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>::<span class="ident">new</span>(<span class="ident">source_str</span>);
-    <span class="kw">let</span> <span class="ident">target_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>);
+    <span class="kw">let</span> <span class="ident">target_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>) };
     <span class="kw">let</span> <span class="ident">target_path</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>::<span class="ident">new</span>(<span class="ident">target_str</span>);
+    <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;=&gt; rename from {} to {}&quot;</span>, <span class="ident">source_str</span>, <span class="ident">target_str</span>);
 
     {
         <span class="kw">let</span> <span class="ident">source_fd</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">old_fd</span>));
@@ -4645,8 +4682,6 @@
                 <span class="kw">return</span> <span class="ident">__WASI_EEXIST</span>;
             }
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out_path</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">clone</span>();
-            <span class="comment">// remove fd&#39;s own name which will be double counted</span>
-            <span class="ident">out_path</span>.<span class="ident">pop</span>();
             <span class="ident">out_path</span>.<span class="ident">push</span>(<span class="ident">target_path</span>);
             <span class="ident">out_path</span>
         }
@@ -4717,7 +4752,7 @@
 <span class="doccomment">/// - `u32 new_path_len`</span>
 <span class="doccomment">///     The number of bytes to read from `new_path`</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_symlink</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">old_path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">old_path_len</span>: <span class="ident">u32</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
@@ -4725,9 +4760,9 @@
     <span class="ident">new_path_len</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_symlink&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
-    <span class="kw">let</span> <span class="ident">old_path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>);
-    <span class="kw">let</span> <span class="ident">new_path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">old_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">old_path</span>, <span class="ident">old_path_len</span>) };
+    <span class="kw">let</span> <span class="ident">new_path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">new_path</span>, <span class="ident">new_path_len</span>) };
     <span class="kw">let</span> <span class="ident">base_fd</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_fd</span>(<span class="ident">fd</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">base_fd</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_SYMLINK</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
@@ -4796,19 +4831,19 @@
 <span class="doccomment">/// - `u32 path_len`</span>
 <span class="doccomment">///     The number of bytes in the `path` array</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">path_unlink_file</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">fd</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">path</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">path_len</span>: <span class="ident">u32</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::path_unlink_file&quot;</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">base_dir</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">fd_map</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">fd</span>).<span class="ident">ok_or</span>(<span class="ident">__WASI_EBADF</span>));
     <span class="kw">if</span> <span class="op">!</span><span class="ident">has_rights</span>(<span class="ident">base_dir</span>.<span class="ident">rights</span>, <span class="ident">__WASI_RIGHT_PATH_UNLINK_FILE</span>) {
         <span class="kw">return</span> <span class="ident">__WASI_EACCES</span>;
     }
-    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>);
+    <span class="kw">let</span> <span class="ident">path_str</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="macro">get_input_str</span><span class="macro">!</span>(<span class="ident">memory</span>, <span class="ident">path</span>, <span class="ident">path_len</span>) };
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;Requested file: {}&quot;</span>, <span class="ident">path_str</span>);
 
     <span class="kw">let</span> <span class="ident">inode</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">get_inode_at_path</span>(<span class="ident">fd</span>, <span class="ident">path_str</span>, <span class="bool-val">false</span>));
@@ -4890,7 +4925,7 @@
 <span class="doccomment">/// - `u32 nevents`</span>
 <span class="doccomment">///     The number of events seen</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">poll_oneoff</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">in_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_subscription_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">out_</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_event_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">nsubscriptions</span>: <span class="ident">u32</span>,
@@ -4898,7 +4933,7 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::poll_oneoff&quot;</span>);
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;  =&gt; nsubscriptions = {}&quot;</span>, <span class="ident">nsubscriptions</span>);
-    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="ident">state</span>) <span class="op">=</span> <span class="ident">get_memory_and_wasi_state</span>(<span class="ident">ctx</span>, <span class="number">0</span>);
+    <span class="kw">let</span> (<span class="ident">memory</span>, <span class="kw-2">mut</span> <span class="ident">state</span>) <span class="op">=</span> <span class="ident">env</span>.<span class="ident">get_memory_and_wasi_state</span>(<span class="number">0</span>);
 
     <span class="kw">let</span> <span class="ident">subscription_array</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">in_</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">nsubscriptions</span>));
     <span class="kw">let</span> <span class="ident">event_array</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">out_</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">nsubscriptions</span>));
@@ -4957,7 +4992,7 @@
         };
 
         <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">fd</span>) <span class="op">=</span> <span class="ident">fd</span> {
-            <span class="kw">let</span> <span class="ident">wasi_file_ref</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">WasiFile</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fd</span> {
+            <span class="kw">let</span> <span class="ident">wasi_file_ref</span>: <span class="kw-2">&amp;</span><span class="ident">dyn</span> <span class="ident">WasiFile</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">fd</span> {
                 <span class="ident">__WASI_STDERR_FILENO</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">wasi_try</span><span class="macro">!</span>(
                     <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">state</span>.<span class="ident">fs</span>.<span class="ident">stderr</span>().<span class="ident">map_err</span>(<span class="ident">WasiFsError</span>::<span class="ident">into_wasi_err</span>)).<span class="ident">as_ref</span>(),
                     <span class="ident">__WASI_EBADF</span>
@@ -5076,11 +5111,13 @@
     <span class="ident">__WASI_ESUCCESS</span>
 }
 
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_exit</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">code</span>: <span class="ident">__wasi_exitcode_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Infallible</span>, <span class="ident">ExitCode</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_exit</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">code</span>: <span class="ident">__wasi_exitcode_t</span>) {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::proc_exit, {}&quot;</span>, <span class="ident">code</span>);
-    <span class="prelude-val">Err</span>(<span class="ident">ExitCode</span> { <span class="ident">code</span> })
+    <span class="ident">RuntimeError</span>::<span class="ident">raise</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">WasiError</span>::<span class="ident">Exit</span>(<span class="ident">code</span>)));
+    <span class="macro">unreachable</span><span class="macro">!</span>();
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_raise</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">sig</span>: <span class="ident">__wasi_signal_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">proc_raise</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">sig</span>: <span class="ident">__wasi_signal_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::proc_raise&quot;</span>);
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;wasi::proc_raise&quot;</span>)
 }
@@ -5092,9 +5129,9 @@
 <span class="doccomment">///     A pointer to a buffer where the random bytes will be written</span>
 <span class="doccomment">/// - `size_t buf_len`</span>
 <span class="doccomment">///     The number of bytes that will be written</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_get</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">buf_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">random_get</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">buf</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">u8</span>, <span class="ident">Array</span><span class="op">&gt;</span>, <span class="ident">buf_len</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::random_get buf_len: {}&quot;</span>, <span class="ident">buf_len</span>);
-    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">env</span>.<span class="ident">memory</span>();
 
     <span class="kw">let</span> <span class="ident">buf</span> <span class="op">=</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">buf</span>.<span class="ident">deref</span>(<span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">buf_len</span>));
 
@@ -5110,14 +5147,14 @@
 
 <span class="doccomment">/// ### `sched_yield()`</span>
 <span class="doccomment">/// Yields execution of the thread</span>
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sched_yield</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sched_yield</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::sched_yield&quot;</span>);
     ::<span class="ident">std</span>::<span class="ident">thread</span>::<span class="ident">yield_now</span>();
     <span class="ident">__WASI_ESUCCESS</span>
 }
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_recv</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">ri_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_iovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">ri_data_len</span>: <span class="ident">u32</span>,
@@ -5129,7 +5166,7 @@
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;wasi::sock_recv&quot;</span>)
 }
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_send</span>(
-    <span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>,
+    <span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>,
     <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>,
     <span class="ident">si_data</span>: <span class="ident">WasmPtr</span><span class="op">&lt;</span><span class="ident">__wasi_ciovec_t</span>, <span class="ident">Array</span><span class="op">&gt;</span>,
     <span class="ident">si_data_len</span>: <span class="ident">u32</span>,
@@ -5139,9 +5176,9 @@
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::sock_send&quot;</span>);
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;wasi::sock_send&quot;</span>)
 }
-<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_shutdown</span>(<span class="ident">ctx</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Ctx</span>, <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>, <span class="ident">how</span>: <span class="ident">__wasi_sdflags_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">sock_shutdown</span>(<span class="ident">env</span>: <span class="kw-2">&amp;</span><span class="ident">WasiEnv</span>, <span class="ident">sock</span>: <span class="ident">__wasi_fd_t</span>, <span class="ident">how</span>: <span class="ident">__wasi_sdflags_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">__wasi_errno_t</span> {
     <span class="macro">debug</span><span class="macro">!</span>(<span class="string">&quot;wasi::sock_shutdown&quot;</span>);
     <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;wasi::sock_shutdown&quot;</span>)
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_wasi";</script><script src="../../../aliases.js"></script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_wasi";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

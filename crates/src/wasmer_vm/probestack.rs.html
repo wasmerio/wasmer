@@ -1,0 +1,114 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="Source to the Rust file `lib/vm/src/probestack.rs`."><meta name="keywords" content="rust, rustlang, rust-lang"><title>probestack.rs.html -- source</title><link rel="stylesheet" type="text/css" href="../../normalize.css"><link rel="stylesheet" type="text/css" href="../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../ayu.css" disabled ><script src="../../storage.js"></script><noscript><link rel="stylesheet" href="../../noscript.css"></noscript><link rel="icon" type="image/svg+xml" href="../../favicon.svg">
+<link rel="alternate icon" type="image/png" href="../../favicon-16x16.png">
+<link rel="alternate icon" type="image/png" href="../../favicon-32x32.png"><style type="text/css">#crate-search{background-image:url("../../down-arrow.svg");}</style></head><body class="rustdoc source"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../wasmer_vm/index.html'><div class='logo-container rust-logo'><img src='../../rust-logo.png' alt='logo'></div></a></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../settings.html"><img src="../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><pre class="line-numbers"><span id="1"> 1</span>
+<span id="2"> 2</span>
+<span id="3"> 3</span>
+<span id="4"> 4</span>
+<span id="5"> 5</span>
+<span id="6"> 6</span>
+<span id="7"> 7</span>
+<span id="8"> 8</span>
+<span id="9"> 9</span>
+<span id="10">10</span>
+<span id="11">11</span>
+<span id="12">12</span>
+<span id="13">13</span>
+<span id="14">14</span>
+<span id="15">15</span>
+<span id="16">16</span>
+<span id="17">17</span>
+<span id="18">18</span>
+<span id="19">19</span>
+<span id="20">20</span>
+<span id="21">21</span>
+<span id="22">22</span>
+<span id="23">23</span>
+<span id="24">24</span>
+<span id="25">25</span>
+<span id="26">26</span>
+<span id="27">27</span>
+<span id="28">28</span>
+<span id="29">29</span>
+<span id="30">30</span>
+<span id="31">31</span>
+<span id="32">32</span>
+<span id="33">33</span>
+<span id="34">34</span>
+<span id="35">35</span>
+<span id="36">36</span>
+<span id="37">37</span>
+<span id="38">38</span>
+<span id="39">39</span>
+<span id="40">40</span>
+<span id="41">41</span>
+<span id="42">42</span>
+<span id="43">43</span>
+<span id="44">44</span>
+<span id="45">45</span>
+<span id="46">46</span>
+<span id="47">47</span>
+<span id="48">48</span>
+<span id="49">49</span>
+<span id="50">50</span>
+<span id="51">51</span>
+<span id="52">52</span>
+<span id="53">53</span>
+<span id="54">54</span>
+</pre><div class="example-wrap"><pre class="rust ">
+<span class="comment">// This file contains code from external sources.</span>
+<span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
+
+<span class="doccomment">//! This section defines the `PROBESTACK` intrinsic which is used in the</span>
+<span class="doccomment">//! implementation of &quot;stack probes&quot; on certain platforms.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! The purpose of a stack probe is to provide a static guarantee that if a</span>
+<span class="doccomment">//! thread has a guard page then a stack overflow is guaranteed to hit that</span>
+<span class="doccomment">//! guard page. If a function did not have a stack probe then there&#39;s a risk of</span>
+<span class="doccomment">//! having a stack frame *larger* than the guard page, so a function call could</span>
+<span class="doccomment">//! skip over the guard page entirely and then later hit maybe the heap or</span>
+<span class="doccomment">//! another thread, possibly leading to security vulnerabilities such as [The</span>
+<span class="doccomment">//! Stack Clash], for example.</span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//! [The Stack Clash]: https://blog.qualys.com/securitylabs/2017/06/19/the-stack-clash</span>
+
+<span class="comment">// A declaration for the stack probe function in Rust&#39;s standard library, for</span>
+<span class="comment">// catching callstack overflow.</span>
+<span class="ident">cfg_if</span>::<span class="macro">cfg_if</span><span class="macro">!</span> {
+    <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(
+            <span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>,
+            <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;msvc&quot;</span>,
+            <span class="ident">target_pointer_width</span> <span class="op">=</span> <span class="string">&quot;64&quot;</span>
+            ))]</span> {
+        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__chkstk</span>();
+        }
+        <span class="doccomment">/// The probestack for Windows when compiled with MSVC</span>
+        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">__chkstk</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>, <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;gnu&quot;</span>))]</span> {
+        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
+            <span class="comment">// ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs</span>
+            <span class="comment">// by the Rust compiler for the MinGW target</span>
+            <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">all</span>(<span class="ident">target_os</span> <span class="op">=</span> <span class="string">&quot;windows&quot;</span>, <span class="ident">target_env</span> <span class="op">=</span> <span class="string">&quot;gnu&quot;</span>))]</span>
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">___chkstk</span>();
+        }
+        <span class="doccomment">/// The probestack for Windows when compiled with GNU</span>
+        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">___chkstk</span>;
+    } <span class="kw">else</span> <span class="kw">if</span> <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>)))]</span> {
+        <span class="comment">// As per</span>
+        <span class="comment">// https://github.com/rust-lang/compiler-builtins/blob/cae3e6ea23739166504f9f9fb50ec070097979d4/src/probestack.rs#L39,</span>
+        <span class="comment">// LLVM only has stack-probe support on x86-64 and x86. Thus, on any other CPU</span>
+        <span class="comment">// architecture, we simply use an empty stack-probe function.</span>
+        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">empty_probestack</span>() {}
+        <span class="doccomment">/// A default probestack for other architectures</span>
+        <span class="kw">pub</span> <span class="kw">const</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">empty_probestack</span>;
+    } <span class="kw">else</span> {
+        <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> {
+            <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">__rust_probestack</span>();
+        }
+        <span class="doccomment">/// The probestack based on the Rust probestack</span>
+        <span class="kw">pub</span> <span class="kw">static</span> <span class="ident">PROBESTACK</span>: <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span>() <span class="op">=</span> <span class="ident">__rust_probestack</span>;
+    }
+}
+</pre></div>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_vm";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

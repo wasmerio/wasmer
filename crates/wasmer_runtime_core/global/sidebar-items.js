@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Global","A handle to a Wasm Global"]]});

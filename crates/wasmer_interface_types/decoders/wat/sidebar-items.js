@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["FunctionType",""],["Interface",""]],"fn":[["parse","Parse a WIT definition in its textual format, and produces an AST with the `Interfaces` structure upon succesful."]],"mod":[["keyword",""]],"struct":[["AtInterface",""],["Buffer","A low-level buffer of tokens which represents a completely lexed file."]]});

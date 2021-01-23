@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Converter",""],["Module","This contains all of the items in a `ModuleInner` except the `func_resolver`."]]});

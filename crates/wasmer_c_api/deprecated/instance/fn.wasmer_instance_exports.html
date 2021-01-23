@@ -1,0 +1,37 @@
+<!DOCTYPE html><html lang="en"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1.0"><meta name="generator" content="rustdoc"><meta name="description" content="API documentation for the Rust `wasmer_instance_exports` fn in crate `wasmer_c_api`."><meta name="keywords" content="rust, rustlang, rust-lang, wasmer_instance_exports"><title>wasmer_c_api::deprecated::instance::wasmer_instance_exports - Rust</title><link rel="stylesheet" type="text/css" href="../../../normalize.css"><link rel="stylesheet" type="text/css" href="../../../rustdoc.css" id="mainThemeStyle"><link rel="stylesheet" type="text/css" href="../../../light.css"  id="themeStyle"><link rel="stylesheet" type="text/css" href="../../../dark.css" disabled ><link rel="stylesheet" type="text/css" href="../../../ayu.css" disabled ><script src="../../../storage.js"></script><noscript><link rel="stylesheet" href="../../../noscript.css"></noscript><link rel="shortcut icon" href="https://wasmer.io/static/icons/favicon.ico"><style type="text/css">#crate-search{background-image:url("../../../down-arrow.svg");}</style></head><body class="rustdoc fn"><!--[if lte IE 8]><div class="warning">This old browser is unsupported and will most likely display funky things.</div><![endif]--><nav class="sidebar"><div class="sidebar-menu">&#9776;</div><a href='../../../wasmer_c_api/index.html'><div class='logo-container'><img src='https://github.com/wasmerio.png?size=200' alt='logo'></div></a><div class="sidebar-elems"><p class='location'><a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>deprecated</a>::<wbr><a href='index.html'>instance</a></p><script>window.sidebarCurrent = {name: 'wasmer_instance_exports', ty: 'fn', relpath: ''};</script><script defer src="sidebar-items.js"></script></div></nav><div class="theme-picker"><button id="theme-picker" aria-label="Pick another theme!"><img src="../../../brush.svg" width="18" alt="Pick another theme!"></button><div id="theme-choices"></div></div><script src="../../../theme.js"></script><nav class="sub"><form class="search-form"><div class="search-container"><div><select id="crate-search"><option value="All crates">All crates</option></select><input class="search-input" name="search" disabled autocomplete="off" spellcheck="false" placeholder="Click or press ‘S’ to search, ‘?’ for more options…" type="search"></div><span class="help-button">?</span>
+                <a id="settings-menu" href="../../../settings.html"><img src="../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class='fqn'><span class='out-of-band'><span id='render-detail'><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class='inner'>&#x2212;</span>]</a></span><a class='srclink' href='../../../src/wasmer_c_api/deprecated/instance.rs.html#455-481' title='goto source code'>[src]</a></span><span class='in-band'>Function <a href='../../index.html'>wasmer_c_api</a>::<wbr><a href='../index.html'>deprecated</a>::<wbr><a href='index.html'>instance</a>::<wbr><a class="fn" href=''>wasmer_instance_exports</a></span></h1><pre class='rust fn'><span class="docblock attributes">#[no_mangle]</span>pub unsafe extern &quot;C&quot; fn wasmer_instance_exports(<br>&nbsp;&nbsp;&nbsp;&nbsp;instance: <a class="enum" href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="enum core::option::Option">Option</a>&lt;<a class="struct" href="https://doc.rust-lang.org/nightly/core/ptr/non_null/struct.NonNull.html" title="struct core::ptr::non_null::NonNull">NonNull</a>&lt;<a class="struct" href="../../../wasmer_c_api/deprecated/instance/struct.wasmer_instance_t.html" title="struct wasmer_c_api::deprecated::instance::wasmer_instance_t">wasmer_instance_t</a>&gt;&gt;, <br>&nbsp;&nbsp;&nbsp;&nbsp;exports: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut </a><a class="struct" href="../../../wasmer_c_api/deprecated/export/struct.wasmer_exports_t.html" title="struct wasmer_c_api::deprecated::export::wasmer_exports_t">wasmer_exports_t</a><br>)</pre><div class='docblock'><p>Gets all the exports of the given WebAssembly instance.</p>
+<p>This function stores a Rust vector of exports into <code>exports</code> as an
+opaque pointer of kind <code>wasmer_exports_t</code>.</p>
+<p>As is, you can do anything with <code>exports</code> except using the
+companion functions, like <code>wasmer_exports_len()</code>,
+<code>wasmer_exports_get()</code> or <code>wasmer_export_kind()</code>. See the example below.</p>
+<p><strong>Warning</strong>: The caller owns the object and should call
+<code>wasmer_exports_destroy()</code> to free it.</p>
+<p>Example:</p>
+<pre><code class="language-c">// Get the exports.
+wasmer_exports_t *exports = NULL;
+wasmer_instance_exports(instance, &amp;exports);
+
+// Get the number of exports.
+int exports_length = wasmer_exports_len(exports);
+printf(&quot;Number of exports: %d\n&quot;, exports_length);
+
+// Read the first export.
+wasmer_export_t *export = wasmer_exports_get(exports, 0);
+
+// Get the kind of the export.
+wasmer_import_export_kind export_kind = wasmer_export_kind(export);
+
+// Assert it is a function (why not).
+assert(export_kind == WASM_FUNCTION);
+
+// Read the export name.
+wasmer_byte_array name_bytes = wasmer_export_name(export);
+
+assert(name_bytes.bytes_len == sizeof(&quot;sum&quot;) - 1);
+assert(memcmp(name_bytes.bytes, &quot;sum&quot;, sizeof(&quot;sum&quot;) - 1) == 0);
+
+// Destroy the exports.
+wasmer_exports_destroy(exports);
+</code></pre>
+</div></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_c_api";</script><script src="../../../main.js"></script><script defer src="../../../search-index.js"></script></body></html>

@@ -1,1 +1,0 @@
-initSidebarItems({"fn":[["build",""]],"mod":[["emtests","This file will run at build time to autogenerate the Emscripten tests It will compile the files indicated in TESTS, to:executable and .wasm - Compile using cc and get the output from it (expected output) - Compile using emcc and get the .wasm from it (wasm)"]]});

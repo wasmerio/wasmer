@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["LinkCode","Data used to run a linking command for generated artifacts."]]});
