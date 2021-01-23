@@ -428,7 +428,7 @@ impl BorshDeserialize for CacheImage {
             func_import_count,
             msm,
             exception_table,
-        });
+        })
     }
 }
 
