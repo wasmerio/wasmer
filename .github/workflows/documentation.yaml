@@ -21,7 +21,6 @@ jobs:
           toolchain: 1.48.0
           override: true
       - name: Install LLVM
-        if: matrix.llvm_url
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.gz
