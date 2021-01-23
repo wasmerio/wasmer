@@ -378,7 +378,7 @@ pub struct X64ExecutionContext {
 
 /// On-disk cache format.
 /// Offsets are relative to the start of the executable image.
-#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize)]
 pub struct CacheImage {
     /// The executable image.
     code: Vec<u8>,
@@ -401,36 +401,43 @@ pub struct CacheImage {
     exception_table: ExceptionTable,
 }
 
-// impl BorshSerialize for CacheImage {
-//     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-//         BorshSerialize::serialize(&self.code, writer)?;
-//         borsh_serialize_usize_vec(&self.function_pointers, writer)?;
-//         borsh_serialize_usize_vec(&self.function_offsets, writer)?;
-//         BorshSerialize::serialize(&(self.func_import_count as u64), writer)?;
-//         BorshSerialize::serialize(&self.msm, writer)?;
-//         BorshSerialize::serialize(&self.exception_table, writer)
-//     }
-// }
+impl BorshSerialize for CacheImage {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        BorshSerialize::serialize(&self.code, writer)?;
+        borsh_serialize_usize_vec(&self.function_pointers, writer)?;
+        borsh_serialize_usize_vec(&self.function_offsets, writer)?;
+        BorshSerialize::serialize(&(self.func_import_count as u64), writer)?;
+        BorshSerialize::serialize(&self.msm, writer)?;
+        BorshSerialize::serialize(&self.exception_table, writer)
+    }
+}
 
-// impl BorshDeserialize for CacheImage {
-//     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-//         let code: Vec<u8> = BorshDeserialize::deserialize(buf)?;
-//         let function_pointers = borsh_deserialize_usize_vec(buf)?;
-//         let function_offsets = borsh_deserialize_usize_vec(buf)?;
-//         let func_import_count: u64 = BorshDeserialize::deserialize(buf)?;
-//         let func_import_count = func_import_count as usize;
-//         let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
-//         let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
-//         Ok(Self {
-//             code,
-//             function_pointers,
-//             function_offsets,
-//             func_import_count,
-//             msm,
-//             exception_table,
-//         })
-//     }
-// }
+impl BorshDeserialize for CacheImage {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        println!("--- ok0");
+        let code: Vec<u8> = BorshDeserialize::deserialize(buf)?;
+        println!("--- ok1");
+        let function_pointers = borsh_deserialize_usize_vec(buf)?;
+        println!("--- ok2");
+        let function_offsets = borsh_deserialize_usize_vec(buf)?;
+        println!("--- ok3");
+        let func_import_count: u64 = BorshDeserialize::deserialize(buf)?;
+        println!("--- ok4");
+        let func_import_count = func_import_count as usize;
+        let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
+        println!("--- ok5");
+        let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
+        println!("--- ok6");
+        Ok(Self {
+            code,
+            function_pointers,
+            function_offsets,
+            func_import_count,
+            msm,
+            exception_table,
+        })
+    }
+}
 
 #[derive(Debug)]
 pub struct ControlFrame {
