@@ -1189,7 +1189,10 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let (info, _, memory) = artifact.consume();
 
         let cache_image: CacheImage = CacheImage::try_from_slice(memory.as_slice())
-            .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
+            .map_err(|x| CacheError::DeserializeError({
+                println!("!!! wasmer {:?}, x);
+                format!("{:?}", x))
+            })?;
 
         let mut code_mem = CodeMemory::new(cache_image.code.len());
         code_mem[0..cache_image.code.len()].copy_from_slice(&cache_image.code);
