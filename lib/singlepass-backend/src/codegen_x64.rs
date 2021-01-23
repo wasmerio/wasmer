@@ -1195,8 +1195,8 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         let (info, _, memory) = artifact.consume();
 
-        let cache_image: CacheImage =
-            CacheImage::try_from_slice(memory.as_slice()).map_err(|x| {
+        let cache_image: CacheImage = BorshDeserialize::deserialize(&mut memory.as_slice())
+            .map_err(|x| {
                 println!("!!! wasmer {:?}", x);
                 CacheError::DeserializeError(format!("{:?}", x))
             })?;
