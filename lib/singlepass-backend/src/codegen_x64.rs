@@ -414,21 +414,14 @@ impl BorshSerialize for CacheImage {
 
 impl BorshDeserialize for CacheImage {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-        println!("--- ok0");
         let code: Vec<u8> = BorshDeserialize::deserialize(buf)?;
-        println!("--- ok1");
         let function_pointers = borsh_deserialize_usize_vec(buf)?;
-        println!("--- ok2");
         let function_offsets = borsh_deserialize_usize_vec(buf)?;
-        println!("--- ok3");
         let func_import_count: u64 = BorshDeserialize::deserialize(buf)?;
-        println!("--- ok4");
         let func_import_count = func_import_count as usize;
         let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
-        println!("--- ok5");
         let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
-        println!("--- ok6");
-        let r = Ok(Self {
+        Ok(Self {
             code,
             function_pointers,
             function_offsets,
@@ -436,8 +429,6 @@ impl BorshDeserialize for CacheImage {
             msm,
             exception_table,
         });
-        println!("--- ok7");
-        r
     }
 }
 
@@ -1198,10 +1189,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         let (info, _, memory) = artifact.consume();
 
         let cache_image: CacheImage = BorshDeserialize::deserialize(&mut memory.as_slice())
-            .map_err(|x| {
-                println!("!!! wasmer {:?}", x);
-                CacheError::DeserializeError(format!("{:?}", x))
-            })?;
+            .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
 
         let mut code_mem = CodeMemory::new(cache_image.code.len());
         code_mem[0..cache_image.code.len()].copy_from_slice(&cache_image.code);
