@@ -428,14 +428,16 @@ impl BorshDeserialize for CacheImage {
         println!("--- ok5");
         let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
         println!("--- ok6");
-        Ok(Self {
+        let r = Ok(Self {
             code,
             function_pointers,
             function_offsets,
             func_import_count,
             msm,
             exception_table,
-        })
+        });
+        println!("--- ok7");
+        r
     }
 }
 
