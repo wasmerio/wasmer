@@ -3,10 +3,10 @@
 //! generated code from one tier to another, or serializing state of a running instace.
 
 use crate::backend::RunnableModule;
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::collections::BTreeMap;
 use std::ops::Bound::{Included, Unbounded};
 use std::sync::Arc;
-use borsh::{BorshSerialize, BorshDeserialize};
 
 /// An index to a register
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
@@ -26,7 +26,18 @@ impl BorshDeserialize for RegisterIndex {
 }
 
 /// A kind of wasm or constant value
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub enum WasmAbstractValue {
     /// A wasm runtime value
     Runtime,
@@ -101,7 +112,10 @@ pub enum MachineValue {
 }
 
 /// work around borsh serialize a Vec<usize>
-pub fn borsh_serialize_usize_vec<W: std::io::Write>(v: &Vec<usize>, writer: &mut W) -> std::io::Result<()> {
+pub fn borsh_serialize_usize_vec<W: std::io::Write>(
+    v: &Vec<usize>,
+    writer: &mut W,
+) -> std::io::Result<()> {
     &(v.len() as u32).serialize(writer)?;
     for u in v {
         &(*u as u64).serialize(writer)?;
