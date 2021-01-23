@@ -3,6 +3,7 @@
 
 use crate::emitter_x64::*;
 use crate::machine::*;
+use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(target_arch = "aarch64")]
 use dynasmrt::aarch64::Assembler;
 #[cfg(target_arch = "x86_64")]
@@ -32,9 +33,9 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
-        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
-        WasmAbstractValue, borsh_serialize_usize_vec, borsh_deserialize_usize_vec
+        borsh_deserialize_usize_vec, borsh_serialize_usize_vec, x64::new_machine_state,
+        x64::X64Register, x64_decl::ArgumentRegisterAllocator, FunctionStateMap, MachineState,
+        MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -45,7 +46,6 @@ use wasmer_runtime_core::{
     vm::{self, LocalGlobal, LocalTable, INTERNALS_SIZE},
     wasmparser::{MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType},
 };
-use borsh::{BorshSerialize, BorshDeserialize};
 
 #[cfg(target_arch = "aarch64")]
 #[allow(dead_code)]
@@ -421,7 +421,14 @@ impl BorshDeserialize for CacheImage {
         let func_import_count = func_import_count as usize;
         let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
         let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
-        Ok(Self {code, function_pointers, function_offsets, func_import_count, msm, exception_table})
+        Ok(Self {
+            code,
+            function_pointers,
+            function_offsets,
+            func_import_count,
+            msm,
+            exception_table,
+        })
     }
 }
 
@@ -1003,7 +1010,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         let cache = SinglepassCache {
-            buffer: Arc::from(&cache_image.try_to_vec().unwrap().into_boxed_slice()),
+            buffer: Arc::from(cache_image.try_to_vec().unwrap()),
         };
 
         Ok((
@@ -1181,7 +1188,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
     unsafe fn from_cache(artifact: Artifact, _: Token) -> Result<ModuleInner, CacheError> {
         let (info, _, memory) = artifact.consume();
 
-        let cache_image: CacheImage = CacheImage::read_from_slice(memory.as_slice())
+        let cache_image: CacheImage = CacheImage::try_from_slice(memory.as_slice())
             .map_err(|x| CacheError::DeserializeError(format!("{:?}", x)))?;
 
         let mut code_mem = CodeMemory::new(cache_image.code.len());
