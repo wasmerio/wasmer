@@ -182,8 +182,10 @@ impl BorshSerialize for MachineValue {
 
 impl BorshDeserialize for MachineValue {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        println!("aaa");
         let variant: u8 = BorshDeserialize::deserialize(buf)?;
-        Ok(match variant {
+        println!("aaa {}", variant);
+        let r = Ok(match variant {
             0 => MachineValue::Undefined,
             1 => MachineValue::Vmctx,
             2 => {
@@ -217,7 +219,9 @@ impl BorshDeserialize for MachineValue {
                     "Unexpected variant",
                 ))
             }
-        })
+        });
+        println!("bbb {}", variant);
+        r
     }
 }
 
