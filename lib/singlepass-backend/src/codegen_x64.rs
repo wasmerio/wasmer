@@ -1010,7 +1010,7 @@ impl ModuleCodeGenerator<X64FunctionCode, X64ExecutionContext, CodegenError>
         };
 
         let cache = SinglepassCache {
-            buffer: Arc::from(cache_image.try_to_vec().unwrap()),
+            buffer: Arc::from(cache_image.try_to_vec().unwrap().into_boxed_slice()),
         };
 
         Ok((
