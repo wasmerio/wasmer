@@ -61,6 +61,10 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
+    if ::std::env::var("_CBINDGEN_IS_RUNNING").is_ok() {
+        return;
+    }
+
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
 
@@ -285,6 +289,12 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_include_guard(include_guard)
         .with_header(header)
         .with_documentation(false)
+        .with_parse_expand(&[env::var("CARGO_PKG_NAME").unwrap()])
+        .with_parse_expand_features(if env::var("CARGO_FEATURE_SYSTEM_LIBFFI").is_ok() {
+            &["system-libffi"]
+        } else {
+            &[]
+        })
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
