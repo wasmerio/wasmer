@@ -9,6 +9,7 @@ use super::{
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
+    types::wasm_name_t,
 };
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
@@ -341,7 +342,124 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
         .unwrap_or(wasi_version_t::INVALID_VERSION)
 }
 
-/// Takes ownership of `wasi_env_t`.
+/// Non-standard type wrapping `wasm_extern_t` with the addition of
+/// two `wasm_name_t` respectively for the module name and the name of
+/// the extern (very likely to be an import). This non-standard type
+/// is used by the non-standard `wasi_get_unordered_imports` function.
+#[allow(non_camel_case_types)]
+#[derive(Clone)]
+pub struct wasm_named_extern_t {
+    module: Box<wasm_name_t>,
+    name: Box<wasm_name_t>,
+    r#extern: Box<wasm_extern_t>,
+}
+
+wasm_declare_boxed_vec!(named_extern);
+
+/// Non-standard function to get the module name of a
+/// `wasm_named_extern_t`.
+#[no_mangle]
+pub extern "C" fn wasm_named_extern_module(named_extern: &wasm_named_extern_t) -> &wasm_name_t {
+    named_extern.module.as_ref()
+}
+
+/// Non-standard function to get the name of a `wasm_named_extern_t`.
+#[no_mangle]
+pub extern "C" fn wasm_named_extern_name(named_extern: &wasm_named_extern_t) -> &wasm_name_t {
+    named_extern.name.as_ref()
+}
+
+/// Non-standard function to get the wrapped extern of a
+/// `wasm_named_extern_t`.
+#[no_mangle]
+pub extern "C" fn wasm_named_extern_extern(named_extern: &wasm_named_extern_t) -> &wasm_extern_t {
+    named_extern.r#extern.as_ref()
+}
+
+/// Non-standard function to get the imports needed for the WASI
+/// implementation with no particular order. Each import has its
+/// associated module name and name, so that it can be re-order later
+/// based on the `wasm_module_t` requirements.
+///
+/// This function takes ownership of `wasm_env_t`.
+#[no_mangle]
+pub unsafe extern "C" fn wasi_get_unordered_imports(
+    store: &wasm_store_t,
+    module: &wasm_module_t,
+    wasi_env: &wasi_env_t,
+    imports: &mut wasm_named_extern_vec_t,
+) -> bool {
+    wasi_get_unordered_imports_inner(store, module, wasi_env, imports).is_some()
+}
+
+unsafe fn wasi_get_unordered_imports_inner(
+    store: &wasm_store_t,
+    module: &wasm_module_t,
+    wasi_env: &wasi_env_t,
+    imports: &mut wasm_named_extern_vec_t,
+) -> Option<()> {
+    let store = &store.inner;
+
+    let version = c_try!(
+        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
+            msg: "could not detect a WASI version on the given module".to_string(),
+        })
+    );
+
+    let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
+
+    *imports = import_object
+        .into_iter()
+        .map(|((module, name), export)| {
+            let module = {
+                let mut module: Box<str> = module.into_boxed_str();
+                let module_ptr = module.as_mut_ptr();
+                let module_len = module.bytes().len();
+                let module_inner = wasm_name_t {
+                    size: module_len,
+                    data: module_ptr,
+                };
+
+                Box::leak(module);
+
+                Box::new(module_inner)
+            };
+            let name = {
+                let mut name: Box<str> = name.into_boxed_str();
+                let name_ptr = name.as_mut_ptr();
+                let name_len = name.bytes().len();
+                let name_inner = wasm_name_t {
+                    size: name_len,
+                    data: name_ptr,
+                };
+
+                Box::leak(name);
+
+                Box::new(name_inner)
+            };
+
+            let extern_inner = Extern::from_vm_export(store, export);
+            let r#extern = Box::new(wasm_extern_t {
+                instance: None,
+                inner: extern_inner,
+            });
+
+            Box::new(wasm_named_extern_t {
+                module,
+                name,
+                r#extern,
+            })
+        })
+        .collect::<Vec<_>>()
+        .into();
+
+    Some(())
+}
+
+/// Non-standard function to get the imports needed for the WASI
+/// implementation ordered as expected by the `wasm_module_t`.
+///
+/// This function takes ownership of `wasm_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
     store: &wasm_store_t,
