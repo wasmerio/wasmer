@@ -22,7 +22,7 @@ smallvec = "1"
 bincode = "1.1"
 wasm-debug = { optional = true, version = "0.2.0" }
 target-lexicon = "0.10"
-borsh = { git = "https://github.com/near/borsh-rs", rev = "69cb28ce0ccdc94a0ab3809f7a279993d0156e33" }
+borsh = { git = "https://github.com/near/borsh-rs", rev = "c62cdfbd10d4a17fc877809eba4ccb65e866d5f8" }
 
 [dependencies.indexmap]
 version = "1.2"
