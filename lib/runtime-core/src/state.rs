@@ -9,21 +9,19 @@ use std::ops::Bound::{Included, Unbounded};
 use std::sync::Arc;
 
 /// An index to a register
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, Serialize, Deserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    Eq,
+    PartialEq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub struct RegisterIndex(pub usize);
-
-impl BorshSerialize for RegisterIndex {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        BorshSerialize::serialize(&(self.0 as u64), writer)
-    }
-}
-
-impl BorshDeserialize for RegisterIndex {
-    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-        let idx: u64 = BorshDeserialize::deserialize(buf)?;
-        Ok(Self(idx as usize))
-    }
-}
 
 /// A kind of wasm or constant value
 #[derive(
@@ -111,39 +109,6 @@ pub enum MachineValue {
     TwoHalves(Box<(MachineValue, MachineValue)>), // 32-bit values. TODO: optimize: add another type for inner "half" value to avoid boxing?
 }
 
-/// work around borsh serialize a Vec<usize>
-pub fn borsh_serialize_usize_vec<W: std::io::Write>(
-    v: &Vec<usize>,
-    writer: &mut W,
-) -> std::io::Result<()> {
-    &(v.len() as u32).serialize(writer)?;
-    for u in v {
-        &(*u as u64).serialize(writer)?;
-    }
-    Ok(())
-}
-
-/// work around helper used in borsh_deserialize_usize_vec
-#[inline]
-pub fn cautious<T>(hint: u32) -> usize {
-    let el_size = core::mem::size_of::<T>() as u32;
-    core::cmp::max(core::cmp::min(hint, 4096 / el_size), 1) as usize
-}
-
-/// work around borsh deserialize a Vec<usize>
-pub fn borsh_deserialize_usize_vec(buf: &mut &[u8]) -> std::io::Result<Vec<usize>> {
-    let len = u32::deserialize(buf)?;
-    if len == 0 {
-        Ok(Vec::new())
-    } else {
-        let mut result = Vec::with_capacity(cautious::<usize>(len));
-        for _ in 0..len {
-            result.push(u64::deserialize(buf)? as usize);
-        }
-        Ok(result)
-    }
-}
-
 impl BorshSerialize for MachineValue {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
@@ -151,7 +116,7 @@ impl BorshSerialize for MachineValue {
             MachineValue::Vmctx => writer.write_all(&(1 as u8).to_le_bytes())?,
             MachineValue::VmctxDeref(v) => {
                 writer.write_all(&(2 as u8).to_le_bytes())?;
-                borsh_serialize_usize_vec(v, writer)?;
+                BorshSerialize::serialize(&v, writer)?;
             }
             MachineValue::PreserveRegister(r) => {
                 writer.write_all(&(3 as u8).to_le_bytes())?;
@@ -187,7 +152,7 @@ impl BorshDeserialize for MachineValue {
             0 => MachineValue::Undefined,
             1 => MachineValue::Vmctx,
             2 => {
-                let v = borsh_deserialize_usize_vec(buf)?;
+                let v: Vec<usize> = BorshDeserialize::deserialize(buf)?;
                 MachineValue::VmctxDeref(v)
             }
             3 => {

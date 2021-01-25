@@ -33,9 +33,9 @@ use wasmer_runtime_core::{
     memory::MemoryType,
     module::{ModuleInfo, ModuleInner},
     state::{
-        borsh_deserialize_usize_vec, borsh_serialize_usize_vec, x64::new_machine_state,
-        x64::X64Register, x64_decl::ArgumentRegisterAllocator, FunctionStateMap, MachineState,
-        MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset, WasmAbstractValue,
+        x64::new_machine_state, x64::X64Register, x64_decl::ArgumentRegisterAllocator,
+        FunctionStateMap, MachineState, MachineValue, ModuleStateMap, OffsetInfo, SuspendOffset,
+        WasmAbstractValue,
     },
     structures::{Map, TypedIndex},
     typed_func::{Trampoline, Wasm},
@@ -378,7 +378,7 @@ pub struct X64ExecutionContext {
 
 /// On-disk cache format.
 /// Offsets are relative to the start of the executable image.
-#[derive(Clone, Debug, Serialize, Deserialize)]
+#[derive(Clone, Debug, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct CacheImage {
     /// The executable image.
     code: Vec<u8>,
@@ -399,37 +399,6 @@ pub struct CacheImage {
 
     /// An exception table that maps instruction offsets to exception codes.
     exception_table: ExceptionTable,
-}
-
-impl BorshSerialize for CacheImage {
-    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        BorshSerialize::serialize(&self.code, writer)?;
-        borsh_serialize_usize_vec(&self.function_pointers, writer)?;
-        borsh_serialize_usize_vec(&self.function_offsets, writer)?;
-        BorshSerialize::serialize(&(self.func_import_count as u64), writer)?;
-        BorshSerialize::serialize(&self.msm, writer)?;
-        BorshSerialize::serialize(&self.exception_table, writer)
-    }
-}
-
-impl BorshDeserialize for CacheImage {
-    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-        let code: Vec<u8> = BorshDeserialize::deserialize(buf)?;
-        let function_pointers = borsh_deserialize_usize_vec(buf)?;
-        let function_offsets = borsh_deserialize_usize_vec(buf)?;
-        let func_import_count: u64 = BorshDeserialize::deserialize(buf)?;
-        let func_import_count = func_import_count as usize;
-        let msm: ModuleStateMap = BorshDeserialize::deserialize(buf)?;
-        let exception_table: ExceptionTable = BorshDeserialize::deserialize(buf)?;
-        Ok(Self {
-            code,
-            function_pointers,
-            function_offsets,
-            func_import_count,
-            msm,
-            exception_table,
-        })
-    }
 }
 
 #[derive(Debug)]
