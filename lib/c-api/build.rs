@@ -61,7 +61,7 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
-    if ::std::env::var("_CBINDGEN_IS_RUNNING").is_ok() {
+    if env::var("_CBINDGEN_IS_RUNNING").is_ok() {
         return;
     }
 
@@ -278,7 +278,7 @@ fn add_wasmer_version(pre_header: &mut String) {
 
 /// Create a fresh new `Builder`, already pre-configured.
 fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
-    Builder::new()
+    let builder = Builder::new()
         .with_config(cbindgen::Config {
             sort_by: cbindgen::SortKey::Name,
             cpp_compat: true,
@@ -290,17 +290,17 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_header(header)
         .with_documentation(false)
         .with_parse_expand(&[env::var("CARGO_PKG_NAME").unwrap()])
-        .with_parse_expand_features(if env::var("CARGO_FEATURE_SYSTEM_LIBFFI").is_ok() {
-            &["system-libffi"]
-        } else {
-            &[]
-        })
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
         .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
         .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE);
+
+    #[cfg(feature = "system-libffi")]
+    let builder = builder.with_parse_expand_features(&["system-libffi"]);
+
+    builder
 }
 
 /// Exclude types and functions from the `deprecated` API.
