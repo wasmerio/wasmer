@@ -131,6 +131,36 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::new(wasm_config_t::default())
 }
 
+/// Delete a Wasmer config object.
+///
+/// This function does not need to be called if `wasm_engine_new_with_config` or
+/// another function that takes ownership of the `wasm_config_t` is called.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Delete the configuration
+///     wasm_config_delete(config);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+/// cbindgen:ignore
+#[no_mangle]
+pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
+
 /// Updates the configuration to specify a particular compiler to use.
 ///
 /// This is a Wasmer-specific function.
