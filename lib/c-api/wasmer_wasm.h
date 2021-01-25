@@ -154,6 +154,20 @@ void wasi_config_capture_stderr(wasi_config_t *config);
 void wasi_config_capture_stdout(wasi_config_t *config);
 #endif
 
+/**
+ *Represents a vector of `wasm_named_extern_t`.
+ *
+ *Read the documentation of [`wasm_named_extern_t`] to see more concrete examples.
+ */
+typedef struct {
+  uintptr_t size;
+  wasm_named_extern_t **data;
+} wasm_named_extern_vec_t;
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_arg(wasi_config_t *config, const char *arg);
+#endif
+
 #if defined(WASMER_WASI_ENABLED)
 void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
 #endif
@@ -254,6 +268,78 @@ const wasm_name_t *wasm_named_extern_module(const wasm_named_extern_t *named_ext
 const wasm_name_t *wasm_named_extern_name(const wasm_named_extern_t *named_extern);
 #endif
 
+<<<<<<< HEAD
+=======
+#if defined(WASMER_WASI_ENABLED)
+/**
+ *Performs a deep copy of a vector of [`wasm_named_extern_t`].
+ */
+void wasm_named_extern_vec_copy(wasm_named_extern_vec_t *out_ptr,
+                                const wasm_named_extern_vec_t *in_ptr);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ *Deletes a vector of [`wasm_named_extern_t`].
+ *
+ *# Example
+ *
+ *See the [`wasm_named_extern_vec_t`] type to get an example.
+ */
+void wasm_named_extern_vec_delete(wasm_named_extern_vec_t *ptr);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ *Creates a new vector of [`wasm_named_extern_t`].
+ */
+void wasm_named_extern_vec_new(wasm_named_extern_vec_t *out,
+                               uintptr_t length,
+                               wasm_named_extern_t *const *init);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ *Creates an empty vector of [`wasm_named_extern_t`].
+ *
+ *# Example
+ *
+ *```rust # use inline_c::assert_c; # fn main() { #    (assert_c! { # #include "tests/wasmer_wasm.h" # int main() {     // Creates an empty vector of `wasm_named_extern_t`.     wasm_named_extern_vec_t vector;     wasm_named_extern_vec_new_empty(&vector);
+ *
+ *    // Check that it is empty.     assert(vector.size == 0);
+ *
+ *    // Free it.     wasm_named_extern_vec_delete(&vector); } #    }) #    .success(); # } ```
+ */
+void wasm_named_extern_vec_new_empty(wasm_named_extern_vec_t *out);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/**
+ *Creates a new uninitialized vector of [`wasm_named_extern_t`].
+ *
+ *# Example
+ *
+ *```rust # use inline_c::assert_c; # fn main() { #    (assert_c! { # #include "tests/wasmer_wasm.h" # int main() {     // Creates an empty vector of `wasm_named_extern_t`.     wasm_named_extern_vec_t vector;     wasm_named_extern_vec_new_uninitialized(&vector, 3);
+ *
+ *    // Check that it contains 3 items.     assert(vector.size == 3);
+ *
+ *    // Free it.     wasm_named_extern_vec_delete(&vector); } #    }) #    .success(); # } ```
+ */
+void wasm_named_extern_vec_new_uninitialized(wasm_named_extern_vec_t *out,
+                                             uintptr_t length);
+#endif
+
+/**
+ * Gets the length in bytes of the last error if any, zero otherwise.
+ *
+ * This can be used to dynamically allocate a buffer with the correct number of
+ * bytes needed to store a message.
+ *
+ * # Example
+ *
+ * See this module's documentation to get a complete example.
+ */
+>>>>>>> 75989d7f0 (chore(c-api) Update headers.)
 int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
