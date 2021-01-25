@@ -112,32 +112,31 @@ pub enum MachineValue {
 impl BorshSerialize for MachineValue {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         match self {
-            MachineValue::Undefined => writer.write_all(&(0 as u8).to_le_bytes())?,
-            MachineValue::Vmctx => writer.write_all(&(1 as u8).to_le_bytes())?,
+            MachineValue::Undefined => writer.write_all(&[0u8])?,
+            MachineValue::Vmctx => writer.write_all(&[1u8])?,
             MachineValue::VmctxDeref(v) => {
-                writer.write_all(&(2 as u8).to_le_bytes())?;
+                writer.write(&[2u8])?;
                 BorshSerialize::serialize(&v, writer)?;
             }
             MachineValue::PreserveRegister(r) => {
-                writer.write_all(&(3 as u8).to_le_bytes())?;
+                writer.write(&[3u8])?;
                 BorshSerialize::serialize(&r, writer)?;
             }
             MachineValue::CopyStackBPRelative(i) => {
-                writer.write_all(&(4 as u8).to_le_bytes())?;
+                writer.write(&[4u8])?;
                 BorshSerialize::serialize(&i, writer)?;
             }
             MachineValue::ExplicitShadow => writer.write_all(&(5 as u8).to_le_bytes())?,
             MachineValue::WasmStack(u) => {
-                writer.write_all(&(6 as u8).to_le_bytes())?;
+                writer.write_all(&[6u8])?;
                 BorshSerialize::serialize(&(*u as u64), writer)?;
             }
             MachineValue::WasmLocal(u) => {
-                writer.write_all(&(7 as u8).to_le_bytes())?;
+                writer.write_all(&[7u8])?;
                 BorshSerialize::serialize(&(*u as u64), writer)?;
             }
             MachineValue::TwoHalves(b) => {
-                let two_halves_idx: u8 = 8;
-                writer.write_all(&two_halves_idx.to_le_bytes())?;
+                writer.write_all(&[8u8])?;
                 BorshSerialize::serialize(&b, writer)?;
             }
         }
@@ -165,12 +164,12 @@ impl BorshDeserialize for MachineValue {
             }
             5 => MachineValue::ExplicitShadow,
             6 => {
-                let u: u64 = BorshDeserialize::deserialize(buf)?;
-                MachineValue::WasmStack(u as usize)
+                let u: usize = BorshDeserialize::deserialize(buf)?;
+                MachineValue::WasmStack(u)
             }
             7 => {
-                let u: u64 = BorshDeserialize::deserialize(buf)?;
-                MachineValue::WasmLocal(u as usize)
+                let u: usize = BorshDeserialize::deserialize(buf)?;
+                MachineValue::WasmLocal(u)
             }
             8 => {
                 let b: Box<(MachineValue, MachineValue)> = BorshDeserialize::deserialize(buf)?;
