@@ -79,8 +79,8 @@ impl From<&ImportType> for wasm_importtype_t {
         let extern_type = Box::new(other.ty().into());
 
         wasm_importtype_t {
-            name,
             module,
+            name,
             extern_type,
         }
     }
