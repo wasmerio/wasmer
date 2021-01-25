@@ -112,6 +112,14 @@ enum class wasmer_value_tag : uint32_t {
   WASM_F64,
 };
 
+#if defined(WASMER_WASI_ENABLED)
+/// Non-standard type wrapping `wasm_extern_t` with the addition of
+/// two `wasm_name_t` respectively for the module name and the name of
+/// the extern (very likely to be an import). This non-standard type
+/// is used by the non-standard `wasi_get_unordered_imports` function.
+struct wasm_named_extern_t;
+#endif
+
 struct wasmer_module_t {
 
 };
@@ -328,6 +336,36 @@ struct wasmer_wasi_map_dir_entry_t {
 #endif
 
 extern "C" {
+
+#if defined(WASMER_WASI_ENABLED)
+/// Non-standard function to get the imports needed for the WASI
+/// implementation with no particular order. Each import has its
+/// associated module name and name, so that it can be re-order later
+/// based on the `wasm_module_t` requirements.
+///
+/// This function takes ownership of `wasm_env_t`.
+bool wasi_get_unordered_imports(const wasm_store_t *store,
+                                const wasm_module_t *module,
+                                const wasi_env_t *wasi_env,
+                                wasm_named_extern_vec_t *imports);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/// Non-standard function to get the wrapped extern of a
+/// `wasm_named_extern_t`.
+const wasm_extern_t *wasm_named_extern_extern(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/// Non-standard function to get the module name of a
+/// `wasm_named_extern_t`.
+const wasm_name_t *wasm_named_extern_module(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+/// Non-standard function to get the name of a `wasm_named_extern_t`.
+const wasm_name_t *wasm_named_extern_name(const wasm_named_extern_t *named_extern);
+#endif
 
 /// Creates a new Module from the given wasm bytes.
 ///

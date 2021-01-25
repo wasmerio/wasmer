@@ -134,6 +134,10 @@ typedef struct wasi_config_t wasi_config_t;
 typedef struct wasi_env_t wasi_env_t;
 #endif
 
+#if defined(WASMER_WASI_ENABLED)
+typedef struct wasm_named_extern_t wasm_named_extern_t;
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -218,6 +222,13 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+bool wasi_get_unordered_imports(const wasm_store_t *store,
+                                const wasm_module_t *module,
+                                const wasi_env_t *wasi_env,
+                                wasm_named_extern_vec_t *imports);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
@@ -230,6 +241,18 @@ void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_extern_t *wasm_named_extern_extern(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_name_t *wasm_named_extern_module(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_name_t *wasm_named_extern_name(const wasm_named_extern_t *named_extern);
+#endif
 
 int wasmer_last_error_length(void);
 
