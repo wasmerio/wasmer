@@ -264,13 +264,31 @@ fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isi
     }
 }
 
+/// The version of WASI. This is determined by the imports namespace
+/// string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum wasi_version_t {
+    /// Latest version.
+    ///
+    /// It's a “floating” version, i.e. it's an alias to the latest
+    /// version (for the moment, `Snapshot1`). Using this version is a
+    /// way to ensure that modules will run only if they come with the
+    /// latest WASI version (in case of security issues for instance),
+    /// by just updating the runtime.
+    ///
+    /// Note that this version is never returned by an API. It is
+    /// provided only by the user.
     LATEST = 0,
+
+    /// `wasi_unstable`.
     SNAPSHOT0 = 1,
+
+    /// `wasi_snapshot_preview1`.
     SNAPSHOT1 = 2,
+
+    /// An invalid version. It matches `u32` maximum value.
     INVALID_VERSION = 4294967295, // u32::MAX,
 }
 
