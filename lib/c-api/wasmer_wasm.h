@@ -129,6 +129,14 @@ void wasi_config_arg(wasi_config_t *config, const char *arg);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+void wasi_config_capture_stderr(wasi_config_t *config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasi_config_capture_stdout(wasi_config_t *config);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
 #endif
 
