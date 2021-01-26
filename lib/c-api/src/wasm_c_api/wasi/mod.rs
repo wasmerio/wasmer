@@ -524,12 +524,6 @@ pub unsafe extern "C" fn wasi_get_start_function(
     }))
 }
 
-/// Delete a `wasm_extern_t` allocated by the API.
-///
-/// cbindgen:ignore
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
-
 #[cfg(test)]
 mod tests {
     use inline_c::assert_c;
