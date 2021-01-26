@@ -375,6 +375,28 @@
 <span id="374">374</span>
 <span id="375">375</span>
 <span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
+<span id="394">394</span>
+<span id="395">395</span>
+<span id="396">396</span>
+<span id="397">397</span>
+<span id="398">398</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.</span>
 <span class="doccomment">//!</span>
@@ -401,13 +423,12 @@
     <span class="ident">WasiStateBuilder</span>, <span class="ident">WasiVersion</span>,
 };
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Default</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasi_config_t</span> {
     <span class="ident">inherit_stdout</span>: <span class="ident">bool</span>,
     <span class="ident">inherit_stderr</span>: <span class="ident">bool</span>,
     <span class="ident">inherit_stdin</span>: <span class="ident">bool</span>,
-    <span class="doccomment">/// cbindgen:ignore</span>
     <span class="ident">state_builder</span>: <span class="ident">WasiStateBuilder</span>,
 }
 
@@ -421,8 +442,10 @@
     <span class="kw">let</span> <span class="ident">prog_name</span> <span class="op">=</span> <span class="macro">c_try</span><span class="macro">!</span>(<span class="ident">name_c_str</span>.<span class="ident">to_str</span>());
 
     <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasi_config_t</span> {
+        <span class="ident">inherit_stdout</span>: <span class="bool-val">true</span>,
+        <span class="ident">inherit_stderr</span>: <span class="bool-val">true</span>,
+        <span class="ident">inherit_stdin</span>: <span class="bool-val">true</span>,
         <span class="ident">state_builder</span>: <span class="ident">WasiState</span>::<span class="ident">new</span>(<span class="ident">prog_name</span>),
-        ..<span class="ident">wasi_config_t</span>::<span class="ident">default</span>()
     }))
 }
 
@@ -511,13 +534,30 @@
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_config_capture_stdout</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_config_t</span>) {
+    <span class="ident">config</span>.<span class="ident">inherit_stdout</span> <span class="op">=</span> <span class="bool-val">false</span>;
+}
+
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_config_inherit_stdout</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_config_t</span>) {
     <span class="ident">config</span>.<span class="ident">inherit_stdout</span> <span class="op">=</span> <span class="bool-val">true</span>;
 }
+
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_config_capture_stderr</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_config_t</span>) {
+    <span class="ident">config</span>.<span class="ident">inherit_stderr</span> <span class="op">=</span> <span class="bool-val">false</span>;
+}
+
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_config_inherit_stderr</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_config_t</span>) {
     <span class="ident">config</span>.<span class="ident">inherit_stderr</span> <span class="op">=</span> <span class="bool-val">true</span>;
 }
+
+<span class="comment">//#[no_mangle]</span>
+<span class="comment">//pub extern &quot;C&quot; fn wasi_config_capture_stdin(config: &amp;mut wasi_config_t) {</span>
+<span class="comment">//    config.inherit_stdin = false;</span>
+<span class="comment">//}</span>
+
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_config_inherit_stdin</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasi_config_t</span>) {
     <span class="ident">config</span>.<span class="ident">inherit_stdin</span> <span class="op">=</span> <span class="bool-val">true</span>;
@@ -532,18 +572,22 @@
 <span class="doccomment">/// Takes ownership over the `wasi_config_t`.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_env_new</span>(<span class="kw-2">mut</span> <span class="ident">config</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasi_config_t</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasi_env_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
-    <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">inherit_stdout</span> {
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">inherit_stdout</span> {
         <span class="ident">config</span>
             .<span class="ident">state_builder</span>
             .<span class="ident">stdout</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">capture_files</span>::<span class="ident">OutputCapturer</span>::<span class="ident">new</span>()));
     }
-    <span class="kw">if</span> <span class="ident">config</span>.<span class="ident">inherit_stderr</span> {
+
+    <span class="kw">if</span> <span class="op">!</span><span class="ident">config</span>.<span class="ident">inherit_stderr</span> {
         <span class="ident">config</span>
             .<span class="ident">state_builder</span>
             .<span class="ident">stderr</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">capture_files</span>::<span class="ident">OutputCapturer</span>::<span class="ident">new</span>()));
     }
+
     <span class="comment">// TODO: impl capturer for stdin</span>
+
     <span class="kw">let</span> <span class="ident">wasi_state</span> <span class="op">=</span> <span class="macro">c_try</span><span class="macro">!</span>(<span class="ident">config</span>.<span class="ident">state_builder</span>.<span class="ident">build</span>());
+
     <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasi_env_t</span> {
         <span class="ident">inner</span>: <span class="ident">WasiEnv</span>::<span class="ident">new</span>(<span class="ident">wasi_state</span>),
     }))
