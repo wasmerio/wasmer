@@ -11,6 +11,8 @@ use inkwell::{
 use wasmer_compiler::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
 
+use std::convert::TryInto;
+
 /// Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux.
 pub struct Aarch64SystemV {}
 
@@ -47,19 +49,36 @@ impl Abi for Aarch64SystemV {
         let param_types =
             std::iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum())).chain(user_param_types);
 
+        let vmctx_attributes = vec![
+            context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
+            context.create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+            context.create_enum_attribute(
+                Attribute::get_named_enum_kind_id("align"),
+                std::mem::align_of::<wasmer_vm::VMContext>()
+                    .try_into()
+                    .unwrap(),
+            ),
+        ];
+
         Ok(match sig.results() {
             [] => (
                 intrinsics
                     .void_ty
                     .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                vec![],
+                vmctx_attributes
+                    .into_iter()
+                    .map(|x| (x, AttributeLoc::Param(0)))
+                    .collect(),
             ),
             [_] => {
                 let single_value = sig.results()[0];
                 (
                     type_to_llvm(intrinsics, single_value)?
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes
+                        .into_iter()
+                        .map(|x| (x, AttributeLoc::Param(0)))
+                        .collect(),
                 )
             }
             [Type::F32, Type::F32] => {
@@ -68,7 +87,10 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes
+                        .into_iter()
+                        .map(|x| (x, AttributeLoc::Param(0)))
+                        .collect(),
                 )
             }
             [Type::F64, Type::F64] => {
@@ -77,7 +99,10 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f64_ty, f64_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes
+                        .into_iter()
+                        .map(|x| (x, AttributeLoc::Param(0)))
+                        .collect(),
                 )
             }
             [Type::F32, Type::F32, Type::F32] => {
@@ -86,7 +111,10 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes
+                        .into_iter()
+                        .map(|x| (x, AttributeLoc::Param(0)))
+                        .collect(),
                 )
             }
             [Type::F32, Type::F32, Type::F32, Type::F32] => {
@@ -95,7 +123,10 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes
+                        .into_iter()
+                        .map(|x| (x, AttributeLoc::Param(0)))
+                        .collect(),
                 )
             }
             _ => {
@@ -115,7 +146,10 @@ impl Abi for Aarch64SystemV {
                         intrinsics
                             .i64_ty
                             .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                        vec![],
+                        vmctx_attributes
+                            .into_iter()
+                            .map(|x| (x, AttributeLoc::Param(0)))
+                            .collect(),
                     ),
                     [32, 64]
                     | [64, 32]
@@ -128,7 +162,10 @@ impl Abi for Aarch64SystemV {
                             .i64_ty
                             .array_type(2)
                             .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                        vec![],
+                        vmctx_attributes
+                            .into_iter()
+                            .map(|x| (x, AttributeLoc::Param(0)))
+                            .collect(),
                     ),
                     _ => {
                         let basic_types: Vec<_> = sig
@@ -154,7 +191,14 @@ impl Abi for Aarch64SystemV {
                                     0,
                                 ),
                                 AttributeLoc::Param(0),
-                            )],
+                            )]
+                            .into_iter()
+                            .chain(
+                                vmctx_attributes
+                                    .into_iter()
+                                    .map(|x| (x, AttributeLoc::Param(1))),
+                            )
+                            .collect(),
                         )
                     }
                 }
@@ -393,17 +437,18 @@ impl Abi for Aarch64SystemV {
             })
             .collect::<Result<Vec<i32>, _>>()?;
 
-        Ok(!matches!(func_sig_returns_bitwidths.as_slice(),
-            []
-            | [_]
-            | [32, 32]
-            | [32, 64]
-            | [64, 32]
-            | [64, 64]
-            | [32, 32, 32]
-            | [32, 32, 64]
-            | [64, 32, 32]
-            | [32, 32, 32, 32]))
+        Ok(!matches!(
+            func_sig_returns_bitwidths.as_slice(),
+            [] | [_]
+                | [32, 32]
+                | [32, 64]
+                | [64, 32]
+                | [64, 64]
+                | [32, 32, 32]
+                | [32, 32, 64]
+                | [64, 32, 32]
+                | [32, 32, 32, 32]
+        ))
     }
 
     fn pack_values_for_register_return<'ctx>(

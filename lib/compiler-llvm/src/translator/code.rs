@@ -111,9 +111,6 @@ impl FuncTranslator {
             func.add_attribute(*attr_loc, *attr);
         }
 
-        // TODO: mark vmctx align 16
-        // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
-        // TODO: mark vmctx nofree
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(FUNCTION_SECTION);
