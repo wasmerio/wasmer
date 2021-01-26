@@ -372,7 +372,7 @@ pub extern "C" fn wasm_named_extern_name(named_extern: &wasm_named_extern_t) -> 
 /// Non-standard function to get the wrapped extern of a
 /// `wasm_named_extern_t`.
 #[no_mangle]
-pub extern "C" fn wasm_named_extern_extern(named_extern: &wasm_named_extern_t) -> &wasm_extern_t {
+pub extern "C" fn wasm_named_extern_unwrap(named_extern: &wasm_named_extern_t) -> &wasm_extern_t {
     named_extern.r#extern.as_ref()
 }
 
