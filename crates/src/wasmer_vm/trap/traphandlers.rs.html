@@ -1105,7 +1105,7 @@
                         <span class="kw">pub</span> <span class="ident">__pc</span>: <span class="ident">u64</span>,   <span class="comment">/* Program counter */</span>
                         <span class="kw">pub</span> <span class="ident">__cpsr</span>: <span class="ident">u32</span>,  <span class="comment">/* Current program status register */</span>
                         <span class="kw">pub</span> <span class="ident">__pad</span>: <span class="ident">u32</span>,   <span class="comment">/* Same size for 32-bit or 64-bit clients */</span>
-                    };
+                    }
 
                     <span class="kw">let</span> <span class="ident">cx</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span>(<span class="ident">cx</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">libc</span>::<span class="ident">ucontext_t</span>);
                     <span class="kw">let</span> <span class="ident">uc_mcontext</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span><span class="kw">_</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">__darwin_arm_thread_state64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span>(<span class="kw-2">*</span><span class="ident">cx</span>.<span class="ident">uc_mcontext</span>).<span class="ident">__ss</span>);

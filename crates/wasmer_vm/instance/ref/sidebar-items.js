@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["InstanceRef","An `InstanceRef` is responsible to properly deallocate, and to give access to an `Instance`, in such a way that `Instance` is unique, can be shared, safely, across threads, without duplicating the pointer in multiple locations. `InstanceRef` must be the only “owner” of an `Instance`."]]});
