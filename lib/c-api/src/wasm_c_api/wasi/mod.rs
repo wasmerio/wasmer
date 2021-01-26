@@ -153,10 +153,10 @@ pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
     config.inherit_stderr = true;
 }
 
-#[no_mangle]
-pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
-    config.inherit_stdin = false;
-}
+//#[no_mangle]
+//pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
+//    config.inherit_stdin = false;
+//}
 
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
