@@ -257,19 +257,28 @@ void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
 
 #if defined(WASMER_WASI_ENABLED)
-const wasm_extern_t *wasm_named_extern_extern(const wasm_named_extern_t *named_extern);
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
+/**
+ * Non-standard function to get the module name of a
+ * `wasm_named_extern_t`.
+ */
 const wasm_name_t *wasm_named_extern_module(const wasm_named_extern_t *named_extern);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * Non-standard function to get the name of a `wasm_named_extern_t`.
+ */
 const wasm_name_t *wasm_named_extern_name(const wasm_named_extern_t *named_extern);
 #endif
 
-<<<<<<< HEAD
-=======
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * Non-standard function to get the wrapped extern of a
+ * `wasm_named_extern_t`.
+ */
+const wasm_extern_t *wasm_named_extern_unwrap(const wasm_named_extern_t *named_extern);
+#endif
+
 #if defined(WASMER_WASI_ENABLED)
 /**
  *Performs a deep copy of a vector of [`wasm_named_extern_t`].
@@ -339,7 +348,6 @@ void wasm_named_extern_vec_new_uninitialized(wasm_named_extern_vec_t *out,
  *
  * See this module's documentation to get a complete example.
  */
->>>>>>> 75989d7f0 (chore(c-api) Update headers.)
 int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
