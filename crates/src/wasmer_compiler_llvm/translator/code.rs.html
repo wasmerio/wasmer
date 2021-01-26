@@ -9378,9 +9378,6 @@
 <span id="9377">9377</span>
 <span id="9378">9378</span>
 <span id="9379">9379</span>
-<span id="9380">9380</span>
-<span id="9381">9381</span>
-<span id="9382">9382</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
@@ -9495,9 +9492,6 @@
             <span class="ident">func</span>.<span class="ident">add_attribute</span>(<span class="kw-2">*</span><span class="ident">attr_loc</span>, <span class="kw-2">*</span><span class="ident">attr</span>);
         }
 
-        <span class="comment">// TODO: mark vmctx align 16</span>
-        <span class="comment">// TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)</span>
-        <span class="comment">// TODO: mark vmctx nofree</span>
         <span class="ident">func</span>.<span class="ident">add_attribute</span>(<span class="ident">AttributeLoc</span>::<span class="ident">Function</span>, <span class="ident">intrinsics</span>.<span class="ident">stack_probe</span>);
         <span class="ident">func</span>.<span class="ident">set_personality_function</span>(<span class="ident">intrinsics</span>.<span class="ident">personality</span>);
         <span class="ident">func</span>.<span class="ident">as_global_value</span>().<span class="ident">set_section</span>(<span class="ident">FUNCTION_SECTION</span>);
