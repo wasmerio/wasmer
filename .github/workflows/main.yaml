@@ -62,7 +62,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             rust: 1.48
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/windows-amd64.tar.gz'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
@@ -92,12 +92,16 @@ jobs:
           target: ${{ matrix.target }}
           override: true
       - name: Install LLVM (Windows)
-        if: matrix.os == 'windows-latest'
+        if: matrix.os == 'windows-latest' && !matrix.llvm_url
         shell: cmd
         run: |
           choco install llvm
+      - name: Install LLVM (macOS Apple Silicon)
+        if: matrix.os == 'macos-11.0' && !matrix.llvm_url
+        run: |
+          brew install llvm
       - name: Install LLVM
-        if: matrix.os != 'windows-latest' && matrix.os != 'macos-11.0'
+        if: matrix.llvm_url
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.gz
@@ -186,6 +190,30 @@ jobs:
       - name: Build Wapm binary
         run: |
           make build-wapm
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Install Nightly Rust for Headless
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 'nightly-2020-12-22'
+          target: ${{ matrix.target }}
+          override: true
+          components: "rust-src"
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+      - name: Build Minimal Wasmer Headless
+        run: |
+          cargo install xargo
+          echo "" >> Cargo.toml
+          echo "[profile.release]" >> Cargo.toml
+          echo "opt-level = 'z'" >> Cargo.toml
+          echo "debug = false" >> Cargo.toml
+          echo "debug-assertions = false" >> Cargo.toml
+          echo "overflow-checks = false" >> Cargo.toml
+          echo "lto = true" >> Cargo.toml
+          echo "panic = 'abort'" >> Cargo.toml
+          echo "incremental = false" >> Cargo.toml
+          echo "codegen-units = 1" >> Cargo.toml
+          echo "rpath = false" >> Cargo.toml
+          make build-wasmer-headless-minimal
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Copy target binaries
         run: |

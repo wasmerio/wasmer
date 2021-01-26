@@ -104,7 +104,7 @@ int main()
 
 You can check more examples of how to use the Wasmer C API here:
 
-https://docs.wasmer.io/integrations/c/examples
+https://docs.wasmer.io/integrations/examples
 
 ## pkg-config
 

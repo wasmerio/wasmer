@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-derive"
-version = "1.0.0"
+version = "1.0.1"
 description = "Wasmer derive macros"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -17,5 +17,5 @@ proc-macro2 = "1"
 proc-macro-error = "1.0.0"
 
 [dev-dependencies]
-wasmer = { path = "../api", version = "1.0.0" }
+wasmer = { path = "../api", version = "1.0.1" }
 compiletest_rs = "0.5"

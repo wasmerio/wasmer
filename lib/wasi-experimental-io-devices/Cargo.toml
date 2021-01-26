@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-wasi-experimental-io-devices"
-version = "1.0.0"
+version = "1.0.1"
 description = "An experimental non-standard WASI extension for graphics"
 categories = ["wasm"]
 keywords = ["wasm", "webassembly", "types"]
@@ -14,7 +14,7 @@ edition = "2018"
 maintenance = { status = "experimental" }
 
 [dependencies]
-wasmer-wasi = { version = "1.0.0", path = "../wasi" }
+wasmer-wasi = { version = "1.0.1", path = "../wasi" }
 tracing = "0.1"
 minifb = "0.19"
 ref_thread_local = "0.0"

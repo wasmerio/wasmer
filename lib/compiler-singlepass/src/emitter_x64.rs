@@ -117,6 +117,7 @@ pub trait Emitter {
     fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_rep_stosq(&mut self);
 
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
@@ -1176,6 +1177,9 @@ impl Emitter for Assembler {
         }
     }
 
+    fn emit_rep_stosq(&mut self) {
+        dynasm!(self ; rep stosq);
+    }
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
         dynasm!(self ; btc Rd(dst as u8), BYTE src as i8);
     }

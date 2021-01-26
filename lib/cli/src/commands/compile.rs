@@ -42,8 +42,8 @@ impl Compile {
     pub(crate) fn get_recommend_extension(
         engine_type: &EngineType,
         target_triple: &Triple,
-    ) -> &'static str {
-        match engine_type {
+    ) -> Result<&'static str> {
+        Ok(match engine_type {
             #[cfg(feature = "native")]
             EngineType::Native => {
                 wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
@@ -56,7 +56,7 @@ impl Compile {
             }
             #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
             _ => bail!("selected engine type is not compiled in"),
-        }
+        })
     }
 
     fn inner_execute(&self) -> Result<()> {
@@ -82,7 +82,7 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple());
+        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple())?;
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {

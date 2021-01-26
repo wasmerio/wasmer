@@ -139,140 +139,140 @@ const STATIC_BASE: u32 = GLOBAL_BASE;
 pub struct EmscriptenData {
     pub globals: EmscriptenGlobalsData,
 
-    #[wasmer(export)]
+    #[wasmer(export(alias = "_malloc", optional = true))]
     pub malloc: LazyInit<NativeFunc<u32, u32>>,
-    #[wasmer(export)]
+    #[wasmer(export(alias = "_free", optional = true))]
     pub free: LazyInit<NativeFunc<u32>>,
-    #[wasmer(export)]
+    #[wasmer(export(alias = "_memalign", optional = true))]
     pub memalign: LazyInit<NativeFunc<(u32, u32), u32>>,
-    #[wasmer(export)]
+    #[wasmer(export(alias = "_memset", optional = true))]
     pub memset: LazyInit<NativeFunc<(u32, u32, u32), u32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "stackAlloc", optional = true))]
     pub stack_alloc: LazyInit<NativeFunc<u32, u32>>,
     pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
     pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
 
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_i", optional = true))]
     pub dyn_call_i: LazyInit<NativeFunc<i32, i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_ii", optional = true))]
     pub dyn_call_ii: LazyInit<NativeFunc<(i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iii", optional = true))]
     pub dyn_call_iii: LazyInit<NativeFunc<(i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiii", optional = true))]
     pub dyn_call_iiii: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iifi", optional = true))]
     pub dyn_call_iifi: LazyInit<NativeFunc<(i32, i32, f64, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_v", optional = true))]
     pub dyn_call_v: LazyInit<NativeFunc<i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vi", optional = true))]
     pub dyn_call_vi: LazyInit<NativeFunc<(i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vii", optional = true))]
     pub dyn_call_vii: LazyInit<NativeFunc<(i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viii", optional = true))]
     pub dyn_call_viii: LazyInit<NativeFunc<(i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiii", optional = true))]
     pub dyn_call_viiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
 
     // round 2
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_dii", optional = true))]
     pub dyn_call_dii: LazyInit<NativeFunc<(i32, i32, i32), f64>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_diiii", optional = true))]
     pub dyn_call_diiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), f64>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiii", optional = true))]
     pub dyn_call_iiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiii", optional = true))]
     pub dyn_call_iiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiiii", optional = true))]
     pub dyn_call_iiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiiiii", optional = true))]
     pub dyn_call_iiiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiiiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vd", optional = true))]
     pub dyn_call_vd: LazyInit<NativeFunc<(i32, f64)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiii", optional = true))]
     pub dyn_call_viiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiiii", optional = true))]
     pub dyn_call_viiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiiiii", optional = true))]
     pub dyn_call_viiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiiiiii", optional = true))]
     pub dyn_call_viiiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiiiiiii", optional = true))]
     pub dyn_call_viiiiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiiiiiiiii", optional = true))]
     pub dyn_call_viiiiiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iij", optional = true))]
     pub dyn_call_iij: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iji", optional = true))]
     pub dyn_call_iji: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiji", optional = true))]
     pub dyn_call_iiji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_iiijj", optional = true))]
     pub dyn_call_iiijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_j", optional = true))]
     pub dyn_call_j: LazyInit<NativeFunc<i32, i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_ji", optional = true))]
     pub dyn_call_ji: LazyInit<NativeFunc<(i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_jii", optional = true))]
     pub dyn_call_jii: LazyInit<NativeFunc<(i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_jij", optional = true))]
     pub dyn_call_jij: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_jjj", optional = true))]
     pub dyn_call_jjj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiij", optional = true))]
     pub dyn_call_viiij: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiijiiii", optional = true))]
     pub dyn_call_viiijiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiijiiiiii", optional = true))]
     pub dyn_call_viiijiiiiii:
         LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viij", optional = true))]
     pub dyn_call_viij: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viiji", optional = true))]
     pub dyn_call_viiji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viijiii", optional = true))]
     pub dyn_call_viijiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viijj", optional = true))]
     pub dyn_call_viijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vj", optional = true))]
     pub dyn_call_vj: LazyInit<NativeFunc<(i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vjji", optional = true))]
     pub dyn_call_vjji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vij", optional = true))]
     pub dyn_call_vij: LazyInit<NativeFunc<(i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viji", optional = true))]
     pub dyn_call_viji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vijiii", optional = true))]
     pub dyn_call_vijiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vijj", optional = true))]
     pub dyn_call_vijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viid", optional = true))]
     pub dyn_call_viid: LazyInit<NativeFunc<(i32, i32, i32, f64)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_vidd", optional = true))]
     pub dyn_call_vidd: LazyInit<NativeFunc<(i32, i32, f64, f64)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viidii", optional = true))]
     pub dyn_call_viidii: LazyInit<NativeFunc<(i32, i32, i32, f64, i32, i32)>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "dynCall_viidddddddd", optional = true))]
     pub dyn_call_viidddddddd:
         LazyInit<NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
     pub temp_ret_0: i32,
 
-    #[wasmer(export)]
+    #[wasmer(export(name = "stackSave", optional = true))]
     pub stack_save: LazyInit<NativeFunc<(), i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "stackRestore", optional = true))]
     pub stack_restore: LazyInit<NativeFunc<i32>>,
-    #[wasmer(export)]
+    #[wasmer(export(name = "setThrew", alias = "_setThrew", optional = true))]
     pub set_threw: LazyInit<NativeFunc<(i32, i32)>>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }

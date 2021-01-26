@@ -99,6 +99,7 @@ qjs >
 | ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
 | ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
+|  | [**Swift**][Swift integration] | *no published package* | |
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -164,6 +165,8 @@ qjs >
 [postgres logo]: ./assets/languages/postgres.svg
 [postgres integration]: https://github.com/wasmerio/wasmer-postgres
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
+
+[swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
 ## Contribute
 

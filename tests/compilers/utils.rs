@@ -42,7 +42,7 @@ pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
 }
 #[cfg(feature = "test-native")]
 pub fn get_engine(canonicalize_nans: bool) -> impl Engine {
-    let mut compiler_config = get_compiler(canonicalize_nans);
+    let compiler_config = get_compiler(canonicalize_nans);
     Native::new(compiler_config).engine()
 }
 

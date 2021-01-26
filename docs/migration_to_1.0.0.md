@@ -88,7 +88,7 @@ to implement custom compilers and engines respectively.
 ### Instantiating modules
 
 With Wasmer 0.x, instantiating a module was a matter of calling `wasmer::compiler::compile` and then calling 
-`instanciate` on the compiled module.
+`instantiate` on the compiled module.
 
 While simple, this did not give you full-control over Wasmer's configuration. For example, choosing another compiler
 was not straightforward.
@@ -304,10 +304,10 @@ with this topic:
 * [Handling Errors][errors]
 * [Interrupting Execution][exit-early]
 
-Note than with Wasmer 1.0.0, each function that is part of the API has its own kind of error. For example:
+Note that with Wasmer 1.0.0, each function that is part of the API has its own kind of error. For example:
 * Instantiating a module may return `InstantiationError`s;
 * Getting exports from the guest module may return `ExportError`s;
-* Calling a exported function may return `RuntimeError`s;
+* Calling an exported function may return `RuntimeError`s;
 * ...
 
 ### Caching modules
@@ -340,11 +340,11 @@ you'll be able to delegate most of the work to Wasmer:
 ``` 
 
 [examples]: https://docs.wasmer.io/integrations/examples
-[wasmer]: https://crates.io/crates/wasmer/1.0.0
-[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0
-[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0
-[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0
-[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0
+[wasmer]: https://crates.io/crates/wasmer
+[wasmer-wasi]: https://crates.io/crates/wasmer-wasi
+[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten
+[wasmer-engine]: https://crates.io/crates/wasmer-engine
+[wasmer-compiler]: https://crates.io/crates/wasmer-compiler
 [wasmer.io]: https://wasmer.io
 [wasmer-nightly]: https://github.com/wasmerio/wasmer-nightly/
 [getting-started]: https://docs.wasmer.io/ecosystem/wasmer/getting-started

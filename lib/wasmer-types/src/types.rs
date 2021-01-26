@@ -229,9 +229,9 @@ impl ExternType {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FunctionType {
     /// The parameters of the function
-    params: Vec<Type>,
+    params: Box<[Type]>,
     /// The return values of the function
-    results: Vec<Type>,
+    results: Box<[Type]>,
 }
 
 impl FunctionType {
@@ -242,8 +242,8 @@ impl FunctionType {
         Returns: Into<Vec<Type>>,
     {
         Self {
-            params: params.into(),
-            results: returns.into(),
+            params: params.into().into_boxed_slice(),
+            results: returns.into().into_boxed_slice(),
         }
     }
 

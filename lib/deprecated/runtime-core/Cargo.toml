@@ -14,16 +14,16 @@ edition = "2018"
 maintenance = { status = "deprecated" }
 
 [dependencies]
-wasmer-types = { path = "../../wasmer-types", version = "1.0.0" }
-wasmer = { path = "../../api", version = "1.0.0", features = ["deprecated"] }
-wasmer-cache = { path = "../../cache", version = "1.0.0" }
-wasmer-compiler = { path = "../../compiler", version = "1.0.0", features = ["translator"] }
-wasmer-compiler-llvm = { path = "../../compiler-llvm", version = "1.0.0", optional = true }
-wasmer-compiler-cranelift = { path = "../../compiler-cranelift", version = "1.0.0", optional = true }
-wasmer-compiler-singlepass = { path = "../../compiler-singlepass", version = "1.0.0", optional = true }
-wasmer-engine = { path = "../../engine", version = "1.0.0" }
-wasmer-engine-jit = { path = "../../engine-jit", version = "1.0.0" }
-wasmer-vm = { path = "../../vm", version = "1.0.0" }
+wasmer-types = { path = "../../wasmer-types", version = "1.0.1" }
+wasmer = { path = "../../api", version = "1.0.1", features = ["deprecated"] }
+wasmer-cache = { path = "../../cache", version = "1.0.1" }
+wasmer-compiler = { path = "../../compiler", version = "1.0.1", features = ["translator"] }
+wasmer-compiler-llvm = { path = "../../compiler-llvm", version = "1.0.1", optional = true }
+wasmer-compiler-cranelift = { path = "../../compiler-cranelift", version = "1.0.1", optional = true }
+wasmer-compiler-singlepass = { path = "../../compiler-singlepass", version = "1.0.1", optional = true }
+wasmer-engine = { path = "../../engine", version = "1.0.1" }
+wasmer-engine-jit = { path = "../../engine-jit", version = "1.0.1" }
+wasmer-vm = { path = "../../vm", version = "1.0.1" }
 lazy_static = "1.4"
 
 [build-dependencies]
