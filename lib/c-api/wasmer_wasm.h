@@ -63,17 +63,42 @@
 #include "wasm.h"
 
 #if defined(WASMER_WASI_ENABLED)
+/**
+ * The version of WASI. This is determined by the imports namespace
+ * string.
+ */
 enum wasi_version_t {
 #if defined(WASMER_WASI_ENABLED)
+  /**
+   * Latest version.
+   *
+   * It's a “floating” version, i.e. it's an alias to the latest
+   * version (for the moment, `Snapshot1`). Using this version is a
+   * way to ensure that modules will run only if they come with the
+   * latest WASI version (in case of security issues for instance),
+   * by just updating the runtime.
+   *
+   * Note that this version is never returned by an API. It is
+   * provided only by the user.
+   */
   LATEST = 0,
 #endif
 #if defined(WASMER_WASI_ENABLED)
+  /**
+   * `wasi_unstable`.
+   */
   SNAPSHOT0 = 1,
 #endif
 #if defined(WASMER_WASI_ENABLED)
+  /**
+   * `wasi_snapshot_preview1`.
+   */
   SNAPSHOT1 = 2,
 #endif
 #if defined(WASMER_WASI_ENABLED)
+  /**
+   * An invalid version. It matches `u32` maximum value.
+   */
   INVALID_VERSION = 4294967295,
 #endif
 };
