@@ -502,6 +502,36 @@
 <span id="501">501</span>
 <span id="502">502</span>
 <span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
+<span id="515">515</span>
+<span id="516">516</span>
+<span id="517">517</span>
+<span id="518">518</span>
+<span id="519">519</span>
+<span id="520">520</span>
+<span id="521">521</span>
+<span id="522">522</span>
+<span id="523">523</span>
+<span id="524">524</span>
+<span id="525">525</span>
+<span id="526">526</span>
+<span id="527">527</span>
+<span id="528">528</span>
+<span id="529">529</span>
+<span id="530">530</span>
+<span id="531">531</span>
+<span id="532">532</span>
+<span id="533">533</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
@@ -635,6 +665,36 @@
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span> {
     <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_config_t</span>::<span class="ident">default</span>())
 }
+
+<span class="doccomment">/// Delete a Wasmer config object.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// This function does not need to be called if `wasm_engine_new_with_config` or</span>
+<span class="doccomment">/// another function that takes ownership of the `wasm_config_t` is called.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # use inline_c::assert_c;</span>
+<span class="doccomment">/// # fn main() {</span>
+<span class="doccomment">/// #    (assert_c! {</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// #</span>
+<span class="doccomment">/// int main() {</span>
+<span class="doccomment">///     // Create the configuration.</span>
+<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Delete the configuration</span>
+<span class="doccomment">///     wasm_config_delete(config);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     return 0;</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// #    })</span>
+<span class="doccomment">/// #    .success();</span>
+<span class="doccomment">/// # }</span>
+<span class="doccomment">/// ```</span>
+<span class="doccomment">/// cbindgen:ignore</span>
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_delete</span>(<span class="ident">_config</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_config_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
 
 <span class="doccomment">/// Updates the configuration to specify a particular compiler to use.</span>
 <span class="doccomment">///</span>
