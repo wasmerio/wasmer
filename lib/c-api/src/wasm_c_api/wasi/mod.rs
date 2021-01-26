@@ -23,13 +23,12 @@ use wasmer_wasi::{
     WasiStateBuilder, WasiVersion,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    /// cbindgen:ignore
     state_builder: WasiStateBuilder,
 }
 
@@ -43,8 +42,10 @@ pub unsafe extern "C" fn wasi_config_new(
     let prog_name = c_try!(name_c_str.to_str());
 
     Some(Box::new(wasi_config_t {
+        inherit_stdout: true,
+        inherit_stderr: true,
+        inherit_stdin: true,
         state_builder: WasiState::new(prog_name),
-        ..wasi_config_t::default()
     }))
 }
 
@@ -133,13 +134,30 @@ pub unsafe extern "C" fn wasi_config_mapdir(
 }
 
 #[no_mangle]
+pub extern "C" fn wasi_config_capture_stdout(config: &mut wasi_config_t) {
+    config.inherit_stdout = false;
+}
+
+#[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
     config.inherit_stdout = true;
 }
+
+#[no_mangle]
+pub extern "C" fn wasi_config_capture_stderr(config: &mut wasi_config_t) {
+    config.inherit_stderr = false;
+}
+
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
     config.inherit_stderr = true;
 }
+
+#[no_mangle]
+pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
+    config.inherit_stdin = false;
+}
+
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = true;
@@ -154,18 +172,22 @@ pub struct wasi_env_t {
 /// Takes ownership over the `wasi_config_t`.
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
-    if config.inherit_stdout {
+    if !config.inherit_stdout {
         config
             .state_builder
             .stdout(Box::new(capture_files::OutputCapturer::new()));
     }
-    if config.inherit_stderr {
+
+    if !config.inherit_stderr {
         config
             .state_builder
             .stderr(Box::new(capture_files::OutputCapturer::new()));
     }
+
     // TODO: impl capturer for stdin
+
     let wasi_state = c_try!(config.state_builder.build());
+
     Some(Box::new(wasi_env_t {
         inner: WasiEnv::new(wasi_state),
     }))
