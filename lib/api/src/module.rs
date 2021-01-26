@@ -422,7 +422,7 @@ impl Module {
     /// type is done by inferring the type from the closure used to
     /// query. Something like this:
     ///
-    /// ```rust,no_run
+    /// ```rust,ignore
     /// use wasmer_engine_object_file::ObjectFileArtifact;
     ///
     /// let symbol_registry = unsafe {
