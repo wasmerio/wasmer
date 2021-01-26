@@ -2,11 +2,11 @@
 use crate::error::ParseCpuFeatureError;
 use crate::lib::std::str::FromStr;
 use crate::lib::std::string::{String, ToString};
+use enumset::{EnumSet, EnumSetType};
 pub use target_lexicon::{
     Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
     Triple,
 };
-use wasmer_enumset::{EnumSet, EnumSetType};
 
 #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
 use raw_cpuid::CpuId;
