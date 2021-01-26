@@ -62,6 +62,24 @@
 #include <stdlib.h>
 #include "wasm.h"
 
+#if defined(WASMER_WASI_ENABLED)
+enum wasi_version_t {
+#if defined(WASMER_WASI_ENABLED)
+  LATEST = 0,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  SNAPSHOT0 = 1,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  SNAPSHOT1 = 2,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  INVALID_VERSION = 4294967295,
+#endif
+};
+typedef uint32_t wasi_version_t;
+#endif
+
 #if defined(WASMER_COMPILER_ENABLED)
 /**
  * Kind of compilers that can be used by the engines.
@@ -118,10 +136,6 @@ typedef struct wasi_config_t wasi_config_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_env_t wasi_env_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-typedef struct wasi_version_t wasi_version_t;
 #endif
 
 #if defined(WASMER_WASI_ENABLED)

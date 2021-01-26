@@ -268,18 +268,18 @@ fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isi
 #[repr(u32)]
 #[allow(non_camel_case_types)]
 pub enum wasi_version_t {
-    Latest = 0,
-    Snapshot0 = 1,
-    Snapshot1 = 2,
-    InvalidVersion = u32::max_value(),
+    LATEST = 0,
+    SNAPSHOT0 = 1,
+    SNAPSHOT1 = 2,
+    INVALID_VERSION = 4294967295, // u32::MAX,
 }
 
 impl From<WasiVersion> for wasi_version_t {
     fn from(other: WasiVersion) -> Self {
         match other {
-            WasiVersion::Snapshot0 => wasi_version_t::Snapshot0,
-            WasiVersion::Snapshot1 => wasi_version_t::Snapshot1,
-            WasiVersion::Latest => wasi_version_t::Latest,
+            WasiVersion::Snapshot0 => wasi_version_t::SNAPSHOT0,
+            WasiVersion::Snapshot1 => wasi_version_t::SNAPSHOT1,
+            WasiVersion::Latest => wasi_version_t::LATEST,
         }
     }
 }
@@ -289,10 +289,10 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 
     fn try_from(other: wasi_version_t) -> Result<Self, Self::Error> {
         Ok(match other {
-            wasi_version_t::Snapshot0 => WasiVersion::Snapshot0,
-            wasi_version_t::Snapshot1 => WasiVersion::Snapshot1,
-            wasi_version_t::Latest => WasiVersion::Latest,
-            wasi_version_t::InvalidVersion => return Err("Invalid WASI version cannot be used"),
+            wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
+            wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
+            wasi_version_t::LATEST => WasiVersion::Latest,
+            wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
         })
     }
 }
@@ -301,7 +301,7 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_version_t {
     get_wasi_version(&module.inner, false)
         .map(Into::into)
-        .unwrap_or(wasi_version_t::InvalidVersion)
+        .unwrap_or(wasi_version_t::INVALID_VERSION)
 }
 
 /// Takes ownership of `wasi_env_t`.
