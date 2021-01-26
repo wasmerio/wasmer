@@ -207,11 +207,11 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">ParseCpuFeatureError</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lib</span>::<span class="ident">std</span>::<span class="ident">str</span>::<span class="ident">FromStr</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lib</span>::<span class="ident">std</span>::<span class="ident">string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
+<span class="kw">use</span> <span class="ident">enumset</span>::{<span class="ident">EnumSet</span>, <span class="ident">EnumSetType</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">target_lexicon</span>::{
     <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">Endianness</span>, <span class="ident">OperatingSystem</span>, <span class="ident">PointerWidth</span>,
     <span class="ident">Triple</span>,
 };
-<span class="kw">use</span> <span class="ident">wasmer_enumset</span>::{<span class="ident">EnumSet</span>, <span class="ident">EnumSetType</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
 <span class="kw">use</span> <span class="ident">raw_cpuid</span>::<span class="ident">CpuId</span>;
