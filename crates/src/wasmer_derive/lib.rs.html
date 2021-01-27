@@ -265,6 +265,7 @@
 <span id="262">262</span>
 <span id="263">263</span>
 <span id="264">264</span>
+<span id="265">265</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">proc_macro</span>;
 
@@ -344,6 +345,7 @@
         <span class="ident">Fields</span>::<span class="ident">Unnamed</span>(<span class="ident">fields</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fields</span>.<span class="ident">unnamed</span>.<span class="ident">iter</span>().<span class="ident">cloned</span>().<span class="ident">collect</span>(),
     };
     <span class="kw">for</span> (<span class="ident">field_num</span>, <span class="ident">f</span>) <span class="kw">in</span> <span class="ident">fields</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
+        <span class="kw">let</span> <span class="ident">field_idx</span> <span class="op">=</span> <span class="ident">syn</span>::<span class="ident">Index</span>::<span class="ident">from</span>(<span class="ident">field_num</span>);
         <span class="kw">let</span> <span class="ident">name</span> <span class="op">=</span> <span class="ident">f</span>.<span class="ident">ident</span>.<span class="ident">clone</span>();
         <span class="kw">let</span> <span class="ident">top_level_ty</span>: <span class="kw-2">&amp;</span><span class="ident">Type</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">f</span>.<span class="ident">ty</span>;
         <span class="ident">touched_fields</span>.<span class="ident">push</span>(<span class="ident">name</span>.<span class="ident">clone</span>());
@@ -445,7 +447,7 @@
                                     <span class="ident">f</span>.<span class="ident">span</span>()<span class="op">=</span><span class="op">&gt;</span>
                                         <span class="kw">match</span> #<span class="ident">access_expr</span> {
                                             <span class="prelude-val">Ok</span>(#<span class="ident">local_var</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                                                <span class="self">self</span>.#<span class="ident">field_num</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
+                                                <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
                                             },
                                             <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> (),
                                         }
@@ -454,7 +456,7 @@
                                 <span class="macro">quote_spanned</span><span class="macro">!</span> {
                                     <span class="ident">f</span>.<span class="ident">span</span>()<span class="op">=</span><span class="op">&gt;</span>
                                         <span class="kw">let</span> #<span class="ident">local_var</span>: #<span class="ident">inner_type</span> <span class="op">=</span> #<span class="ident">access_expr</span><span class="question-mark">?</span>;
-                                    <span class="self">self</span>.#<span class="ident">field_num</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
+                                    <span class="self">self</span>.#<span class="ident">field_idx</span>.<span class="ident">initialize</span>(#<span class="ident">local_var</span>);
                                 }
                             }
                         } <span class="kw">else</span> {
