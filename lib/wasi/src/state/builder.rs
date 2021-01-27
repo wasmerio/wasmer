@@ -349,7 +349,7 @@ impl WasiStateBuilder {
                 None => (),
             }
 
-            if env_value.iter().find(|&&ch| ch == 0).is_some() {
+            if env_value.iter().any(|&ch| ch == 0) {
                 return Err(WasiStateCreationError::EnvironmentVariableFormatError(
                     format!(
                         "found nul byte in env var value \"{}\" (key=value)",
