@@ -224,10 +224,10 @@ impl<T> From<ExternRef> for Value<T> {
 //     }
 // }
 
-const NOT_I32: &'static str = "Value is not of Wasm type i32";
-const NOT_I64: &'static str = "Value is not of Wasm type i64";
-const NOT_F32: &'static str = "Value is not of Wasm type f32";
-const NOT_F64: &'static str = "Value is not of Wasm type f64";
+const NOT_I32: &str = "Value is not of Wasm type i32";
+const NOT_I64: &str = "Value is not of Wasm type i64";
+const NOT_F32: &str = "Value is not of Wasm type f32";
+const NOT_F64: &str = "Value is not of Wasm type f64";
 
 impl<T> TryFrom<Value<T>> for i32 {
     type Error = &'static str;

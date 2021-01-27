@@ -99,7 +99,7 @@ impl InstanceRef {
 
     /// Get a reference to the `Instance`.
     #[inline]
-    pub(crate) fn as_ref<'a>(&'a self) -> &'a Instance {
+    pub(crate) fn as_ref(&self) -> &Instance {
         // SAFETY: The pointer is properly aligned, it is
         // “dereferencable”, it points to an initialized memory of
         // `Instance`, and the reference has the lifetime `'a`.
@@ -107,7 +107,7 @@ impl InstanceRef {
     }
 
     #[inline]
-    pub(super) unsafe fn as_mut<'a>(&'a mut self) -> &'a mut Instance {
+    pub(super) unsafe fn as_mut(&mut self) -> &mut Instance {
         self.instance.as_mut()
     }
 }

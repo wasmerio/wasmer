@@ -174,7 +174,7 @@ impl Clone for ImportFunctionEnv {
 impl Drop for ImportFunctionEnv {
     fn drop(&mut self) {
         match self {
-            ImportFunctionEnv::Env {
+            Self::Env {
                 env, destructor, ..
             } => {
                 // # Safety
@@ -184,7 +184,7 @@ impl Drop for ImportFunctionEnv {
                     (destructor)(*env);
                 }
             }
-            ImportFunctionEnv::NoEnv => (),
+            Self::NoEnv => (),
         }
     }
 }
@@ -470,9 +470,7 @@ impl Instance {
             .memories
             .get(memory_index)
             .unwrap_or_else(|| panic!("no memory for index {}", memory_index.index()));
-        let result = mem.grow(delta.into());
-
-        result
+        mem.grow(delta.into())
     }
 
     /// Grow imported memory by the specified amount of pages.

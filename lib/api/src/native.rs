@@ -100,7 +100,7 @@ where
         Self {
             store: other.store,
             definition: other.definition,
-            exported: other.exported.clone(),
+            exported: other.exported,
         }
     }
 }

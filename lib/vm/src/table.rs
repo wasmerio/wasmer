@@ -187,7 +187,7 @@ impl LinearTable {
                 style: style.clone(),
                 vm_table_definition: if let Some(table_loc) = vm_table_location {
                     {
-                        let mut ptr = table_loc.clone();
+                        let mut ptr = table_loc;
                         let td = ptr.as_mut();
                         td.base = base as _;
                         td.current_elements = table_minimum as _;
@@ -212,7 +212,7 @@ impl LinearTable {
     ///   this function. You can get this by locking the `vec` mutex.
     unsafe fn get_vm_table_definition(&self) -> NonNull<VMTableDefinition> {
         match &self.vm_table_definition {
-            VMTableDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMTableDefinitionOwnership::VMOwned(ptr) => *ptr,
             VMTableDefinitionOwnership::HostOwned(boxed_ptr) => {
                 NonNull::new_unchecked(boxed_ptr.get())
             }

@@ -1002,8 +1002,7 @@ pub fn generate_emscripten_env(
     // Compatibility with newer versions of Emscripten
     let mut to_insert: Vec<(String, _)> = vec![];
     for (k, v) in env_ns.iter() {
-        if k.starts_with('_') {
-            let k = &k[1..];
+        if let Some(k) = k.strip_prefix('_') {
             if !env_ns.contains(k) {
                 to_insert.push((k.to_string(), v.clone()));
             }

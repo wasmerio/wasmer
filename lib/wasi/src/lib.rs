@@ -128,7 +128,7 @@ pub fn generate_import_object_from_env(
 // fail on Apple Silicon (with Cranelift).
 fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
     #[cfg(not(all(target_os = "macos", target_arch = "aarch64",)))]
-    let path_open = Function::new_native_with_env(store, env.clone(), path_open);
+    let path_open = Function::new_native_with_env(store, env, path_open);
     #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
     let path_open = Function::new_with_env(
         store,
