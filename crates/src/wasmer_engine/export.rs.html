@@ -216,10 +216,10 @@
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExport</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Export</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">Export</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> { <span class="ident">vm_function</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VMExport</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>),
-            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VMExport</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>),
-            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VMExport</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>),
-            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">VMExport</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>),
+            <span class="ident">Export</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> { <span class="ident">vm_function</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>),
+            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>),
+            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>),
+            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>),
         }
     }
 }
@@ -227,13 +227,13 @@
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMExport</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">VMExport</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">VMExport</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Export</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> {
+            <span class="ident">VMExport</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> {
                 <span class="ident">vm_function</span>,
                 <span class="ident">metadata</span>: <span class="prelude-val">None</span>,
             }),
-            <span class="ident">VMExport</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }),
-            <span class="ident">VMExport</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }),
-            <span class="ident">VMExport</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }),
+            <span class="ident">VMExport</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }),
+            <span class="ident">VMExport</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }),
+            <span class="ident">VMExport</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }),
         }
     }
 }

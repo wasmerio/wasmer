@@ -1047,6 +1047,7 @@
 <span id="1046">1046</span>
 <span id="1047">1047</span>
 <span id="1048">1048</span>
+<span id="1049">1049</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">/// types for use in the WASI filesystem</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">syscalls</span>::<span class="ident">types</span>::<span class="kw-2">*</span>;
@@ -2077,7 +2078,8 @@
         <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">len</span>() <span class="kw">as</span> <span class="ident">u64</span>
     }
     <span class="kw">fn</span> <span class="ident">set_len</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">len</span>: <span class="ident">u64</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
-        <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">resize</span>(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>))
+        <span class="self">self</span>.<span class="ident">buffer</span>.<span class="ident">resize</span>(<span class="ident">len</span> <span class="kw">as</span> <span class="ident">usize</span>, <span class="number">0</span>);
+        <span class="prelude-val">Ok</span>(())
     }
     <span class="kw">fn</span> <span class="ident">unlink</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">WasiFsError</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())

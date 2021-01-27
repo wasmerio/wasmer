@@ -492,7 +492,7 @@
                 <span class="ident">style</span>: <span class="ident">style</span>.<span class="ident">clone</span>(),
                 <span class="ident">vm_table_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">table_loc</span>) <span class="op">=</span> <span class="ident">vm_table_location</span> {
                     {
-                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">table_loc</span>.<span class="ident">clone</span>();
+                        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">table_loc</span>;
                         <span class="kw">let</span> <span class="ident">td</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
                         <span class="ident">td</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">base</span> <span class="kw">as</span> <span class="kw">_</span>;
                         <span class="ident">td</span>.<span class="ident">current_elements</span> <span class="op">=</span> <span class="ident">table_minimum</span> <span class="kw">as</span> <span class="kw">_</span>;
@@ -517,7 +517,7 @@
     <span class="doccomment">///   this function. You can get this by locking the `vec` mutex.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_vm_table_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMTableDefinition</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vm_table_definition</span> {
-            <span class="ident">VMTableDefinitionOwnership</span>::<span class="ident">VMOwned</span>(<span class="ident">ptr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr</span>.<span class="ident">clone</span>(),
+            <span class="ident">VMTableDefinitionOwnership</span>::<span class="ident">VMOwned</span>(<span class="ident">ptr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">ptr</span>,
             <span class="ident">VMTableDefinitionOwnership</span>::<span class="ident">HostOwned</span>(<span class="ident">boxed_ptr</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">boxed_ptr</span>.<span class="ident">get</span>())
             }

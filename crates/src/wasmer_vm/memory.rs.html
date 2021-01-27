@@ -685,7 +685,7 @@
             <span class="ident">needs_signal_handlers</span>,
             <span class="ident">vm_memory_definition</span>: <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">mem_loc</span>) <span class="op">=</span> <span class="ident">vm_memory_location</span> {
                 {
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">mem_loc</span>.<span class="ident">clone</span>();
+                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">mem_loc</span>;
                     <span class="kw">let</span> <span class="ident">md</span> <span class="op">=</span> <span class="ident">ptr</span>.<span class="ident">as_mut</span>();
                     <span class="ident">md</span>.<span class="ident">base</span> <span class="op">=</span> <span class="ident">base_ptr</span>;
                     <span class="ident">md</span>.<span class="ident">current_length</span> <span class="op">=</span> <span class="ident">mem_length</span>;
@@ -711,7 +711,7 @@
     <span class="doccomment">///   this function. You can get this by locking the `mmap` mutex.</span>
     <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">get_vm_memory_definition</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">NonNull</span><span class="op">&lt;</span><span class="ident">VMMemoryDefinition</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vm_memory_definition</span> {
-            <span class="ident">VMMemoryDefinitionOwnership</span>::<span class="ident">VMOwned</span>(<span class="ident">ptr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">ptr</span>.<span class="ident">clone</span>(),
+            <span class="ident">VMMemoryDefinitionOwnership</span>::<span class="ident">VMOwned</span>(<span class="ident">ptr</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">ptr</span>,
             <span class="ident">VMMemoryDefinitionOwnership</span>::<span class="ident">HostOwned</span>(<span class="ident">boxed_ptr</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="ident">NonNull</span>::<span class="ident">new_unchecked</span>(<span class="ident">boxed_ptr</span>.<span class="ident">get</span>())
             }

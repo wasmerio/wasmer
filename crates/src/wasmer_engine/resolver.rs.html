@@ -558,7 +558,7 @@
                 <span class="kw">let</span> <span class="ident">env</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">ExportFunctionMetadata</span> {
                     <span class="ident">host_env_clone_fn</span>: <span class="ident">clone</span>,
                     ..
-                }) <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">x</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">x</span>)
+                }) <span class="op">=</span> <span class="ident">f</span>.<span class="ident">metadata</span>.<span class="ident">as_deref</span>()
                 {
                     <span class="comment">// TODO: maybe start adding asserts in all these</span>
                     <span class="comment">// unsafe blocks to prevent future changes from</span>

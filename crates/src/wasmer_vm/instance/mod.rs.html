@@ -1381,8 +1381,6 @@
 <span id="1378">1378</span>
 <span id="1379">1379</span>
 <span id="1380">1380</span>
-<span id="1381">1381</span>
-<span id="1382">1382</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1560,7 +1558,7 @@
 <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">ImportFunctionEnv</span> {
     <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
         <span class="kw">match</span> <span class="self">self</span> {
-            <span class="ident">ImportFunctionEnv</span>::<span class="ident">Env</span> {
+            <span class="self">Self</span>::<span class="ident">Env</span> {
                 <span class="ident">env</span>, <span class="ident">destructor</span>, ..
             } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// # Safety</span>
@@ -1570,7 +1568,7 @@
                     (<span class="ident">destructor</span>)(<span class="kw-2">*</span><span class="ident">env</span>);
                 }
             }
-            <span class="ident">ImportFunctionEnv</span>::<span class="ident">NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
+            <span class="self">Self</span>::<span class="ident">NoEnv</span> <span class="op">=</span><span class="op">&gt;</span> (),
         }
     }
 }
@@ -1856,9 +1854,7 @@
             .<span class="ident">memories</span>
             .<span class="ident">get</span>(<span class="ident">memory_index</span>)
             .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;no memory for index {}&quot;</span>, <span class="ident">memory_index</span>.<span class="ident">index</span>()));
-        <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">mem</span>.<span class="ident">grow</span>(<span class="ident">delta</span>.<span class="ident">into</span>());
-
-        <span class="ident">result</span>
+        <span class="ident">mem</span>.<span class="ident">grow</span>(<span class="ident">delta</span>.<span class="ident">into</span>())
     }
 
     <span class="doccomment">/// Grow imported memory by the specified amount of pages.</span>

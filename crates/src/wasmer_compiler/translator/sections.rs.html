@@ -681,7 +681,7 @@
                 <span class="ident">environ</span>.<span class="ident">declare_memory</span>(<span class="ident">MemoryType</span> {
                     <span class="ident">minimum</span>: <span class="ident">Pages</span>(<span class="ident">limits</span>.<span class="ident">initial</span>),
                     <span class="ident">maximum</span>: <span class="ident">limits</span>.<span class="ident">maximum</span>.<span class="ident">map</span>(<span class="ident">Pages</span>),
-                    <span class="ident">shared</span>: <span class="ident">shared</span>,
+                    <span class="ident">shared</span>,
                 })<span class="question-mark">?</span>;
             }
             <span class="ident">WPMemoryType</span>::<span class="ident">M64</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;64bit memory not implemented yet&quot;</span>),
