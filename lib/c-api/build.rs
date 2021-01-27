@@ -240,6 +240,7 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
     Builder::new()
         .with_config(cbindgen::Config {
             sort_by: cbindgen::SortKey::Name,
+            cpp_compat: true,
             ..cbindgen::Config::default()
         })
         .with_language(language)
