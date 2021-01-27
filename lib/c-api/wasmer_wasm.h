@@ -124,6 +124,10 @@ typedef struct wasi_env_t wasi_env_t;
 typedef struct wasi_version_t wasi_version_t;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 #if defined(WASMER_WASI_ENABLED)
 void wasi_config_arg(wasi_config_t *config, const char *arg);
 #endif
@@ -566,5 +570,9 @@ const char *wasmer_version_pre(void);
  * See the module's documentation.
  */
 void wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus
 
 #endif /* WASMER_WASM_H */

@@ -55,7 +55,11 @@
 #include <stdlib.h>
 
 #if defined(WASMER_WASI_ENABLED)
-enum Version {
+enum Version
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+ {
 #if defined(WASMER_WASI_ENABLED)
   /**
    * Version cannot be detected or is unknown.
@@ -82,13 +86,19 @@ enum Version {
   Snapshot1 = 3,
 #endif
 };
+#ifndef __cplusplus
 typedef uint8_t Version;
+#endif // __cplusplus
 #endif
 
 /**
  * List of export/import kinds.
  */
-enum wasmer_import_export_kind {
+enum wasmer_import_export_kind
+#ifdef __cplusplus
+  : uint32_t
+#endif // __cplusplus
+ {
   /**
    * The export/import is a function.
    */
@@ -106,7 +116,9 @@ enum wasmer_import_export_kind {
    */
   WASM_TABLE = 3,
 };
+#ifndef __cplusplus
 typedef uint32_t wasmer_import_export_kind;
+#endif // __cplusplus
 
 /**
  * The `wasmer_result_t` enum is a type that represents either a
@@ -128,7 +140,11 @@ typedef enum {
  *
  * See `wasmer_value_t` to get a complete example.
  */
-enum wasmer_value_tag {
+enum wasmer_value_tag
+#ifdef __cplusplus
+  : uint32_t
+#endif // __cplusplus
+ {
   /**
    * Represents the `i32` WebAssembly type.
    */
@@ -146,7 +162,9 @@ enum wasmer_value_tag {
    */
   WASM_F64,
 };
+#ifndef __cplusplus
 typedef uint32_t wasmer_value_tag;
+#endif // __cplusplus
 
 typedef struct {
 
@@ -408,6 +426,10 @@ typedef struct {
   wasmer_byte_array host_file_path;
 } wasmer_wasi_map_dir_entry_t;
 #endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 /**
  * Creates a new Module from the given wasm bytes.
@@ -1578,5 +1600,9 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned 
  */
 Version wasmer_wasi_get_version(const wasmer_module_t *module);
 #endif
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus
 
 #endif /* WASMER_H */
