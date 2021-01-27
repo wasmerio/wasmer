@@ -155,6 +155,10 @@ build-docs-capi:
 # We use cranelift as the default backend for the capi for now
 build-capi: build-capi-cranelift
 
+build-capi-all:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(compiler_features)
+
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi $(capi_default_features)
