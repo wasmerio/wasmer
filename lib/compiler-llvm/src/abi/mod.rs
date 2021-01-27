@@ -16,6 +16,7 @@ use inkwell::{
 };
 use wasmer_compiler::CompileError;
 use wasmer_types::FunctionType as FuncSig;
+use wasmer_vm::VMOffsets;
 
 mod aarch64_systemv;
 mod x86_64_systemv;
@@ -49,6 +50,7 @@ pub trait Abi {
         &self,
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
+        offsets: Option<&VMOffsets>,
         sig: &FuncSig,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError>;
 
