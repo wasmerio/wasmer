@@ -207,7 +207,7 @@ pub fn parse_memory_section(
                 environ.declare_memory(MemoryType {
                     minimum: Pages(limits.initial),
                     maximum: limits.maximum.map(Pages),
-                    shared: shared,
+                    shared,
                 })?;
             }
             WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),

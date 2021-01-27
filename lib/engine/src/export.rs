@@ -24,10 +24,10 @@ pub enum Export {
 impl From<Export> for VMExport {
     fn from(other: Export) -> Self {
         match other {
-            Export::Function(ExportFunction { vm_function, .. }) => VMExport::Function(vm_function),
-            Export::Memory(ExportMemory { vm_memory }) => VMExport::Memory(vm_memory),
-            Export::Table(ExportTable { vm_table }) => VMExport::Table(vm_table),
-            Export::Global(ExportGlobal { vm_global }) => VMExport::Global(vm_global),
+            Export::Function(ExportFunction { vm_function, .. }) => Self::Function(vm_function),
+            Export::Memory(ExportMemory { vm_memory }) => Self::Memory(vm_memory),
+            Export::Table(ExportTable { vm_table }) => Self::Table(vm_table),
+            Export::Global(ExportGlobal { vm_global }) => Self::Global(vm_global),
         }
     }
 }
@@ -35,13 +35,13 @@ impl From<Export> for VMExport {
 impl From<VMExport> for Export {
     fn from(other: VMExport) -> Self {
         match other {
-            VMExport::Function(vm_function) => Export::Function(ExportFunction {
+            VMExport::Function(vm_function) => Self::Function(ExportFunction {
                 vm_function,
                 metadata: None,
             }),
-            VMExport::Memory(vm_memory) => Export::Memory(ExportMemory { vm_memory }),
-            VMExport::Table(vm_table) => Export::Table(ExportTable { vm_table }),
-            VMExport::Global(vm_global) => Export::Global(ExportGlobal { vm_global }),
+            VMExport::Memory(vm_memory) => Self::Memory(ExportMemory { vm_memory }),
+            VMExport::Table(vm_table) => Self::Table(ExportTable { vm_table }),
+            VMExport::Global(vm_global) => Self::Global(ExportGlobal { vm_global }),
         }
     }
 }
