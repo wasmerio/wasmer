@@ -43,6 +43,7 @@ fn test_trap_return() -> Result<()> {
         feature = "test-singlepass",
         feature = "test-native",
         target_arch = "aarch64",
+        target_env = "musl",
     ),
     ignore
 )]
@@ -130,6 +131,7 @@ fn test_trap_trace_cb() -> Result<()> {
         feature = "test-singlepass",
         feature = "test-native",
         target_arch = "aarch64",
+        target_env = "musl",
     ),
     ignore
 )]
@@ -169,6 +171,7 @@ fn test_trap_stack_overflow() -> Result<()> {
         feature = "test-llvm",
         feature = "test-native",
         target_arch = "aarch64",
+        target_env = "musl",
     ),
     ignore
 )]
@@ -210,6 +213,7 @@ RuntimeError: unreachable
         feature = "test-llvm",
         feature = "test-native",
         target_arch = "aarch64",
+        target_env = "musl",
     ),
     ignore
 )]
@@ -424,7 +428,8 @@ fn mismatched_arguments() -> Result<()> {
         feature = "test-singlepass",
         feature = "test-llvm",
         feature = "test-native",
-        all(target_os = "macos", target_arch = "aarch64")
+        all(target_os = "macos", target_arch = "aarch64"),
+        target_env = "musl",
     ),
     ignore
 )]
@@ -464,6 +469,7 @@ RuntimeError: indirect call type mismatch
         feature = "test-llvm",
         feature = "test-native",
         target_arch = "aarch64",
+        target_env = "musl",
     ),
     ignore
 )]
