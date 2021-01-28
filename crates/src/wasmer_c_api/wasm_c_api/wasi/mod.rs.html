@@ -397,6 +397,122 @@
 <span id="396">396</span>
 <span id="397">397</span>
 <span id="398">398</span>
+<span id="399">399</span>
+<span id="400">400</span>
+<span id="401">401</span>
+<span id="402">402</span>
+<span id="403">403</span>
+<span id="404">404</span>
+<span id="405">405</span>
+<span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
+<span id="438">438</span>
+<span id="439">439</span>
+<span id="440">440</span>
+<span id="441">441</span>
+<span id="442">442</span>
+<span id="443">443</span>
+<span id="444">444</span>
+<span id="445">445</span>
+<span id="446">446</span>
+<span id="447">447</span>
+<span id="448">448</span>
+<span id="449">449</span>
+<span id="450">450</span>
+<span id="451">451</span>
+<span id="452">452</span>
+<span id="453">453</span>
+<span id="454">454</span>
+<span id="455">455</span>
+<span id="456">456</span>
+<span id="457">457</span>
+<span id="458">458</span>
+<span id="459">459</span>
+<span id="460">460</span>
+<span id="461">461</span>
+<span id="462">462</span>
+<span id="463">463</span>
+<span id="464">464</span>
+<span id="465">465</span>
+<span id="466">466</span>
+<span id="467">467</span>
+<span id="468">468</span>
+<span id="469">469</span>
+<span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
+<span id="512">512</span>
+<span id="513">513</span>
+<span id="514">514</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unofficial API for WASI integrating with the standard Wasm C API.</span>
 <span class="doccomment">//!</span>
@@ -686,22 +802,40 @@
     }
 }
 
+<span class="doccomment">/// The version of WASI. This is determined by the imports namespace</span>
+<span class="doccomment">/// string.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Copy</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>)]</span>
-<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">u32</span>)]</span>
+<span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">wasi_version_t</span> {
-    <span class="ident">Latest</span> <span class="op">=</span> <span class="number">0</span>,
-    <span class="ident">Snapshot0</span> <span class="op">=</span> <span class="number">1</span>,
-    <span class="ident">Snapshot1</span> <span class="op">=</span> <span class="number">2</span>,
-    <span class="ident">InvalidVersion</span> <span class="op">=</span> <span class="ident">u32</span>::<span class="ident">max_value</span>(),
+    <span class="doccomment">/// An invalid version.</span>
+    <span class="ident">INVALID_VERSION</span> <span class="op">=</span> <span class="op">-</span><span class="number">1</span>,
+
+    <span class="doccomment">/// Latest version.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// It&#39;s a “floating” version, i.e. it&#39;s an alias to the latest</span>
+    <span class="doccomment">/// version (for the moment, `Snapshot1`). Using this version is a</span>
+    <span class="doccomment">/// way to ensure that modules will run only if they come with the</span>
+    <span class="doccomment">/// latest WASI version (in case of security issues for instance),</span>
+    <span class="doccomment">/// by just updating the runtime.</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// Note that this version is never returned by an API. It is</span>
+    <span class="doccomment">/// provided only by the user.</span>
+    <span class="ident">LATEST</span> <span class="op">=</span> <span class="number">0</span>,
+
+    <span class="doccomment">/// `wasi_unstable`.</span>
+    <span class="ident">SNAPSHOT0</span> <span class="op">=</span> <span class="number">1</span>,
+
+    <span class="doccomment">/// `wasi_snapshot_preview1`.</span>
+    <span class="ident">SNAPSHOT1</span> <span class="op">=</span> <span class="number">2</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">wasi_version_t</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">WasiVersion</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">Snapshot0</span>,
-            <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">Snapshot1</span>,
-            <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">Latest</span>,
+            <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">SNAPSHOT0</span>,
+            <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">SNAPSHOT1</span>,
+            <span class="ident">WasiVersion</span>::<span class="ident">Latest</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span>::<span class="ident">LATEST</span>,
         }
     }
 }
@@ -711,10 +845,10 @@
 
     <span class="kw">fn</span> <span class="ident">try_from</span>(<span class="ident">other</span>: <span class="ident">wasi_version_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="self">Self</span>::<span class="ident">Error</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">wasi_version_t</span>::<span class="ident">Snapshot0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span>,
-            <span class="ident">wasi_version_t</span>::<span class="ident">Snapshot1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span>,
-            <span class="ident">wasi_version_t</span>::<span class="ident">Latest</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span>,
-            <span class="ident">wasi_version_t</span>::<span class="ident">InvalidVersion</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid WASI version cannot be used&quot;</span>),
+            <span class="ident">wasi_version_t</span>::<span class="ident">INVALID_VERSION</span> <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="string">&quot;Invalid WASI version cannot be used&quot;</span>),
+            <span class="ident">wasi_version_t</span>::<span class="ident">SNAPSHOT0</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Snapshot0</span>,
+            <span class="ident">wasi_version_t</span>::<span class="ident">SNAPSHOT1</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Snapshot1</span>,
+            <span class="ident">wasi_version_t</span>::<span class="ident">LATEST</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">WasiVersion</span>::<span class="ident">Latest</span>,
         })
     }
 }
@@ -723,7 +857,7 @@
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasi_get_wasi_version</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasi_version_t</span> {
     <span class="ident">get_wasi_version</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">inner</span>, <span class="bool-val">false</span>)
         .<span class="ident">map</span>(<span class="ident">Into</span>::<span class="ident">into</span>)
-        .<span class="ident">unwrap_or</span>(<span class="ident">wasi_version_t</span>::<span class="ident">InvalidVersion</span>)
+        .<span class="ident">unwrap_or</span>(<span class="ident">wasi_version_t</span>::<span class="ident">INVALID_VERSION</span>)
 }
 
 <span class="doccomment">/// Takes ownership of `wasi_env_t`.</span>
@@ -796,5 +930,103 @@
 <span class="doccomment">/// cbindgen:ignore</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_delete</span>(<span class="ident">_item</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_extern_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="ident">inline_c</span>::<span class="ident">assert_c</span>;
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_snapshot0</span>() {
+        (<span class="macro">assert_c</span><span class="macro">!</span> {
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+
+            <span class="ident">int</span> <span class="ident">main</span>() {
+                <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
+                <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
+                <span class="ident">wasmer_byte_vec_new_from_string</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="string">&quot;(module (import \&quot;wasi_unstable\&quot; \&quot;args_get\&quot; (func (param i32 i32) (result i32))))&quot;</span>);
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wasm</span>;
+                <span class="ident">wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+
+                <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">wasm_module_new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">assert</span>(<span class="ident">module</span>);
+
+                <span class="ident">assert</span>(<span class="ident">wasi_get_wasi_version</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">SNAPSHOT0</span>);
+
+                <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
+                <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
+                <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
+
+                <span class="kw">return</span> <span class="number">0</span>;
+            }
+        })
+        .<span class="ident">success</span>();
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_snapshot1</span>() {
+        (<span class="macro">assert_c</span><span class="macro">!</span> {
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+
+            <span class="ident">int</span> <span class="ident">main</span>() {
+                <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
+                <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
+                <span class="ident">wasmer_byte_vec_new_from_string</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="string">&quot;(module (import \&quot;wasi_snapshot_preview1\&quot; \&quot;args_get\&quot; (func (param i32 i32) (result i32))))&quot;</span>);
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wasm</span>;
+                <span class="ident">wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+
+                <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">wasm_module_new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">assert</span>(<span class="ident">module</span>);
+
+                <span class="ident">assert</span>(<span class="ident">wasi_get_wasi_version</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">SNAPSHOT1</span>);
+
+                <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
+                <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
+                <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
+
+                <span class="kw">return</span> <span class="number">0</span>;
+            }
+        })
+        .<span class="ident">success</span>();
+    }
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_wasi_get_wasi_version_invalid</span>() {
+        (<span class="macro">assert_c</span><span class="macro">!</span> {
+            #<span class="ident">include</span> <span class="string">&quot;tests/wasmer_wasm.h&quot;</span>
+
+            <span class="ident">int</span> <span class="ident">main</span>() {
+                <span class="ident">wasm_engine_t</span><span class="op">*</span> <span class="ident">engine</span> <span class="op">=</span> <span class="ident">wasm_engine_new</span>();
+                <span class="ident">wasm_store_t</span><span class="op">*</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">wasm_store_new</span>(<span class="ident">engine</span>);
+
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wat</span>;
+                <span class="ident">wasmer_byte_vec_new_from_string</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="string">&quot;(module (import \&quot;wasi_snpsht_prvw1\&quot; \&quot;args_get\&quot; (func (param i32 i32) (result i32))))&quot;</span>);
+                <span class="ident">wasm_byte_vec_t</span> <span class="ident">wasm</span>;
+                <span class="ident">wat2wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+
+                <span class="ident">wasm_module_t</span><span class="op">*</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">wasm_module_new</span>(<span class="ident">store</span>, <span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">assert</span>(<span class="ident">module</span>);
+
+                <span class="ident">assert</span>(<span class="ident">wasi_get_wasi_version</span>(<span class="ident">module</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">INVALID_VERSION</span>);
+
+                <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);
+                <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
+                <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
+                <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
+
+                <span class="kw">return</span> <span class="number">0</span>;
+            }
+        })
+        .<span class="ident">success</span>();
+    }
+}
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../../";window.currentCrate = "wasmer_c_api";</script><script src="../../../../main.js"></script><script src="../../../../source-script.js"></script><script src="../../../../source-files.js"></script><script defer src="../../../../search-index.js"></script></body></html>
