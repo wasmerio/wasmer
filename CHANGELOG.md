@@ -19,6 +19,7 @@
 - [#2056](https://github.com/wasmerio/wasmer/pull/2056) Change back to depend on the `enumset` crate instead of `wasmer_enumset`
 
 ### Fixed
+- [#2058](https://github.com/wasmerio/wasmer/pull/2058) Expose WASI versions to C correctly.
 - [#2044](https://github.com/wasmerio/wasmer/pull/2044) Do not build C headers on docs.rs.
 
 ## 1.0.1 - 2021-01-12

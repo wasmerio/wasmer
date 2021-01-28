@@ -42,9 +42,6 @@ mod tests {
             #include "tests/wasmer_wasm.h"
 
             int main() {
-                wasm_engine_t* engine = wasm_engine_new();
-                wasm_store_t* store = wasm_store_new(engine);
-
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t wasm;
@@ -65,8 +62,6 @@ mod tests {
 
                 wasm_byte_vec_delete(&wasm);
                 wasm_byte_vec_delete(&wat);
-                wasm_store_delete(store);
-                wasm_engine_delete(engine);
 
                 return 0;
             }
@@ -80,9 +75,6 @@ mod tests {
             #include "tests/wasmer_wasm.h"
 
             int main() {
-                wasm_engine_t* engine = wasm_engine_new();
-                wasm_store_t* store = wasm_store_new(engine);
-
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module");
                 wasm_byte_vec_t wasm;
@@ -92,8 +84,6 @@ mod tests {
                 assert(wasmer_last_error_length() > 0);
 
                 wasm_byte_vec_delete(&wat);
-                wasm_store_delete(store);
-                wasm_engine_delete(engine);
 
                 return 0;
             }
