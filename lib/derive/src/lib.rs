@@ -76,6 +76,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
         Fields::Unnamed(fields) => fields.unnamed.iter().cloned().collect(),
     };
     for (field_num, f) in fields.into_iter().enumerate() {
+        let field_idx = syn::Index::from(field_num);
         let name = f.ident.clone();
         let top_level_ty: &Type = &f.ty;
         touched_fields.push(name.clone());
@@ -177,7 +178,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                                     f.span()=>
                                         match #access_expr {
                                             Ok(#local_var) => {
-                                                self.#field_num.initialize(#local_var);
+                                                self.#field_idx.initialize(#local_var);
                                             },
                                             Err(_) => (),
                                         }
@@ -186,7 +187,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                                 quote_spanned! {
                                     f.span()=>
                                         let #local_var: #inner_type = #access_expr?;
-                                    self.#field_num.initialize(#local_var);
+                                    self.#field_idx.initialize(#local_var);
                                 }
                             }
                         } else {

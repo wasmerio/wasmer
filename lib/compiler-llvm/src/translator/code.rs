@@ -34,7 +34,7 @@ use wasmer_types::{
     FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
     TableIndex, Type,
 };
-use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
+use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, VMOffsets};
 
 const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 
@@ -101,19 +101,18 @@ impl FuncTranslator {
             .get(wasm_module.functions[func_index])
             .unwrap();
 
+        // TODO: pointer width
+        let offsets = VMOffsets::new(8, &wasm_module);
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
         let (func_type, func_attrs) =
             self.abi
-                .func_type_to_llvm(&self.ctx, &intrinsics, wasm_fn_type)?;
+                .func_type_to_llvm(&self.ctx, &intrinsics, Some(&offsets), wasm_fn_type)?;
 
         let func = module.add_function(&function_name, func_type, Some(Linkage::External));
         for (attr, attr_loc) in &func_attrs {
             func.add_attribute(*attr_loc, *attr);
         }
 
-        // TODO: mark vmctx align 16
-        // TODO: figure out how many bytes long vmctx is, and mark it dereferenceable. (no need to mark it nonnull once we do this.)
-        // TODO: mark vmctx nofree
         func.add_attribute(AttributeLoc::Function, intrinsics.stack_probe);
         func.set_personality_function(intrinsics.personality);
         func.as_global_value().set_section(FUNCTION_SECTION);
@@ -2353,9 +2352,12 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unreachable();
                 self.builder.position_at_end(continue_block);
 
-                let (llvm_func_type, llvm_func_attrs) =
-                    self.abi
-                        .func_type_to_llvm(&self.context, &self.intrinsics, func_type)?;
+                let (llvm_func_type, llvm_func_attrs) = self.abi.func_type_to_llvm(
+                    &self.context,
+                    &self.intrinsics,
+                    Some(self.ctx.get_offsets()),
+                    func_type,
+                )?;
 
                 let params = self.state.popn_save_extra(func_type.params().len())?;
 

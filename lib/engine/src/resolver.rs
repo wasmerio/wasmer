@@ -183,7 +183,7 @@ pub fn resolve_imports(
                 let env = if let Some(ExportFunctionMetadata {
                     host_env_clone_fn: clone,
                     ..
-                }) = f.metadata.as_ref().map(|x| &**x)
+                }) = f.metadata.as_deref()
                 {
                     // TODO: maybe start adding asserts in all these
                     // unsafe blocks to prevent future changes from

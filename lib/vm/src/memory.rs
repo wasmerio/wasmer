@@ -267,7 +267,7 @@ impl LinearMemory {
             needs_signal_handlers,
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
-                    let mut ptr = mem_loc.clone();
+                    let mut ptr = mem_loc;
                     let md = ptr.as_mut();
                     md.base = base_ptr;
                     md.current_length = mem_length;
@@ -293,7 +293,7 @@ impl LinearMemory {
     ///   this function. You can get this by locking the `mmap` mutex.
     unsafe fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
         match &self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMMemoryDefinitionOwnership::VMOwned(ptr) => *ptr,
             VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
                 NonNull::new_unchecked(boxed_ptr.get())
             }
