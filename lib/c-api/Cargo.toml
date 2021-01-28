@@ -95,4 +95,4 @@ cranelift-backend = ["cranelift"]
 llvm-backend = ["llvm"]
 
 [build-dependencies]
-cbindgen = "0.15"
+cbindgen = "0.16"
