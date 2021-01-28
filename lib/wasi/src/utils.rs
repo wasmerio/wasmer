@@ -13,6 +13,7 @@ pub fn is_wasi_module(module: &Module) -> bool {
 pub enum WasiVersion {
     /// `wasi_unstable`.
     Snapshot0,
+
     /// `wasi_snapshot_preview1`.
     Snapshot1,
 
