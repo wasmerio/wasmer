@@ -61,27 +61,21 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
-    if env::var("_CBINDGEN_IS_RUNNING").is_ok() {
+    if !running_self() {
         return;
     }
 
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
 
-    if building_c_api_headers() {
-        build_wasm_c_api_headers(&crate_dir, &out_dir);
-        build_wasmer_c_api_headers(&crate_dir, &out_dir);
-    }
-
+    build_wasm_c_api_headers(&crate_dir, &out_dir);
+    build_wasmer_c_api_headers(&crate_dir, &out_dir);
     build_inline_c_env_vars();
 }
 
-/// Check whether we should build the C API headers.
-///
-/// For the moment, it's always enabled, unless if the `DOCS_RS`
-/// environment variable is present.
-fn building_c_api_headers() -> bool {
-    env::var("DOCS_RS").is_err()
+/// Check whether we should build the C API headers or set `inline-c` up.
+fn running_self() -> bool {
+    env::var("DOCS_RS").is_err() && env::var("_CBINDGEN_IS_RUNNING").is_err()
 }
 
 /// Build the header files for the `wasm_c_api` API.
