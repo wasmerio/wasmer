@@ -230,6 +230,12 @@ pub mod trap;
 /// cbindgen:ignore
 pub mod types;
 
+/// This module contains _unstable non-standard_ C API.
+///
+/// Use them at your own risks. The API is subject to change or to
+/// break without any plan to keep any compatibility :-).
+pub mod unstable;
+
 /// Possible runtime values that a WebAssembly module can either
 /// consume or produce.
 ///
@@ -276,8 +282,6 @@ pub mod version;
 
 #[cfg(feature = "wasi")]
 pub mod wasi;
-
-pub mod wasmer;
 
 /// Wasmer-specific API to transform the WAT format into Wasm bytes.
 ///

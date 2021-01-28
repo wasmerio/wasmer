@@ -338,8 +338,9 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
 /**
- * Non-standard Wasmer-specific API to get the module's name,
- * otherwise `out->size` is set to `0` and `out->data` to `NULL`.
+ * Unstable non-standard Wasmer-specific API to get the module's
+ * name, otherwise `out->size` is set to `0` and `out->data` to
+ * `NULL`.
  *
  * # Example
  *
@@ -389,9 +390,9 @@ void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
 /**
- * Non-standard Wasmer-specific API to set the module's name. The
- * function returns `true` if the name has been updated, `false`
- * otherwise.
+ * Unstable non-standard Wasmer-specific API to set the module's
+ * name. The function returns `true` if the name has been updated,
+ * `false` otherwise.
  *
  * # Example
  *
