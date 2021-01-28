@@ -33,11 +33,11 @@ impl From<String> for wasm_name_t {
         let mut boxed_str: Box<str> = string.into_boxed_str();
         let data = boxed_str.as_mut_ptr();
         let size = boxed_str.bytes().len();
-        let wasm_byte = Self { data, size };
+        let wasm_name = Self { data, size };
 
         Box::leak(boxed_str);
 
-        wasm_byte
+        wasm_name
     }
 }
 

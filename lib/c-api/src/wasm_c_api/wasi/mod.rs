@@ -411,13 +411,13 @@ unsafe fn wasi_get_unordered_imports_inner(
     *imports = import_object
         .into_iter()
         .map(|((module, name), export)| {
-            let module = module.into();
-            let name = name.into();
+            let module = Box::new(module.into());
+            let name = Box::new(name.into());
             let extern_inner = Extern::from_vm_export(store, export);
 
             Box::new(wasm_named_extern_t {
-                module: Box::new(module),
-                name: Box::new(name),
+                module,
+                name,
                 r#extern: Box::new(wasm_extern_t {
                     instance: None,
                     inner: extern_inner,
