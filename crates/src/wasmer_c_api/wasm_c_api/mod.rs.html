@@ -316,6 +316,10 @@
 <span id="315">315</span>
 <span id="316">316</span>
 <span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Implementation of the [official WebAssembly C</span>
 <span class="doccomment">//! API](https://github.com/WebAssembly/wasm-c-api) for Wasmer.</span>
@@ -549,6 +553,12 @@
 <span class="doccomment">/// cbindgen:ignore</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">types</span>;
 
+<span class="doccomment">/// This module contains _unstable non-standard_ C API.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// Use them at your own risks. The API is subject to change or to</span>
+<span class="doccomment">/// break without any plan to keep any compatibility :-).</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">unstable</span>;
+
 <span class="doccomment">/// Possible runtime values that a WebAssembly module can either</span>
 <span class="doccomment">/// consume or produce.</span>
 <span class="doccomment">///</span>
@@ -595,8 +605,6 @@
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasi</span>;
-
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasmer</span>;
 
 <span class="doccomment">/// Wasmer-specific API to transform the WAT format into Wasm bytes.</span>
 <span class="doccomment">///</span>
