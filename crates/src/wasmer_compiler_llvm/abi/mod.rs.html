@@ -84,6 +84,8 @@
 <span id="83">83</span>
 <span id="84">84</span>
 <span id="85">85</span>
+<span id="86">86</span>
+<span id="87">87</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// LLVM implements part of the ABI lowering internally, but also requires that</span>
 <span class="comment">// the user pack and unpack values themselves sometimes. This can help the LLVM</span>
@@ -103,6 +105,7 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">CompileError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncSig</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">VMOffsets</span>;
 
 <span class="kw">mod</span> <span class="ident">aarch64_systemv</span>;
 <span class="kw">mod</span> <span class="ident">x86_64_systemv</span>;
@@ -136,6 +139,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>,
         <span class="ident">intrinsics</span>: <span class="kw-2">&amp;</span><span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">offsets</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">VMOffsets</span><span class="op">&gt;</span>,
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FuncSig</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">FunctionType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Attribute</span>, <span class="ident">AttributeLoc</span>)<span class="op">&gt;</span>), <span class="ident">CompileError</span><span class="op">&gt;</span>;
 

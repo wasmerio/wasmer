@@ -582,6 +582,16 @@
 <span id="581">581</span>
 <span id="582">582</span>
 <span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">abi</span>::<span class="ident">Abi</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">translator</span>::<span class="ident">intrinsics</span>::{<span class="ident">type_to_llvm</span>, <span class="ident">Intrinsics</span>};
@@ -595,6 +605,7 @@
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">CompileError</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span> <span class="kw">as</span> <span class="ident">FuncSig</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">VMOffsets</span>;
 
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
 
@@ -627,6 +638,7 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;ctx</span> <span class="ident">Context</span>,
         <span class="ident">intrinsics</span>: <span class="kw-2">&amp;</span><span class="ident">Intrinsics</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        <span class="ident">offsets</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">VMOffsets</span><span class="op">&gt;</span>,
         <span class="ident">sig</span>: <span class="kw-2">&amp;</span><span class="ident">FuncSig</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(<span class="ident">FunctionType</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>, <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">Attribute</span>, <span class="ident">AttributeLoc</span>)<span class="op">&gt;</span>), <span class="ident">CompileError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">user_param_types</span> <span class="op">=</span> <span class="ident">sig</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">map</span>(<span class="op">|</span><span class="kw-2">&amp;</span><span class="ident">ty</span><span class="op">|</span> <span class="ident">type_to_llvm</span>(<span class="ident">intrinsics</span>, <span class="ident">ty</span>));
@@ -641,7 +653,15 @@
                     <span class="ident">AttributeLoc</span>::<span class="ident">Param</span>(<span class="ident">i</span>),
                 ),
                 (
-                    <span class="ident">context</span>.<span class="ident">create_enum_attribute</span>(<span class="ident">Attribute</span>::<span class="ident">get_named_enum_kind_id</span>(<span class="string">&quot;nonnull&quot;</span>), <span class="number">0</span>),
+                    <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">offsets</span>) <span class="op">=</span> <span class="ident">offsets</span> {
+                        <span class="ident">context</span>.<span class="ident">create_enum_attribute</span>(
+                            <span class="ident">Attribute</span>::<span class="ident">get_named_enum_kind_id</span>(<span class="string">&quot;dereferenceable&quot;</span>),
+                            <span class="ident">offsets</span>.<span class="ident">size_of_vmctx</span>().<span class="ident">into</span>(),
+                        )
+                    } <span class="kw">else</span> {
+                        <span class="ident">context</span>
+                            .<span class="ident">create_enum_attribute</span>(<span class="ident">Attribute</span>::<span class="ident">get_named_enum_kind_id</span>(<span class="string">&quot;nonnull&quot;</span>), <span class="number">0</span>)
+                    },
                     <span class="ident">AttributeLoc</span>::<span class="ident">Param</span>(<span class="ident">i</span>),
                 ),
                 (
