@@ -198,10 +198,6 @@
 <span id="195">195</span>
 <span id="196">196</span>
 <span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Target configuration</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">ParseCpuFeatureError</span>;
@@ -212,9 +208,6 @@
     <span class="ident">Architecture</span>, <span class="ident">BinaryFormat</span>, <span class="ident">CallingConvention</span>, <span class="ident">Endianness</span>, <span class="ident">OperatingSystem</span>, <span class="ident">PointerWidth</span>,
     <span class="ident">Triple</span>,
 };
-
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">any</span>(<span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86&quot;</span>, <span class="ident">target_arch</span> <span class="op">=</span> <span class="string">&quot;x86_64&quot;</span>))]</span>
-<span class="kw">use</span> <span class="ident">raw_cpuid</span>::<span class="ident">CpuId</span>;
 
 <span class="doccomment">/// The nomenclature is inspired by the [`cpuid` crate].</span>
 <span class="doccomment">/// The list of supported features was initially retrieved from</span>
@@ -244,6 +237,7 @@
     <span class="ident">AVX2</span>,
     <span class="ident">AVX512DQ</span>,
     <span class="ident">AVX512VL</span>,
+    <span class="ident">AVX512F</span>,
     <span class="ident">LZCNT</span>,
     <span class="comment">// ARM features</span>
     <span class="comment">// Risc-V features</span>
@@ -254,52 +248,48 @@
     <span class="doccomment">/// Retrieves the features for the current Host</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">for_host</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="self">Self</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">features</span> <span class="op">=</span> <span class="ident">EnumSet</span>::<span class="ident">new</span>();
-        <span class="kw">let</span> <span class="ident">cpuid</span> <span class="op">=</span> <span class="ident">CpuId</span>::<span class="ident">new</span>();
 
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">info</span>) <span class="op">=</span> <span class="ident">cpuid</span>.<span class="ident">get_feature_info</span>() {
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_sse2</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE2</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_sse3</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE3</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_ssse3</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSSE3</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_sse41</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE41</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_sse42</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE42</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_popcnt</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">POPCNT</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_avx</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX</span>);
-            }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;sse2&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE2</span>);
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">info</span>) <span class="op">=</span> <span class="ident">cpuid</span>.<span class="ident">get_extended_feature_info</span>() {
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_bmi1</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">BMI1</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_bmi2</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">BMI2</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_avx2</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX2</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_avx512dq</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX512DQ</span>);
-            }
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_avx512vl</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX512VL</span>);
-            }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;sse3&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE3</span>);
         }
-        <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">info</span>) <span class="op">=</span> <span class="ident">cpuid</span>.<span class="ident">get_extended_function_info</span>() {
-            <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">has_lzcnt</span>() {
-                <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">LZCNT</span>);
-            }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;ssse3&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSSE3</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;sse4.1&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE41</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;sse4.2&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">SSE42</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;popcnt&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">POPCNT</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;bmi1&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">BMI1</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;bmi2&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">BMI2</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx2&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX2</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx512dq&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX512DQ</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx512vl&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX512VL</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;avx512f&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">AVX512F</span>);
+        }
+        <span class="kw">if</span> <span class="ident">std</span>::<span class="macro">is_x86_feature_detected</span><span class="macro">!</span>(<span class="string">&quot;lzcnt&quot;</span>) {
+            <span class="ident">features</span>.<span class="ident">insert</span>(<span class="self">Self</span>::<span class="ident">LZCNT</span>);
         }
         <span class="ident">features</span>
     }
@@ -340,6 +330,7 @@
             <span class="string">&quot;avx2&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">AVX2</span>),
             <span class="string">&quot;avx512dq&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">AVX512DQ</span>),
             <span class="string">&quot;avx512vl&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">AVX512VL</span>),
+            <span class="string">&quot;avx512f&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">AVX512F</span>),
             <span class="string">&quot;lzcnt&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="self">Self</span>::<span class="ident">LZCNT</span>),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">ParseCpuFeatureError</span>::<span class="ident">Missing</span>(<span class="ident">s</span>.<span class="ident">to_string</span>())),
         }
@@ -361,6 +352,7 @@
             <span class="self">Self</span>::<span class="ident">AVX2</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;avx2&quot;</span>,
             <span class="self">Self</span>::<span class="ident">AVX512DQ</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;avx512dq&quot;</span>,
             <span class="self">Self</span>::<span class="ident">AVX512VL</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;avx512vl&quot;</span>,
+            <span class="self">Self</span>::<span class="ident">AVX512F</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;avx512f&quot;</span>,
             <span class="self">Self</span>::<span class="ident">LZCNT</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;lzcnt&quot;</span>,
         }
         .<span class="ident">to_string</span>()
