@@ -42,21 +42,12 @@ impl From<ExportType> for wasm_exporttype_t {
 
 impl From<&ExportType> for wasm_exporttype_t {
     fn from(other: &ExportType) -> Self {
-        let name = {
-            let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
-            let char_ptr = heap_str.as_mut_ptr();
-            let str_len = heap_str.bytes().len();
-            let name_inner = wasm_name_t {
-                size: str_len,
-                data: char_ptr,
-            };
-            Box::leak(heap_str);
-
-            Box::new(name_inner)
-        };
-
+        let name = other.name().to_string().into();
         let extern_type = Box::new(other.ty().into());
 
-        wasm_exporttype_t { name, extern_type }
+        wasm_exporttype_t {
+            name: Box::new(name),
+            extern_type,
+        }
     }
 }

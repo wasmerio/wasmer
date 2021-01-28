@@ -411,43 +411,17 @@ unsafe fn wasi_get_unordered_imports_inner(
     *imports = import_object
         .into_iter()
         .map(|((module, name), export)| {
-            let module = {
-                let mut module: Box<str> = module.into_boxed_str();
-                let module_ptr = module.as_mut_ptr();
-                let module_len = module.bytes().len();
-                let module_inner = wasm_name_t {
-                    size: module_len,
-                    data: module_ptr,
-                };
-
-                Box::leak(module);
-
-                Box::new(module_inner)
-            };
-            let name = {
-                let mut name: Box<str> = name.into_boxed_str();
-                let name_ptr = name.as_mut_ptr();
-                let name_len = name.bytes().len();
-                let name_inner = wasm_name_t {
-                    size: name_len,
-                    data: name_ptr,
-                };
-
-                Box::leak(name);
-
-                Box::new(name_inner)
-            };
-
+            let module = module.into();
+            let name = name.into();
             let extern_inner = Extern::from_vm_export(store, export);
-            let r#extern = Box::new(wasm_extern_t {
-                instance: None,
-                inner: extern_inner,
-            });
 
             Box::new(wasm_named_extern_t {
-                module,
-                name,
-                r#extern,
+                module: Box::new(module),
+                name: Box::new(name),
+                r#extern: Box::new(wasm_extern_t {
+                    instance: None,
+                    inner: extern_inner,
+                }),
             })
         })
         .collect::<Vec<_>>()
