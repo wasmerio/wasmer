@@ -398,6 +398,7 @@ pub struct CacheImage {
     msm: ModuleStateMap,
 
     /// An exception table that maps instruction offsets to exception codes.
+    #[borsh_skip]
     exception_table: ExceptionTable,
 }
 
