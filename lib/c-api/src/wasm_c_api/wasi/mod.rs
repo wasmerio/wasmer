@@ -267,9 +267,12 @@ fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isi
 /// The version of WASI. This is determined by the imports namespace
 /// string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasi_version_t {
+    /// An invalid version.
+    INVALID_VERSION = -1,
+
     /// Latest version.
     ///
     /// It's a “floating” version, i.e. it's an alias to the latest
@@ -287,9 +290,6 @@ pub enum wasi_version_t {
 
     /// `wasi_snapshot_preview1`.
     SNAPSHOT1 = 2,
-
-    /// An invalid version. It matches `u32` maximum value.
-    INVALID_VERSION = 4294967295, // u32::MAX,
 }
 
 impl From<WasiVersion> for wasi_version_t {
@@ -307,10 +307,10 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 
     fn try_from(other: wasi_version_t) -> Result<Self, Self::Error> {
         Ok(match other {
+            wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
             wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
             wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
             wasi_version_t::LATEST => WasiVersion::Latest,
-            wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
         })
     }
 }
@@ -392,3 +392,101 @@ pub unsafe extern "C" fn wasi_get_start_function(
 /// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot0() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot1() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT1);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_invalid() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == INVALID_VERSION);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}
