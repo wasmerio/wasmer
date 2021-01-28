@@ -1529,15 +1529,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "raw-cpuid"
-version = "9.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c27cb5785b85bd05d4eb171556c9a1a514552e26123aeae6bb7d811353148026"
-dependencies = [
- "bitflags",
-]
-
-[[package]]
 name = "raw-window-handle"
 version = "0.3.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2400,7 +2391,6 @@ version = "1.0.1"
 dependencies = [
  "enumset",
  "hashbrown 0.9.1",
- "raw-cpuid",
  "serde",
  "serde_bytes",
  "smallvec",
