@@ -13,6 +13,7 @@ use super::{
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
 use crate::error::{update_last_error, CApiError};
+use std::cmp::min;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -275,12 +276,16 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 
 fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
     if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
-        let mut num_bytes_written = 0;
-        for (address, value) in inner_buffer.iter_mut().zip(oc.buffer.drain(..)) {
+        let total_to_read = min(inner_buffer.len(), oc.buffer.len());
+
+        for (address, value) in inner_buffer
+            .iter_mut()
+            .zip(oc.buffer.drain(..total_to_read))
+        {
             *address = value;
-            num_bytes_written += 1;
         }
-        num_bytes_written
+
+        total_to_read as isize
     } else {
         -1
     }
