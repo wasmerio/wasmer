@@ -162,6 +162,15 @@ typedef struct wasi_config_t wasi_config_t;
 typedef struct wasi_env_t wasi_env_t;
 #endif
 
+typedef struct wasm_cpu_features_t wasm_cpu_features_t;
+
+/**
+ * Represents a triple + CPU features pair.
+ */
+typedef struct wasm_target_t wasm_target_t;
+
+typedef struct wasm_triple_t wasm_triple_t;
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -337,6 +346,12 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
  */
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
+bool wasm_cpu_features_add(wasm_cpu_features_t *cpu_features, const wasm_name_t *feature);
+
+void wasm_cpu_features_delete(wasm_cpu_features_t *_cpu_features);
+
+wasm_cpu_features_t *wasm_cpu_features_new(void);
+
 /**
  * Unstable non-standard Wasmer-specific API to get the module's
  * name, otherwise `out->size` is set to `0` and `out->data` to
@@ -457,6 +472,32 @@ void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
  * ```
  */
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
+
+/**
+ * Delete a `wasm_target_t`.
+ *
+ * # Example
+ *
+ * See the module's documentation.
+ */
+void wasm_target_delete(wasm_target_t *_target);
+
+/**
+ * Createas a new `wasm_target_`.
+ *
+ * It takes ownership of `triple` and `cpu_features`.
+ *
+ * # Example
+ *
+ * See the module's documentation.
+ */
+wasm_target_t *wasm_target_new(wasm_triple_t *triple, wasm_cpu_features_t *cpu_features);
+
+void wasm_triple_delete(wasm_triple_t *_triple);
+
+wasm_triple_t *wasm_triple_new(const wasm_name_t *triple);
+
+wasm_triple_t *wasm_triple_new_from_host(void);
 
 /**
  * Gets the length in bytes of the last error if any, zero otherwise.
