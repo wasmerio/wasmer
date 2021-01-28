@@ -62,6 +62,48 @@
 #include <stdlib.h>
 #include "wasm.h"
 
+#if defined(WASMER_WASI_ENABLED)
+/**
+ * The version of WASI. This is determined by the imports namespace
+ * string.
+ */
+typedef enum {
+#if defined(WASMER_WASI_ENABLED)
+  /**
+   * An invalid version.
+   */
+  INVALID_VERSION = -1,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  /**
+   * Latest version.
+   *
+   * It's a “floating” version, i.e. it's an alias to the latest
+   * version (for the moment, `Snapshot1`). Using this version is a
+   * way to ensure that modules will run only if they come with the
+   * latest WASI version (in case of security issues for instance),
+   * by just updating the runtime.
+   *
+   * Note that this version is never returned by an API. It is
+   * provided only by the user.
+   */
+  LATEST = 0,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  /**
+   * `wasi_unstable`.
+   */
+  SNAPSHOT0 = 1,
+#endif
+#if defined(WASMER_WASI_ENABLED)
+  /**
+   * `wasi_snapshot_preview1`.
+   */
+  SNAPSHOT1 = 2,
+#endif
+} wasi_version_t;
+#endif
+
 #if defined(WASMER_COMPILER_ENABLED)
 /**
  * Kind of compilers that can be used by the engines.
@@ -118,10 +160,6 @@ typedef struct wasi_config_t wasi_config_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_env_t wasi_env_t;
-#endif
-
-#if defined(WASMER_WASI_ENABLED)
-typedef struct wasi_version_t wasi_version_t;
 #endif
 
 #ifdef __cplusplus

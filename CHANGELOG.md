@@ -20,6 +20,8 @@
 - [#2069](https://github.com/wasmerio/wasmer/pull/2069) Use the new documentation for `include/README.md` in the Wasmer package.
 - [#2042](https://github.com/wasmerio/wasmer/pull/2042) Parse more exotic environment variables in `wasmer run`.
 - [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.
+- [#2070](https://github.com/wasmerio/wasmer/pull/2070) Do not drain the entire captured stream at first read with `wasi_env_read_stdout` or `_stderr` in the C API.
+- [#2058](https://github.com/wasmerio/wasmer/pull/2058) Expose WASI versions to C correctly.
 - [#2044](https://github.com/wasmerio/wasmer/pull/2044) Do not build C headers on docs.rs.
 
 ## 1.0.1 - 2021-01-12

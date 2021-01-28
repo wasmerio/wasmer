@@ -2,10 +2,12 @@
 ifneq ($(OS), Windows_NT)
 	ARCH := $(shell uname -m)
 	UNAME_S := $(shell uname -s)
+	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
 else
 	# We can assume, if in windows it will likely be in x86_64
 	ARCH := x86_64
-	UNAME_S := 
+	UNAME_S :=
+	LIBC ?=
 endif
 
 # Which compilers we build. These have dependencies that may not be on the system.
@@ -38,14 +40,21 @@ ifeq ($(ARCH), x86_64)
 	test_compilers_engines += cranelift-jit
 	# LLVM could be enabled if not in Windows
 	ifneq ($(OS), Windows_NT)
-		# Native engine doesn't work on Windows yet.
-		test_compilers_engines += cranelift-native
+		ifneq ($(LIBC), musl)
+			# Native engine doesn't work on Windows and musl yet.
+			test_compilers_engines += cranelift-native
+		endif
 		# Singlepass doesn't work yet on Windows.
 		compilers += singlepass
 		# Singlepass doesn't work with the native engine.
 		test_compilers_engines += singlepass-jit
 		ifneq (, $(findstring llvm,$(compilers)))
-			test_compilers_engines += llvm-jit llvm-native
+			test_compilers_engines += llvm-jit
+
+			ifneq ($(LIBC), musl)
+				# Native engine doesn't work on musl yet.
+				test_compilers_engines += llvm-native
+			endif
 		endif
 	endif
 endif
@@ -79,9 +88,9 @@ compilers := $(filter-out ,$(compilers))
 test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
 ifneq ($(OS), Windows_NT)
-	bold := $(shell tput bold)
-	green := $(shell tput setaf 2)
-	reset := $(shell tput sgr0)
+	bold := $(shell tput bold 2>/dev/null || echo -n '')
+	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
+	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
 
@@ -89,6 +98,10 @@ compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
 compiler_features := --features "$(compiler_features_spaced)"
 
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+ifneq (, $(LIBC))
+$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+endif
 
 $(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
@@ -376,7 +389,10 @@ ifeq ($(UNAME_S), Darwin)
 	# Fix the rpath for the dylib
 	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
 else
-	cp target/release/libwasmer_c_api.so package/lib/libwasmer.so
+	# In some cases the .so may not be available, for example when building against musl (static linking)
+	if [ -f target/release/libwasmer_c_api.so ]; then \
+		cp target/release/libwasmer_c_api.so package/lib/libwasmer.so ;\
+	fi;
 	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
 endif
 endif

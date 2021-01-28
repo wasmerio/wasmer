@@ -147,7 +147,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 }
 
 #[test]
-#[cfg(not(any(windows, target_arch = "aarch64")))]
+#[cfg(not(any(windows, target_arch = "aarch64", target_env = "musl")))]
 fn test_engine_headless() -> Result<(), Box<dyn std::error::Error>> {
     main()
 }
