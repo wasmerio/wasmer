@@ -363,7 +363,7 @@ package-capi:
 	cp lib/c-api/wasmer.h* package/include
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
-	cp lib/c-api/doc/deprecated/index.md package/include/README.md
+	cp lib/c-api/README.md package/include/README.md
 ifeq ($(OS), Windows_NT)
 	cp target/release/wasmer_c_api.dll package/lib
 	cp target/release/wasmer_c_api.lib package/lib
