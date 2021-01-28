@@ -67,7 +67,13 @@
  * The version of WASI. This is determined by the imports namespace
  * string.
  */
-enum wasi_version_t {
+typedef enum {
+#if defined(WASMER_WASI_ENABLED)
+  /**
+   * An invalid version.
+   */
+  INVALID_VERSION = -1,
+#endif
 #if defined(WASMER_WASI_ENABLED)
   /**
    * Latest version.
@@ -95,14 +101,7 @@ enum wasi_version_t {
    */
   SNAPSHOT1 = 2,
 #endif
-#if defined(WASMER_WASI_ENABLED)
-  /**
-   * An invalid version. It matches `u32` maximum value.
-   */
-  INVALID_VERSION = 4294967295,
-#endif
-};
-typedef uint32_t wasi_version_t;
+} wasi_version_t;
 #endif
 
 #if defined(WASMER_COMPILER_ENABLED)
