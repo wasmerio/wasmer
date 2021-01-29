@@ -162,13 +162,108 @@ typedef struct wasi_config_t wasi_config_t;
 typedef struct wasi_env_t wasi_env_t;
 #endif
 
+/**
+ * Represents a set of CPU features.
+ *
+ * CPU features are identified by their stringified names. The
+ * reference is the GCC options:
+ *
+ * * <https://gcc.gnu.org/onlinedocs/gcc/x86-Options.html>,
+ * * <https://gcc.gnu.org/onlinedocs/gcc/ARM-Options.html>,
+ * * <https://gcc.gnu.org/onlinedocs/gcc/AArch64-Options.html>.
+ *
+ * At the time of writing this documentation (it might be outdated in
+ * the future), the supported features are the following:
+ *
+ * * `sse2`,
+ * * `sse3`,
+ * * `ssse3`,
+ * * `sse4.1`,
+ * * `sse4.2`,
+ * * `popcnt`,
+ * * `avx`,
+ * * `bmi`,
+ * * `bmi2`,
+ * * `avx2`,
+ * * `avx512dq`,
+ * * `avx512vl`,
+ * * `lzcnt`.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create a new CPU feature set.
+ *     wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();
+ *
+ *     // Create a new feature name, here `sse2`, and add it to the set.
+ *     {
+ *         wasm_byte_vec_t cpu_feature_name;
+ *         wasmer_byte_vec_new_from_string(&cpu_feature_name, "sse2");
+ *
+ *         wasm_cpu_features_add(cpu_features, (wasm_name_t*) &cpu_feature_name);
+ *
+ *         wasm_byte_vec_delete(&cpu_feature_name);
+ *     }
+ *
+ *     wasm_cpu_features_delete(cpu_features);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
+ */
 typedef struct wasm_cpu_features_t wasm_cpu_features_t;
 
 /**
  * Represents a triple + CPU features pair.
+ *
+ * # Example
+ *
+ * See the module's documentation.
  */
 typedef struct wasm_target_t wasm_target_t;
 
+/**
+ * A target “triple”.
+ *
+ * Historically such things had three fields, though they have added
+ * additional fields over time.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     wasm_byte_vec_t triple_name;
+ *     wasmer_byte_vec_new_from_string(&triple_name, "x86_64-apple-darwin");
+ *
+ *     wasm_triple_t* triple = wasm_triple_new((wasm_name_t*) &triple_name);
+ *     assert(triple);
+ *
+ *     wasm_triple_delete(triple);
+ *     wasm_byte_vec_delete(&triple_name);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
+ *
+ * See also [`wasm_triple_new_from_host`].
+ */
 typedef struct wasm_triple_t wasm_triple_t;
 
 #ifdef __cplusplus
@@ -346,10 +441,74 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
  */
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
+/**
+ * Updates the configuration to specify a particular target for the engine.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Create the configuration.
+ *     wasm_config_t* config = wasm_config_new();
+ *
+ *     // Set the target.
+ *     {
+ *         wasm_triple_t* triple = wasm_triple_new_from_host();
+ *         wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();
+ *         wasm_target_t* target = wasm_target_new(triple, cpu_features);
+ *
+ *         wasm_config_set_target(config, target);
+ *     }
+ *
+ *     // Create the engine.
+ *     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+ *
+ *     // Check we have an engine!
+ *     assert(engine);
+ *
+ *     // Free everything.
+ *     wasm_engine_delete(engine);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
+ */
+void wasm_config_set_target(wasm_config_t *config, wasm_target_t *target);
+
+/**
+ * Add a new CPU feature into the set represented by
+ * [`wasm_cpu_features_t`].
+ *
+ * # Example
+ *
+ * See [`wasm_cpu_features_t`].
+ */
 bool wasm_cpu_features_add(wasm_cpu_features_t *cpu_features, const wasm_name_t *feature);
 
+/**
+ * Delete a [`wasm_cpu_features_t`].
+ *
+ * # Example
+ *
+ * See [`wasm_cpu_features_t`].
+ */
 void wasm_cpu_features_delete(wasm_cpu_features_t *_cpu_features);
 
+/**
+ * Create a new [`wasm_cpu_features_t`].
+ *
+ * # Example
+ *
+ * See [`wasm_cpu_features_t`].
+ */
 wasm_cpu_features_t *wasm_cpu_features_new(void);
 
 /**
@@ -474,7 +633,7 @@ void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
 
 /**
- * Delete a `wasm_target_t`.
+ * Delete a [`wasm_target_t`].
  *
  * # Example
  *
@@ -483,7 +642,7 @@ bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
 void wasm_target_delete(wasm_target_t *_target);
 
 /**
- * Createas a new `wasm_target_`.
+ * Creates a new [`wasm_target_t`].
  *
  * It takes ownership of `triple` and `cpu_features`.
  *
@@ -493,10 +652,50 @@ void wasm_target_delete(wasm_target_t *_target);
  */
 wasm_target_t *wasm_target_new(wasm_triple_t *triple, wasm_cpu_features_t *cpu_features);
 
+/**
+ * Delete a [`wasm_triple_t`].
+ *
+ * # Example
+ *
+ * See [`wasm_triple_t`].
+ */
 void wasm_triple_delete(wasm_triple_t *_triple);
 
+/**
+ * Create a new [`wasm_triple_t`] based on a triple string.
+ *
+ * # Example
+ *
+ * See [`wasm_triple_t`] or [`wasm_triple_new_from_host`].
+ */
 wasm_triple_t *wasm_triple_new(const wasm_name_t *triple);
 
+/**
+ * Create the [`wasm_triple_t`] for the current host.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     wasm_triple_t* triple = wasm_triple_new_from_host();
+ *     assert(triple);
+ *
+ *     wasm_triple_delete(triple);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success();
+ * # }
+ * ```
+ *
+ * See also [`wasm_triple_new`].
+ */
 wasm_triple_t *wasm_triple_new_from_host(void);
 
 /**
