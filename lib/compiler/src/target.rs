@@ -8,9 +8,6 @@ pub use target_lexicon::{
     Triple,
 };
 
-#[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
-use raw_cpuid::CpuId;
-
 /// The nomenclature is inspired by the [`cpuid` crate].
 /// The list of supported features was initially retrieved from
 /// [`cranelift-native`].
@@ -39,6 +36,7 @@ pub enum CpuFeature {
     AVX2,
     AVX512DQ,
     AVX512VL,
+    AVX512F,
     LZCNT,
     // ARM features
     // Risc-V features
@@ -49,52 +47,48 @@ impl CpuFeature {
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         let mut features = EnumSet::new();
-        let cpuid = CpuId::new();
 
-        if let Some(info) = cpuid.get_feature_info() {
-            if info.has_sse2() {
-                features.insert(Self::SSE2);
-            }
-            if info.has_sse3() {
-                features.insert(Self::SSE3);
-            }
-            if info.has_ssse3() {
-                features.insert(Self::SSSE3);
-            }
-            if info.has_sse41() {
-                features.insert(Self::SSE41);
-            }
-            if info.has_sse42() {
-                features.insert(Self::SSE42);
-            }
-            if info.has_popcnt() {
-                features.insert(Self::POPCNT);
-            }
-            if info.has_avx() {
-                features.insert(Self::AVX);
-            }
+        if std::is_x86_feature_detected!("sse2") {
+            features.insert(Self::SSE2);
         }
-        if let Some(info) = cpuid.get_extended_feature_info() {
-            if info.has_bmi1() {
-                features.insert(Self::BMI1);
-            }
-            if info.has_bmi2() {
-                features.insert(Self::BMI2);
-            }
-            if info.has_avx2() {
-                features.insert(Self::AVX2);
-            }
-            if info.has_avx512dq() {
-                features.insert(Self::AVX512DQ);
-            }
-            if info.has_avx512vl() {
-                features.insert(Self::AVX512VL);
-            }
+        if std::is_x86_feature_detected!("sse3") {
+            features.insert(Self::SSE3);
         }
-        if let Some(info) = cpuid.get_extended_function_info() {
-            if info.has_lzcnt() {
-                features.insert(Self::LZCNT);
-            }
+        if std::is_x86_feature_detected!("ssse3") {
+            features.insert(Self::SSSE3);
+        }
+        if std::is_x86_feature_detected!("sse4.1") {
+            features.insert(Self::SSE41);
+        }
+        if std::is_x86_feature_detected!("sse4.2") {
+            features.insert(Self::SSE42);
+        }
+        if std::is_x86_feature_detected!("popcnt") {
+            features.insert(Self::POPCNT);
+        }
+        if std::is_x86_feature_detected!("avx") {
+            features.insert(Self::AVX);
+        }
+        if std::is_x86_feature_detected!("bmi1") {
+            features.insert(Self::BMI1);
+        }
+        if std::is_x86_feature_detected!("bmi2") {
+            features.insert(Self::BMI2);
+        }
+        if std::is_x86_feature_detected!("avx2") {
+            features.insert(Self::AVX2);
+        }
+        if std::is_x86_feature_detected!("avx512dq") {
+            features.insert(Self::AVX512DQ);
+        }
+        if std::is_x86_feature_detected!("avx512vl") {
+            features.insert(Self::AVX512VL);
+        }
+        if std::is_x86_feature_detected!("avx512f") {
+            features.insert(Self::AVX512F);
+        }
+        if std::is_x86_feature_detected!("lzcnt") {
+            features.insert(Self::LZCNT);
         }
         features
     }
@@ -135,6 +129,7 @@ impl FromStr for CpuFeature {
             "avx2" => Ok(Self::AVX2),
             "avx512dq" => Ok(Self::AVX512DQ),
             "avx512vl" => Ok(Self::AVX512VL),
+            "avx512f" => Ok(Self::AVX512F),
             "lzcnt" => Ok(Self::LZCNT),
             _ => Err(ParseCpuFeatureError::Missing(s.to_string())),
         }
@@ -156,6 +151,7 @@ impl ToString for CpuFeature {
             Self::AVX2 => "avx2",
             Self::AVX512DQ => "avx512dq",
             Self::AVX512VL => "avx512vl",
+            Self::AVX512F => "avx512f",
             Self::LZCNT => "lzcnt",
         }
         .to_string()

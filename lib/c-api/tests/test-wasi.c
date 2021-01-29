@@ -58,6 +58,7 @@ int main(int argc, const char* argv[]) {
   const char* js_string = "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));";
   wasi_config_arg(config, "--eval");
   wasi_config_arg(config, js_string);
+  wasi_config_capture_stdout(config);
 
   wasi_env_t* wasi_env = wasi_env_new(config);
   if (!wasi_env) {
@@ -125,16 +126,35 @@ int main(int argc, const char* argv[]) {
     return 1;
   }
 
-  char buffer[BUF_SIZE] = { 0 };
-  size_t result = BUF_SIZE;
-  for (size_t i = 0;
-       // TODO: this code is too clever, make the control flow more obvious here
-       result == BUF_SIZE &&
-               (result = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE));
-       ++i) {
-     printf("%.*s", BUF_SIZE, buffer);
+  {
+    FILE *memory_stream;
+    char* stdout;
+    size_t stdout_size = 0;
+
+    memory_stream = open_memstream(&stdout, &stdout_size);
+
+    if (NULL == memory_stream) {
+      printf("> Error creating a memory stream.\n");
+      return 1;
+    }
+
+    char buffer[BUF_SIZE] = { 0 };
+    size_t data_read_size = BUF_SIZE;
+
+    do {
+      data_read_size = wasi_env_read_stdout(wasi_env, buffer, BUF_SIZE);
+
+      if (data_read_size > 0) {
+        stdout_size += data_read_size;
+        fwrite(buffer, sizeof(char), data_read_size, memory_stream);
+      }
+    } while (BUF_SIZE == data_read_size);
+
+    fclose(memory_stream);
+
+    printf("WASI Stdout: `%.*s`\n", (int) stdout_size, stdout);
   }
-  printf("\n");
+
 
   wasm_extern_vec_delete(&exports);
   wasm_extern_vec_delete(&imports);
