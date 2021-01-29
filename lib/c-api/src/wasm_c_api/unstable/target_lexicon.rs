@@ -65,6 +65,7 @@ use wasmer_compiler::{CpuFeature, Target, Triple};
 /// # Example
 ///
 /// See the module's documentation.
+#[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasm_target_t {
     pub(crate) inner: Target,
