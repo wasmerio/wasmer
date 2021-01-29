@@ -378,8 +378,8 @@ package-capi:
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
 ifeq ($(OS), Windows_NT)
-	cp target/release/wasmer_c_api.dll package/lib
-	cp target/release/wasmer_c_api.lib package/lib
+	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
+	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
 else
 ifeq ($(UNAME_S), Darwin)
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
