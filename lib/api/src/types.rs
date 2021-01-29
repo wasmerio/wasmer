@@ -42,6 +42,13 @@ pub trait ValFuncRef {
     ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError>;
 
     fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self;
+
+    fn into_table_reference(
+        &self,
+        store: &Store,
+    ) -> Result<wasmer_vm::TableReference, RuntimeError>;
+
+    fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self;
 }
 
 impl ValFuncRef for Val {
@@ -90,5 +97,34 @@ impl ValFuncRef for Val {
         };
         let f = Function::from_vm_export(store, export);
         Self::FuncRef(f)
+    }
+
+    fn into_table_reference(
+        &self,
+        store: &Store,
+    ) -> Result<wasmer_vm::TableReference, RuntimeError> {
+        if !self.comes_from_same_store(store) {
+            return Err(RuntimeError::new("cross-`Store` values are not supported"));
+        }
+        Ok(match self {
+            Self::ExternRef(ExternRef::Null) => wasmer_vm::TableReference::FuncRef(wasmer_vm::VMCallerCheckedAnyfunc {
+                func_ptr: ptr::null(),
+                type_index: wasmer_vm::VMSharedSignatureIndex::default(),
+                vmctx: wasmer_vm::VMFunctionEnvironment {
+                    host_env: ptr::null_mut(),
+                },
+            }),
+            // existing code uses `ExtenRef` for null pointers
+            //todo!("extern ref not yet supported"),
+            Self::FuncRef(f) => wasmer_vm::TableReference::FuncRef(f.checked_anyfunc()),
+            _ => return Err(RuntimeError::new("val is not reference")),
+        })
+    }
+
+    fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self {
+        match item {
+            wasmer_vm::TableReference::FuncRef(f) => Self::from_checked_anyfunc(f, store),
+            wasmer_vm::TableReference::ExternRef(_f) => todo!("extern ref not yet implemented"), //Self::ExternRef(f.from_checked_anyfunc(store)),
+        }
     }
 }

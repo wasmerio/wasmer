@@ -17,7 +17,7 @@ use crate::export::VMExport;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
-use crate::table::Table;
+use crate::table::{Table, TableReference};
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
@@ -528,11 +528,7 @@ impl Instance {
     }
 
     /// Get table element by index.
-    fn table_get(
-        &self,
-        table_index: LocalTableIndex,
-        index: u32,
-    ) -> Option<VMCallerCheckedAnyfunc> {
+    fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
         self.tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
@@ -544,7 +540,7 @@ impl Instance {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-        val: VMCallerCheckedAnyfunc,
+        val: TableReference,
     ) -> Result<(), Trap> {
         self.tables
             .get(table_index)
@@ -613,7 +609,7 @@ impl Instance {
 
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
-                .set(dst, elem[src as usize].clone())
+                .set(dst, TableReference::FuncRef(elem[src as usize].clone()))
                 .expect("should never panic because we already did the bounds check above");
         }
 
@@ -1097,11 +1093,7 @@ impl InstanceHandle {
     /// Get table element reference.
     ///
     /// Returns `None` if index is out of bounds.
-    pub fn table_get(
-        &self,
-        table_index: LocalTableIndex,
-        index: u32,
-    ) -> Option<VMCallerCheckedAnyfunc> {
+    pub fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
         self.instance().as_ref().table_get(table_index, index)
     }
 
@@ -1112,7 +1104,7 @@ impl InstanceHandle {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-        val: VMCallerCheckedAnyfunc,
+        val: TableReference,
     ) -> Result<(), Trap> {
         self.instance().as_ref().table_set(table_index, index, val)
     }
@@ -1290,7 +1282,10 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
         for (i, func_idx) in init.elements.iter().enumerate() {
             let anyfunc = instance.get_caller_checked_anyfunc(*func_idx);
             table
-                .set(u32::try_from(start + i).unwrap(), anyfunc)
+                .set(
+                    u32::try_from(start + i).unwrap(),
+                    TableReference::FuncRef(anyfunc),
+                )
                 .unwrap();
         }
     }
