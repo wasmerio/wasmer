@@ -43,6 +43,8 @@ members = [
     "lib/engine-jit",
     "lib/engine-native",
     "lib/engine-object-file",
+    "lib/memory",
+    "lib/memory/derive",
     "lib/object",
     "lib/vm",
     "lib/wasi",

@@ -1,0 +1,16 @@
+[package]
+name = "wasmer-memory-derive"
+version = "1.0.1"
+description = "Memory profiling tool for Rust"
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+edition = "2018"
+
+[dependencies]
+syn = { version = "1", features = ["full"] }
+quote = "1"
+wasmer-memory = { path = "..", version = "1.0.1" }
+
+[lib]
+proc-macro = true
+

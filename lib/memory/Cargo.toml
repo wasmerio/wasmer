@@ -1,0 +1,13 @@
+[package]
+name = "wasmer-memory"
+version = "1.0.1"
+description = "Memory profiling tool for Rust"
+repository = "https://github.com/wasmerio/wasmer"
+license = "MIT"
+edition = "2018"
+
+[target.'cfg(target_os = "windows")'.dependencies]
+winapi = "0.3"
+
+[target.'cfg(not(target_os = "windows"))'.dependencies]
+libc = { version = "^0.2", default-features = false }
