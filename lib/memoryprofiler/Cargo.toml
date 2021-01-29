@@ -1,5 +1,5 @@
 [package]
-name = "wasmer-memory"
+name = "wasmer-memoryprofiler"
 version = "1.0.1"
 description = "Memory profiling tool for Rust"
 repository = "https://github.com/wasmerio/wasmer"

@@ -1,5 +1,5 @@
-use wasmer_memory::r#trait::MemoryUsage;
-use wasmer_memory_derive::MemoryUsage;
+use wasmer_memoryprofiler::r#trait::MemoryUsage;
+use wasmer_memoryprofiler_derive::MemoryUsage;
 
 #[derive(MemoryUsage)]
 pub struct Point {
