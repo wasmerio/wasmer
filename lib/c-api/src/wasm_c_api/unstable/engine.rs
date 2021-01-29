@@ -1,3 +1,6 @@
+//! Unstable non-standard Wasmer-specific types for the
+//! `wasm_engine_t` and siblings.
+
 use super::super::engine::wasm_config_t;
 use super::target_lexicon::wasm_target_t;
 
