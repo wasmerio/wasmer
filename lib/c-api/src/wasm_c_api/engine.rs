@@ -259,7 +259,7 @@ pub struct wasm_engine_t {
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 #[cfg(feature = "compiler")]
-pub(crate) fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
+fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
         if #[cfg(feature = "cranelift")] {
             Box::new(wasmer_compiler_cranelift::Cranelift::default())
