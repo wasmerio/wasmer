@@ -13,6 +13,7 @@ use inkwell::{
 };
 use wasmer_compiler::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
+use wasmer_vm::VMOffsets;
 
 use std::convert::TryInto;
 
@@ -45,6 +46,7 @@ impl Abi for X86_64SystemV {
         &self,
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
+        offsets: Option<&VMOffsets>,
         sig: &FuncSig,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
@@ -60,7 +62,15 @@ impl Abi for X86_64SystemV {
                     AttributeLoc::Param(i),
                 ),
                 (
-                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0),
+                    if let Some(offsets) = offsets {
+                        context.create_enum_attribute(
+                            Attribute::get_named_enum_kind_id("dereferenceable"),
+                            offsets.size_of_vmctx().into(),
+                        )
+                    } else {
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0)
+                    },
                     AttributeLoc::Param(i),
                 ),
                 (

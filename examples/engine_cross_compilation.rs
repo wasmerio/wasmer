@@ -102,7 +102,8 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
 #[cfg(not(any(
     windows,
     // We don't support yet crosscompilation in macOS with Apple Silicon
-    all(target_os = "macos", target_arch = "aarch64")
+    all(target_os = "macos", target_arch = "aarch64"),
+    target_env = "musl",
 )))]
 fn test_cross_compilation() -> Result<(), Box<dyn std::error::Error>> {
     main()

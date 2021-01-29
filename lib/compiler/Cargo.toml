@@ -22,9 +22,6 @@ thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6" 
 
-[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
-raw-cpuid = "9.0"
-
 [features]
 default = ["std", "enable-serde"]
 # This feature is for compiler implementors, it enables using `Compiler` and

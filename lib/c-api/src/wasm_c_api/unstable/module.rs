@@ -1,13 +1,14 @@
-//! Non-standard Wasmer-specific extensions to the Wasm C API.
+//! Unstable non-standard Wasmer-specific extensions to the Wasm C API.
 
-use super::module::wasm_module_t;
-use super::types::wasm_name_t;
+use super::super::module::wasm_module_t;
+use super::super::types::wasm_name_t;
 use std::ptr;
 use std::str;
 use std::sync::Arc;
 
-/// Non-standard Wasmer-specific API to get the module's name,
-/// otherwise `out->size` is set to `0` and `out->data` to `NULL`.
+/// Unstable non-standard Wasmer-specific API to get the module's
+/// name, otherwise `out->size` is set to `0` and `out->data` to
+/// `NULL`.
 ///
 /// # Example
 ///
@@ -72,9 +73,9 @@ pub unsafe extern "C" fn wasm_module_name(
     *out = name.as_bytes().to_vec().into();
 }
 
-/// Non-standard Wasmer-specific API to set the module's name. The
-/// function returns `true` if the name has been updated, `false`
-/// otherwise.
+/// Unstable non-standard Wasmer-specific API to set the module's
+/// name. The function returns `true` if the name has been updated,
+/// `false` otherwise.
 ///
 /// # Example
 ///

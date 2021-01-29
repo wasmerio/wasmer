@@ -13,6 +13,7 @@ use super::{
 // required due to really weird Rust resolution rules for macros
 // https://github.com/rust-lang/rust/issues/57966
 use crate::error::{update_last_error, CApiError};
+use std::cmp::min;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -275,33 +276,55 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 
 fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
     if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
-        let mut num_bytes_written = 0;
-        for (address, value) in inner_buffer.iter_mut().zip(oc.buffer.drain(..)) {
+        let total_to_read = min(inner_buffer.len(), oc.buffer.len());
+
+        for (address, value) in inner_buffer
+            .iter_mut()
+            .zip(oc.buffer.drain(..total_to_read))
+        {
             *address = value;
-            num_bytes_written += 1;
         }
-        num_bytes_written
+
+        total_to_read as isize
     } else {
         -1
     }
 }
 
+/// The version of WASI. This is determined by the imports namespace
+/// string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasi_version_t {
-    Latest = 0,
-    Snapshot0 = 1,
-    Snapshot1 = 2,
-    InvalidVersion = u32::max_value(),
+    /// An invalid version.
+    INVALID_VERSION = -1,
+
+    /// Latest version.
+    ///
+    /// It's a “floating” version, i.e. it's an alias to the latest
+    /// version (for the moment, `Snapshot1`). Using this version is a
+    /// way to ensure that modules will run only if they come with the
+    /// latest WASI version (in case of security issues for instance),
+    /// by just updating the runtime.
+    ///
+    /// Note that this version is never returned by an API. It is
+    /// provided only by the user.
+    LATEST = 0,
+
+    /// `wasi_unstable`.
+    SNAPSHOT0 = 1,
+
+    /// `wasi_snapshot_preview1`.
+    SNAPSHOT1 = 2,
 }
 
 impl From<WasiVersion> for wasi_version_t {
     fn from(other: WasiVersion) -> Self {
         match other {
-            WasiVersion::Snapshot0 => wasi_version_t::Snapshot0,
-            WasiVersion::Snapshot1 => wasi_version_t::Snapshot1,
-            WasiVersion::Latest => wasi_version_t::Latest,
+            WasiVersion::Snapshot0 => wasi_version_t::SNAPSHOT0,
+            WasiVersion::Snapshot1 => wasi_version_t::SNAPSHOT1,
+            WasiVersion::Latest => wasi_version_t::LATEST,
         }
     }
 }
@@ -311,10 +334,10 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 
     fn try_from(other: wasi_version_t) -> Result<Self, Self::Error> {
         Ok(match other {
-            wasi_version_t::Snapshot0 => WasiVersion::Snapshot0,
-            wasi_version_t::Snapshot1 => WasiVersion::Snapshot1,
-            wasi_version_t::Latest => WasiVersion::Latest,
-            wasi_version_t::InvalidVersion => return Err("Invalid WASI version cannot be used"),
+            wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
+            wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
+            wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
+            wasi_version_t::LATEST => WasiVersion::Latest,
         })
     }
 }
@@ -323,7 +346,7 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_version_t {
     get_wasi_version(&module.inner, false)
         .map(Into::into)
-        .unwrap_or(wasi_version_t::InvalidVersion)
+        .unwrap_or(wasi_version_t::INVALID_VERSION)
 }
 
 /// Takes ownership of `wasi_env_t`.
@@ -396,3 +419,101 @@ pub unsafe extern "C" fn wasi_get_start_function(
 /// cbindgen:ignore
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot0() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot1() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT1);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_invalid() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == INVALID_VERSION);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}
