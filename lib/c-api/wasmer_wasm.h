@@ -204,12 +204,12 @@ typedef struct wasi_env_t wasi_env_t;
  *
  *     // Create a new feature name, here `sse2`, and add it to the set.
  *     {
- *         wasm_byte_vec_t cpu_feature_name;
- *         wasmer_byte_vec_new_from_string(&cpu_feature_name, "sse2");
+ *         wasm_name_t cpu_feature_name;
+ *         wasm_name_new_from_string(&cpu_feature_name, "sse2");
  *
- *         wasm_cpu_features_add(cpu_features, (wasm_name_t*) &cpu_feature_name);
+ *         wasm_cpu_features_add(cpu_features, &cpu_feature_name);
  *
- *         wasm_byte_vec_delete(&cpu_feature_name);
+ *         wasm_name_delete(&cpu_feature_name);
  *     }
  *
  *     wasm_cpu_features_delete(cpu_features);
@@ -249,14 +249,14 @@ typedef struct wasm_target_t wasm_target_t;
  * # #include "tests/wasmer_wasm.h"
  * #
  * int main() {
- *     wasm_byte_vec_t triple_name;
- *     wasmer_byte_vec_new_from_string(&triple_name, "x86_64-apple-darwin");
+ *     wasm_name_t triple_name;
+ *     wasm_name_new_from_string(&triple_name, "x86_64-apple-darwin");
  *
- *     wasm_triple_t* triple = wasm_triple_new((wasm_name_t*) &triple_name);
+ *     wasm_triple_t* triple = wasm_triple_new(&triple_name);
  *     assert(triple);
  *
  *     wasm_triple_delete(triple);
- *     wasm_byte_vec_delete(&triple_name);
+ *     wasm_name_delete(&triple_name);
  *
  *     return 0;
  * }
