@@ -1,7 +1,8 @@
 use super::super::engine::wasm_config_t;
 use super::target_lexicon::wasm_target_t;
 
-/// Updates the configuration to specify a particular target for the engine.
+/// Unstable non-standard Wasmer-specific API to update the
+/// configuration to specify a particular target for the engine.
 ///
 /// # Example
 ///

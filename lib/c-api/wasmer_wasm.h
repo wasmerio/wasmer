@@ -163,7 +163,8 @@ typedef struct wasi_env_t wasi_env_t;
 #endif
 
 /**
- * Represents a set of CPU features.
+ * Unstable non-standard Wasmer-specific API to represent a set of
+ * CPU features.
  *
  * CPU features are identified by their stringified names. The
  * reference is the GCC options:
@@ -223,7 +224,8 @@ typedef struct wasi_env_t wasi_env_t;
 typedef struct wasm_cpu_features_t wasm_cpu_features_t;
 
 /**
- * Represents a triple + CPU features pair.
+ * Unstable non-standard Wasmer-specific API to represent a triple +
+ * CPU features pair.
  *
  * # Example
  *
@@ -232,7 +234,8 @@ typedef struct wasm_cpu_features_t wasm_cpu_features_t;
 typedef struct wasm_target_t wasm_target_t;
 
 /**
- * A target “triple”.
+ * Unstable non-standard Wasmer-specific API to represent a target
+ * “triple”.
  *
  * Historically such things had three fields, though they have added
  * additional fields over time.
@@ -442,7 +445,8 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
 /**
- * Updates the configuration to specify a particular target for the engine.
+ * Unstable non-standard Wasmer-specific API to update the
+ * configuration to specify a particular target for the engine.
  *
  * # Example
  *

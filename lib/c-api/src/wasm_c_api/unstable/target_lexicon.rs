@@ -1,4 +1,5 @@
-//! Contains everything to create a target with a triple and CPU features.
+//! Unstable non-standard Wasmer-specific API that contains everything
+//! to create a target with a triple and CPU features.
 //!
 //! This is useful for cross-compilation.
 //!
@@ -60,7 +61,8 @@ use std::slice;
 use std::str::FromStr;
 use wasmer_compiler::{CpuFeature, Target, Triple};
 
-/// Represents a triple + CPU features pair.
+/// Unstable non-standard Wasmer-specific API to represent a triple +
+/// CPU features pair.
 ///
 /// # Example
 ///
@@ -99,7 +101,8 @@ pub unsafe extern "C" fn wasm_target_new(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
 
-/// A target “triple”.
+/// Unstable non-standard Wasmer-specific API to represent a target
+/// “triple”.
 ///
 /// Historically such things had three fields, though they have added
 /// additional fields over time.
@@ -195,7 +198,8 @@ pub unsafe extern "C" fn wasm_triple_new_from_host() -> Box<wasm_triple_t> {
 #[no_mangle]
 pub unsafe extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
 
-/// Represents a set of CPU features.
+/// Unstable non-standard Wasmer-specific API to represent a set of
+/// CPU features.
 ///
 /// CPU features are identified by their stringified names. The
 /// reference is the GCC options:
