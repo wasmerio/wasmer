@@ -80,35 +80,37 @@ impl MemoryUsage for usize {
 // references
 impl<T: MemoryUsage> MemoryUsage for &T {
     fn size_of(&self) -> usize {
-        (**self).size_of()
+        std::mem::size_of::<&T>()
     }
 }
 impl<T: MemoryUsage> MemoryUsage for &mut T {
     fn size_of(&self) -> usize {
-        (**self).size_of()
+        std::mem::size_of::<&mut T>()
     }
 }
 
 // slices
 impl<T: MemoryUsage> MemoryUsage for [T] {
     fn size_of(&self) -> usize {
-        self.iter().map(MemoryUsage::size_of).sum()
+        std::mem::size_of::<[T; 0]>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
     }
 }
 
 // arrays
 impl<T: MemoryUsage, const N: usize> MemoryUsage for [T; N] {
     fn size_of(&self) -> usize {
-        self.iter().map(MemoryUsage::size_of).sum()
+        std::mem::size_of::<[T; N]>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
     }
 }
 
 // strs
+/*
 impl MemoryUsage for str {
     fn size_of(&self) -> usize {
         self.as_bytes().size_of()
     }
 }
+*/
 
 // TODO: tuples
 
@@ -131,7 +133,7 @@ impl MemoryUsage for str {
 
 impl<T: MemoryUsage> MemoryUsage for Option<T> {
     fn size_of(&self) -> usize {
-        std::mem::size_of::<Option<()>>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
+        std::mem::size_of::<Option<T>>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
     }
 }
 
@@ -139,7 +141,7 @@ impl<T: MemoryUsage> MemoryUsage for Option<T> {
 
 // TODO: Ref, RefCell, RefMut
 
-//impl<T: MemoryUsage> MemoryUsage for Result<T> {
+//impl<T: MemoryUsage, E: MemoryUsage> MemoryUsage for Result<T, E> {
 //}
 
 // TODO: RwLock
@@ -150,7 +152,7 @@ impl<T: MemoryUsage> MemoryUsage for Option<T> {
 
 impl<T: MemoryUsage> MemoryUsage for Vec<T> {
     fn size_of(&self) -> usize {
-        std::mem::size_of::<Vec<()>>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
+        std::mem::size_of::<Vec<T>>() + self.iter().map(MemoryUsage::size_of).sum::<usize>()
     }
 }
 

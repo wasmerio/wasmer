@@ -1,5 +1,5 @@
 extern crate proc_macro;
-use quote::quote;
+use quote::{quote, quote_spanned};
 use syn::*;
 
 #[proc_macro_derive(MemoryUsage)]
@@ -34,7 +34,8 @@ fn derive_memory_usage_struct(
             .iter()
             .map(|field| {
                 let id = field.ident.as_ref().unwrap();
-                quote! { MemoryUsage::size_of(&self.#id) }
+                let span = id.span();
+                quote_spanned! ( span=>MemoryUsage::size_of(&self.#id) )
             })
             .collect(),
         Fields::Unit => vec![],
