@@ -762,6 +762,17 @@ pub struct VMCallerCheckedAnyfunc {
     // If more elements are added here, remember to add offset_of tests below!
 }
 
+impl VMCallerCheckedAnyfunc {
+    /// Check if this anyfunc is a null funcref.
+    // TODO: we probably want to clean this up before shipping, maybe actually add
+    // an extra layer of indirection
+    pub fn is_null(&self) -> bool {
+        self.func_ptr == std::ptr::null()
+            && self.type_index == VMSharedSignatureIndex::default()
+            && self.vmctx.is_null()
+    }
+}
+
 #[cfg(test)]
 mod test_vmcaller_checked_anyfunc {
     use super::VMCallerCheckedAnyfunc;

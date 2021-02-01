@@ -31,7 +31,7 @@ pub enum Value<T> {
     ExternRef(ExternRef),
 
     /// A first-class reference to a WebAssembly function.
-    FuncRef(T),
+    FuncRef(Option<T>),
 
     /// A 128-bit number
     V128(u128),
@@ -120,7 +120,7 @@ impl<T> Value<T> {
         (I64(i64) i64 unwrap_i64 *e)
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
-        (FuncRef(&T) funcref unwrap_funcref e)
+        (FuncRef(&Option<T>) funcref unwrap_funcref e)
         (V128(u128) v128 unwrap_v128 *e)
     }
 

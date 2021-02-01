@@ -118,7 +118,7 @@ fn main() -> anyhow::Result<()> {
     );
     // Now demonstarte that the function we grew the table with is actually in the table.
     for table_index in 3..6 {
-        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(table_index as _).unwrap() {
             let result = f.call(&[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
@@ -140,7 +140,7 @@ fn main() -> anyhow::Result<()> {
     // Now demonstrate that the host and guest see the same table and that both
     // get the same result.
     for table_index in 3..6 {
-        if let Value::FuncRef(f) = guest_table.get(table_index as _).unwrap() {
+        if let Value::FuncRef(Some(f)) = guest_table.get(table_index as _).unwrap() {
             let result = f.call(&[Value::I32(1), Value::I32(9)])?;
             assert_eq!(result[0], Value::I32(10));
         } else {
