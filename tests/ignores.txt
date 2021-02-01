@@ -34,6 +34,45 @@ cranelift::spec::simd::simd_i8x16_sat_arith on aarch64
 cranelift::spec::simd::simd_lane on aarch64
 cranelift::spec::skip_stack_guard_page on aarch64
 
+
+# Reference types spectests
+cranelift::spec::ref_func
+cranelift::spec::ref_is_null
+cranelift::spec::ref_null
+cranelift::spec::table_copy
+cranelift::spec::table_fill
+cranelift::spec::table_get
+cranelift::spec::table_grow
+cranelift::spec::table_init
+cranelift::spec::table_set
+cranelift::spec::table_size
+cranelift::spec::table_sub
+
+singlepass::spec::ref_func
+singlepass::spec::ref_is_null
+singlepass::spec::ref_null
+singlepass::spec::table_copy
+singlepass::spec::table_fill
+singlepass::spec::table_get
+singlepass::spec::table_grow
+singlepass::spec::table_init
+singlepass::spec::table_set
+singlepass::spec::table_size
+singlepass::spec::table_sub
+
+llvm::spec::ref_func
+llvm::spec::ref_is_null
+llvm::spec::ref_null
+llvm::spec::table_copy
+llvm::spec::table_fill
+llvm::spec::table_get
+llvm::spec::table_grow
+llvm::spec::table_init
+llvm::spec::table_set
+llvm::spec::table_size
+llvm::spec::table_sub
+
+
 # Frontends
 
 ## WASI
