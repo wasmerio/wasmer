@@ -171,7 +171,9 @@ pub struct wasi_env_t {
     inner: WasiEnv,
 }
 
-/// Takes ownership over the `wasi_config_t`.
+/// Create a new WASI environment.
+///
+/// It take ownership over the `wasi_config_t`.
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
     if !config.inherit_stdout {
@@ -195,6 +197,7 @@ pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<was
     }))
 }
 
+/// Delete a [`wasi_env_t`].
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
@@ -346,6 +349,8 @@ pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_v
 /// two `wasm_name_t` respectively for the module name and the name of
 /// the extern (very likely to be an import). This non-standard type
 /// is used by the non-standard `wasi_get_unordered_imports` function.
+///
+/// The `module`, `name` and `extern` fields are all owned by this type.
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub struct wasm_named_extern_t {
@@ -358,22 +363,34 @@ wasm_declare_boxed_vec!(named_extern);
 
 /// Non-standard function to get the module name of a
 /// `wasm_named_extern_t`.
+///
+/// The returned value isn't owned by the caller.
 #[no_mangle]
-pub extern "C" fn wasm_named_extern_module(named_extern: &wasm_named_extern_t) -> &wasm_name_t {
-    named_extern.module.as_ref()
+pub extern "C" fn wasm_named_extern_module(
+    named_extern: Option<&wasm_named_extern_t>,
+) -> Option<&wasm_name_t> {
+    Some(named_extern?.module.as_ref())
 }
 
 /// Non-standard function to get the name of a `wasm_named_extern_t`.
+///
+/// The returned value isn't owned by the caller.
 #[no_mangle]
-pub extern "C" fn wasm_named_extern_name(named_extern: &wasm_named_extern_t) -> &wasm_name_t {
-    named_extern.name.as_ref()
+pub extern "C" fn wasm_named_extern_name(
+    named_extern: Option<&wasm_named_extern_t>,
+) -> Option<&wasm_name_t> {
+    Some(named_extern?.name.as_ref())
 }
 
 /// Non-standard function to get the wrapped extern of a
 /// `wasm_named_extern_t`.
+///
+/// The returned value isn't owned by the caller.
 #[no_mangle]
-pub extern "C" fn wasm_named_extern_unwrap(named_extern: &wasm_named_extern_t) -> &wasm_extern_t {
-    named_extern.r#extern.as_ref()
+pub extern "C" fn wasm_named_extern_unwrap(
+    named_extern: Option<&wasm_named_extern_t>,
+) -> Option<&wasm_extern_t> {
+    Some(named_extern?.r#extern.as_ref())
 }
 
 /// Non-standard function to get the imports needed for the WASI
@@ -384,20 +401,24 @@ pub extern "C" fn wasm_named_extern_unwrap(named_extern: &wasm_named_extern_t) -
 /// This function takes ownership of `wasm_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_unordered_imports(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<Box<wasi_env_t>>,
     imports: &mut wasm_named_extern_vec_t,
 ) -> bool {
     wasi_get_unordered_imports_inner(store, module, wasi_env, imports).is_some()
 }
 
 unsafe fn wasi_get_unordered_imports_inner(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<Box<wasi_env_t>>,
     imports: &mut wasm_named_extern_vec_t,
 ) -> Option<()> {
+    let store = store?;
+    let module = module?;
+    let wasi_env = wasi_env?;
+
     let store = &store.inner;
 
     let version = c_try!(
@@ -436,9 +457,9 @@ unsafe fn wasi_get_unordered_imports_inner(
 /// This function takes ownership of `wasm_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<Box<wasi_env_t>>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
     wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
@@ -446,11 +467,15 @@ pub unsafe extern "C" fn wasi_get_imports(
 
 /// Takes ownership of `wasi_env_t`.
 unsafe fn wasi_get_imports_inner(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<Box<wasi_env_t>>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
+    let store = store?;
+    let module = module?;
+    let wasi_env = wasi_env?;
+
     let store = &store.inner;
 
     let version = c_try!(
@@ -491,9 +516,10 @@ unsafe fn wasi_get_imports_inner(
 pub unsafe extern "C" fn wasi_get_start_function(
     instance: &mut wasm_instance_t,
 ) -> Option<Box<wasm_func_t>> {
-    let f = c_try!(instance.inner.exports.get_function("_start"));
+    let start = c_try!(instance.inner.exports.get_function("_start"));
+
     Some(Box::new(wasm_func_t {
-        inner: f.clone(),
+        inner: start.clone(),
         instance: Some(instance.inner.clone()),
     }))
 }
