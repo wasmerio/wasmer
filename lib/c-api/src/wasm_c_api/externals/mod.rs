@@ -21,11 +21,6 @@ pub struct wasm_extern_t {
 wasm_declare_boxed_vec!(extern);
 
 /// Copy a `wasm_extern_t`.
-///
-/// # Example
-///
-/// ```rust
-/// ```
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_extern_t> {
     Box::new(r#extern.clone())
