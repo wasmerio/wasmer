@@ -205,6 +205,8 @@ pub trait Emitter {
     fn emit_call_label(&mut self, label: Self::Label);
     fn emit_call_location(&mut self, loc: Location);
 
+    fn emit_call_register(&mut self, reg: GPR);
+
     fn emit_bkpt(&mut self);
 
     fn emit_host_redirection(&mut self, target: GPR);
@@ -1387,6 +1389,10 @@ impl Emitter for Assembler {
             Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
             _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
+    }
+
+    fn emit_call_register(&mut self, reg: GPR) {
+        dynasm!(self ; call Rq(reg as u8));
     }
 
     fn emit_bkpt(&mut self) {
