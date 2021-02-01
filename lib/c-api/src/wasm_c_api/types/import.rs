@@ -50,9 +50,9 @@ impl From<ImportType> for wasm_importtype_t {
 
 impl From<&ImportType> for wasm_importtype_t {
     fn from(other: &ImportType) -> Self {
-        let module = Box::new(other.module().to_string().into());
-        let name = Box::new(other.name().to_string().into());
-        let extern_type = Box::new(other.ty().into());
+        let module: Box<wasm_name_t> = Box::new(other.module().to_string().into());
+        let name: Box<wasm_name_t> = Box::new(other.name().to_string().into());
+        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
         wasm_importtype_t {
             module,

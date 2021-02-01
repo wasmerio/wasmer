@@ -42,8 +42,8 @@ impl From<ExportType> for wasm_exporttype_t {
 
 impl From<&ExportType> for wasm_exporttype_t {
     fn from(other: &ExportType) -> Self {
-        let name = Box::new(other.name().to_string().into());
-        let extern_type = Box::new(other.ty().into());
+        let name: Box<wasm_name_t> = Box::new(other.name().to_string().into());
+        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
         wasm_exporttype_t { name, extern_type }
     }
