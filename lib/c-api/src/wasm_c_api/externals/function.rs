@@ -105,7 +105,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     #[repr(C)]
     struct WrapperEnv {
         env: *mut c_void,
-        finalizer: Option<wasm_env_finalizer_t>,
+        finalizer: Arc<Option<wasm_env_finalizer_t>>,
     };
 
     // Only relevant when using multiple threads in the C API;
@@ -115,8 +115,13 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
-            if let Some(finalizer) = self.finalizer {
-                unsafe { (finalizer)(self.env as _) }
+            if let Some(finalizer) = Arc::get_mut(&mut self.finalizer)
+                .map(Option::take)
+                .flatten()
+            {
+                if !self.env.is_null() {
+                    unsafe { (finalizer)(self.env as _) }
+                }
             }
         }
     }
@@ -160,7 +165,10 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let function = Function::new_with_env(
         &store.inner,
         func_sig,
-        WrapperEnv { env, finalizer },
+        WrapperEnv {
+            env,
+            finalizer: Arc::new(finalizer),
+        },
         inner_callback,
     );
 
