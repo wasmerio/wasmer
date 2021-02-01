@@ -24,7 +24,7 @@ itertools = "0.9"
 rayon = "1.5"
 
 [dependencies.inkwell]
-version = "=0.1.0-llvm10sample"
+version = "=0.1.0-beta.2"
 default-features = false
 features = ["llvm10-0", "target-x86", "target-aarch64"]
 
