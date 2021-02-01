@@ -33,7 +33,9 @@ impl Features {
     pub fn new() -> Self {
         Self {
             threads: false,
-            reference_types: false,
+            // We may not want to have reference types on by default, but we do
+            // at least during development
+            reference_types: true,
             simd: false,
             // Bulk Memory should be on by default
             bulk_memory: true,
