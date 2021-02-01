@@ -64,6 +64,16 @@ where
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
     libcalls.insert("wasmer_probestack".to_string(), LibCall::Probestack);
+    libcalls.insert("wasmer_memory32_grow".to_string(), LibCall::Memory32Grow);
+    libcalls.insert(
+        "wasmer_imported_memory32_grow".to_string(),
+        LibCall::ImportedMemory32Grow,
+    );
+    libcalls.insert("wasmer_memory32_size".to_string(), LibCall::Memory32Size);
+    libcalls.insert(
+        "wasmer_imported_memory32_size".to_string(),
+        LibCall::ImportedMemory32Size,
+    );
 
     let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
     let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {

@@ -9288,9 +9288,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             Operator::MemoryGrow { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::from_u32(mem);
                 let delta = self.state.pop1()?;
-                let grow_fn_ptr = self.ctx.memory_grow(memory_index, self.intrinsics);
+                let grow_fn = self.ctx.memory_grow(memory_index, self.intrinsics);
                 let grow = self.builder.build_call(
-                    grow_fn_ptr,
+                    grow_fn,
                     &[
                         vmctx.as_basic_value_enum(),
                         delta,
@@ -9305,9 +9305,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::MemorySize { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::from_u32(mem);
-                let size_fn_ptr = self.ctx.memory_size(memory_index, self.intrinsics);
+                let size_fn = self.ctx.memory_size(memory_index, self.intrinsics);
                 let size = self.builder.build_call(
-                    size_fn_ptr,
+                    size_fn,
                     &[
                         vmctx.as_basic_value_enum(),
                         self.intrinsics

@@ -137,6 +137,7 @@ pub extern "C" fn wasmer_f64_nearest(x: f64) -> f64 {
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -156,6 +157,7 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -175,6 +177,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -187,6 +190,7 @@ pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_inde
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_memory32_size(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -435,8 +439,20 @@ pub enum LibCall {
     /// trunc.f32
     TruncF32,
 
-    /// frunc.f64
+    /// trunc.f64
     TruncF64,
+
+    /// memory.grow for a locally defined memory
+    Memory32Grow,
+
+    /// memory.grow for an imported memory
+    ImportedMemory32Grow,
+
+    /// memory.size for a locally defined memory
+    Memory32Size,
+
+    /// memory.size for an imported memory
+    ImportedMemory32Size,
 }
 
 impl LibCall {
@@ -453,6 +469,10 @@ impl LibCall {
             Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::TruncF32 => wasmer_f32_trunc as usize,
             Self::TruncF64 => wasmer_f64_trunc as usize,
+            Self::Memory32Grow => wasmer_memory32_grow as usize,
+            Self::ImportedMemory32Grow => wasmer_imported_memory32_grow as usize,
+            Self::Memory32Size => wasmer_memory32_size as usize,
+            Self::ImportedMemory32Size => wasmer_imported_memory32_size as usize,
         }
     }
 
@@ -474,6 +494,10 @@ impl LibCall {
             Self::RaiseTrap => "wasmer_raise_trap",
             Self::TruncF32 => "wasmer_f32_trunc",
             Self::TruncF64 => "wasmer_f64_trunc",
+            Self::Memory32Grow => "wasmer_memory32_grow",
+            Self::ImportedMemory32Grow => "wasmer_imported_memory32_grow",
+            Self::Memory32Size => "wasmer_memory32_size",
+            Self::ImportedMemory32Size => "wasmer_imported_memory32_size",
         }
     }
 }

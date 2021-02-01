@@ -27,7 +27,7 @@ use wasmer_types::{
     Mutability, SignatureIndex, TableIndex, Type,
 };
 use wasmer_vm::ModuleInfo as WasmerCompilerModule;
-use wasmer_vm::{MemoryStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
+use wasmer_vm::{MemoryStyle, TrapCode, VMOffsets};
 
 pub fn type_to_llvm_ptr<'ctx>(
     intrinsics: &Intrinsics<'ctx>,
@@ -180,10 +180,10 @@ pub struct Intrinsics<'ctx> {
     pub vmmemory_definition_base_element: u32,
     pub vmmemory_definition_current_length_element: u32,
 
-    pub memory32_grow_ptr_ty: PointerType<'ctx>,
-    pub imported_memory32_grow_ptr_ty: PointerType<'ctx>,
-    pub memory32_size_ptr_ty: PointerType<'ctx>,
-    pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
+    pub memory32_grow: FunctionValue<'ctx>,
+    pub imported_memory32_grow: FunctionValue<'ctx>,
+    pub memory32_size: FunctionValue<'ctx>,
+    pub imported_memory32_size: FunctionValue<'ctx>,
 
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
@@ -468,25 +468,32 @@ impl<'ctx> Intrinsics<'ctx> {
             vmmemory_definition_base_element: 0,
             vmmemory_definition_current_length_element: 1,
 
-            memory32_grow_ptr_ty: i32_ty
-                .fn_type(
+            memory32_grow: module.add_function(
+                "wasmer_memory32_grow",
+                i32_ty.fn_type(
                     &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
                     false,
-                )
-                .ptr_type(AddressSpace::Generic),
-            imported_memory32_grow_ptr_ty: i32_ty
-                .fn_type(
+                ),
+                None,
+            ),
+            imported_memory32_grow: module.add_function(
+                "wasmer_imported_memory32_grow",
+                i32_ty.fn_type(
                     &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
                     false,
-                )
-                .ptr_type(AddressSpace::Generic),
-            memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
-                .ptr_type(AddressSpace::Generic),
-            imported_memory32_size_ptr_ty: i32_ty
-                .fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false)
-                .ptr_type(AddressSpace::Generic),
-
+                ),
+                None,
+            ),
+            memory32_size: module.add_function(
+                "wasmer_memory32_size",
+                i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
+            imported_memory32_size: module.add_function(
+                "wasmer_imported_memory32_size",
+                i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
             ctx_ptr_ty,
         };
 
@@ -543,8 +550,6 @@ pub struct CtxType<'ctx, 'a> {
     cached_sigindices: HashMap<SignatureIndex, IntValue<'ctx>>,
     cached_globals: HashMap<GlobalIndex, GlobalCache<'ctx>>,
     cached_functions: HashMap<FunctionIndex, FunctionCache<'ctx>>,
-    cached_memory_grow: HashMap<MemoryIndex, PointerValue<'ctx>>,
-    cached_memory_size: HashMap<MemoryIndex, PointerValue<'ctx>>,
 
     offsets: VMOffsets,
 }
@@ -568,8 +573,6 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
             cached_sigindices: HashMap::new(),
             cached_globals: HashMap::new(),
             cached_functions: HashMap::new(),
-            cached_memory_grow: HashMap::new(),
-            cached_memory_size: HashMap::new(),
 
             // TODO: pointer width
             offsets: VMOffsets::new(8, &wasm_module),
@@ -1025,83 +1028,24 @@ impl<'ctx, 'a> CtxType<'ctx, 'a> {
         &mut self,
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
-    ) -> PointerValue<'ctx> {
-        let (cached_memory_grow, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_grow,
-            &self.wasm_module,
-            &self.offsets,
-            &self.cache_builder,
-            &self.ctx_ptr_value,
-        );
-        *cached_memory_grow.entry(memory_index).or_insert_with(|| {
-            let (grow_fn, grow_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory32_grow_index(),
-                    intrinsics.memory32_grow_ptr_ty,
-                )
-            } else {
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory32_grow_index(),
-                    intrinsics.imported_memory32_grow_ptr_ty,
-                )
-            };
-            let offset = offsets.vmctx_builtin_function(grow_fn);
-            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let grow_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
-
-            let grow_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    grow_fn_ptr_ptr,
-                    grow_fn_ty.ptr_type(AddressSpace::Generic),
-                    "",
-                )
-                .into_pointer_value();
-            cache_builder
-                .build_load(grow_fn_ptr_ptr, "")
-                .into_pointer_value()
-        })
+    ) -> FunctionValue<'ctx> {
+        if self.wasm_module.local_memory_index(memory_index).is_some() {
+            intrinsics.memory32_grow
+        } else {
+            intrinsics.imported_memory32_grow
+        }
     }
 
     pub fn memory_size(
         &mut self,
         memory_index: MemoryIndex,
         intrinsics: &Intrinsics<'ctx>,
-    ) -> PointerValue<'ctx> {
-        let (cached_memory_size, wasm_module, offsets, cache_builder, ctx_ptr_value) = (
-            &mut self.cached_memory_size,
-            &self.wasm_module,
-            &self.offsets,
-            &self.cache_builder,
-            &self.ctx_ptr_value,
-        );
-        *cached_memory_size.entry(memory_index).or_insert_with(|| {
-            let (size_fn, size_fn_ty) = if wasm_module.local_memory_index(memory_index).is_some() {
-                (
-                    VMBuiltinFunctionIndex::get_memory32_size_index(),
-                    intrinsics.memory32_size_ptr_ty,
-                )
-            } else {
-                (
-                    VMBuiltinFunctionIndex::get_imported_memory32_size_index(),
-                    intrinsics.imported_memory32_size_ptr_ty,
-                )
-            };
-            let offset = offsets.vmctx_builtin_function(size_fn);
-            let offset = intrinsics.i32_ty.const_int(offset.into(), false);
-            let size_fn_ptr_ptr = unsafe { cache_builder.build_gep(*ctx_ptr_value, &[offset], "") };
-
-            let size_fn_ptr_ptr = cache_builder
-                .build_bitcast(
-                    size_fn_ptr_ptr,
-                    size_fn_ty.ptr_type(AddressSpace::Generic),
-                    "",
-                )
-                .into_pointer_value();
-
-            cache_builder
-                .build_load(size_fn_ptr_ptr, "")
-                .into_pointer_value()
-        })
+    ) -> FunctionValue<'ctx> {
+        if self.wasm_module.local_memory_index(memory_index).is_some() {
+            intrinsics.memory32_size
+        } else {
+            intrinsics.imported_memory32_size
+        }
     }
 
     pub fn get_offsets(&self) -> &VMOffsets {
