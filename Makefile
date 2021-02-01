@@ -163,7 +163,7 @@ build-docs:
 
 build-docs-capi:
 	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi
+	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
 
 # We use cranelift as the default backend for the capi for now
 build-capi: build-capi-cranelift
