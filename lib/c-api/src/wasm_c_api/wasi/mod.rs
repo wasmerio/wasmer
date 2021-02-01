@@ -200,7 +200,7 @@ pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 /// This function is deprecated. You may safely remove all calls to it and everything
 /// will continue to work.
 ///
-/// cbindgen:prefix=DEPRECATED("This function is longer necessary. You may safely remove all calls to it and everything will continue to work.")
+/// cbindgen:prefix=DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
 #[no_mangle]
 pub extern "C" fn wasi_env_set_instance(
     _env: &mut wasi_env_t,
