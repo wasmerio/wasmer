@@ -418,6 +418,10 @@ typedef struct {
 } wasmer_wasi_map_dir_entry_t;
 #endif
 
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
+
 /**
  * Creates a new Module from the given wasm bytes.
  *
