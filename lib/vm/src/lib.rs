@@ -19,6 +19,8 @@
         clippy::use_self
     )
 )]
+#![feature(asm)]
+#![feature(naked_functions)]
 
 mod export;
 mod global;
@@ -27,7 +29,6 @@ mod instance;
 mod memory;
 mod mmap;
 mod module;
-mod probestack;
 mod sig_registry;
 mod table;
 mod trap;
@@ -45,7 +46,6 @@ pub use crate::instance::{
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
-pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
 pub use crate::table::{LinearTable, Table, TableStyle};
 pub use crate::trap::*;

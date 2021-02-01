@@ -35,7 +35,6 @@
 //!   }
 //!   ```
 
-use crate::probestack::PROBESTACK;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
@@ -399,8 +398,53 @@ pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
 ///
 /// This function does not follow the standard function ABI, and is called as
 /// part of the function prologue.
-#[no_mangle]
-pub static wasmer_probestack: unsafe extern "C" fn() = PROBESTACK;
+cfg_if::cfg_if! {
+    if #[cfg(all(
+            target_os = "windows",
+            target_env = "msvc",
+            target_pointer_width = "64"
+            ))] {
+        extern "C" {
+            /// The probestack for Windows when compiled with MSVC
+            pub fn __chkstk();
+        }
+        /// Probestack check
+        #[naked]
+        #[no_mangle]
+        pub unsafe extern "C" fn wasmer_probestack() {
+            asm!("jmp {}", sym __chkstk, options (noreturn));
+        }
+    } else if #[cfg(all(target_os = "windows", target_env = "gnu"))] {
+        extern "C" {
+            /// ___chkstk (note the triple underscore) is implemented in compiler-builtins/src/x86_64.rs
+            /// by the Rust compiler for the MinGW target
+            pub fn ___chkstk();
+        }
+        /// Probestack check
+        #[naked]
+        #[no_mangle]
+        pub unsafe extern "C" fn wasmer_probestack() {
+            asm!("jmp {}", sym ___chkstk, options (noreturn));
+        }
+    } else if #[cfg(any(target_arch = "x86_64", target_arch="x86"))] {
+        extern "C" {
+            /// Stack probe function for rust.
+            pub fn __rust_probestack();
+        }
+        /// Probestack check
+        #[naked]
+        #[no_mangle]
+        pub unsafe extern "C" fn wasmer_probestack() {
+            asm!("jmp {}", sym __rust_probestack, options (noreturn));
+        }
+    } else {
+        /// Probestack check is not used on this platform.
+        #[no_mangle]
+        pub unsafe extern "C" fn wasmer_probestack() {
+            panic!();
+        }
+    }
+}
 
 /// The name of a runtime library routine.
 ///
