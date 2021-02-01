@@ -409,7 +409,7 @@ pub unsafe extern "C" fn wasi_get_unordered_imports(
     wasi_get_unordered_imports_inner(store, module, wasi_env, imports).is_some()
 }
 
-unsafe fn wasi_get_unordered_imports_inner(
+fn wasi_get_unordered_imports_inner(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
     wasi_env: Option<Box<wasi_env_t>>,
@@ -466,7 +466,7 @@ pub unsafe extern "C" fn wasi_get_imports(
 }
 
 /// Takes ownership of `wasi_env_t`.
-unsafe fn wasi_get_imports_inner(
+fn wasi_get_imports_inner(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
     wasi_env: Option<Box<wasi_env_t>>,
