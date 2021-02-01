@@ -27,10 +27,6 @@ pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_
 }
 
 /// Delete an extern.
-///
-/// # Example
-///
-/// See `wasm_extern_copy`.
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>) {}
 
