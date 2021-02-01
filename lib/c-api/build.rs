@@ -184,10 +184,12 @@ fn build_wasmer_c_api_headers(crate_dir: &str, out_dir: &str) {
         out_header_file.set_extension("h");
 
         // Build and generate the header file.
-        exclude_items_from_wasm_c_api(new_builder(Language::C, crate_dir, guard, &pre_header))
-            .generate()
-            .expect("Unable to generate C bindings")
-            .write_to_file(out_header_file.as_path());
+        exclude_items_from_wasm_c_api(
+            new_builder(Language::C, crate_dir, guard, &pre_header).with_documentation(true),
+        )
+        .generate()
+        .expect("Unable to generate C bindings")
+        .write_to_file(out_header_file.as_path());
 
         // Copy the generated bindings from `OUT_DIR` to
         // `CARGO_MANIFEST_DIR`.
@@ -203,10 +205,12 @@ fn build_wasmer_c_api_headers(crate_dir: &str, out_dir: &str) {
         out_header_file.set_extension("hh");
 
         // Build and generate the header file.
-        exclude_items_from_wasm_c_api(new_builder(Language::Cxx, crate_dir, guard, &pre_header))
-            .generate()
-            .expect("Unable to generate C++ bindings")
-            .write_to_file(out_header_file.as_path());
+        exclude_items_from_wasm_c_api(
+            new_builder(Language::Cxx, crate_dir, guard, &pre_header).with_documentation(true),
+        )
+        .generate()
+        .expect("Unable to generate C++ bindings")
+        .write_to_file(out_header_file.as_path());
 
         // Copy the generated bindings from `OUT_DIR` to
         // `CARGO_MANIFEST_DIR`.
@@ -247,7 +251,7 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_crate(crate_dir)
         .with_include_guard(include_guard)
         .with_header(header)
-        .with_documentation(true)
+        .with_documentation(false)
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
