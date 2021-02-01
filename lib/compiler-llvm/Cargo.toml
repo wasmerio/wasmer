@@ -26,7 +26,7 @@ rayon = "1.5"
 [dependencies.inkwell]
 version = "=0.1.0-beta.2"
 default-features = false
-features = ["llvm10-0", "target-x86", "target-aarch64"]
+features = ["llvm11-0", "target-x86", "target-aarch64"]
 
 [build-dependencies]
 cc = "1.0"
