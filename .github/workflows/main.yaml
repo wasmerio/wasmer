@@ -43,14 +43,14 @@ jobs:
           - build: linux-x64
             os: ubuntu-18.04
             rust: 1.48
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/linux-amd64.tar.gz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos-x64
             os: macos-latest
             rust: 1.48
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/darwin-amd64.tar.gz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
@@ -62,7 +62,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             rust: 1.48
-            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/windows-amd64.tar.gz'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
@@ -70,7 +70,7 @@ jobs:
             os: [self-hosted, linux, ARM64]
             random_sccache_port: true
             rust: 1.48
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/10.x/linux-aarch64.tar.gz'
+            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
     env:
@@ -108,9 +108,9 @@ jobs:
           mkdir ${{ env.LLVM_DIR }}
           tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
           echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+          echo "LLVM_SYS_110_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-10
+          LLVM_DIR: ${{ github.workspace }}/llvm-11
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
