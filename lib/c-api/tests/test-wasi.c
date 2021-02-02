@@ -161,6 +161,7 @@ int main(int argc, const char* argv[]) {
 
   // Shut down.
   printf("Shutting down...\n");
+  wasi_env_delete(wasi_env);
   wasm_func_delete(run_func);
   wasi_env_delete(wasi_env);
   wasm_store_delete(store);
