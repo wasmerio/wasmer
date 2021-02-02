@@ -9,6 +9,7 @@
 
 ### Added
 - [#2053](https://github.com/wasmerio/wasmer/pull/2053) Implement the non-standard `wasi_get_unordered_imports` function in the C API.
+- [#2072](https://github.com/wasmerio/wasmer/pull/2072) Add `wasm_config_set_target`, along with `wasm_target_t`, `wasm_triple_t` and `wasm_cpu_features_t` in the unstable C API.
 - [#2059](https://github.com/wasmerio/wasmer/pull/2059) Ability to capture `stdout` and `stderr` with WASI in the C API.
 - [#2040](https://github.com/wasmerio/wasmer/pull/2040) Add `InstanceHandle::vmoffsets` to expose the offsets of the `vmctx` region.
 - [#2026](https://github.com/wasmerio/wasmer/pull/2010) Expose trap code of a `RuntimeError`, if it's a `Trap`.
@@ -19,6 +20,7 @@
 - [#2056](https://github.com/wasmerio/wasmer/pull/2056) Change back to depend on the `enumset` crate instead of `wasmer_enumset`
 
 ### Fixed
+- [#2084](https://github.com/wasmerio/wasmer/pull/2084) Avoid calling the function environment finalizer more than once when the environment has been cloned in the C API.
 - [#2069](https://github.com/wasmerio/wasmer/pull/2069) Use the new documentation for `include/README.md` in the Wasmer package.
 - [#2042](https://github.com/wasmerio/wasmer/pull/2042) Parse more exotic environment variables in `wasmer run`.
 - [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.

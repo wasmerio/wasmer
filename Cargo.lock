@@ -971,9 +971,9 @@ dependencies = [
 
 [[package]]
 name = "inkwell"
-version = "0.1.0-llvm10sample"
+version = "0.1.0-beta.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "e079c12273d96e41481454a37ad968e607e1ce51b39b9facd3a802a12df6e9dc"
+checksum = "f5fe0be1e47c0c0f3da4397693e08f5d78329ae095c25d529e12ade78420fb41"
 dependencies = [
  "either",
  "inkwell_internals",
@@ -986,9 +986,9 @@ dependencies = [
 
 [[package]]
 name = "inkwell_internals"
-version = "0.2.0"
+version = "0.3.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b22cf4eda09069b48204cce4b7cd9a25311da813780e95a038524f2210fab44e"
+checksum = "c2e1f71330ccec54ee62533ae88574c4169b67fb4b95cbb1196a1322582abd11"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1128,15 +1128,15 @@ dependencies = [
 
 [[package]]
 name = "llvm-sys"
-version = "100.2.0"
+version = "110.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9109e19fbfac3458f2970189719fa19f1007c6fd4e08c44fdebf4be0ddbe261d"
+checksum = "b0062a0c6635fb5d57c6ebba072dcae50e41651030363cf06d220b0d016840f2"
 dependencies = [
  "cc",
  "lazy_static",
  "libc",
  "regex",
- "semver 0.9.0",
+ "semver 0.11.0",
 ]
 
 [[package]]
@@ -2321,6 +2321,7 @@ version = "1.0.1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
+ "enumset",
  "inline-c",
  "lazy_static",
  "libc",

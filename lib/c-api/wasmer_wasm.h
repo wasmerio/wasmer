@@ -134,9 +134,15 @@ typedef struct wasi_config_t wasi_config_t;
 typedef struct wasi_env_t wasi_env_t;
 #endif
 
+typedef struct wasm_cpu_features_t wasm_cpu_features_t;
+
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasm_named_extern_t wasm_named_extern_t;
 #endif
+
+typedef struct wasm_target_t wasm_target_t;
+
+typedef struct wasm_triple_t wasm_triple_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct {
@@ -206,7 +212,7 @@ intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_le
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-DEPRECATED("This function is longer necessary. You may safely remove all calls to it and everything will continue to work.")
+DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
 bool wasi_env_set_instance(wasi_env_t *_env,
                            const wasm_instance_t *_instance);
 #endif
@@ -244,6 +250,14 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 #endif
 
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
+
+void wasm_config_set_target(wasm_config_t *config, wasm_target_t *target);
+
+bool wasm_cpu_features_add(wasm_cpu_features_t *cpu_features, const wasm_name_t *feature);
+
+void wasm_cpu_features_delete(wasm_cpu_features_t *_cpu_features);
+
+wasm_cpu_features_t *wasm_cpu_features_new(void);
 
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
@@ -283,6 +297,16 @@ void wasm_named_extern_vec_new_empty(wasm_named_extern_vec_t *out);
 #if defined(WASMER_WASI_ENABLED)
 void wasm_named_extern_vec_new_uninitialized(wasm_named_extern_vec_t *out, uintptr_t length);
 #endif
+
+void wasm_target_delete(wasm_target_t *_target);
+
+wasm_target_t *wasm_target_new(wasm_triple_t *triple, wasm_cpu_features_t *cpu_features);
+
+void wasm_triple_delete(wasm_triple_t *_triple);
+
+wasm_triple_t *wasm_triple_new(const wasm_name_t *triple);
+
+wasm_triple_t *wasm_triple_new_from_host(void);
 
 int wasmer_last_error_length(void);
 
