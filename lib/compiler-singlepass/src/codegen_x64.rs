@@ -5674,13 +5674,7 @@ impl<'a> FuncGen<'a> {
                 );
                 self.emit_call_sysv(
                     |this| {
-                        let label = this.assembler.get_label();
-                        let after = this.assembler.get_label();
-                        this.assembler.emit_jmp(Condition::None, after);
-                        this.assembler.emit_label(label);
-                        this.assembler.emit_host_redirection(GPR::RAX);
-                        this.assembler.emit_label(after);
-                        this.assembler.emit_call_label(label);
+                        this.assembler.emit_call_register(GPR::RAX);
                     },
                     // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
@@ -5719,13 +5713,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let label = this.assembler.get_label();
-                        let after = this.assembler.get_label();
-                        this.assembler.emit_jmp(Condition::None, after);
-                        this.assembler.emit_label(label);
-                        this.assembler.emit_host_redirection(GPR::RAX);
-                        this.assembler.emit_label(after);
-                        this.assembler.emit_call_label(label);
+                        this.assembler.emit_call_register(GPR::RAX);
                     },
                     // [vmctx, val, memory_index]
                     iter::once(param_pages)
