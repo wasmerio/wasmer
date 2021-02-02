@@ -283,7 +283,6 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_include_guard(include_guard)
         .with_header(header)
         .with_documentation(false)
-        .with_parse_expand(&[env::var("CARGO_PKG_NAME").unwrap()])
         .with_define("target_family", "windows", "_WIN32")
         .with_define("target_arch", "x86_64", "ARCH_X86_64")
         .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
