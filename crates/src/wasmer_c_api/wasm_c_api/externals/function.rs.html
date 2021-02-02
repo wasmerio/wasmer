@@ -358,7 +358,7 @@
     <span class="kw">struct</span> <span class="ident">WrapperEnv</span> {
         <span class="ident">env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">c_void</span>,
         <span class="ident">finalizer</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">wasm_env_finalizer_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    };
+    }
 
     <span class="comment">// Only relevant when using multiple threads in the C API;</span>
     <span class="comment">// Synchronization will be done via the C API / on the C side.</span>

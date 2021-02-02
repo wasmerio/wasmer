@@ -483,6 +483,9 @@
 <span id="482">482</span>
 <span id="483">483</span>
 <span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">doc</span>(<span class="ident">hidden</span>)]</span>
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
@@ -889,7 +892,7 @@ int main() {
             <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
             <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> [<span class="op">&lt;</span><span class="ident">wasm_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_copy</span><span class="op">&gt;</span>](
                 <span class="ident">out_ptr</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="op">&lt;</span><span class="ident">wasm_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_t</span><span class="op">&gt;</span>],
-                <span class="ident">in_ptr</span>: <span class="op">&amp;</span> [<span class="op">&lt;</span><span class="ident">wasm</span> <span class="kw">_</span><span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_t</span><span class="op">&gt;</span>])
+                <span class="ident">in_ptr</span>: <span class="op">&amp;</span> [<span class="op">&lt;</span><span class="ident">wasm_</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">name</span> <span class="ident">_vec_t</span><span class="op">&gt;</span>])
             {
                 <span class="kw-2">*</span><span class="ident">out_ptr</span> <span class="op">=</span> <span class="ident">in_ptr</span>.<span class="ident">clone</span>();
             }
@@ -953,15 +956,18 @@ See the [`wasm_&quot;</span> <span class="macro-nonterminal">$</span><span class
 
 <span class="attribute">#[<span class="ident">macro_export</span>]</span>
 <span class="macro">macro_rules</span><span class="macro">!</span> <span class="ident">c_try</span> {
-    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>; <span class="ident">otherwise</span> <span class="macro-nonterminal">$</span><span class="kw">return</span>:<span class="macro-nonterminal">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">res</span>: <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw">_</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;
         <span class="kw">match</span> <span class="ident">res</span> {
             <span class="prelude-val">Ok</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">val</span>,
             <span class="prelude-val">Err</span>(<span class="ident">err</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">crate</span>::<span class="ident">error</span>::<span class="ident">update_last_error</span>(<span class="ident">err</span>);
-                <span class="kw">return</span> <span class="prelude-val">None</span>;
+                <span class="kw">return</span> <span class="macro-nonterminal">$</span><span class="kw">return</span>;
             }
         }
+    }};
+    (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
+        <span class="macro">c_try</span><span class="macro">!</span>(<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>; <span class="ident">otherwise</span> <span class="prelude-val">None</span>)
     }};
     (<span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>:<span class="ident">expr</span>, <span class="macro-nonterminal">$</span><span class="macro-nonterminal">e</span>:<span class="ident">expr</span>) <span class="op">=</span><span class="op">&gt;</span> {{
         <span class="kw">let</span> <span class="ident">opt</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro-nonterminal">$</span><span class="macro-nonterminal">expr</span>;

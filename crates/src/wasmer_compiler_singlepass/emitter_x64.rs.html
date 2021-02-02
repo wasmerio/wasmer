@@ -1404,6 +1404,12 @@
 <span id="1401">1401</span>
 <span id="1402">1402</span>
 <span id="1403">1403</span>
+<span id="1404">1404</span>
+<span id="1405">1405</span>
+<span id="1406">1406</span>
+<span id="1407">1407</span>
+<span id="1408">1408</span>
+<span id="1409">1409</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm</span>::<span class="ident">dynasm</span>;
@@ -1611,6 +1617,8 @@
     <span class="kw">fn</span> <span class="ident">emit_ret</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_label</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">label</span>: <span class="self">Self</span>::<span class="ident">Label</span>);
     <span class="kw">fn</span> <span class="ident">emit_call_location</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">loc</span>: <span class="ident">Location</span>);
+
+    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>);
 
     <span class="kw">fn</span> <span class="ident">emit_bkpt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>);
 
@@ -2794,6 +2802,10 @@
             <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">base</span>, <span class="ident">disp</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">dynasm</span><span class="macro">!</span>(<span class="self">self</span> ; <span class="ident">call</span> <span class="ident">QWORD</span> [<span class="ident">Rq</span>(<span class="ident">base</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]),
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;singlepass can&#39;t emit CALL {:?}&quot;</span>, <span class="ident">loc</span>),
         }
+    }
+
+    <span class="kw">fn</span> <span class="ident">emit_call_register</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">reg</span>: <span class="ident">GPR</span>) {
+        <span class="macro">dynasm</span><span class="macro">!</span>(<span class="self">self</span> ; <span class="ident">call</span> <span class="ident">Rq</span>(<span class="ident">reg</span> <span class="kw">as</span> <span class="ident">u8</span>));
     }
 
     <span class="kw">fn</span> <span class="ident">emit_bkpt</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {

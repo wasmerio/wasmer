@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["module","Unstable non-standard Wasmer-specific extensions to the Wasm C API."]]});
+initSidebarItems({"mod":[["engine","Unstable non-standard Wasmer-specific types for the `wasm_engine_t` and siblings."],["module","Unstable non-standard Wasmer-specific extensions to the Wasm C API."],["target_lexicon","Unstable non-standard Wasmer-specific API that contains everything to create a target with a triple and CPU features."]]});

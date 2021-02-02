@@ -8636,18 +8636,6 @@
 <span id="8633">8633</span>
 <span id="8634">8634</span>
 <span id="8635">8635</span>
-<span id="8636">8636</span>
-<span id="8637">8637</span>
-<span id="8638">8638</span>
-<span id="8639">8639</span>
-<span id="8640">8640</span>
-<span id="8641">8641</span>
-<span id="8642">8642</span>
-<span id="8643">8643</span>
-<span id="8644">8644</span>
-<span id="8645">8645</span>
-<span id="8646">8646</span>
-<span id="8647">8647</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">address_map</span>::<span class="ident">get_function_address_map</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="ident">Singlepass</span>, <span class="ident">emitter_x64</span>::<span class="kw-2">*</span>, <span class="ident">machine</span>::<span class="ident">Machine</span>, <span class="ident">x64_decl</span>::<span class="kw-2">*</span>};
@@ -14325,13 +14313,7 @@
                 );
                 <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">get_label</span>();
-                        <span class="kw">let</span> <span class="ident">after</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">get_label</span>();
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_jmp</span>(<span class="ident">Condition</span>::<span class="prelude-val">None</span>, <span class="ident">after</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">label</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_host_redirection</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">after</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_label</span>(<span class="ident">label</span>);
+                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>);
                     },
                     <span class="comment">// [vmctx, memory_index]</span>
                     <span class="ident">iter</span>::<span class="ident">once</span>(<span class="ident">Location</span>::<span class="ident">Imm32</span>(<span class="ident">memory_index</span>.<span class="ident">index</span>() <span class="kw">as</span> <span class="ident">u32</span>)),
@@ -14370,13 +14352,7 @@
 
                 <span class="self">self</span>.<span class="ident">emit_call_sysv</span>(
                     <span class="op">|</span><span class="ident">this</span><span class="op">|</span> {
-                        <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">get_label</span>();
-                        <span class="kw">let</span> <span class="ident">after</span> <span class="op">=</span> <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">get_label</span>();
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_jmp</span>(<span class="ident">Condition</span>::<span class="prelude-val">None</span>, <span class="ident">after</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">label</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_host_redirection</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_label</span>(<span class="ident">after</span>);
-                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_label</span>(<span class="ident">label</span>);
+                        <span class="ident">this</span>.<span class="ident">assembler</span>.<span class="ident">emit_call_register</span>(<span class="ident">GPR</span>::<span class="ident">RAX</span>);
                     },
                     <span class="comment">// [vmctx, val, memory_index]</span>
                     <span class="ident">iter</span>::<span class="ident">once</span>(<span class="ident">param_pages</span>)

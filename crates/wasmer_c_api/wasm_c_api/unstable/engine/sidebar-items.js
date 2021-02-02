@@ -1,0 +1,1 @@
+initSidebarItems({"fn":[["wasm_config_set_target","Unstable non-standard Wasmer-specific API to update the configuration to specify a particular target for the engine."]]});
