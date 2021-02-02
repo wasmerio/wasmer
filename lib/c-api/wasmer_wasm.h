@@ -226,7 +226,7 @@ void wasi_env_set_memory(wasi_env_t *_env,
 #if defined(WASMER_WASI_ENABLED)
 bool wasi_get_imports(const wasm_store_t *store,
                       const wasm_module_t *module,
-                      wasi_env_t *wasi_env,
+                      const wasi_env_t *wasi_env,
                       wasm_extern_vec_t *imports);
 #endif
 
@@ -237,7 +237,7 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 #if defined(WASMER_WASI_ENABLED)
 bool wasi_get_unordered_imports(const wasm_store_t *store,
                                 const wasm_module_t *module,
-                                wasi_env_t *wasi_env,
+                                const wasi_env_t *wasi_env,
                                 wasm_named_extern_vec_t *imports);
 #endif
 

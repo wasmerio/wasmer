@@ -479,13 +479,11 @@ pub extern "C" fn wasm_named_extern_unwrap(
 /// implementation with no particular order. Each import has its
 /// associated module name and name, so that it can be re-order later
 /// based on the `wasm_module_t` requirements.
-///
-/// This function takes ownership of `wasm_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_unordered_imports(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<Box<wasi_env_t>>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_named_extern_vec_t,
 ) -> bool {
     wasi_get_unordered_imports_inner(store, module, wasi_env, imports).is_some()
@@ -494,7 +492,7 @@ pub unsafe extern "C" fn wasi_get_unordered_imports(
 fn wasi_get_unordered_imports_inner(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<Box<wasi_env_t>>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_named_extern_vec_t,
 ) -> Option<()> {
     let store = store?;
@@ -535,23 +533,20 @@ fn wasi_get_unordered_imports_inner(
 
 /// Non-standard function to get the imports needed for the WASI
 /// implementation ordered as expected by the `wasm_module_t`.
-///
-/// This function takes ownership of `wasm_env_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<Box<wasi_env_t>>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
     wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
 }
 
-/// Takes ownership of `wasi_env_t`.
 fn wasi_get_imports_inner(
     store: Option<&wasm_store_t>,
     module: Option<&wasm_module_t>,
-    wasi_env: Option<Box<wasi_env_t>>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
     let store = store?;
