@@ -21,3 +21,13 @@ where
 
 #[derive(MemoryUsage)]
 pub struct Empty();
+
+#[derive(MemoryUsage)]
+pub enum Things {
+    A,
+    B(),
+    C(i32),
+    D { x: i32 },
+    E(i32, i32),
+    F { x: i32, y: i32 },
+}
