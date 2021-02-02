@@ -15,6 +15,7 @@
 - [#2054](https://github.com/wasmerio/wasmer/pull/2054) Add `wasm_config_delete` to the Wasm C API.
 
 ### Changed
+- [#2083](https://github.com/wasmerio/wasmer/pull/2083) Mark `wasi_env_set_(instance|memory)` as deprecated. You may simply remove them with no side-effect.
 - [#2056](https://github.com/wasmerio/wasmer/pull/2056) Change back to depend on the `enumset` crate instead of `wasmer_enumset`
 
 ### Fixed
