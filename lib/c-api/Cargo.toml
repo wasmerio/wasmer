@@ -27,6 +27,7 @@ wasmer-engine-native = { version = "1.0.1", path = "../engine-native", optional 
 wasmer-engine-object-file = { version = "1.0.1", path = "../engine-object-file", optional = true }
 wasmer-wasi = { version = "1.0.1", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.1", path = "../wasmer-types" }
+enumset = "1.0"
 cfg-if = "1.0"
 lazy_static = "1.4"
 libc = { version = "^0.2", default-features = false }

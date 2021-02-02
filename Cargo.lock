@@ -2321,6 +2321,7 @@ version = "1.0.1"
 dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
+ "enumset",
  "inline-c",
  "lazy_static",
  "libc",
