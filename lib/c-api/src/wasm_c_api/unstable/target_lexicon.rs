@@ -56,9 +56,8 @@
 use super::super::types::wasm_name_t;
 use crate::error::CApiError;
 use enumset::EnumSet;
-use std::ffi::CStr;
 use std::slice;
-use std::str::FromStr;
+use std::str::{self, FromStr};
 use wasmer_compiler::{CpuFeature, Target, Triple};
 
 /// Unstable non-standard Wasmer-specific API to represent a triple +
@@ -81,7 +80,7 @@ pub struct wasm_target_t {
 ///
 /// See the module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasm_target_new(
+pub extern "C" fn wasm_target_new(
     triple: Option<Box<wasm_triple_t>>,
     cpu_features: Option<Box<wasm_cpu_features_t>>,
 ) -> Option<Box<wasm_target_t>> {
@@ -99,7 +98,7 @@ pub unsafe extern "C" fn wasm_target_new(
 ///
 /// See the module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
+pub extern "C" fn wasm_target_delete(_target: Option<Box<wasm_target_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a target
 /// “triple”.
@@ -148,11 +147,10 @@ pub unsafe extern "C" fn wasm_triple_new(
     triple: Option<&wasm_name_t>,
 ) -> Option<Box<wasm_triple_t>> {
     let triple = triple?;
-    let triple = c_try!(CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+    let triple = c_try!(str::from_utf8(slice::from_raw_parts(
         triple.data,
-        triple.size + 1
-    ))
-    .to_str());
+        triple.size
+    )));
 
     Some(Box::new(wasm_triple_t {
         inner: c_try!(Triple::from_str(triple).map_err(|e| CApiError { msg: e.to_string() })),
@@ -184,7 +182,7 @@ pub unsafe extern "C" fn wasm_triple_new(
 ///
 /// See also [`wasm_triple_new`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_triple_new_from_host() -> Box<wasm_triple_t> {
+pub extern "C" fn wasm_triple_new_from_host() -> Box<wasm_triple_t> {
     Box::new(wasm_triple_t {
         inner: Triple::host(),
     })
@@ -196,7 +194,7 @@ pub unsafe extern "C" fn wasm_triple_new_from_host() -> Box<wasm_triple_t> {
 ///
 /// See [`wasm_triple_t`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
+pub extern "C" fn wasm_triple_delete(_triple: Option<Box<wasm_triple_t>>) {}
 
 /// Unstable non-standard Wasmer-specific API to represent a set of
 /// CPU features.
@@ -266,7 +264,7 @@ pub struct wasm_cpu_features_t {
 ///
 /// See [`wasm_cpu_features_t`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_cpu_features_new() -> Box<wasm_cpu_features_t> {
+pub extern "C" fn wasm_cpu_features_new() -> Box<wasm_cpu_features_t> {
     Box::new(wasm_cpu_features_t {
         inner: CpuFeature::set(),
     })
@@ -278,8 +276,7 @@ pub unsafe extern "C" fn wasm_cpu_features_new() -> Box<wasm_cpu_features_t> {
 ///
 /// See [`wasm_cpu_features_t`].
 #[no_mangle]
-pub unsafe extern "C" fn wasm_cpu_features_delete(_cpu_features: Option<Box<wasm_cpu_features_t>>) {
-}
+pub extern "C" fn wasm_cpu_features_delete(_cpu_features: Option<Box<wasm_cpu_features_t>>) {}
 
 /// Add a new CPU feature into the set represented by
 /// [`wasm_cpu_features_t`].
@@ -301,11 +298,10 @@ pub unsafe extern "C" fn wasm_cpu_features_add(
         _ => return false,
     };
     let feature = c_try!(
-        CStr::from_bytes_with_nul_unchecked(slice::from_raw_parts(
+        str::from_utf8(slice::from_raw_parts(
             feature.data,
             feature.size + 1,
-        ))
-            .to_str();
+        ));
         otherwise false
     );
 
