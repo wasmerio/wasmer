@@ -136,9 +136,20 @@ typedef struct wasi_env_t wasi_env_t;
 
 typedef struct wasm_cpu_features_t wasm_cpu_features_t;
 
+#if defined(WASMER_WASI_ENABLED)
+typedef struct wasm_named_extern_t wasm_named_extern_t;
+#endif
+
 typedef struct wasm_target_t wasm_target_t;
 
 typedef struct wasm_triple_t wasm_triple_t;
+
+#if defined(WASMER_WASI_ENABLED)
+typedef struct {
+  uintptr_t size;
+  wasm_named_extern_t **data;
+} wasm_named_extern_vec_t;
+#endif
 
 #ifdef __cplusplus
 extern "C" {
@@ -224,6 +235,13 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
+bool wasi_get_unordered_imports(const wasm_store_t *store,
+                                const wasm_module_t *module,
+                                const wasi_env_t *wasi_env,
+                                wasm_named_extern_vec_t *imports);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
@@ -244,6 +262,41 @@ wasm_cpu_features_t *wasm_cpu_features_new(void);
 void wasm_module_name(const wasm_module_t *module, wasm_name_t *out);
 
 bool wasm_module_set_name(wasm_module_t *module, const wasm_name_t *name);
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_name_t *wasm_named_extern_module(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_name_t *wasm_named_extern_name(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+const wasm_extern_t *wasm_named_extern_unwrap(const wasm_named_extern_t *named_extern);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasm_named_extern_vec_copy(wasm_named_extern_vec_t *out_ptr,
+                                const wasm_named_extern_vec_t *in_ptr);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasm_named_extern_vec_delete(wasm_named_extern_vec_t *ptr);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasm_named_extern_vec_new(wasm_named_extern_vec_t *out,
+                               uintptr_t length,
+                               wasm_named_extern_t *const *init);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasm_named_extern_vec_new_empty(wasm_named_extern_vec_t *out);
+#endif
+
+#if defined(WASMER_WASI_ENABLED)
+void wasm_named_extern_vec_new_uninitialized(wasm_named_extern_vec_t *out, uintptr_t length);
+#endif
 
 void wasm_target_delete(wasm_target_t *_target);
 

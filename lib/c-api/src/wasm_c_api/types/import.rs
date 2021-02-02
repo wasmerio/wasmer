@@ -50,37 +50,13 @@ impl From<ImportType> for wasm_importtype_t {
 
 impl From<&ImportType> for wasm_importtype_t {
     fn from(other: &ImportType) -> Self {
-        let module = {
-            let mut heap_str: Box<str> = other.module().to_string().into_boxed_str();
-            let char_ptr = heap_str.as_mut_ptr();
-            let str_len = heap_str.bytes().len();
-            let module_inner = wasm_name_t {
-                size: str_len,
-                data: char_ptr,
-            };
-            Box::leak(heap_str);
-
-            Box::new(module_inner)
-        };
-
-        let name = {
-            let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
-            let char_ptr = heap_str.as_mut_ptr();
-            let str_len = heap_str.bytes().len();
-            let name_inner = wasm_name_t {
-                size: str_len,
-                data: char_ptr,
-            };
-            Box::leak(heap_str);
-
-            Box::new(name_inner)
-        };
-
-        let extern_type = Box::new(other.ty().into());
+        let module: Box<wasm_name_t> = Box::new(other.module().to_string().into());
+        let name: Box<wasm_name_t> = Box::new(other.name().to_string().into());
+        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
         wasm_importtype_t {
-            name,
             module,
+            name,
             extern_type,
         }
     }

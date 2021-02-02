@@ -61,23 +61,21 @@ macro_rules! map_feature_as_c_define {
 }
 
 fn main() {
+    if !running_self() {
+        return;
+    }
+
     let crate_dir = env::var("CARGO_MANIFEST_DIR").unwrap();
     let out_dir = env::var("OUT_DIR").unwrap();
 
-    if building_c_api_headers() {
-        build_wasm_c_api_headers(&crate_dir, &out_dir);
-        build_wasmer_c_api_headers(&crate_dir, &out_dir);
-    }
-
+    build_wasm_c_api_headers(&crate_dir, &out_dir);
+    build_wasmer_c_api_headers(&crate_dir, &out_dir);
     build_inline_c_env_vars();
 }
 
-/// Check whether we should build the C API headers.
-///
-/// For the moment, it's always enabled, unless if the `DOCS_RS`
-/// environment variable is present.
-fn building_c_api_headers() -> bool {
-    env::var("DOCS_RS").is_err()
+/// Check whether we should build the C API headers or set `inline-c` up.
+fn running_self() -> bool {
+    env::var("DOCS_RS").is_err() && env::var("_CBINDGEN_IS_RUNNING").is_err()
 }
 
 /// Build the header files for the `wasm_c_api` API.
@@ -274,7 +272,7 @@ fn add_wasmer_version(pre_header: &mut String) {
 
 /// Create a fresh new `Builder`, already pre-configured.
 fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header: &str) -> Builder {
-    Builder::new()
+    let builder = Builder::new()
         .with_config(cbindgen::Config {
             sort_by: cbindgen::SortKey::Name,
             cpp_compat: true,
@@ -290,7 +288,12 @@ fn new_builder(language: Language, crate_dir: &str, include_guard: &str, header:
         .with_define("feature", "jit", JIT_FEATURE_AS_C_DEFINE)
         .with_define("feature", "compiler", COMPILER_FEATURE_AS_C_DEFINE)
         .with_define("feature", "wasi", WASI_FEATURE_AS_C_DEFINE)
-        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE)
+        .with_define("feature", "emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE);
+
+    #[cfg(feature = "system-libffi")]
+    let builder = builder.with_parse_expand_features(&["system-libffi"]);
+
+    builder
 }
 
 /// Exclude types and functions from the `deprecated` API.
@@ -458,8 +461,8 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_env_set_memory")
         .exclude_item("wasi_env_t")
         .exclude_item("wasi_get_imports")
-        .exclude_item("wasi_get_imports_inner")
         .exclude_item("wasi_get_start_function")
+        .exclude_item("wasi_get_unordered_imports")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t")
         .exclude_item("wasm_config_set_compiler")
@@ -471,6 +474,15 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasm_cpu_features_t")
         .exclude_item("wasm_module_name")
         .exclude_item("wasm_module_set_name")
+        .exclude_item("wasm_named_extern_module")
+        .exclude_item("wasm_named_extern_name")
+        .exclude_item("wasm_named_extern_t")
+        .exclude_item("wasm_named_extern_unwrap")
+        .exclude_item("wasm_named_extern_vec_copy")
+        .exclude_item("wasm_named_extern_vec_delete")
+        .exclude_item("wasm_named_extern_vec_new")
+        .exclude_item("wasm_named_extern_vec_new_empty")
+        .exclude_item("wasm_named_extern_vec_new_uninitialized")
         .exclude_item("wasm_target_delete")
         .exclude_item("wasm_target_new")
         .exclude_item("wasm_target_t")

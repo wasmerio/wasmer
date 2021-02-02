@@ -403,7 +403,7 @@ int main() {
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_copy>](
                 out_ptr: &mut [<wasm_ $name _vec_t>],
-                in_ptr: & [<wasm _$name _vec_t>])
+                in_ptr: & [<wasm_ $name _vec_t>])
             {
                 *out_ptr = in_ptr.clone();
             }
