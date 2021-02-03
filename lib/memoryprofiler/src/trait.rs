@@ -92,7 +92,11 @@ impl<T: MemoryUsage> MemoryUsage for &mut T {
 // slices
 impl<T: MemoryUsage> MemoryUsage for [T] {
     fn size_of_val(&self) -> usize {
-        std::mem::size_of_val(self) + self.iter().map(MemoryUsage::size_of_val).sum::<usize>()
+        std::mem::size_of_val(self)
+            + self
+                .iter()
+                .map(|v| MemoryUsage::size_of_val(v) - std::mem::size_of_val(v))
+                .sum::<usize>()
     }
 }
 
@@ -164,8 +168,52 @@ impl<T> MemoryUsage for std::marker::PhantomData<T> {
 
 // TODO: PhantomPinned?
 
-#[test]
-fn test_ints() {
-    assert_eq!(MemoryUsage::size_of_val(&32), 4);
-    assert_eq!(32.size_of_val(), 4);
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[derive(Copy, Clone)]
+    struct TestMemoryUsage {
+        // Must be greater than or equal to std::mem::size_of::<TestMemoryUsage>() or else MemoryUsage may overflow.
+        pub size_to_report: usize,
+    }
+    impl MemoryUsage for TestMemoryUsage {
+        fn size_of_val(&self) -> usize {
+            // Try to prevent buggy tests before they're hard to debug.
+            assert!(self.size_to_report >= std::mem::size_of::<TestMemoryUsage>());
+            self.size_to_report
+        }
+    }
+
+    #[test]
+    fn test_ints() {
+        assert_eq!(MemoryUsage::size_of_val(&32), 4);
+        assert_eq!(32.size_of_val(), 4);
+    }
+
+    #[test]
+    fn test_slice_no_static_size() {
+        {
+            let x: [u8; 13] = [0; 13];
+            let y: &[u8] = &x;
+            assert_eq!(13, std::mem::size_of_val(y));
+            assert_eq!(13, MemoryUsage::size_of_val(y));
+        }
+
+        {
+            let mut x: [TestMemoryUsage; 13] = [TestMemoryUsage {
+                size_to_report: std::mem::size_of::<TestMemoryUsage>(),
+            }; 13];
+            x[0].size_to_report += 7;
+            let y: &[TestMemoryUsage] = &x;
+            assert_eq!(
+                13 * std::mem::size_of::<TestMemoryUsage>(),
+                std::mem::size_of_val(y)
+            );
+            assert_eq!(
+                13 * std::mem::size_of::<TestMemoryUsage>() + 7,
+                MemoryUsage::size_of_val(y)
+            );
+        }
+    }
 }
