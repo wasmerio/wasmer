@@ -5,8 +5,9 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
+use crate::func_data_registry::VMFuncRef;
 use crate::trap::{Trap, TrapCode};
-use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+use crate::vmcontext::VMTableDefinition;
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
@@ -109,7 +110,7 @@ pub enum TableReference {
     /// Opaque pointer to arbitrary host data.
     ExternRef(usize),
     /// Pointer to function: contains enough information to call it.
-    FuncRef(VMCallerCheckedAnyfunc),
+    FuncRef(VMFuncRef),
 }
 
 impl From<TableReference> for TableElement {
@@ -124,7 +125,7 @@ impl From<TableReference> for TableElement {
 #[derive(Clone, Copy)]
 union TableElement {
     extern_ref: usize,
-    func_ref: VMCallerCheckedAnyfunc,
+    func_ref: VMFuncRef,
 }
 
 impl fmt::Debug for TableElement {
@@ -136,14 +137,14 @@ impl fmt::Debug for TableElement {
 impl Default for TableElement {
     fn default() -> Self {
         Self {
-            func_ref: VMCallerCheckedAnyfunc::default(),
+            func_ref: VMFuncRef::null(),
         }
     }
 }
 
 impl Default for TableReference {
     fn default() -> Self {
-        Self::FuncRef(VMCallerCheckedAnyfunc::default())
+        Self::FuncRef(VMFuncRef::null())
     }
 }
 

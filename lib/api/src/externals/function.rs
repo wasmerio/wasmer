@@ -16,7 +16,7 @@ use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
-    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
+    VMDynamicFunctionContext, VMExportFunction, VMFuncRef, VMFunctionBody, VMFunctionEnvironment,
     VMFunctionKind, VMTrampoline,
 };
 
@@ -652,16 +652,14 @@ impl Function {
         }
     }
 
-    pub(crate) fn checked_anyfunc(&self) -> VMCallerCheckedAnyfunc {
-        let vmsignature = self
-            .store
-            .engine()
-            .register_signature(&self.exported.vm_function.signature);
-        VMCallerCheckedAnyfunc {
+    pub(crate) fn checked_anyfunc(&self) -> VMFuncRef {
+        let engine = self.store.engine();
+        let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
+        engine.register_function_metadata(VMCallerCheckedAnyfunc {
             func_ptr: self.exported.vm_function.address,
             type_index: vmsignature,
             vmctx: self.exported.vm_function.vmctx,
-        }
+        })
     }
 
     /// Transform this WebAssembly function into a function with the

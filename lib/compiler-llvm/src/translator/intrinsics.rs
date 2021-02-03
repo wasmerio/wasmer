@@ -145,6 +145,8 @@ pub struct Intrinsics<'ctx> {
     pub f32_ptr_ty: PointerType<'ctx>,
     pub f64_ptr_ty: PointerType<'ctx>,
 
+    pub funcref_ty: PointerType<'ctx>,
+
     pub anyfunc_ty: StructType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
@@ -251,6 +253,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+        let funcref_ty = ctx_ty.ptr_type(AddressSpace::Generic);
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -398,6 +401,8 @@ impl<'ctx> Intrinsics<'ctx> {
             f64_ptr_ty,
 
             anyfunc_ty,
+
+            funcref_ty,
 
             i1_zero,
             i8_zero,

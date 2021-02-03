@@ -21,6 +21,7 @@
 )]
 
 mod export;
+mod func_data_registry;
 mod global;
 mod imports;
 mod instance;
@@ -37,6 +38,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
+pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{

@@ -20,7 +20,7 @@ use std::u32;
 ///
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq)]
 pub union VMFunctionEnvironment {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
@@ -46,6 +46,14 @@ impl std::fmt::Debug for VMFunctionEnvironment {
 impl std::cmp::PartialEq for VMFunctionEnvironment {
     fn eq(&self, rhs: &Self) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
+    }
+}
+
+impl std::hash::Hash for VMFunctionEnvironment {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe {
+            self.vmctx.hash(state);
+        }
     }
 }
 
@@ -750,7 +758,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.
@@ -877,9 +885,25 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_raise_trap_index() -> Self {
         Self(13)
     }
+    /// Returns an index for wasm's `table.size` instruction for local tables.
+    pub const fn get_table_size_index() -> Self {
+        Self(14)
+    }
+    /// Returns an index for wasm's `table.size` instruction for imported tables.
+    pub const fn get_imported_table_size_index() -> Self {
+        Self(15)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for local tables.
+    pub const fn get_table_grow_index() -> Self {
+        Self(16)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for imported tables.
+    pub const fn get_imported_table_grow_index() -> Self {
+        Self(17)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        14
+        18
     }
 
     /// Return the index as an u32 number.
@@ -937,6 +961,14 @@ impl VMBuiltinFunctionsArray {
             wasmer_data_drop as usize;
         ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
             wasmer_raise_trap as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as usize] =
+            wasmer_table_size as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as usize] =
+            wasmer_imported_table_size as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as usize] =
+            wasmer_table_grow as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as usize] =
+            wasmer_imported_table_grow as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

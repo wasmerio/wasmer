@@ -2202,17 +2202,22 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 // We assume the table has the `anyfunc` element type.
                 let casted_table_base = self.builder.build_pointer_cast(
                     table_base,
-                    self.intrinsics.anyfunc_ty.ptr_type(AddressSpace::Generic),
+                    self.intrinsics.funcref_ty.ptr_type(AddressSpace::Generic),
                     "casted_table_base",
                 );
 
-                let anyfunc_struct_ptr = unsafe {
+                let funcref_ptr = unsafe {
                     self.builder.build_in_bounds_gep(
                         casted_table_base,
                         &[func_index],
-                        "anyfunc_struct_ptr",
+                        "funcref_ptr",
                     )
                 };
+
+                let anyfunc_struct_ptr = self
+                    .builder
+                    .build_load(funcref_ptr, "anyfunc_struct_ptr")
+                    .into_pointer_value();
 
                 // Load things from the anyfunc data structure.
                 let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (

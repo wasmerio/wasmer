@@ -5342,13 +5342,28 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S32, func_index, Location::GPR(table_count));
                 self.assembler.emit_imul_imm32_gpr64(
-                    self.vmoffsets.size_of_vmcaller_checked_anyfunc() as u32,
+                    // TODO: update this to be size of reference / size of table element
+                    // update it in clif too
+                    self.vmoffsets.pointer_size as u32,
                     table_count,
                 );
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(table_base),
                     Location::GPR(table_count),
+                );
+
+                // deref the table to get a VMFuncRef
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(table_count, 0),
+                    Location::GPR(table_count),
+                );
+                // Trap if the FuncRef is null
+                self.assembler.emit_cmp(
+                    Size::S64,
+                    Location::Imm32(0),
+                    Location::Memory(table_count, 0),
                 );
                 self.assembler.emit_mov(
                     Size::S64,
@@ -5359,6 +5374,7 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(sigidx),
                 );
 
+                // TODO: We can probably drop this check now. Needs review.
                 // Trap if the current table entry is null.
                 self.assembler.emit_cmp(
                     Size::S64,

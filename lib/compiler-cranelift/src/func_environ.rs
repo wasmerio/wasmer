@@ -55,9 +55,17 @@ pub struct FuncEnvironment<'module_environment> {
     /// for locally-defined 32-bit memories.
     memory32_size_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing wasm's `table.size`
+    /// for locally-defined tables.
+    table_size_sig: Option<ir::SigRef>,
+
     /// The external function signature for implementing wasm's `memory.grow`
     /// for locally-defined memories.
     memory_grow_sig: Option<ir::SigRef>,
+
+    /// The external function signature for implementing wasm's `table.grow`
+    /// for locally-defined tables.
+    table_grow_sig: Option<ir::SigRef>,
 
     /// The external function signature for implementing wasm's `table.copy`
     /// (it's the same for both local and imported tables).
@@ -83,6 +91,9 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `data.drop`.
     data_drop_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing wasm's `table.get`.
+    table_get_sig: Option<ir::SigRef>,
+
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -107,13 +118,16 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             signatures,
             vmctx: None,
             memory32_size_sig: None,
+            table_size_sig: None,
             memory_grow_sig: None,
+            table_grow_sig: None,
             table_copy_sig: None,
             table_init_sig: None,
             elem_drop_sig: None,
             memory_copy_sig: None,
             memory_fill_sig: None,
             memory_init_sig: None,
+            table_get_sig: None,
             data_drop_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
@@ -131,6 +145,84 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.vmctx = Some(vmctx);
             vmctx
         })
+    }
+
+    fn get_table_get_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.table_get_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    AbiParam::new(I32),
+                    AbiParam::new(I32),
+                ],
+                returns: vec![AbiParam::new(I64), AbiParam::new(I64), AbiParam::new(I64)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.memory_grow_sig = Some(sig);
+        sig
+    }
+
+    /*
+    fn get_table_get_func(
+        &mut self,
+        func: &mut Function,
+        index: TableIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_table(index) {
+            (
+                self.get_table_get_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_table_get_index(),
+            )
+        } else {
+            (
+                self.get_table_get_sig(func),
+                self.module.local_table_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_table_get_index(),
+            )
+        }
+    }
+    */
+
+    fn get_table_grow_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.table_grow_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // TODO: figure out what the representation of a Wasm value is
+                    AbiParam::new(R64),
+                    AbiParam::new(I32),
+                    AbiParam::new(I32),
+                ],
+                returns: vec![AbiParam::new(I32)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.table_grow_sig = Some(sig);
+        sig
+    }
+
+    /// Return the table.grow function signature to call for the given index, along with the
+    /// translated index value to pass to it and its index in `VMBuiltinFunctionsArray`.
+    fn get_table_grow_func(
+        &mut self,
+        func: &mut Function,
+        index: TableIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_table(index) {
+            (
+                self.get_table_grow_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_table_grow_index(),
+            )
+        } else {
+            (
+                self.get_table_grow_sig(func),
+                self.module.local_table_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_table_grow_index(),
+            )
+        }
     }
 
     fn get_memory_grow_sig(&mut self, func: &mut Function) -> ir::SigRef {
@@ -167,6 +259,43 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 self.get_memory_grow_sig(func),
                 self.module.local_memory_index(index).unwrap().index(),
                 VMBuiltinFunctionIndex::get_memory32_grow_index(),
+            )
+        }
+    }
+
+    fn get_table_size_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.table_size_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    AbiParam::new(I32),
+                ],
+                returns: vec![AbiParam::new(I32)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.table_size_sig = Some(sig);
+        sig
+    }
+
+    /// Return the memory.size function signature to call for the given index, along with the
+    /// translated index value to pass to it and its index in `VMBuiltinFunctionsArray`.
+    fn get_table_size_func(
+        &mut self,
+        func: &mut Function,
+        index: TableIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_table(index) {
+            (
+                self.get_table_size_sig(func),
+                index.index(),
+                VMBuiltinFunctionIndex::get_imported_table_size_index(),
+            )
+        } else {
+            (
+                self.get_table_size_sig(func),
+                self.module.local_table_index(index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_table_size_index(),
             )
         }
     }
@@ -524,9 +653,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         });
 
         let element_size = match self.table_styles[index] {
-            TableStyle::CallerChecksSignature => {
-                u64::from(self.offsets.size_of_vmcaller_checked_anyfunc())
-            }
+            TableStyle::CallerChecksSignature => u64::from(self.offsets.pointer_size),
         };
 
         Ok(func.create_table(ir::TableData {
@@ -540,15 +667,21 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_grow(
         &mut self,
-        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        _table_index: TableIndex,
+        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        table_index: TableIndex,
         _table: ir::Table,
-        _delta: ir::Value,
-        _init_value: ir::Value,
+        delta: ir::Value,
+        init_value: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "the `table.grow` instruction is not supported yet".into(),
-        ))
+        let (func_sig, index_arg, func_idx) = self.get_table_grow_func(&mut pos.func, table_index);
+        let table_index = pos.ins().iconst(I32, index_arg as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst = pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, init_value, table_index, delta],
+        );
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_table_get(
@@ -561,6 +694,15 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Err(WasmError::Unsupported(
             "the `table.get` instruction is not supported yet".into(),
         ))
+        /*
+        let (func_sig, index_arg, func_idx) = self.get_memory_grow_func(&mut pos.func, index);
+        let memory_index = pos.ins().iconst(I32, index_arg as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, val, memory_index]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
+        */
     }
 
     fn translate_table_set(
@@ -595,11 +737,12 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         ty: Type,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
+            // TODO: actually fix this, null func ref is 3 words right now
             Type::FuncRef => pos.ins().iconst(self.pointer_type(), 0),
-            // Type::ExternRef => pos.ins().null(self.reference_type(ty)),
+            Type::ExternRef => pos.ins().null(self.reference_type()),
             _ => {
                 return Err(WasmError::Unsupported(
-                    "`ref.null T` that is not a `funcref`".into(),
+                    "`ref.null T` that is not a `funcref` or an `externref`".into(),
                 ));
             }
         })
@@ -797,6 +940,12 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         // Dereference table_entry_addr to get the function address.
         let mem_flags = ir::MemFlags::trusted();
+        let table_entry_addr = pos.ins().load(pointer_type, mem_flags, table_entry_addr, 0);
+
+        // check if the funcref is null
+        pos.ins()
+            .trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
+
         let func_addr = pos.ins().load(
             pointer_type,
             mem_flags,
@@ -804,6 +953,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
 
+        // TODO: We can probably drop this check now. Needs review.
         // Check whether `func_addr` is null.
         pos.ins().trapz(func_addr, ir::TrapCode::IndirectCallToNull);
 
@@ -1019,13 +1169,17 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_table_size(
         &mut self,
-        mut _pos: FuncCursor,
-        _table_index: TableIndex,
+        mut pos: FuncCursor,
+        table_index: TableIndex,
         _table: ir::Table,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "bulk memory: `table.size`".to_string(),
-        ))
+        let (func_sig, index_arg, func_idx) = self.get_table_size_func(&mut pos.func, table_index);
+        let table_index = pos.ins().iconst(I32, index_arg as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index]);
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_table_copy(

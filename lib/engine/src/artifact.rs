@@ -13,7 +13,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
-    VMSharedSignatureIndex, VMTrampoline,
+    VMFuncRef, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -65,6 +65,11 @@ pub trait Artifact: Send + Sync + Upcastable {
 
     /// Returns the associated VM signatures for this `Artifact`.
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
+
+    /// Get func metadata TODO: document this
+    fn func_metadata(&self) -> &BoxedSlice<LocalFunctionIndex, VMFuncRef> {
+        todo!("Implement this")
+    }
 
     /// Serializes an artifact into bytes
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;
@@ -142,6 +147,7 @@ pub trait Artifact: Send + Sync + Upcastable {
             finished_globals,
             imports,
             self.signatures().clone(),
+            self.func_metadata().clone(),
             host_state,
             import_function_envs,
         )

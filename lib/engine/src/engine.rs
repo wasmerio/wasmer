@@ -8,7 +8,7 @@ use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_compiler::{CompileError, Target};
 use wasmer_types::FunctionType;
-use wasmer_vm::VMSharedSignatureIndex;
+use wasmer_vm::{VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex};
 
 /// A unimplemented Wasmer `Engine`.
 ///
@@ -22,6 +22,10 @@ pub trait Engine {
 
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
+
+    /// Register a function's data.
+    /// TODO: probably create a new type like `FuncRef`.
+    fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef;
 
     /// Lookup a signature
     fn lookup_signature(&self, sig: VMSharedSignatureIndex) -> Option<FunctionType>;

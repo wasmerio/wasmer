@@ -14,6 +14,7 @@ pub use allocator::InstanceAllocator;
 pub use r#ref::InstanceRef;
 
 use crate::export::VMExport;
+use crate::func_data_registry::VMFuncRef;
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -82,11 +83,14 @@ pub(crate) struct Instance {
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
     /// empty slice.
-    passive_elements: RefCell<HashMap<ElemIndex, Box<[VMCallerCheckedAnyfunc]>>>,
+    passive_elements: RefCell<HashMap<ElemIndex, Box<[VMFuncRef]>>>,
 
     /// Passive data segments from our module. As `data.drop`s happen, entries
     /// get removed. A missing entry is considered equivalent to an empty slice.
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
+
+    /// mapping of local function indices to their func ref backing data.
+    func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -513,6 +517,26 @@ impl Instance {
         from.size()
     }
 
+    /// Returns the number of elements in a given table.
+    pub(crate) fn table_size(&self, table_index: LocalTableIndex) -> u32 {
+        self.tables
+            .get(table_index)
+            .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
+            .size()
+    }
+
+    /// Returns the number of elements in a given imported table.
+    ///
+    /// # Safety
+    /// TODO: review safety of this. (safety message copied from memory.size)
+    /// This and `imported_table_grow` are currently unsafe because they
+    /// dereference the table import's pointers.
+    pub(crate) unsafe fn imported_table_size(&self, table_index: TableIndex) -> u32 {
+        let import = self.imported_table(table_index);
+        let from = import.from.as_ref();
+        from.size()
+    }
+
     /// Grow table by the specified amount of elements.
     ///
     /// Returns `None` if table can't be grown by the specified amount
@@ -525,6 +549,22 @@ impl Instance {
             .grow(delta);
 
         result
+    }
+
+    /// Grow table by the specified amount of elements.
+    ///
+    /// # Safety
+    /// TODO: review safety of this. (safety message copied from memory.size)
+    /// This and `imported_table_grow` are currently unsafe because they
+    /// dereference the table import's pointers.
+    pub(crate) unsafe fn imported_table_grow(
+        &self,
+        table_index: TableIndex,
+        delta: u32,
+    ) -> Option<u32> {
+        let import = self.imported_table(table_index);
+        let from = import.from.as_ref();
+        from.grow(delta.into())
     }
 
     /// Get table element by index.
@@ -549,11 +589,36 @@ impl Instance {
     }
 
     /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
-    fn get_caller_checked_anyfunc(&self, index: FunctionIndex) -> VMCallerCheckedAnyfunc {
+    fn get_caller_checked_anyfunc(&self, index: FunctionIndex) -> VMFuncRef {
         if index == FunctionIndex::reserved_value() {
-            return VMCallerCheckedAnyfunc::default();
+            return VMFuncRef::null();
         }
 
+        if let Some(def_index) = self.module.local_func_index(index) {
+            let ptr = self.func_metadata[def_index];
+            unsafe {
+                // TODO: review use of `&mut` here: this is probably unsound, we probably
+                // need to wrap one or more of these types in UnsafeCell somewhere or something.
+                let item: &mut VMCallerCheckedAnyfunc = &mut *(*ptr as *mut _);
+                item.vmctx.vmctx = self.vmctx_ptr();
+            }
+            ptr
+        } else {
+            // TODO: actually implement this for imported functions
+            // hack to test that the idea is sound:
+            let sig = self.module.functions[index];
+            let type_index = self.signature_id(sig);
+            let import = self.imported_function(index);
+            let ptr = VMFuncRef(Box::into_raw(Box::new(VMCallerCheckedAnyfunc {
+                func_ptr: import.body,
+                type_index,
+                vmctx: import.environment,
+            })));
+            ptr
+            //todo!("Handle imported funcrefs!")
+        }
+        //todo!("Read this data from somewhere; need to store it first!")
+        /*
         let sig = self.module.functions[index];
         let type_index = self.signature_id(sig);
 
@@ -569,11 +634,12 @@ impl Instance {
             (import.body, import.environment)
         };
 
+        todo!("store this data somewhere and then look it up and pass it back");
         VMCallerCheckedAnyfunc {
             func_ptr,
             type_index,
             vmctx,
-        }
+        }*/
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -597,7 +663,7 @@ impl Instance {
         let passive_elements = self.passive_elements.borrow();
         let elem = passive_elements
             .get(&elem_index)
-            .map_or_else(|| -> &[VMCallerCheckedAnyfunc] { &[] }, |e| &**e);
+            .map_or_else(|| -> &[VMFuncRef] { &[] }, |e| &**e);
 
         if src
             .checked_add(len)
@@ -609,7 +675,7 @@ impl Instance {
 
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
-                .set(dst, TableReference::FuncRef(elem[src as usize].clone()))
+                .set(dst, TableReference::FuncRef(elem[src as usize]))
                 .expect("should never panic because we already did the bounds check above");
         }
 
@@ -811,6 +877,8 @@ impl InstanceHandle {
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+        // TODO: come up with a better name
+        func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
@@ -835,6 +903,7 @@ impl InstanceHandle {
                 passive_elements: Default::default(),
                 passive_data,
                 host_state,
+                func_metadata,
                 signal_handler: Cell::new(None),
                 imported_function_envs,
                 vmctx: VMContext {},

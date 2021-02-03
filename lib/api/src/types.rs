@@ -1,12 +1,12 @@
 use crate::externals::Function;
 use crate::store::{Store, StoreObject};
 use crate::RuntimeError;
-use std::ptr;
 use wasmer_types::Value;
 pub use wasmer_types::{
     ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
     MemoryType, Mutability, TableType, Type as ValType,
 };
+use wasmer_vm::VMFuncRef;
 
 /// WebAssembly computations manipulate values of basic value types:
 /// * Integers (32 or 64 bit width)
@@ -37,12 +37,9 @@ impl From<Function> for Val {
 /// It provides useful functions for converting back and forth
 /// from [`Val`] into `FuncRef`.
 pub trait ValFuncRef {
-    fn into_checked_anyfunc(
-        &self,
-        store: &Store,
-    ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError>;
+    fn into_checked_anyfunc(&self, store: &Store) -> Result<VMFuncRef, RuntimeError>;
 
-    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self;
+    fn from_checked_anyfunc(item: VMFuncRef, store: &Store) -> Self;
 
     fn into_table_reference(
         &self,
@@ -53,10 +50,7 @@ pub trait ValFuncRef {
 }
 
 impl ValFuncRef for Val {
-    fn into_checked_anyfunc(
-        &self,
-        store: &Store,
-    ) -> Result<wasmer_vm::VMCallerCheckedAnyfunc, RuntimeError> {
+    fn into_checked_anyfunc(&self, store: &Store) -> Result<VMFuncRef, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
@@ -68,23 +62,17 @@ impl ValFuncRef for Val {
             host_env: ptr::null_mut(),
             },
             },*/
-            Self::FuncRef(None) => wasmer_vm::VMCallerCheckedAnyfunc {
-                func_ptr: ptr::null(),
-                type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                vmctx: wasmer_vm::VMFunctionEnvironment {
-                    host_env: ptr::null_mut(),
-                },
-            },
+            Self::FuncRef(None) => VMFuncRef::null(),
             Self::FuncRef(Some(f)) => f.checked_anyfunc(),
             _ => return Err(RuntimeError::new("val is not reference")),
         })
     }
 
-    fn from_checked_anyfunc(item: wasmer_vm::VMCallerCheckedAnyfunc, store: &Store) -> Self {
-        // TODO: use `is_null()`?
-        if item.type_index == wasmer_vm::VMSharedSignatureIndex::default() {
+    fn from_checked_anyfunc(func_ref: VMFuncRef, store: &Store) -> Self {
+        if func_ref.is_null() {
             return Self::FuncRef(None);
         }
+        let item: &wasmer_vm::VMCallerCheckedAnyfunc = unsafe { &**func_ref };
         let signature = store
             .engine()
             .lookup_signature(item.type_index)
@@ -128,15 +116,7 @@ impl ValFuncRef for Val {
             {
                 todo!("extern ref not yet supported")
             }
-            Self::FuncRef(None) => {
-                wasmer_vm::TableReference::FuncRef(wasmer_vm::VMCallerCheckedAnyfunc {
-                    func_ptr: ptr::null(),
-                    type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                    vmctx: wasmer_vm::VMFunctionEnvironment {
-                        host_env: ptr::null_mut(),
-                    },
-                })
-            }
+            Self::FuncRef(None) => wasmer_vm::TableReference::FuncRef(VMFuncRef::null()),
             Self::FuncRef(Some(f)) => wasmer_vm::TableReference::FuncRef(f.checked_anyfunc()),
             _ => return Err(RuntimeError::new("val is not reference")),
         })

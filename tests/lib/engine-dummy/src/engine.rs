@@ -5,7 +5,10 @@ use std::sync::Arc;
 use wasmer_compiler::{CompileError, Features, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
 use wasmer_types::FunctionType;
-use wasmer_vm::{SignatureRegistry, VMContext, VMFunctionBody, VMSharedSignatureIndex};
+use wasmer_vm::{
+    FuncDataRegistry, SignatureRegistry, VMCallerCheckedAnyfunc, VMContext, VMFuncRef,
+    VMFunctionBody, VMSharedSignatureIndex,
+};
 
 #[allow(dead_code)]
 extern "C" fn dummy_trampoline(
@@ -20,6 +23,7 @@ extern "C" fn dummy_trampoline(
 #[derive(Clone)]
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
+    func_data: Arc<FuncDataRegistry>,
     features: Arc<Features>,
     target: Arc<Target>,
     engine_id: EngineId,
@@ -30,6 +34,7 @@ impl DummyEngine {
     pub fn new() -> Self {
         Self {
             signatures: Arc::new(SignatureRegistry::new()),
+            func_data: Arc::new(FuncDataRegistry::new()),
             features: Arc::new(Default::default()),
             target: Arc::new(Default::default()),
             engine_id: EngineId::default(),
@@ -50,6 +55,10 @@ impl Engine for DummyEngine {
     /// Register a signature
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         self.signatures.register(func_type)
+    }
+
+    fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef {
+        self.func_data.register(func_data)
     }
 
     /// Lookup a signature

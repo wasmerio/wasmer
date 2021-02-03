@@ -23,7 +23,7 @@ pub struct Imports {
     /// exactly once so we save some memory and improve correctness by
     /// moving this data.
     pub host_function_env_initializers: Option<BoxedSlice<FunctionIndex, ImportFunctionEnv>>,
-
+    //pub function_ref_backings: Option<BoxedSlice<FunctionIndex, VMFuncRef>>,
     /// Resolved addresses for imported tables.
     pub tables: BoxedSlice<TableIndex, VMTableImport>,
 

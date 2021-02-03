@@ -22,7 +22,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMCallerCheckedAnyfunc, VMFuncRef,
+    VMFunctionEnvironment, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
@@ -32,6 +33,9 @@ pub struct JITArtifact {
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    // technically not "local", probably includes both local and imported
+    // TODO: update name and docs
+    local_func_data: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
@@ -223,6 +227,26 @@ impl JITArtifact {
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
+        let local_func_data = finished_functions
+            .iter()
+            .map(|(k, v)| {
+                use wasmer_types::entity::EntityRef;
+                let idx = FunctionIndex::new(
+                    serializable.compile_info.module.num_imported_functions + k.index(),
+                );
+                let sig_idx = serializable.compile_info.module.functions[idx];
+                let type_index = signatures[sig_idx];
+                let metadata = VMCallerCheckedAnyfunc {
+                    func_ptr: v.0,
+                    type_index,
+                    vmctx: VMFunctionEnvironment {
+                        host_env: std::ptr::null_mut(),
+                    },
+                };
+                inner_jit.func_data().register(metadata)
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, VMFuncRef>>();
+        let local_func_data = local_func_data.into_boxed_slice();
 
         Ok(Self {
             serializable,
@@ -230,6 +254,7 @@ impl JITArtifact {
             finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
+            local_func_data,
             frame_info_registration: Mutex::new(None),
             finished_function_lengths,
         })
@@ -309,6 +334,10 @@ impl Artifact for JITArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn func_metadata(&self) -> &BoxedSlice<LocalFunctionIndex, VMFuncRef> {
+        &self.local_func_data
     }
 
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {

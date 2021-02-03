@@ -40,7 +40,9 @@ use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
 use std::fmt;
-use wasmer_types::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
+use wasmer_types::{
+    DataIndex, ElemIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, TableIndex,
+};
 
 /// Implementation of f32.ceil
 #[no_mangle]
@@ -245,6 +247,70 @@ pub unsafe extern "C" fn wasmer_table_init(
     if let Err(trap) = result {
         raise_lib_trap(trap);
     }
+}
+
+/// Implementation of `table.size`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_table_size(vmctx: *mut VMContext, table_index: u32) -> u32 {
+    let instance = (&*vmctx).instance();
+    let table_index = LocalTableIndex::from_u32(table_index);
+
+    instance.table_size(table_index)
+}
+
+/// Implementation of table.size for imported 32-bit memories.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_imported_table_size(
+    vmctx: *mut VMContext,
+    table_index: u32,
+) -> u32 {
+    let instance = (&*vmctx).instance();
+    let table_index = TableIndex::from_u32(table_index);
+
+    instance.imported_table_size(table_index)
+}
+
+/// Implementation of table.grow for locally-defined tables.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_table_grow(
+    vmctx: *mut VMContext,
+    delta: u32,
+    table_index: u32,
+) -> u32 {
+    let instance = (&*vmctx).instance();
+    let table_index = LocalTableIndex::from_u32(table_index);
+
+    instance
+        .table_grow(table_index, delta)
+        .unwrap_or(u32::max_value())
+}
+
+/// Implementation of table.grow for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_imported_table_grow(
+    vmctx: *mut VMContext,
+    value: u64,
+    delta: u32,
+    table_index: u32,
+) -> u32 {
+    let instance = (&*vmctx).instance();
+    let table_index = TableIndex::from_u32(table_index);
+
+    instance
+        .imported_table_grow(table_index, delta)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of `elem.drop`.
