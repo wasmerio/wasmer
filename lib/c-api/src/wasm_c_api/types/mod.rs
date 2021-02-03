@@ -28,6 +28,19 @@ wasm_declare_vec!(byte);
 #[allow(non_camel_case_types)]
 pub type wasm_name_t = wasm_byte_vec_t;
 
+impl From<String> for wasm_name_t {
+    fn from(string: String) -> Self {
+        let mut boxed_str: Box<str> = string.into_boxed_str();
+        let data = boxed_str.as_mut_ptr();
+        let size = boxed_str.bytes().len();
+        let wasm_name = Self { data, size };
+
+        Box::leak(boxed_str);
+
+        wasm_name
+    }
+}
+
 // opaque type over `ExternRef`?
 #[allow(non_camel_case_types)]
 pub struct wasm_ref_t;

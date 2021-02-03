@@ -63,6 +63,7 @@ int main() {
   wasm_importtype_vec_delete(&import_types);
         
   bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+  wasi_env_delete(wasi_env);
 
   if (!get_imports_result) {
     printf("> Error getting WASI imports!\n");

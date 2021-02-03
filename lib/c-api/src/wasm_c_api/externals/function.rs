@@ -106,7 +106,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     struct WrapperEnv {
         env: *mut c_void,
         finalizer: Arc<Option<wasm_env_finalizer_t>>,
-    };
+    }
 
     // Only relevant when using multiple threads in the C API;
     // Synchronization will be done via the C API / on the C side.

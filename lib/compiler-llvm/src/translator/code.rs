@@ -12,7 +12,7 @@ use inkwell::{
     module::{Linkage, Module},
     passes::PassManager,
     targets::{FileType, TargetMachine},
-    types::{BasicType, BasicTypeEnum, FloatMathType, IntType, PointerType, VectorType},
+    types::{BasicType, FloatMathType, IntType, PointerType, VectorType},
     values::{
         BasicValue, BasicValueEnum, FloatValue, FunctionValue, InstructionOpcode, InstructionValue,
         IntValue, PhiValue, PointerValue, VectorValue,
@@ -40,18 +40,6 @@ const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {
     CompileError::Codegen(format!("{}", err))
-}
-
-// TODO: move this into inkwell.
-fn const_zero(ty: BasicTypeEnum) -> BasicValueEnum {
-    match ty {
-        BasicTypeEnum::ArrayType(ty) => ty.const_zero().as_basic_value_enum(),
-        BasicTypeEnum::FloatType(ty) => ty.const_zero().as_basic_value_enum(),
-        BasicTypeEnum::IntType(ty) => ty.const_zero().as_basic_value_enum(),
-        BasicTypeEnum::PointerType(ty) => ty.const_zero().as_basic_value_enum(),
-        BasicTypeEnum::StructType(ty) => ty.const_zero().as_basic_value_enum(),
-        BasicTypeEnum::VectorType(ty) => ty.const_zero().as_basic_value_enum(),
-    }
 }
 
 pub struct FuncTranslator {
@@ -188,7 +176,7 @@ impl FuncTranslator {
             let ty = type_to_llvm(&intrinsics, ty)?;
             for _ in 0..count {
                 let alloca = insert_alloca(ty, "local");
-                cache_builder.build_store(alloca, const_zero(ty));
+                cache_builder.build_store(alloca, ty.const_zero());
                 locals.push(alloca);
             }
         }
@@ -1745,7 +1733,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         self.state.push1(phi.as_basic_value());
                     } else {
                         let basic_ty = phi.as_basic_value().get_type();
-                        let placeholder_value = const_zero(basic_ty);
+                        let placeholder_value = basic_ty.const_zero();
                         self.state.push1(placeholder_value);
                         phi.as_instruction().erase_from_basic_block();
                     }

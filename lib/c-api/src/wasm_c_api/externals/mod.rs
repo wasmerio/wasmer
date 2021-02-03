@@ -20,6 +20,16 @@ pub struct wasm_extern_t {
 
 wasm_declare_boxed_vec!(extern);
 
+/// Copy a `wasm_extern_t`.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_extern_t> {
+    Box::new(r#extern.clone())
+}
+
+/// Delete an extern.
+#[no_mangle]
+pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>) {}
+
 #[no_mangle]
 pub unsafe extern "C" fn wasm_func_as_extern(
     func: Option<&wasm_func_t>,
@@ -123,5 +133,62 @@ pub unsafe extern "C" fn wasm_extern_as_table(
         Some(Box::new(wasm_table_t { inner: t.clone() }))
     } else {
         None
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_extern_copy() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(
+                    &wat,
+                    "(module\n"
+                    "  (func (export \"function\")))"
+                );
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                wasm_extern_vec_t imports = WASM_EMPTY_VEC;
+                wasm_trap_t* traps = NULL;
+
+                wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
+                assert(instance);
+
+                wasm_extern_vec_t exports;
+                wasm_instance_exports(instance, &exports);
+
+                assert(exports.size == 1);
+
+                wasm_extern_t* function = exports.data[0];
+                assert(wasm_extern_kind(function) == WASM_EXTERN_FUNC);
+
+                wasm_extern_t* function_copy = wasm_extern_copy(function);
+                assert(wasm_extern_kind(function_copy) == WASM_EXTERN_FUNC);
+
+                wasm_extern_delete(function_copy);
+                wasm_instance_delete(instance);
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
     }
 }

@@ -403,7 +403,7 @@ int main() {
             #[no_mangle]
             pub unsafe extern "C" fn [<wasm_ $name _vec_copy>](
                 out_ptr: &mut [<wasm_ $name _vec_t>],
-                in_ptr: & [<wasm _$name _vec_t>])
+                in_ptr: & [<wasm_ $name _vec_t>])
             {
                 *out_ptr = in_ptr.clone();
             }
@@ -467,15 +467,18 @@ macro_rules! wasm_declare_own {
 
 #[macro_export]
 macro_rules! c_try {
-    ($expr:expr) => {{
+    ($expr:expr; otherwise $return:expr) => {{
         let res: Result<_, _> = $expr;
         match res {
             Ok(val) => val,
             Err(err) => {
                 crate::error::update_last_error(err);
-                return None;
+                return $return;
             }
         }
+    }};
+    ($expr:expr) => {{
+        c_try!($expr; otherwise None)
     }};
     ($expr:expr, $e:expr) => {{
         let opt: Option<_> = $expr;

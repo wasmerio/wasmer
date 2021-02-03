@@ -143,6 +143,7 @@ int main(int argc, char* argv[]) {
   
   #ifdef WASI
   bool get_imports_result = wasi_get_imports(store, module, wasi_env, &imports);
+  wasi_env_delete(wasi_env);
 
   if (!get_imports_result) {
     fprintf(stderr, "Error getting WASI imports!\n");
