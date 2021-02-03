@@ -49,7 +49,7 @@ fn derive_memory_usage_struct(
                 .map(|field| {
                     let id = field.ident.as_ref().unwrap();
                     let span = id.span();
-                    quote_spanned! ( span=>MemoryUsage::size_of(&self.#id) )
+                    quote_spanned! ( span=>MemoryUsage::size_of_val(&self.#id) )
                 })
                 .collect(),
             Fields::Unit => vec![],
@@ -57,7 +57,7 @@ fn derive_memory_usage_struct(
                 .into_iter()
                 .map(|field| {
                     let id = Index::from(field);
-                    quote! { MemoryUsage::size_of(&self.#id) }
+                    quote! { MemoryUsage::size_of_val(&self.#id) }
                 })
                 .collect(),
         }
@@ -70,7 +70,7 @@ fn derive_memory_usage_struct(
     (quote! {
         #[allow(dead_code)]
         impl < #lifetimes_and_generics > MemoryUsage for #struct_name < #lifetimes_and_generics > #where_clause {
-            fn size_of(&self) -> usize {
+            fn size_of_val(&self) -> usize {
                 #sum
             }
         }
@@ -99,7 +99,7 @@ fn derive_memory_usage_enum(
                     let pattern =
                         join_fold(identifiers.clone(), |x, y| quote! { #x , #y }, quote! {});
                     let sum = join_fold(
-                        identifiers.map(|v| quote! { MemoryUsage::size_of(#v) }),
+                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) }),
                         |x, y| quote! { #x + #y },
                         quote! { 0 },
                     );
@@ -120,7 +120,7 @@ fn derive_memory_usage_enum(
                     let pattern =
                         join_fold(identifiers.clone(), |x, y| quote! { #x , #y }, quote! {});
                     let sum = join_fold(
-                        identifiers.map(|v| quote! { MemoryUsage::size_of(#v) }),
+                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) }),
                         |x, y| quote! { #x + #y },
                         quote! { 0 },
                     );
@@ -137,7 +137,7 @@ fn derive_memory_usage_enum(
     (quote! {
         #[allow(dead_code)]
         impl < #lifetimes_and_generics > MemoryUsage for #struct_name < #lifetimes_and_generics > #where_clause {
-            fn size_of(&self) -> usize {
+            fn size_of_val(&self) -> usize {
                 match self {
                     #each_variant
                 }
