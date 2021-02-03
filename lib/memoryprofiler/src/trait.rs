@@ -1,4 +1,8 @@
 pub trait MemoryUsage {
+    /// Returns the size of the referenced value in bytes.
+    ///
+    /// Recursively visits the value and any children returning the sum of their
+    /// sizes. The size always includes any tail padding if applicable.
     fn size_of_val(&self) -> usize;
 }
 
@@ -103,7 +107,11 @@ impl<T: MemoryUsage> MemoryUsage for [T] {
 // arrays
 impl<T: MemoryUsage, const N: usize> MemoryUsage for [T; N] {
     fn size_of_val(&self) -> usize {
-        std::mem::size_of_val(self) + self.iter().map(MemoryUsage::size_of_val).sum::<usize>()
+        std::mem::size_of_val(self)
+            + self
+                .iter()
+                .map(|v| MemoryUsage::size_of_val(v) - std::mem::size_of_val(v))
+                .sum::<usize>()
     }
 }
 
@@ -192,6 +200,13 @@ mod tests {
     }
 
     #[test]
+    fn test_arrays() {
+        let x: [[u8; 7]; 13] = [[0; 7]; 13];
+        assert_eq!(7 * 13, std::mem::size_of_val(&x));
+        assert_eq!(7 * 13, MemoryUsage::size_of_val(&x));
+    }
+
+    #[test]
     fn test_slice_no_static_size() {
         {
             let x: [u8; 13] = [0; 13];
@@ -215,5 +230,23 @@ mod tests {
                 MemoryUsage::size_of_val(y)
             );
         }
+    }
+
+    #[test]
+    fn test_vecs() {
+        let mut x = vec![];
+        let empty_vec_size = std::mem::size_of_val(&x);
+        let tmu_size = std::mem::size_of::<TestMemoryUsage>();
+        x.push(TestMemoryUsage {
+            size_to_report: tmu_size + 3,
+        });
+        x.push(TestMemoryUsage {
+            size_to_report: tmu_size + 7,
+        });
+        assert_eq!(empty_vec_size, std::mem::size_of_val(&x));
+        assert_eq!(
+            empty_vec_size + 2 * tmu_size + 3 + 7,
+            MemoryUsage::size_of_val(&x)
+        );
     }
 }
