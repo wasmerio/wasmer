@@ -12,8 +12,12 @@ pub fn derive_memory_usage(input: proc_macro::TokenStream) -> proc_macro::TokenS
         Data::Enum(ref enum_data) => {
             derive_memory_usage_enum(&input.ident, enum_data, &input.generics)
         }
-        _ => unreachable!("not yet implemented"),
+        Data::Union(_) => panic!("unions are not yet implemented"),
         /*
+        // TODO: unions.
+        // We have no way of knowing which union member is active, so we should
+        // refuse to derive an impl except for unions where all members are
+        // primitive types or arrays of them.
         Data::Union(ref union_data) => {
             derive_memory_usage_union(union_data)
         },
@@ -49,7 +53,7 @@ fn derive_memory_usage_struct(
                 .map(|field| {
                     let id = field.ident.as_ref().unwrap();
                     let span = id.span();
-                    quote_spanned! ( span=>MemoryUsage::size_of_val(&self.#id) )
+                    quote_spanned! ( span=>MemoryUsage::size_of_val(&self.#id) - std::mem::size_of_val(&self.#id) )
                 })
                 .collect(),
             Fields::Unit => vec![],
@@ -57,7 +61,7 @@ fn derive_memory_usage_struct(
                 .into_iter()
                 .map(|field| {
                     let id = Index::from(field);
-                    quote! { MemoryUsage::size_of_val(&self.#id) }
+                    quote! { MemoryUsage::size_of_val(&self.#id) - std::mem::size_of_val(&self.#id) }
                 })
                 .collect(),
         }
@@ -71,7 +75,7 @@ fn derive_memory_usage_struct(
         #[allow(dead_code)]
         impl < #lifetimes_and_generics > MemoryUsage for #struct_name < #lifetimes_and_generics > #where_clause {
             fn size_of_val(&self) -> usize {
-                #sum
+                std::mem::size_of_val(self) + #sum
             }
         }
     })
@@ -99,7 +103,7 @@ fn derive_memory_usage_enum(
                     let pattern =
                         join_fold(identifiers.clone(), |x, y| quote! { #x , #y }, quote! {});
                     let sum = join_fold(
-                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) }),
+                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) - std::mem::size_of_val(#v) }),
                         |x, y| quote! { #x + #y },
                         quote! { 0 },
                     );
@@ -120,7 +124,7 @@ fn derive_memory_usage_enum(
                     let pattern =
                         join_fold(identifiers.clone(), |x, y| quote! { #x , #y }, quote! {});
                     let sum = join_fold(
-                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) }),
+                        identifiers.map(|v| quote! { MemoryUsage::size_of_val(#v) - std::mem::size_of_val(#v) }),
                         |x, y| quote! { #x + #y },
                         quote! { 0 },
                     );
@@ -138,7 +142,7 @@ fn derive_memory_usage_enum(
         #[allow(dead_code)]
         impl < #lifetimes_and_generics > MemoryUsage for #struct_name < #lifetimes_and_generics > #where_clause {
             fn size_of_val(&self) -> usize {
-                match self {
+                std::mem::size_of_val(self) + match self {
                     #each_variant
                 }
             }
