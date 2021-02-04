@@ -14,9 +14,13 @@
 - [#2040](https://github.com/wasmerio/wasmer/pull/2040) Add `InstanceHandle::vmoffsets` to expose the offsets of the `vmctx` region.
 - [#2026](https://github.com/wasmerio/wasmer/pull/2010) Expose trap code of a `RuntimeError`, if it's a `Trap`.
 - [#2054](https://github.com/wasmerio/wasmer/pull/2054) Add `wasm_config_delete` to the Wasm C API.
+- [#2072](https://github.com/wasmerio/wasmer/pull/2072) Added cross-compilation to Wasm C API.
 
 ### Changed
-- [#2083](https://github.com/wasmerio/wasmer/pull/2083) Mark `wasi_env_set_(instance|memory)` as deprecated. You may simply remove them with no side-effect.
+- [#2037](https://github.com/wasmerio/wasmer/pull/2037) Improved parallelism of LLVM with the Native/Object engine
+- [#2012](https://github.com/wasmerio/wasmer/pull/2012) Refactor Singlepass init stack assembly (more performant now)
+- [#2036](https://github.com/wasmerio/wasmer/pull/2036) Optimize memory allocated for Function type definitions
+- [#2083](https://github.com/wasmerio/wasmer/pull/2083) Mark `wasi_env_set_instance` and wasi_env_set_memory` as deprecated. You may simply remove the calls with no side-effect.
 - [#2056](https://github.com/wasmerio/wasmer/pull/2056) Change back to depend on the `enumset` crate instead of `wasmer_enumset`
 
 ### Fixed
