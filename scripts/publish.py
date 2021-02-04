@@ -102,7 +102,7 @@ def publish_crate(crate: str):
 
     global no_dry_run
     if no_dry_run:
-        output = subprocess.run(["cargo", "publish"])
+        output = subprocess.run(["cargo", "publish"], env={'WASMER_PUBLISH_SCRIPT_IS_RUNNING': '1'})
     else:
         print("In dry-run: not publishing crate `{}`".format(crate))
 
