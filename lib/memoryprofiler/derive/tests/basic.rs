@@ -1,5 +1,7 @@
-use wasmer_memoryprofiler::r#trait::MemoryUsage;
+use wasmer_memoryprofiler::r#trait::{MemoryUsage, MemoryUsageVisited};
 use wasmer_memoryprofiler_derive::MemoryUsage;
+
+use std::collections::BTreeSet;
 
 #[derive(MemoryUsage)]
 pub struct Point {
@@ -9,7 +11,7 @@ pub struct Point {
 #[test]
 fn test_struct_point() {
     let p = Point { x: 1, y: 2 };
-    assert_eq!(8, MemoryUsage::size_of_val(&p));
+    assert_eq!(8, MemoryUsage::size_of_val(&p, &mut BTreeSet::new()));
 }
 
 #[derive(MemoryUsage)]
@@ -17,7 +19,7 @@ pub struct AnonymousPoint(i32, i32);
 #[test]
 fn test_struct_anonymous_point() {
     let p = AnonymousPoint(1, 2);
-    assert_eq!(8, MemoryUsage::size_of_val(&p));
+    assert_eq!(8, MemoryUsage::size_of_val(&p, &mut BTreeSet::new()));
 }
 
 #[derive(MemoryUsage)]
@@ -31,7 +33,7 @@ where
 #[test]
 fn test_struct_generic_point() {
     let g = GenericPoint { x: 1i64, y: 2i64 };
-    assert_eq!(16, MemoryUsage::size_of_val(&g));
+    assert_eq!(16, MemoryUsage::size_of_val(&g, &mut BTreeSet::new()));
 }
 
 #[derive(MemoryUsage)]
@@ -39,7 +41,7 @@ pub struct Empty();
 #[test]
 fn test_struct_empty() {
     let e = Empty();
-    assert_eq!(0, MemoryUsage::size_of_val(&e));
+    assert_eq!(0, MemoryUsage::size_of_val(&e, &mut BTreeSet::new()));
 }
 
 // This struct is packed in order <x, z, y> because 'y: i32' requires 32-bit
@@ -54,7 +56,7 @@ pub struct Padding {
 #[test]
 fn test_struct_padding() {
     let p = Padding { x: 1, y: 2, z: 3 };
-    assert_eq!(8, MemoryUsage::size_of_val(&p));
+    assert_eq!(8, MemoryUsage::size_of_val(&p, &mut BTreeSet::new()));
 }
 
 #[derive(MemoryUsage)]
