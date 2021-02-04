@@ -75,7 +75,9 @@ fn main() {
 
 /// Check whether we should build the C API headers or set `inline-c` up.
 fn running_self() -> bool {
-    env::var("DOCS_RS").is_err() && env::var("_CBINDGEN_IS_RUNNING").is_err()
+    env::var("DOCS_RS").is_err()
+        && env::var("_CBINDGEN_IS_RUNNING").is_err()
+        && env::var("WASMER_PUBLISH_SCRIPT_IS_RUNNING").is_err()
 }
 
 /// Build the header files for the `wasm_c_api` API.
