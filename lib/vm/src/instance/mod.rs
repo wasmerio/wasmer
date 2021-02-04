@@ -47,8 +47,8 @@ use wasmer_types::{
 
 /// The function pointer to call with data and an [`Instance`] pointer to
 /// finish initializing the host env.
-pub type ImportInitializerFuncPtr =
-    fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
+pub type ImportInitializerFuncPtr<ResultErr = *mut ffi::c_void> =
+    fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), ResultErr>;
 
 /// A WebAssembly instance.
 ///
@@ -1146,7 +1146,7 @@ impl InstanceHandle {
                         // transmute our function pointer into one with the correct error type
                         let f = mem::transmute::<
                             &ImportInitializerFuncPtr,
-                            &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
+                            &ImportInitializerFuncPtr<Err>,
                         >(f);
                         f(*env, instance_ptr)?;
                     }
