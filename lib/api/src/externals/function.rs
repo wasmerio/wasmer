@@ -15,9 +15,9 @@ use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
-    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
-    VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMExportFunction, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
@@ -78,9 +78,7 @@ where
     Env: Clone + Sized + 'static + Send + Sync,
 {
     let import_init_function_ptr = Some(unsafe {
-        std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
-            import_init_function_ptr,
-        )
+        std::mem::transmute::<_, ImportInitializerFuncPtr>(import_init_function_ptr)
     });
     let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
         let env_ref: &Env = unsafe {
