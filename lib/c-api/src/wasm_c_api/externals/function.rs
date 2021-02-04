@@ -23,7 +23,7 @@ pub type wasm_func_callback_t = unsafe extern "C" fn(
 
 #[allow(non_camel_case_types)]
 pub type wasm_func_callback_with_env_t = unsafe extern "C" fn(
-    *mut c_void,
+    env: *mut c_void,
     args: *const wasm_val_vec_t,
     results: *mut wasm_val_vec_t,
 ) -> *mut wasm_trap_t;
@@ -92,7 +92,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     function_type: Option<&wasm_functype_t>,
     callback: Option<wasm_func_callback_with_env_t>,
     env: *mut c_void,
-    finalizer: Option<wasm_env_finalizer_t>,
+    env_finalizer: Option<wasm_env_finalizer_t>,
 ) -> Option<Box<wasm_func_t>> {
     let store = store?;
     let function_type = function_type?;
@@ -105,7 +105,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     #[repr(C)]
     struct WrapperEnv {
         env: *mut c_void,
-        finalizer: Arc<Option<wasm_env_finalizer_t>>,
+        env_finalizer: Arc<Option<wasm_env_finalizer_t>>,
     }
 
     // Only relevant when using multiple threads in the C API;
@@ -115,18 +115,18 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
-            if let Some(finalizer) = Arc::get_mut(&mut self.finalizer)
+            if let Some(env_finalizer) = Arc::get_mut(&mut self.env_finalizer)
                 .map(Option::take)
                 .flatten()
             {
                 if !self.env.is_null() {
-                    unsafe { (finalizer)(self.env as _) }
+                    unsafe { (env_finalizer)(self.env as _) }
                 }
             }
         }
     }
 
-    let inner_callback = move |env: &WrapperEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
+    let trampoline = move |env: &WrapperEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
         let processed_args: wasm_val_vec_t = args
             .into_iter()
             .map(TryInto::try_into)
@@ -167,9 +167,9 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         func_sig,
         WrapperEnv {
             env,
-            finalizer: Arc::new(finalizer),
+            env_finalizer: Arc::new(env_finalizer),
         },
-        inner_callback,
+        trampoline,
     );
 
     Some(Box::new(wasm_func_t {
