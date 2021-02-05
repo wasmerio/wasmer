@@ -12,6 +12,7 @@
 ### Changed
 
 ### Fixed
+- [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
 
 ## 1.0.2 - 2021-02-04
 
