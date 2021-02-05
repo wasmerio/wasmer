@@ -1431,8 +1431,8 @@
 
 <span class="doccomment">/// The function pointer to call with data and an [`Instance`] pointer to</span>
 <span class="doccomment">/// finish initializing the host env.</span>
-<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ImportInitializerFuncPtr</span> <span class="op">=</span>
-    <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span><span class="op">&gt;</span>;
+<span class="kw">pub</span> <span class="kw">type</span> <span class="ident">ImportInitializerFuncPtr</span><span class="op">&lt;</span><span class="ident">ResultErr</span> <span class="op">=</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span><span class="op">&gt;</span> <span class="op">=</span>
+    <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">ResultErr</span><span class="op">&gt;</span>;
 
 <span class="doccomment">/// A WebAssembly instance.</span>
 <span class="doccomment">///</span>
@@ -1507,9 +1507,9 @@
     <span class="ident">Env</span> {
         <span class="doccomment">/// The function environment. This is not always the user-supplied</span>
         <span class="doccomment">/// env.</span>
-        <span class="ident">env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
         <span class="doccomment">/// A clone function for duplicating the env.</span>
-        <span class="ident">clone</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">clone</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
         <span class="doccomment">/// This field is not always present. When it is present, it</span>
         <span class="doccomment">/// should be set to `None` after use to prevent double</span>
         <span class="doccomment">/// initialization.</span>
@@ -1519,7 +1519,7 @@
         <span class="doccomment">/// # Safety</span>
         <span class="doccomment">/// - This function must be called ina synchronized way. For</span>
         <span class="doccomment">///   example, in the `Drop` implementation of this type.</span>
-        <span class="ident">destructor</span>: <span class="kw">unsafe</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>),
+        <span class="ident">destructor</span>: <span class="kw">unsafe</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>),
     },
 }
 
@@ -2515,7 +2515,7 @@
     <span class="doccomment">/// - `instance_ptr` must point to a valid `wasmer::Instance`.</span>
     <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">initialize_host_envs</span><span class="op">&lt;</span><span class="prelude-val">Err</span>: <span class="ident">Sized</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">instance_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
+        <span class="ident">instance_ptr</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">instance_ref</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">instance</span>.<span class="ident">as_mut</span>();
 
@@ -2530,7 +2530,7 @@
                         <span class="comment">// transmute our function pointer into one with the correct error type</span>
                         <span class="kw">let</span> <span class="ident">f</span> <span class="op">=</span> <span class="ident">mem</span>::<span class="ident">transmute</span>::<span class="op">&lt;</span>
                             <span class="kw-2">&amp;</span><span class="ident">ImportInitializerFuncPtr</span>,
-                            <span class="kw-2">&amp;</span><span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>, <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="prelude-val">Err</span><span class="op">&gt;</span>,
+                            <span class="kw-2">&amp;</span><span class="ident">ImportInitializerFuncPtr</span><span class="op">&lt;</span><span class="prelude-val">Err</span><span class="op">&gt;</span>,
                         <span class="op">&gt;</span>(<span class="ident">f</span>);
                         <span class="ident">f</span>(<span class="kw-2">*</span><span class="ident">env</span>, <span class="ident">instance_ptr</span>)<span class="question-mark">?</span>;
                     }
