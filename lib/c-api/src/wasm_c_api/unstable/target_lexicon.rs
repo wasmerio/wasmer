@@ -300,7 +300,7 @@ pub unsafe extern "C" fn wasm_cpu_features_add(
     let feature = c_try!(
         str::from_utf8(slice::from_raw_parts(
             feature.data,
-            feature.size + 1,
+            feature.size,
         ));
         otherwise false
     );
