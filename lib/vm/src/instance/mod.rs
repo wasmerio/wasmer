@@ -47,8 +47,8 @@ use wasmer_types::{
 
 /// The function pointer to call with data and an [`Instance`] pointer to
 /// finish initializing the host env.
-pub type ImportInitializerFuncPtr =
-    fn(*mut std::ffi::c_void, *const std::ffi::c_void) -> Result<(), *mut std::ffi::c_void>;
+pub type ImportInitializerFuncPtr<ResultErr = *mut ffi::c_void> =
+    fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), ResultErr>;
 
 /// A WebAssembly instance.
 ///
@@ -123,9 +123,9 @@ pub enum ImportFunctionEnv {
     Env {
         /// The function environment. This is not always the user-supplied
         /// env.
-        env: *mut std::ffi::c_void,
+        env: *mut ffi::c_void,
         /// A clone function for duplicating the env.
-        clone: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+        clone: fn(*mut ffi::c_void) -> *mut ffi::c_void,
         /// This field is not always present. When it is present, it
         /// should be set to `None` after use to prevent double
         /// initialization.
@@ -135,7 +135,7 @@ pub enum ImportFunctionEnv {
         /// # Safety
         /// - This function must be called ina synchronized way. For
         ///   example, in the `Drop` implementation of this type.
-        destructor: unsafe fn(*mut std::ffi::c_void),
+        destructor: unsafe fn(*mut ffi::c_void),
     },
 }
 
@@ -1131,7 +1131,7 @@ impl InstanceHandle {
     /// - `instance_ptr` must point to a valid `wasmer::Instance`.
     pub unsafe fn initialize_host_envs<Err: Sized>(
         &mut self,
-        instance_ptr: *const std::ffi::c_void,
+        instance_ptr: *const ffi::c_void,
     ) -> Result<(), Err> {
         let instance_ref = self.instance.as_mut();
 
@@ -1146,7 +1146,7 @@ impl InstanceHandle {
                         // transmute our function pointer into one with the correct error type
                         let f = mem::transmute::<
                             &ImportInitializerFuncPtr,
-                            &fn(*mut ffi::c_void, *const ffi::c_void) -> Result<(), Err>,
+                            &ImportInitializerFuncPtr<Err>,
                         >(f);
                         f(*env, instance_ptr)?;
                     }
