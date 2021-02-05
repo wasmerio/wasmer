@@ -616,7 +616,7 @@
     <span class="kw">let</span> <span class="ident">feature</span> <span class="op">=</span> <span class="macro">c_try</span><span class="macro">!</span>(
         <span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(
             <span class="ident">feature</span>.<span class="ident">data</span>,
-            <span class="ident">feature</span>.<span class="ident">size</span> <span class="op">+</span> <span class="number">1</span>,
+            <span class="ident">feature</span>.<span class="ident">size</span>,
         ));
         <span class="ident">otherwise</span> <span class="bool-val">false</span>
     );
