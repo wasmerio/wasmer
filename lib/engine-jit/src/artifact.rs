@@ -230,10 +230,7 @@ impl JITArtifact {
         let local_func_data = finished_functions
             .iter()
             .map(|(k, v)| {
-                use wasmer_types::entity::EntityRef;
-                let idx = FunctionIndex::new(
-                    serializable.compile_info.module.num_imported_functions + k.index(),
-                );
+                let idx = serializable.compile_info.module.func_index(k);
                 let sig_idx = serializable.compile_info.module.functions[idx];
                 let type_index = signatures[sig_idx];
                 let metadata = VMCallerCheckedAnyfunc {

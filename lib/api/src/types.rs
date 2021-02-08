@@ -21,8 +21,9 @@ impl StoreObject for Val {
         match self {
             Self::FuncRef(None) => true,
             Self::FuncRef(Some(f)) => Store::same(store, f.store()),
-            Self::ExternRef(ExternRef::Ref(_)) | Self::ExternRef(ExternRef::Other(_)) => false,
-            Self::ExternRef(ExternRef::Null) => todo!("update this code"),
+            Self::ExternRef(0) => todo!("update this code"),
+            // TODO: probably make this panic too
+            Self::ExternRef(_) => false,
             Self::I32(_) | Self::I64(_) | Self::F32(_) | Self::F64(_) | Self::V128(_) => true,
         }
     }
@@ -55,7 +56,7 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Self::ExternRef(ExternRef::Null) => todo!("Extern ref not yet implemented"), /*wasmer_vm::VMCallerCheckedAnyfunc {
+            Self::ExternRef(_) => todo!("Extern ref not yet implemented"), /*wasmer_vm::VMCallerCheckedAnyfunc {
             func_ptr: ptr::null(),
             type_index: wasmer_vm::VMSharedSignatureIndex::default(),
             vmctx: wasmer_vm::VMFunctionEnvironment {
@@ -104,7 +105,7 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Self::ExternRef(ExternRef::Null) =>
+            Self::ExternRef(_) =>
             /*wasmer_vm::TableReference::FuncRef(wasmer_vm::VMCallerCheckedAnyfunc {
                 func_ptr: ptr::null(),
                 type_index: wasmer_vm::VMSharedSignatureIndex::default(),

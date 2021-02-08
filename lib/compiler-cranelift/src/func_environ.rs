@@ -94,6 +94,9 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.get`.
     table_get_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing wasm's `table.set`.
+    table_set_sig: Option<ir::SigRef>,
+
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -128,6 +131,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             memory_fill_sig: None,
             memory_init_sig: None,
             table_get_sig: None,
+            table_set_sig: None,
             data_drop_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
@@ -155,7 +159,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                     AbiParam::new(I32),
                     AbiParam::new(I32),
                 ],
-                returns: vec![AbiParam::new(I64), AbiParam::new(I64), AbiParam::new(I64)],
+                returns: vec![AbiParam::new(R64)],
                 call_conv: self.target_config.default_call_conv,
             })
         });
@@ -163,27 +167,62 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         sig
     }
 
-    /*
     fn get_table_get_func(
         &mut self,
         func: &mut Function,
-        index: TableIndex,
+        table_index: TableIndex,
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
-        if self.module.is_imported_table(index) {
+        if self.module.is_imported_table(table_index) {
             (
                 self.get_table_get_sig(func),
-                index.index(),
+                table_index.index(),
                 VMBuiltinFunctionIndex::get_imported_table_get_index(),
             )
         } else {
             (
                 self.get_table_get_sig(func),
-                self.module.local_table_index(index).unwrap().index(),
+                self.module.local_table_index(table_index).unwrap().index(),
                 VMBuiltinFunctionIndex::get_table_get_index(),
             )
         }
     }
-    */
+
+    fn get_table_set_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.table_set_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    AbiParam::new(I32),
+                    AbiParam::new(I32),
+                    AbiParam::new(R64),
+                ],
+                returns: vec![],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.memory_grow_sig = Some(sig);
+        sig
+    }
+
+    fn get_table_set_func(
+        &mut self,
+        func: &mut Function,
+        table_index: TableIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        if self.module.is_imported_table(table_index) {
+            (
+                self.get_table_set_sig(func),
+                table_index.index(),
+                VMBuiltinFunctionIndex::get_imported_table_set_index(),
+            )
+        } else {
+            (
+                self.get_table_set_sig(func),
+                self.module.local_table_index(table_index).unwrap().index(),
+                VMBuiltinFunctionIndex::get_table_set_index(),
+            )
+        }
+    }
 
     fn get_table_grow_sig(&mut self, func: &mut Function) -> ir::SigRef {
         let sig = self.table_grow_sig.unwrap_or_else(|| {
@@ -653,7 +692,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         });
 
         let element_size = match self.table_styles[index] {
-            TableStyle::CallerChecksSignature => u64::from(self.offsets.pointer_size),
+            TableStyle::CallerChecksSignature => u64::from(self.offsets.size_of_vm_funcref()),
         };
 
         Ok(func.create_table(ir::TableData {
@@ -679,43 +718,53 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let call_inst = pos.ins().call_indirect(
             func_sig,
             func_addr,
-            &[vmctx, init_value, table_index, delta],
+            &[vmctx, init_value, delta, table_index],
         );
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_table_get(
         &mut self,
-        _builder: &mut FunctionBuilder,
-        _table_index: TableIndex,
+        builder: &mut FunctionBuilder,
+        table_index: TableIndex,
         _table: ir::Table,
-        _index: ir::Value,
+        index: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "the `table.get` instruction is not supported yet".into(),
-        ))
-        /*
-        let (func_sig, index_arg, func_idx) = self.get_memory_grow_func(&mut pos.func, index);
-        let memory_index = pos.ins().iconst(I32, index_arg as i64);
+        let mut pos = builder.cursor();
+
+        let (func_sig, table_index_arg, func_idx) =
+            self.get_table_get_func(&mut pos.func, table_index);
+        let table_index = pos.ins().iconst(I32, table_index_arg as i64);
+        let elem_index = pos.ins().iconst(I32, index.index() as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos
-            .ins()
-            .call_indirect(func_sig, func_addr, &[vmctx, val, memory_index]);
+        let call_inst =
+            pos.ins()
+                .call_indirect(func_sig, func_addr, &[vmctx, table_index, elem_index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
-        */
     }
 
     fn translate_table_set(
         &mut self,
-        _builder: &mut FunctionBuilder,
-        _table_index: TableIndex,
+        builder: &mut FunctionBuilder,
+        table_index: TableIndex,
         _table: ir::Table,
-        _value: ir::Value,
-        _index: ir::Value,
+        value: ir::Value,
+        index: ir::Value,
     ) -> WasmResult<()> {
-        Err(WasmError::Unsupported(
-            "the `table.set` instruction is not supported yet".into(),
-        ))
+        let mut pos = builder.cursor();
+
+        let (func_sig, table_index_arg, func_idx) =
+            self.get_table_set_func(&mut pos.func, table_index);
+        let table_index = pos.ins().iconst(I32, table_index_arg as i64);
+        let elem_index = pos.ins().iconst(I32, index.index() as i64);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+        let call_inst = pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, table_index, elem_index, value],
+        );
+        let _ = *pos.func.dfg.inst_results(call_inst);
+        Ok(())
     }
 
     fn translate_table_fill(
@@ -737,8 +786,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         ty: Type,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            // TODO: actually fix this, null func ref is 3 words right now
-            Type::FuncRef => pos.ins().iconst(self.pointer_type(), 0),
+            Type::FuncRef => pos.ins().null(self.reference_type()), //iconst(self.pointer_type(), 0),
             Type::ExternRef => pos.ins().null(self.reference_type()),
             _ => {
                 return Err(WasmError::Unsupported(
@@ -940,7 +988,12 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         // Dereference table_entry_addr to get the function address.
         let mem_flags = ir::MemFlags::trusted();
-        let table_entry_addr = pos.ins().load(pointer_type, mem_flags, table_entry_addr, 0);
+        let table_entry_addr = pos.ins().load(
+            pointer_type,
+            mem_flags,
+            table_entry_addr,
+            i32::from(self.offsets.vm_funcref_anyfunc_ptr()),
+        );
 
         // check if the funcref is null
         pos.ins()

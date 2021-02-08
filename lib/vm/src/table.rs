@@ -5,6 +5,7 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
+use crate::extern_ref::VMExternRef;
 use crate::func_data_registry::VMFuncRef;
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::VMTableDefinition;
@@ -44,7 +45,7 @@ pub trait Table: fmt::Debug + Send + Sync {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<TableReference>;
+    fn get(&self, index: u32) -> Result<TableReference, Trap>;
 
     /// Set reference to the specified element.
     ///
@@ -108,7 +109,7 @@ pub trait Table: fmt::Debug + Send + Sync {
 pub enum TableReference {
     // TODO: implement extern refs
     /// Opaque pointer to arbitrary host data.
-    ExternRef(usize),
+    ExternRef(VMExternRef),
     /// Pointer to function: contains enough information to call it.
     FuncRef(VMFuncRef),
 }
@@ -124,7 +125,7 @@ impl From<TableReference> for TableElement {
 
 #[derive(Clone, Copy)]
 union TableElement {
-    extern_ref: usize,
+    extern_ref: VMExternRef,
     func_ref: VMFuncRef,
 }
 
@@ -319,13 +320,17 @@ impl Table for LinearTable {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<TableReference> {
+    fn get(&self, index: u32) -> Result<TableReference, Trap> {
         let vec_guard = self.vec.lock().unwrap();
-        let raw_data = vec_guard.borrow().get(index as usize).cloned()?;
-        Some(match self.table.ty {
+        let raw_data = vec_guard
+            .borrow()
+            .get(index as usize)
+            .cloned()
+            .ok_or_else(|| Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds))?;
+        Ok(match self.table.ty {
             ValType::ExternRef => TableReference::ExternRef(unsafe { raw_data.extern_ref }),
             ValType::FuncRef => TableReference::FuncRef(unsafe { raw_data.func_ref }),
-            _ => return None,
+            _ => todo!("getting invalid type from table, handle this error"),
         })
     }
 
@@ -342,6 +347,7 @@ impl Table for LinearTable {
                 let element_data = match (self.table.ty, reference) {
                     (ValType::ExternRef, r @ TableReference::ExternRef(_)) => r.into(),
                     (ValType::FuncRef, r @ TableReference::FuncRef(_)) => r.into(),
+                    // There is no trap code for this, are we supposed to statically verify that this can't happen?
                     _ => todo!("Trap if we set the wrong type"), //return Err(Trap::new_from_runtime(TrapCode::TableTypeMismatch))
                 };
                 *slot = element_data;

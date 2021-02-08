@@ -5341,12 +5341,8 @@ impl<'a> FuncGen<'a> {
                     .emit_jmp(Condition::BelowEqual, self.special_labels.table_access_oob);
                 self.assembler
                     .emit_mov(Size::S32, func_index, Location::GPR(table_count));
-                self.assembler.emit_imul_imm32_gpr64(
-                    // TODO: update this to be size of reference / size of table element
-                    // update it in clif too
-                    self.vmoffsets.pointer_size as u32,
-                    table_count,
-                );
+                self.assembler
+                    .emit_imul_imm32_gpr64(self.vmoffsets.size_of_vm_funcref() as u32, table_count);
                 self.assembler.emit_add(
                     Size::S64,
                     Location::GPR(table_base),
@@ -5356,7 +5352,7 @@ impl<'a> FuncGen<'a> {
                 // deref the table to get a VMFuncRef
                 self.assembler.emit_mov(
                     Size::S64,
-                    Location::Memory(table_count, 0),
+                    Location::Memory(table_count, self.vmoffsets.vm_funcref_anyfunc_ptr() as i32),
                     Location::GPR(table_count),
                 );
                 // Trap if the FuncRef is null

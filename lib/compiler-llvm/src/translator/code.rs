@@ -2199,7 +2199,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 let func_index = self.state.pop1()?.into_int_value();
 
-                // We assume the table has the `anyfunc` element type.
+                // We assume the table has the `funcref` (pointer to `anyfunc`)
+                // element type.
                 let casted_table_base = self.builder.build_pointer_cast(
                     table_base,
                     self.intrinsics.funcref_ty.ptr_type(AddressSpace::Generic),
@@ -2214,10 +2215,39 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     )
                 };
 
+                // a funcref (pointer to `anyfunc`)
                 let anyfunc_struct_ptr = self
                     .builder
                     .build_load(funcref_ptr, "anyfunc_struct_ptr")
                     .into_pointer_value();
+
+                // trap if we're trying to call a null funcref
+                {
+                    let funcref_not_null = self
+                        .builder
+                        .build_is_not_null(anyfunc_struct_ptr, "null funcref check");
+
+                    let funcref_continue_deref_block = self
+                        .context
+                        .append_basic_block(self.function, "funcref_continue deref_block");
+
+                    let funcref_is_null_block = self
+                        .context
+                        .append_basic_block(self.function, "funcref_is_null_block");
+                    self.builder.build_conditional_branch(
+                        funcref_not_null,
+                        funcref_continue_deref_block,
+                        funcref_is_null_block,
+                    );
+                    self.builder.position_at_end(funcref_is_null_block);
+                    self.builder.build_call(
+                        self.intrinsics.throw_trap,
+                        &[self.intrinsics.trap_call_indirect_null],
+                        "throw",
+                    );
+                    self.builder.build_unreachable();
+                    self.builder.position_at_end(funcref_continue_deref_block);
+                }
 
                 // Load things from the anyfunc data structure.
                 let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
@@ -2299,6 +2329,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
 
                 // Next, check if the table element is initialized.
 
+                // TODO: we may not need this check anymore
                 let elem_initialized = self.builder.build_is_not_null(func_ptr, "");
 
                 // Next, check if the signature id is correct.

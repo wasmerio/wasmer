@@ -69,7 +69,9 @@ impl Table {
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.table.get(index)?;
+        // TODO: review change to make inner table return a trap in Result, maybe we don't
+        //       want that
+        let item = self.table.get(index).ok()?;
         Some(ValFuncRef::from_table_reference(item, &self.store))
     }
 

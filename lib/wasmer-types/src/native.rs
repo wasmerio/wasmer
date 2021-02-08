@@ -3,7 +3,7 @@
 
 use crate::lib::std::fmt;
 use crate::types::Type;
-use crate::values::Value;
+use crate::values::{Value, ValueEnumType};
 
 /// `NativeWasmType` represents a Wasm type that has a direct
 /// representation on the host (hence the “native” term).
@@ -37,10 +37,13 @@ pub trait NativeWasmType: Sized {
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`.
-    fn to_value<T>(self) -> Value<T> {
+    fn to_value<T: ValueEnumType>(self) -> Value<T> {
         let binary = self.to_binary();
+        // we need a store, we're just hoping we don't actually use it via funcref
+        // TODO: we need an actual solution here
+        let hack = 3;
 
-        unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
+        unsafe { Value::read_value_from(&hack, &binary, Self::WASM_TYPE) }
     }
 
     /// Convert to self from i128 binary representation.

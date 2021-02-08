@@ -80,7 +80,7 @@ pub use crate::r#ref::{ExternRef, HostInfo, HostRef};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
-pub use crate::values::Value;
+pub use crate::values::{Value, ValueEnumType};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,

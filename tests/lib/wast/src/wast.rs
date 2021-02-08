@@ -119,6 +119,7 @@ impl Wast {
     ) -> Result<()> {
         let values = result?;
         for (v, e) in values.iter().zip(results) {
+            // TODO: we're not matching here but maybe we should
             if val_matches(v, e)? {
                 continue;
             }
@@ -401,6 +402,10 @@ impl Wast {
             F32Const(x) => Val::F32(f32::from_bits(x.bits)),
             F64Const(x) => Val::F64(f64::from_bits(x.bits)),
             V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
+            RefNull(wast::HeapType::Func) => Val::FuncRef(None),
+            RefNull(wast::HeapType::Extern) => Val::ExternRef(0),
+            //// TODO: this will cause segfaults, actually implement this
+            //RefExtern(num) => Val::ExternRef(*num as usize + 1),
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
     }
@@ -459,6 +464,13 @@ fn val_matches(actual: &Val, expected: &wast::AssertExpression) -> Result<bool> 
         (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
         (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
         (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
+        (Val::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => true,
+        (Val::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
+        (Val::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
+        (Val::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
+        (Val::ExternRef(0), wast::AssertExpression::RefNull(Some(wast::HeapType::Extern))) => true,
+        (Val::ExternRef(0), wast::AssertExpression::RefExtern(_)) => false,
+        (Val::ExternRef(_), wast::AssertExpression::RefNull(_)) => false,
         _ => bail!(
             "don't know how to compare {:?} and {:?} yet",
             actual,

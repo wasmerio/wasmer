@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::Val;
+use crate::types::{Val, ValFuncRef};
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
@@ -65,6 +65,27 @@ pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
     pub(crate) exported: ExportFunction,
+}
+
+impl wasmer_types::ValueEnumType for Function {
+    /// Write the value
+    unsafe fn write_value_to(&self, p: *mut i128) {
+        let func_ref =
+            Val::into_checked_anyfunc(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
+        std::ptr::write(p as *mut VMFuncRef, func_ref);
+    }
+
+    /// read the value
+    // quick hack, make it take `dyn Any`
+    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
+        let func_ref = VMFuncRef::new(p as *const _);
+        let store = store.downcast_ref::<Store>().unwrap();
+        match Val::from_checked_anyfunc(func_ref, store) {
+            Val::FuncRef(Some(fr)) => fr,
+            Val::FuncRef(None) => todo!("Null funcref found in read_value_from!"),
+            other => todo!("invalid value in `read_value_from`: {:?}", other),
+        }
+    }
 }
 
 fn build_export_function_metadata<Env>(
@@ -545,7 +566,8 @@ impl Function {
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                results[index] = Val::read_value_from(ptr, value_type);
+                // This fails when we read return types because of wasmer-types vs wasmer (func and extern ref)
+                results[index] = Val::read_value_from(&self.store, ptr, value_type);
             }
         }
 
@@ -889,8 +911,10 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let func_ty = self.ctx.function_type();
             let mut args = Vec::with_capacity(func_ty.params().len());
+            // TODO: we need a store here, where do we get it?
+            let hack = 3;
             for (i, ty) in func_ty.params().iter().enumerate() {
-                args.push(Val::read_value_from(values_vec.add(i), *ty));
+                args.push(Val::read_value_from(&hack, values_vec.add(i), *ty));
             }
             let returns = self.ctx.call(&args)?;
 

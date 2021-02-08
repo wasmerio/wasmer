@@ -568,15 +568,36 @@ impl Instance {
     }
 
     /// Get table element by index.
-    fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
+    pub(crate) fn table_get(
+        &self,
+        table_index: LocalTableIndex,
+        index: u32,
+    ) -> Result<TableReference, Trap> {
         self.tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
             .get(index)
     }
 
+    /// Returns the element at the given index.
+    /// TODO: document this
+    ///
+    /// # Safety
+    /// TODO: review safety of this. (safety message copied from memory.size)
+    /// This and `imported_table_grow` are currently unsafe because they
+    /// dereference the table import's pointers.
+    pub(crate) unsafe fn imported_table_get(
+        &self,
+        table_index: TableIndex,
+        index: u32,
+    ) -> Result<TableReference, Trap> {
+        let import = self.imported_table(table_index);
+        let from = import.from.as_ref();
+        from.get(index)
+    }
+
     /// Set table element by index.
-    fn table_set(
+    pub(crate) fn table_set(
         &self,
         table_index: LocalTableIndex,
         index: u32,
@@ -586,6 +607,23 @@ impl Instance {
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
             .set(index, val)
+    }
+
+    /// TODO: document this
+    ///
+    /// # Safety
+    /// TODO: review safety of this. (safety message copied from memory.size)
+    /// This and `imported_table_grow` are currently unsafe because they
+    /// dereference the table import's pointers.
+    pub(crate) unsafe fn imported_table_set(
+        &self,
+        table_index: TableIndex,
+        index: u32,
+        val: TableReference,
+    ) -> Result<(), Trap> {
+        let import = self.imported_table(table_index);
+        let from = import.from.as_ref();
+        from.set(index, val)
     }
 
     /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
@@ -1162,7 +1200,11 @@ impl InstanceHandle {
     /// Get table element reference.
     ///
     /// Returns `None` if index is out of bounds.
-    pub fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
+    pub fn table_get(
+        &self,
+        table_index: LocalTableIndex,
+        index: u32,
+    ) -> Result<TableReference, Trap> {
         self.instance().as_ref().table_get(table_index, index)
     }
 
@@ -1437,7 +1479,12 @@ fn initialize_globals(instance: &Instance) {
                         };
                     *to = from;
                 }
-                GlobalInit::RefNullConst | GlobalInit::RefFunc(_) => unimplemented!(),
+                GlobalInit::RefNullConst => *(*to).as_funcref_mut() = VMFuncRef::null(),
+                GlobalInit::RefFunc(func_idx) => {
+                    let local_func_idx = instance.module.local_func_index(*func_idx).expect("Cannot initialize global with imported function (TODO: this needs to be implemented)");
+                    let funcref = instance.func_metadata[local_func_idx];
+                    *(*to).as_funcref_mut() = funcref;
+                }
             }
         }
     }

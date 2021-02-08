@@ -35,7 +35,10 @@
 //!   }
 //!   ```
 
+use crate::extern_ref::VMExternRef;
+use crate::func_data_registry::VMFuncRef;
 use crate::probestack::PROBESTACK;
+use crate::table::TableReference;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use serde::{Deserialize, Serialize};
@@ -261,7 +264,7 @@ pub unsafe extern "C" fn wasmer_table_size(vmctx: *mut VMContext, table_index: u
     instance.table_size(table_index)
 }
 
-/// Implementation of table.size for imported 32-bit memories.
+/// Implementation of `table.size` for imported tables.
 ///
 /// # Safety
 ///
@@ -276,6 +279,99 @@ pub unsafe extern "C" fn wasmer_imported_table_size(
     instance.imported_table_size(table_index)
 }
 
+/// Implementation of `table.get`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_table_get(
+    vmctx: *mut VMContext,
+    table_index: u32,
+    elem_index: u32,
+) -> usize {
+    let instance = (&*vmctx).instance();
+    let table_index = LocalTableIndex::from_u32(table_index);
+
+    // TODO: type checking, maybe have specialized accessors
+    match instance.table_get(table_index, elem_index) {
+        Ok(TableReference::FuncRef(func_ref)) => *func_ref as usize,
+        // TODO: we should not be transmuting here, fix the return type
+        Ok(TableReference::ExternRef(extern_ref)) => unsafe {
+            std::mem::transmute::<VMExternRef, usize>(extern_ref)
+        },
+        Err(trap) => raise_lib_trap(trap),
+    }
+}
+
+/// Implementation of `table.get` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_imported_table_get(
+    vmctx: *mut VMContext,
+    table_index: u32,
+    elem_index: u32,
+) -> usize {
+    let instance = (&*vmctx).instance();
+    let table_index = TableIndex::from_u32(table_index);
+
+    // TODO: type checking, maybe have specialized accessors
+    match instance.imported_table_get(table_index, elem_index) {
+        Ok(TableReference::FuncRef(func_ref)) => *func_ref as usize,
+        // TODO: actually fix up the return type here. We should not be transmuting here.
+        Ok(TableReference::ExternRef(extern_ref)) => unsafe {
+            std::mem::transmute::<VMExternRef, usize>(extern_ref)
+        },
+        Err(trap) => raise_lib_trap(trap),
+    }
+}
+
+/// Implementation of `table.set`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_table_set(
+    vmctx: *mut VMContext,
+    table_index: u32,
+    elem_index: u32,
+    value: VMFuncRef,
+) {
+    let instance = (&*vmctx).instance();
+    let table_index = LocalTableIndex::from_u32(table_index);
+
+    let elem = TableReference::FuncRef(value);
+    // TODO: type checking, maybe have specialized accessors
+    let result = instance.table_set(table_index, elem_index, elem);
+
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+}
+
+/// Implementation of `table.set` for imported tables.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_imported_table_set(
+    vmctx: *mut VMContext,
+    table_index: u32,
+    elem_index: u32,
+    value: VMFuncRef,
+) {
+    let instance = (&*vmctx).instance();
+    let table_index = TableIndex::from_u32(table_index);
+
+    let elem = TableReference::FuncRef(value);
+    let result = instance.imported_table_set(table_index, elem_index, elem);
+
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+}
+
 /// Implementation of table.grow for locally-defined tables.
 ///
 /// # Safety
@@ -283,6 +379,7 @@ pub unsafe extern "C" fn wasmer_imported_table_size(
 /// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_table_grow(
     vmctx: *mut VMContext,
+    init_value: usize,
     delta: u32,
     table_index: u32,
 ) -> u32 {

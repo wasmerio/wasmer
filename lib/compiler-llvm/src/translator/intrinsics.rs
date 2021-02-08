@@ -253,7 +253,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
-        let funcref_ty = ctx_ty.ptr_type(AddressSpace::Generic);
+        let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);

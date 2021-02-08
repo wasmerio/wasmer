@@ -30,6 +30,13 @@ unsafe impl Sync for FuncDataRegistry {}
 pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
 
 impl VMFuncRef {
+    /// TODO: we probabyl don't want this function, need to do something about this,
+    /// it definitely needs to be unsafe
+    /// Hack to unblock myself:
+    pub fn new(inner: *const VMCallerCheckedAnyfunc) -> Self {
+        Self(inner)
+    }
+
     /// Check if the FuncRef is null
     // TODO: make this const when `std::ptr::is_null` is const
     pub fn is_null(&self) -> bool {

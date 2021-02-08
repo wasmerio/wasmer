@@ -28,7 +28,7 @@ pub enum Value<T> {
     /// An `externref` value which can hold opaque data to the wasm instance itself.
     ///
     /// Note that this is a nullable value as well.
-    ExternRef(ExternRef),
+    ExternRef(usize),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<T>),
@@ -61,10 +61,22 @@ macro_rules! accessors {
     )*)
 }
 
-impl<T> Value<T> {
+/// TODO: figure out the name of this trait
+pub trait ValueEnumType: std::fmt::Debug + 'static {
+    /// Write the value
+    unsafe fn write_value_to(&self, p: *mut i128);
+
+    /// read the value
+    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
+}
+
+impl<T> Value<T>
+where
+    T: ValueEnumType,
+{
     /// Returns a null `externref` value.
     pub fn null() -> Self {
-        Self::ExternRef(ExternRef::null())
+        Self::ExternRef(0)
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
@@ -93,7 +105,9 @@ impl<T> Value<T> {
             Self::F32(u) => ptr::write(p as *mut f32, *u),
             Self::F64(u) => ptr::write(p as *mut f64, *u),
             Self::V128(b) => ptr::write(p as *mut u128, *b),
-            _ => unimplemented!("Value::write_value_to"),
+            Self::FuncRef(Some(b)) => T::write_value_to(b, p),
+            Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
+            Self::ExternRef(num) => ptr::write(p as *mut usize, *num),
         }
     }
 
@@ -103,14 +117,27 @@ impl<T> Value<T> {
     /// `p` must be:
     /// - Properly aligned to the specified `ty`'s Rust equivalent
     /// - Non-null and pointing to valid memory
-    pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Self {
+    pub unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128, ty: Type) -> Self {
         match ty {
             Type::I32 => Self::I32(ptr::read(p as *const i32)),
             Type::I64 => Self::I64(ptr::read(p as *const i64)),
             Type::F32 => Self::F32(ptr::read(p as *const f32)),
             Type::F64 => Self::F64(ptr::read(p as *const f64)),
             Type::V128 => Self::V128(ptr::read(p as *const u128)),
-            _ => unimplemented!("Value::read_value_from"),
+            // TOOD: handle non-null funcrefs; can we even do that though?
+            // storage of funcrefs is not the same as what we store in globals and tables
+            Type::FuncRef => {
+                if (p as *const usize).is_null() {
+                    Self::FuncRef(None)
+                } else {
+                    Self::FuncRef(Some(T::read_value_from(store, p)))
+                    //todo!("Non-null funcrefs cannot be accessed with `Value::read_value_from`");
+                }
+            }
+            Type::ExternRef => {
+                // TODO: translate here into a higher level structure from the raw pointer
+                Self::ExternRef(ptr::read(p as *const usize))
+            } //todo!("Value::read_value_from not implemented for extern ref yet"),
         }
     }
 
@@ -129,10 +156,13 @@ impl<T> Value<T> {
     ///
     /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
     pub fn externref(&self) -> Option<ExternRef> {
+        todo!("is anyone using this function?")
+        /*
         match self {
             Self::ExternRef(e) => Some(e.clone()),
             _ => None,
         }
+        */
     }
 
     /// Returns the underlying value of this `Value`, panicking if it's the
@@ -146,7 +176,10 @@ impl<T> Value<T> {
     }
 }
 
-impl<T> fmt::Debug for Value<T> {
+impl<T> fmt::Debug for Value<T>
+where
+    T: ValueEnumType,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::I32(v) => write!(f, "I32({:?})", v),
@@ -154,13 +187,17 @@ impl<T> fmt::Debug for Value<T> {
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
             Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
-            Self::FuncRef(_) => write!(f, "FuncRef"),
+            Self::FuncRef(None) => write!(f, "Null FuncRef"),
+            Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
             Self::V128(v) => write!(f, "V128({:?})", v),
         }
     }
 }
 
-impl<T> ToString for Value<T> {
+impl<T> ToString for Value<T>
+where
+    T: ValueEnumType,
+{
     fn to_string(&self) -> String {
         match self {
             Self::I32(v) => v.to_string(),
@@ -174,47 +211,69 @@ impl<T> ToString for Value<T> {
     }
 }
 
-impl<T> From<i32> for Value<T> {
+impl<T> From<i32> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: i32) -> Self {
         Self::I32(val)
     }
 }
 
-impl<T> From<u32> for Value<T> {
+impl<T> From<u32> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: u32) -> Self {
         // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
         Self::I32(val as i32)
     }
 }
 
-impl<T> From<i64> for Value<T> {
+impl<T> From<i64> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: i64) -> Self {
         Self::I64(val)
     }
 }
 
-impl<T> From<u64> for Value<T> {
+impl<T> From<u64> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: u64) -> Self {
         // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
         Self::I64(val as i64)
     }
 }
 
-impl<T> From<f32> for Value<T> {
+impl<T> From<f32> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: f32) -> Self {
         Self::F32(val)
     }
 }
 
-impl<T> From<f64> for Value<T> {
+impl<T> From<f64> for Value<T>
+where
+    T: ValueEnumType,
+{
     fn from(val: f64) -> Self {
         Self::F64(val)
     }
 }
 
-impl<T> From<ExternRef> for Value<T> {
-    fn from(val: ExternRef) -> Self {
-        Self::ExternRef(val)
+impl<T> From<ExternRef> for Value<T>
+where
+    T: ValueEnumType,
+{
+    fn from(_val: ExternRef) -> Self {
+        todo!("Is anyone using this conversion?")
+        //Self::ExternRef(val)
     }
 }
 
@@ -229,7 +288,10 @@ const NOT_I64: &str = "Value is not of Wasm type i64";
 const NOT_F32: &str = "Value is not of Wasm type f32";
 const NOT_F64: &str = "Value is not of Wasm type f64";
 
-impl<T> TryFrom<Value<T>> for i32 {
+impl<T> TryFrom<Value<T>> for i32
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -237,7 +299,10 @@ impl<T> TryFrom<Value<T>> for i32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for u32 {
+impl<T> TryFrom<Value<T>> for u32
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -245,7 +310,10 @@ impl<T> TryFrom<Value<T>> for u32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for i64 {
+impl<T> TryFrom<Value<T>> for i64
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -253,7 +321,10 @@ impl<T> TryFrom<Value<T>> for i64 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for u64 {
+impl<T> TryFrom<Value<T>> for u64
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -261,7 +332,10 @@ impl<T> TryFrom<Value<T>> for u64 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for f32 {
+impl<T> TryFrom<Value<T>> for f32
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -269,7 +343,10 @@ impl<T> TryFrom<Value<T>> for f32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for f64 {
+impl<T> TryFrom<Value<T>> for f64
+where
+    T: ValueEnumType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {

@@ -36,17 +36,17 @@ cranelift::spec::skip_stack_guard_page on aarch64
 
 
 # Reference types spectests
-cranelift::spec::ref_func
-cranelift::spec::ref_is_null
-cranelift::spec::ref_null
+#cranelift::spec::ref_func
+#cranelift::spec::ref_is_null
+#cranelift::spec::ref_null
 cranelift::spec::table_copy
 cranelift::spec::table_fill
-cranelift::spec::table_get
-cranelift::spec::table_grow
-cranelift::spec::table_init
-cranelift::spec::table_set
-cranelift::spec::table_size
-cranelift::spec::table_sub
+#cranelift::spec::table_get
+#cranelift::spec::table_grow
+#cranelift::spec::table_init
+#cranelift::spec::table_set
+#cranelift::spec::table_size
+#cranelift::spec::table_sub
 
 singlepass::spec::ref_func
 singlepass::spec::ref_is_null
