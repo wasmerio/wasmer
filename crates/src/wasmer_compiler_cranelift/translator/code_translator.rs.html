@@ -2706,6 +2706,49 @@
 <span id="2703">2703</span>
 <span id="2704">2704</span>
 <span id="2705">2705</span>
+<span id="2706">2706</span>
+<span id="2707">2707</span>
+<span id="2708">2708</span>
+<span id="2709">2709</span>
+<span id="2710">2710</span>
+<span id="2711">2711</span>
+<span id="2712">2712</span>
+<span id="2713">2713</span>
+<span id="2714">2714</span>
+<span id="2715">2715</span>
+<span id="2716">2716</span>
+<span id="2717">2717</span>
+<span id="2718">2718</span>
+<span id="2719">2719</span>
+<span id="2720">2720</span>
+<span id="2721">2721</span>
+<span id="2722">2722</span>
+<span id="2723">2723</span>
+<span id="2724">2724</span>
+<span id="2725">2725</span>
+<span id="2726">2726</span>
+<span id="2727">2727</span>
+<span id="2728">2728</span>
+<span id="2729">2729</span>
+<span id="2730">2730</span>
+<span id="2731">2731</span>
+<span id="2732">2732</span>
+<span id="2733">2733</span>
+<span id="2734">2734</span>
+<span id="2735">2735</span>
+<span id="2736">2736</span>
+<span id="2737">2737</span>
+<span id="2738">2738</span>
+<span id="2739">2739</span>
+<span id="2740">2740</span>
+<span id="2741">2741</span>
+<span id="2742">2742</span>
+<span id="2743">2743</span>
+<span id="2744">2744</span>
+<span id="2745">2745</span>
+<span id="2746">2746</span>
+<span id="2747">2747</span>
+<span id="2748">2748</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -4261,7 +4304,7 @@
             <span class="comment">// operands must match (hence the bitcast).</span>
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitselect</span>(<span class="ident">bitcast_c</span>, <span class="ident">bitcast_a</span>, <span class="ident">bitcast_b</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I8x16AnyTrue</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8AnyTrue</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4AnyTrue</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">V128AnyTrue</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bool_result</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">vany_true</span>(<span class="ident">a</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">bool_result</span>))
@@ -4465,6 +4508,52 @@
 
         <span class="ident">Operator</span>::<span class="ident">ReturnCall</span> { .. } <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">ReturnCallIndirect</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(<span class="string">&quot;proposed tail-call operator {:?}&quot;</span>, <span class="ident">op</span>));
+        }
+
+        <span class="ident">Operator</span>::<span class="ident">I64x2Eq</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Ne</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2AllTrue</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Bitmask</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenLowI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenHighI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenLowI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenHighI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulLowI8x16S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulHighI8x16S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulLowI8x16U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulHighI8x16U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtMulLowI16x8S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtMulHighI16x8S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtMulLowI16x8U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtMulHighI16x8U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtMulLowI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtMulHighI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtMulLowI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtMulHighI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Load8Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Load16Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Load32Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Load64Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Store8Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Store16Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Store32Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">V128Store64Lane</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Q15MulrSatS</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F32x4DemoteF64x2Zero</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64x2PromoteLowF32x4</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64x2ConvertLowI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64x2ConvertLowI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4TruncSatF64x2SZero</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4TruncSatF64x2UZero</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(<span class="string">&quot;updated proposed simd operator {:?}&quot;</span>, <span class="ident">op</span>));
+        }
+
+        <span class="ident">Operator</span>::<span class="ident">Try</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Catch</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Throw</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Rethrow</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Unwind</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(<span class="string">&quot;proposed exception operator {:?}&quot;</span>, <span class="ident">op</span>));
         }
     };
     <span class="prelude-val">Ok</span>(())
@@ -5104,7 +5193,6 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16GeU</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16Neg</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16Abs</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16AnyTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16AllTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16Shl</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16ShrS</span>
@@ -5139,7 +5227,6 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8GeU</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Neg</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Abs</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8AnyTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8AllTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Shl</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ShrS</span>
@@ -5174,7 +5261,6 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4GeU</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4Neg</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4Abs</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4AnyTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4AllTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4Shl</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ShrS</span>

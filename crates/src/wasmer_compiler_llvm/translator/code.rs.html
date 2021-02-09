@@ -16096,7 +16096,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_not</span>(<span class="ident">v</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I8x16AnyTrue</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8AnyTrue</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4AnyTrue</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">V128AnyTrue</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="comment">// | Operator::I64x2AnyTrue</span>
                 <span class="comment">// Skip canonicalization, it never changes non-zero values to zero or vice versa.</span>
                 <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>.<span class="ident">into_int_value</span>();

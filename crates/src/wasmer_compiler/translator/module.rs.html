@@ -190,11 +190,11 @@
                 <span class="ident">environ</span>.<span class="ident">reserve_passive_data</span>(<span class="ident">count</span>)<span class="question-mark">?</span>;
             }
 
-            <span class="ident">Payload</span>::<span class="ident">ModuleSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">InstanceSection</span>(<span class="kw">_</span>)
+            <span class="ident">Payload</span>::<span class="ident">InstanceSection</span>(<span class="kw">_</span>)
             <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">AliasSection</span>(<span class="kw">_</span>)
-            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">ModuleCodeSectionStart</span> { .. }
-            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">ModuleCodeSectionEntry</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">EventSection</span>(<span class="kw">_</span>)
+            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">ModuleSectionStart</span> { .. }
+            <span class="op">|</span> <span class="ident">Payload</span>::<span class="ident">ModuleSectionEntry</span> { .. } <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;module linking not implemented yet&quot;</span>)
             }
 

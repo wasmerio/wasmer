@@ -606,6 +606,11 @@
 <span id="603">603</span>
 <span id="604">604</span>
 <span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">DirectiveError</span>, <span class="ident">DirectiveErrors</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">spectest</span>::<span class="ident">spectest_importobject</span>;
@@ -960,7 +965,7 @@
             <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="self">self</span>
                 .<span class="ident">instances</span>
                 .<span class="ident">get</span>(<span class="ident">module_name</span>)
-                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow</span><span class="macro">!</span>(<span class="string">&quot;no module named `{}`&quot;</span>, <span class="ident">module_name</span>))<span class="question-mark">?</span>;
+                .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="macro">anyhow</span><span class="macro">!</span>(<span class="string">&quot;constant expression required&quot;</span>))<span class="question-mark">?</span>;
             <span class="ident">imports</span>.<span class="ident">register</span>(<span class="ident">module_name</span>, <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">clone</span>());
         }
 
@@ -1030,6 +1035,11 @@
             <span class="comment">// `elem.wast` and `proposals/bulk-memory-operations/elem.wast` disagree</span>
             <span class="comment">// on the expected error message for the same error.</span>
             <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;out of bounds&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;does not fit&quot;</span>))
+            <span class="comment">// handle `unknown global $NUM` error messages that wasmparser doesn&#39;t return yet</span>
+            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown global&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown global&quot;</span>))
+            <span class="comment">// handle `unknown memory $NUM` error messages that wasmparser doesn&#39;t return yet</span>
+            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>))
+            <span class="op">|</span><span class="op">|</span> (<span class="ident">expected</span>.<span class="ident">contains</span>(<span class="string">&quot;unknown memory&quot;</span>) <span class="op">&amp;&amp;</span> <span class="ident">actual</span>.<span class="ident">contains</span>(<span class="string">&quot;Data segment extends past end of the data section&quot;</span>))
     }
 
     <span class="comment">// Checks if the `assert_trap` message matches the expected one</span>

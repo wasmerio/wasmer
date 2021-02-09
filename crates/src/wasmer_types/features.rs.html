@@ -332,6 +332,10 @@
 <span id="329">329</span>
 <span id="330">330</span>
 <span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
@@ -361,6 +365,8 @@
     <span class="kw">pub</span> <span class="ident">multi_memory</span>: <span class="ident">bool</span>,
     <span class="doccomment">/// 64-bit Memory proposal should be enabled</span>
     <span class="kw">pub</span> <span class="ident">memory64</span>: <span class="ident">bool</span>,
+    <span class="doccomment">/// Wasm exceptions proposal should be enabled</span>
+    <span class="kw">pub</span> <span class="ident">exceptions</span>: <span class="ident">bool</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">Features</span> {
@@ -378,6 +384,7 @@
             <span class="ident">module_linking</span>: <span class="bool-val">false</span>,
             <span class="ident">multi_memory</span>: <span class="bool-val">false</span>,
             <span class="ident">memory64</span>: <span class="bool-val">false</span>,
+            <span class="ident">exceptions</span>: <span class="bool-val">false</span>,
         }
     }
 
@@ -584,6 +591,7 @@
                 <span class="ident">module_linking</span>: <span class="bool-val">false</span>,
                 <span class="ident">multi_memory</span>: <span class="bool-val">false</span>,
                 <span class="ident">memory64</span>: <span class="bool-val">false</span>,
+                <span class="ident">exceptions</span>: <span class="bool-val">false</span>,
             }
         );
     }
