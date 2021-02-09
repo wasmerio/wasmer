@@ -154,7 +154,7 @@
         <span class="kw">let</span> <span class="ident">bindir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;bin&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
         <span class="kw">let</span> <span class="ident">includedir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;include&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
         <span class="kw">let</span> <span class="ident">libdir</span> <span class="op">=</span> <span class="ident">prefix</span>.<span class="ident">join</span>(<span class="string">&quot;lib&quot;</span>).<span class="ident">display</span>().<span class="ident">to_string</span>();
-        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;-I{}/wasmer&quot;</span>, <span class="ident">includedir</span>);
+        <span class="kw">let</span> <span class="ident">cflags</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;-I{}&quot;</span>, <span class="ident">includedir</span>);
         <span class="kw">let</span> <span class="ident">libs</span> <span class="op">=</span> <span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;-L{} -lwasmer&quot;</span>, <span class="ident">libdir</span>);
 
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">pkg_config</span> {
