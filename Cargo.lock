@@ -2669,7 +2669,7 @@ dependencies = [
  "typetag",
  "wasmer",
  "wasmer-wasi",
- "wast 24.0.0",
+ "wast",
 ]
 
 [[package]]
@@ -2712,15 +2712,6 @@ checksum = "4a4d63608421d9a22d4bce220f2841f3b609a5aaabd3ed3aeeb5fed2702c3c78"
 
 [[package]]
 name = "wast"
-version = "24.0.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6ff1e3bd3ad0b2ee7784add89c30dc96b89a54b43e5d6d95d774eda1863b3500"
-dependencies = [
- "leb128",
-]
-
-[[package]]
-name = "wast"
 version = "28.0.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "9c0586061bfacc035034672c8d760802b428ab4c80a92e2a392425c516df9be1"
@@ -2734,7 +2725,7 @@ version = "1.0.29"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "c06d55b5ec4f9d9396fa99abaafa0688597395e57827dffd89731412ae90c9bf"
 dependencies = [
- "wast 28.0.0",
+ "wast",
 ]
 
 [[package]]
