@@ -1757,6 +1757,14 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::ReturnCall { .. } | Operator::ReturnCallIndirect { .. } => {
             return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
         }
+
+        Operator::Try { .. }
+        | Operator::Catch { .. }
+        | Operator::Throw { .. }
+        | Operator::Rethrow { .. }
+        | Operator::Unwind => {
+            return Err(wasm_unsupported!("proposed exception operator {:?}", op));
+        }
     };
     Ok(())
 }

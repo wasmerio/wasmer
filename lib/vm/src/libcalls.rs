@@ -35,16 +35,16 @@
 //!   }
 //!   ```
 
-use crate::extern_ref::VMExternRef;
 use crate::func_data_registry::VMFuncRef;
 use crate::probestack::PROBESTACK;
-use crate::table::TableReference;
+use crate::table::{TableElement, TableReference};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
+use crate::VMExternRef;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{
-    DataIndex, ElemIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, TableIndex,
+    DataIndex, ElemIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, TableIndex, Type,
 };
 
 /// Implementation of f32.ceil
@@ -288,17 +288,14 @@ pub unsafe extern "C" fn wasmer_table_get(
     vmctx: *mut VMContext,
     table_index: u32,
     elem_index: u32,
-) -> usize {
+) -> TableElement {
     let instance = (&*vmctx).instance();
-    let table_index = LocalTableIndex::from_u32(table_index);
+    let table_index = TableIndex::from_u32(table_index);
+    let table_index = instance.module_ref().local_table_index(table_index).unwrap();
 
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
-        Ok(TableReference::FuncRef(func_ref)) => *func_ref as usize,
-        // TODO: we should not be transmuting here, fix the return type
-        Ok(TableReference::ExternRef(extern_ref)) => unsafe {
-            std::mem::transmute::<VMExternRef, usize>(extern_ref)
-        },
+        Ok(table_ref) => table_ref.into(),
         Err(trap) => raise_lib_trap(trap),
     }
 }
@@ -312,17 +309,13 @@ pub unsafe extern "C" fn wasmer_imported_table_get(
     vmctx: *mut VMContext,
     table_index: u32,
     elem_index: u32,
-) -> usize {
+) -> TableElement {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
 
     // TODO: type checking, maybe have specialized accessors
     match instance.imported_table_get(table_index, elem_index) {
-        Ok(TableReference::FuncRef(func_ref)) => *func_ref as usize,
-        // TODO: actually fix up the return type here. We should not be transmuting here.
-        Ok(TableReference::ExternRef(extern_ref)) => unsafe {
-            std::mem::transmute::<VMExternRef, usize>(extern_ref)
-        },
+        Ok(table_ref) => table_ref.into(),
         Err(trap) => raise_lib_trap(trap),
     }
 }
@@ -336,12 +329,19 @@ pub unsafe extern "C" fn wasmer_table_set(
     vmctx: *mut VMContext,
     table_index: u32,
     elem_index: u32,
-    value: VMFuncRef,
+    value: TableElement,
 ) {
     let instance = (&*vmctx).instance();
-    let table_index = LocalTableIndex::from_u32(table_index);
+    let table_index = TableIndex::from_u32(table_index);
+    let table_index = instance.module_ref().local_table_index(table_index).unwrap();
 
-    let elem = TableReference::FuncRef(value);
+    let elem = match instance.get_local_table(table_index).ty().ty {
+        // TODO: review if we should do the clone here or inside (currently it's done in set)
+        Type::ExternRef => TableReference::ExternRef(unsafe { value.extern_ref }),
+        Type::FuncRef => TableReference::FuncRef(unsafe { value.func_ref }),
+        _ => panic!("Unrecognized table type: does not contain references"),
+    };
+
     // TODO: type checking, maybe have specialized accessors
     let result = instance.table_set(table_index, elem_index, elem);
 
@@ -359,12 +359,17 @@ pub unsafe extern "C" fn wasmer_imported_table_set(
     vmctx: *mut VMContext,
     table_index: u32,
     elem_index: u32,
-    value: VMFuncRef,
+    value: TableElement,
 ) {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
+    let elem = match instance.get_table(table_index).ty().ty {
+        // TODO: review if we should do the clone here or inside (currently it's done in set)
+        Type::ExternRef => TableReference::ExternRef(unsafe { value.extern_ref }),
+        Type::FuncRef => TableReference::FuncRef(unsafe { value.func_ref }),
+        _ => panic!("Unrecognized table type: does not contain references"),
+    };
 
-    let elem = TableReference::FuncRef(value);
     let result = instance.imported_table_set(table_index, elem_index, elem);
 
     if let Err(trap) = result {

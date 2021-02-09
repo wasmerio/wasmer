@@ -78,7 +78,7 @@ impl wasmer_types::ValueEnumType for Function {
     /// read the value
     // quick hack, make it take `dyn Any`
     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
-        let func_ref = VMFuncRef::new(p as *const _);
+        let func_ref = *(p as *const VMFuncRef);
         let store = store.downcast_ref::<Store>().unwrap();
         match Val::from_checked_anyfunc(func_ref, store) {
             Val::FuncRef(Some(fr)) => fr,

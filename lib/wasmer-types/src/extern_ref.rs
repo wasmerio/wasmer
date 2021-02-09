@@ -5,13 +5,18 @@ use std::sync::atomic;
 
 /// This type does not do reference counting automatically, reference counting can be done with
 /// [`Self::ref_clone`] and [`Self::ref_drop`].
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq)]
 #[repr(transparent)]
 pub struct VMExternRef(*const VMExternRefInner);
 
 impl VMExternRef {
     /// The maximum number of references allowed to this data.
     const MAX_REFCOUNT: usize = std::usize::MAX - 1;
+
+    /// Checks if the given ExternRef is null.
+    pub fn is_null(&self) -> bool {
+        self.0.is_null()
+    }
 
     /// New null extern ref
     pub const fn null() -> Self {
@@ -73,7 +78,7 @@ impl VMExternRef {
 
 #[derive(Debug)]
 #[repr(C)]
-struct VMExternRefInner {
+pub(crate) struct VMExternRefInner {
     strong: atomic::AtomicUsize,
     /// Do something obviously correct to get started. This can "easily" be improved
     /// to be an inline allocation later as the logic is fully encapsulated.

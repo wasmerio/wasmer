@@ -5,10 +5,10 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
-use crate::extern_ref::VMExternRef;
 use crate::func_data_registry::VMFuncRef;
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::VMTableDefinition;
+use crate::VMExternRef;
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
@@ -123,10 +123,12 @@ impl From<TableReference> for TableElement {
     }
 }
 
+// TODO: review what repr(C) means on unions, make sure this just acts like a usize.
+#[repr(C)]
 #[derive(Clone, Copy)]
-union TableElement {
-    extern_ref: VMExternRef,
-    func_ref: VMFuncRef,
+pub union TableElement {
+    pub(crate) extern_ref: VMExternRef,
+    pub(crate) func_ref: VMFuncRef,
 }
 
 impl fmt::Debug for TableElement {
@@ -328,7 +330,12 @@ impl Table for LinearTable {
             .cloned()
             .ok_or_else(|| Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds))?;
         Ok(match self.table.ty {
-            ValType::ExternRef => TableReference::ExternRef(unsafe { raw_data.extern_ref }),
+            ValType::ExternRef => {
+                // TODO: there is no matching `drop` for this `clone` implemented yet.
+                // thus extern refs will always leak memory if this path is touched.
+                // This is fine for development but needs to be resolved before shipping.
+                TableReference::ExternRef(unsafe { raw_data.extern_ref.ref_clone() })
+            }
             ValType::FuncRef => TableReference::FuncRef(unsafe { raw_data.func_ref }),
             _ => todo!("getting invalid type from table, handle this error"),
         })
@@ -344,13 +351,25 @@ impl Table for LinearTable {
         let vec = vec_guard.borrow_mut();
         match vec.get_mut(index as usize) {
             Some(slot) => {
-                let element_data = match (self.table.ty, reference) {
-                    (ValType::ExternRef, r @ TableReference::ExternRef(_)) => r.into(),
-                    (ValType::FuncRef, r @ TableReference::FuncRef(_)) => r.into(),
+                match (self.table.ty, reference) {
+                    (ValType::ExternRef, TableReference::ExternRef(extern_ref)) => {
+                        let element_data = TableElement {
+                            extern_ref: extern_ref.ref_clone(),
+                        };
+
+                        unsafe {
+                            (&mut *slot).extern_ref.ref_drop();
+                            *slot = element_data;
+                        }
+                    }
+                    (ValType::FuncRef, r @ TableReference::FuncRef(_)) => {
+                        let element_data = r.into();
+                        *slot = element_data;
+                    }
                     // There is no trap code for this, are we supposed to statically verify that this can't happen?
                     _ => todo!("Trap if we set the wrong type"), //return Err(Trap::new_from_runtime(TrapCode::TableTypeMismatch))
                 };
-                *slot = element_data;
+
                 Ok(())
             }
             None => Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),

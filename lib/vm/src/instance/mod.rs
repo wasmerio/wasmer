@@ -219,7 +219,7 @@ impl Instance {
         &self.module
     }
 
-    fn module_ref(&self) -> &ModuleInfo {
+    pub(crate) fn module_ref(&self) -> &ModuleInfo {
         &*self.module
     }
 

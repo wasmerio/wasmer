@@ -83,6 +83,7 @@ impl Engine for DummyEngine {
             module_linking: features.module_linking,
             multi_memory: features.multi_memory,
             memory64: features.memory64,
+            exceptions: features.exceptions,
             deterministic_only: false,
         };
         validator.wasm_features(wasm_features);

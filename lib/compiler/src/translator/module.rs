@@ -84,6 +84,7 @@ pub fn translate_module<'data>(
             Payload::ModuleSection(_)
             | Payload::InstanceSection(_)
             | Payload::AliasSection(_)
+            | Payload::EventSection(_)
             | Payload::ModuleCodeSectionStart { .. }
             | Payload::ModuleCodeSectionEntry { .. } => {
                 unimplemented!("module linking not implemented yet")

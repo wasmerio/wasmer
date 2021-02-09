@@ -315,8 +315,18 @@ pub use wasmer_engine::{
     NamedResolverChain, Resolver, RuntimeError, SerializeError, Tunables,
 };
 pub use wasmer_types::{
-    Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
-    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Atomically,
+    Bytes,
+    ExportIndex,
+    GlobalInit,
+    LocalFunctionIndex,
+    MemoryView,
+    Pages,
+    VMExternRef, // TODO: review whether we want to export `VMExetrnRef` or not
+    ValueType,
+    WASM_MAX_PAGES,
+    WASM_MIN_PAGES,
+    WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?

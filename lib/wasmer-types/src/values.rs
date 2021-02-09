@@ -2,7 +2,8 @@ use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ptr;
 use crate::lib::std::string::{String, ToString};
-use crate::r#ref::ExternRef;
+//use crate::r#ref::ExternRef;
+use crate::extern_ref::{VMExternRef, VMExternRefInner};
 use crate::types::Type;
 
 /// Possible runtime values that a WebAssembly module can either consume or
@@ -28,7 +29,7 @@ pub enum Value<T> {
     /// An `externref` value which can hold opaque data to the wasm instance itself.
     ///
     /// Note that this is a nullable value as well.
-    ExternRef(usize),
+    ExternRef(VMExternRef),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<T>),
@@ -76,7 +77,7 @@ where
 {
     /// Returns a null `externref` value.
     pub fn null() -> Self {
-        Self::ExternRef(0)
+        Self::ExternRef(VMExternRef::null())
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
@@ -107,7 +108,7 @@ where
             Self::V128(b) => ptr::write(p as *mut u128, *b),
             Self::FuncRef(Some(b)) => T::write_value_to(b, p),
             Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
-            Self::ExternRef(num) => ptr::write(p as *mut usize, *num),
+            Self::ExternRef(extern_ref) => ptr::write(p as *mut VMExternRef, *extern_ref),
         }
     }
 
@@ -127,7 +128,9 @@ where
             // TOOD: handle non-null funcrefs; can we even do that though?
             // storage of funcrefs is not the same as what we store in globals and tables
             Type::FuncRef => {
-                if (p as *const usize).is_null() {
+                // a bit hairy, maybe clean this up? issue is that `Option` doesn't live on
+                // the funcref itself, but in Value.
+                if (*(p as *const usize)) == 0 {
                     Self::FuncRef(None)
                 } else {
                     Self::FuncRef(Some(T::read_value_from(store, p)))
@@ -135,9 +138,9 @@ where
                 }
             }
             Type::ExternRef => {
-                // TODO: translate here into a higher level structure from the raw pointer
-                Self::ExternRef(ptr::read(p as *const usize))
-            } //todo!("Value::read_value_from not implemented for extern ref yet"),
+                let extern_ref = *(p as *const VMExternRef);
+                Self::ExternRef(extern_ref)
+            },
         }
     }
 
@@ -155,7 +158,7 @@ where
     /// `None` if it is not the correct type.
     ///
     /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
-    pub fn externref(&self) -> Option<ExternRef> {
+    pub fn externref(&self) -> Option<VMExternRef> {
         todo!("is anyone using this function?")
         /*
         match self {
@@ -171,7 +174,7 @@ where
     /// # Panics
     ///
     /// Panics if `self` is not of the right type.
-    pub fn unwrap_externref(&self) -> ExternRef {
+    pub fn unwrap_externref(&self) -> VMExternRef {
         self.externref().expect("expected externref")
     }
 }
@@ -267,13 +270,12 @@ where
     }
 }
 
-impl<T> From<ExternRef> for Value<T>
+impl<T> From<VMExternRef> for Value<T>
 where
     T: ValueEnumType,
 {
-    fn from(_val: ExternRef) -> Self {
-        todo!("Is anyone using this conversion?")
-        //Self::ExternRef(val)
+    fn from(val: VMExternRef) -> Self {
+        Self::ExternRef(val)
     }
 }
 

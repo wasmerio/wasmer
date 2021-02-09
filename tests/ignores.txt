@@ -39,8 +39,8 @@ cranelift::spec::skip_stack_guard_page on aarch64
 #cranelift::spec::ref_func
 #cranelift::spec::ref_is_null
 #cranelift::spec::ref_null
-cranelift::spec::table_copy
-cranelift::spec::table_fill
+#cranelift::spec::table_copy
+#cranelift::spec::table_fill
 #cranelift::spec::table_get
 #cranelift::spec::table_grow
 #cranelift::spec::table_init

@@ -21,7 +21,7 @@ impl StoreObject for Val {
         match self {
             Self::FuncRef(None) => true,
             Self::FuncRef(Some(f)) => Store::same(store, f.store()),
-            Self::ExternRef(0) => todo!("update this code"),
+            Self::ExternRef(ext_ref) if ext_ref.is_null() => true,
             // TODO: probably make this panic too
             Self::ExternRef(_) => false,
             Self::I32(_) | Self::I64(_) | Self::F32(_) | Self::F64(_) | Self::V128(_) => true,
@@ -105,18 +105,7 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Self::ExternRef(_) =>
-            /*wasmer_vm::TableReference::FuncRef(wasmer_vm::VMCallerCheckedAnyfunc {
-                func_ptr: ptr::null(),
-                type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-                vmctx: wasmer_vm::VMFunctionEnvironment {
-                    host_env: ptr::null_mut(),
-                },
-            }),*/
-            // existing code uses `ExtenRef` for null pointers
-            {
-                todo!("extern ref not yet supported")
-            }
+            Self::ExternRef(extern_ref) => wasmer_vm::TableReference::ExternRef(*extern_ref),
             Self::FuncRef(None) => wasmer_vm::TableReference::FuncRef(VMFuncRef::null()),
             Self::FuncRef(Some(f)) => wasmer_vm::TableReference::FuncRef(f.checked_anyfunc()),
             _ => return Err(RuntimeError::new("val is not reference")),
@@ -126,7 +115,7 @@ impl ValFuncRef for Val {
     fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self {
         match item {
             wasmer_vm::TableReference::FuncRef(f) => Self::from_checked_anyfunc(f, store),
-            wasmer_vm::TableReference::ExternRef(_f) => todo!("extern ref not yet implemented"), //Self::ExternRef(f.from_checked_anyfunc(store)),
+            wasmer_vm::TableReference::ExternRef(extern_ref) => Self::ExternRef(extern_ref),
         }
     }
 }

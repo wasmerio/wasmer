@@ -21,7 +21,6 @@
 )]
 
 mod export;
-mod extern_ref;
 mod func_data_registry;
 mod global;
 mod imports;
@@ -39,7 +38,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
-pub use crate::extern_ref::VMExternRef;
+pub use wasmer_types::VMExternRef;
 pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 pub use crate::global::*;
 pub use crate::imports::Imports;
