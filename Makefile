@@ -170,55 +170,55 @@ build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,singlepass,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,singlepass,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,native,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-singlepass-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,singlepass,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-system-libffi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,system-libffi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
 
 build-capi-cranelift-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,cranelift,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,native,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-cranelift-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-jit:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,jit,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-native:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,native,llvm,wasi,middlewares $(capi_default_features)
 
 build-capi-llvm-object-file:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,object-file,llvm,wasi $(capi_default_features)
+		--no-default-features --features deprecated,wat,object-file,llvm,wasi,middlewares $(capi_default_features)
 
 # Headless (we include the minimal to be able to run)
 

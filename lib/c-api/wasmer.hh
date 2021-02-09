@@ -112,6 +112,15 @@ enum class wasmer_value_tag : uint32_t {
   WASM_F64,
 };
 
+template<typename T = void>
+struct Box;
+
+/// Opaque type representing a MeteringPoints.
+struct wasmer_metering_points_t;
+
+/// Opaque type representing a MeteringPoints.
+struct wasmer_metering_t;
+
 struct wasmer_module_t {
 
 };
@@ -1059,6 +1068,13 @@ uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
 /// wasmer_memory_destroy(memory);
 /// ```
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
+
+Box<wasmer_metering_t> wasmer_metering_new(uint64_t initial_limit);
+
+bool wasmer_metering_points_is_exhausted(const Box<wasmer_metering_points_t> *metering_points);
+
+uint64_t wasmer_metering_points_value(const Box<wasmer_metering_points_t> *metering_points,
+                                      uint64_t exhausted);
 
 /// Deserialize the given serialized module.
 ///

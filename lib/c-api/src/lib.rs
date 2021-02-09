@@ -41,5 +41,7 @@
 #[cfg(feature = "deprecated")]
 pub mod deprecated;
 pub mod error;
+#[cfg(feature = "middlewares")]
+pub mod metering;
 mod ordered_resolver;
 pub mod wasm_c_api;

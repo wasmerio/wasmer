@@ -470,6 +470,7 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
         .exclude_item("wasm_config_set_target")
+        .exclude_item("wasm_config_push_middleware")
         .exclude_item("wasm_cpu_features_add")
         .exclude_item("wasm_cpu_features_delete")
         .exclude_item("wasm_cpu_features_new")
@@ -494,6 +495,8 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasm_triple_t")
         .exclude_item("wasmer_compiler_t")
         .exclude_item("wasmer_engine_t")
+        .exclude_item("wasmer_metering_get_remaining_points")
+        .exclude_item("wasmer_metering_set_remaining_points")
         .exclude_item("wat2wasm")
 }
 

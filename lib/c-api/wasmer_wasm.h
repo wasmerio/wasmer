@@ -62,9 +62,6 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
-// The `jit` feature has been enabled for this build.
-#define WASMER_JIT_ENABLED
-
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -126,6 +123,8 @@ typedef enum {
   OBJECT_FILE = 2,
 } wasmer_engine_t;
 
+typedef struct Box_wasmer_metering_points_t Box_wasmer_metering_points_t;
+
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_config_t wasi_config_t;
 #endif
@@ -143,6 +142,12 @@ typedef struct wasm_named_extern_t wasm_named_extern_t;
 typedef struct wasm_target_t wasm_target_t;
 
 typedef struct wasm_triple_t wasm_triple_t;
+
+typedef struct wasmer_metering_points_t wasmer_metering_points_t;
+
+typedef struct wasmer_metering_t wasmer_metering_t;
+
+typedef struct wasmer_module_middleware_t wasmer_module_middleware_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct {
@@ -245,6 +250,8 @@ bool wasi_get_unordered_imports(const wasm_store_t *store,
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
+void wasm_config_push_middleware(wasm_config_t *config, wasmer_module_middleware_t *middleware);
+
 #if defined(WASMER_COMPILER_ENABLED)
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
 #endif
@@ -311,6 +318,17 @@ wasm_triple_t *wasm_triple_new_from_host(void);
 int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
+
+wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
+
+wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
+
+bool wasmer_metering_points_is_exhausted(const Box_wasmer_metering_points_t *metering_points);
+
+uint64_t wasmer_metering_points_value(const Box_wasmer_metering_points_t *metering_points,
+                                      uint64_t exhausted);
+
+void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
 
 const char *wasmer_version(void);
 

@@ -25,6 +25,7 @@ wasmer-engine = { version = "1.0.2", path = "../engine" }
 wasmer-engine-jit = { version = "1.0.2", path = "../engine-jit", optional = true }
 wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional = true }
 wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
+wasmer-middlewares = { version = "1.0.2", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", optional = true }
 wasmer-types = { version = "1.0.2", path = "../wasmer-types" }
 enumset = "1.0"
@@ -50,10 +51,12 @@ default = [
     "cranelift",
     "jit",
     "wasi",
+    "middlewares",
 ]
 wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
+middlewares = ["wasmer-middlewares"]
 deprecated = ["libffi"]
 jit = [
     "wasmer-engine-jit",
