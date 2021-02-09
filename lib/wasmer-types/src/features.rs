@@ -252,6 +252,7 @@ mod test_features {
                 module_linking: false,
                 multi_memory: false,
                 memory64: false,
+                exceptions: false,
             }
         );
     }
