@@ -81,11 +81,11 @@ pub fn translate_module<'data>(
                 environ.reserve_passive_data(count)?;
             }
 
-            Payload::ModuleSection(_)
-            | Payload::InstanceSection(_)
+            Payload::InstanceSection(_)
             | Payload::AliasSection(_)
-            | Payload::ModuleCodeSectionStart { .. }
-            | Payload::ModuleCodeSectionEntry { .. } => {
+            | Payload::EventSection(_)
+            | Payload::ModuleSectionStart { .. }
+            | Payload::ModuleSectionEntry { .. } => {
                 unimplemented!("module linking not implemented yet")
             }
 

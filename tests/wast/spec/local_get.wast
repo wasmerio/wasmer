@@ -198,29 +198,29 @@
 ;; Invalid local index
 
 (assert_invalid
-  (module (func $unbound-local (local i32 i64) (local.get 3)))
+  (module (func $unbound-local (local i32 i64) (local.get 3) drop))
   "unknown local"
 )
 (assert_invalid
-  (module (func $large-local (local i32 i64) (local.get 14324343)))
-  "unknown local"
-)
-
-(assert_invalid
-  (module (func $unbound-param (param i32 i64) (local.get 2)))
-  "unknown local"
-)
-(assert_invalid
-  (module (func $large-param (param i32 i64) (local.get 714324343)))
+  (module (func $large-local (local i32 i64) (local.get 14324343) drop))
   "unknown local"
 )
 
 (assert_invalid
-  (module (func $unbound-mixed (param i32) (local i32 i64) (local.get 3)))
+  (module (func $unbound-param (param i32 i64) (local.get 2) drop))
   "unknown local"
 )
 (assert_invalid
-  (module (func $large-mixed (param i64) (local i32 i64) (local.get 214324343)))
+  (module (func $large-param (param i32 i64) (local.get 714324343) drop))
+  "unknown local"
+)
+
+(assert_invalid
+  (module (func $unbound-mixed (param i32) (local i32 i64) (local.get 3) drop))
+  "unknown local"
+)
+(assert_invalid
+  (module (func $large-mixed (param i64) (local i32 i64) (local.get 214324343) drop))
   "unknown local"
 )
 

@@ -6722,7 +6722,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_not(v, "");
                 self.state.push1(res);
             }
-            Operator::I8x16AnyTrue | Operator::I16x8AnyTrue | Operator::I32x4AnyTrue => {
+            Operator::V128AnyTrue => {
                 // | Operator::I64x2AnyTrue
                 // Skip canonicalization, it never changes non-zero values to zero or vice versa.
                 let v = self.state.pop1()?.into_int_value();
