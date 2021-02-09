@@ -7,6 +7,7 @@ set -o pipefail
 repos='
   spec
   threads
+  simd
   exception-handling
   gc
   bulk-memory-operations
