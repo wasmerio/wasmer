@@ -40,7 +40,7 @@ vulnerability = "deny"
 # The lint level for unmaintained crates
 unmaintained = "warn"
 # The lint level for crates that have been yanked from their source registry
-yanked = "warn"
+yanked = "deny"
 # The lint level for crates with security notices. Note that as of
 # 2019-12-17 there are no security notice advisories in
 # https://github.com/rustsec/advisory-db
