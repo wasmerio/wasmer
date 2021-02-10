@@ -140,7 +140,7 @@ where
             Type::ExternRef => {
                 let extern_ref = *(p as *const VMExternRef);
                 Self::ExternRef(extern_ref)
-            },
+            }
         }
     }
 

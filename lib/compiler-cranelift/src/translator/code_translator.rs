@@ -1552,7 +1552,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             // operands must match (hence the bitcast).
             state.push1(builder.ins().bitselect(bitcast_c, bitcast_a, bitcast_b))
         }
-        Operator::I8x16AnyTrue | Operator::I16x8AnyTrue | Operator::I32x4AnyTrue => {
+        Operator::V128AnyTrue => {
             let a = pop1_with_bitcast(state, type_of(op), builder);
             let bool_result = builder.ins().vany_true(a);
             state.push1(builder.ins().bint(I32, bool_result))
@@ -1756,6 +1756,44 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
         Operator::ReturnCall { .. } | Operator::ReturnCallIndirect { .. } => {
             return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
+        }
+
+        Operator::I64x2Eq
+        | Operator::I64x2Ne
+        | Operator::I64x2AllTrue
+        | Operator::I64x2Bitmask
+        | Operator::I64x2WidenLowI32x4S
+        | Operator::I64x2WidenHighI32x4S
+        | Operator::I64x2WidenLowI32x4U
+        | Operator::I64x2WidenHighI32x4U
+        | Operator::I16x8ExtMulLowI8x16S
+        | Operator::I16x8ExtMulHighI8x16S
+        | Operator::I16x8ExtMulLowI8x16U
+        | Operator::I16x8ExtMulHighI8x16U
+        | Operator::I32x4ExtMulLowI16x8S
+        | Operator::I32x4ExtMulHighI16x8S
+        | Operator::I32x4ExtMulLowI16x8U
+        | Operator::I32x4ExtMulHighI16x8U
+        | Operator::I64x2ExtMulLowI32x4S
+        | Operator::I64x2ExtMulHighI32x4S
+        | Operator::I64x2ExtMulLowI32x4U
+        | Operator::I64x2ExtMulHighI32x4U
+        | Operator::V128Load8Lane { .. }
+        | Operator::V128Load16Lane { .. }
+        | Operator::V128Load32Lane { .. }
+        | Operator::V128Load64Lane { .. }
+        | Operator::V128Store8Lane { .. }
+        | Operator::V128Store16Lane { .. }
+        | Operator::V128Store32Lane { .. }
+        | Operator::V128Store64Lane { .. }
+        | Operator::I16x8Q15MulrSatS
+        | Operator::F32x4DemoteF64x2Zero
+        | Operator::F64x2PromoteLowF32x4
+        | Operator::F64x2ConvertLowI32x4S
+        | Operator::F64x2ConvertLowI32x4U
+        | Operator::I32x4TruncSatF64x2SZero
+        | Operator::I32x4TruncSatF64x2UZero => {
+            return Err(wasm_unsupported!("updated proposed simd operator {:?}", op));
         }
 
         Operator::Try { .. }
@@ -2403,7 +2441,6 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I8x16GeU
         | Operator::I8x16Neg
         | Operator::I8x16Abs
-        | Operator::I8x16AnyTrue
         | Operator::I8x16AllTrue
         | Operator::I8x16Shl
         | Operator::I8x16ShrS
@@ -2438,7 +2475,6 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I16x8GeU
         | Operator::I16x8Neg
         | Operator::I16x8Abs
-        | Operator::I16x8AnyTrue
         | Operator::I16x8AllTrue
         | Operator::I16x8Shl
         | Operator::I16x8ShrS
@@ -2473,7 +2509,6 @@ fn type_of(operator: &Operator) -> Type {
         | Operator::I32x4GeU
         | Operator::I32x4Neg
         | Operator::I32x4Abs
-        | Operator::I32x4AnyTrue
         | Operator::I32x4AllTrue
         | Operator::I32x4Shl
         | Operator::I32x4ShrS

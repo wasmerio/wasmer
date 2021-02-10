@@ -56,7 +56,7 @@ impl Config {
         let bindir = prefix.join("bin").display().to_string();
         let includedir = prefix.join("include").display().to_string();
         let libdir = prefix.join("lib").display().to_string();
-        let cflags = format!("-I{}/wasmer", includedir);
+        let cflags = format!("-I{}", includedir);
         let libs = format!("-L{} -lwasmer", libdir);
 
         if self.pkg_config {

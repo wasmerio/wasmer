@@ -291,7 +291,10 @@ pub unsafe extern "C" fn wasmer_table_get(
 ) -> TableElement {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
-    let table_index = instance.module_ref().local_table_index(table_index).unwrap();
+    let table_index = instance
+        .module_ref()
+        .local_table_index(table_index)
+        .unwrap();
 
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
@@ -333,7 +336,10 @@ pub unsafe extern "C" fn wasmer_table_set(
 ) {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
-    let table_index = instance.module_ref().local_table_index(table_index).unwrap();
+    let table_index = instance
+        .module_ref()
+        .local_table_index(table_index)
+        .unwrap();
 
     let elem = match instance.get_local_table(table_index).ty().ty {
         // TODO: review if we should do the clone here or inside (currently it's done in set)

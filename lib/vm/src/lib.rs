@@ -38,7 +38,6 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
-pub use wasmer_types::VMExternRef;
 pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 pub use crate::global::*;
 pub use crate::imports::Imports;
@@ -59,6 +58,7 @@ pub use crate::vmcontext::{
     VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
+pub use wasmer_types::VMExternRef;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

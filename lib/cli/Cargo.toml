@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-cli"
-version = "1.0.1"
+version = "1.0.2"
 description = "Wasmer CLI"
 categories = ["wasm", "command-line-interface"]
 keywords = ["wasm", "webassembly", "cli"]
@@ -23,22 +23,22 @@ doc = false
 required-features = ["headless"]
 
 [dependencies]
-wasmer = { version = "1.0.1", path = "../api", default-features = false }
-wasmer-compiler = { version = "1.0.1", path = "../compiler" }
-wasmer-compiler-cranelift = { version = "1.0.1", path = "../compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.1", path = "../compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.1", path = "../compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.1", path = "../emscripten", optional = true }
-wasmer-engine = { version = "1.0.1", path = "../engine" }
-wasmer-engine-jit = { version = "1.0.1", path = "../engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.1", path = "../engine-native", optional = true }
-wasmer-engine-object-file = { version = "1.0.1", path = "../engine-object-file", optional = true }
-wasmer-vm = { version = "1.0.1", path = "../vm" }
-wasmer-wasi = { version = "1.0.1", path = "../wasi", default-features = false, optional = true }
-wasmer-wasi-experimental-io-devices = { version = "1.0.1", path = "../wasi-experimental-io-devices", optional = true }
-wasmer-wast = { version = "1.0.1", path = "../../tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.1", path = "../cache", optional = true }
-wasmer-types = { version = "1.0.1", path = "../wasmer-types" }
+wasmer = { version = "1.0.2", path = "../api", default-features = false }
+wasmer-compiler = { version = "1.0.2", path = "../compiler" }
+wasmer-compiler-cranelift = { version = "1.0.2", path = "../compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.2", path = "../compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.2", path = "../compiler-llvm", optional = true }
+wasmer-emscripten = { version = "1.0.2", path = "../emscripten", optional = true }
+wasmer-engine = { version = "1.0.2", path = "../engine" }
+wasmer-engine-jit = { version = "1.0.2", path = "../engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
+wasmer-vm = { version = "1.0.2", path = "../vm" }
+wasmer-wasi = { version = "1.0.2", path = "../wasi", default-features = false, optional = true }
+wasmer-wasi-experimental-io-devices = { version = "1.0.2", path = "../wasi-experimental-io-devices", optional = true }
+wasmer-wast = { version = "1.0.2", path = "../../tests/lib/wast", optional = true }
+wasmer-cache = { version = "1.0.2", path = "../cache", optional = true }
+wasmer-types = { version = "1.0.2", path = "../wasmer-types" }
 atty = "0.2"
 colored = "2.0"
 anyhow = "1.0"

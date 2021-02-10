@@ -3,7 +3,7 @@ name: Run Benchmarks and upload results
 on:
   push:
     branches:
-    - master
+    - benchmark  # TODO: change it back to master once we really track the results. We commented this as speed.wasmer.io is failing
 
 jobs:
   run_benchmark:

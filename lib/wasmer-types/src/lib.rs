@@ -50,6 +50,7 @@ mod lib {
     }
 }
 
+mod extern_ref;
 mod features;
 mod indexes;
 mod initializers;
@@ -57,7 +58,6 @@ mod memory_view;
 mod native;
 mod r#ref;
 mod types;
-mod extern_ref;
 mod units;
 mod values;
 
@@ -66,8 +66,8 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::features::Features;
 pub use crate::extern_ref::VMExternRef;
+pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
     LocalFunctionIndex, LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
