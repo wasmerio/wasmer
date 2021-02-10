@@ -371,7 +371,7 @@ pub fn parse_element_section<'data>(
                 let index = ElemIndex::from_u32(index as u32);
                 environ.declare_passive_element(index, segments)?;
             }
-            ElementKind::Declared => return Err(wasm_unsupported!("element kind declared")),
+            ElementKind::Declared => (),
         }
     }
     Ok(())

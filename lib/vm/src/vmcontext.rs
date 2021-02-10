@@ -939,9 +939,17 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_imported_table_set_index() -> Self {
         Self(21)
     }
+    /// Returns an index for wasm's `func.ref` instruction.
+    pub const fn get_func_ref_index() -> Self {
+        Self(22)
+    }
+    /// Returns an index for wasm's `table.fill` instruction for local tables.
+    pub const fn get_table_fill_index() -> Self {
+        Self(23)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        22
+        24
     }
 
     /// Return the index as an u32 number.
@@ -1015,6 +1023,10 @@ impl VMBuiltinFunctionsArray {
             wasmer_table_set as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() as usize] =
             wasmer_imported_table_set as usize;
+        ptrs[VMBuiltinFunctionIndex::get_func_ref_index().index() as usize] =
+            wasmer_func_ref as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
+            wasmer_table_fill as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

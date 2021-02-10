@@ -40,7 +40,7 @@ pub trait Table: fmt::Debug + Send + Sync {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32) -> Option<u32>;
+    fn grow(&self, delta: u32, init_value: TableReference) -> Option<u32>;
 
     /// Get reference to the specified element.
     ///
@@ -299,7 +299,7 @@ impl Table for LinearTable {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32) -> Option<u32> {
+    fn grow(&self, delta: u32, init_value: TableReference) -> Option<u32> {
         let mut vec_guard = self.vec.lock().unwrap();
         let vec = vec_guard.borrow_mut();
         let size = self.size();
@@ -307,7 +307,17 @@ impl Table for LinearTable {
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
-        vec.resize(usize::try_from(new_len).unwrap(), TableElement::default());
+
+        // update ref count
+        if let TableReference::ExternRef(extern_ref) = init_value {
+            // TODO: add a func to inc/dec strong count by some amount
+            for _ in size..new_len {
+                extern_ref.ref_clone();
+            }
+        }
+
+        let element = init_value.into();
+        vec.resize(usize::try_from(new_len).unwrap(), element);
 
         // update table definition
         unsafe {

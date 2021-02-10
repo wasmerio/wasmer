@@ -40,11 +40,11 @@ use crate::probestack::PROBESTACK;
 use crate::table::{TableElement, TableReference};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
-use crate::VMExternRef;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{
-    DataIndex, ElemIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, TableIndex, Type,
+    DataIndex, ElemIndex, FunctionIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex,
+    TableIndex, Type,
 };
 
 /// Implementation of f32.ceil
@@ -252,6 +252,34 @@ pub unsafe extern "C" fn wasmer_table_init(
     }
 }
 
+/// Implementation of `table.fill`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_table_fill(
+    vmctx: *mut VMContext,
+    table_index: u32,
+    start_idx: u32,
+    item: TableElement,
+    len: u32,
+) {
+    let result = {
+        let table_index = TableIndex::from_u32(table_index);
+        let instance = (&*vmctx).instance();
+        let elem = match instance.get_table(table_index).ty().ty {
+            Type::ExternRef => TableReference::ExternRef(item.extern_ref),
+            Type::FuncRef => TableReference::FuncRef(item.func_ref),
+            _ => panic!("Unrecognized table type: does not contain references"),
+        };
+
+        instance.table_fill(table_index, start_idx, elem, len)
+    };
+    if let Err(trap) = result {
+        raise_lib_trap(trap);
+    }
+}
+
 /// Implementation of `table.size`.
 ///
 /// # Safety
@@ -290,11 +318,7 @@ pub unsafe extern "C" fn wasmer_table_get(
     elem_index: u32,
 ) -> TableElement {
     let instance = (&*vmctx).instance();
-    let table_index = TableIndex::from_u32(table_index);
-    let table_index = instance
-        .module_ref()
-        .local_table_index(table_index)
-        .unwrap();
+    let table_index = LocalTableIndex::from_u32(table_index);
 
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
@@ -343,8 +367,8 @@ pub unsafe extern "C" fn wasmer_table_set(
 
     let elem = match instance.get_local_table(table_index).ty().ty {
         // TODO: review if we should do the clone here or inside (currently it's done in set)
-        Type::ExternRef => TableReference::ExternRef(unsafe { value.extern_ref }),
-        Type::FuncRef => TableReference::FuncRef(unsafe { value.func_ref }),
+        Type::ExternRef => TableReference::ExternRef(value.extern_ref),
+        Type::FuncRef => TableReference::FuncRef(value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };
 
@@ -371,8 +395,8 @@ pub unsafe extern "C" fn wasmer_imported_table_set(
     let table_index = TableIndex::from_u32(table_index);
     let elem = match instance.get_table(table_index).ty().ty {
         // TODO: review if we should do the clone here or inside (currently it's done in set)
-        Type::ExternRef => TableReference::ExternRef(unsafe { value.extern_ref }),
-        Type::FuncRef => TableReference::FuncRef(unsafe { value.func_ref }),
+        Type::ExternRef => TableReference::ExternRef(value.extern_ref),
+        Type::FuncRef => TableReference::FuncRef(value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };
 
@@ -390,15 +414,21 @@ pub unsafe extern "C" fn wasmer_imported_table_set(
 /// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_table_grow(
     vmctx: *mut VMContext,
-    init_value: usize,
+    init_value: TableElement,
     delta: u32,
     table_index: u32,
 ) -> u32 {
     let instance = (&*vmctx).instance();
     let table_index = LocalTableIndex::from_u32(table_index);
 
+    let init_value = match instance.get_local_table(table_index).ty().ty {
+        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref),
+        Type::FuncRef => TableReference::FuncRef(init_value.func_ref),
+        _ => panic!("Unrecognized table type: does not contain references"),
+    };
+
     instance
-        .table_grow(table_index, delta)
+        .table_grow(table_index, delta, init_value)
         .unwrap_or(u32::max_value())
 }
 
@@ -409,16 +439,33 @@ pub unsafe extern "C" fn wasmer_table_grow(
 /// `vmctx` must be valid and not null.
 pub unsafe extern "C" fn wasmer_imported_table_grow(
     vmctx: *mut VMContext,
-    value: u64,
+    init_value: TableElement,
     delta: u32,
     table_index: u32,
 ) -> u32 {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
+    let init_value = match instance.get_table(table_index).ty().ty {
+        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref),
+        Type::FuncRef => TableReference::FuncRef(init_value.func_ref),
+        _ => panic!("Unrecognized table type: does not contain references"),
+    };
 
     instance
-        .imported_table_grow(table_index, delta)
+        .imported_table_grow(table_index, delta, init_value)
         .unwrap_or(u32::max_value())
+}
+
+/// Implementation of `func.ref`.
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+pub unsafe extern "C" fn wasmer_func_ref(vmctx: *mut VMContext, function_index: u32) -> VMFuncRef {
+    let instance = (&*vmctx).instance();
+    let function_index = FunctionIndex::from_u32(function_index);
+
+    instance.func_ref(function_index).unwrap()
 }
 
 /// Implementation of `elem.drop`.

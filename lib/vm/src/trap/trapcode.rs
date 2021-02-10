@@ -82,10 +82,12 @@ impl TrapCode {
     pub fn message(&self) -> &str {
         match self {
             Self::StackOverflow => "call stack exhausted",
-            Self::HeapSetterOutOfBounds => "out of bounds memory access",
+            Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
             Self::HeapMisaligned => "misaligned heap",
-            Self::TableSetterOutOfBounds => "out of bounds table access",
+            Self::TableSetterOutOfBounds => {
+                "out of bounds table access: elements segment does not fit"
+            }
             Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
             Self::OutOfBounds => "out of bounds",
             Self::IndirectCallToNull => "uninitialized element",

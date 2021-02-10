@@ -541,12 +541,17 @@ impl Instance {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements.
-    pub(crate) fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
+    pub(crate) fn table_grow(
+        &self,
+        table_index: LocalTableIndex,
+        delta: u32,
+        init_value: TableReference,
+    ) -> Option<u32> {
         let result = self
             .tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
-            .grow(delta);
+            .grow(delta, init_value);
 
         result
     }
@@ -561,10 +566,11 @@ impl Instance {
         &self,
         table_index: TableIndex,
         delta: u32,
+        init_value: TableReference,
     ) -> Option<u32> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
-        from.grow(delta.into())
+        from.grow(delta.into(), init_value)
     }
 
     /// Get table element by index.
@@ -624,6 +630,17 @@ impl Instance {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
         from.set(index, val)
+    }
+
+    pub(crate) fn func_ref(&self, function_index: FunctionIndex) -> Option<VMFuncRef> {
+        Some(self.get_caller_checked_anyfunc(function_index))
+        /*
+        if let Some(local_func_index) = self.module_ref().local_func_index(function_index) {
+            self.func_metadata.get(local_func_index).cloned()
+        } else {
+            todo!("`func.ref` for imported functions not yet implemented");
+        }
+        */
     }
 
     /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
@@ -714,6 +731,39 @@ impl Instance {
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
                 .set(dst, TableReference::FuncRef(elem[src as usize]))
+                .expect("should never panic because we already did the bounds check above");
+        }
+
+        Ok(())
+    }
+
+    /// The `table.fill` operation: fills a portion of a table with a given value.
+    ///
+    /// # Errors
+    ///
+    /// Returns a `Trap` error when the range within the table is out of bounds
+    pub(crate) fn table_fill(
+        &self,
+        table_index: TableIndex,
+        start_index: u32,
+        item: TableReference,
+        len: u32,
+    ) -> Result<(), Trap> {
+        // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-init
+
+        let table = self.get_table(table_index);
+        let table_size = table.size() as usize;
+
+        if start_index
+            .checked_add(len)
+            .map_or(true, |n| n as usize > table_size)
+        {
+            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
+        }
+
+        for i in start_index..(start_index + len) {
+            table
+                .set(i, item.clone())
                 .expect("should never panic because we already did the bounds check above");
         }
 
@@ -880,6 +930,15 @@ impl Instance {
 pub struct InstanceHandle {
     /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,
+}
+
+/// TOOD: move this function somewhere else
+fn build_imported_function_func_refs(
+    module_info: &ModuleInfo,
+    imports: &Imports,
+    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+) -> BoxedSlice<FunctionIndex, VMFuncRef> {
+    todo!()
 }
 
 impl InstanceHandle {
@@ -1193,8 +1252,15 @@ impl InstanceHandle {
     ///
     /// Returns `None` if memory can't be grown by the specified amount
     /// of pages.
-    pub fn table_grow(&self, table_index: LocalTableIndex, delta: u32) -> Option<u32> {
-        self.instance().as_ref().table_grow(table_index, delta)
+    pub fn table_grow(
+        &self,
+        table_index: LocalTableIndex,
+        delta: u32,
+        init_value: TableReference,
+    ) -> Option<u32> {
+        self.instance()
+            .as_ref()
+            .table_grow(table_index, delta, init_value)
     }
 
     /// Get table element reference.
@@ -1481,8 +1547,7 @@ fn initialize_globals(instance: &Instance) {
                 }
                 GlobalInit::RefNullConst => *(*to).as_funcref_mut() = VMFuncRef::null(),
                 GlobalInit::RefFunc(func_idx) => {
-                    let local_func_idx = instance.module.local_func_index(*func_idx).expect("Cannot initialize global with imported function (TODO: this needs to be implemented)");
-                    let funcref = instance.func_metadata[local_func_idx];
+                    let funcref = instance.func_ref(*func_idx).unwrap();
                     *(*to).as_funcref_mut() = funcref;
                 }
             }

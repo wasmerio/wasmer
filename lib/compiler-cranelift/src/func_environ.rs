@@ -97,6 +97,12 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.set`.
     table_set_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing wasm's `func.ref`.
+    func_ref_sig: Option<ir::SigRef>,
+
+    /// The external function signature for implementing wasm's `table.fill`.
+    table_fill_sig: Option<ir::SigRef>,
+
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -133,6 +139,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             table_get_sig: None,
             table_set_sig: None,
             data_drop_sig: None,
+            func_ref_sig: None,
+            table_fill_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
             table_styles,
@@ -151,6 +159,67 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         })
     }
 
+    fn get_table_fill_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.table_fill_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    // table index
+                    AbiParam::new(I32),
+                    // dst
+                    AbiParam::new(I32),
+                    // value
+                    AbiParam::new(R64),
+                    // len
+                    AbiParam::new(I32),
+                ],
+                returns: vec![],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.table_fill_sig = Some(sig);
+        sig
+    }
+
+    fn get_table_fill_func(
+        &mut self,
+        func: &mut Function,
+        table_index: TableIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        (
+            self.get_table_fill_sig(func),
+            table_index.index(),
+            VMBuiltinFunctionIndex::get_table_fill_index(),
+        )
+    }
+
+    fn get_func_ref_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.func_ref_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![
+                    AbiParam::special(self.pointer_type(), ArgumentPurpose::VMContext),
+                    AbiParam::new(I32),
+                ],
+                returns: vec![AbiParam::new(R64)],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.func_ref_sig = Some(sig);
+        sig
+    }
+
+    fn get_func_ref_func(
+        &mut self,
+        func: &mut Function,
+        function_index: FunctionIndex,
+    ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
+        (
+            self.get_func_ref_sig(func),
+            function_index.index(),
+            VMBuiltinFunctionIndex::get_func_ref_index(),
+        )
+    }
+
     fn get_table_get_sig(&mut self, func: &mut Function) -> ir::SigRef {
         let sig = self.table_get_sig.unwrap_or_else(|| {
             func.import_signature(Signature {
@@ -163,7 +232,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 call_conv: self.target_config.default_call_conv,
             })
         });
-        self.memory_grow_sig = Some(sig);
+        self.table_get_sig = Some(sig);
         sig
     }
 
@@ -200,7 +269,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
                 call_conv: self.target_config.default_call_conv,
             })
         });
-        self.memory_grow_sig = Some(sig);
+        self.table_set_sig = Some(sig);
         sig
     }
 
@@ -735,11 +804,10 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, table_index_arg, func_idx) =
             self.get_table_get_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, table_index_arg as i64);
-        let elem_index = pos.ins().iconst(I32, index.index() as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst =
-            pos.ins()
-                .call_indirect(func_sig, func_addr, &[vmctx, table_index, elem_index]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index, index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -756,28 +824,36 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, table_index_arg, func_idx) =
             self.get_table_set_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, table_index_arg as i64);
-        let elem_index = pos.ins().iconst(I32, index.index() as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos.ins().call_indirect(
-            func_sig,
-            func_addr,
-            &[vmctx, table_index, elem_index, value],
-        );
-        let _ = *pos.func.dfg.inst_results(call_inst);
+        let call_inst =
+            pos.ins()
+                .call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
         Ok(())
     }
 
     fn translate_table_fill(
         &mut self,
-        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        _table_index: TableIndex,
-        _dst: ir::Value,
-        _val: ir::Value,
-        _len: ir::Value,
+        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        table_index: TableIndex,
+        dst: ir::Value,
+        val: ir::Value,
+        len: ir::Value,
     ) -> WasmResult<()> {
-        Err(WasmError::Unsupported(
-            "the `table.fill` instruction is not supported yet".into(),
-        ))
+        //Err(WasmError::Unsupported(
+        //    "the `table.fill` instruction is not supported yet".into(),
+        //))
+        let (func_sig, table_index_arg, func_idx) =
+            self.get_table_fill_func(&mut pos.func, table_index);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+
+        let table_index_arg = pos.ins().iconst(I32, table_index_arg as i64);
+        pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, table_index_arg, dst, val, len],
+        );
+
+        Ok(())
     }
 
     fn translate_ref_null(
@@ -817,12 +893,27 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn translate_ref_func(
         &mut self,
-        mut _pos: cranelift_codegen::cursor::FuncCursor<'_>,
-        _func_index: FunctionIndex,
+        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        func_index: FunctionIndex,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported(
-            "the `ref.func` instruction is not supported yet".into(),
-        ))
+        // TODO: optimize this by storing a pointer to local func_index funcref metadata
+        // so that local funcref is just (*global + offset) instead of a function call
+        //
+        // Actually we can do the above for both local and imported functions because
+        // all of those are known statically.
+        //
+        // prototyping with a function call though
+
+        let (func_sig, func_index_arg, func_idx) =
+            self.get_func_ref_func(&mut pos.func, func_index);
+        let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+
+        let func_index_arg = pos.ins().iconst(I32, func_index_arg as i64);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, func_index_arg]);
+
+        Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
     fn translate_custom_global_get(

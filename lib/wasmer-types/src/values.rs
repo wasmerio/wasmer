@@ -3,7 +3,7 @@ use crate::lib::std::fmt;
 use crate::lib::std::ptr;
 use crate::lib::std::string::{String, ToString};
 //use crate::r#ref::ExternRef;
-use crate::extern_ref::{VMExternRef, VMExternRefInner};
+use crate::extern_ref::VMExternRef;
 use crate::types::Type;
 
 /// Possible runtime values that a WebAssembly module can either consume or

@@ -1,4 +1,3 @@
-use std::alloc::{self, Layout};
 use std::any::Any;
 use std::ptr;
 use std::sync::atomic;
