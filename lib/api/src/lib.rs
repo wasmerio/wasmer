@@ -296,8 +296,8 @@ pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::BaseTunables;
 pub use crate::types::{
-    ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
-    MemoryType, Mutability, TableType, Val, ValType,
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
+    TableType, Val, ValType,
 };
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;

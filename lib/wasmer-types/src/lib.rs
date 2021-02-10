@@ -56,7 +56,6 @@ mod indexes;
 mod initializers;
 mod memory_view;
 mod native;
-mod r#ref;
 mod types;
 mod units;
 mod values;
@@ -78,7 +77,6 @@ pub use crate::initializers::{
 };
 pub use crate::memory_view::{Atomically, MemoryView};
 pub use crate::native::{NativeWasmType, ValueType};
-pub use crate::r#ref::{ExternRef, HostInfo, HostRef};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };

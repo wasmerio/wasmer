@@ -3,8 +3,8 @@ use crate::store::{Store, StoreObject};
 use crate::RuntimeError;
 use wasmer_types::Value;
 pub use wasmer_types::{
-    ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
-    MemoryType, Mutability, TableType, Type as ValType,
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
+    TableType, Type as ValType,
 };
 use wasmer_vm::VMFuncRef;
 

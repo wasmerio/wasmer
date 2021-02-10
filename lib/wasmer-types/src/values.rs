@@ -1,9 +1,8 @@
+use crate::extern_ref::VMExternRef;
 use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ptr;
 use crate::lib::std::string::{String, ToString};
-//use crate::r#ref::ExternRef;
-use crate::extern_ref::VMExternRef;
 use crate::types::Type;
 
 /// Possible runtime values that a WebAssembly module can either consume or
@@ -125,8 +124,6 @@ where
             Type::F32 => Self::F32(ptr::read(p as *const f32)),
             Type::F64 => Self::F64(ptr::read(p as *const f64)),
             Type::V128 => Self::V128(ptr::read(p as *const u128)),
-            // TOOD: handle non-null funcrefs; can we even do that though?
-            // storage of funcrefs is not the same as what we store in globals and tables
             Type::FuncRef => {
                 // a bit hairy, maybe clean this up? issue is that `Option` doesn't live on
                 // the funcref itself, but in Value.
