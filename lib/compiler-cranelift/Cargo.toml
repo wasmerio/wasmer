@@ -27,7 +27,7 @@ smallvec = "1.6"
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }
-cranelift-codegen = { version = "0.67", features = ["enable-serde", "all-arch"] }
+cranelift-codegen = { version = "0.68", features = ["enable-serde", "all-arch"] }
 lazy_static = "1.4"
 
 [badges]

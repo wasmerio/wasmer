@@ -174,17 +174,10 @@ skip = [
     { name = "semver", version = "=0.9.0" },
     { name = "semver-parser", version = "=0.7.0" },
     { name = "rustc_version", version = "=0.2.3" },
-    { name = "wast", version = "=24.0.0" },
-    { name = "regalloc", version = "=0.0.30" },
-    { name = "gimli", version = "=0.21.0" },
     { name = "gimli", version = "=0.22.0" },
     { name = "getrandom", version = "=0.1.15" },
-    { name = "cranelift-entity", version = "=0.67.0" },
-    { name = "cranelift-codegen-shared", version = "=0.67.0" },
-    { name = "cranelift-codegen-meta", version = "=0.67.0" },
-    { name = "cranelift-codegen", version = "=0.67.0" },
-    { name = "cranelift-bforest", version = "=0.67.0" },
     { name = "wasi", version = "=0.9.0" },
+    { name = "wast", version = "=24.0.0" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate 
 # detection. Unlike skip, it also includes the entire tree of transitive 
