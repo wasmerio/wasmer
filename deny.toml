@@ -65,20 +65,21 @@ ignore = [
 # https://embarkstudios.github.io/cargo-deny/checks/licenses/cfg.html
 [licenses]
 # The lint level for crates which do not have a detectable license
-unlicensed = "deny"
+unlicensed = "warn"
 # List of explictly allowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.7 short identifier (+ optional exception)].
 allow = [
-    #"MIT",
-    #"Apache-2.0",
-    #"Apache-2.0 WITH LLVM-exception",
+    "MIT",
+    "Apache-2.0",
+    "Apache-2.0 WITH LLVM-exception",
 ]
 # List of explictly disallowed licenses
 # See https://spdx.org/licenses/ for list of possible licenses
 # [possible values: any SPDX 3.7 short identifier (+ optional exception)].
 deny = [
-    #"Nokia",
+    "AGPL-1.0",
+    "AGPL-3.0",
 ]
 # Lint level for licenses considered copyleft
 copyleft = "warn"
@@ -88,12 +89,12 @@ copyleft = "warn"
 # * osi-only - The license will be approved if is OSI-approved *AND NOT* FSF
 # * fsf-only - The license will be approved if is FSF *AND NOT* OSI-approved
 # * neither - This predicate is ignored and the default lint level is used
-allow-osi-fsf-free = "neither"
+allow-osi-fsf-free = "either"
 # Lint level used when no other predicates are matched
 # 1. License isn't in the allow or deny lists
 # 2. License isn't copyleft
 # 3. License isn't OSI/FSF, or allow-osi-fsf-free = "neither"
-default = "deny"
+default = "warn"
 # The confidence threshold for detecting a license from license text.
 # The higher the value, the more closely the license text must be to the
 # canonical license text of a valid SPDX license file.
@@ -143,7 +144,7 @@ registries = [
 # https://embarkstudios.github.io/cargo-deny/checks/bans/cfg.html
 [bans]
 # Lint level for when multiple versions of the same crate are detected
-multiple-versions = "warn"
+multiple-versions = "deny"
 # Lint level for when a crate version requirement is `*`
 wildcards = "allow"
 # The graph highlighting used when creating dotgraphs for crates
@@ -168,7 +169,22 @@ deny = [
 ]
 # Certain crates/versions that will be skipped when doing duplicate detection.
 skip = [
-    #{ name = "ansi_term", version = "=0.11.0" },
+    { name = "cfg-if", version = "=0.1.10" },
+    { name = "strsim", version = "=0.8.0" },
+    { name = "semver", version = "=0.9.0" },
+    { name = "semver-parser", version = "=0.7.0" },
+    { name = "rustc_version", version = "=0.2.3" },
+    { name = "wast", version = "=24.0.0" },
+    { name = "regalloc", version = "=0.0.30" },
+    { name = "gimli", version = "=0.21.0" },
+    { name = "gimli", version = "=0.22.0" },
+    { name = "getrandom", version = "=0.1.15" },
+    { name = "cranelift-entity", version = "=0.67.0" },
+    { name = "cranelift-codegen-shared", version = "=0.67.0" },
+    { name = "cranelift-codegen-meta", version = "=0.67.0" },
+    { name = "cranelift-codegen", version = "=0.67.0" },
+    { name = "cranelift-bforest", version = "=0.67.0" },
+    { name = "wasi", version = "=0.9.0" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate 
 # detection. Unlike skip, it also includes the entire tree of transitive 
@@ -184,20 +200,20 @@ skip-tree = [
 [sources]
 # Lint level for what to happen when a crate from a crate registry that is not
 # in the allow list is encountered
-unknown-registry = "warn"
+unknown-registry = "deny"
 # Lint level for what to happen when a crate from a git repository that is not
 # in the allow list is encountered
-unknown-git = "warn"
+unknown-git = "deny"
 # List of URLs for allowed crate registries. Defaults to the crates.io index
 # if not specified. If it is specified but empty, no registries are allowed.
 allow-registry = ["https://github.com/rust-lang/crates.io-index"]
 # List of URLs for allowed Git repositories
 allow-git = []
 
-[sources.allow-org]
+#[sources.allow-org]
 # 1 or more github.com organizations to allow git sources for
-github = [""]
+#github = [""]
 # 1 or more gitlab.com organizations to allow git sources for
-gitlab = [""]
+#gitlab = [""]
 # 1 or more bitbucket.org organizations to allow git sources for
-bitbucket = [""]
+#bitbucket = [""]
