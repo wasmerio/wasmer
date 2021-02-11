@@ -1,7 +1,7 @@
 //! Unstable non-standard Wasmer-specific types for the
 //! `wasm_engine_t` and siblings.
 
-use super::super::engine::wasm_config_t;
+use super::super::engine::{wasm_config_t, wasmer_compiler_t, wasmer_engine_t};
 use super::target_lexicon::wasm_target_t;
 
 /// Unstable non-standard Wasmer-specific API to update the
@@ -46,4 +46,24 @@ use super::target_lexicon::wasm_target_t;
 #[no_mangle]
 pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasm_target_t>) {
     config.target = Some(target);
+}
+
+#[no_mangle]
+pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> bool {
+    match compiler {
+        wasmer_compiler_t::CRANELIFT if cfg!(feature = "cranelift") => true,
+        wasmer_compiler_t::LLVM if cfg!(feature = "llvm") => true,
+        wasmer_compiler_t::SINGLEPASS if cfg!(feature = "singlepass") => true,
+        _ => false,
+    }
+}
+
+#[no_mangle]
+pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
+    match engine {
+        wasmer_engine_t::JIT if cfg!(feature = "jit") => true,
+        wasmer_engine_t::NATIVE if cfg!(feature = "native") => true,
+        wasmer_engine_t::OBJECT_FILE if cfg!(feature = "object-file") => true,
+        _ => false,
+    }
 }
