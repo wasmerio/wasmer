@@ -414,9 +414,12 @@ distribution: package
 ifeq ($(OS), Windows_NT)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
-endif
+	cd package && zip -r ../wasmer.zip . && cd -
+	mv wasmer.zip dist/
+else
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
+endif
 
 #################
 # Miscellaneous #

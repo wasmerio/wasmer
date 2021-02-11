@@ -369,9 +369,9 @@ jobs:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
-          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
-          asset_name: wasmer-windows-amd64.tar.gz
-          asset_content_type: application/gzip
+          asset_path: artifacts/wasmer-windows-amd64/wasmer.zip
+          asset_name: wasmer-windows-amd64.zip
+          asset_content_type: application/zip
 
       - name: Upload Release Asset Linux amd64
         uses: actions/upload-release-asset@v1
