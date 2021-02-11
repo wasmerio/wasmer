@@ -360,7 +360,7 @@ jobs:
         with:
           upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
-          asset_name: wasmer-windows-installer.exe
+          asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
 
       - name: Upload Release Asset Windows
