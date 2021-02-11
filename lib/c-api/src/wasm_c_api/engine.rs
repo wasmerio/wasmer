@@ -1,5 +1,5 @@
-pub use super::unstable::engine::wasm_config_set_target;
-use super::unstable::target_lexicon::wasm_target_t;
+pub use super::unstable::engine::wasmer_config_set_target;
+use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
@@ -95,7 +95,7 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
-    pub(super) target: Option<Box<wasm_target_t>>,
+    pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
 /// Create a new default Wasmer configuration.
@@ -181,7 +181,7 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 ///     wasm_config_t* config = wasm_config_new();
 ///
 ///     // Use the Cranelift compiler.
-///     wasm_config_set_compiler(config, CRANELIFT);
+///     wasmer_config_set_compiler(config, CRANELIFT);
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
@@ -200,11 +200,23 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 /// ```
 #[cfg(feature = "compiler")]
 #[no_mangle]
-pub extern "C" fn wasm_config_set_compiler(
+pub extern "C" fn wasmer_config_set_compiler(
     config: &mut wasm_config_t,
     compiler: wasmer_compiler_t,
 ) {
     config.compiler = compiler;
+}
+
+/// Please use `wasmer_config_set_compiler` instead.
+///
+/// cbindgen:prefix=DEPRECATED("This function has been renamed `wasmer_config_set_compiler`.")
+#[cfg(feature = "compiler")]
+#[no_mangle]
+pub extern "C" fn wasm_config_set_compiler(
+    config: &mut wasm_config_t,
+    compiler: wasmer_compiler_t,
+) {
+    wasmer_config_set_compiler(config, compiler);
 }
 
 /// Updates the configuration to specify a particular engine to use.
@@ -224,7 +236,7 @@ pub extern "C" fn wasm_config_set_compiler(
 ///     wasm_config_t* config = wasm_config_new();
 ///
 ///     // Use the JIT engine.
-///     wasm_config_set_engine(config, JIT);
+///     wasmer_config_set_engine(config, JIT);
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
@@ -242,8 +254,16 @@ pub extern "C" fn wasm_config_set_compiler(
 /// # }
 /// ```
 #[no_mangle]
-pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
+pub extern "C" fn wasmer_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
     config.engine = engine;
+}
+
+/// Please use `wasmer_config_set_engine` instead.
+///
+/// cbindgen:prefix=DEPRECATED("This function has been renamed `wasmer_config_set_engine`.")
+#[no_mangle]
+pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
+    wasmer_config_set_engine(config, engine);
 }
 
 /// An engine is used by the store to drive the compilation and the

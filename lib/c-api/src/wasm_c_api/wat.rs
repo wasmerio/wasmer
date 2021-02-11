@@ -10,7 +10,7 @@ use super::types::wasm_byte_vec_t;
 /// See the module's documentation.
 #[cfg(feature = "wat")]
 #[no_mangle]
-pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
+pub unsafe extern "C" fn wasmer_wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
     let wat: &[u8] = match wat.into_slice() {
         Some(v) => v,
         _ => {
@@ -32,6 +32,15 @@ pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec
     *out = result;
 }
 
+/// Please use `wasmer_wat2wasm`.
+///
+/// cbindgen:prefix=DEPRECATED("This function has been renamed `wasmer_wat2wasm`.")
+#[cfg(feature = "wat")]
+#[no_mangle]
+pub unsafe extern "C" fn wat2wasm(wat: &wasm_byte_vec_t, out: &mut wasm_byte_vec_t) {
+    wasmer_wat2wasm(wat, out);
+}
+
 #[cfg(test)]
 mod tests {
     use inline_c::assert_c;
@@ -45,7 +54,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t wasm;
-                wat2wasm(&wat, &wasm);
+                wasmer_wat2wasm(&wat, &wasm);
 
                 assert(wasm.data);
                 assert(wasm.size == 8);
@@ -78,7 +87,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module");
                 wasm_byte_vec_t wasm;
-                wat2wasm(&wat, &wasm);
+                wasmer_wat2wasm(&wat, &wasm);
 
                 assert(!wasm.data);
                 assert(wasmer_last_error_length() > 0);

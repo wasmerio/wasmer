@@ -156,7 +156,7 @@ mod tests {
                     "  (func (export \"function\")))"
                 );
                 wasm_byte_vec_t wasm;
-                wat2wasm(&wat, &wasm);
+                wasmer_wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);

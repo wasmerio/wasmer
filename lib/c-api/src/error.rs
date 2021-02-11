@@ -21,7 +21,7 @@
 //!     wasm_byte_vec_t wat;
 //!     wasmer_byte_vec_new_from_string(&wat, "(foobar)");
 //!     wasm_byte_vec_t wasm;
-//!     wat2wasm(&wat, &wasm);
+//!     wasmer_wat2wasm(&wat, &wasm);
 //!
 //!     int error_length = wasmer_last_error_length();
 //!

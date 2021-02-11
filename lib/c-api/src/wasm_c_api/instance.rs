@@ -118,7 +118,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 ///         "  (memory (export \"memory\") 1))"
 ///     );
 ///     wasm_byte_vec_t wasm;
-///     wat2wasm(&wat, &wasm);
+///     wasmer_wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, &wasm);
@@ -245,7 +245,7 @@ mod tests {
                     "    call $sum))"
                 );
                 wasm_byte_vec_t wasm;
-                wat2wasm(&wat, &wasm);
+                wasmer_wat2wasm(&wat, &wasm);
 
                 // Create the module.
                 wasm_module_t* module = wasm_module_new(store, &wasm);
