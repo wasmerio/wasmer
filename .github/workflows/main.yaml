@@ -62,7 +62,7 @@ jobs:
           - build: windows-x64
             os: windows-latest
             rust: 1.48
-            llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
+            # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
@@ -91,6 +91,11 @@ jobs:
           toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
           override: true
+      - name: Install LLVM (Windows)
+        if: matrix.os == 'windows-latest' && !matrix.llvm_url
+        shell: cmd
+        run: |
+          choco install llvm
       - name: Install LLVM (macOS Apple Silicon)
         if: matrix.os == 'macos-11.0' && !matrix.llvm_url
         run: |
