@@ -8,6 +8,8 @@
 use crate::lib::std::vec::Vec;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Compiled function unwind information.
 ///
@@ -17,6 +19,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.

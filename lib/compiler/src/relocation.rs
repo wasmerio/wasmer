@@ -15,12 +15,15 @@ use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset, JumpTable};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::libcalls::LibCall;
 
 /// Relocation kinds for every ISA.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Copy, Clone, Debug, PartialEq, Eq)]
 pub enum RelocationKind {
     /// absolute 4-byte
@@ -79,6 +82,7 @@ impl fmt::Display for RelocationKind {
 
 /// A record of a relocation to perform.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct Relocation {
     /// The relocation kind.
@@ -93,6 +97,7 @@ pub struct Relocation {
 
 /// Destination function. Can be either user function or some special one, like `memory.grow`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Debug, Copy, Clone, PartialEq, Eq)]
 pub enum RelocationTarget {
     /// A relocation to a function defined locally in the wasm (not an imported one).

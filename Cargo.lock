@@ -162,6 +162,47 @@ dependencies = [
 ]
 
 [[package]]
+name = "borsh"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=c62cdfbd10d4a17fc877809eba4ccb65e866d5f8#c62cdfbd10d4a17fc877809eba4ccb65e866d5f8"
+dependencies = [
+ "borsh-derive",
+ "hashbrown 0.9.1",
+]
+
+[[package]]
+name = "borsh-derive"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=c62cdfbd10d4a17fc877809eba4ccb65e866d5f8#c62cdfbd10d4a17fc877809eba4ccb65e866d5f8"
+dependencies = [
+ "borsh-derive-internal",
+ "borsh-schema-derive-internal",
+ "proc-macro-crate",
+ "proc-macro2",
+ "syn",
+]
+
+[[package]]
+name = "borsh-derive-internal"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=c62cdfbd10d4a17fc877809eba4ccb65e866d5f8#c62cdfbd10d4a17fc877809eba4ccb65e866d5f8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
+name = "borsh-schema-derive-internal"
+version = "0.8.1"
+source = "git+https://github.com/near/borsh-rs?rev=c62cdfbd10d4a17fc877809eba4ccb65e866d5f8#c62cdfbd10d4a17fc877809eba4ccb65e866d5f8"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "bstr"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1446,6 +1487,15 @@ dependencies = [
 ]
 
 [[package]]
+name = "proc-macro-crate"
+version = "0.1.5"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1d6ea3c4595b96363c13943497db34af4460fb474a95c43f4446ad341b8c9785"
+dependencies = [
+ "toml",
+]
+
+[[package]]
 name = "proc-macro-error"
 version = "1.0.4"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2390,6 +2440,7 @@ dependencies = [
 name = "wasmer-compiler"
 version = "1.0.2"
 dependencies = [
+ "borsh",
  "enumset",
  "hashbrown 0.9.1",
  "serde",
@@ -2495,6 +2546,7 @@ version = "1.0.2"
 dependencies = [
  "backtrace",
  "bincode",
+ "borsh",
  "lazy_static",
  "memmap2",
  "more-asserts",
@@ -2526,6 +2578,7 @@ name = "wasmer-engine-jit"
 version = "1.0.2"
 dependencies = [
  "bincode",
+ "borsh",
  "cfg-if 0.1.10",
  "region",
  "serde",
@@ -2605,6 +2658,7 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
+ "borsh",
  "cranelift-entity 0.68.0",
  "serde",
  "thiserror",
@@ -2615,6 +2669,7 @@ name = "wasmer-vm"
 version = "1.0.2"
 dependencies = [
  "backtrace",
+ "borsh",
  "cc",
  "cfg-if 0.1.10",
  "indexmap",

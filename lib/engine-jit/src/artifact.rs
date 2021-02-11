@@ -7,6 +7,7 @@ use crate::link::link_module;
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
 use std::sync::{Arc, Mutex};
+use borsh::{BorshSerialize, BorshDeserialize};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};

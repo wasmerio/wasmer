@@ -3,9 +3,11 @@ use crate::lib::std::boxed::Box;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,
@@ -21,6 +23,7 @@ pub struct TableInitializer {
 /// should be performed.
 #[derive(Clone, Debug)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct DataInitializerLocation {
     /// The index of the memory to initialize.
     pub memory_index: MemoryIndex,
@@ -47,6 +50,7 @@ pub struct DataInitializer<'data> {
 /// holding a reference to it
 #[derive(Debug, Clone)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct OwnedDataInitializer {
     /// The location where the initialization is to be performed.
     pub location: DataInitializerLocation,

@@ -5,9 +5,12 @@ use crate::lib::std::vec::Vec;
 use crate::sourceloc::SourceLoc;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Single source location to generated address mapping.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct InstructionAddressMap {
     /// Original source location.
@@ -22,6 +25,7 @@ pub struct InstructionAddressMap {
 
 /// Function and its instructions addresses mappings.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Debug, Clone, PartialEq, Eq, Default)]
 pub struct FunctionAddressMap {
     /// Instructions maps.

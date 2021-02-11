@@ -1,11 +1,12 @@
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
+use borsh::{BorshSerialize, BorshDeserialize};
 use std::fmt;
 use wasmer_compiler::CompiledFunctionFrameInfo;
 
 /// This is the unserialized verison of `CompiledFunctionFrameInfo`.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
 #[serde(transparent)]
 #[repr(transparent)]
 pub struct UnprocessedFunctionFrameInfo {
@@ -76,6 +77,16 @@ impl Serialize for SerializableFunctionFrameInfo {
     }
 }
 
+impl BorshSerialize for SerializableFunctionFrameInfo {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        let unprocessed = match self {
+            Self::Processed(processed) => UnprocessedFunctionFrameInfo::serialize(processed),
+            Self::Unprocessed(unprocessed) => unprocessed.clone(),
+        };
+        BorshSerialize::serialize(&unprocessed.bytes, writer)
+    }
+}
+
 struct FunctionFrameInfoVisitor;
 
 impl<'de> Visitor<'de> for FunctionFrameInfoVisitor {
@@ -99,6 +110,14 @@ impl<'de> Deserialize<'de> for SerializableFunctionFrameInfo {
     {
         Ok(Self::Unprocessed(
             deserializer.deserialize_byte_buf(FunctionFrameInfoVisitor)?,
+        ))
+    }
+}
+
+impl BorshDeserialize for SerializableFunctionFrameInfo {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        Ok(Self::Unprocesed(
+            BorshDeserialize::deserialize(buf)?
         ))
     }
 }

@@ -6,6 +6,7 @@
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
+use borsh::{BorshSerialize, BorshDeserialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
@@ -18,6 +19,7 @@ use wasmer_types::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableInitializer, TableType,
 };
+use std::iter::FromIterator;
 
 #[derive(Debug, Clone)]
 pub struct ModuleId {
@@ -113,6 +115,94 @@ pub struct ModuleInfo {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
+}
+
+impl BorshSerialize for ModuleInfo {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        BorshSerialize::serialize(&self.name, writer)?;
+        BorshSerialize::serialize(&self.imports.len(), writer)?;
+        for (k, v) in &self.imports {
+            BorshSerialize::serialize(&k, writer)?;
+            BorshSerialize::serialize(&v, writer)?;
+        }
+        BorshSerialize::serialize(&self.exports.len(), writer)?;
+        for (k, v) in &self.exports {
+            BorshSerialize::serialize(&k, writer)?;
+            BorshSerialize::serialize(&v, writer)?;
+        }
+        BorshSerialize::serialize(&self.start_function, writer)?;
+        BorshSerialize::serialize(&self.table_initializers, writer)?;
+        BorshSerialize::serialize(&self.passive_elements, writer)?;
+        let passive_data: Vec<_> = self.passive_data.iter().collect();
+        BorshSerialize::serialize(&self.passive_data.len(), writer)?;
+        for (k, v) in passive_data {
+            BorshSerialize::serialize(&k, writer)?;
+            BorshSerialize::serialize(&v.as_ref(), writer)?;
+        }
+        BorshSerialize::serialize(&self.global_initializers.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.function_names, writer)?;
+        BorshSerialize::serialize(&self.signatures.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.functions.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.tables.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.memories.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.globals.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.custom_sections.len(), writer)?;
+        for (k, v) in &self.custom_sections {
+            BorshSerialize::serialize(&k, writer)?;
+            BorshSerialize::serialize(&v, writer)?;
+        }
+        BorshSerialize::serialize(&self.custom_sections_data.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.num_imported_functions, writer)?;
+        BorshSerialize::serialize(&self.num_imported_tables, writer)?;
+        BorshSerialize::serialize(&self.num_imported_memories, writer)?;
+        BorshSerialize::serialize(&self.num_imported_globals, writer)
+    }
+}
+
+impl BorshDeserialize for ModuleInfo {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let mut ret = Self::new();
+        ret.name = BorshDeserialize::deserialize(buf)?;
+        let len: usize = BorshDeserialize::deserialize(buf)?;
+        ret.imports = IndexMap::with_capacity(len);
+        for _ in 0..len {
+            ret.imports.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
+        }
+        let len: usize = BorshDeserialize::deserialize(buf)?;
+        ret.exports = IndexMap::with_capacity(len);
+        for _ in 0..len {
+            ret.exports.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
+        }
+        ret.start_function = BorshDeserialize::deserialize(buf)?;
+        ret.table_initializers = BorshDeserialize::deserialize(buf)?;
+        ret.passive_elements = BorshDeserialize::deserialize(buf)?;
+        ret.passive_data = BorshDeserialize::deserialize(buf)?;
+        let global_initializers: Vec<GlobalInit> = BorshDeserialize::deserialize(buf)?;
+        ret.global_initializers = PrimaryMap::from_iter(global_initializers.into_iter());
+        ret.function_names = BorshDeserialize::deserialize(buf)?;
+        let signatures: Vec<FunctionType> = BorshDeserialize::deserialize(buf)?;
+        ret.signatures = PrimaryMap::from_iter(signatures.into_iter());
+        let functions: Vec<SignatureIndex> = BorshDeserialize::deserialize(buf)?;
+        ret.functions = PrimaryMap::from_iter(functions.into_iter());
+        let tables: Vec<TableType> = BorshDeserialize::deserialize(buf)?;
+        ret.tables = PrimaryMap::from_iter(tables.into_iter());
+        let memories: Vec<MemoryType> = BorshDeserialize::deserialize(buf)?;
+        ret.memories = PrimaryMap::from_iter(memories.into_iter());
+        let globals: Vec<GlobalType> = BorshDeserialize::deserialize(buf)?;
+        ret.globals = PrimaryMap::from_iter(globals.into_iter());
+        let len: usize = BorshDeserialize::deserialize(buf)?;
+        ret.custom_sections = IndexMap::with_capacity(len);
+        for _ in 0..len {
+            ret.custom_sections.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
+        }
+        let custom_sections_data: Vec<GlobalType> = BorshDeserialize::deserialize(buf)?;
+        ret.custom_sections_data = PrimaryMap::from_iter(custom_sections_data.into_iter());
+        ret.num_imported_functions = BorshDeserialize::deserialize(buf)?;
+        ret.num_imported_tables = BorshDeserialize::deserialize(buf)?;
+        ret.num_imported_memories = BorshDeserialize::deserialize(buf)?;
+        ret.num_imported_globals = BorshDeserialize::deserialize(buf)?;
+        Ok(ret)
+    }
 }
 
 impl ModuleInfo {

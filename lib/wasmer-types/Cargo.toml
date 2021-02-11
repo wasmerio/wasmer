@@ -16,9 +16,11 @@ edition = "2018"
 cranelift-entity = "0.68"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
+borsh = { git = "https://github.com/near/borsh-rs", rev = "c62cdfbd10d4a17fc877809eba4ccb65e866d5f8", optional = true }
 
 [features]
-default = ["std", "enable-serde"]
+default = ["std", "enable-serde", "enable-borsh"]
 std = ["serde/std"]
 core = []
 enable-serde = ["serde", "cranelift-entity/enable-serde"]
+enable-borsh = ["borsh"]

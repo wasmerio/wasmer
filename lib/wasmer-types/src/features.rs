@@ -1,5 +1,7 @@
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Controls which experimental features will be enabled.
 /// Features usually have a corresponding [WebAssembly proposal].
@@ -7,6 +9,7 @@ use serde::{Deserialize, Serialize};
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
 #[derive(Clone, Debug, Eq, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 pub struct Features {
     /// Threads proposal should be enabled
     pub threads: bool,

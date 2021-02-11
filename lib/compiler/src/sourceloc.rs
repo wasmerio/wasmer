@@ -11,6 +11,8 @@ use crate::lib::std::fmt;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 
 /// A source location.
 ///
@@ -21,6 +23,7 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(transparent)
 )]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
 pub struct SourceLoc(u32);

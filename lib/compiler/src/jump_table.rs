@@ -7,6 +7,8 @@
 use super::CodeOffset;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 use wasmer_types::entity::{entity_impl, SecondaryMap};
 
 /// An opaque reference to a [jump table](https://en.wikipedia.org/wiki/Branch_table).
@@ -14,6 +16,7 @@ use wasmer_types::entity::{entity_impl, SecondaryMap};
 /// `JumpTable`s are used for indirect branching and are specialized for dense,
 /// 0-based jump offsets.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(feature = "enable-borsh", derive(BorshSerialize, BorshDeserialize))]
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
 pub struct JumpTable(u32);
 

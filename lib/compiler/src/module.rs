@@ -1,6 +1,9 @@
 use crate::lib::std::sync::Arc;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
+
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, MemoryIndex, TableIndex};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
@@ -24,4 +27,27 @@ pub struct CompileModuleInfo {
     pub memory_styles: PrimaryMap<MemoryIndex, MemoryStyle>,
     /// The table plans used for compiling.
     pub table_styles: PrimaryMap<TableIndex, TableStyle>,
+}
+
+#[cfg(feature = "enable-borsh")]
+impl BorshSerialize for CompileModuleInfo {
+    fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
+        BorshSerialize::serialize(&self.features, writer)?;
+        BorshSerialize::serialize(&self.module, writer)?;
+        BorshSerialize::serialize(&self.memory_styles.into_iter().collect::<Vec<MemoryStyle>>(), writer)?;
+        BorshSerialize::serialize(&self.table_styles.into_iter().collect::<Vec<TableStyle>>(), writer)
+    }
+}
+
+#[cfg(feature = "enable-borsh")]
+impl BorshDeserialize for CompileModuleInfo {
+    fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
+        let features: Features = BorshDeserialize::deserialize(buf)?;
+        let module: Arc<ModuleInfo> = BorshDeserialize::deserialize(buf)?;
+        let memory_styles: Vec<MemoryStyle> = BorshDeserialize::deserialize(buf)?;
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = PrimaryMap::from_iter(memory_styles.into_iter());
+        let table_styles: Vec<TableStyle> = BorshDeserialize::deserialize(buf)?;
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = PrimaryMap::from_iter(table_styles.into_iter());
+        Self { features, module, memory_styles, table_styles }
+    }
 }

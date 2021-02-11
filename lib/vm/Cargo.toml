@@ -21,6 +21,7 @@ more-asserts = "0.2"
 cfg-if = "0.1"
 backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
+borsh = { git = "https://github.com/near/borsh-rs", rev = "c62cdfbd10d4a17fc877809eba4ccb65e866d5f8" }
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winbase", "memoryapi", "errhandlingapi"] }
