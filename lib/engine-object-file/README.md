@@ -25,10 +25,6 @@ Target: x86_64-apple-darwin
 Now lets create a program to link with this object file.
 
 ```C
-#ifdef __cplusplus
-extern "C" {
-#endif
-
 #include "wasmer_wasm.h"
 #include "wasm.h"
 #include "my_wasm.h"
@@ -38,17 +34,14 @@ extern "C" {
 
 #define own
 
-#ifdef __cplusplus
-}
-#endif
-
-void print_wasmer_error()
+static void print_wasmer_error()
 {
     int error_len = wasmer_last_error_length();
     printf("Error len: `%d`\n", error_len);
     char* error_str = (char*) malloc(error_len);
     wasmer_last_error_message(error_str, error_len);
     printf("Error str: `%s`\n", error_str);
+    free(error_str);
 }
 
 int main() {
@@ -59,7 +52,7 @@ int main() {
         wasm_store_t* store = wasm_store_new(engine);
 
         wasm_module_t* module = wasmer_object_file_engine_new(store, "qjs.wasm");
-        if (! module) {
+        if (!module) {
                 printf("Failed to create module\n");
                 print_wasmer_error();
                 return -1;
