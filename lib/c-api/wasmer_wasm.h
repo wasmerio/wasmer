@@ -332,11 +332,7 @@ uint8_t wasmer_version_patch(void);
 
 const char *wasmer_version_pre(void);
 
-void wasmer_wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
-
-DEPRECATED("This function has been renamed `wasmer_wat2wasm`.")
-void wat2wasm(const wasm_byte_vec_t *wat,
-              wasm_byte_vec_t *out);
+void wat2wasm(const wasm_byte_vec_t *wat, wasm_byte_vec_t *out);
 
 #ifdef __cplusplus
 } // extern "C"

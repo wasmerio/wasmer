@@ -429,7 +429,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -460,7 +460,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -491,7 +491,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);

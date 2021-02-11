@@ -496,7 +496,6 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_triple_new")
         .exclude_item("wasmer_triple_new_from_host")
         .exclude_item("wasmer_triple_t")
-        .exclude_item("wasmer_wat2wasm")
         .exclude_item("wat2wasm")
 }
 

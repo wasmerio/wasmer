@@ -28,7 +28,7 @@ use std::sync::Arc;
 ///     wasmer_byte_vec_new_from_string(&wat, "(module $moduleName)");
 ///     //                                             ^~~~~~~~~~~ that's the name!
 ///     wasm_byte_vec_t wasm;
-///     wasmer_wat2wasm(&wat, &wasm);
+///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, &wasm);
@@ -94,7 +94,7 @@ pub unsafe extern "C" fn wasmer_module_name(
 ///     wasm_byte_vec_t wat;
 ///     wasmer_byte_vec_new_from_string(&wat, "(module)");
 ///     wasm_byte_vec_t wasm;
-///     wasmer_wat2wasm(&wat, &wasm);
+///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, &wasm);

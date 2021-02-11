@@ -76,7 +76,7 @@ pub unsafe extern "C" fn wasm_module_delete(_module: Option<Box<wasm_module_t>>)
 ///     wasm_byte_vec_t wat;
 ///     wasmer_byte_vec_new_from_string(&wat, "(module)");
 ///     wasm_byte_vec_t wasm;
-///     wasmer_wat2wasm(&wat, &wasm);
+///     wat2wasm(&wat, &wasm);
 ///
 ///     // Validate that the WebAssembly module is correct.
 ///     assert(wasm_module_validate(store, &wasm));
@@ -150,7 +150,7 @@ pub unsafe extern "C" fn wasm_module_validate(
 ///         "  (memory (export \"memory\") 1))"
 ///     );
 ///     wasm_byte_vec_t wasm;
-///     wasmer_wat2wasm(&wat, &wasm);
+///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, &wasm);
@@ -274,7 +274,7 @@ pub unsafe extern "C" fn wasm_module_exports(
 ///         "  (import \"ns\" \"memory\" (memory 3 4)))"
 ///     );
 ///     wasm_byte_vec_t wasm;
-///     wasmer_wat2wasm(&wat, &wasm);
+///     wat2wasm(&wat, &wasm);
 ///
 ///     // Create the module.
 ///     wasm_module_t* module = wasm_module_new(store, &wasm);
@@ -426,7 +426,7 @@ pub unsafe extern "C" fn wasm_module_imports(
 ///        "  (memory (export \"memory\") 1))"
 ///    );
 ///    wasm_byte_vec_t wasm;
-///    wasmer_wat2wasm(&wat, &wasm);
+///    wat2wasm(&wat, &wasm);
 ///
 ///    // Create the module.
 ///    wasm_module_t* module = wasm_module_new(store, &wasm);
@@ -533,7 +533,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 assert(wasm_module_validate(store, &wasm));
 
@@ -560,7 +560,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -596,7 +596,7 @@ mod tests {
                     "  (memory (export \"memory\") 1))"
                 );
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -704,7 +704,7 @@ mod tests {
                     "  (import \"ns\" \"memory\" (memory 3 4)))"
                 );
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -815,7 +815,7 @@ mod tests {
                 wasm_byte_vec_t wat;
                 wasmer_byte_vec_new_from_string(&wat, "(module)");
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
@@ -856,7 +856,7 @@ mod tests {
                     "  (memory (export \"memory\") 1))"
                 );
                 wasm_byte_vec_t wasm;
-                wasmer_wat2wasm(&wat, &wasm);
+                wat2wasm(&wat, &wasm);
 
                 wasm_module_t* module = wasm_module_new(store, &wasm);
                 assert(module);
