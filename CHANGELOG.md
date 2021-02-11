@@ -10,6 +10,7 @@
 ### Added
 
 ### Changed
+- [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
 
 ### Fixed
 - [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
