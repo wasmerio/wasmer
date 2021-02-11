@@ -284,7 +284,7 @@ impl LinkCode {
         let command = command
             .arg("-luserenv")
             .arg("-lWs2_32")
-            .arg("advapi32")
+            .arg("-ladvapi32")
             .arg("-lbcrypt");
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
