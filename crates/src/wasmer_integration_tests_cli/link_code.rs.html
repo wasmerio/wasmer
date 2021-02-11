@@ -70,6 +70,10 @@
 <span id="67">67</span>
 <span id="68">68</span>
 <span id="69">69</span>
+<span id="70">70</span>
+<span id="71">71</span>
+<span id="72">72</span>
+<span id="73">73</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">assets</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="ident">anyhow</span>::<span class="ident">bail</span>;
@@ -123,7 +127,11 @@
             )
             .<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">libwasmer_path</span>.<span class="ident">canonicalize</span>()<span class="question-mark">?</span>);
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">windows</span>)]</span>
-        <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-luserenv&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;-lWs2_32&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;-ladvapi32&quot;</span>);
+        <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">command</span>
+            .<span class="ident">arg</span>(<span class="string">&quot;-luserenv&quot;</span>)
+            .<span class="ident">arg</span>(<span class="string">&quot;-lWs2_32&quot;</span>)
+            .<span class="ident">arg</span>(<span class="string">&quot;-ladvapi32&quot;</span>)
+            .<span class="ident">arg</span>(<span class="string">&quot;-lbcrypt&quot;</span>);
         <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">windows</span>))]</span>
         <span class="kw">let</span> <span class="ident">command</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-ldl&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;-lm&quot;</span>).<span class="ident">arg</span>(<span class="string">&quot;-pthread&quot;</span>);
         <span class="kw">let</span> <span class="ident">output</span> <span class="op">=</span> <span class="ident">command</span>.<span class="ident">arg</span>(<span class="string">&quot;-o&quot;</span>).<span class="ident">arg</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">output_path</span>).<span class="ident">output</span>()<span class="question-mark">?</span>;
