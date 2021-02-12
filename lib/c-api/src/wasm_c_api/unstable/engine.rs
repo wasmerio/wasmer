@@ -59,11 +59,115 @@ pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> b
 }
 
 #[no_mangle]
+pub extern "C" fn wasmer_is_headless() -> bool {
+    !cfg!(feature = "compiler")
+}
+
+#[no_mangle]
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
         wasmer_engine_t::JIT if cfg!(feature = "jit") => true,
         wasmer_engine_t::NATIVE if cfg!(feature = "native") => true,
         wasmer_engine_t::OBJECT_FILE if cfg!(feature = "object-file") => true,
         _ => false,
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+    use std::env::{remove_var, set_var};
+
+    #[test]
+    fn test_wasmer_is_headless() {
+        set_var(
+            "COMPILER",
+            if cfg!(feature = "compiler") { "0" } else { "1" },
+        );
+
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+            #include <stdlib.h>
+
+            int main() {
+                assert(wasmer_is_headless() == (getenv("COMPILER")[0] == '1'));
+
+                return 0;
+            }
+        })
+        .success();
+
+        remove_var("COMPILER");
+    }
+
+    #[test]
+    fn test_wasmer_is_compiler_available() {
+        set_var(
+            "CRANELIFT",
+            if cfg!(feature = "cranelift") {
+                "1"
+            } else {
+                "0"
+            },
+        );
+        set_var("LLVM", if cfg!(feature = "llvm") { "1" } else { "0" });
+        set_var(
+            "SINGLEPASS",
+            if cfg!(feature = "singlepass") {
+                "1"
+            } else {
+                "0"
+            },
+        );
+
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+            #include <stdlib.h>
+
+            int main() {
+                assert(wasmer_is_compiler_available(CRANELIFT) == (getenv("CRANELIFT")[0] == '1'));
+                assert(wasmer_is_compiler_available(LLVM) == (getenv("LLVM")[0] == '1'));
+                assert(wasmer_is_compiler_available(SINGLEPASS) == (getenv("SINGLEPASS")[0] == '1'));
+
+                return 0;
+            }
+        })
+        .success();
+
+        remove_var("CRANELIFT");
+        remove_var("LLVM");
+        remove_var("SINGLEPASS");
+    }
+
+    #[test]
+    fn test_wasmer_is_engine_available() {
+        set_var("JIT", if cfg!(feature = "jit") { "1" } else { "0" });
+        set_var("NATIVE", if cfg!(feature = "native") { "1" } else { "0" });
+        set_var(
+            "OBJECT_FILE",
+            if cfg!(feature = "object-file") {
+                "1"
+            } else {
+                "0"
+            },
+        );
+
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+            #include <stdlib.h>
+
+            int main() {
+                assert(wasmer_is_engine_available(JIT) == (getenv("JIT")[0] == '1'));
+                assert(wasmer_is_engine_available(NATIVE) == (getenv("NATIVE")[0] == '1'));
+                assert(wasmer_is_engine_available(OBJECT_FILE) == (getenv("OBJECT_FILE")[0] == '1'));
+
+                return 0;
+            }
+        })
+        .success();
+
+        remove_var("JIT");
+        remove_var("NATIVE");
+        remove_var("OBJECT_FILE");
     }
 }
