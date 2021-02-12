@@ -494,6 +494,9 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasm_triple_t")
         .exclude_item("wasmer_compiler_t")
         .exclude_item("wasmer_engine_t")
+        .exclude_item("wasmer_is_compiler_available")
+        .exclude_item("wasmer_is_engine_available")
+        .exclude_item("wasmer_is_headless")
         .exclude_item("wat2wasm")
 }
 

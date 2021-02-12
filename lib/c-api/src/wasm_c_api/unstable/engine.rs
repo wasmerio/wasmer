@@ -48,6 +48,8 @@ pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box
     config.target = Some(target);
 }
 
+/// Check whether the given compiler is available, i.e. part of this
+/// compiled library.
 #[no_mangle]
 pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> bool {
     match compiler {
@@ -58,11 +60,15 @@ pub extern "C" fn wasmer_is_compiler_available(compiler: wasmer_compiler_t) -> b
     }
 }
 
+/// Check whether there is no compiler available in this compiled
+/// library.
 #[no_mangle]
 pub extern "C" fn wasmer_is_headless() -> bool {
     !cfg!(feature = "compiler")
 }
 
+/// Check whether the given engine is available, i.e. part of this
+/// compiled library.
 #[no_mangle]
 pub extern "C" fn wasmer_is_engine_available(engine: wasmer_engine_t) -> bool {
     match engine {
