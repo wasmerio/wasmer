@@ -573,8 +573,30 @@
 <span id="572">572</span>
 <span id="573">573</span>
 <span id="574">574</span>
+<span id="575">575</span>
+<span id="576">576</span>
+<span id="577">577</span>
+<span id="578">578</span>
+<span id="579">579</span>
+<span id="580">580</span>
+<span id="581">581</span>
+<span id="582">582</span>
+<span id="583">583</span>
+<span id="584">584</span>
+<span id="585">585</span>
+<span id="586">586</span>
+<span id="587">587</span>
+<span id="588">588</span>
+<span id="589">589</span>
+<span id="590">590</span>
+<span id="591">591</span>
+<span id="592">592</span>
+<span id="593">593</span>
+<span id="594">594</span>
 </pre><div class="example-wrap"><pre class="rust ">
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">engine</span>::<span class="ident">wasm_config_set_target</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">engine</span>::{
+    <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>, <span class="ident">wasmer_is_engine_available</span>,
+};
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasm_target_t</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
@@ -746,7 +768,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```rust,no_run</span>
+<span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
@@ -756,8 +778,19 @@
 <span class="doccomment">///     // Create the configuration.</span>
 <span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     // Use the Cranelift compiler.</span>
-<span class="doccomment">///     wasm_config_set_compiler(config, CRANELIFT);</span>
+<span class="doccomment">///     // Use the Cranelift compiler, if available.</span>
+<span class="doccomment">///     if (wasmer_is_compiler_available(CRANELIFT)) {</span>
+<span class="doccomment">///         wasm_config_set_compiler(config, CRANELIFT);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///     // Or maybe LLVM?</span>
+<span class="doccomment">///     else if (wasmer_is_compiler_available(LLVM)) {</span>
+<span class="doccomment">///         wasm_config_set_compiler(config, LLVM);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///     // Or maybe Singlepass?</span>
+<span class="doccomment">///     else if (wasmer_is_compiler_available(SINGLEPASS)) {</span>
+<span class="doccomment">///         wasm_config_set_compiler(config, SINGLEPASS);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///     // OK, let&#39;s run with no particular compiler.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Create the engine.</span>
 <span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
@@ -789,7 +822,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// ```rust,no_run</span>
+<span class="doccomment">/// ```rust</span>
 <span class="doccomment">/// # use inline_c::assert_c;</span>
 <span class="doccomment">/// # fn main() {</span>
 <span class="doccomment">/// #    (assert_c! {</span>
@@ -799,8 +832,15 @@
 <span class="doccomment">///     // Create the configuration.</span>
 <span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     // Use the JIT engine.</span>
-<span class="doccomment">///     wasm_config_set_engine(config, JIT);</span>
+<span class="doccomment">///     // Use the JIT engine, if available.</span>
+<span class="doccomment">///     if (wasmer_is_engine_available(JIT)) {</span>
+<span class="doccomment">///         wasm_config_set_engine(config, JIT);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///     // Or maybe the Native engine?</span>
+<span class="doccomment">///     else if (wasmer_is_engine_available(NATIVE)) {</span>
+<span class="doccomment">///         wasm_config_set_engine(config, NATIVE);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///     // OK, let&#39;s do not specify any particular engine.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Create the engine.</span>
 <span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
