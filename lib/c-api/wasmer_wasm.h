@@ -308,6 +308,12 @@ wasm_triple_t *wasm_triple_new(const wasm_name_t *triple);
 
 wasm_triple_t *wasm_triple_new_from_host(void);
 
+bool wasmer_is_compiler_available(wasmer_compiler_t compiler);
+
+bool wasmer_is_engine_available(wasmer_engine_t engine);
+
+bool wasmer_is_headless(void);
+
 int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);

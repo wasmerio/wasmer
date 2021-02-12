@@ -299,11 +299,11 @@ test-capi-cranelift-native: build-capi-cranelift-native test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,cranelift,wasi $(capi_default_features) -- --nocapture
 
-test-capi-llvm-jit:
+test-capi-llvm-jit: build-capi-llvm-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,llvm,wasi $(capi_default_features) -- --nocapture
 
-test-capi-llvm-native:
+test-capi-llvm-native: build-capi-llvm-native test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi $(capi_default_features) -- --nocapture
 
@@ -414,12 +414,9 @@ distribution: package
 ifeq ($(OS), Windows_NT)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
-else
-	cp LICENSE package/LICENSE
-	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
+endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
-endif
 
 #################
 # Miscellaneous #
