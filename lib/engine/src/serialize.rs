@@ -116,7 +116,7 @@ impl<'de> Deserialize<'de> for SerializableFunctionFrameInfo {
 
 impl BorshDeserialize for SerializableFunctionFrameInfo {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-        Ok(Self::Unprocesed(
+        Ok(Self::Unprocessed(
             BorshDeserialize::deserialize(buf)?
         ))
     }

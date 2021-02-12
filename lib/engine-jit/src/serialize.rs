@@ -48,40 +48,40 @@ pub struct SerializableModule {
 
 impl BorshSerialize for SerializableCompilation {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
-        BorshSerialize::serialize(&self.function_bodies.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.function_relocations.into_iter().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.function_bodies.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.function_relocations.values().collect::<Vec<_>>(), writer)?;
         // JumpTableOffsets is a SecondaryMap, non trivial to impl borsh
-        let v = bincode::serialize(&self.function_jt_offsets)?;
+        let v = bincode::serialize(&self.function_jt_offsets).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid function_jt_offsets"))?;
         BorshSerialize::serialize(&v, writer)?;
-        BorshSerialize::serialize(&self.function_frame_info.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.function_call_trampolines.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.dynamic_function_trampolines.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.custom_sections.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.custom_section_relocations.into_iter().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.debug, writer)?;
+        BorshSerialize::serialize(&self.function_frame_info.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.function_call_trampolines.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.dynamic_function_trampolines.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.custom_sections.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.custom_section_relocations.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.debug, writer)
     }
 }
 
 impl BorshDeserialize for SerializableCompilation {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         let function_bodies: Vec<FunctionBody> = BorshDeserialize::deserialize(buf)?;
-        let function_bodies = PrimaryMap::from_iter(function_bodies.into_iter());
+        let function_bodies = PrimaryMap::from_iter(function_bodies);
         let function_relocations: Vec<Vec<Relocation>> = BorshDeserialize::deserialize(buf)?;
-        let function_relocations = PrimaryMap::from_iter(function_relocations.into_iter());
+        let function_relocations = PrimaryMap::from_iter(function_relocations);
         let v: Vec<u8> = BorshDeserialize::deserialize(buf)?;
-        let function_jt_offsets = bincode::deserialize(&v)?;
+        let function_jt_offsets = bincode::deserialize(&v).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid function_jt_offsets"))?;
         let function_frame_info: Vec<SerializableFunctionFrameInfo> = BorshDeserialize::deserialize(buf)?;
-        let function_frame_info = PrimaryMap::from_iter(function_frame_info.into_iter());
+        let function_frame_info = PrimaryMap::from_iter(function_frame_info);
         let function_call_trampolines: Vec<FunctionBody> = BorshDeserialize::deserialize(buf)?;
-        let function_call_trampolines = PrimaryMap::from_iter(function_call_trampolines.into_iter());
+        let function_call_trampolines = PrimaryMap::from_iter(function_call_trampolines);
         let dynamic_function_trampolines: Vec<FunctionBody> = BorshDeserialize::deserialize(buf)?;
-        let dynamic_function_trampolines = PrimaryMap::from_iter(dynamic_function_trampolines.into_iter());
+        let dynamic_function_trampolines = PrimaryMap::from_iter(dynamic_function_trampolines);
         let custom_sections: Vec<CustomSection> = BorshDeserialize::deserialize(buf)?;
-        let custom_sections = PrimaryMap::from_iter(custom_sections.into_iter());
+        let custom_sections = PrimaryMap::from_iter(custom_sections);
         let custom_section_relocations: Vec<Vec<Relocation>> = BorshDeserialize::deserialize(buf)?;
-        let custom_section_relocations = PrimaryMap::from_iter(custom_section_relocations.into_iter());
+        let custom_section_relocations = PrimaryMap::from_iter(custom_section_relocations);
         let debug = BorshDeserialize::deserialize(buf)?;
-        Self {
+        Ok(Self {
             function_bodies,
             function_relocations,
             function_jt_offsets,
@@ -91,6 +91,6 @@ impl BorshDeserialize for SerializableCompilation {
             custom_sections,
             custom_section_relocations,
             debug
-        }
+        })
     }
 }

@@ -1,4 +1,5 @@
 use crate::lib::std::sync::Arc;
+use std::iter::FromIterator;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
@@ -33,9 +34,9 @@ pub struct CompileModuleInfo {
 impl BorshSerialize for CompileModuleInfo {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         BorshSerialize::serialize(&self.features, writer)?;
-        BorshSerialize::serialize(&self.module, writer)?;
-        BorshSerialize::serialize(&self.memory_styles.into_iter().collect::<Vec<MemoryStyle>>(), writer)?;
-        BorshSerialize::serialize(&self.table_styles.into_iter().collect::<Vec<TableStyle>>(), writer)
+        BorshSerialize::serialize(&self.module.as_ref(), writer)?;
+        BorshSerialize::serialize(&self.memory_styles.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(&self.table_styles.values().collect::<Vec<_>>(), writer)
     }
 }
 
@@ -43,11 +44,12 @@ impl BorshSerialize for CompileModuleInfo {
 impl BorshDeserialize for CompileModuleInfo {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         let features: Features = BorshDeserialize::deserialize(buf)?;
-        let module: Arc<ModuleInfo> = BorshDeserialize::deserialize(buf)?;
+        let module: ModuleInfo = BorshDeserialize::deserialize(buf)?;
+        let module = Arc::new(module);
         let memory_styles: Vec<MemoryStyle> = BorshDeserialize::deserialize(buf)?;
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = PrimaryMap::from_iter(memory_styles.into_iter());
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = PrimaryMap::from_iter(memory_styles);
         let table_styles: Vec<TableStyle> = BorshDeserialize::deserialize(buf)?;
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = PrimaryMap::from_iter(table_styles.into_iter());
-        Self { features, module, memory_styles, table_styles }
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = PrimaryMap::from_iter(table_styles);
+        Ok(Self { features, module, memory_styles, table_styles })
     }
 }
