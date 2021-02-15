@@ -8,6 +8,7 @@
 ## **[Unreleased]**
 
 ### Added
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per targets instead of Cranelift only.
 - [#2118](https://github.com/wasmerio/wasmer/pull/2118) Add an unstable non-standard C API to query available engines and compilers.
 
 ### Changed
