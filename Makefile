@@ -348,9 +348,7 @@ build-docs-capi:
 	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
 	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
 
-build-capi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(compiler_features)
+build-capi: build-capi-cranelift
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
