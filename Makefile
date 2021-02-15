@@ -15,64 +15,48 @@ SHELL=/bin/bash
 # |          |              |            |             | musl       |         no |
 # |          |              |            | Native      | glibc      |        yes |
 # |          |              |            |             | musl       |         no |
-# |          |              |            | Object File | glibc      |        yes |
-# |          |              |            |             | musl       |         no |
 # |          |              |            |             |            |            |
 # |          |              | LLVM       | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            | Native      | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          |              | LLVM       | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |         no |
-# |          |              |            | Object File | glibc      |         no |
 #-|----------|--------------|------------|-------------|------------|------------|
 # | Darwin   | amd64        | Cranelift  | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | LLVM       | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            | Native      | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          |              | LLVM       | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |         no |
-# |          |              |            | Object File | glibc      |         no |
 #-|----------|--------------|------------|-------------|------------|------------|
 # | Windows  | amd64        | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            | Native      | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          |              | LLVM       | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |         no |
-# |          |              |            | Object File | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |         no |
 # |          |              |            | Native      | glibc      |         no |
-# |          |              |            | Object File | glibc      |         no |
 # |----------|--------------|------------|-------------|------------|------------|
 
 
@@ -175,15 +159,24 @@ endif
 # pairs are stored in the `compilers_engines` variable.
 compilers_engines :=
 
-ifeq ($(IS_AMD64), 1)
-	compilers_engines += cranelift-jit
+##
+# The Cranelift case.
+##
 
-	ifeq ($(IS_WINDOWS), 0)
-		# `cranelift-native`
-		ifneq ($(LIBC), musl)
-			# Native engine doesn't work on Windows and musl yet.
+compilers_engines += cranelift-jit
+
+ifeq ($(IS_WINDOWS), 0)
+	ifeq ($(IS_AMD64), 1)
+		ifneq ($(LIBC, musl))
 			compilers_engines += cranelift-native
 		endif
+	endif
+endif
+
+
+
+ifeq ($(IS_AMD64), 1)
+	ifeq ($(IS_WINDOWS), 0)
 		# Singlepass doesn't work with the native engine.
 		compilers_engines += singlepass-jit
 		ifneq (, $(findstring llvm,$(compilers)))
@@ -199,7 +192,6 @@ endif
 
 use_system_ffi =
 ifeq ($(IS_AARCH64), 1)
-	compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
 		compilers_engines += llvm-native
 	endif
