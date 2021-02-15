@@ -105,6 +105,7 @@ endif
 #
 #####
 
+
 HAS_CRANELIFT := 0
 HAS_LLVM := 0
 HAS_SINGLEPASS := 0
@@ -161,12 +162,12 @@ ifneq (, $(findstring singlepass,$(compilers)))
 endif
 
 
-
 #####
 #
 # Define the “Engine” column of the matrix.
 #
 #####
+
 
 # The engine is part of a pair of kind (compiler, engine). All the
 # pairs are stored in the `compilers_engines` variable.
@@ -216,26 +217,49 @@ ifeq ($(HAS_SINGLEPASS), 1)
 endif
 
 
-use_system_ffi =
-ifeq ($(IS_AARCH64), 1)
-	# if we are in macos arm64, we use the system libffi for the capi
-	ifeq ($(IS_DARWIN), 1)
-		use_system_ffi = yes
+#####
+#
+# Miscellaneous.
+#
+#####
+
+# The `libffi` library doesn't support Darwin/aarch64. In this
+# particular case, we need to use the `libffi` version provided by the
+# system itself.
+#
+# See <https://github.com/libffi/libffi/pull/621>.
+
+use_system_ffi :=
+
+ifeq ($(IS_DARWIN), 1)
+	ifeq ($(IS_AARCH64, 1))
+		use_system_ffi = 1
 	endif
 endif
 
-# if the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` var to 1 also
-# use the system libffi.
+# If the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` environment
+# variable to 1, then also use the system `libffi`.
 ifeq ($(WASMER_CAPI_USE_SYSTEM_LIBFFI), 1)
-	use_system_ffi = yes
+	use_system_ffi = 1
 endif
 
-ifdef use_system_ffi
+#####
+#
+# C API default features.
+#
+#####
+
+
+ifeq ($(use_system_ffi), 1)
 	capi_default_features := --features system-libffi
 endif
 
-compilers := $(filter-out ,$(compilers))
-compilers_engines := $(filter-out ,$(compilers_engines))
+
+#####
+#
+# There we go!
+#
+#####
 
 ifeq ($(IS_WINDOWS), 0)
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
