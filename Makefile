@@ -254,9 +254,12 @@ ifeq ($(use_system_ffi), 1)
 	capi_default_features := --features system-libffi
 endif
 
+# Small trick to define a space and a comma.
+space := $() $()
+comma := ,
+
 # Define the default Cargo features for all crates.
-compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
-compiler_features := --features "$(compiler_features_spaced)"
+compiler_features := --features $(subst $(space),$(comma),$(strip $(compilers)))
 
 
 #####
