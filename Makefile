@@ -20,7 +20,7 @@ SHELL=/bin/bash
 # |          |              |            | Native      | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Native      | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |         no |
@@ -173,28 +173,33 @@ ifeq ($(IS_WINDOWS), 0)
 	endif
 endif
 
+##
+# The LLVM case.
+##
+
+# If `compilers` contains `llvm`.
+ifneq (, $(findstring llvm,$(compilers)))
+	ifeq ($(IS_WINDOWS), 0)
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += llvm-jit
+			compilers_engines += llvm-native
+		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-native
+		endif
+	endif
+endif
+
 
 
 ifeq ($(IS_AMD64), 1)
 	ifeq ($(IS_WINDOWS), 0)
 		# Singlepass doesn't work with the native engine.
 		compilers_engines += singlepass-jit
-		ifneq (, $(findstring llvm,$(compilers)))
-			compilers_engines += llvm-jit
-
-			ifneq ($(LIBC), musl)
-				# Native engine doesn't work on musl yet.
-				compilers_engines += llvm-native
-			endif
-		endif
 	endif
 endif
 
 use_system_ffi =
 ifeq ($(IS_AARCH64), 1)
-	ifneq (, $(findstring llvm,$(compilers)))
-		compilers_engines += llvm-native
-	endif
 	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(IS_DARWIN), 1)
 		use_system_ffi = yes
