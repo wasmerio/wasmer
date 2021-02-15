@@ -67,6 +67,13 @@ SHELL=/bin/bash
 # |          |              |            | Object File | glibc      |        yes |
 
 
+#####
+#
+# Define the “Platform” and “Architecture” columns of the matrix.
+#
+#####
+
+
 IS_DARWIN := 0
 IS_LINUX := 0
 IS_WINDOWS := 0
@@ -98,28 +105,38 @@ else
 	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
 endif
 
+
+#####
+#
+# Define the “Compiler” column of the matrix.
+#
+#####
+
+
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := cranelift
 
-# In the form "$(compiler)-$(engine)" which compiler+engine combinations to test
+# Compilers to test again.
+#
+# In the form "$(compiler)-$(engine)" which `compiler` and `engine` combinations to test
 # in `make test`.
 test_compilers_engines :=
 
-# Autodetect LLVM from llvm-config
+# Autodetect LLVM from `llvm-config`
 ifneq (, $(shell which llvm-config 2>/dev/null))
 	LLVM_VERSION := $(shell llvm-config --version)
+
 	# If findstring is not empty, then it have found the value
-	ifneq (, $(findstring 10,$(LLVM_VERSION)))
-		compilers += llvm
-	endif
 	ifneq (, $(findstring 11,$(LLVM_VERSION)))
 		compilers += llvm
-	endif
-else
-	ifneq (, $(shell which llvm-config-10 2>/dev/null))
+	else ifneq (, $(findstring 10,$(LLVM_VERSION)))
 		compilers += llvm
 	endif
+# Autodetect LLVM from `llvm-config-<version>`.
+else
 	ifneq (, $(shell which llvm-config-11 2>/dev/null))
+		compilers += llvm
+	else ifneq (, $(shell which llvm-config-10 2>/dev/null))
 		compilers += llvm
 	endif
 endif
