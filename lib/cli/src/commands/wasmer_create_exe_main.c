@@ -1,6 +1,6 @@
-#include "my_wasm.h"
-#include "wasm.h"
 #include "wasmer_wasm.h"
+#include "wasm.h"
+#include "my_wasm.h"
 
 #include <stdio.h>
 #include <stdlib.h>
