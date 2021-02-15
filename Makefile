@@ -185,7 +185,7 @@ ifeq ($(HAS_CRANELIFT), 1)
 
 	ifeq ($(IS_WINDOWS), 0)
 		ifeq ($(IS_AMD64), 1)
-			ifneq ($(LIBC, musl))
+			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-native
 			endif
 		endif
