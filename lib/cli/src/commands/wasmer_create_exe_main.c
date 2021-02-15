@@ -4,6 +4,7 @@
 
 #include <stdio.h>
 #include <stdlib.h>
+#include <string.h>
 
 #define own
 
@@ -20,36 +21,22 @@ static void print_wasmer_error() {
 }
 
 #ifdef WASI
-static int find_colon(char *string) {
-  int colon_location = 0;
-  for (int j = 0; j < strlen(string); ++j) {
-    if (string[j] == ':') {
-      colon_location = j;
-      break;
-    }
-  }
-  return colon_location;
-}
-
 static void pass_mapdir_arg(wasi_config_t *wasi_config, char *mapdir) {
-  int colon_location = find_colon(mapdir);
+  int colon_location = strchr(mapdir, ':') - mapdir;
   if (colon_location == 0) {
     // error malformed argument
     fprintf(stderr, "Expected mapdir argument of the form alias:directory\n");
     exit(-1);
   }
-  int dir_len = strlen(mapdir) - colon_location;
+
   char *alias = (char *)malloc(colon_location + 1);
+  memcpy(alias, mapdir, colon_location);
+  alias[colon_location] = '\0';
+
+  int dir_len = strlen(mapdir) - colon_location;
   char *dir = (char *)malloc(dir_len + 1);
-  int j = 0;
-  for (j = 0; j < colon_location; ++j) {
-    alias[j] = mapdir[j];
-  }
-  alias[j] = 0;
-  for (j = 0; j < dir_len; ++j) {
-    dir[j] = mapdir[j + colon_location + 1];
-  }
-  dir[j] = 0;
+  memcpy(dir, &mapdir[colon_location + 1], dir_len);
+  dir[dir_len] = '\0';
 
   wasi_config_mapdir(wasi_config, alias, dir);
   free(alias);
