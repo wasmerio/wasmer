@@ -161,6 +161,9 @@ ifneq (, $(findstring singlepass,$(compilers)))
 	HAS_SINGLEPASS := 1
 endif
 
+# Clean the `compilers` variable.
+compilers := $(strip $(compilers))
+
 
 #####
 #
@@ -216,6 +219,9 @@ ifeq ($(HAS_SINGLEPASS), 1)
 	endif
 endif
 
+# Clean the `compilers_engines` variable.
+compilers_engines := $(strip $(compilers_engines))
+
 
 #####
 #
@@ -259,7 +265,7 @@ space := $() $()
 comma := ,
 
 # Define the default Cargo features for all crates.
-compiler_features := --features $(subst $(space),$(comma),$(strip $(compilers)))
+compiler_features := --features $(subst $(space),$(comma),$(compilers))
 
 
 #####
