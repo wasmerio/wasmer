@@ -38,7 +38,7 @@ SHELL=/bin/bash
 # |          |              |            | Native      | glibc      |        yes |
 # |          |              |            |             |            |            |
 # |          |              | Singlepass | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Native      | glibc      |         no |
 # |          |              |            |             |            |            |
 # |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
 # |          |              |            | Native      | glibc      |         no |
@@ -189,14 +189,19 @@ ifneq (, $(findstring llvm,$(compilers)))
 	endif
 endif
 
+##
+# The Singlepass case.
+##
 
-
-ifeq ($(IS_AMD64), 1)
+# If `compilers` contains `singlepass`.
+ifneq (, $(findstring singlepass,$(compilers)))
 	ifeq ($(IS_WINDOWS), 0)
-		# Singlepass doesn't work with the native engine.
-		compilers_engines += singlepass-jit
+		if ($(IS_AMD64), 1)
+			compilers_engines += singlepass-jit
+		endif
 	endif
 endif
+
 
 use_system_ffi =
 ifeq ($(IS_AARCH64), 1)
