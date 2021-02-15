@@ -1,13 +1,101 @@
-# uname only works in *Unix like systems
-ifneq ($(OS), Windows_NT)
-	ARCH := $(shell uname -m)
-	UNAME_S := $(shell uname -s)
-	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
+SHELL=/bin/bash
+
+# |----------|--------------|------------|-------------|------------|------------|
+# | Platform | Architecture | Compiler   | Engine      | libc       | Supported? |
+# |----------|--------------|------------|-------------|------------|------------|
+# | Linux    | amd64        | Cranelift  | JIT         | glibc      |        yes |
+# |          |              |            |             | musl       |         no |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            |             | musl       |         no |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             | musl       |         no |
+# |          |              |            |             |            |            |
+# |          |              | LLVM       | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | Singlepass | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | LLVM       | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | Singlepass | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |         no |
+# |          |              |            | Object File | glibc      |         no |
+#-|----------|--------------|------------|-------------|------------|------------|
+# | Darwin   | amd64        | Cranelift  | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | LLVM       | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | Singlepass | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | LLVM       | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | Singlepass | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |         no |
+# |          |              |            | Object File | glibc      |         no |
+#-|----------|--------------|------------|-------------|------------|------------|
+# | Windows  | amd64        | Cranelift  | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+# |          |              |            |             |            |            |
+# |          |              | LLVM       | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |         no |
+# |          |              |            | Object File | glibc      |         no |
+# |          |              |            |             |            |            |
+# |          |              | Singlepass | JIT         | glibc      |        yes |
+# |          |              |            | Native      | glibc      |        yes |
+# |          |              |            | Object File | glibc      |        yes |
+
+
+IS_DARWIN := 0
+IS_LINUX := 0
+IS_WINDOWS := 0
+IS_AMD64 := 0
+IS_AARCH64 := 0
+LIBC ?=
+
+# Test Windows apart because it doesn't support `uname -s`.
+ifeq ($(OS), Windows_NT)
+	# We can assume it will likely be in amd64.
+	IS_AMD64 := 1
+	IS_WINDOWS := 1
 else
-	# We can assume, if in windows it will likely be in x86_64
-	ARCH := x86_64
-	UNAME_S :=
-	LIBC ?=
+	# Platform
+	if ($(shell uname -s), Darwin)
+		IS_DARWIN := 1
+	else
+		IS_LINUX := 1
+	endif
+
+	# Architecture
+	if ($(shell uname -m), x86_64)
+		IS_AMD64 := 1
+	else
+		IS_AARCH64 := 1
+	endif
+
+	# Libc
+	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
 endif
 
 # Which compilers we build. These have dependencies that may not be on the system.
@@ -36,16 +124,18 @@ else
 	endif
 endif
 
-ifeq ($(ARCH), x86_64)
+ifeq ($(IS_AMD64), 1)
 	test_compilers_engines += cranelift-jit
-	# LLVM could be enabled if not in Windows
-	ifneq ($(OS), Windows_NT)
+
+	ifeq ($(IS_WINDOWS), 0)
+		# Singlepass is available on Linux and macOS only.
+		compilers += singlepass
+
+		# `cranelift-native`
 		ifneq ($(LIBC), musl)
 			# Native engine doesn't work on Windows and musl yet.
 			test_compilers_engines += cranelift-native
 		endif
-		# Singlepass doesn't work yet on Windows.
-		compilers += singlepass
 		# Singlepass doesn't work with the native engine.
 		test_compilers_engines += singlepass-jit
 		ifneq (, $(findstring llvm,$(compilers)))
@@ -59,17 +149,14 @@ ifeq ($(ARCH), x86_64)
 	endif
 endif
 
-# If it's an aarch64/arm64 chip
-# Using filter as a logical OR
-# https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
 use_system_ffi =
-ifneq (,$(filter $(ARCH),aarch64 arm64))
+ifeq ($(IS_AARCH64), 1)
 	test_compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
 		test_compilers_engines += llvm-native
 	endif
 	# if we are in macos arm64, we use the system libffi for the capi
-	ifeq ($(UNAME_S), Darwin)
+	ifeq ($(IS_DARWIN), 1)
 		use_system_ffi = yes
 	endif
 endif
@@ -87,7 +174,7 @@ endif
 compilers := $(filter-out ,$(compilers))
 test_compilers_engines := $(filter-out ,$(test_compilers_engines))
 
-ifneq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 0)
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
@@ -107,6 +194,7 @@ $(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
 $(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
+$(info C API default features: $(bold)$(green)${capi_default_features}$(reset))
 
 
 ############
@@ -136,10 +224,10 @@ build-wasmer-debug:
 # rpath = false
 build-wasmer-headless-minimal:
 	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
@@ -151,7 +239,7 @@ get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
 build-wapm: get-wapm
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
 else
@@ -333,7 +421,7 @@ test-integration:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifneq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 0)
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
@@ -343,13 +431,13 @@ else
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 	fi
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wapm
 endif
 endif
 
 package-minimal-headless-wasmer:
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer-headless.exe package/bin ;\
 	fi
@@ -361,11 +449,11 @@ endif
 
 package-wasmer:
 	mkdir -p "package/bin"
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	cp target/release/wasmer.exe package/bin/
 else
 	cp target/release/wasmer package/bin/
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer
 endif
 endif
@@ -377,11 +465,11 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
 	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
 else
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
 	rm -f package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
@@ -411,7 +499,7 @@ distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
 endif
