@@ -176,7 +176,7 @@ compilers_engines :=
 # The Cranelift case.
 ##
 
-ifeq ($(HAS_CRANELIFT, 1))
+ifeq ($(HAS_CRANELIFT), 1)
 	compilers_engines += cranelift-jit
 
 	ifeq ($(IS_WINDOWS), 0)
@@ -209,7 +209,7 @@ endif
 
 ifeq ($(HAS_SINGLEPASS), 1)
 	ifeq ($(IS_WINDOWS), 0)
-		if ($(IS_AMD64), 1)
+		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-jit
 		endif
 	endif
@@ -436,7 +436,7 @@ test-packages:
 
 # The test-capi rules depend on the build-capi rules to build the .a files to
 # link the tests against. cargo test doesn't know that the tests will be running
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
+test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine))
 
 test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
