@@ -105,6 +105,10 @@ endif
 #
 #####
 
+HAS_CRANELIFT := 0
+HAS_LLVM := 0
+HAS_SINGLEPASS := 0
+
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := 
 
@@ -113,6 +117,7 @@ compilers :=
 ##
 
 compilers += cranelift
+HAS_CRANELIFT := 1
 
 ##
 # LLVM
@@ -137,6 +142,10 @@ else
 	endif
 endif
 
+ifneq (, $(findstring llvm,$(compilers)))
+	HAS_LLVM := 1
+endif
+
 ##
 # Singlepass
 ##
@@ -145,6 +154,10 @@ ifeq ($(IS_WINDOWS), 0)
 	ifeq ($(IS_AMD64), 1)
 		compilers += singlepass
 	endif
+endif
+
+ifneq (, $(findstring singlepass,$(compilers)))
+	HAS_SINGLEPASS := 1
 endif
 
 
@@ -163,12 +176,14 @@ compilers_engines :=
 # The Cranelift case.
 ##
 
-compilers_engines += cranelift-jit
+ifeq ($(HAS_CRANELIFT, 1))
+	compilers_engines += cranelift-jit
 
-ifeq ($(IS_WINDOWS), 0)
-	ifeq ($(IS_AMD64), 1)
-		ifneq ($(LIBC, musl))
-			compilers_engines += cranelift-native
+	ifeq ($(IS_WINDOWS), 0)
+		ifeq ($(IS_AMD64), 1)
+			ifneq ($(LIBC, musl))
+				compilers_engines += cranelift-native
+			endif
 		endif
 	endif
 endif
@@ -177,8 +192,7 @@ endif
 # The LLVM case.
 ##
 
-# If `compilers` contains `llvm`.
-ifneq (, $(findstring llvm,$(compilers)))
+ifeq ($(HAS_LLVM), 1)
 	ifeq ($(IS_WINDOWS), 0)
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-jit
@@ -193,8 +207,7 @@ endif
 # The Singlepass case.
 ##
 
-# If `compilers` contains `singlepass`.
-ifneq (, $(findstring singlepass,$(compilers)))
+ifeq ($(HAS_SINGLEPASS), 1)
 	ifeq ($(IS_WINDOWS), 0)
 		if ($(IS_AMD64), 1)
 			compilers_engines += singlepass-jit
