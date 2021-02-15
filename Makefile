@@ -234,8 +234,7 @@ compilers_engines := $(strip $(compilers_engines))
 # system itself.
 #
 # See <https://github.com/libffi/libffi/pull/621>.
-
-use_system_ffi :=
+use_system_ffi := 0
 
 ifeq ($(IS_DARWIN), 1)
 	ifeq ($(IS_AARCH64), 1)
