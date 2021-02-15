@@ -468,9 +468,26 @@ test-packages:
 	cargo test -p wasmer-derive --release
 
 
-# The test-capi rules depend on the build-capi rules to build the .a files to
-# link the tests against. cargo test doesn't know that the tests will be running
-test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine))
+# We want to run all the tests for all available compilers. The C API
+# and the tests rely on the fact that one and only one default
+# compiler will be selected at compile-time. Therefore, if we want to
+# test exhaustively for all available compilers, we need to build and
+# to test the C API with a different compiler each time.
+#
+# That's exactly what `test-capi` does: it runs `test-capi-*` rules
+# that, prior to testing, builds the C API with `build-capi-*` sibling
+# rules. Why? Because the tests need a static library (`.a` files) to
+# link the tests against; `cargo test` doesn't generate such library,
+# only `cargo build`.
+#
+# Finally, `test-capi` calls `test-capi-all` that runs the tests for
+# the library built with `build-capi`, which is the one we will
+# deliver to the users.
+test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine)) test-capi-all
+
+test-capi-all: build-capi
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(compiler_features) -- --nocapture
 
 test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
