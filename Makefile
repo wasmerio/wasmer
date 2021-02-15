@@ -1,5 +1,13 @@
 SHELL=/bin/bash
 
+
+#####
+#
+# The Matrix
+#
+#####
+
+
 # |----------|--------------|------------|-------------|------------|------------|
 # | Platform | Architecture | Compiler   | Engine      | libc       | Supported? |
 # |----------|--------------|------------|-------------|------------|------------|
@@ -62,9 +70,10 @@ SHELL=/bin/bash
 # |          |              |            | Native      | glibc      |         no |
 # |          |              |            | Object File | glibc      |         no |
 # |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            | Object File | glibc      |        yes |
+# |          |              | Singlepass | JIT         | glibc      |         no |
+# |          |              |            | Native      | glibc      |         no |
+# |          |              |            | Object File | glibc      |         no |
+# |----------|--------------|------------|-------------|------------|------------|
 
 
 #####
@@ -88,14 +97,14 @@ ifeq ($(OS), Windows_NT)
 	IS_WINDOWS := 1
 else
 	# Platform
-	if ($(shell uname -s), Darwin)
+	ifeq ($(shell uname -s), Darwin)
 		IS_DARWIN := 1
 	else
 		IS_LINUX := 1
 	endif
 
 	# Architecture
-	if ($(shell uname -m), x86_64)
+	ifeq ($(shell uname -m), x86_64)
 		IS_AMD64 := 1
 	else
 		IS_AARCH64 := 1
@@ -112,15 +121,18 @@ endif
 #
 #####
 
-
 # Which compilers we build. These have dependencies that may not be on the system.
-compilers := cranelift
+compilers := 
 
-# Compilers to test again.
-#
-# In the form "$(compiler)-$(engine)" which `compiler` and `engine` combinations to test
-# in `make test`.
-test_compilers_engines :=
+##
+# Cranelift
+##
+
+compilers += cranelift
+
+##
+# LLVM
+##
 
 # Autodetect LLVM from `llvm-config`
 ifneq (, $(shell which llvm-config 2>/dev/null))
@@ -141,13 +153,34 @@ else
 	endif
 endif
 
+##
+# Singlepass
+##
+
+ifeq ($(IS_WINDOWS), 0)
+	ifeq ($(IS_AMD64), 1)
+		compilers += singlepass
+	endif
+endif
+
+
+
+#####
+#
+# Define the “Engine” column of the matrix.
+#
+#####
+
+# Compilers and engines to test again.
+#
+# In the form "$(compiler)-$(engine)" which `compiler` and `engine` combinations to test
+# in `make test`.
+test_compilers_engines :=
+
 ifeq ($(IS_AMD64), 1)
 	test_compilers_engines += cranelift-jit
 
 	ifeq ($(IS_WINDOWS), 0)
-		# Singlepass is available on Linux and macOS only.
-		compilers += singlepass
-
 		# `cranelift-native`
 		ifneq ($(LIBC), musl)
 			# Native engine doesn't work on Windows and musl yet.
