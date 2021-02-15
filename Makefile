@@ -171,29 +171,27 @@ endif
 #
 #####
 
-# Compilers and engines to test again.
-#
-# In the form "$(compiler)-$(engine)" which `compiler` and `engine` combinations to test
-# in `make test`.
-test_compilers_engines :=
+# The engine is part of a pair of kind (compiler, engine). All the
+# pairs are stored in the `compilers_engines` variable.
+compilers_engines :=
 
 ifeq ($(IS_AMD64), 1)
-	test_compilers_engines += cranelift-jit
+	compilers_engines += cranelift-jit
 
 	ifeq ($(IS_WINDOWS), 0)
 		# `cranelift-native`
 		ifneq ($(LIBC), musl)
 			# Native engine doesn't work on Windows and musl yet.
-			test_compilers_engines += cranelift-native
+			compilers_engines += cranelift-native
 		endif
 		# Singlepass doesn't work with the native engine.
-		test_compilers_engines += singlepass-jit
+		compilers_engines += singlepass-jit
 		ifneq (, $(findstring llvm,$(compilers)))
-			test_compilers_engines += llvm-jit
+			compilers_engines += llvm-jit
 
 			ifneq ($(LIBC), musl)
 				# Native engine doesn't work on musl yet.
-				test_compilers_engines += llvm-native
+				compilers_engines += llvm-native
 			endif
 		endif
 	endif
@@ -201,9 +199,9 @@ endif
 
 use_system_ffi =
 ifeq ($(IS_AARCH64), 1)
-	test_compilers_engines += cranelift-jit
+	compilers_engines += cranelift-jit
 	ifneq (, $(findstring llvm,$(compilers)))
-		test_compilers_engines += llvm-native
+		compilers_engines += llvm-native
 	endif
 	# if we are in macos arm64, we use the system libffi for the capi
 	ifeq ($(IS_DARWIN), 1)
@@ -222,7 +220,7 @@ ifdef use_system_ffi
 endif
 
 compilers := $(filter-out ,$(compilers))
-test_compilers_engines := $(filter-out ,$(test_compilers_engines))
+compilers_engines := $(filter-out ,$(compilers_engines))
 
 ifeq ($(IS_WINDOWS), 0)
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
@@ -243,7 +241,7 @@ endif
 $(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
-$(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
+$(info Available compilers + engines for test: $(bold)$(green)${compilers_engines}$(reset))
 $(info C API default features: $(bold)$(green)${capi_default_features}$(reset))
 
 
@@ -400,11 +398,11 @@ test-llvm-native:
 test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
-test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
+test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
-test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
+test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engines)),test-$(cranelift_engine))
 
-test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(test_compilers_engines)),test-$(llvm_engine))
+test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
 test-packages:
 	cargo test -p wasmer --release
