@@ -72,7 +72,7 @@ IS_LINUX := 0
 IS_WINDOWS := 0
 IS_AMD64 := 0
 IS_AARCH64 := 0
-LIBC ?=
+LIBC :=
 
 # Test Windows apart because it doesn't support `uname -s`.
 ifeq ($(OS), Windows_NT)
