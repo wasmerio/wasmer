@@ -232,7 +232,7 @@ endif
 use_system_ffi :=
 
 ifeq ($(IS_DARWIN), 1)
-	ifeq ($(IS_AARCH64, 1))
+	ifeq ($(IS_AARCH64), 1)
 		use_system_ffi = 1
 	endif
 endif
@@ -245,19 +245,23 @@ endif
 
 #####
 #
-# C API default features.
+# Cargo features.
 #
 #####
 
-
+# Define the default Cargo features for the `wasmer-c-api` crate.
 ifeq ($(use_system_ffi), 1)
 	capi_default_features := --features system-libffi
 endif
 
+# Define the default Cargo features for all crates.
+compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
+compiler_features := --features "$(compiler_features_spaced)"
+
 
 #####
 #
-# There we go!
+# Display information.
 #
 #####
 
@@ -267,14 +271,10 @@ ifeq ($(IS_WINDOWS), 0)
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
-
-compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
-compiler_features := --features "$(compiler_features_spaced)"
-
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
 
 ifneq (, $(LIBC))
-$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+	$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 
 $(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
