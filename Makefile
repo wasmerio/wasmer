@@ -119,9 +119,11 @@ endif
 #####
 
 
-HAS_CRANELIFT := 0
-HAS_LLVM := 0
-HAS_SINGLEPASS := 0
+# Variables that can be overriden by the users to force to enable or
+# to disable a specific compiler.
+ENABLE_CRANELIFT ?=
+ENABLE_LLVM ?=
+ENABLE_SINGLEPASS ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
 compilers := 
@@ -130,51 +132,71 @@ compilers :=
 # Cranelift
 ##
 
-compilers += cranelift
-HAS_CRANELIFT := 1
+# If the user didn't disable the Cranelift compiler…
+ifneq ($(ENABLE_CRANELIFT), 0)
+	# … then it can always be enabled.
+	compilers += cranelift
+	ENABLE_CRANELIFT := 1
+endif
 
 ##
 # LLVM
 ##
 
-# Autodetect LLVM from `llvm-config`
-ifneq (, $(shell which llvm-config 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config --version)
+# If the user didn't disable the LLVM compiler…
+ifneq ($(ENABLE_LLVM), 0)
+	# … then maybe the user forced to enable the LLVM compiler.
+	ifeq ($(ENABLE_LLVM), 1)
+		compilers += llvm
+	# … otherwise, we try to autodetect LLVM from `llvm-config`
+	else ifneq (, $(shell which llvm-config 2>/dev/null))
+		LLVM_VERSION := $(shell llvm-config --version)
 
-	# If findstring is not empty, then it have found the value
-	ifneq (, $(findstring 11,$(LLVM_VERSION)))
-		compilers += llvm
-	else ifneq (, $(findstring 10,$(LLVM_VERSION)))
-		compilers += llvm
-	endif
-# Autodetect LLVM from `llvm-config-<version>`.
-else
-	ifneq (, $(shell which llvm-config-11 2>/dev/null))
-		compilers += llvm
-	else ifneq (, $(shell which llvm-config-10 2>/dev/null))
-		compilers += llvm
+		# If findstring is not empty, then it have found the value
+		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
+			compilers += llvm
+		endif
+	# … or try to autodetect LLVM from `llvm-config-<version>`.
+	else
+		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			compilers += llvm
+		endif
 	endif
 endif
 
 ifneq (, $(findstring llvm,$(compilers)))
-	HAS_LLVM := 1
+	ENABLE_LLVM := 1
 endif
 
 ##
 # Singlepass
 ##
 
-ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
-	ifeq ($(IS_AMD64), 1)
+# If the user didn't disable the Singlepass compiler…
+ifneq ($(ENABLE_SINGLEPASS), 0)
+	# … then maybe the user forced to enable the Singlepass compiler.
+	ifeq ($(ENABLE_SINGLEPASS), 1)
 		compilers += singlepass
+	# … otherwise, we try to check whether Singlepass works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += singlepass
+		endif
 	endif
 endif
 
 ifneq (, $(findstring singlepass,$(compilers)))
-	HAS_SINGLEPASS := 1
+	ENABLE_SINGLEPASS := 1
 endif
 
+##
 # Clean the `compilers` variable.
+##
+
 compilers := $(strip $(compilers))
 
 
@@ -193,7 +215,7 @@ compilers_engines :=
 # The Cranelift case.
 ##
 
-ifeq ($(HAS_CRANELIFT), 1)
+ifeq ($(ENABLE_CRANELIFT), 1)
 	compilers_engines += cranelift-jit
 
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
@@ -209,7 +231,7 @@ endif
 # The LLVM case.
 ##
 
-ifeq ($(HAS_LLVM), 1)
+ifeq ($(ENABLE_LLVM), 1)
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-jit
@@ -224,7 +246,7 @@ endif
 # The Singlepass case.
 ##
 
-ifeq ($(HAS_SINGLEPASS), 1)
+ifeq ($(ENABLE_SINGLEPASS), 1)
 	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-jit
