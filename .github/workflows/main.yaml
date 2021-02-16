@@ -233,12 +233,12 @@ jobs:
         shell: cmd
         run: |
           call refreshenv
-          set WASMER_DIR=%CD%\package
+          make build-capi-cranelift
           make test-integration
         if: matrix.run_integration_tests && matrix.os == 'windows-latest'
       - name: Run integration tests (Unix)
         run: |
-          export WASMER_DIR=`pwd`/package
+          make build-capi-cranelift
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Cross compile from Linux
