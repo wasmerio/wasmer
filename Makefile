@@ -520,15 +520,21 @@ test-packages:
 # test exhaustively for all available compilers, we need to build and
 # to test the C API with a different compiler each time.
 #
-# That's exactly what `test-capi` does: it runs `test-capi-*` rules
-# that, prior to testing, builds the C API with `build-capi-*` sibling
-# rules. Why? Because the tests need a static library (`.a` files) to
-# link the tests against; `cargo test` doesn't generate such library,
-# only `cargo build`.
+# That's exactly what `test-capi` does: it runs `build-capi-*` with
+# one compiler, and then it runs `test-capi-*` for that compiler
+# specifically.
+#
+# Why do we need to run `build-capi-*` exactly? One might think that
+# `cargo test` would generate a static library (`.a`) to link the
+# tests against, but no. `cargo test` has no idea that we need this
+# static library, that's normal the library isn't generated. Hence the
+# need to run `cargo build` prior to testing to get all the build
+# artifacts.
 #
 # Finally, `test-capi` calls `test-capi-all` that runs the tests for
 # the library built with `build-capi`, which is the one we will
-# deliver to the users.
+# deliver to the users, i.e. the one that may include multiple
+# compilers.
 test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine)) test-capi-all
 
 test-capi-all: build-capi
