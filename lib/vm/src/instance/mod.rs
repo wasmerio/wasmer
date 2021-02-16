@@ -14,7 +14,7 @@ pub use allocator::InstanceAllocator;
 pub use r#ref::InstanceRef;
 
 use crate::export::VMExport;
-use crate::func_data_registry::VMFuncRef;
+use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
@@ -89,8 +89,8 @@ pub(crate) struct Instance {
     /// get removed. A missing entry is considered equivalent to an empty slice.
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
-    /// mapping of local function indices to their func ref backing data.
-    func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
+    /// mapping of function indices to their func ref backing data.
+    func_metadata: BoxedSlice<FunctionIndex, VMFuncRef>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -648,53 +648,7 @@ impl Instance {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
-
-        if let Some(def_index) = self.module.local_func_index(index) {
-            let ptr = self.func_metadata[def_index];
-            unsafe {
-                // TODO: review use of `&mut` here: this is probably unsound, we probably
-                // need to wrap one or more of these types in UnsafeCell somewhere or something.
-                let item: &mut VMCallerCheckedAnyfunc = &mut *(*ptr as *mut _);
-                item.vmctx.vmctx = self.vmctx_ptr();
-            }
-            ptr
-        } else {
-            // TODO: actually implement this for imported functions
-            // hack to test that the idea is sound:
-            let sig = self.module.functions[index];
-            let type_index = self.signature_id(sig);
-            let import = self.imported_function(index);
-            let ptr = VMFuncRef(Box::into_raw(Box::new(VMCallerCheckedAnyfunc {
-                func_ptr: import.body,
-                type_index,
-                vmctx: import.environment,
-            })));
-            ptr
-            //todo!("Handle imported funcrefs!")
-        }
-        //todo!("Read this data from somewhere; need to store it first!")
-        /*
-        let sig = self.module.functions[index];
-        let type_index = self.signature_id(sig);
-
-        let (func_ptr, vmctx) = if let Some(def_index) = self.module.local_func_index(index) {
-            (
-                self.functions[def_index].0 as *const _,
-                VMFunctionEnvironment {
-                    vmctx: self.vmctx_ptr(),
-                },
-            )
-        } else {
-            let import = self.imported_function(index);
-            (import.body, import.environment)
-        };
-
-        todo!("store this data somewhere and then look it up and pass it back");
-        VMCallerCheckedAnyfunc {
-            func_ptr,
-            type_index,
-            vmctx,
-        }*/
+        self.func_metadata[index]
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -936,9 +890,41 @@ pub struct InstanceHandle {
 fn build_imported_function_func_refs(
     module_info: &ModuleInfo,
     imports: &Imports,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    func_data_registry: &FuncDataRegistry,
     vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    vmctx_ptr: *mut VMContext,
 ) -> BoxedSlice<FunctionIndex, VMFuncRef> {
-    todo!()
+    let mut func_refs = PrimaryMap::with_capacity(module_info.functions.len());
+
+    // do imported functions
+    for (index, import) in imports.functions.iter() {
+        let sig_index = module_info.functions[index];
+        let type_index = vmshared_signatures[sig_index];
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr: import.body,
+            type_index,
+            vmctx: import.environment,
+        };
+        let func_ref = func_data_registry.register(anyfunc);
+        func_refs.push(func_ref);
+    }
+
+    // do local functions
+    for (local_index, func_ptr) in finished_functions.iter() {
+        let index = module_info.func_index(local_index);
+        let sig_index = module_info.functions[index];
+        let type_index = vmshared_signatures[sig_index];
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr: func_ptr.0,
+            type_index,
+            vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
+        };
+        let func_ref = func_data_registry.register(anyfunc);
+        func_refs.push(func_ref);
+    }
+
+    func_refs.into_boxed_slice()
 }
 
 impl InstanceHandle {
@@ -974,8 +960,9 @@ impl InstanceHandle {
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        // TODO: come up with a better name
-        func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
+        // TODO: delete this and delete where it comes from
+        _func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
+        func_data_registry: &FuncDataRegistry,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
     ) -> Result<Self, Trap> {
@@ -988,6 +975,9 @@ impl InstanceHandle {
 
         let handle = {
             let offsets = allocator.offsets().clone();
+            // TODO: come up with a better name
+            // use dummy value to create an instance so we can get the vmctx pointer
+            let func_metadata = PrimaryMap::new().into_boxed_slice();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
@@ -1006,7 +996,21 @@ impl InstanceHandle {
                 vmctx: VMContext {},
             };
 
-            let instance_ref = allocator.write_instance(instance);
+            let mut instance_ref = allocator.write_instance(instance);
+
+            // TODO: clean up this code
+            {
+                let instance = instance_ref.as_mut();
+                let vmctx_ptr = instance.vmctx_ptr();
+                instance.func_metadata = build_imported_function_func_refs(
+                    &*instance.module,
+                    &imports,
+                    &instance.functions,
+                    func_data_registry,
+                    &vmshared_signatures,
+                    vmctx_ptr,
+                );
+            }
 
             Self {
                 instance: instance_ref,

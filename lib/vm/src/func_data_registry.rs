@@ -30,7 +30,7 @@ unsafe impl Sync for FuncDataRegistry {}
 pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
 
 impl VMFuncRef {
-    /// TODO: we probabyl don't want this function, need to do something about this,
+    /// TODO: we probably don't want this function, need to do something about this,
     /// it definitely needs to be unsafe
     /// Hack to unblock myself:
     pub fn new(inner: *const VMCallerCheckedAnyfunc) -> Self {

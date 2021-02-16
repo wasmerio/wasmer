@@ -825,9 +825,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             self.get_table_set_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, table_index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst =
-            pos.ins()
-                .call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
         Ok(())
     }
 

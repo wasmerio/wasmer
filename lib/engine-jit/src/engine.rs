@@ -34,7 +34,7 @@ impl JITEngine {
                 compiler: Some(compiler),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
-                func_data: FuncDataRegistry::new(),
+                func_data: Arc::new(FuncDataRegistry::new()),
                 features,
             })),
             target: Arc::new(target),
@@ -62,7 +62,7 @@ impl JITEngine {
                 compiler: None,
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
-                func_data: FuncDataRegistry::new(),
+                func_data: Arc::new(FuncDataRegistry::new()),
                 features: Features::default(),
             })),
             target: Arc::new(Target::default()),
@@ -159,7 +159,7 @@ pub struct JITEngineInner {
     signatures: SignatureRegistry,
     /// TODO:
     /// func refs
-    func_data: FuncDataRegistry,
+    func_data: Arc<FuncDataRegistry>,
 }
 
 impl JITEngineInner {
@@ -309,7 +309,7 @@ impl JITEngineInner {
     }
 
     /// Shared func metadata registry.
-    pub(crate) fn func_data(&self) -> &FuncDataRegistry {
+    pub(crate) fn func_data(&self) -> &Arc<FuncDataRegistry> {
         &self.func_data
     }
 }

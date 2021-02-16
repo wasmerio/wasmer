@@ -22,8 +22,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMCallerCheckedAnyfunc, VMFuncRef,
-    VMFunctionEnvironment, VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMCallerCheckedAnyfunc,
+    VMFuncRef, VMFunctionEnvironment, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
@@ -36,6 +36,7 @@ pub struct JITArtifact {
     // technically not "local", probably includes both local and imported
     // TODO: update name and docs
     local_func_data: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
+    func_data_registry: Arc<FuncDataRegistry>,
     frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
     finished_function_lengths: BoxedSlice<LocalFunctionIndex, usize>,
 }
@@ -227,6 +228,7 @@ impl JITArtifact {
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
+        let func_data_registry = inner_jit.func_data().clone();
         let local_func_data = finished_functions
             .iter()
             .map(|(k, v)| {
@@ -240,7 +242,7 @@ impl JITArtifact {
                         host_env: std::ptr::null_mut(),
                     },
                 };
-                inner_jit.func_data().register(metadata)
+                func_data_registry.register(metadata)
             })
             .collect::<PrimaryMap<LocalFunctionIndex, VMFuncRef>>();
         let local_func_data = local_func_data.into_boxed_slice();
@@ -254,6 +256,7 @@ impl JITArtifact {
             local_func_data,
             frame_info_registration: Mutex::new(None),
             finished_function_lengths,
+            func_data_registry,
         })
     }
 
@@ -337,6 +340,9 @@ impl Artifact for JITArtifact {
         &self.local_func_data
     }
 
+    fn func_data_registry(&self) -> &FuncDataRegistry {
+        &self.func_data_registry
+    }
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         // let mut s = flexbuffers::FlexbufferSerializer::new();
         // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
