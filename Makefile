@@ -80,10 +80,17 @@ ifeq ($(OS), Windows_NT)
 	IS_WINDOWS := 1
 else
 	# Platform
-	ifeq ($(shell uname -s), Darwin)
+	uname := $(shell uname -s)
+
+	ifeq ($(uname), Darwin)
 		IS_DARWIN := 1
-	else
+	else ifeq ($(uname), Linux)
 		IS_LINUX := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized platform, expect `Darwin`, `Linux` or `Windows_NT`)
 	endif
 
 	# Architecture
