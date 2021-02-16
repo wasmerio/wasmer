@@ -169,6 +169,7 @@ jobs:
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
           ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
           echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test
