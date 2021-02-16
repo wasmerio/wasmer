@@ -128,12 +128,13 @@ jobs:
       # Install sccache
       - uses: actions/cache@v2
         with:
-          path: ${{ runner.tool_cache }}/cargo-sccache
+          path: ~/.cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
-          if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
-            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+          mkdir -p ~/.cargo-sccache/
+          if [ ! -f ~/.cargo-sccache/bin/sccache ]; then
+            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ~/.cargo-sccache
           fi
         shell: bash
       - name: Setup Rust target
@@ -165,10 +166,10 @@ jobs:
         shell: bash
       - name: Start sccache
         run: |
-          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
-          echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+          chmod +x ~/.cargo-sccache/bin/sccache
+          ~/.cargo-sccache/bin/sccache --start-server
+          ~/.cargo-sccache/bin/sccache -s
+          echo "RUSTC_WRAPPER=~/.cargo-sccache/bin/sccache" >> $GITHUB_ENV
       - name: Test
         run: |
           make test
