@@ -14,6 +14,7 @@
 - [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
 
 ### Fixed
+- [#2125](https://github.com/wasmerio/wasmer/pull/2125) Fix RUSTSEC-2021-0023; `rand_core`: incorrect check on buffer length when seeding RNGs.
 - [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
 - [#2101](https://github.com/wasmerio/wasmer/pull/2101) cflags emitted by `wasmer config --pkg-config` are now correct.
 
