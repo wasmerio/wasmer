@@ -7,57 +7,37 @@ SHELL=/bin/bash
 #
 #####
 
-
-# |----------|--------------|------------|-------------|------------|------------|
-# | Platform | Architecture | Compiler   | Engine      | libc       | Supported? |
-# |----------|--------------|------------|-------------|------------|------------|
-# | Linux    | amd64        | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            |             | musl       |         no |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             | musl       |         no |
-# |          |              |            |             |            |            |
-# |          |              | LLVM       | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          |              | LLVM       | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |         no |
-#-|----------|--------------|------------|-------------|------------|------------|
-# | Darwin   | amd64        | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             |            |            |
-# |          |              | LLVM       | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          | aarch64      | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          |              | LLVM       | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |        yes |
-# |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |         no |
-#-|----------|--------------|------------|-------------|------------|------------|
-# | Windows  | amd64        | Cranelift  | JIT         | glibc      |        yes |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          |              | LLVM       | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |         no |
-# |          |              |            |             |            |            |
-# |          |              | Singlepass | JIT         | glibc      |         no |
-# |          |              |            | Native      | glibc      |         no |
-# |----------|--------------|------------|-------------|------------|------------|
+# The matrix is the product of the following columns:
+#
+# |------------|--------|----------|--------------|-------|
+# | Compiler   x Engine x Platform x Architecture x libc  |
+# |------------|--------|----------|--------------|-------|
+# | Cranelift  | JIT    | Linux    | amd64        | glibc |
+# | LLVM       | Native | Darwin   | aarch64      | musl  |
+# | Singlepass |        | Windows  |              |       |
+# |------------|--------|----------|--------------|-------|
+#
+# Here is what works and what doesn't:
+#
+# * Cranelift with the JIT engine works everywhere,
+#
+# * Cranelift with the Native engine works on Linux+Darwin/`amd64`,
+#   but it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the JIT engine works on Linux+Darwin/`amd64`,
+#   but it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the Native engine works on
+#   Linux+Darwin/`amd64`+`aarch64`, but it doesn't work on Windows/*.
+#
+# * Singlepass with the JIT engine works on Linux+Darwin/`amd64`, but
+#   it doesn't work on */`aarch64` or Windows/*.
+#
+# * Singlepass with the Native engine doesn't work because it doesn't
+#   know how to output object files for the moment.
+#
+# * Windows isn't tested on `aarch64`, that's why we consider it's not
+#   working, but it might possibly be.
 
 
 #####
