@@ -23,9 +23,9 @@ pub struct LinkCode {
 impl Default for LinkCode {
     fn default() -> Self {
         #[cfg(not(windows))]
-        let linker = "cc++";
+        let linker = "cc";
         #[cfg(windows)]
-        let linker = "clang++";
+        let linker = "clang";
         Self {
             current_dir: std::env::current_dir().unwrap(),
             linker_path: PathBuf::from(linker),
