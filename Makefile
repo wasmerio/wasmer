@@ -98,7 +98,7 @@ else
 
 	ifeq ($(uname), x86_64)
 		IS_AMD64 := 1
-	else ifneq (,$(filter $(uname),aarch64 arm64))
+	else ifneq (, $(filter $(uname), aarch64 arm64))
 		IS_AARCH64 := 1
 	else
 		# We use spaces instead of tabs to indent `$(error)`
@@ -164,7 +164,7 @@ endif
 # Singlepass
 ##
 
-ifeq ($(IS_WINDOWS), 0)
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	ifeq ($(IS_AMD64), 1)
 		compilers += singlepass
 	endif
@@ -196,7 +196,7 @@ compilers_engines :=
 ifeq ($(HAS_CRANELIFT), 1)
 	compilers_engines += cranelift-jit
 
-	ifeq ($(IS_WINDOWS), 0)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
 				compilers_engines += cranelift-native
@@ -210,7 +210,7 @@ endif
 ##
 
 ifeq ($(HAS_LLVM), 1)
-	ifeq ($(IS_WINDOWS), 0)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += llvm-jit
 			compilers_engines += llvm-native
@@ -225,7 +225,7 @@ endif
 ##
 
 ifeq ($(HAS_SINGLEPASS), 1)
-	ifeq ($(IS_WINDOWS), 0)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 		ifeq ($(IS_AMD64), 1)
 			compilers_engines += singlepass-jit
 		endif
@@ -286,7 +286,7 @@ compiler_features := --features $(subst $(space),$(comma),$(compilers))
 #
 #####
 
-ifeq ($(IS_WINDOWS), 0)
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
@@ -301,7 +301,7 @@ endif
 $(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
 $(info Available compilers: $(bold)$(green)${compilers}$(reset))
 $(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
-$(info Available compilers + engines for test: $(bold)$(green)${compilers_engines}$(reset))
+$(info Available compilers + engines: $(bold)$(green)${compilers_engines}$(reset))
 $(info C API default features: $(bold)$(green)${capi_default_features}$(reset))
 
 
@@ -547,7 +547,7 @@ test-integration:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifeq ($(IS_WINDOWS), 0)
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
