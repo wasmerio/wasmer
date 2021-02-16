@@ -94,10 +94,17 @@ else
 	endif
 
 	# Architecture
-	ifeq ($(shell uname -m), x86_64)
+	uname := $(shell uname -m)
+
+	ifeq ($(uname), x86_64)
 		IS_AMD64 := 1
-	else
+	else ifneq (,$(filter $(uname),aarch64 arm64))
 		IS_AARCH64 := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64` or `arm64`)
 	endif
 
 	# Libc
