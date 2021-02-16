@@ -132,8 +132,8 @@ jobs:
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
-          if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
-            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Setup Rust target
@@ -165,10 +165,11 @@ jobs:
         shell: bash
       - name: Start sccache
         run: |
-          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
-          echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test
@@ -431,7 +432,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-audit
           key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
       - run: |
-          echo "${{ runner.tool_cache }}/cargo-audit/bin" >> $GITHUB_PATH
+          echo "'${{ runner.tool_cache }}/cargo-audit/bin'" >> $GITHUB_PATH
       - run: |
-          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
+          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root '${{ runner.tool_cache }}/cargo-audit'
           cargo audit
