@@ -90,7 +90,7 @@ pub(crate) struct Instance {
     passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
 
     /// mapping of function indices to their func ref backing data.
-    func_metadata: BoxedSlice<FunctionIndex, VMFuncRef>,
+    funcrefs: BoxedSlice<FunctionIndex, VMFuncRef>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -634,13 +634,6 @@ impl Instance {
 
     pub(crate) fn func_ref(&self, function_index: FunctionIndex) -> Option<VMFuncRef> {
         Some(self.get_caller_checked_anyfunc(function_index))
-        /*
-        if let Some(local_func_index) = self.module_ref().local_func_index(function_index) {
-            self.func_metadata.get(local_func_index).cloned()
-        } else {
-            todo!("`func.ref` for imported functions not yet implemented");
-        }
-        */
     }
 
     /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
@@ -648,7 +641,7 @@ impl Instance {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
-        self.func_metadata[index]
+        self.funcrefs[index]
     }
 
     /// The `table.init` operation: initializes a portion of a table with a
@@ -887,7 +880,7 @@ pub struct InstanceHandle {
 }
 
 /// TOOD: move this function somewhere else
-fn build_imported_function_func_refs(
+fn build_funcrefs(
     module_info: &ModuleInfo,
     imports: &Imports,
     finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
@@ -960,8 +953,6 @@ impl InstanceHandle {
         finished_globals: BoxedSlice<LocalGlobalIndex, Arc<Global>>,
         imports: Imports,
         vmshared_signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-        // TODO: delete this and delete where it comes from
-        _func_metadata: BoxedSlice<LocalFunctionIndex, VMFuncRef>,
         func_data_registry: &FuncDataRegistry,
         host_state: Box<dyn Any>,
         imported_function_envs: BoxedSlice<FunctionIndex, ImportFunctionEnv>,
@@ -977,7 +968,7 @@ impl InstanceHandle {
             let offsets = allocator.offsets().clone();
             // TODO: come up with a better name
             // use dummy value to create an instance so we can get the vmctx pointer
-            let func_metadata = PrimaryMap::new().into_boxed_slice();
+            let funcrefs = PrimaryMap::new().into_boxed_slice();
             // Create the `Instance`. The unique, the One.
             let instance = Instance {
                 module,
@@ -990,7 +981,7 @@ impl InstanceHandle {
                 passive_elements: Default::default(),
                 passive_data,
                 host_state,
-                func_metadata,
+                funcrefs,
                 signal_handler: Cell::new(None),
                 imported_function_envs,
                 vmctx: VMContext {},
@@ -1002,7 +993,7 @@ impl InstanceHandle {
             {
                 let instance = instance_ref.as_mut();
                 let vmctx_ptr = instance.vmctx_ptr();
-                instance.func_metadata = build_imported_function_func_refs(
+                instance.funcrefs = build_funcrefs(
                     &*instance.module,
                     &imports,
                     &instance.functions,
