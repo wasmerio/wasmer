@@ -7,11 +7,10 @@ use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::Value;
 
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
-
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 // Type Representations
 

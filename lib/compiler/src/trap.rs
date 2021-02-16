@@ -1,7 +1,7 @@
 use crate::CodeOffset;
+use borsh::{BorshDeserialize, BorshSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
 use wasmer_vm::TrapCode;
 
 /// Information about trap.

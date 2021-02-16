@@ -1,10 +1,10 @@
 use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ops::{Add, Sub};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use std::convert::TryInto;
 use thiserror::Error;
 

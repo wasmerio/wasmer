@@ -6,10 +6,10 @@
 //!
 //! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
 use crate::lib::std::vec::Vec;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 /// Compiled function unwind information.
 ///

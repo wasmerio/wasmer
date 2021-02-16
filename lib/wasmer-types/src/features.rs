@@ -1,7 +1,7 @@
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 
 /// Controls which experimental features will be enabled.
 /// Features usually have a corresponding [WebAssembly proposal].

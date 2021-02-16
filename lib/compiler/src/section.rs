@@ -7,10 +7,10 @@
 
 use crate::lib::std::vec::Vec;
 use crate::Relocation;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use wasmer_types::entity::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.

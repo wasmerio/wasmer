@@ -7,9 +7,9 @@
 
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
+use borsh::{BorshDeserialize, BorshSerialize};
 use more_asserts::assert_ge;
 use serde::{Deserialize, Serialize};
-use borsh::{BorshDeserialize, BorshSerialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
 use std::convert::TryInto;
@@ -62,7 +62,9 @@ pub enum MemoryError {
 }
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize,
+)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {

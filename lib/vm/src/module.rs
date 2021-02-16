@@ -4,12 +4,13 @@
 //! Data structure for representing WebAssembly modules in a
 //! `wasmer::Module`.
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
+use std::iter::FromIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -19,7 +20,6 @@ use wasmer_types::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableInitializer, TableType,
 };
-use std::iter::FromIterator;
 
 #[derive(Debug, Clone)]
 pub struct ModuleId {
@@ -117,19 +117,27 @@ pub struct ModuleInfo {
     pub num_imported_globals: usize,
 }
 
+fn borsh_serialize_index_map<
+    K: BorshSerialize + core::hash::Hash,
+    V: BorshSerialize,
+    W: std::io::Write,
+>(
+    index_map: &IndexMap<K, V>,
+    writer: &mut W,
+) -> std::io::Result<()> {
+    BorshSerialize::serialize(&index_map.len(), writer)?;
+    for (k, v) in index_map {
+        BorshSerialize::serialize(&k, writer)?;
+        BorshSerialize::serialize(&v, writer)?;
+    }
+    Ok(())
+}
+
 impl BorshSerialize for ModuleInfo {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         BorshSerialize::serialize(&self.name, writer)?;
-        BorshSerialize::serialize(&self.imports.len(), writer)?;
-        for (k, v) in &self.imports {
-            BorshSerialize::serialize(&k, writer)?;
-            BorshSerialize::serialize(&v, writer)?;
-        }
-        BorshSerialize::serialize(&self.exports.len(), writer)?;
-        for (k, v) in &self.exports {
-            BorshSerialize::serialize(&k, writer)?;
-            BorshSerialize::serialize(&v, writer)?;
-        }
+        borsh_serialize_index_map(&self.imports, writer)?;
+        borsh_serialize_index_map(&self.exports, writer)?;
         BorshSerialize::serialize(&self.start_function, writer)?;
         BorshSerialize::serialize(&self.table_initializers, writer)?;
         BorshSerialize::serialize(&self.passive_elements, writer)?;
@@ -139,18 +147,17 @@ impl BorshSerialize for ModuleInfo {
             BorshSerialize::serialize(&k, writer)?;
             BorshSerialize::serialize(&v.as_ref(), writer)?;
         }
-        BorshSerialize::serialize(&self.global_initializers.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(
+            &self.global_initializers.values().collect::<Vec<_>>(),
+            writer,
+        )?;
         BorshSerialize::serialize(&self.function_names, writer)?;
         BorshSerialize::serialize(&self.signatures.values().collect::<Vec<_>>(), writer)?;
         BorshSerialize::serialize(&self.functions.values().collect::<Vec<_>>(), writer)?;
         BorshSerialize::serialize(&self.tables.values().collect::<Vec<_>>(), writer)?;
         BorshSerialize::serialize(&self.memories.values().collect::<Vec<_>>(), writer)?;
         BorshSerialize::serialize(&self.globals.values().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.custom_sections.len(), writer)?;
-        for (k, v) in &self.custom_sections {
-            BorshSerialize::serialize(&k, writer)?;
-            BorshSerialize::serialize(&v, writer)?;
-        }
+        borsh_serialize_index_map(&self.custom_sections, writer)?;
         let custom_sections_data: Vec<_> = self.custom_sections_data.values().collect();
         BorshSerialize::serialize(&self.custom_sections_data.len(), writer)?;
         for v in &custom_sections_data {
@@ -163,20 +170,26 @@ impl BorshSerialize for ModuleInfo {
     }
 }
 
+fn borsh_deserialize_index_map<K: BorshDeserialize + Eq + core::hash::Hash, V: BorshDeserialize>(
+    buf: &mut &[u8],
+) -> std::io::Result<IndexMap<K, V>> {
+    let len: usize = BorshDeserialize::deserialize(buf)?;
+    let mut ret = IndexMap::with_capacity(len);
+    for _ in 0..len {
+        ret.insert(
+            BorshDeserialize::deserialize(buf)?,
+            BorshDeserialize::deserialize(buf)?,
+        );
+    }
+    Ok(ret)
+}
+
 impl BorshDeserialize for ModuleInfo {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
         let mut ret = Self::new();
         ret.name = BorshDeserialize::deserialize(buf)?;
-        let len: usize = BorshDeserialize::deserialize(buf)?;
-        ret.imports = IndexMap::with_capacity(len);
-        for _ in 0..len {
-            ret.imports.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
-        }
-        let len: usize = BorshDeserialize::deserialize(buf)?;
-        ret.exports = IndexMap::with_capacity(len);
-        for _ in 0..len {
-            ret.exports.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
-        }
+        ret.imports = borsh_deserialize_index_map(buf)?;
+        ret.exports = borsh_deserialize_index_map(buf)?;
         ret.start_function = BorshDeserialize::deserialize(buf)?;
         ret.table_initializers = BorshDeserialize::deserialize(buf)?;
         ret.passive_elements = BorshDeserialize::deserialize(buf)?;
@@ -199,12 +212,8 @@ impl BorshDeserialize for ModuleInfo {
         ret.memories = PrimaryMap::from_iter(memories);
         let globals: Vec<GlobalType> = BorshDeserialize::deserialize(buf)?;
         ret.globals = PrimaryMap::from_iter(globals);
+        ret.custom_sections = borsh_deserialize_index_map(buf)?;
         let len: usize = BorshDeserialize::deserialize(buf)?;
-        ret.custom_sections = IndexMap::with_capacity(len);
-        for _ in 0..len {
-            ret.custom_sections.insert(BorshDeserialize::deserialize(buf)?, BorshDeserialize::deserialize(buf)?);
-        }
-        let len : usize = BorshDeserialize::deserialize(buf)?;
         let mut custom_sections_data = Vec::with_capacity(len);
         for _ in 0..len {
             let v: Vec<u8> = BorshDeserialize::deserialize(buf)?;

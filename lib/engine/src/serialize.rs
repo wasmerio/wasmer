@@ -1,7 +1,7 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
 use std::fmt;
 use wasmer_compiler::CompiledFunctionFrameInfo;
 
@@ -116,8 +116,6 @@ impl<'de> Deserialize<'de> for SerializableFunctionFrameInfo {
 
 impl BorshDeserialize for SerializableFunctionFrameInfo {
     fn deserialize(buf: &mut &[u8]) -> std::io::Result<Self> {
-        Ok(Self::Unprocessed(
-            BorshDeserialize::deserialize(buf)?
-        ))
+        Ok(Self::Unprocessed(BorshDeserialize::deserialize(buf)?))
     }
 }

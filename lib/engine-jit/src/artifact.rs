@@ -6,8 +6,8 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use borsh::{BorshDeserialize, BorshSerialize};
 use std::sync::{Arc, Mutex};
-use borsh::{BorshSerialize, BorshDeserialize};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
@@ -141,7 +141,7 @@ impl JITArtifact {
             ));
         }
 
-        let mut inner_bytes  = &bytes[Self::MAGIC_HEADER.len()..];
+        let mut inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         let serializable: SerializableModule = BorshDeserialize::deserialize(&mut inner_bytes)

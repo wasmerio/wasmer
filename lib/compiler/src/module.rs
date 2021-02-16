@@ -1,9 +1,9 @@
 use crate::lib::std::sync::Arc;
-use std::iter::FromIterator;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
+use std::iter::FromIterator;
 
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, MemoryIndex, TableIndex};
@@ -47,9 +47,15 @@ impl BorshDeserialize for CompileModuleInfo {
         let module: ModuleInfo = BorshDeserialize::deserialize(buf)?;
         let module = Arc::new(module);
         let memory_styles: Vec<MemoryStyle> = BorshDeserialize::deserialize(buf)?;
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = PrimaryMap::from_iter(memory_styles);
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> =
+            PrimaryMap::from_iter(memory_styles);
         let table_styles: Vec<TableStyle> = BorshDeserialize::deserialize(buf)?;
         let table_styles: PrimaryMap<TableIndex, TableStyle> = PrimaryMap::from_iter(table_styles);
-        Ok(Self { features, module, memory_styles, table_styles })
+        Ok(Self {
+            features,
+            module,
+            memory_styles,
+            table_styles,
+        })
     }
 }

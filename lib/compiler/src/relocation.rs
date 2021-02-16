@@ -13,10 +13,10 @@ use crate::lib::std::fmt;
 use crate::lib::std::vec::Vec;
 use crate::section::SectionIndex;
 use crate::{Addend, CodeOffset, JumpTable};
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::libcalls::LibCall;

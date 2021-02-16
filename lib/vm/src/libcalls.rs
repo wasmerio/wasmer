@@ -38,8 +38,8 @@
 use crate::probestack::PROBESTACK;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
 use std::fmt;
 use wasmer_types::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};
 
@@ -406,7 +406,18 @@ pub static wasmer_probestack: unsafe extern "C" fn() = PROBESTACK;
 /// The name of a runtime library routine.
 ///
 /// This list is likely to grow over time.
-#[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Copy,
+    Clone,
+    Debug,
+    PartialEq,
+    Eq,
+    Hash,
+    Serialize,
+    Deserialize,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 pub enum LibCall {
     /// ceil.f32
     CeilF32,

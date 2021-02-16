@@ -3,16 +3,28 @@
 
 //! Trap codes describing the reason for a trap.
 
+use borsh::{BorshDeserialize, BorshSerialize};
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
 use thiserror::Error;
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error, BorshSerialize, BorshDeserialize)]
+#[derive(
+    Clone,
+    Copy,
+    PartialEq,
+    Eq,
+    Debug,
+    Hash,
+    Serialize,
+    Deserialize,
+    Error,
+    BorshSerialize,
+    BorshDeserialize,
+)]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.

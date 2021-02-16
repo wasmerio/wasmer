@@ -1,5 +1,6 @@
+use borsh::{BorshDeserialize, BorshSerialize};
 use serde::{Deserialize, Serialize};
-use borsh::{BorshSerialize, BorshDeserialize};
+use std::iter::FromIterator;
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
     SectionIndex,
@@ -7,7 +8,6 @@ use wasmer_compiler::{
 use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
-use std::iter::FromIterator;
 
 // /// The serializable function data
 // #[derive(Serialize, Deserialize)]
@@ -49,15 +49,38 @@ pub struct SerializableModule {
 impl BorshSerialize for SerializableCompilation {
     fn serialize<W: std::io::Write>(&self, writer: &mut W) -> std::io::Result<()> {
         BorshSerialize::serialize(&self.function_bodies.values().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.function_relocations.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(
+            &self.function_relocations.values().collect::<Vec<_>>(),
+            writer,
+        )?;
         // JumpTableOffsets is a SecondaryMap, non trivial to impl borsh
-        let v = bincode::serialize(&self.function_jt_offsets).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid function_jt_offsets"))?;
+        let v = bincode::serialize(&self.function_jt_offsets).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "invalid function_jt_offsets",
+            )
+        })?;
         BorshSerialize::serialize(&v, writer)?;
-        BorshSerialize::serialize(&self.function_frame_info.values().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.function_call_trampolines.values().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.dynamic_function_trampolines.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(
+            &self.function_frame_info.values().collect::<Vec<_>>(),
+            writer,
+        )?;
+        BorshSerialize::serialize(
+            &self.function_call_trampolines.values().collect::<Vec<_>>(),
+            writer,
+        )?;
+        BorshSerialize::serialize(
+            &self
+                .dynamic_function_trampolines
+                .values()
+                .collect::<Vec<_>>(),
+            writer,
+        )?;
         BorshSerialize::serialize(&self.custom_sections.values().collect::<Vec<_>>(), writer)?;
-        BorshSerialize::serialize(&self.custom_section_relocations.values().collect::<Vec<_>>(), writer)?;
+        BorshSerialize::serialize(
+            &self.custom_section_relocations.values().collect::<Vec<_>>(),
+            writer,
+        )?;
         BorshSerialize::serialize(&self.debug, writer)
     }
 }
@@ -69,8 +92,14 @@ impl BorshDeserialize for SerializableCompilation {
         let function_relocations: Vec<Vec<Relocation>> = BorshDeserialize::deserialize(buf)?;
         let function_relocations = PrimaryMap::from_iter(function_relocations);
         let v: Vec<u8> = BorshDeserialize::deserialize(buf)?;
-        let function_jt_offsets = bincode::deserialize(&v).map_err(|_| std::io::Error::new(std::io::ErrorKind::InvalidData, "invalid function_jt_offsets"))?;
-        let function_frame_info: Vec<SerializableFunctionFrameInfo> = BorshDeserialize::deserialize(buf)?;
+        let function_jt_offsets = bincode::deserialize(&v).map_err(|_| {
+            std::io::Error::new(
+                std::io::ErrorKind::InvalidData,
+                "invalid function_jt_offsets",
+            )
+        })?;
+        let function_frame_info: Vec<SerializableFunctionFrameInfo> =
+            BorshDeserialize::deserialize(buf)?;
         let function_frame_info = PrimaryMap::from_iter(function_frame_info);
         let function_call_trampolines: Vec<FunctionBody> = BorshDeserialize::deserialize(buf)?;
         let function_call_trampolines = PrimaryMap::from_iter(function_call_trampolines);
@@ -90,7 +119,7 @@ impl BorshDeserialize for SerializableCompilation {
             dynamic_function_trampolines,
             custom_sections,
             custom_section_relocations,
-            debug
+            debug,
         })
     }
 }

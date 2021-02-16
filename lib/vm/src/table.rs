@@ -7,8 +7,8 @@
 
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
-use serde::{Deserialize, Serialize};
 use borsh::{BorshDeserialize, BorshSerialize};
+use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
 use std::convert::TryFrom;

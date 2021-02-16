@@ -1,10 +1,10 @@
 //! Helper functions and structures for the translation.
 use crate::entity::entity_impl;
+#[cfg(feature = "enable-borsh")]
+use borsh::{BorshDeserialize, BorshSerialize};
 use core::u32;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-#[cfg(feature = "enable-borsh")]
-use borsh::{BorshDeserialize, BorshSerialize};
 
 /// Index type of a function defined locally inside the WebAssembly module.
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]

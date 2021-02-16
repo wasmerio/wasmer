@@ -5,10 +5,10 @@
 //! [Learn more](https://en.wikipedia.org/wiki/Branch_table).
 
 use super::CodeOffset;
-#[cfg(feature = "enable-serde")]
-use serde::{Deserialize, Serialize};
 #[cfg(feature = "enable-borsh")]
 use borsh::{BorshDeserialize, BorshSerialize};
+#[cfg(feature = "enable-serde")]
+use serde::{Deserialize, Serialize};
 use wasmer_types::entity::{entity_impl, SecondaryMap};
 
 /// An opaque reference to a [jump table](https://en.wikipedia.org/wiki/Branch_table).
