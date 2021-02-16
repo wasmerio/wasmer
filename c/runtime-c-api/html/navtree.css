@@ -96,7 +96,7 @@
 .ui-resizable-e {
   background-image:url("splitbar.png");
   background-size:100%;
-  background-repeat:no-repeat;
+  background-repeat:repeat-y;
   background-attachment: scroll;
   cursor:ew-resize;
   height:100%;
