@@ -142,7 +142,6 @@ impl JITArtifact {
         }
 
         let mut inner_bytes  = &bytes[Self::MAGIC_HEADER.len()..];
-        println!("deserialize with borsh");
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         let serializable: SerializableModule = BorshDeserialize::deserialize(&mut inner_bytes)
