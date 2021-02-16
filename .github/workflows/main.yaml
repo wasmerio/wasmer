@@ -233,15 +233,11 @@ jobs:
         shell: cmd
         run: |
           call refreshenv
-          make build-capi-cranelift
-          make package-capi
           set WASMER_DIR=%CD%\package
           make test-integration
         if: matrix.run_integration_tests && matrix.os == 'windows-latest'
       - name: Run integration tests (Unix)
         run: |
-          make build-capi-cranelift
-          make package-capi
           export WASMER_DIR=`pwd`/package
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'

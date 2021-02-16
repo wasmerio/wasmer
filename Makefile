@@ -278,8 +278,12 @@ endif
 space := $() $()
 comma := ,
 
-# Define the default Cargo features for all crates.
+# Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
+
+# Define the compiler Cargo features for the C API. It always excludes
+# LLVM for the moment.
+capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
 
 
 #####
@@ -308,8 +312,9 @@ $(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
 $(info Cargo features:)
-$(info     - Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
-$(info     - C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
+$(info     - Compilers for all crates: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info     - Compilers for the C API: `$(bold)$(green)${capi_compiler_features}$(reset)`.)
+$(info     - Default for the C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
 $(info )
 $(info )
 $(info --------------)
@@ -377,7 +382,7 @@ build-docs-capi:
 
 build-capi:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(compiler_features)
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(capi_compiler_features)
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -519,7 +524,7 @@ test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_e
 
 test-capi-all: build-capi
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
-		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(compiler_features) -- --nocapture
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(capi_compiler_features) -- --nocapture
 
 test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
