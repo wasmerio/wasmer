@@ -316,7 +316,6 @@ impl Artifact for JITArtifact {
         // Ok(s.take_buffer())
         let bytes = BorshSerialize::try_to_vec(&self.serializable)
             .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
-        println!("serialize with borsh");
         // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
         serialized.extend(bytes);
