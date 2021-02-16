@@ -320,11 +320,23 @@ ifneq (, $(LIBC))
 	$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 
-$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
-$(info Available compilers: $(bold)$(green)${compilers}$(reset))
-$(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
-$(info Available compilers + engines: $(bold)$(green)${compilers_engines}$(reset))
-$(info C API default features: $(bold)$(green)${capi_default_features}$(reset))
+$(info -----------)
+$(info $(bold)$(green)INFORMATION$(reset))
+$(info -----------)
+$(info )
+$(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
+$(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
+$(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
+$(info Cargo features:)
+$(info     - Compilers: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info     - C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
+$(info )
+$(info )
+$(info --------------)
+$(info $(bold)$(green)RULE EXECUTION$(reset))
+$(info --------------)
+$(info )
+$(info )
 
 
 ############
