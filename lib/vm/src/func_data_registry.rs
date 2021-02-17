@@ -29,6 +29,32 @@ unsafe impl Sync for FuncDataRegistry {}
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
 
+impl wasmer_types::NativeWasmType for VMFuncRef {
+    const WASM_TYPE: wasmer_types::Type = wasmer_types::Type::FuncRef;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn to_binary(self) -> i128 {
+        self.0 as _
+    }
+
+    #[inline]
+    fn from_binary(bits: i128) -> Self {
+        // TODO: ensure that the safety invariants are actually upheld here
+        Self(bits as _)
+    }
+}
+
 impl VMFuncRef {
     /// TODO: we probably don't want this function, need to do something about this,
     /// it definitely needs to be unsafe

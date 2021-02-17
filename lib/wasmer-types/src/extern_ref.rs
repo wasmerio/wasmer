@@ -62,17 +62,6 @@ impl VMExternRef {
         }
     }
 
-    /// Return the memory representation of this extern ref as a byte array in
-    /// native byte order.
-    pub fn to_ne_bytes(self) -> [u8; 8] {
-        usize::to_ne_bytes(self.0 as usize)
-    }
-    /// Convert native endian bytes to an extern ref.
-    // TODO: this should be unsafe!!
-    pub fn from_ne_bytes(bytes: [u8; 8]) -> Self {
-        Self(usize::from_ne_bytes(bytes) as *const _)
-    }
-
     /// A deep copy of the reference, increments the strong count.
     pub fn ref_clone(&self) -> Self {
         if self.0.is_null() {
