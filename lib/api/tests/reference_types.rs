@@ -1,4 +1,5 @@
 use anyhow::Result;
+use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::Arc;
 use wasmer::*;
@@ -57,15 +58,28 @@ fn extern_ref_passed_and_returned() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
     (import "env" "extern_ref_identity" (func (param externref) (result externref)))
+    (func $get_new_extern_ref (import "env" "get_new_extern_ref") (result externref))
 
     (func (export "run") (param) (result externref)
           (call 0 (ref.null extern)))
+    (func (export "get_hashmap") (param) (result externref)
+          (call $get_new_extern_ref))
 )"#;
     let module = Module::new(&store, wat)?;
     let imports = imports! {
         "env" => {
             "extern_ref_identity" => Function::new(&store, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |values| -> Result<Vec<_>, _> {
                 Ok(vec![values[0].clone()])
+            }),
+            "get_new_extern_ref" => Function::new(&store, FunctionType::new([], [Type::ExternRef]), |_| -> Result<Vec<_>, _> {
+                let inner =
+                    [("hello".to_string(), "world".to_string()),
+                     ("color".to_string(), "orange".to_string())]
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<String, String>>();
+                let new_extern_ref = VMExternRef::new(inner);
+                Ok(vec![Value::ExternRef(new_extern_ref)])
             })
         },
     };
@@ -75,6 +89,16 @@ fn extern_ref_passed_and_returned() -> Result<()> {
     let results = f.call(&[]).unwrap();
     if let Value::ExternRef(er) = results[0] {
         assert!(er.is_null());
+    } else {
+        panic!("result is not an extern ref!");
+    }
+
+    let f: &Function = instance.exports.get_function("get_hashmap")?;
+    let results = f.call(&[]).unwrap();
+    if let Value::ExternRef(er) = results[0] {
+        let inner: &HashMap<String, String> = er.downcast().unwrap();
+        assert_eq!(inner["hello"], "world");
+        assert_eq!(inner["color"], "orange");
     } else {
         panic!("result is not an extern ref!");
     }
