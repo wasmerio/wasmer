@@ -57,19 +57,28 @@ fn func_ref_passed_and_returned() -> Result<()> {
 fn extern_ref_passed_and_returned() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
-    (import "env" "extern_ref_identity" (func (param externref) (result externref)))
+    (func $extern_ref_identity (import "env" "extern_ref_identity") (param externref) (result externref))
+    (func $extern_ref_identity_native (import "env" "extern_ref_identity_native") (param externref) (result externref))
     (func $get_new_extern_ref (import "env" "get_new_extern_ref") (result externref))
+    (func $get_new_extern_ref_native (import "env" "get_new_extern_ref_native") (result externref))
 
     (func (export "run") (param) (result externref)
-          (call 0 (ref.null extern)))
+          (call $extern_ref_identity (ref.null extern)))
+    (func (export "run_native") (param) (result externref)
+          (call $extern_ref_identity_native (ref.null extern)))
     (func (export "get_hashmap") (param) (result externref)
           (call $get_new_extern_ref))
+    (func (export "get_hashmap_native") (param) (result externref)
+          (call $get_new_extern_ref_native))
 )"#;
     let module = Module::new(&store, wat)?;
     let imports = imports! {
         "env" => {
             "extern_ref_identity" => Function::new(&store, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |values| -> Result<Vec<_>, _> {
                 Ok(vec![values[0].clone()])
+            }),
+            "extern_ref_identity_native" => Function::new_native(&store, |er: ExternRef<usize>| -> ExternRef<usize> {
+                er
             }),
             "get_new_extern_ref" => Function::new(&store, FunctionType::new([], [Type::ExternRef]), |_| -> Result<Vec<_>, _> {
                 let inner =
@@ -80,13 +89,22 @@ fn extern_ref_passed_and_returned() -> Result<()> {
                     .collect::<HashMap<String, String>>();
                 let new_extern_ref = VMExternRef::new(inner);
                 Ok(vec![Value::ExternRef(new_extern_ref)])
+            }),
+            "get_new_extern_ref_native" => Function::new_native(&store, || -> ExternRef<HashMap<String, String>> {
+                let inner =
+                    [("hello".to_string(), "world".to_string()),
+                     ("color".to_string(), "orange".to_string())]
+                    .iter()
+                    .cloned()
+                    .collect::<HashMap<String, String>>();
+                ExternRef::new(inner)
             })
         },
     };
 
     let instance = Instance::new(&module, &imports)?;
-    {
-        let f: &Function = instance.exports.get_function("run")?;
+    for run in &["run", "run_native"] {
+        let f: &Function = instance.exports.get_function(run)?;
         let results = f.call(&[]).unwrap();
         if let Value::ExternRef(er) = results[0] {
             assert!(er.is_null());
@@ -94,13 +112,13 @@ fn extern_ref_passed_and_returned() -> Result<()> {
             panic!("result is not an extern ref!");
         }
 
-        let f: NativeFunc<(), ExternRef<usize>> = instance.exports.get_native_function("run")?;
+        let f: NativeFunc<(), ExternRef<usize>> = instance.exports.get_native_function(run)?;
         let result: ExternRef<usize> = f.call()?;
         assert!(result.is_null());
     }
 
-    {
-        let f: &Function = instance.exports.get_function("get_hashmap")?;
+    for get_hashmap in &["get_hashmap", "get_hashmap_native"] {
+        let f: &Function = instance.exports.get_function(get_hashmap)?;
         let results = f.call(&[]).unwrap();
         if let Value::ExternRef(er) = results[0] {
             let inner: &HashMap<String, String> = er.downcast().unwrap();
@@ -111,7 +129,7 @@ fn extern_ref_passed_and_returned() -> Result<()> {
         }
 
         let f: NativeFunc<(), ExternRef<HashMap<String, String>>> =
-            instance.exports.get_native_function("get_hashmap")?;
+            instance.exports.get_native_function(get_hashmap)?;
 
         let result: ExternRef<HashMap<String, String>> = f.call()?;
         let inner: &HashMap<String, String> = result.downcast().unwrap();

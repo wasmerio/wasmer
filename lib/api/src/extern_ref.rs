@@ -1,7 +1,7 @@
+use crate::FromToNativeWasmType;
 use std::any::Any;
 use std::marker::PhantomData;
 use wasmer_vm::VMExternRef;
-use crate::FromToNativeWasmType;
 
 #[derive(Debug, Clone)]
 #[repr(transparent)]
@@ -43,7 +43,8 @@ where
 }
 
 unsafe impl<T> FromToNativeWasmType for ExternRef<T>
-where T: Any + Send + Sync + 'static + Sized,
+where
+    T: Any + Send + Sync + 'static + Sized,
 {
     type Native = VMExternRef;
 
