@@ -22,6 +22,23 @@ impl VMExternRef {
         Self(ptr::null())
     }
 
+    /// Get a bit-level representation of an externref.
+    /// For internal use for packing / unpacking it for calling functions.
+    pub(crate) fn to_binary(self) -> i128 {
+        self.0 as i128
+    }
+
+    /// Create an externref from bit-level representation.
+    /// For internal use for packing / unpacking it for calling functions.
+    ///
+    /// # Safety
+    /// The pointer is assumed valid or null. Passing arbitrary data to this function will
+    /// result in undefined behavior. It is the caller's responsibility to verify that only
+    /// valid externref bit patterns are passed to this function.
+    pub(crate) unsafe fn from_binary(bits: i128) -> Self {
+        Self(bits as usize as *const _)
+    }
+
     /// Make a new extern reference
     pub fn new<T>(value: T) -> Self
     where
@@ -47,7 +64,7 @@ impl VMExternRef {
 
     /// Return the memory representation of this extern ref as a byte array in
     /// native byte order.
-    pub fn to_ne_bytes(&self) -> [u8; 8] {
+    pub fn to_ne_bytes(self) -> [u8; 8] {
         usize::to_ne_bytes(self.0 as usize)
     }
     /// Convert native endian bytes to an extern ref.

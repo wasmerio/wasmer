@@ -85,22 +85,38 @@ fn extern_ref_passed_and_returned() -> Result<()> {
     };
 
     let instance = Instance::new(&module, &imports)?;
-    let f: &Function = instance.exports.get_function("run")?;
-    let results = f.call(&[]).unwrap();
-    if let Value::ExternRef(er) = results[0] {
-        assert!(er.is_null());
-    } else {
-        panic!("result is not an extern ref!");
+    {
+        let f: &Function = instance.exports.get_function("run")?;
+        let results = f.call(&[]).unwrap();
+        if let Value::ExternRef(er) = results[0] {
+            assert!(er.is_null());
+        } else {
+            panic!("result is not an extern ref!");
+        }
+
+        let f: NativeFunc<(), ExternRef<usize>> = instance.exports.get_native_function("run")?;
+        let result: ExternRef<usize> = f.call()?;
+        assert!(result.is_null());
     }
 
-    let f: &Function = instance.exports.get_function("get_hashmap")?;
-    let results = f.call(&[]).unwrap();
-    if let Value::ExternRef(er) = results[0] {
-        let inner: &HashMap<String, String> = er.downcast().unwrap();
+    {
+        let f: &Function = instance.exports.get_function("get_hashmap")?;
+        let results = f.call(&[]).unwrap();
+        if let Value::ExternRef(er) = results[0] {
+            let inner: &HashMap<String, String> = er.downcast().unwrap();
+            assert_eq!(inner["hello"], "world");
+            assert_eq!(inner["color"], "orange");
+        } else {
+            panic!("result is not an extern ref!");
+        }
+
+        let f: NativeFunc<(), ExternRef<HashMap<String, String>>> =
+            instance.exports.get_native_function("get_hashmap")?;
+
+        let result: ExternRef<HashMap<String, String>> = f.call()?;
+        let inner: &HashMap<String, String> = result.downcast().unwrap();
         assert_eq!(inner["hello"], "world");
         assert_eq!(inner["color"], "orange");
-    } else {
-        panic!("result is not an extern ref!");
     }
 
     Ok(())

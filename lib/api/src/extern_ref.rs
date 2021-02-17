@@ -1,9 +1,9 @@
-use crate::FromToNativeWasmType;
 use std::any::Any;
 use std::marker::PhantomData;
 use wasmer_vm::VMExternRef;
+use crate::FromToNativeWasmType;
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[repr(transparent)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
 pub struct ExternRef<T: Any + Send + Sync + 'static + Sized> {
@@ -42,25 +42,18 @@ where
     }
 }
 
-/*
 unsafe impl<T> FromToNativeWasmType for ExternRef<T>
-where
-    T: Any + Send + Sync + 'static + Sized,
+where T: Any + Send + Sync + 'static + Sized,
 {
-    type Native = usize;
+    type Native = VMExternRef;
 
-    #[inline]
-    fn from_native(native: Self::Native) -> Self {
-        let inner = VMExternRef::from_ne_bytes(Self::Native::to_ne_bytes(native));
+    fn to_native(self) -> Self::Native {
+        self.inner
+    }
+    fn from_native(n: Self::Native) -> Self {
         Self {
-            inner,
+            inner: n,
             _phantom: PhantomData,
         }
     }
-
-    #[inline]
-    fn to_native(self) -> Self::Native {
-        Self::Native::from_ne_bytes(VMExternRef::to_ne_bytes(self.inner))
-    }
 }
-*/

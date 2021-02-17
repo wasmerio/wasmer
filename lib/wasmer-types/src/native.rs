@@ -1,6 +1,7 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
+use crate::extern_ref::VMExternRef;
 use crate::lib::std::fmt;
 use crate::types::Type;
 use crate::values::{Value, ValueEnumType};
@@ -172,6 +173,32 @@ impl NativeWasmType for u128 {
     #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
+    }
+}
+
+impl NativeWasmType for VMExternRef {
+    const WASM_TYPE: Type = Type::ExternRef;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn to_binary(self) -> i128 {
+        self.to_binary()
+    }
+
+    #[inline]
+    fn from_binary(bits: i128) -> Self {
+        // TODO: ensure that the safety invariants are actually upheld here
+        unsafe { Self::from_binary(bits) }
     }
 }
 
