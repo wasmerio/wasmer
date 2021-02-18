@@ -478,6 +478,9 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_cpu_features_new")
         .exclude_item("wasmer_cpu_features_t")
         .exclude_item("wasmer_engine_t")
+        .exclude_item("wasmer_is_compiler_available")
+        .exclude_item("wasmer_is_engine_available")
+        .exclude_item("wasmer_is_headless")
         .exclude_item("wasmer_module_name")
         .exclude_item("wasmer_module_set_name")
         .exclude_item("wasmer_named_extern_module")
@@ -527,6 +530,7 @@ fn build_inline_c_env_vars() {
         let target = env::var("TARGET").unwrap();
         assert_eq!(shared_object_dir.file_name(), Some(OsStr::new(&target)));
     }
+
     shared_object_dir.push(env::var("PROFILE").unwrap());
 
     let shared_object_dir = shared_object_dir.as_path().to_string_lossy();
@@ -537,8 +541,11 @@ fn build_inline_c_env_vars() {
     // * `-I`, add `include_dir` to include search path,
     // * `-L`, add `shared_object_dir` to library search path,
     // * `-D_DEBUG`, enable debug mode to enable `assert.h`.
+    // * `-D_CRT_SECURE_NO_WARNINGS`, disable security features in the
+    //   Windows C runtime, which allows to use `getenv` without any
+    //   warnings.
     println!(
-        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG",
+        "cargo:rustc-env=INLINE_C_RS_CFLAGS=-I{I} -L{L} -D_DEBUG -D_CRT_SECURE_NO_WARNINGS",
         I = include_dir,
         L = shared_object_dir.clone(),
     );
