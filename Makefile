@@ -10,7 +10,7 @@ SHELL=/bin/bash
 # The matrix is the product of the following columns:
 #
 # |------------|--------|----------|--------------|-------|
-# | Compiler   x Engine x Platform x Architecture x libc  |
+# | Compiler   ⨯ Engine ⨯ Platform ⨯ Architecture ⨯ libc  |
 # |------------|--------|----------|--------------|-------|
 # | Cranelift  | JIT    | Linux    | amd64        | glibc |
 # | LLVM       | Native | Darwin   | aarch64      | musl  |
