@@ -1,112 +1,327 @@
-# uname only works in *Unix like systems
-ifneq ($(OS), Windows_NT)
-	ARCH := $(shell uname -m)
-	UNAME_S := $(shell uname -s)
-	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
+SHELL=/bin/bash
+
+
+#####
+#
+# The Matrix
+#
+#####
+
+# The matrix is the product of the following columns:
+#
+# |------------|--------|----------|--------------|-------|
+# | Compiler   ⨯ Engine ⨯ Platform ⨯ Architecture ⨯ libc  |
+# |------------|--------|----------|--------------|-------|
+# | Cranelift  | JIT    | Linux    | amd64        | glibc |
+# | LLVM       | Native | Darwin   | aarch64      | musl  |
+# | Singlepass |        | Windows  |              |       |
+# |------------|--------|----------|--------------|-------|
+#
+# Here is what works and what doesn't:
+#
+# * Cranelift with the JIT engine works everywhere,
+#
+# * Cranelift with the Native engine works on Linux+Darwin/`amd64`,
+#   but it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the JIT engine works on Linux+Darwin/`amd64`,
+#   but it doesn't work on */`aarch64` or Windows/*.
+#
+# * LLVM with the Native engine works on
+#   Linux+Darwin/`amd64`+`aarch64`, but it doesn't work on Windows/*.
+#
+# * Singlepass with the JIT engine works on Linux+Darwin/`amd64`, but
+#   it doesn't work on */`aarch64` or Windows/*.
+#
+# * Singlepass with the Native engine doesn't work because it doesn't
+#   know how to output object files for the moment.
+#
+# * Windows isn't tested on `aarch64`, that's why we consider it's not
+#   working, but it might possibly be.
+
+
+#####
+#
+# Define the “Platform” and “Architecture” columns of the matrix.
+#
+#####
+
+
+IS_DARWIN := 0
+IS_LINUX := 0
+IS_WINDOWS := 0
+IS_AMD64 := 0
+IS_AARCH64 := 0
+
+# Test Windows apart because it doesn't support `uname -s`.
+ifeq ($(OS), Windows_NT)
+	# We can assume it will likely be in amd64.
+	IS_AMD64 := 1
+	IS_WINDOWS := 1
 else
-	# We can assume, if in windows it will likely be in x86_64
-	ARCH := x86_64
-	UNAME_S :=
-	LIBC ?=
+	# Platform
+	uname := $(shell uname -s)
+
+	ifeq ($(uname), Darwin)
+		IS_DARWIN := 1
+	else ifeq ($(uname), Linux)
+		IS_LINUX := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized platform, expect `Darwin`, `Linux` or `Windows_NT`)
+	endif
+
+	# Architecture
+	uname := $(shell uname -m)
+
+	ifeq ($(uname), x86_64)
+		IS_AMD64 := 1
+	else ifneq (, $(filter $(uname), aarch64 arm64))
+		IS_AARCH64 := 1
+	else
+		# We use spaces instead of tabs to indent `$(error)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(error Unrecognized architecture, expect `x86_64`, `aarch64` or `arm64`)
+	endif
+
+	# Libc
+	LIBC ?= $(shell ldd 2>&1 | grep -o musl | head -n1)
 endif
+
+
+#####
+#
+# Define the “Compiler” column of the matrix.
+#
+#####
+
+
+# Variables that can be overriden by the users to force to enable or
+# to disable a specific compiler.
+ENABLE_CRANELIFT ?=
+ENABLE_LLVM ?=
+ENABLE_SINGLEPASS ?=
 
 # Which compilers we build. These have dependencies that may not be on the system.
-compilers := cranelift
+compilers := 
 
-# In the form "$(compiler)-$(engine)" which compiler+engine combinations to test
-# in `make test`.
-test_compilers_engines :=
+##
+# Cranelift
+##
 
-# Autodetect LLVM from llvm-config
-ifneq (, $(shell which llvm-config 2>/dev/null))
-	LLVM_VERSION := $(shell llvm-config --version)
-	# If findstring is not empty, then it have found the value
-	ifneq (, $(findstring 10,$(LLVM_VERSION)))
+# If the user didn't disable the Cranelift compiler…
+ifneq ($(ENABLE_CRANELIFT), 0)
+	# … then it can always be enabled.
+	compilers += cranelift
+	ENABLE_CRANELIFT := 1
+endif
+
+##
+# LLVM
+##
+
+# If the user didn't disable the LLVM compiler…
+ifneq ($(ENABLE_LLVM), 0)
+	# … then maybe the user forced to enable the LLVM compiler.
+	ifeq ($(ENABLE_LLVM), 1)
 		compilers += llvm
-	endif
-	ifneq (, $(findstring 11,$(LLVM_VERSION)))
-		compilers += llvm
-	endif
-else
-	ifneq (, $(shell which llvm-config-10 2>/dev/null))
-		compilers += llvm
-	endif
-	ifneq (, $(shell which llvm-config-11 2>/dev/null))
-		compilers += llvm
+	# … otherwise, we try to autodetect LLVM from `llvm-config`
+	else ifneq (, $(shell which llvm-config 2>/dev/null))
+		LLVM_VERSION := $(shell llvm-config --version)
+
+		# If findstring is not empty, then it have found the value
+		ifneq (, $(findstring 11,$(LLVM_VERSION)))
+			compilers += llvm
+		else ifneq (, $(findstring 10,$(LLVM_VERSION)))
+			compilers += llvm
+		endif
+	# … or try to autodetect LLVM from `llvm-config-<version>`.
+	else
+		ifneq (, $(shell which llvm-config-11 2>/dev/null))
+			compilers += llvm
+		else ifneq (, $(shell which llvm-config-10 2>/dev/null))
+			compilers += llvm
+		endif
 	endif
 endif
 
-ifeq ($(ARCH), x86_64)
-	test_compilers_engines += cranelift-jit
-	# LLVM could be enabled if not in Windows
-	ifneq ($(OS), Windows_NT)
-		ifneq ($(LIBC), musl)
-			# Native engine doesn't work on Windows and musl yet.
-			test_compilers_engines += cranelift-native
-		endif
-		# Singlepass doesn't work yet on Windows.
-		compilers += singlepass
-		# Singlepass doesn't work with the native engine.
-		test_compilers_engines += singlepass-jit
-		ifneq (, $(findstring llvm,$(compilers)))
-			test_compilers_engines += llvm-jit
+ifneq (, $(findstring llvm,$(compilers)))
+	ENABLE_LLVM := 1
+endif
 
+##
+# Singlepass
+##
+
+# If the user didn't disable the Singlepass compiler…
+ifneq ($(ENABLE_SINGLEPASS), 0)
+	# … then maybe the user forced to enable the Singlepass compiler.
+	ifeq ($(ENABLE_SINGLEPASS), 1)
+		compilers += singlepass
+	# … otherwise, we try to check whether Singlepass works on this host.
+	else ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers += singlepass
+		endif
+	endif
+endif
+
+ifneq (, $(findstring singlepass,$(compilers)))
+	ENABLE_SINGLEPASS := 1
+endif
+
+##
+# Clean the `compilers` variable.
+##
+
+compilers := $(strip $(compilers))
+
+
+#####
+#
+# Define the “Engine” column of the matrix.
+#
+#####
+
+
+# The engine is part of a pair of kind (compiler, engine). All the
+# pairs are stored in the `compilers_engines` variable.
+compilers_engines :=
+
+##
+# The Cranelift case.
+##
+
+ifeq ($(ENABLE_CRANELIFT), 1)
+	compilers_engines += cranelift-jit
+
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
 			ifneq ($(LIBC), musl)
-				# Native engine doesn't work on musl yet.
-				test_compilers_engines += llvm-native
+				compilers_engines += cranelift-native
 			endif
 		endif
 	endif
 endif
 
-# If it's an aarch64/arm64 chip
-# Using filter as a logical OR
-# https://stackoverflow.com/questions/7656425/makefile-ifeq-logical-or
-use_system_ffi =
-ifneq (,$(filter $(ARCH),aarch64 arm64))
-	test_compilers_engines += cranelift-jit
-	ifneq (, $(findstring llvm,$(compilers)))
-		test_compilers_engines += llvm-native
-	endif
-	# if we are in macos arm64, we use the system libffi for the capi
-	ifeq ($(UNAME_S), Darwin)
-		use_system_ffi = yes
+##
+# The LLVM case.
+##
+
+ifeq ($(ENABLE_LLVM), 1)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += llvm-jit
+			compilers_engines += llvm-native
+		else ifeq ($(IS_AARCH64), 1)
+			compilers_engines += llvm-native
+		endif
 	endif
 endif
 
-# if the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` var to 1 also
-# use the system libffi.
+##
+# The Singlepass case.
+##
+
+ifeq ($(ENABLE_SINGLEPASS), 1)
+	ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
+		ifeq ($(IS_AMD64), 1)
+			compilers_engines += singlepass-jit
+		endif
+	endif
+endif
+
+# Clean the `compilers_engines` variable.
+compilers_engines := $(strip $(compilers_engines))
+
+
+#####
+#
+# Miscellaneous.
+#
+#####
+
+# The `libffi` library doesn't support Darwin/aarch64. In this
+# particular case, we need to use the `libffi` version provided by the
+# system itself.
+#
+# See <https://github.com/libffi/libffi/pull/621>.
+use_system_ffi := 0
+
+ifeq ($(IS_DARWIN), 1)
+	ifeq ($(IS_AARCH64), 1)
+		use_system_ffi = 1
+	endif
+endif
+
+# If the user has set the `WASMER_CAPI_USE_SYSTEM_LIBFFI` environment
+# variable to 1, then also use the system `libffi`.
 ifeq ($(WASMER_CAPI_USE_SYSTEM_LIBFFI), 1)
-	use_system_ffi = yes
+	use_system_ffi = 1
 endif
 
-ifdef use_system_ffi
+#####
+#
+# Cargo features.
+#
+#####
+
+# Define the default Cargo features for the `wasmer-c-api` crate.
+ifeq ($(use_system_ffi), 1)
 	capi_default_features := --features system-libffi
 endif
 
-compilers := $(filter-out ,$(compilers))
-test_compilers_engines := $(filter-out ,$(test_compilers_engines))
+# Small trick to define a space and a comma.
+space := $() $()
+comma := ,
 
-ifneq ($(OS), Windows_NT)
+# Define the compiler Cargo features for all crates.
+compiler_features := --features $(subst $(space),$(comma),$(compilers))
+
+# Define the compiler Cargo features for the C API. It always excludes
+# LLVM for the moment.
+capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm, $(compilers)))
+
+
+#####
+#
+# Display information.
+#
+#####
+
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
-
-compiler_features_spaced := $(foreach compiler,$(compilers),$(compiler))
-compiler_features := --features "$(compiler_features_spaced)"
-
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
 
 ifneq (, $(LIBC))
-$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+	$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 
-$(info Host target: $(bold)$(green)$(HOST_TARGET)$(reset))
-$(info Available compilers: $(bold)$(green)${compilers}$(reset))
-$(info Compilers features: $(bold)$(green)${compiler_features}$(reset))
-$(info Available compilers + engines for test: $(bold)$(green)${test_compilers_engines}$(reset))
+$(info -----------)
+$(info $(bold)$(green)INFORMATION$(reset))
+$(info -----------)
+$(info )
+$(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
+$(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
+$(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
+$(info Cargo features:)
+$(info     - Compilers for all crates: `$(bold)$(green)${compiler_features}$(reset)`.)
+$(info     - Compilers for the C API: `$(bold)$(green)${capi_compiler_features}$(reset)`.)
+$(info     - Default for the C API: `$(bold)$(green)${capi_default_features}$(reset)`.)
+$(info )
+$(info )
+$(info --------------)
+$(info $(bold)$(green)RULE EXECUTION$(reset))
+$(info --------------)
+$(info )
+$(info )
 
 
 ############
@@ -136,10 +351,10 @@ build-wasmer-debug:
 # rpath = false
 build-wasmer-headless-minimal:
 	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless.exe
 else
 	strip --strip-unneeded target/$(HOST_TARGET)/release/wasmer-headless
@@ -151,7 +366,7 @@ get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
 build-wapm: get-wapm
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	# We build it without bundling sqlite, as is included by default in macos
 	cargo build --release --manifest-path wapm-cli/Cargo.toml --no-default-features --features "packagesigning telemetry update-notifications"
 else
@@ -165,8 +380,9 @@ build-docs-capi:
 	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
 	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
 
-# We use cranelift as the default backend for the capi for now
-build-capi: build-capi-cranelift
+build-capi:
+	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(capi_compiler_features)
 
 build-capi-singlepass:
 	cargo build --manifest-path lib/c-api/Cargo.toml --release \
@@ -262,11 +478,11 @@ test-llvm-native:
 test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
-test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
+test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
-test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
+test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engines)),test-$(cranelift_engine))
 
-test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(test_compilers_engines)),test-$(llvm_engine))
+test-llvm: $(foreach llvm_engine,$(filter llvm-%,$(compilers_engines)),test-$(llvm_engine))
 
 test-packages:
 	cargo test -p wasmer --release
@@ -283,9 +499,32 @@ test-packages:
 	cargo test -p wasmer-derive --release
 
 
-# The test-capi rules depend on the build-capi rules to build the .a files to
-# link the tests against. cargo test doesn't know that the tests will be running
-test-capi: $(foreach compiler_engine,$(test_compilers_engines),test-capi-$(compiler_engine))
+# We want to run all the tests for all available compilers. The C API
+# and the tests rely on the fact that one and only one default
+# compiler will be selected at compile-time. Therefore, if we want to
+# test exhaustively for all available compilers, we need to build and
+# to test the C API with a different compiler each time.
+#
+# That's exactly what `test-capi` does: it runs `build-capi-*` with
+# one compiler, and then it runs `test-capi-*` for that compiler
+# specifically.
+#
+# Why do we need to run `build-capi-*` exactly? One might think that
+# `cargo test` would generate a static library (`.a`) to link the
+# tests against, but no. `cargo test` has no idea that we need this
+# static library, that's normal the library isn't generated. Hence the
+# need to run `cargo build` prior to testing to get all the build
+# artifacts.
+#
+# Finally, `test-capi` calls `test-capi-all` that runs the tests for
+# the library built with `build-capi`, which is the one we will
+# deliver to the users, i.e. the one that may include multiple
+# compilers.
+test-capi: $(foreach compiler_engine,$(compilers_engines),test-capi-$(compiler_engine)) test-capi-all
+
+test-capi-all: build-capi
+	cargo test --manifest-path lib/c-api/Cargo.toml --release \
+		--no-default-features --features deprecated,wat,jit,native,object-file,wasi $(capi_default_features) $(capi_compiler_features) -- --nocapture
 
 test-capi-singlepass-jit: build-capi-singlepass-jit test-capi-tests
 	cargo test --manifest-path lib/c-api/Cargo.toml --release \
@@ -333,7 +572,7 @@ test-integration:
 
 package-wapm:
 	mkdir -p "package/bin"
-ifneq ($(OS), Windows_NT)
+ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
@@ -343,13 +582,13 @@ else
 	if [ -d "wapm-cli" ]; then \
 		cp wapm-cli/target/release/wapm package/bin/ ;\
 	fi
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wapm
 endif
 endif
 
 package-minimal-headless-wasmer:
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	if [ -f "target/$(HOST_TARGET)/release/wasmer-headless.exe" ]; then \
 		cp target/$(HOST_TARGET)/release/wasmer-headless.exe package/bin ;\
 	fi
@@ -361,11 +600,11 @@ endif
 
 package-wasmer:
 	mkdir -p "package/bin"
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	cp target/release/wasmer.exe package/bin/
 else
 	cp target/release/wasmer package/bin/
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer
 endif
 endif
@@ -377,11 +616,11 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
 	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
 else
-ifeq ($(UNAME_S), Darwin)
+ifeq ($(IS_DARWIN), 1)
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
 	rm -f package/lib/libwasmer.dylib
 	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
@@ -411,7 +650,7 @@ distribution: package
 	cp LICENSE package/LICENSE
 	cp ATTRIBUTIONS.md package/ATTRIBUTIONS
 	mkdir -p dist
-ifeq ($(OS), Windows_NT)
+ifeq ($(IS_WINDOWS), 1)
 	iscc scripts/windows-installer/wasmer.iss
 	cp scripts/windows-installer/WasmerInstaller.exe dist/
 endif

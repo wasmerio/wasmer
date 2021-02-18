@@ -8,6 +8,8 @@
 ## **[Unreleased]**
 
 ### Added
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
 - [#2118](https://github.com/wasmerio/wasmer/pull/2118) Add an unstable non-standard C API to query available engines and compilers.
 
 ### Changed
