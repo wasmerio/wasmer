@@ -76,7 +76,10 @@ pub fn generate_header_file(
 ) -> String {
     let mut c_statements = vec![];
     c_statements.push(CStatement::LiteralConstant {
-        value: "#include <stdlib.h>\n\n".to_string(),
+        value: "#include <stdlib.h>\n#include <string.h>\n\n".to_string(),
+    });
+    c_statements.push(CStatement::LiteralConstant {
+        value: "#ifdef __cplusplus\nextern \"C\" {\n#endif\n\n".to_string(),
     });
     c_statements.push(CStatement::Declaration {
         name: "module_bytes_len".to_string(),
@@ -285,11 +288,9 @@ pub fn generate_header_file(
         value: HELPER_FUNCTIONS.to_string(),
     });
 
-    let inner_c = generate_c(&c_statements);
+    c_statements.push(CStatement::LiteralConstant {
+        value: "\n#ifdef __cplusplus\n}\n#endif\n\n".to_string(),
+    });
 
-    // we wrap the inner C to work with C++ too
-    format!(
-        "#ifdef __cplusplus\nextern \"C\" {{\n#endif\n\n{}\n\n#ifdef __cplusplus\n}}\n#endif\n",
-        inner_c
-    )
+    generate_c(&c_statements)
 }
