@@ -597,7 +597,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">engine</span>::{
     <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>, <span class="ident">wasmer_is_engine_available</span>,
 };
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasm_target_t</span>;
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasmer_target_t</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
@@ -693,7 +693,7 @@
     <span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>,
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>,
-    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
 <span class="doccomment">/// Create a new default Wasmer configuration.</span>

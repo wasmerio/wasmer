@@ -196,7 +196,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Read the module&#39;s name.</span>
 <span class="doccomment">///     wasm_name_t name;</span>
-<span class="doccomment">///     wasm_module_name(module, &amp;name);</span>
+<span class="doccomment">///     wasmer_module_name(module, &amp;name);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // It works!</span>
 <span class="doccomment">///     wasmer_assert_name(&amp;name, &quot;moduleName&quot;);</span>
@@ -216,7 +216,7 @@
 <span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_module_name</span>(
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_module_name</span>(
     <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_module_t</span>,
     <span class="comment">// own</span>
     <span class="ident">out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_name_t</span>,
@@ -263,7 +263,7 @@
 <span class="doccomment">///     // Read the module&#39;s name. There is none for the moment.</span>
 <span class="doccomment">///     {</span>
 <span class="doccomment">///         wasm_name_t name;</span>
-<span class="doccomment">///         wasm_module_name(module, &amp;name);</span>
+<span class="doccomment">///         wasmer_module_name(module, &amp;name);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///         assert(name.size == 0);</span>
 <span class="doccomment">///     }</span>
@@ -272,13 +272,13 @@
 <span class="doccomment">///     {</span>
 <span class="doccomment">///         wasm_name_t name;</span>
 <span class="doccomment">///         wasmer_byte_vec_new_from_string(&amp;name, &quot;hello&quot;);</span>
-<span class="doccomment">///         wasm_module_set_name(module, &amp;name);</span>
+<span class="doccomment">///         wasmer_module_set_name(module, &amp;name);</span>
 <span class="doccomment">///     }</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // And now, let&#39;s see the new name.</span>
 <span class="doccomment">///     {</span>
 <span class="doccomment">///         wasm_name_t name;</span>
-<span class="doccomment">///         wasm_module_name(module, &amp;name);</span>
+<span class="doccomment">///         wasmer_module_name(module, &amp;name);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///         // It works!</span>
 <span class="doccomment">///         wasmer_assert_name(&amp;name, &quot;hello&quot;);</span>
@@ -300,7 +300,7 @@
 <span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_module_set_name</span>(
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_module_set_name</span>(
     <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_module_t</span>,
     <span class="comment">// own</span>
     <span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_name_t</span>,

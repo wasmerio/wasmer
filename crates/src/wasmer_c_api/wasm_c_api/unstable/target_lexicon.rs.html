@@ -329,13 +329,13 @@
 <span class="doccomment">//! #</span>
 <span class="doccomment">//! int main() {</span>
 <span class="doccomment">//!     // Declare the target triple.</span>
-<span class="doccomment">//!     wasm_triple_t* triple;</span>
+<span class="doccomment">//!     wasmer_triple_t* triple;</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     {</span>
 <span class="doccomment">//!         wasm_name_t triple_name;</span>
 <span class="doccomment">//!         wasm_name_new_from_string(&amp;triple_name, &quot;x86_64-apple-darwin&quot;);</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//!         triple = wasm_triple_new(&amp;triple_name);</span>
+<span class="doccomment">//!         triple = wasmer_triple_new(&amp;triple_name);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!         wasm_name_delete(&amp;triple_name);</span>
 <span class="doccomment">//!     }</span>
@@ -343,13 +343,13 @@
 <span class="doccomment">//!     assert(triple);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     // Declare the target CPU features.</span>
-<span class="doccomment">//!     wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();</span>
+<span class="doccomment">//!     wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     {</span>
 <span class="doccomment">//!         wasm_name_t cpu_feature_name;</span>
 <span class="doccomment">//!         wasm_name_new_from_string(&amp;cpu_feature_name, &quot;sse2&quot;);</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//!         wasm_cpu_features_add(cpu_features, &amp;cpu_feature_name);</span>
+<span class="doccomment">//!         wasmer_cpu_features_add(cpu_features, &amp;cpu_feature_name);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!         wasm_name_delete(&amp;cpu_feature_name);</span>
 <span class="doccomment">//!     }</span>
@@ -357,10 +357,10 @@
 <span class="doccomment">//!     assert(cpu_features);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     // Create the target!</span>
-<span class="doccomment">//!     wasm_target_t* target = wasm_target_new(triple, cpu_features);</span>
+<span class="doccomment">//!     wasmer_target_t* target = wasmer_target_new(triple, cpu_features);</span>
 <span class="doccomment">//!     assert(target);</span>
 <span class="doccomment">//!</span>
-<span class="doccomment">//!     wasm_target_delete(target);</span>
+<span class="doccomment">//!     wasmer_target_delete(target);</span>
 <span class="doccomment">//!</span>
 <span class="doccomment">//!     return 0;</span>
 <span class="doccomment">//! }</span>
@@ -384,11 +384,11 @@
 <span class="doccomment">/// See the module&#39;s documentation.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_target_t</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_target_t</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">inner</span>: <span class="ident">Target</span>,
 }
 
-<span class="doccomment">/// Creates a new [`wasm_target_t`].</span>
+<span class="doccomment">/// Creates a new [`wasmer_target_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// It takes ownership of `triple` and `cpu_features`.</span>
 <span class="doccomment">///</span>
@@ -396,25 +396,25 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// See the module&#39;s documentation.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_target_new</span>(
-    <span class="ident">triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-    <span class="ident">cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_cpu_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_target_new</span>(
+    <span class="ident">triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_cpu_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">triple</span><span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">cpu_features</span><span class="question-mark">?</span>;
 
-    <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_target_t</span> {
+    <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_target_t</span> {
         <span class="ident">inner</span>: <span class="ident">Target</span>::<span class="ident">new</span>(<span class="ident">triple</span>.<span class="ident">inner</span>.<span class="ident">clone</span>(), <span class="ident">cpu_features</span>.<span class="ident">inner</span>.<span class="ident">clone</span>()),
     }))
 }
 
-<span class="doccomment">/// Delete a [`wasm_target_t`].</span>
+<span class="doccomment">/// Delete a [`wasmer_target_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// See the module&#39;s documentation.</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_target_delete</span>(<span class="ident">_target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_target_delete</span>(<span class="ident">_target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to represent a target</span>
 <span class="doccomment">/// “triple”.</span>
@@ -434,10 +434,10 @@
 <span class="doccomment">///     wasm_name_t triple_name;</span>
 <span class="doccomment">///     wasm_name_new_from_string(&amp;triple_name, &quot;x86_64-apple-darwin&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     wasm_triple_t* triple = wasm_triple_new(&amp;triple_name);</span>
+<span class="doccomment">///     wasmer_triple_t* triple = wasmer_triple_new(&amp;triple_name);</span>
 <span class="doccomment">///     assert(triple);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     wasm_triple_delete(triple);</span>
+<span class="doccomment">///     wasmer_triple_delete(triple);</span>
 <span class="doccomment">///     wasm_name_delete(&amp;triple_name);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     return 0;</span>
@@ -447,33 +447,33 @@
 <span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See also [`wasm_triple_new_from_host`].</span>
+<span class="doccomment">/// See also [`wasmer_triple_new_from_host`].</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_triple_t</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_triple_t</span> {
     <span class="ident">inner</span>: <span class="ident">Triple</span>,
 }
 
-<span class="doccomment">/// Create a new [`wasm_triple_t`] based on a triple string.</span>
+<span class="doccomment">/// Create a new [`wasmer_triple_t`] based on a triple string.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_triple_t`] or [`wasm_triple_new_from_host`].</span>
+<span class="doccomment">/// See [`wasmer_triple_t`] or [`wasmer_triple_new_from_host`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_triple_new</span>(
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_triple_new</span>(
     <span class="ident">triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_name_t</span><span class="op">&gt;</span>,
-) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="ident">triple</span><span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">triple</span> <span class="op">=</span> <span class="macro">c_try</span><span class="macro">!</span>(<span class="ident">str</span>::<span class="ident">from_utf8</span>(<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(
         <span class="ident">triple</span>.<span class="ident">data</span>,
         <span class="ident">triple</span>.<span class="ident">size</span>
     )));
 
-    <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_triple_t</span> {
+    <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_triple_t</span> {
         <span class="ident">inner</span>: <span class="macro">c_try</span><span class="macro">!</span>(<span class="ident">Triple</span>::<span class="ident">from_str</span>(<span class="ident">triple</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">CApiError</span> { <span class="ident">msg</span>: <span class="ident">e</span>.<span class="ident">to_string</span>() })),
     }))
 }
 
-<span class="doccomment">/// Create the [`wasm_triple_t`] for the current host.</span>
+<span class="doccomment">/// Create the [`wasmer_triple_t`] for the current host.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
@@ -484,10 +484,10 @@
 <span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
-<span class="doccomment">///     wasm_triple_t* triple = wasm_triple_new_from_host();</span>
+<span class="doccomment">///     wasmer_triple_t* triple = wasmer_triple_new_from_host();</span>
 <span class="doccomment">///     assert(triple);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     wasm_triple_delete(triple);</span>
+<span class="doccomment">///     wasmer_triple_delete(triple);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     return 0;</span>
 <span class="doccomment">/// }</span>
@@ -496,21 +496,21 @@
 <span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See also [`wasm_triple_new`].</span>
+<span class="doccomment">/// See also [`wasmer_triple_new`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_triple_new_from_host</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_triple_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_triple_t</span> {
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_triple_new_from_host</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_triple_t</span><span class="op">&gt;</span> {
+    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_triple_t</span> {
         <span class="ident">inner</span>: <span class="ident">Triple</span>::<span class="ident">host</span>(),
     })
 }
 
-<span class="doccomment">/// Delete a [`wasm_triple_t`].</span>
+<span class="doccomment">/// Delete a [`wasmer_triple_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_triple_t`].</span>
+<span class="doccomment">/// See [`wasmer_triple_t`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_triple_delete</span>(<span class="ident">_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_triple_delete</span>(<span class="ident">_triple</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_triple_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to represent a set of</span>
 <span class="doccomment">/// CPU features.</span>
@@ -549,19 +549,19 @@
 <span class="doccomment">/// #</span>
 <span class="doccomment">/// int main() {</span>
 <span class="doccomment">///     // Create a new CPU feature set.</span>
-<span class="doccomment">///     wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();</span>
+<span class="doccomment">///     wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     // Create a new feature name, here `sse2`, and add it to the set.</span>
 <span class="doccomment">///     {</span>
 <span class="doccomment">///         wasm_name_t cpu_feature_name;</span>
 <span class="doccomment">///         wasm_name_new_from_string(&amp;cpu_feature_name, &quot;sse2&quot;);</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///         wasm_cpu_features_add(cpu_features, &amp;cpu_feature_name);</span>
+<span class="doccomment">///         wasmer_cpu_features_add(cpu_features, &amp;cpu_feature_name);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///         wasm_name_delete(&amp;cpu_feature_name);</span>
 <span class="doccomment">///     }</span>
 <span class="doccomment">///</span>
-<span class="doccomment">///     wasm_cpu_features_delete(cpu_features);</span>
+<span class="doccomment">///     wasmer_cpu_features_delete(cpu_features);</span>
 <span class="doccomment">///</span>
 <span class="doccomment">///     return 0;</span>
 <span class="doccomment">/// }</span>
@@ -570,39 +570,39 @@
 <span class="doccomment">/// # }</span>
 <span class="doccomment">/// ```</span>
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">non_camel_case_types</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasm_cpu_features_t</span> {
+<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">wasmer_cpu_features_t</span> {
     <span class="ident">inner</span>: <span class="ident">EnumSet</span><span class="op">&lt;</span><span class="ident">CpuFeature</span><span class="op">&gt;</span>,
 }
 
-<span class="doccomment">/// Create a new [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// Create a new [`wasmer_cpu_features_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// See [`wasmer_cpu_features_t`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_cpu_features_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_cpu_features_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_cpu_features_t</span> {
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_cpu_features_new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_cpu_features_t</span><span class="op">&gt;</span> {
+    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_cpu_features_t</span> {
         <span class="ident">inner</span>: <span class="ident">CpuFeature</span>::<span class="ident">set</span>(),
     })
 }
 
-<span class="doccomment">/// Delete a [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// Delete a [`wasmer_cpu_features_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// See [`wasmer_cpu_features_t`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_cpu_features_delete</span>(<span class="ident">_cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_cpu_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_cpu_features_delete</span>(<span class="ident">_cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_cpu_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>) {}
 
 <span class="doccomment">/// Add a new CPU feature into the set represented by</span>
-<span class="doccomment">/// [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// [`wasmer_cpu_features_t`].</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// # Example</span>
 <span class="doccomment">///</span>
-<span class="doccomment">/// See [`wasm_cpu_features_t`].</span>
+<span class="doccomment">/// See [`wasmer_cpu_features_t`].</span>
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
-<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_cpu_features_add</span>(
-    <span class="ident">cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_cpu_features_t</span><span class="op">&gt;</span>,
+<span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasmer_cpu_features_add</span>(
+    <span class="ident">cpu_features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasmer_cpu_features_t</span><span class="op">&gt;</span>,
     <span class="ident">feature</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">wasm_name_t</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
     <span class="kw">let</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">cpu_features</span> {

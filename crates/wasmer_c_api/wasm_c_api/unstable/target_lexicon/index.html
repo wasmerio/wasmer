@@ -6,13 +6,13 @@ to create a target with a triple and CPU features.</p>
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="ident">int</span> <span class="ident">main</span>() {
     <span class="comment">// Declare the target triple.</span>
-    <span class="ident">wasm_triple_t</span><span class="op">*</span> <span class="ident">triple</span>;
+    <span class="ident">wasmer_triple_t</span><span class="op">*</span> <span class="ident">triple</span>;
 
     {
         <span class="ident">wasm_name_t</span> <span class="ident">triple_name</span>;
         <span class="ident">wasm_name_new_from_string</span>(<span class="kw-2">&amp;</span><span class="ident">triple_name</span>, <span class="string">&quot;x86_64-apple-darwin&quot;</span>);
 
-        <span class="ident">triple</span> <span class="op">=</span> <span class="ident">wasm_triple_new</span>(<span class="kw-2">&amp;</span><span class="ident">triple_name</span>);
+        <span class="ident">triple</span> <span class="op">=</span> <span class="ident">wasmer_triple_new</span>(<span class="kw-2">&amp;</span><span class="ident">triple_name</span>);
 
         <span class="ident">wasm_name_delete</span>(<span class="kw-2">&amp;</span><span class="ident">triple_name</span>);
     }
@@ -20,13 +20,13 @@ to create a target with a triple and CPU features.</p>
     <span class="ident">assert</span>(<span class="ident">triple</span>);
 
     <span class="comment">// Declare the target CPU features.</span>
-    <span class="ident">wasm_cpu_features_t</span><span class="op">*</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">wasm_cpu_features_new</span>();
+    <span class="ident">wasmer_cpu_features_t</span><span class="op">*</span> <span class="ident">cpu_features</span> <span class="op">=</span> <span class="ident">wasmer_cpu_features_new</span>();
 
     {
         <span class="ident">wasm_name_t</span> <span class="ident">cpu_feature_name</span>;
         <span class="ident">wasm_name_new_from_string</span>(<span class="kw-2">&amp;</span><span class="ident">cpu_feature_name</span>, <span class="string">&quot;sse2&quot;</span>);
 
-        <span class="ident">wasm_cpu_features_add</span>(<span class="ident">cpu_features</span>, <span class="kw-2">&amp;</span><span class="ident">cpu_feature_name</span>);
+        <span class="ident">wasmer_cpu_features_add</span>(<span class="ident">cpu_features</span>, <span class="kw-2">&amp;</span><span class="ident">cpu_feature_name</span>);
 
         <span class="ident">wasm_name_delete</span>(<span class="kw-2">&amp;</span><span class="ident">cpu_feature_name</span>);
     }
@@ -34,28 +34,28 @@ to create a target with a triple and CPU features.</p>
     <span class="ident">assert</span>(<span class="ident">cpu_features</span>);
 
     <span class="comment">// Create the target!</span>
-    <span class="ident">wasm_target_t</span><span class="op">*</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">wasm_target_new</span>(<span class="ident">triple</span>, <span class="ident">cpu_features</span>);
+    <span class="ident">wasmer_target_t</span><span class="op">*</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">wasmer_target_new</span>(<span class="ident">triple</span>, <span class="ident">cpu_features</span>);
     <span class="ident">assert</span>(<span class="ident">target</span>);
 
-    <span class="ident">wasm_target_delete</span>(<span class="ident">target</span>);
+    <span class="ident">wasmer_target_delete</span>(<span class="ident">target</span>);
 
     <span class="kw">return</span> <span class="number">0</span>;
 }</pre></div>
 </div><h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
-<table><tr class="module-item"><td><a class="struct" href="struct.wasm_cpu_features_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_cpu_features_t struct">wasm_cpu_features_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a set of
+<table><tr class="module-item"><td><a class="struct" href="struct.wasmer_cpu_features_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_cpu_features_t struct">wasmer_cpu_features_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a set of
 CPU features.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.wasm_target_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_target_t struct">wasm_target_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a triple +
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.wasmer_target_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_target_t struct">wasmer_target_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a triple +
 CPU features pair.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.wasm_triple_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_triple_t struct">wasm_triple_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a target
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.wasmer_triple_t.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_triple_t struct">wasmer_triple_t</a></td><td class="docblock-short"><p>Unstable non-standard Wasmer-specific API to represent a target
 “triple”.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
-<table><tr class="module-item"><td><a class="fn" href="fn.wasm_cpu_features_add.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_cpu_features_add fn">wasm_cpu_features_add</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Add a new CPU feature into the set represented by
-<a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_cpu_features_t.html" title="wasm_cpu_features_t"><code>wasm_cpu_features_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_cpu_features_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_cpu_features_delete fn">wasm_cpu_features_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_cpu_features_t.html" title="wasm_cpu_features_t"><code>wasm_cpu_features_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_cpu_features_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_cpu_features_new fn">wasm_cpu_features_new</a></td><td class="docblock-short"><p>Create a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_cpu_features_t.html" title="wasm_cpu_features_t"><code>wasm_cpu_features_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_target_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_target_delete fn">wasm_target_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_target_t.html" title="wasm_target_t"><code>wasm_target_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_target_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_target_new fn">wasm_target_new</a></td><td class="docblock-short"><p>Creates a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_target_t.html" title="wasm_target_t"><code>wasm_target_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_triple_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_triple_delete fn">wasm_triple_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_triple_t.html" title="wasm_triple_t"><code>wasm_triple_t</code></a>.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_triple_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_triple_new fn">wasm_triple_new</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Create a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_triple_t.html" title="wasm_triple_t"><code>wasm_triple_t</code></a> based on a triple string.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasm_triple_new_from_host.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasm_triple_new_from_host fn">wasm_triple_new_from_host</a></td><td class="docblock-short"><p>Create the <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasm_triple_t.html" title="wasm_triple_t"><code>wasm_triple_t</code></a> for the current host.</p>
+<table><tr class="module-item"><td><a class="fn" href="fn.wasmer_cpu_features_add.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_cpu_features_add fn">wasmer_cpu_features_add</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Add a new CPU feature into the set represented by
+<a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_cpu_features_t.html" title="wasmer_cpu_features_t"><code>wasmer_cpu_features_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_cpu_features_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_cpu_features_delete fn">wasmer_cpu_features_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_cpu_features_t.html" title="wasmer_cpu_features_t"><code>wasmer_cpu_features_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_cpu_features_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_cpu_features_new fn">wasmer_cpu_features_new</a></td><td class="docblock-short"><p>Create a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_cpu_features_t.html" title="wasmer_cpu_features_t"><code>wasmer_cpu_features_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_target_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_target_delete fn">wasmer_target_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_target_t.html" title="wasmer_target_t"><code>wasmer_target_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_target_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_target_new fn">wasmer_target_new</a></td><td class="docblock-short"><p>Creates a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_target_t.html" title="wasmer_target_t"><code>wasmer_target_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_triple_delete.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_triple_delete fn">wasmer_triple_delete</a></td><td class="docblock-short"><p>Delete a <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_triple_t.html" title="wasmer_triple_t"><code>wasmer_triple_t</code></a>.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_triple_new.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_triple_new fn">wasmer_triple_new</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Create a new <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_triple_t.html" title="wasmer_triple_t"><code>wasmer_triple_t</code></a> based on a triple string.</p>
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.wasmer_triple_new_from_host.html" title="wasmer_c_api::wasm_c_api::unstable::target_lexicon::wasmer_triple_new_from_host fn">wasmer_triple_new_from_host</a></td><td class="docblock-short"><p>Create the <a href="../../../../wasmer_c_api/wasm_c_api/unstable/target_lexicon/struct.wasmer_triple_t.html" title="wasmer_triple_t"><code>wasmer_triple_t</code></a> for the current host.</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../../";window.currentCrate = "wasmer_c_api";</script><script src="../../../../main.js"></script><script defer src="../../../../search-index.js"></script></body></html>
