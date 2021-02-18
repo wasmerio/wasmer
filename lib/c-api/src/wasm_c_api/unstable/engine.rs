@@ -2,7 +2,7 @@
 //! `wasm_engine_t` and siblings.
 
 use super::super::engine::{wasm_config_t, wasmer_compiler_t, wasmer_engine_t};
-use super::target_lexicon::wasm_target_t;
+use super::target_lexicon::wasmer_target_t;
 
 /// Unstable non-standard Wasmer-specific API to update the
 /// configuration to specify a particular target for the engine.
@@ -21,9 +21,9 @@ use super::target_lexicon::wasm_target_t;
 ///
 ///     // Set the target.
 ///     {
-///         wasm_triple_t* triple = wasm_triple_new_from_host();
-///         wasm_cpu_features_t* cpu_features = wasm_cpu_features_new();
-///         wasm_target_t* target = wasm_target_new(triple, cpu_features);
+///         wasmer_triple_t* triple = wasmer_triple_new_from_host();
+///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
+///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 ///
 ///         wasm_config_set_target(config, target);
 ///     }
@@ -44,7 +44,7 @@ use super::target_lexicon::wasm_target_t;
 /// # }
 /// ```
 #[no_mangle]
-pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasm_target_t>) {
+pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasmer_target_t>) {
     config.target = Some(target);
 }
 

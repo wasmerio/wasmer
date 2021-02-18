@@ -1,7 +1,7 @@
 pub use super::unstable::engine::{
     wasm_config_set_target, wasmer_is_compiler_available, wasmer_is_engine_available,
 };
-use super::unstable::target_lexicon::wasm_target_t;
+use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
@@ -97,7 +97,7 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
-    pub(super) target: Option<Box<wasm_target_t>>,
+    pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
 /// Create a new default Wasmer configuration.
