@@ -132,7 +132,9 @@ impl ControlStackFrame {
             Self::Loop { header, .. } => header,
         }
     }
-    pub fn original_stack_size(&self) -> usize {
+    /// Private helper. Use `truncate_value_stack_to_else_params()` or
+    /// `truncate_value_stack_to_original_size()` to restore value-stack state.
+    fn original_stack_size(&self) -> usize {
         match *self {
             Self::If {
                 original_stack_size,
@@ -182,6 +184,33 @@ impl ControlStackFrame {
             Self::Loop { .. } => {}
         }
     }
+
+    /// Pop values from the value stack so that it is left at the
+    /// input-parameters to an else-block.
+    pub fn truncate_value_stack_to_else_params(&self, stack: &mut Vec<Value>) {
+        debug_assert!(matches!(self, &ControlStackFrame::If { .. }));
+        stack.truncate(self.original_stack_size());
+    }
+
+    /// Pop values from the value stack so that it is left at the state it was
+    /// before this control-flow frame.
+    pub fn truncate_value_stack_to_original_size(&self, stack: &mut Vec<Value>) {
+        // The "If" frame pushes its parameters twice, so they're available to the else block
+        // (see also `FuncTranslationState::push_if`).
+        // Yet, the original_stack_size member accounts for them only once, so that the else
+        // block can see the same number of parameters as the consequent block. As a matter of
+        // fact, we need to substract an extra number of parameter values for if blocks.
+        let num_duplicated_params = match self {
+            &ControlStackFrame::If {
+                num_param_values, ..
+            } => {
+                debug_assert!(num_param_values <= self.original_stack_size());
+                num_param_values
+            }
+            _ => 0,
+        };
+        stack.truncate(self.original_stack_size() - num_duplicated_params);
+    }
 }
 
 /// Contains information passed along during a function's translation and that records:
@@ -217,6 +246,16 @@ pub struct FuncTranslationState {
     // `FuncEnvironment::make_direct_func()`.
     // Stores both the function reference and the number of WebAssembly arguments
     functions: HashMap<FunctionIndex, (ir::FuncRef, usize)>,
+}
+
+// Public methods that are exposed to non-`cranelift_wasm` API consumers.
+impl FuncTranslationState {
+    /// True if the current translation state expresses reachable code, false if it is unreachable.
+    #[inline]
+    #[allow(dead_code)]
+    pub fn reachable(&self) -> bool {
+        self.reachable
+    }
 }
 
 impl FuncTranslationState {
@@ -441,7 +480,7 @@ impl FuncTranslationState {
 
     /// Get the `Table` reference that should be used to access table `index`.
     /// Create the reference if necessary.
-    pub(crate) fn get_table<FE: FuncEnvironment + ?Sized>(
+    pub(crate) fn get_or_create_table<FE: FuncEnvironment + ?Sized>(
         &mut self,
         func: &mut ir::Function,
         index: u32,

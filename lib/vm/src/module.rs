@@ -1,8 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
-//! Data structure for representing WebAssembly modules
-//! in a [`Module`].
+//! Data structure for representing WebAssembly modules in a
+//! `wasmer::Module`.
 
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
@@ -19,7 +19,7 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 pub struct ModuleId {
     id: usize,
 }
@@ -41,7 +41,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
@@ -155,7 +155,7 @@ impl ModuleInfo {
             .filter_map(|(_name, export_index)| match export_index {
                 ExportIndex::Function(i) => {
                     let signature = self.functions.get(*i).unwrap();
-                    let func_type = self.signatures.get(signature.clone()).unwrap();
+                    let func_type = self.signatures.get(*signature).unwrap();
                     Some(func_type.clone())
                 }
                 _ => None,

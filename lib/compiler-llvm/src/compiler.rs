@@ -7,16 +7,18 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
-use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use rayon::iter::ParallelBridge;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex,
-    Symbol, SymbolRegistry, Target,
+    Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
+    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
-//use std::sync::{Arc, Mutex};
+//use std::sync::Mutex;
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
@@ -26,10 +28,8 @@ pub struct LLVMCompiler {
 
 impl LLVMCompiler {
     /// Creates a new LLVM compiler
-    pub fn new(config: &LLVM) -> LLVMCompiler {
-        LLVMCompiler {
-            config: config.clone(),
-        }
+    pub fn new(config: LLVM) -> LLVMCompiler {
+        LLVMCompiler { config }
     }
 
     /// Gets the config for this Compiler
@@ -59,7 +59,7 @@ impl SymbolRegistry for ShortNames {
             Ok(v) => v,
             Err(_) => return None,
         };
-        match ty.chars().nth(0).unwrap() {
+        match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
             't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
@@ -85,74 +85,43 @@ impl LLVMCompiler {
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
-        let merged_module = ctx.create_module("");
 
-        // TODO: make these steps run in parallel instead of in three phases
-        // with a serial step in between them.
+        // TODO: https:/github.com/rayon-rs/rayon/issues/822
 
-        function_body_inputs
-            .into_iter()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    FuncTranslator::new(target_machine)
-                },
-                |func_translator, (i, input)| {
-                    let module = func_translator.translate_to_module(
-                        &compile_info.module,
-                        module_translation,
-                        i,
-                        input,
-                        self.config(),
-                        &compile_info.memory_styles,
-                        &compile_info.table_styles,
-                        symbol_registry,
-                    )?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-                },
-            )
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
-            });
+        let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
+            || {
+                let target_machine = self.config().target_machine(target);
+                FuncTranslator::new(target_machine)
+            },
+            |func_translator, (i, input)| {
+                let module = func_translator.translate_to_module(
+                    &compile_info.module,
+                    module_translation,
+                    &i,
+                    input,
+                    self.config(),
+                    &compile_info.memory_styles,
+                    &compile_info.table_styles,
+                    symbol_registry,
+                )?;
+                Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+            },
+        );
 
-        compile_info
-            .module
-            .signatures
-            .into_iter()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    FuncTrampoline::new(target_machine)
-                },
-                |func_trampoline, (i, sig)| {
-                    let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(*i));
-                    let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-                },
-            )
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
-            });
+        let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
+            || {
+                let target_machine = self.config().target_machine(target);
+                FuncTrampoline::new(target_machine)
+            },
+            |func_trampoline, (i, sig)| {
+                let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
+                let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
+                Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+            },
+        );
 
-        compile_info
-            .module
-            .functions
-            .into_iter()
-            .collect::<Vec<_>>()
-            .par_iter()
-            .map_init(
+        let dynamic_trampolines_bitcode =
+            compile_info.module.functions.iter().par_bridge().map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
                     (
@@ -161,21 +130,34 @@ impl LLVMCompiler {
                     )
                 },
                 |(func_trampoline, signatures), (i, sig)| {
-                    let sig = &signatures[**sig];
-                    let name =
-                        symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(*i));
+                    let sig = &signatures[*sig];
+                    let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
                     let module =
                         func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
-            )
+            );
+
+        let merged_bitcode = merged_bitcode
+            .chain(trampolines_bitcode)
+            .chain(dynamic_trampolines_bitcode)
             .collect::<Result<Vec<_>, CompileError>>()?
-            .into_iter()
-            .for_each(|bc| {
-                let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-                let m = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                merged_module.link_in_module(m).unwrap();
+            .into_par_iter()
+            .reduce_with(|bc1, bc2| {
+                let ctx = Context::create();
+                let membuf = MemoryBuffer::create_from_memory_range(&bc1, "");
+                let m1 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                let membuf = MemoryBuffer::create_from_memory_range(&bc2, "");
+                let m2 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
+                m1.link_in_module(m2).unwrap();
+                m1.write_bitcode_to_memory().as_slice().to_vec()
             });
+        let merged_module = if let Some(bc) = merged_bitcode {
+            let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
+            Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap()
+        } else {
+            ctx.create_module("")
+        };
 
         let i8_ty = ctx.i8_type();
         let metadata_init = i8_ty.const_array(
@@ -210,7 +192,7 @@ impl Compiler for LLVMCompiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -218,9 +200,13 @@ impl Compiler for LLVMCompiler {
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
     ) -> Option<Result<Vec<u8>, CompileError>> {
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         Some(self.compile_native_object(
             target,
-            module,
+            compile_info,
             module_translation,
             function_body_inputs,
             symbol_registry,
@@ -233,13 +219,17 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module CompileModuleInfo,
+        compile_info: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
         //let data = Arc::new(Mutex::new(0));
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.
@@ -248,7 +238,7 @@ impl Compiler for LLVMCompiler {
         let mut frame_section_bytes = vec![];
         let mut frame_section_relocations = vec![];
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(
@@ -260,14 +250,14 @@ impl Compiler for LLVMCompiler {
                     // TODO: remove (to serialize)
                     //let _data = data.lock().unwrap();
                     func_translator.translate(
-                        &module,
+                        module,
                         module_translation,
                         i,
                         input,
                         self.config(),
                         memory_styles,
                         &table_styles,
-                        &mut ShortNames {},
+                        &ShortNames {},
                     )
                 },
             )

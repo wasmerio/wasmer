@@ -35,7 +35,7 @@
 
 * **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift...).
 
-* **Universal**. You can run Wasmer in almost any *platform* (macOS, Linux and Windows) and *chipset*.
+* **Universal**. You can run Wasmer in any *platform* (macOS, Linux and Windows) and *chipset*.
 
 * **Standards compliant**. The runtime passes [official WebAssembly test
   suite](https://github.com/WebAssembly/testsuite) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
@@ -89,6 +89,7 @@ qjs >
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
 | ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
 | ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Docs][c# docs] |
+| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Docs][d docs] |
 | ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Docs][python docs] |
 | ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Docs][js docs] |
 | ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Docs][go docs] |
@@ -98,6 +99,7 @@ qjs >
 | ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
 | ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
+|  | [**Swift**][Swift integration] | *no published package* | |
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -115,6 +117,11 @@ qjs >
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
 [`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
+
+[d logo]: ./assets/languages/d.svg
+[d integration]: https://github.com/chances/wasmer-d
+[`wasmer` Dub package]: https://code.dlang.org/packages/wasmer
+[d docs]: https://chances.github.io/wasmer-d
 
 [python logo]: ./assets/languages/python.svg
 [python integration]: https://github.com/wasmerio/wasmer-python
@@ -134,7 +141,7 @@ qjs >
 [js logo]: ./assets/languages/js.svg
 [js integration]: https://github.com/wasmerio/wasmer-js
 [`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
-[js docs]: https://docs.wasmer.io/wasmer-js/wasmer-js
+[js docs]: https://docs.wasmer.io/integrations/js/reference-api
 
 [ruby logo]: ./assets/languages/ruby.svg
 [ruby integration]: https://github.com/wasmerio/wasmer-ruby
@@ -158,6 +165,8 @@ qjs >
 [postgres logo]: ./assets/languages/postgres.svg
 [postgres integration]: https://github.com/wasmerio/wasmer-postgres
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
+
+[swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
 ## Contribute
 

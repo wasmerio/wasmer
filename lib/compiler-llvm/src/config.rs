@@ -3,12 +3,12 @@ use inkwell::targets::{
     CodeModel, InitializationConfig, RelocMode, Target as InkwellTarget, TargetMachine,
     TargetTriple,
 };
-use inkwell::OptimizationLevel;
+pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
-use wasmer_compiler::{Compiler, CompilerConfig, FunctionMiddlewareGenerator, Target, Triple};
+use wasmer_compiler::{Compiler, CompilerConfig, ModuleMiddleware, Target, Triple};
 use wasmer_types::{FunctionType, LocalFunctionIndex};
 
 /// The InkWell ModuleInfo type
@@ -41,11 +41,11 @@ pub trait LLVMCallbacks: Debug + Send + Sync {
 pub struct LLVM {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_verifier: bool,
-    pub(crate) opt_level: OptimizationLevel,
+    pub(crate) opt_level: LLVMOptLevel,
     is_pic: bool,
     pub(crate) callbacks: Option<Arc<dyn LLVMCallbacks>>,
     /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+    pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl LLVM {
@@ -55,7 +55,7 @@ impl LLVM {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
-            opt_level: OptimizationLevel::Aggressive,
+            opt_level: LLVMOptLevel::Aggressive,
             is_pic: false,
             callbacks: None,
             middlewares: vec![],
@@ -72,7 +72,7 @@ impl LLVM {
     }
 
     /// The optimization levels when optimizing the IR.
-    pub fn opt_level(&mut self, opt_level: OptimizationLevel) -> &mut Self {
+    pub fn opt_level(&mut self, opt_level: LLVMOptLevel) -> &mut Self {
         self.opt_level = opt_level;
         self
     }
@@ -207,12 +207,12 @@ impl CompilerConfig for LLVM {
     }
 
     /// Transform it into the compiler.
-    fn compiler(&self) -> Box<dyn Compiler + Send> {
-        Box::new(LLVMCompiler::new(&self))
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
+        Box::new(LLVMCompiler::new(*self))
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
     }
 }

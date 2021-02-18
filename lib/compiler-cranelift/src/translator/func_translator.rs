@@ -19,8 +19,8 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    to_wasm_error, wasm_unsupported, GenerateMiddlewareChain, MiddlewareBinaryReader,
-    ModuleTranslationState, WasmResult,
+    wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
+    WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
 
@@ -75,7 +75,7 @@ impl FuncTranslator {
         reader.set_middleware_chain(
             config
                 .middlewares
-                .generate_middleware_chain(local_function_index),
+                .generate_function_middleware_chain(local_function_index),
         );
         self.translate_from_reader(module_translation_state, reader, func, environ)
     }
@@ -174,14 +174,11 @@ fn parse_local_decls<FE: FuncEnvironment + ?Sized>(
     environ: &mut FE,
 ) -> WasmResult<()> {
     let mut next_local = num_params;
-    let local_count = reader.read_local_count().map_err(to_wasm_error)?;
+    let local_count = reader.read_local_count()?;
 
-    let mut locals_total = 0;
     for _ in 0..local_count {
         builder.set_srcloc(cur_srcloc(reader));
-        let (count, ty) = reader
-            .read_local_decl(&mut locals_total)
-            .map_err(to_wasm_error)?;
+        let (count, ty) = reader.read_local_decl()?;
         declare_locals(builder, count, ty, &mut next_local, environ)?;
     }
 
@@ -242,7 +239,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     // Keep going until the final `End` operator which pops the outermost block.
     while !state.control_stack.is_empty() {
         builder.set_srcloc(cur_srcloc(&reader));
-        let op = reader.read_operator().map_err(to_wasm_error)?;
+        let op = reader.read_operator()?;
         environ.before_translate_operator(&op, builder, state)?;
         translate_operator(module_translation_state, &op, builder, state, environ)?;
         environ.after_translate_operator(&op, builder, state)?;

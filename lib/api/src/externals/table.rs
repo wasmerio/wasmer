@@ -5,7 +5,8 @@ use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
 use std::sync::Arc;
-use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfunc};
+use wasmer_engine::{Export, ExportTable};
+use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -15,7 +16,7 @@ use wasmer_vm::{Export, ExportTable, Table as RuntimeTable, VMCallerCheckedAnyfu
 /// A table created by the host or in WebAssembly code will be accessible and
 /// mutable from both host and WebAssembly.
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#table-instances
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
 #[derive(Clone)]
 pub struct Table {
     store: Store,
@@ -35,15 +36,14 @@ impl Table {
     ///
     /// All the elements in the table will be set to the `init` value.
     ///
-    /// This function will construct the `Table` using the store [`Tunables`].
-    ///
-    /// [`Tunables`]: crate::tunables::Tunables
-    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Table, RuntimeError> {
+    /// This function will construct the `Table` using the store
+    /// [`BaseTunables`][crate::tunables::BaseTunables].
+    pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
         let item = init.into_checked_anyfunc(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let table = tunables
-            .create_table(&ty, &style)
+            .create_host_table(&ty, &style)
             .map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
@@ -51,7 +51,7 @@ impl Table {
             set_table_item(table.as_ref(), i, item.clone())?;
         }
 
-        Ok(Table {
+        Ok(Self {
             store: store.clone(),
             table,
         })
@@ -117,9 +117,9 @@ impl Table {
     /// Returns an error if the range is out of bounds of either the source or
     /// destination tables.
     pub fn copy(
-        dst_table: &Table,
+        dst_table: &Self,
         dst_index: u32,
-        src_table: &Table,
+        src_table: &Self,
         src_index: u32,
         len: u32,
     ) -> Result<(), RuntimeError> {
@@ -139,10 +139,10 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_export(store: &Store, wasmer_export: ExportTable) -> Table {
-        Table {
+    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportTable) -> Self {
+        Self {
             store: store.clone(),
-            table: wasmer_export.from,
+            table: wasmer_export.vm_table.from,
         }
     }
 
@@ -155,7 +155,10 @@ impl Table {
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
         ExportTable {
-            from: self.table.clone(),
+            vm_table: VMExportTable {
+                from: self.table.clone(),
+                instance_ref: None,
+            },
         }
         .into()
     }

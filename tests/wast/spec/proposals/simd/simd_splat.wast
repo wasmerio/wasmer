@@ -342,7 +342,7 @@
 (assert_return (invoke "as-i32x4_trunc_s_f32x4_sat-operand" (f32.const 1.1)) (v128.const i32x4 1 1 1 1))
 
 
-;; As the argument of control constructs and WASM instructions
+;; As the argument of control constructs and Wasm instructions
 
 (module
   (global $g (mut v128) (v128.const f32x4 0.0 0.0 0.0 0.0))

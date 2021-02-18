@@ -129,9 +129,22 @@ pub unsafe extern "C" fn wasmer_instantiate(
         });
         return wasmer_result_t::WASMER_ERROR;
     };
+
+    if imports_len > 0 && imports.is_null() {
+        update_last_error(CApiError {
+            msg: "imports ptr is null".to_string(),
+        });
+        return wasmer_result_t::WASMER_ERROR;
+    }
+
     let mut imported_memories = vec![];
     let mut instance_pointers_to_update = vec![];
-    let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
+    let imports: &[wasmer_import_t] = if imports_len == 0 {
+        &[]
+    } else {
+        slice::from_raw_parts(imports, imports_len as usize)
+    };
+
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
     for import in imports {
@@ -173,7 +186,7 @@ pub unsafe extern "C" fn wasmer_instantiate(
             wasmer_import_export_kind::WASM_FUNCTION => {
                 let func_wrapper = import.value.func as *mut FunctionWrapper;
                 let func_export = (*func_wrapper).func.as_ptr();
-                instance_pointers_to_update.push((*func_wrapper).legacy_env);
+                instance_pointers_to_update.push((*func_wrapper).legacy_env.clone());
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -216,8 +229,9 @@ pub unsafe extern "C" fn wasmer_instantiate(
         ctx_data: None,
     };
     let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
-    for mut to_update in instance_pointers_to_update {
-        to_update.as_mut().instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
+    for to_update in instance_pointers_to_update {
+        let mut to_update_guard = to_update.lock().unwrap();
+        to_update_guard.instance_ptr = Some(NonNull::new_unchecked(c_api_instance_pointer));
     }
     *instance = c_api_instance_pointer as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK

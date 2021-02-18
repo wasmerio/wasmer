@@ -16,7 +16,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMContext, VMFunctionBody,
-    VMSharedSignatureIndex,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// Serializable struct for the artifact
@@ -38,12 +38,21 @@ pub struct DummyArtifact {
     metadata: DummyArtifactMetadata,
 
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
 extern "C" fn dummy_function(_context: *mut VMContext) {
     panic!("Dummy engine can't generate functions")
+}
+
+extern "C" fn dummy_trampoline(
+    _context: *mut VMContext,
+    _callee: *const VMFunctionBody,
+    _values: *mut u128,
+) {
+    panic!("Dummy engine can't generate trampolines")
 }
 
 impl DummyArtifact {
@@ -131,27 +140,22 @@ impl DummyArtifact {
     ) -> Result<Self, CompileError> {
         let num_local_functions =
             metadata.module.functions.len() - metadata.module.num_imported_functions;
-        // We prepare the pointers for the finished functions
+        // We prepare the pointers for the finished functions.
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = (0
             ..num_local_functions)
-            .map(|_| unsafe {
-                let func_pointer = std::slice::from_raw_parts(dummy_function as *const (), 0);
-                let func_pointer = std::mem::transmute::<_, *mut [VMFunctionBody]>(func_pointer);
-                FunctionBodyPtr(func_pointer)
-            })
+            .map(|_| FunctionBodyPtr(dummy_function as _))
             .collect::<PrimaryMap<_, _>>();
 
-        // We prepare the pointers for the finished dynamic function trampolines
+        // We prepare the pointers for the finished function call trampolines.
+        let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> = (0
+            ..metadata.module.signatures.len())
+            .map(|_| dummy_trampoline as VMTrampoline)
+            .collect::<PrimaryMap<_, _>>();
+
+        // We prepare the pointers for the finished dynamic function trampolines.
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> = (0
             ..metadata.module.num_imported_functions)
-            .map(|_| {
-                FunctionBodyPtr(unsafe {
-                    std::mem::transmute::<_, *mut [VMFunctionBody]>((
-                        dummy_function as *const (),
-                        0,
-                    ))
-                })
-            })
+            .map(|_| FunctionBodyPtr(dummy_function as _))
             .collect::<PrimaryMap<_, _>>();
 
         // Compute indices into the shared signature table.
@@ -165,6 +169,8 @@ impl DummyArtifact {
         };
 
         let finished_functions = finished_functions.into_boxed_slice();
+        let finished_function_call_trampolines =
+            finished_function_call_trampolines.into_boxed_slice();
         let finished_dynamic_function_trampolines =
             finished_dynamic_function_trampolines.into_boxed_slice();
         let signatures = signatures.into_boxed_slice();
@@ -172,6 +178,7 @@ impl DummyArtifact {
         Ok(Self {
             metadata,
             finished_functions,
+            finished_function_call_trampolines,
             finished_dynamic_function_trampolines,
             signatures,
         })
@@ -213,6 +220,10 @@ impl Artifact for DummyArtifact {
 
     fn finished_functions(&self) -> &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr> {
         &self.finished_functions
+    }
+
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
     }
 
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {

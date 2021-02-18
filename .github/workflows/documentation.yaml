@@ -1,0 +1,40 @@
+on:
+  push:
+    branches:
+      - 'master'
+
+name: Documentation
+
+jobs:
+  documentation:
+    name: Documentation
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Set up dependencies
+        run: |
+          sudo apt-get update -y
+          sudo apt-get install -y libxkbcommon-dev doxygen
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          toolchain: 1.49
+          override: true
+      - name: Install LLVM
+        shell: bash
+        run: |
+          curl --proto '=https' --tlsv1.2 -sSf ${{ env.LLVM_URL }} -L -o llvm.tar.gz
+          mkdir ${{ env.LLVM_DIR }}
+          tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
+          echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_100_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+        env:
+          LLVM_DIR: ${{ github.workspace }}/llvm-10
+          LLVM_URL: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
+      - name: Build & package documentation
+        run: make package-docs
+      - name: Publish documentation
+        uses: peaceiris/actions-gh-pages@v3
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
+          publish_dir: ./package/docs

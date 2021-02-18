@@ -1,10 +1,9 @@
-use crate::tunables::Tunables;
+use crate::tunables::BaseTunables;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::Engine;
-use wasmer_engine::Tunables as BaseTunables;
+use wasmer_engine::{Engine, Tunables};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -15,11 +14,11 @@ use wasmer_engine::Tunables as BaseTunables;
 /// the Wasm bytes into a valid module artifact), in addition to the
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
-/// Spec: https://webassembly.github.io/spec/core/exec/runtime.html#store
+/// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
 #[derive(Clone)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
-    tunables: Arc<dyn BaseTunables + Send + Sync>,
+    tunables: Arc<dyn Tunables + Send + Sync>,
 }
 
 impl Store {
@@ -30,15 +29,12 @@ impl Store {
     {
         Self {
             engine: engine.cloned(),
-            tunables: Arc::new(Tunables::for_target(engine.target())),
+            tunables: Arc::new(BaseTunables::for_target(engine.target())),
         }
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
-    pub fn new_with_tunables<E>(
-        engine: &E,
-        tunables: impl BaseTunables + Send + Sync + 'static,
-    ) -> Self
+    pub fn new_with_tunables<E>(engine: &E, tunables: impl Tunables + Send + Sync + 'static) -> Self
     where
         E: Engine + ?Sized,
     {
@@ -49,7 +45,7 @@ impl Store {
     }
 
     /// Returns the [`Tunables`].
-    pub fn tunables(&self) -> &dyn BaseTunables {
+    pub fn tunables(&self) -> &dyn Tunables {
         self.tunables.as_ref()
     }
 
@@ -80,7 +76,7 @@ impl Default for Store {
         // sure this function doesn't emit a compile error even if
         // more than one compiler is enabled.
         #[allow(unreachable_code)]
-        fn get_config() -> impl CompilerConfig + Send + Sync {
+        fn get_config() -> impl CompilerConfig + 'static {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-cranelift")] {
                     wasmer_compiler_cranelift::Cranelift::default()
@@ -95,13 +91,13 @@ impl Default for Store {
         }
 
         #[allow(unreachable_code, unused_mut)]
-        fn get_engine(mut config: impl CompilerConfig + Send + Sync) -> impl Engine + Send + Sync {
+        fn get_engine(mut config: impl CompilerConfig + 'static) -> impl Engine + Send + Sync {
             cfg_if::cfg_if! {
                 if #[cfg(feature = "default-jit")] {
-                    wasmer_engine_jit::JIT::new(&config)
+                    wasmer_engine_jit::JIT::new(config)
                         .engine()
                 } else if #[cfg(feature = "default-native")] {
-                    wasmer_engine_native::Native::new(&mut config)
+                    wasmer_engine_native::Native::new(config)
                         .engine()
                 } else {
                     compile_error!("No default engine chosen")
@@ -111,7 +107,7 @@ impl Default for Store {
 
         let config = get_config();
         let engine = get_engine(config);
-        let tunables = Tunables::for_target(engine.target());
+        let tunables = BaseTunables::for_target(engine.target());
         Store {
             engine: Arc::new(engine),
             tunables: Arc::new(tunables),

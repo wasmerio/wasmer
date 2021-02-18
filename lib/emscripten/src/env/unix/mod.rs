@@ -15,7 +15,7 @@ use crate::EmEnv;
 
 // #[no_mangle]
 /// emscripten: _getenv // (name: *const char) -> *const c_char;
-pub fn _getenv(ctx: &mut EmEnv, name: i32) -> u32 {
+pub fn _getenv(ctx: &EmEnv, name: i32) -> u32 {
     debug!("emscripten::_getenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -31,7 +31,7 @@ pub fn _getenv(ctx: &mut EmEnv, name: i32) -> u32 {
 }
 
 /// emscripten: _setenv // (name: *const char, name: *const value, overwrite: int);
-pub fn _setenv(ctx: &mut EmEnv, name: c_int, value: c_int, overwrite: c_int) -> c_int {
+pub fn _setenv(ctx: &EmEnv, name: c_int, value: c_int, overwrite: c_int) -> c_int {
     debug!("emscripten::_setenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -44,7 +44,7 @@ pub fn _setenv(ctx: &mut EmEnv, name: c_int, value: c_int, overwrite: c_int) -> 
 }
 
 /// emscripten: _putenv // (name: *const char);
-pub fn _putenv(ctx: &mut EmEnv, name: c_int) -> c_int {
+pub fn _putenv(ctx: &EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -55,7 +55,7 @@ pub fn _putenv(ctx: &mut EmEnv, name: c_int) -> c_int {
 }
 
 /// emscripten: _unsetenv // (name: *const char);
-pub fn _unsetenv(ctx: &mut EmEnv, name: c_int) -> c_int {
+pub fn _unsetenv(ctx: &EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_unsetenv");
 
     let name_addr = emscripten_memory_pointer!(ctx.memory(0), name) as *const c_char;
@@ -66,7 +66,7 @@ pub fn _unsetenv(ctx: &mut EmEnv, name: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getpwnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
+pub fn _getpwnam(ctx: &EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getpwnam {}", name_ptr);
     #[cfg(feature = "debug")]
     let _ = name_ptr;
@@ -106,7 +106,7 @@ pub fn _getpwnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
 }
 
 #[allow(clippy::cast_ptr_alignment)]
-pub fn _getgrnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
+pub fn _getgrnam(ctx: &EmEnv, name_ptr: c_int) -> c_int {
     debug!("emscripten::_getgrnam {}", name_ptr);
 
     #[repr(C)]
@@ -137,14 +137,14 @@ pub fn _getgrnam(ctx: &mut EmEnv, name_ptr: c_int) -> c_int {
     }
 }
 
-pub fn _sysconf(_ctx: &mut EmEnv, name: c_int) -> i32 {
+pub fn _sysconf(_ctx: &EmEnv, name: c_int) -> i32 {
     debug!("emscripten::_sysconf {}", name);
     // TODO: Implement like emscripten expects regarding memory/page size
     unsafe { sysconf(name) as i32 } // TODO review i64
 }
 
 // this may be a memory leak, probably not though because emscripten does the same thing
-pub fn _gai_strerror(ctx: &mut EmEnv, ecode: i32) -> i32 {
+pub fn _gai_strerror(ctx: &EmEnv, ecode: i32) -> i32 {
     debug!("emscripten::_gai_strerror({})", ecode);
 
     let cstr = unsafe { std::ffi::CStr::from_ptr(libc::gai_strerror(ecode)) };
@@ -164,7 +164,7 @@ pub fn _gai_strerror(ctx: &mut EmEnv, ecode: i32) -> i32 {
 }
 
 pub fn _getaddrinfo(
-    ctx: &mut EmEnv,
+    ctx: &EmEnv,
     node_ptr: WasmPtr<c_char>,
     service_str_ptr: WasmPtr<c_char>,
     hints_ptr: WasmPtr<EmAddrInfo>,

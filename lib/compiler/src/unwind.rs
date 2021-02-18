@@ -4,7 +4,7 @@
 //! called the function that threw the exception, and which
 //! function called that one, and so forth.
 //!
-//! More info: https://en.wikipedia.org/wiki/Call_stack
+//! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
 use crate::lib::std::vec::Vec;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

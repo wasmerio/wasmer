@@ -130,7 +130,7 @@ fn table_grow() -> Result<()> {
 #[test]
 #[ignore]
 fn table_copy() -> Result<()> {
-    // table copy test not yet implemented
+    // TODO: table copy test not yet implemented
     Ok(())
 }
 
@@ -208,13 +208,14 @@ fn function_new() -> Result<()> {
 #[test]
 fn function_new_env() -> Result<()> {
     let store = Store::default();
-    #[derive(Clone)]
+    #[derive(Clone, WasmerEnv)]
     struct MyEnv {};
+
     let my_env = MyEnv {};
-    let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &mut MyEnv| {});
+    let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| {});
     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
     let function =
-        Function::new_native_with_env(&store, my_env.clone(), |_env: &mut MyEnv, _a: i32| {});
+        Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv, _a: i32| {});
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![Type::I32], vec![])
@@ -222,14 +223,14 @@ fn function_new_env() -> Result<()> {
     let function = Function::new_native_with_env(
         &store,
         my_env.clone(),
-        |_env: &mut MyEnv, _a: i32, _b: i64, _c: f32, _d: f64| {},
+        |_env: &MyEnv, _a: i32, _b: i64, _c: f32, _d: f64| {},
     );
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
     );
     let function =
-        Function::new_native_with_env(&store, my_env.clone(), |_env: &mut MyEnv| -> i32 { 1 });
+        Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| -> i32 { 1 });
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![], vec![Type::I32])
@@ -237,7 +238,7 @@ fn function_new_env() -> Result<()> {
     let function = Function::new_native_with_env(
         &store,
         my_env.clone(),
-        |_env: &mut MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
+        |_env: &MyEnv| -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) },
     );
     assert_eq!(
         function.ty().clone(),
@@ -249,6 +250,8 @@ fn function_new_env() -> Result<()> {
 #[test]
 fn function_new_dynamic() -> Result<()> {
     let store = Store::default();
+
+    // Using &FunctionType signature
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
@@ -264,22 +267,30 @@ fn function_new_dynamic() -> Result<()> {
     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
     let function = Function::new(&store, &function_type, |_values: &[Value]| unimplemented!());
     assert_eq!(function.ty().clone(), function_type);
+
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new(&store, function_type, |_values: &[Value]| unimplemented!());
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+
     Ok(())
 }
 
 #[test]
 fn function_new_dynamic_env() -> Result<()> {
     let store = Store::default();
-    #[derive(Clone)]
+    #[derive(Clone, WasmerEnv)]
     struct MyEnv {};
     let my_env = MyEnv {};
 
+    // Using &FunctionType signature
     let function_type = FunctionType::new(vec![], vec![]);
     let function = Function::new_with_env(
         &store,
         &function_type,
         my_env.clone(),
-        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32], vec![]);
@@ -287,7 +298,7 @@ fn function_new_dynamic_env() -> Result<()> {
         &store,
         &function_type,
         my_env.clone(),
-        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![]);
@@ -295,7 +306,7 @@ fn function_new_dynamic_env() -> Result<()> {
         &store,
         &function_type,
         my_env.clone(),
-        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32]);
@@ -303,7 +314,7 @@ fn function_new_dynamic_env() -> Result<()> {
         &store,
         &function_type,
         my_env.clone(),
-        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
     let function_type = FunctionType::new(vec![], vec![Type::I32, Type::I64, Type::F32, Type::F64]);
@@ -311,9 +322,21 @@ fn function_new_dynamic_env() -> Result<()> {
         &store,
         &function_type,
         my_env.clone(),
-        |_env: &mut MyEnv, _values: &[Value]| unimplemented!(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
     );
     assert_eq!(function.ty().clone(), function_type);
+
+    // Using array signature
+    let function_type = ([Type::V128], [Type::I32, Type::F32, Type::F64]);
+    let function = Function::new_with_env(
+        &store,
+        function_type,
+        my_env.clone(),
+        |_env: &MyEnv, _values: &[Value]| unimplemented!(),
+    );
+    assert_eq!(function.ty().params(), [Type::V128]);
+    assert_eq!(function.ty().results(), [Type::I32, Type::F32, Type::F64]);
+
     Ok(())
 }
 
@@ -325,11 +348,9 @@ fn native_function_works() -> Result<()> {
     let result = native_function.call();
     assert!(result.is_ok());
 
-    // TODO:
-    /*let function = Function::new_native(&store, |a: i32| -> i32 { a + 1 });
+    let function = Function::new_native(&store, |a: i32| -> i32 { a + 1 });
     let native_function: NativeFunc<i32, i32> = function.native().unwrap();
-    assert!(native_function.call(3).unwrap(), 4);
-    */
+    assert_eq!(native_function.call(3).unwrap(), 4);
 
     fn rust_abi(a: i32, b: i64, c: f32, d: f64) -> u64 {
         (a as u64 * 1000) + (b as u64 * 100) + (c as u64 * 10) + (d as u64)
@@ -342,15 +363,69 @@ fn native_function_works() -> Result<()> {
     let native_function: NativeFunc<(), i32> = function.native().unwrap();
     assert_eq!(native_function.call().unwrap(), 1);
 
-    // TODO:
-    /*let function = Function::new_native(&store, |_a: i32| {});
+    let function = Function::new_native(&store, |_a: i32| {});
     let native_function: NativeFunc<i32, ()> = function.native().unwrap();
-    assert!(native_function.call(4).is_ok());*/
+    assert!(native_function.call(4).is_ok());
 
-    // TODO:
-    /*let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
+    let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
     let native_function: NativeFunc<(), (i32, i64, f32, f64)> = function.native().unwrap();
     assert_eq!(native_function.call().unwrap(), (1, 2, 3.0, 4.0));
-    */
+
+    Ok(())
+}
+
+#[test]
+fn function_outlives_instance() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+  (type $sum_t (func (param i32 i32) (result i32)))
+  (func $sum_f (type $sum_t) (param $x i32) (param $y i32) (result i32)
+    local.get $x
+    local.get $y
+    i32.add)
+  (export "sum" (func $sum_f)))
+"#;
+
+    let f = {
+        let module = Module::new(&store, wat)?;
+        let instance = Instance::new(&module, &imports! {})?;
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("sum")?;
+
+        assert_eq!(f.call(4, 5)?, 9);
+        f
+    };
+
+    assert_eq!(f.call(4, 5)?, 9);
+
+    Ok(())
+}
+
+#[test]
+fn manually_generate_wasmer_env() -> Result<()> {
+    let store = Store::default();
+    #[derive(WasmerEnv, Clone)]
+    struct MyEnv {
+        val: u32,
+        memory: LazyInit<Memory>,
+    }
+
+    fn host_function(env: &mut MyEnv, arg1: u32, arg2: u32) -> u32 {
+        env.val + arg1 + arg2
+    }
+
+    let mut env = MyEnv {
+        val: 5,
+        memory: LazyInit::new(),
+    };
+
+    let result = host_function(&mut env, 7, 9);
+    assert_eq!(result, 21);
+
+    let memory = Memory::new(&store, MemoryType::new(0, None, false))?;
+    env.memory.initialize(memory);
+
+    let result = host_function(&mut env, 1, 2);
+    assert_eq!(result, 8);
+
     Ok(())
 }

@@ -6,7 +6,8 @@ use crate::{
 };
 use std::marker::PhantomData;
 
-pub use new::wasmer::{HostFunction, WasmTypeList};
+pub use new::wasmer::internals::UnsafeMutableEnv;
+pub use new::wasmer::{HostFunction, WasmTypeList, WasmerEnv};
 
 /// Represents a function that can be used by WebAssembly.
 #[derive(Clone)]
@@ -27,17 +28,19 @@ where
     /// Creates a new `Func`.
     pub fn new<F>(func: F) -> Self
     where
-        F: HostFunction<Args, Rets, new::wasmer::internals::WithEnv, vm::Ctx>,
+        F: HostFunction<Args, Rets, new::wasmer::internals::WithUnsafeMutableEnv, vm::Ctx> + Send,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = unsafe { vm::Ctx::new_uninit() };
 
         Self {
-            new_function: new::wasmer::Function::new_native_with_env::<F, Args, Rets, vm::Ctx>(
-                &get_global_store(),
-                ctx,
-                func,
-            ),
+            new_function: unsafe {
+                new::wasmer::Function::new_native_with_unsafe_mutable_env::<F, Args, Rets, vm::Ctx>(
+                    &get_global_store(),
+                    ctx,
+                    func,
+                )
+            },
             _phantom: PhantomData,
         }
     }
@@ -198,7 +201,7 @@ where
     Args: WasmTypeList,
     Rets: WasmTypeList,
 {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 
@@ -221,48 +224,48 @@ pub struct DynamicFunc {
     new_function: new::wasmer::Function,
 }
 
-use std::{
-    cell::{RefCell, RefMut},
-    ops::DerefMut,
-    rc::Rc,
-};
+use std::sync::{Arc, Mutex, MutexGuard};
 
 /// Specific context for `DynamicFunc`. It's a hack.
 ///
 /// Initially, it holds an empty `vm::Ctx`, but it is replaced by the
 /// `vm::Ctx` from `instance::PreInstance` in
 /// `module::Module::instantiate`.
+#[derive(WasmerEnv, Clone)]
 pub(crate) struct DynamicCtx {
-    pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
+    pub(crate) vmctx: Arc<Mutex<vm::Ctx>>,
+    inner_func: Arc<
+        dyn Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + Sync + 'static,
+    >,
 }
 
 impl DynamicFunc {
     /// Create a new `DynamicFunc`.
     pub fn new<F>(signature: &FuncSig, func: F) -> Self
     where
-        F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + 'static,
+        F: Fn(&mut vm::Ctx, &[Value]) -> Result<Vec<Value>, RuntimeError> + Send + Sync + 'static,
     {
         // Create an empty `vm::Ctx`, that is going to be overwritten by `Instance::new`.
         let ctx = DynamicCtx {
-            vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
+            vmctx: Arc::new(Mutex::new(unsafe { vm::Ctx::new_uninit() })),
+            inner_func: Arc::new(func),
         };
 
-        Self {
-            new_function: new::wasmer::Function::new_with_env(
-                &get_global_store(),
-                signature,
-                ctx,
-                // Wrapper to safely extract a `&mut vm::Ctx` to pass
-                // to `func`.
-                move |dyn_ctx: &mut DynamicCtx,
-                      params: &[Value]|
-                      -> Result<Vec<Value>, RuntimeError> {
-                    let cell: Rc<RefCell<vm::Ctx>> = dyn_ctx.vmctx.clone();
-                    let mut vmctx: RefMut<vm::Ctx> = cell.borrow_mut();
+        // Wrapper to safely extract a `&mut vm::Ctx` to pass
+        // to `func`.
+        fn inner(dyn_ctx: &DynamicCtx, params: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+            let cell: Arc<Mutex<vm::Ctx>> = dyn_ctx.vmctx.clone();
+            let mut vmctx: MutexGuard<vm::Ctx> = cell.lock().unwrap();
 
-                    func(vmctx.deref_mut(), params)
-                },
-            ),
+            (dyn_ctx.inner_func)(&mut *vmctx, params)
+        }
+
+        Self {
+            new_function: new::wasmer::Function::new_with_env::<
+                _,
+                fn(&DynamicCtx, &[Value]) -> Result<Vec<Value>, RuntimeError>,
+                DynamicCtx,
+            >(&get_global_store(), signature, ctx, inner),
         }
     }
 
@@ -307,7 +310,7 @@ impl From<&new::wasmer::Function> for DynamicFunc {
 }
 
 impl<'a> new::wasmer::Exportable<'a> for DynamicFunc {
-    fn to_export(&self) -> new::wasmer_vm::Export {
+    fn to_export(&self) -> new::wasmer::Export {
         self.new_function.to_export()
     }
 

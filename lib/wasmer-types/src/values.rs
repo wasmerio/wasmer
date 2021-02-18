@@ -1,3 +1,4 @@
+use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ptr;
 use crate::lib::std::string::{String, ToString};
@@ -8,10 +9,14 @@ use crate::types::Type;
 /// produce.
 #[derive(Clone, PartialEq)]
 pub enum Value<T> {
-    /// A 32-bit integer
+    /// A 32-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I32(i32),
 
-    /// A 64-bit integer
+    /// A 64-bit integer.
+    ///
+    /// In Wasm integers are sign-agnostic, i.e. this can either be signed or unsigned.
     I64(i64),
 
     /// A 32-bit float.
@@ -175,9 +180,23 @@ impl<T> From<i32> for Value<T> {
     }
 }
 
+impl<T> From<u32> for Value<T> {
+    fn from(val: u32) -> Self {
+        // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
+        Self::I32(val as i32)
+    }
+}
+
 impl<T> From<i64> for Value<T> {
     fn from(val: i64) -> Self {
         Self::I64(val)
+    }
+}
+
+impl<T> From<u64> for Value<T> {
+    fn from(val: u64) -> Self {
+        // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
+        Self::I64(val as i64)
     }
 }
 
@@ -204,3 +223,189 @@ impl<T> From<ExternRef> for Value<T> {
 //         Self::FuncRef(val)
 //     }
 // }
+
+const NOT_I32: &str = "Value is not of Wasm type i32";
+const NOT_I64: &str = "Value is not of Wasm type i64";
+const NOT_F32: &str = "Value is not of Wasm type f32";
+const NOT_F64: &str = "Value is not of Wasm type f64";
+
+impl<T> TryFrom<Value<T>> for i32 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.i32().ok_or(NOT_I32)
+    }
+}
+
+impl<T> TryFrom<Value<T>> for u32 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.i32().ok_or(NOT_I32).map(|int| int as Self)
+    }
+}
+
+impl<T> TryFrom<Value<T>> for i64 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.i64().ok_or(NOT_I64)
+    }
+}
+
+impl<T> TryFrom<Value<T>> for u64 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.i64().ok_or(NOT_I64).map(|int| int as Self)
+    }
+}
+
+impl<T> TryFrom<Value<T>> for f32 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.f32().ok_or(NOT_F32)
+    }
+}
+
+impl<T> TryFrom<Value<T>> for f64 {
+    type Error = &'static str;
+
+    fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
+        value.f64().ok_or(NOT_F64)
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn test_value_i32_from_u32() {
+        let bytes = [0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u32::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I32(i32::from_be_bytes(bytes.clone())));
+    }
+
+    #[test]
+    fn test_value_i64_from_u64() {
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x00, 0x01];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x00, 0x11];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+
+        let bytes = [0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF, 0xFF];
+        let v = Value::<()>::from(u64::from_be_bytes(bytes.clone()));
+        assert_eq!(v, Value::I64(i64::from_be_bytes(bytes.clone())));
+    }
+
+    #[test]
+    fn convert_value_to_i32() {
+        let value = Value::<()>::I32(5678);
+        let result = i32::try_from(value);
+        assert_eq!(result.unwrap(), 5678);
+
+        let value = Value::<()>::from(u32::MAX);
+        let result = i32::try_from(value);
+        assert_eq!(result.unwrap(), -1);
+
+        let value = Value::<()>::V128(42);
+        let result = i32::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type i32");
+    }
+
+    #[test]
+    fn convert_value_to_u32() {
+        let value = Value::<()>::from(u32::MAX);
+        let result = u32::try_from(value);
+        assert_eq!(result.unwrap(), u32::MAX);
+
+        let value = Value::<()>::I32(-1);
+        let result = u32::try_from(value);
+        assert_eq!(result.unwrap(), u32::MAX);
+
+        let value = Value::<()>::V128(42);
+        let result = u32::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type i32");
+    }
+
+    #[test]
+    fn convert_value_to_i64() {
+        let value = Value::<()>::I64(5678);
+        let result = i64::try_from(value);
+        assert_eq!(result.unwrap(), 5678);
+
+        let value = Value::<()>::from(u64::MAX);
+        let result = i64::try_from(value);
+        assert_eq!(result.unwrap(), -1);
+
+        let value = Value::<()>::V128(42);
+        let result = i64::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type i64");
+    }
+
+    #[test]
+    fn convert_value_to_u64() {
+        let value = Value::<()>::from(u64::MAX);
+        let result = u64::try_from(value);
+        assert_eq!(result.unwrap(), u64::MAX);
+
+        let value = Value::<()>::I64(-1);
+        let result = u64::try_from(value);
+        assert_eq!(result.unwrap(), u64::MAX);
+
+        let value = Value::<()>::V128(42);
+        let result = u64::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type i64");
+    }
+
+    #[test]
+    fn convert_value_to_f32() {
+        let value = Value::<()>::F32(1.234);
+        let result = f32::try_from(value);
+        assert_eq!(result.unwrap(), 1.234);
+
+        let value = Value::<()>::V128(42);
+        let result = f32::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type f32");
+
+        let value = Value::<()>::F64(1.234);
+        let result = f32::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type f32");
+    }
+
+    #[test]
+    fn convert_value_to_f64() {
+        let value = Value::<()>::F64(1.234);
+        let result = f64::try_from(value);
+        assert_eq!(result.unwrap(), 1.234);
+
+        let value = Value::<()>::V128(42);
+        let result = f64::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type f64");
+
+        let value = Value::<()>::F32(1.234);
+        let result = f64::try_from(value);
+        assert_eq!(result.unwrap_err(), "Value is not of Wasm type f64");
+    }
+}

@@ -12,8 +12,9 @@
 )]
 #![cfg_attr(nightly, feature(unwind_attributes))]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
-#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
+mod abi;
 mod compiler;
 mod config;
 mod object_file;
@@ -21,4 +22,6 @@ mod trampoline;
 mod translator;
 
 pub use crate::compiler::LLVMCompiler;
-pub use crate::config::{CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVM};
+pub use crate::config::{
+    CompiledKind, InkwellMemoryBuffer, InkwellModule, LLVMCallbacks, LLVMOptLevel, LLVM,
+};

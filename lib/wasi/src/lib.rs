@@ -1,6 +1,6 @@
 #![deny(unused_mut)]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
-#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 //! Wasmer's WASI implementation
 //!
@@ -25,19 +25,17 @@ pub mod wasio;
 use crate::syscalls::*;
 
 pub use crate::state::{
-    Fd, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder, WasiStateCreationError,
-    ALL_RIGHTS, VIRTUAL_ROOT_FD,
+    Fd, Pipe, Stderr, Stdin, Stdout, WasiFile, WasiFs, WasiFsError, WasiState, WasiStateBuilder,
+    WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
 pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
-use wasmer::{imports, Function, ImportObject, Memory, Module, Store};
+use wasmer::{imports, Function, ImportObject, LazyInit, Memory, Module, Store, WasmerEnv};
+#[cfg(all(target_os = "macos", target_arch = "aarch64",))]
+use wasmer::{FunctionType, ValType};
 
-use std::cell::UnsafeCell;
-use std::fmt;
-use std::mem::MaybeUninit;
-use std::sync::atomic::{AtomicBool, Ordering};
 use std::sync::{Arc, Mutex, MutexGuard};
 
 /// This is returned in `RuntimeError`.
@@ -51,99 +49,24 @@ pub enum WasiError {
 }
 
 /// The environment provided to the WASI imports.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, WasmerEnv)]
 pub struct WasiEnv {
-    state: Arc<Mutex<WasiState>>,
-    memory: Arc<WasiMemory>,
-}
-
-/// Wrapper type around `Memory` used to delay initialization of the memory.
-///
-/// The `initialized` field is used to indicate if it's safe to read `memory` as `Memory`.
-///
-/// The `mutate_lock` is used to prevent access from multiple threads during initialization.
-struct WasiMemory {
-    initialized: AtomicBool,
-    memory: UnsafeCell<MaybeUninit<Memory>>,
-    mutate_lock: Mutex<()>,
-}
-
-impl fmt::Debug for WasiMemory {
-    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("WasiMemory")
-            .field("initialized", &self.initialized)
-            .finish()
-    }
-}
-
-impl WasiMemory {
-    fn new() -> Self {
-        Self {
-            initialized: AtomicBool::new(false),
-            memory: UnsafeCell::new(MaybeUninit::zeroed()),
-            mutate_lock: Mutex::new(()),
-        }
-    }
-
-    /// Initialize the memory, making it safe to read from.
+    /// Shared state of the WASI system. Manages all the data that the
+    /// executing WASI program can see.
     ///
-    /// Returns whether or not the set was successful. If the set failed then
-    /// the memory has already been initialized.
-    fn set_memory(&self, memory: Memory) -> bool {
-        // synchronize it
-        let _guard = self.mutate_lock.lock();
-        if self.initialized.load(Ordering::Acquire) {
-            return false;
-        }
-
-        unsafe {
-            let ptr = self.memory.get();
-            let mem_inner: &mut MaybeUninit<Memory> = &mut *ptr;
-            mem_inner.as_mut_ptr().write(memory);
-        }
-        self.initialized.store(true, Ordering::Release);
-
-        true
-    }
-
-    /// Returns `None` if the memory has not been initialized yet.
-    /// Otherwise returns the memory that was used to initialize it.
-    fn get_memory(&self) -> Option<&Memory> {
-        // Based on normal usage, `Relaxed` is fine...
-        // TODO: investigate if it's possible to use the API in a way where `Relaxed`
-        //       is not fine
-        if self.initialized.load(Ordering::Relaxed) {
-            unsafe {
-                let maybe_mem = self.memory.get();
-                Some(&*(*maybe_mem).as_ptr())
-            }
-        } else {
-            None
-        }
-    }
-}
-
-impl Drop for WasiMemory {
-    fn drop(&mut self) {
-        if self.initialized.load(Ordering::Acquire) {
-            unsafe {
-                // We want to get the internal value in memory, so we need to consume
-                // the `UnsafeCell` and assume the `MapbeInit` is initialized, but because
-                // we only have a `&mut self` we can't do this directly, so we swap the data
-                // out so we can drop it (via `assume_init`).
-                let mut maybe_uninit = UnsafeCell::new(MaybeUninit::zeroed());
-                std::mem::swap(&mut self.memory, &mut maybe_uninit);
-                maybe_uninit.into_inner().assume_init();
-            }
-        }
-    }
+    /// Be careful when using this in host functions that call into Wasm:
+    /// if the lock is held and the Wasm calls into a host function that tries
+    /// to lock this mutex, the program will deadlock.
+    pub state: Arc<Mutex<WasiState>>,
+    #[wasmer(export)]
+    memory: LazyInit<Memory>,
 }
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
         Self {
             state: Arc::new(Mutex::new(state)),
-            memory: Arc::new(WasiMemory::new()),
+            memory: LazyInit::new(),
         }
     }
 
@@ -156,28 +79,30 @@ impl WasiEnv {
         ))
     }
 
-    /// Set the memory
-    pub fn set_memory(&mut self, memory: Memory) -> bool {
-        self.memory.set_memory(memory)
-    }
-
     /// Get the WASI state
+    ///
+    /// Be careful when using this in host functions that call into Wasm:
+    /// if the lock is held and the Wasm calls into a host function that tries
+    /// to lock this mutex, the program will deadlock.
     pub fn state(&self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
 
-    /// Get the WASI state (mutable)
+    // TODO: delete this method before 1.0.0 release
+    #[doc(hidden)]
+    #[deprecated(since = "1.0.0-beta1", note = "Please use the `state` method instead")]
     pub fn state_mut(&mut self) -> MutexGuard<WasiState> {
         self.state.lock().unwrap()
     }
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory.get_memory().expect("The expected Memory is not attached to the `WasiEnv`. Did you forgot to call wasi_env.set_memory(...)?")
+        self.memory_ref()
+            .expect("Memory should be set on `WasiEnv` first")
     }
 
     pub(crate) fn get_memory_and_wasi_state(
-        &mut self,
+        &self,
         _mem_index: u32,
     ) -> (&Memory, MutexGuard<WasiState>) {
         let memory = self.memory();
@@ -200,6 +125,34 @@ pub fn generate_import_object_from_env(
             generate_import_object_snapshot1(store, wasi_env)
         }
     }
+}
+
+// Note: we use this wrapper because native functions with more than 9 params
+// fail on Apple Silicon (with Cranelift).
+fn get_path_open_for_store(store: &Store, env: WasiEnv) -> Function {
+    #[cfg(not(all(target_os = "macos", target_arch = "aarch64",)))]
+    let path_open = Function::new_native_with_env(store, env, path_open);
+    #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
+    let path_open = Function::new_with_env(
+        store,
+        FunctionType::new(
+            vec![
+                ValType::I32,
+                ValType::I32,
+                ValType::I32,
+                ValType::I32,
+                ValType::I32,
+                ValType::I64,
+                ValType::I64,
+                ValType::I32,
+                ValType::I32,
+            ],
+            vec![ValType::I32],
+        ),
+        env.clone(),
+        path_open_dynamic,
+    );
+    path_open
 }
 
 /// Combines a state generating function with the import list for legacy WASI
@@ -237,7 +190,7 @@ fn generate_import_object_snapshot0(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), legacy::snapshot0::path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
+            "path_open" => get_path_open_for_store(store, env.clone()),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),
@@ -308,7 +261,7 @@ fn generate_import_object_snapshot1(store: &Store, env: WasiEnv) -> ImportObject
             "path_filestat_get" => Function::new_native_with_env(store, env.clone(), path_filestat_get),
             "path_filestat_set_times" => Function::new_native_with_env(store, env.clone(), path_filestat_set_times),
             "path_link" => Function::new_native_with_env(store, env.clone(), path_link),
-            "path_open" => Function::new_native_with_env(store, env.clone(), path_open),
+            "path_open" => get_path_open_for_store(store, env.clone()),
             "path_readlink" => Function::new_native_with_env(store, env.clone(), path_readlink),
             "path_remove_directory" => Function::new_native_with_env(store, env.clone(), path_remove_directory),
             "path_rename" => Function::new_native_with_env(store, env.clone(), path_rename),

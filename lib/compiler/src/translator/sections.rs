@@ -11,7 +11,6 @@
 //! is handled, according to the semantics of WebAssembly, to only specific expressions that are
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
-use super::error::to_wasm_error;
 use super::state::ModuleTranslationState;
 use crate::wasm_unsupported;
 use crate::{WasmError, WasmResult};
@@ -26,12 +25,11 @@ use wasmer_types::{
     MemoryIndex, MemoryType, Pages, SignatureIndex, TableIndex, TableType, Type, V128,
 };
 use wasmparser::{
-    self, CodeSectionReader, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems,
-    ElementKind, ElementSectionReader, Export, ExportSectionReader, ExternalKind,
-    FuncType as WPFunctionType, FunctionSectionReader, GlobalSectionReader,
-    GlobalType as WPGlobalType, ImportSectionEntryType, ImportSectionReader, MemorySectionReader,
-    MemoryType as WPMemoryType, NameSectionReader, Naming, NamingReader, Operator,
-    TableSectionReader, TypeSectionReader,
+    self, Data, DataKind, DataSectionReader, Element, ElementItem, ElementItems, ElementKind,
+    ElementSectionReader, Export, ExportSectionReader, ExternalKind, FuncType as WPFunctionType,
+    FunctionSectionReader, GlobalSectionReader, GlobalType as WPGlobalType, ImportSectionEntryType,
+    ImportSectionReader, MemorySectionReader, MemoryType as WPMemoryType, NameSectionReader,
+    Naming, NamingReader, Operator, TableSectionReader, TypeDef, TypeSectionReader,
 };
 
 /// Helper function translating wasmparser types to Wasm Type.
@@ -61,25 +59,29 @@ pub fn parse_type_section(
     environ.reserve_signatures(count)?;
 
     for entry in types {
-        let WPFunctionType { params, returns } = entry.map_err(to_wasm_error)?;
-        let sig_params: Vec<Type> = params
-            .iter()
-            .map(|ty| {
-                wptype_to_type(*ty)
-                    .expect("only numeric types are supported in function signatures")
-            })
-            .collect();
-        let sig_returns: Vec<Type> = returns
-            .iter()
-            .map(|ty| {
-                wptype_to_type(*ty)
-                    .expect("only numeric types are supported in function signatures")
-            })
-            .collect();
-        let sig = FunctionType::new(sig_params, sig_returns);
-        environ.declare_signature(sig)?;
-        module_translation_state.wasm_types.push((params, returns));
+        if let Ok(TypeDef::Func(WPFunctionType { params, returns })) = entry {
+            let sig_params: Vec<Type> = params
+                .iter()
+                .map(|ty| {
+                    wptype_to_type(*ty)
+                        .expect("only numeric types are supported in function signatures")
+                })
+                .collect();
+            let sig_returns: Vec<Type> = returns
+                .iter()
+                .map(|ty| {
+                    wptype_to_type(*ty)
+                        .expect("only numeric types are supported in function signatures")
+                })
+                .collect();
+            let sig = FunctionType::new(sig_params, sig_returns);
+            environ.declare_signature(sig)?;
+            module_translation_state.wasm_types.push((params, returns));
+        } else {
+            unimplemented!("module linking not implemented yet")
+        }
     }
+
     Ok(())
 }
 
@@ -91,7 +93,7 @@ pub fn parse_import_section<'data>(
     environ.reserve_imports(imports.get_count())?;
 
     for entry in imports {
-        let import = entry.map_err(to_wasm_error)?;
+        let import = entry?;
         let module_name = import.module;
         let field_name = import.field;
 
@@ -100,10 +102,15 @@ pub fn parse_import_section<'data>(
                 environ.declare_func_import(
                     SignatureIndex::from_u32(sig),
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Memory(WPMemoryType {
+            ImportSectionEntryType::Module(_)
+            | ImportSectionEntryType::Instance(_)
+            | ImportSectionEntryType::Event(_) => {
+                unimplemented!("module linking not implemented yet")
+            }
+            ImportSectionEntryType::Memory(WPMemoryType::M32 {
                 limits: ref memlimits,
                 shared,
             }) => {
@@ -114,8 +121,11 @@ pub fn parse_import_section<'data>(
                         shared,
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
+            }
+            ImportSectionEntryType::Memory(WPMemoryType::M64 { .. }) => {
+                unimplemented!("64bit memory not implemented yet")
             }
             ImportSectionEntryType::Global(ref ty) => {
                 environ.declare_global_import(
@@ -124,7 +134,7 @@ pub fn parse_import_section<'data>(
                         mutability: ty.mutable.into(),
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
             ImportSectionEntryType::Table(ref tab) => {
@@ -135,7 +145,7 @@ pub fn parse_import_section<'data>(
                         maximum: tab.limits.maximum,
                     },
                     module_name,
-                    field_name,
+                    field_name.unwrap_or_default(),
                 )?;
             }
         }
@@ -159,7 +169,7 @@ pub fn parse_function_section(
     environ.reserve_func_types(num_functions)?;
 
     for entry in functions {
-        let sigindex = entry.map_err(to_wasm_error)?;
+        let sigindex = entry?;
         environ.declare_func_type(SignatureIndex::from_u32(sigindex))?;
     }
 
@@ -174,7 +184,7 @@ pub fn parse_table_section(
     environ.reserve_tables(tables.get_count())?;
 
     for entry in tables {
-        let table = entry.map_err(to_wasm_error)?;
+        let table = entry?;
         environ.declare_table(TableType {
             ty: wptype_to_type(table.element_type).unwrap(),
             minimum: table.limits.initial,
@@ -193,12 +203,17 @@ pub fn parse_memory_section(
     environ.reserve_memories(memories.get_count())?;
 
     for entry in memories {
-        let memory = entry.map_err(to_wasm_error)?;
-        environ.declare_memory(MemoryType {
-            minimum: Pages(memory.limits.initial),
-            maximum: memory.limits.maximum.map(Pages),
-            shared: memory.shared,
-        })?;
+        let memory = entry?;
+        match memory {
+            WPMemoryType::M32 { limits, shared } => {
+                environ.declare_memory(MemoryType {
+                    minimum: Pages(limits.initial),
+                    maximum: limits.maximum.map(Pages),
+                    shared,
+                })?;
+            }
+            WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),
+        }
     }
 
     Ok(())
@@ -218,16 +233,14 @@ pub fn parse_global_section(
                 mutable,
             },
             init_expr,
-        } = entry.map_err(to_wasm_error)?;
+        } = entry?;
         let mut init_expr_reader = init_expr.get_binary_reader();
-        let initializer = match init_expr_reader.read_operator().map_err(to_wasm_error)? {
+        let initializer = match init_expr_reader.read_operator()? {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
             Operator::I64Const { value } => GlobalInit::I64Const(value),
             Operator::F32Const { value } => GlobalInit::F32Const(f32::from_bits(value.bits())),
             Operator::F64Const { value } => GlobalInit::F64Const(f64::from_bits(value.bits())),
-            Operator::V128Const { value } => {
-                GlobalInit::V128Const(V128::from(value.bytes().to_vec().as_slice()))
-            }
+            Operator::V128Const { value } => GlobalInit::V128Const(V128::from(*value.bytes())),
             Operator::RefNull { ty: _ } => GlobalInit::RefNullConst,
             Operator::RefFunc { function_index } => {
                 GlobalInit::RefFunc(FunctionIndex::from_u32(function_index))
@@ -264,7 +277,7 @@ pub fn parse_export_section<'data>(
             field,
             ref kind,
             index,
-        } = entry.map_err(to_wasm_error)?;
+        } = entry?;
 
         // The input has already been validated, so we should be able to
         // assume valid UTF-8 and use `from_utf8_unchecked` if performance
@@ -281,6 +294,12 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
+            ExternalKind::Type
+            | ExternalKind::Module
+            | ExternalKind::Instance
+            | ExternalKind::Event => {
+                unimplemented!("module linking not implemented yet")
+            }
         }
     }
 
@@ -295,10 +314,10 @@ pub fn parse_start_section(index: u32, environ: &mut ModuleEnvironment) -> WasmR
 }
 
 fn read_elems(items: &ElementItems) -> WasmResult<Box<[FunctionIndex]>> {
-    let items_reader = items.get_items_reader().map_err(to_wasm_error)?;
+    let items_reader = items.get_items_reader()?;
     let mut elems = Vec::with_capacity(usize::try_from(items_reader.get_count()).unwrap());
     for item in items_reader {
-        let elem = match item.map_err(to_wasm_error)? {
+        let elem = match item? {
             ElementItem::Null(_ty) => FunctionIndex::reserved_value(),
             ElementItem::Func(index) => FunctionIndex::from_u32(index),
         };
@@ -315,7 +334,7 @@ pub fn parse_element_section<'data>(
     environ.reserve_table_initializers(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
-        let Element { kind, items, ty } = entry.map_err(to_wasm_error)?;
+        let Element { kind, items, ty } = entry?;
         if ty != wasmparser::Type::FuncRef {
             return Err(wasm_unsupported!(
                 "unsupported table element type: {:?}",
@@ -329,19 +348,18 @@ pub fn parse_element_section<'data>(
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) =
-                    match init_expr_reader.read_operator().map_err(to_wasm_error)? {
-                        Operator::I32Const { value } => (None, value as u32 as usize),
-                        Operator::GlobalGet { global_index } => {
-                            (Some(GlobalIndex::from_u32(global_index)), 0)
-                        }
-                        ref s => {
-                            return Err(wasm_unsupported!(
-                                "unsupported init expr in element section: {:?}",
-                                s
-                            ));
-                        }
-                    };
+                let (base, offset) = match init_expr_reader.read_operator()? {
+                    Operator::I32Const { value } => (None, value as u32 as usize),
+                    Operator::GlobalGet { global_index } => {
+                        (Some(GlobalIndex::from_u32(global_index)), 0)
+                    }
+                    ref s => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in element section: {:?}",
+                            s
+                        ));
+                    }
+                };
                 environ.declare_table_initializers(
                     TableIndex::from_u32(table_index),
                     base,
@@ -359,25 +377,6 @@ pub fn parse_element_section<'data>(
     Ok(())
 }
 
-/// Parses the Code section of the wasm module.
-pub fn parse_code_section<'data>(
-    code: CodeSectionReader<'data>,
-    module_translation_state: &ModuleTranslationState,
-    environ: &mut ModuleEnvironment<'data>,
-) -> WasmResult<()> {
-    for body in code {
-        let mut reader = body.map_err(to_wasm_error)?.get_binary_reader();
-        let size = reader.bytes_remaining();
-        let offset = reader.original_position();
-        environ.define_function_body(
-            module_translation_state,
-            reader.read_bytes(size).map_err(to_wasm_error)?,
-            offset,
-        )?;
-    }
-    Ok(())
-}
-
 /// Parses the Data section of the wasm module.
 pub fn parse_data_section<'data>(
     data: DataSectionReader<'data>,
@@ -386,26 +385,25 @@ pub fn parse_data_section<'data>(
     environ.reserve_data_initializers(data.get_count())?;
 
     for (index, entry) in data.into_iter().enumerate() {
-        let Data { kind, data } = entry.map_err(to_wasm_error)?;
+        let Data { kind, data } = entry?;
         match kind {
             DataKind::Active {
                 memory_index,
                 init_expr,
             } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
-                let (base, offset) =
-                    match init_expr_reader.read_operator().map_err(to_wasm_error)? {
-                        Operator::I32Const { value } => (None, value as u32 as usize),
-                        Operator::GlobalGet { global_index } => {
-                            (Some(GlobalIndex::from_u32(global_index)), 0)
-                        }
-                        ref s => {
-                            return Err(wasm_unsupported!(
-                                "unsupported init expr in data section: {:?}",
-                                s
-                            ))
-                        }
-                    };
+                let (base, offset) = match init_expr_reader.read_operator()? {
+                    Operator::I32Const { value } => (None, value as u32 as usize),
+                    Operator::GlobalGet { global_index } => {
+                        (Some(GlobalIndex::from_u32(global_index)), 0)
+                    }
+                    ref s => {
+                        return Err(wasm_unsupported!(
+                            "unsupported init expr in data section: {:?}",
+                            s
+                        ))
+                    }
+                };
                 environ.declare_data_initialization(
                     MemoryIndex::from_u32(memory_index),
                     base,

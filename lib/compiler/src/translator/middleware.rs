@@ -6,22 +6,35 @@ use std::collections::VecDeque;
 use std::fmt::Debug;
 use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
-use wasmparser::{BinaryReader, Operator, Result as WpResult, Type};
+use wasmer_vm::ModuleInfo;
+use wasmparser::{BinaryReader, Operator, Type};
+
+use crate::error::{MiddlewareError, WasmResult};
 
 /// A shared builder for function middlewares.
-pub trait FunctionMiddlewareGenerator: Debug + Send + Sync {
+pub trait ModuleMiddleware: Debug + Send + Sync {
     /// Generates a `FunctionMiddleware` for a given function.
-    fn generate(&self, local_function_index: LocalFunctionIndex) -> Box<dyn FunctionMiddleware>;
+    ///
+    /// Here we generate a separate object for each function instead of executing directly on per-function operators,
+    /// in order to enable concurrent middleware application. Takes immutable `&self` because this function can be called
+    /// concurrently from multiple compilation threads.
+    fn generate_function_middleware(
+        &self,
+        local_function_index: LocalFunctionIndex,
+    ) -> Box<dyn FunctionMiddleware>;
+
+    /// Transforms a `ModuleInfo` struct in-place. This is called before application on functions begins.
+    fn transform_module_info(&self, _: &mut ModuleInfo) {}
 }
 
 /// A function middleware specialized for a single function.
 pub trait FunctionMiddleware: Debug {
-    /// Processes the given event, module info and sink.
+    /// Processes the given operator.
     fn feed<'a>(
         &mut self,
         operator: Operator<'a>,
         state: &mut MiddlewareReaderState<'a>,
-    ) -> WpResult<()> {
+    ) -> Result<(), MiddlewareError> {
         state.push_operator(operator);
         Ok(())
     }
@@ -48,23 +61,33 @@ pub struct MiddlewareReaderState<'a> {
 }
 
 /// Trait for generating middleware chains from "prototype" (generator) chains.
-pub trait GenerateMiddlewareChain {
-    /// Generates a middleware chain.
-    fn generate_middleware_chain(
+pub trait ModuleMiddlewareChain {
+    /// Generates a function middleware chain.
+    fn generate_function_middleware_chain(
         &self,
         local_function_index: LocalFunctionIndex,
     ) -> Vec<Box<dyn FunctionMiddleware>>;
+
+    /// Applies the chain on a `ModuleInfo` struct.
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo);
 }
 
-impl<T: Deref<Target = dyn FunctionMiddlewareGenerator>> GenerateMiddlewareChain for [T] {
-    /// Generates a middleware chain.
-    fn generate_middleware_chain(
+impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
+    /// Generates a function middleware chain.
+    fn generate_function_middleware_chain(
         &self,
         local_function_index: LocalFunctionIndex,
     ) -> Vec<Box<dyn FunctionMiddleware>> {
         self.iter()
-            .map(|x| x.generate(local_function_index))
+            .map(|x| x.generate_function_middleware(local_function_index))
             .collect()
+    }
+
+    /// Applies the chain on a `ModuleInfo` struct.
+    fn apply_on_module_info(&self, module_info: &mut ModuleInfo) {
+        for item in self {
+            item.transform_module_info(module_info);
+        }
     }
 }
 
@@ -72,6 +95,18 @@ impl<'a> MiddlewareReaderState<'a> {
     /// Push an operator.
     pub fn push_operator(&mut self, operator: Operator<'a>) {
         self.pending_operations.push_back(operator);
+    }
+}
+
+impl<'a> Extend<Operator<'a>> for MiddlewareReaderState<'a> {
+    fn extend<I: IntoIterator<Item = Operator<'a>>>(&mut self, iter: I) {
+        self.pending_operations.extend(iter);
+    }
+}
+
+impl<'a: 'b, 'b> Extend<&'b Operator<'a>> for MiddlewareReaderState<'a> {
+    fn extend<I: IntoIterator<Item = &'b Operator<'a>>>(&mut self, iter: I) {
+        self.pending_operations.extend(iter.into_iter().cloned());
     }
 }
 
@@ -94,17 +129,24 @@ impl<'a> MiddlewareBinaryReader<'a> {
     }
 
     /// Read a `count` indicating the number of times to call `read_local_decl`.
-    pub fn read_local_count(&mut self) -> WpResult<usize> {
-        self.state.inner.read_local_count()
+    pub fn read_local_count(&mut self) -> WasmResult<u32> {
+        Ok(self.state.inner.read_var_u32()?)
     }
 
     /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self, locals_total: &mut usize) -> WpResult<(u32, Type)> {
-        self.state.inner.read_local_decl(locals_total)
+    pub fn read_local_decl(&mut self) -> WasmResult<(u32, Type)> {
+        let count = self.state.inner.read_var_u32()?;
+        let ty = self.state.inner.read_type()?;
+        Ok((count, ty))
     }
 
     /// Reads the next available `Operator`.
-    pub fn read_operator(&mut self) -> WpResult<Operator<'a>> {
+    pub fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
+        if self.chain.is_empty() {
+            // We short-circuit in case no chain is used
+            return Ok(self.state.inner.read_operator()?);
+        }
+
         // Try to fill the `self.pending_operations` buffer, until it is non-empty.
         while self.state.pending_operations.is_empty() {
             let raw_op = self.state.inner.read_operator()?;

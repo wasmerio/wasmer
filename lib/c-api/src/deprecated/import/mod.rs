@@ -15,13 +15,13 @@ use std::ffi::{c_void, CStr};
 use std::os::raw::c_char;
 use std::ptr::{self, NonNull};
 use std::slice;
-// use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 // use std::convert::TryFrom,
 use std::collections::HashMap;
 use wasmer::{
     ChainableNamedResolver, Exports, Extern, Function, FunctionType, Global, ImportObject,
     ImportObjectIterator, ImportType, Memory, Module, NamedResolver, RuntimeError, Table, Val,
-    ValType,
+    ValType, WasmerEnv,
 };
 
 #[repr(C)]
@@ -48,7 +48,7 @@ pub(crate) struct CAPIImportObject {
     /// List of pointers to `LegacyEnv`s used to patch imported functions to be able to
     /// pass a the "vmctx" as the first argument.
     /// Needed here because of extending import objects.
-    pub(crate) instance_pointers_to_update: Vec<NonNull<LegacyEnv>>,
+    pub(crate) instance_pointers_to_update: Vec<Arc<Mutex<LegacyEnv>>>,
 }
 
 #[repr(C)]
@@ -399,7 +399,6 @@ pub unsafe extern "C" fn wasmer_import_object_imports_destroy(
                 let function_wrapper: Box<FunctionWrapper> =
                     Box::from_raw(import.value.func as *mut _);
                 let _: Box<Function> = Box::from_raw(function_wrapper.func.as_ptr());
-                let _: Box<LegacyEnv> = Box::from_raw(function_wrapper.legacy_env.as_ptr());
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
                 let _: Box<Global> = Box::from_raw(import.value.global as *mut _);
@@ -464,7 +463,7 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
                 let func_export = (*func_wrapper).func.as_ptr();
                 import_object
                     .instance_pointers_to_update
-                    .push((*func_wrapper).legacy_env);
+                    .push((*func_wrapper).legacy_env.clone());
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -634,10 +633,16 @@ pub unsafe extern "C" fn wasmer_import_func_params_arity(
 }
 
 /// struct used to pass in context to functions (which must be back-patched)
-#[derive(Debug, Default)]
+
+#[derive(Debug, Default, WasmerEnv, Clone)]
 pub(crate) struct LegacyEnv {
     pub(crate) instance_ptr: Option<NonNull<CAPIInstance>>,
 }
+
+/// Because this type requires unsafe to do any meaningful operation, we
+/// can implement `Send` and `Sync`. All operations must be synchronized.
+unsafe impl Send for LegacyEnv {}
+unsafe impl Sync for LegacyEnv {}
 
 impl LegacyEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
@@ -653,7 +658,7 @@ impl LegacyEnv {
 #[derive(Debug)]
 pub(crate) struct FunctionWrapper {
     pub(crate) func: NonNull<Function>,
-    pub(crate) legacy_env: NonNull<LegacyEnv>,
+    pub(crate) legacy_env: Arc<Mutex<LegacyEnv>>,
 }
 
 /// Creates new host function, aka imported function. `func` is a
@@ -690,13 +695,14 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let store = get_global_store();
 
-    let env_ptr = Box::into_raw(Box::new(LegacyEnv::default()));
+    let env = Arc::new(Mutex::new(LegacyEnv::default()));
 
-    let func = Function::new_with_env(store, &func_type, &mut *env_ptr, move |env, args| {
+    let func = Function::new_with_env(store, &func_type, env.clone(), move |env, args| {
         use libffi::high::call::{call, Arg};
         use libffi::low::CodePtr;
+        let env_guard = env.lock().unwrap();
 
-        let ctx_ptr = env.ctx_ptr();
+        let ctx_ptr = env_guard.ctx_ptr();
         let ctx_ptr_val = ctx_ptr as *const _ as isize as i64;
 
         let ffi_args: Vec<Arg> = {
@@ -734,7 +740,7 @@ pub unsafe extern "C" fn wasmer_import_func_new(
 
     let function_wrapper = FunctionWrapper {
         func: NonNull::new_unchecked(Box::into_raw(Box::new(func))),
-        legacy_env: NonNull::new_unchecked(env_ptr),
+        legacy_env: env.clone(),
     };
     Box::into_raw(Box::new(function_wrapper)) as *mut wasmer_import_func_t
 }
@@ -864,7 +870,6 @@ pub unsafe extern "C" fn wasmer_import_func_returns_arity(
 pub unsafe extern "C" fn wasmer_import_func_destroy(func: Option<NonNull<wasmer_import_func_t>>) {
     if let Some(func) = func {
         let function_wrapper = Box::from_raw(func.cast::<FunctionWrapper>().as_ptr());
-        let _legacy_env = Box::from_raw(function_wrapper.legacy_env.as_ptr());
         let _function = Box::from_raw(function_wrapper.func.as_ptr());
     }
 }

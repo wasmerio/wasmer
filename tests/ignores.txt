@@ -2,17 +2,8 @@
 singlepass::spec::multi_value
 singlepass::spec::simd
 
-## SIMD in Cranelift 0.65 is not fully supported
-cranelift::spec::simd::simd_conversions
-cranelift::spec::simd::simd_f32x4
-cranelift::spec::simd::simd_f64x2
+## SIMD in Cranelift 0.67 has a small bug
 cranelift::spec::simd::simd_f64x2_arith
-cranelift::spec::simd::simd_i16x8_arith2
-cranelift::spec::simd::simd_i32x4_arith2
-cranelift::spec::simd::simd_i8x16_arith2
-cranelift::spec::simd::simd_load
-cranelift::spec::simd::simd_splat
-
 
 singlepass on windows # Singlepass is not yet supported on Windows
 
@@ -21,6 +12,37 @@ singlepass on windows # Singlepass is not yet supported on Windows
 # https://github.com/rust-lang/backtrace-rs/issues/356
 cranelift::spec::skip_stack_guard_page on darwin
 llvm::spec::skip_stack_guard_page on darwin
+
+# TODO(https://github.com/wasmerio/wasmer/issues/1727): Traps in native engine
+cranelift::spec::linking on native
+
+# https://github.com/wasmerio/wasmer/issues/1722
+llvm::spec::skip_stack_guard_page on native
+
+# Cranelift on arm failures
+cranelift::spec::align on aarch64
+cranelift::spec::memory_trap on aarch64
+cranelift::spec::simd::simd_bit_shift on aarch64
+cranelift::spec::simd::simd_boolean on aarch64
+cranelift::spec::simd::simd_const on aarch64
+cranelift::spec::simd::simd_i16x8_arith on aarch64
+cranelift::spec::simd::simd_i16x8_sat_arith on aarch64
+cranelift::spec::simd::simd_i32x4_arith on aarch64
+cranelift::spec::simd::simd_i64x2_arith on aarch64
+cranelift::spec::simd::simd_i8x16_arith on aarch64
+cranelift::spec::simd::simd_i8x16_sat_arith on aarch64
+cranelift::spec::simd::simd_lane on aarch64
+cranelift::spec::skip_stack_guard_page on aarch64
+
+
+# SIMD changes
+# due to breaking changes in the SIMD proposal, we have to disable these spec tests
+# note we've not pulled in the updated spec tests yet, so expect more breakage
+
+cranelift::spec::simd::simd_boolean
+cranelift::spec::simd::simd_lane
+llvm::spec::simd::simd_boolean
+llvm::spec::simd::simd_lane
 
 # Frontends
 

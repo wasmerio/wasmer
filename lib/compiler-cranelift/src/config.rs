@@ -3,7 +3,7 @@ use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Architecture, Compiler, CompilerConfig, CpuFeature, FunctionMiddlewareGenerator, Target,
+    Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,
 };
 
 // Runtime Environment
@@ -11,7 +11,7 @@ use wasmer_compiler::{
 /// Possible optimization levels for the Cranelift codegen backend.
 #[non_exhaustive]
 #[derive(Clone, Debug)]
-pub enum OptLevel {
+pub enum CraneliftOptLevel {
     /// No optimizations performed, minimizes compilation time by disabling most
     /// optimizations.
     None,
@@ -22,20 +22,20 @@ pub enum OptLevel {
     SpeedAndSize,
 }
 
-/// Global configuration options used to create an [`Engine`] and customize its
-/// behavior.
+/// Global configuration options used to create an
+/// `wasmer_engine::Engine` and customize its behavior.
 ///
-/// This structure exposed a builder-like interface and is primarily consumed by
-/// [`Engine::new()`]
+/// This structure exposes a builder-like interface and is primarily
+/// consumed by `wasmer_engine::Engine::new`.
 #[derive(Debug, Clone)]
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
     enable_simd: bool,
     enable_pic: bool,
-    opt_level: OptLevel,
+    opt_level: CraneliftOptLevel,
     /// The middleware chain.
-    pub(crate) middlewares: Vec<Arc<dyn FunctionMiddlewareGenerator>>,
+    pub(crate) middlewares: Vec<Arc<dyn ModuleMiddleware>>,
 }
 
 impl Cranelift {
@@ -45,7 +45,7 @@ impl Cranelift {
         Self {
             enable_nan_canonicalization: false,
             enable_verifier: false,
-            opt_level: OptLevel::Speed,
+            opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
             enable_simd: true,
             middlewares: vec![],
@@ -68,7 +68,7 @@ impl Cranelift {
     }
 
     /// The optimization levels when optimizing the IR.
-    pub fn opt_level(&mut self, opt_level: OptLevel) -> &mut Self {
+    pub fn opt_level(&mut self, opt_level: CraneliftOptLevel) -> &mut Self {
         self.opt_level = opt_level;
         self
     }
@@ -156,9 +156,9 @@ impl Cranelift {
             "none"
         } else {
             match self.opt_level {
-                OptLevel::None => "none",
-                OptLevel::Speed => "speed",
-                OptLevel::SpeedAndSize => "speed_and_size",
+                CraneliftOptLevel::None => "none",
+                CraneliftOptLevel::Speed => "speed",
+                CraneliftOptLevel::SpeedAndSize => "speed_and_size",
             }
         };
 
@@ -194,12 +194,12 @@ impl CompilerConfig for Cranelift {
     }
 
     /// Transform it into the compiler
-    fn compiler(&self) -> Box<dyn Compiler + Send> {
-        Box::new(CraneliftCompiler::new(&self))
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler> {
+        Box::new(CraneliftCompiler::new(*self))
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>) {
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
     }
 }

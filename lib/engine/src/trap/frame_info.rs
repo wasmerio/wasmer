@@ -97,6 +97,7 @@ impl ModuleInfoFrameInfo {
     }
 }
 
+#[derive(Debug)]
 struct FunctionInfo {
     start: usize,
     local_index: LocalFunctionIndex,
@@ -219,6 +220,18 @@ impl Drop for GlobalFrameInfoRegistration {
     }
 }
 
+/// Represents a continuous region of executable memory starting with a function
+/// entry point.
+#[derive(Debug)]
+#[repr(C)]
+pub struct FunctionExtent {
+    /// Entry point for normal entry of the function. All addresses in the
+    /// function lie after this address.
+    pub ptr: FunctionBodyPtr,
+    /// Length in bytes.
+    pub length: usize,
+}
+
 /// Registers a new compiled module's frame information.
 ///
 /// This function will register the `names` information for all of the
@@ -227,18 +240,22 @@ impl Drop for GlobalFrameInfoRegistration {
 /// dropped, will be used to unregister all name information from this map.
 pub fn register(
     module: Arc<ModuleInfo>,
-    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionExtent>,
     frame_infos: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
 ) -> Option<GlobalFrameInfoRegistration> {
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (i, allocated) in finished_functions.iter() {
-        let (start, end) = unsafe {
-            let ptr = (***allocated).as_ptr();
-            let len = (***allocated).len();
-            (ptr as usize, ptr as usize + len)
-        };
+    for (
+        i,
+        FunctionExtent {
+            ptr: start,
+            length: len,
+        },
+    ) in finished_functions.iter()
+    {
+        let start = **start as usize;
+        let end = start + len;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
         let func = FunctionInfo {
@@ -275,13 +292,14 @@ pub fn register(
     Some(GlobalFrameInfoRegistration { key: max })
 }
 
-/// Description of a frame in a backtrace for a [`Trap`].
+/// Description of a frame in a backtrace for a [`RuntimeError::trace`](crate::RuntimeError::trace).
 ///
-/// Whenever a WebAssembly trap occurs an instance of [`Trap`] is created. Each
-/// [`Trap`] has a backtrace of the WebAssembly frames that led to the trap, and
-/// each frame is described by this structure.
+/// Whenever a WebAssembly trap occurs an instance of [`RuntimeError`]
+/// is created. Each [`RuntimeError`] has a backtrace of the
+/// WebAssembly frames that led to the trap, and each frame is
+/// described by this structure.
 ///
-/// [`Trap`]: crate::Trap
+/// [`RuntimeError`]: crate::RuntimeError
 #[derive(Debug, Clone)]
 pub struct FrameInfo {
     module_name: String,

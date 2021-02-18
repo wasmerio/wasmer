@@ -19,11 +19,13 @@ use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
+use std::sync::Arc;
 use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, SectionIndex,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData,
+    ModuleMiddlewareChain, SectionIndex,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -36,10 +38,8 @@ pub struct CraneliftCompiler {
 
 impl CraneliftCompiler {
     /// Creates a new Cranelift compiler
-    pub fn new(config: &Cranelift) -> Self {
-        Self {
-            config: config.clone(),
-        }
+    pub fn new(config: Cranelift) -> Self {
+        Self { config }
     }
 
     /// Gets the WebAssembly features for this Compiler
@@ -54,14 +54,17 @@ impl Compiler for CraneliftCompiler {
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &CompileModuleInfo,
-        module_translation: &ModuleTranslationState,
+        compile_info: &mut CompileModuleInfo,
+        module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         let isa = self.config().isa(target);
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
+        let mut module = (*compile_info.module).clone();
+        self.config.middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -77,7 +80,7 @@ impl Compiler for CraneliftCompiler {
             // FDEs will cause some issues in Linux.
             None
         } else {
-            use std::sync::{Arc, Mutex};
+            use std::sync::Mutex;
             match target.triple().default_calling_convention() {
                 Ok(CallingConvention::SystemV) => {
                     match isa.create_systemv_cie() {
@@ -95,7 +98,7 @@ impl Compiler for CraneliftCompiler {
         };
 
         let functions = function_body_inputs
-            .into_iter()
+            .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map_init(FuncTranslator::new, |func_translator, (i, input)| {
@@ -115,7 +118,7 @@ impl Compiler for CraneliftCompiler {
                 // }
 
                 func_translator.translate(
-                    module_translation,
+                    module_translation_state,
                     input.data,
                     input.module_offset,
                     &mut context.func,
@@ -125,9 +128,9 @@ impl Compiler for CraneliftCompiler {
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
-                let mut reloc_sink = RelocSink::new(module, func_index);
+                let mut reloc_sink = RelocSink::new(&module, func_index);
                 let mut trap_sink = TrapSink::new();
-                let mut stackmap_sink = binemit::NullStackmapSink {};
+                let mut stackmap_sink = binemit::NullStackMapSink {};
                 context
                     .compile_and_emit(
                         &*isa,

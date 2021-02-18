@@ -10,31 +10,30 @@ use crate::{
     vm,
 };
 use std::{
-    cell::{Ref, RefCell, RefMut},
     error::Error,
-    rc::Rc,
+    sync::{Arc, Mutex, MutexGuard},
 };
 
 pub use crate::typed_func::DynamicFunc as DynFunc;
 
 #[derive(Debug)]
 pub(crate) struct PreInstance {
-    pub(crate) vmctx: Rc<RefCell<vm::Ctx>>,
+    pub(crate) vmctx: Arc<Mutex<vm::Ctx>>,
 }
 
 impl PreInstance {
     pub(crate) fn new() -> Self {
         Self {
-            vmctx: Rc::new(RefCell::new(unsafe { vm::Ctx::new_uninit() })),
+            vmctx: Arc::new(Mutex::new(unsafe { vm::Ctx::new_uninit() })),
         }
     }
 
-    pub(crate) fn vmctx(&self) -> Rc<RefCell<vm::Ctx>> {
+    pub(crate) fn vmctx(&self) -> Arc<Mutex<vm::Ctx>> {
         self.vmctx.clone()
     }
 
     pub(crate) fn vmctx_ptr(&self) -> *mut vm::Ctx {
-        self.vmctx.as_ptr()
+        &mut *self.vmctx.lock().unwrap() as _
     }
 }
 
@@ -56,7 +55,7 @@ impl Instance {
     pub(crate) fn new(pre_instance: Box<PreInstance>, new_instance: new::wasmer::Instance) -> Self {
         // Initialize the `vm::Ctx`
         {
-            let mut vmctx = pre_instance.vmctx.borrow_mut();
+            let mut vmctx = pre_instance.vmctx.lock().unwrap();
 
             vmctx.module_info = new_instance.module().info() as *const _;
         }
@@ -200,16 +199,16 @@ impl Instance {
     /// [`Ctx`] used by this Instance.
     ///
     /// [`Ctx`]: struct.Ctx.html
-    pub fn context(&self) -> Ref<vm::Ctx> {
-        self.pre_instance.vmctx.borrow()
+    pub fn context(&self) -> MutexGuard<vm::Ctx> {
+        self.pre_instance.vmctx.lock().unwrap()
     }
 
     /// Returns a mutable reference to the
     /// [`Ctx`] used by this Instance.
     ///
     /// [`Ctx`]: struct.Ctx.html
-    pub fn context_mut(&mut self) -> RefMut<vm::Ctx> {
-        self.pre_instance.vmctx.borrow_mut()
+    pub fn context_mut(&mut self) -> MutexGuard<vm::Ctx> {
+        self.pre_instance.vmctx.lock().unwrap()
     }
 
     /// Returns an iterator over all of the items
@@ -222,11 +221,11 @@ impl Instance {
 }
 
 impl LikeNamespace for Instance {
-    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_vm::Export> {
+    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer::Export> {
         self.exports.new_exports.get_namespace_export(name)
     }
 
-    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_vm::Export)> {
+    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer::Export)> {
         self.exports.new_exports.get_namespace_exports()
     }
 }
@@ -256,11 +255,11 @@ impl Exports {
 }
 
 impl LikeNamespace for Exports {
-    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer_vm::Export> {
+    fn get_namespace_export(&self, name: &str) -> Option<new::wasmer::Export> {
         self.new_exports.get_namespace_export(name)
     }
 
-    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer_vm::Export)> {
+    fn get_namespace_exports(&self) -> Vec<(String, new::wasmer::Export)> {
         self.new_exports.get_namespace_exports()
     }
 }

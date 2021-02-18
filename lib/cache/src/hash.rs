@@ -9,7 +9,9 @@ use std::string::ToString;
 pub struct Hash([u8; 32]);
 
 impl Hash {
-    /// Creates a new hash. Has to be encodable as a hex format.
+    /// Creates a new instance from 32 raw bytes.
+    /// Does not perform any hashing. In order to create a hash from data,
+    /// use `Hash::generate`.
     pub fn new(bytes: [u8; 32]) -> Self {
         Self(bytes)
     }
@@ -20,10 +22,8 @@ impl Hash {
         Self::new(hash.into())
     }
 
-    pub(crate) fn into_array(self) -> [u8; 32] {
-        let mut total = [0u8; 32];
-        total[0..32].copy_from_slice(&self.0);
-        total
+    pub(crate) fn to_array(&self) -> [u8; 32] {
+        self.0
     }
 }
 
@@ -31,7 +31,7 @@ impl ToString for Hash {
     /// Create the hexadecimal representation of the
     /// stored hash.
     fn to_string(&self) -> String {
-        hex::encode(&self.into_array() as &[u8])
+        hex::encode(&self.to_array())
     }
 }
 
@@ -54,5 +54,21 @@ impl FromStr for Hash {
         Ok(Self(bytes[0..32].try_into().map_err(|e| {
             DeserializeError::Generic(format!("Could not get first 32 bytes: {}", e))
         })?))
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    #[test]
+    fn hash_to_array_works() {
+        let original = [
+            0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF,
+            0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD, 0xEE, 0xFF, 0x12, 0x65, 0xAA, 0xBB, 0xCC, 0xDD,
+            0xEE, 0xFF, 0x12, 0x65,
+        ];
+        let hash = Hash::new(original);
+        assert_eq!(hash.to_array(), original);
     }
 }

@@ -6,6 +6,7 @@ use std::any::Any;
 use std::convert::TryInto;
 use std::fmt;
 use std::{
+    collections::VecDeque,
     fs,
     io::{self, Read, Seek, Write},
     path::PathBuf,
@@ -225,18 +226,18 @@ pub trait WasiFile: fmt::Debug + Send + Write + Read + Seek + 'static + Upcastab
 // Implementation of `Upcastable` taken from https://users.rust-lang.org/t/why-does-downcasting-not-work-for-subtraits/33286/7 .
 /// Trait needed to get downcasting from `WasiFile` to work.
 pub trait Upcastable {
-    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any;
-    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any;
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any;
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any;
     fn upcast_any_box(self: Box<Self>) -> Box<dyn Any>;
 }
 
 impl<T: Any + fmt::Debug + 'static> Upcastable for T {
     #[inline]
-    fn upcast_any_ref(self: &'_ Self) -> &'_ dyn Any {
+    fn upcast_any_ref(&'_ self) -> &'_ dyn Any {
         self
     }
     #[inline]
-    fn upcast_any_mut(self: &'_ mut Self) -> &'_ mut dyn Any {
+    fn upcast_any_mut(&'_ mut self) -> &'_ mut dyn Any {
         self
     }
     #[inline]
@@ -247,11 +248,11 @@ impl<T: Any + fmt::Debug + 'static> Upcastable for T {
 
 impl dyn WasiFile + 'static {
     #[inline]
-    pub fn downcast_ref<T: 'static>(self: &'_ Self) -> Option<&'_ T> {
+    pub fn downcast_ref<T: 'static>(&'_ self) -> Option<&'_ T> {
         self.upcast_any_ref().downcast_ref::<T>()
     }
     #[inline]
-    pub fn downcast_mut<T: 'static>(self: &'_ mut Self) -> Option<&'_ mut T> {
+    pub fn downcast_mut<T: 'static>(&'_ mut self) -> Option<&'_ mut T> {
         self.upcast_any_mut().downcast_mut::<T>()
     }
 }
@@ -979,6 +980,73 @@ impl WasiFile for Stdin {
         unimplemented!(
             "Stdin::get_raw_fd in WasiFile is not implemented for non-Unix-like targets yet"
         );
+    }
+}
+
+/// For piping stdio. Stores all output / input in a byte-vector.
+#[derive(Debug, Default, Serialize, Deserialize)]
+pub struct Pipe {
+    buffer: VecDeque<u8>,
+}
+
+impl Pipe {
+    pub fn new() -> Self {
+        Self::default()
+    }
+}
+
+impl Read for Pipe {
+    fn read(&mut self, buf: &mut [u8]) -> io::Result<usize> {
+        let amt = std::cmp::min(buf.len(), self.buffer.len());
+        for (i, byte) in self.buffer.drain(..amt).enumerate() {
+            buf[i] = byte;
+        }
+        Ok(amt)
+    }
+}
+
+impl Write for Pipe {
+    fn write(&mut self, buf: &[u8]) -> io::Result<usize> {
+        self.buffer.extend(buf);
+        Ok(buf.len())
+    }
+    fn flush(&mut self) -> io::Result<()> {
+        Ok(())
+    }
+}
+
+impl Seek for Pipe {
+    fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek in a pipe",
+        ))
+    }
+}
+
+#[typetag::serde]
+impl WasiFile for Pipe {
+    fn last_accessed(&self) -> u64 {
+        0
+    }
+    fn last_modified(&self) -> u64 {
+        0
+    }
+    fn created_time(&self) -> u64 {
+        0
+    }
+    fn size(&self) -> u64 {
+        self.buffer.len() as u64
+    }
+    fn set_len(&mut self, len: u64) -> Result<(), WasiFsError> {
+        self.buffer.resize(len as usize, 0);
+        Ok(())
+    }
+    fn unlink(&mut self) -> Result<(), WasiFsError> {
+        Ok(())
+    }
+    fn bytes_available(&self) -> Result<usize, WasiFsError> {
+        Ok(self.buffer.len())
     }
 }
 

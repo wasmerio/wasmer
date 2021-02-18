@@ -24,6 +24,12 @@ impl<T: Copy, Ty> fmt::Debug for WasmPtr<T, Ty> {
     }
 }
 
+impl<T: Copy, Ty> From<i32> for WasmPtr<T, Ty> {
+    fn from(offset: i32) -> Self {
+        Self::new(offset as _)
+    }
+}
+
 unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
     type Native = <BaseWasmPtr<T, Ty> as FromToNativeWasmType>::Native;
 
@@ -92,7 +98,12 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     }
 
     #[inline(always)]
-    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<&str> {
+    pub unsafe fn get_utf8_str(self, memory: &Memory, str_len: u32) -> Option<&str> {
+        self.0.get_utf8_str(memory, str_len)
+    }
+
+    #[inline(always)]
+    pub fn get_utf8_string(self, memory: &Memory, str_len: u32) -> Option<String> {
         self.0.get_utf8_string(memory, str_len)
     }
 }

@@ -1464,6 +1464,16 @@
   ))
   "type mismatch"
 )
+(assert_invalid
+  (module (func
+    (block (result i32)
+      (block (result i64)
+        (br_table 0 1 (i32.const 0) (i32.const 0))
+      )
+    )
+  ))
+  "type mismatch"
+)
 
 (assert_invalid
   (module (func $type-index-void-vs-i32
@@ -1547,6 +1557,31 @@
         (return (br_table 0 (i32.const 1)))
       )
       (i32.eqz) (drop)
+    )
+  )
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (func (param i32) (result i32)
+      (loop (result i32)
+        (block (result i32)
+          (br_table 0 1 (i32.const 1) (local.get 0))
+        )
+      )
+    )
+  )
+  "type mismatch"
+)
+(assert_invalid
+  (module
+    (func (param i32) (result i32)
+      (block (result i32)
+        (loop (result i32)
+          (br_table 0 1 (i32.const 1) (local.get 0))
+        )
+      )
     )
   )
   "type mismatch"

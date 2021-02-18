@@ -1,3 +1,3 @@
-pub use crate::new::wasmer::{ExportError, MemoryError};
+pub use crate::new::wasmer::{ExportError, InstantiationError, MemoryError};
 pub use crate::new::wasmer_compiler::CompileError;
-pub use crate::new::wasmer_engine::{InstantiationError, LinkError, RuntimeError};
+pub use crate::new::wasmer_engine::{LinkError, RuntimeError};

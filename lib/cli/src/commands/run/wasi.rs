@@ -87,12 +87,20 @@ pub struct Wasi {
     wasio_executor: wasio::ExecutorType,
 }
 
+#[allow(dead_code)]
 impl Wasi {
     /// Gets the WASI version (if any) for the provided module
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
-        // Get the wasi version on strict mode, so no other imports are
+        // Get the wasi version in strict mode, so no other imports are
         // allowed.
         get_wasi_version(&module, false)
+    }
+
+    /// Checks if a given module has any WASI imports at all.
+    pub fn has_wasi_imports(module: &Module) -> bool {
+        // Get the wasi version in non-strict mode, so no other imports
+        // are allowed
+        get_wasi_version(&module, false).is_some()
     }
 
     /// Helper function for executing Wasi from the `Run` command.
@@ -122,8 +130,6 @@ impl Wasi {
         let mut wasi_env = wasi_state_builder.finalize()?;
         let import_object = wasi_env.import_object(&module)?;
         let instance = Instance::new(&module, &import_object)?;
-
-        wasi_env.set_memory(instance.exports.get_memory("memory")?.clone());
 
         let start = instance.exports.get_function("_start")?;
         let result = start.call(&[]);

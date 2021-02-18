@@ -74,10 +74,7 @@ impl<'ctx> ControlFrame<'ctx> {
     }
 
     pub fn is_loop(&self) -> bool {
-        match self {
-            ControlFrame::Loop { .. } => true,
-            _ => false,
-        }
+        matches!(self, ControlFrame::Loop { .. })
     }
 }
 

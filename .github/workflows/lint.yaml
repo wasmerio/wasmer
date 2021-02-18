@@ -19,7 +19,11 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.45.0
+          toolchain: 1.49
           override: true
           components: rustfmt, clippy
       - run: make lint
+      - name: Assert no files have changed
+        run: |
+          git status
+          ! [[ $(git status -s) ]]

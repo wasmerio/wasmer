@@ -8,21 +8,20 @@
     unreachable_patterns
 )]
 #![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
-#![doc(html_logo_url = "https://avatars3.githubusercontent.com/u/44205449?s=200&v=4")]
+#![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 #[macro_use]
 extern crate log;
 
 use lazy_static::lazy_static;
-use std::cell::UnsafeCell;
 use std::collections::HashMap;
+use std::f64;
 use std::path::PathBuf;
-use std::sync::Arc;
-use std::{f64, ffi::c_void};
+use std::sync::{Arc, Mutex};
 use wasmer::{
     imports, namespace, Exports, ExternRef, Function, FunctionType, Global, ImportObject, Instance,
-    Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
-    ValType,
+    LazyInit, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType,
+    Val, ValType, WasmerEnv,
 };
 
 #[cfg(unix)]
@@ -73,15 +72,22 @@ pub use self::utils::{
 /// The environment provided to the Emscripten imports.
 pub struct EmEnv {
     memory: Arc<Option<Memory>>,
-    data: *mut *mut EmscriptenData<'static>,
+    data: Arc<Mutex<EmscriptenData>>,
+}
+
+impl WasmerEnv for EmEnv {
+    fn init_with_instance(&mut self, instance: &Instance) -> Result<(), wasmer::HostEnvInitError> {
+        let mut ed = self.data.lock().unwrap();
+        ed.init_with_instance(instance)?;
+        Ok(())
+    }
 }
 
 impl EmEnv {
-    pub fn new() -> Self {
+    pub fn new(data: &EmscriptenGlobalsData, mapped_dirs: HashMap<String, PathBuf>) -> Self {
         Self {
             memory: Arc::new(None),
-            // TODO: clean this up
-            data: Box::into_raw(Box::new(std::ptr::null_mut())),
+            data: Arc::new(Mutex::new(EmscriptenData::new(data.clone(), mapped_dirs))),
         }
     }
 
@@ -92,15 +98,25 @@ impl EmEnv {
         }
     }
 
-    pub fn set_data(&mut self, data: *mut c_void) {
-        unsafe { *self.data = data as _ };
-    }
-
     /// Get a reference to the memory
     pub fn memory(&self, _mem_idx: u32) -> &Memory {
         (*self.memory).as_ref().unwrap()
     }
 }
+
+#[derive(Debug, Clone)]
+pub struct LibcDirWrapper(pub *mut LibcDir);
+
+impl std::ops::Deref for LibcDirWrapper {
+    type Target = *mut LibcDir;
+
+    fn deref(&self) -> &Self::Target {
+        &self.0
+    }
+}
+
+unsafe impl Send for LibcDirWrapper {}
+unsafe impl Sync for LibcDirWrapper {}
 
 // TODO: Magic number - how is this calculated?
 const TOTAL_STACK: u32 = 5_242_880;
@@ -119,282 +135,158 @@ lazy_static! {
 const GLOBAL_BASE: u32 = 1024;
 const STATIC_BASE: u32 = GLOBAL_BASE;
 
-pub struct EmscriptenData<'a> {
-    pub globals: &'a EmscriptenGlobalsData,
+#[derive(WasmerEnv, Clone, Default)]
+pub struct EmscriptenData {
+    pub globals: EmscriptenGlobalsData,
 
-    pub malloc: Option<NativeFunc<'a, u32, u32>>,
-    pub free: Option<NativeFunc<'a, u32>>,
-    pub memalign: Option<NativeFunc<'a, (u32, u32), u32>>,
-    pub memset: Option<NativeFunc<'a, (u32, u32, u32), u32>>,
-    pub stack_alloc: Option<NativeFunc<'a, u32, u32>>,
-    pub jumps: Vec<UnsafeCell<[u32; 27]>>,
-    pub opened_dirs: HashMap<i32, Box<*mut LibcDir>>,
+    #[wasmer(export(alias = "_malloc", optional = true))]
+    pub malloc: LazyInit<NativeFunc<u32, u32>>,
+    #[wasmer(export(alias = "_free", optional = true))]
+    pub free: LazyInit<NativeFunc<u32>>,
+    #[wasmer(export(alias = "_memalign", optional = true))]
+    pub memalign: LazyInit<NativeFunc<(u32, u32), u32>>,
+    #[wasmer(export(alias = "_memset", optional = true))]
+    pub memset: LazyInit<NativeFunc<(u32, u32, u32), u32>>,
+    #[wasmer(export(name = "stackAlloc", optional = true))]
+    pub stack_alloc: LazyInit<NativeFunc<u32, u32>>,
+    pub jumps: Arc<Mutex<Vec<[u32; 27]>>>,
+    pub opened_dirs: HashMap<i32, Box<LibcDirWrapper>>,
 
-    pub dyn_call_i: Option<NativeFunc<'a, i32, i32>>,
-    pub dyn_call_ii: Option<NativeFunc<'a, (i32, i32), i32>>,
-    pub dyn_call_iii: Option<NativeFunc<'a, (i32, i32, i32), i32>>,
-    pub dyn_call_iiii: Option<NativeFunc<'a, (i32, i32, i32, i32), i32>>,
-    pub dyn_call_iifi: Option<NativeFunc<'a, (i32, i32, f64, i32), i32>>,
-    pub dyn_call_v: Option<NativeFunc<'a, i32>>,
-    pub dyn_call_vi: Option<NativeFunc<'a, (i32, i32)>>,
-    pub dyn_call_vii: Option<NativeFunc<'a, (i32, i32, i32)>>,
-    pub dyn_call_viii: Option<NativeFunc<'a, (i32, i32, i32, i32)>>,
-    pub dyn_call_viiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_i", optional = true))]
+    pub dyn_call_i: LazyInit<NativeFunc<i32, i32>>,
+    #[wasmer(export(name = "dynCall_ii", optional = true))]
+    pub dyn_call_ii: LazyInit<NativeFunc<(i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iii", optional = true))]
+    pub dyn_call_iii: LazyInit<NativeFunc<(i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiii", optional = true))]
+    pub dyn_call_iiii: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iifi", optional = true))]
+    pub dyn_call_iifi: LazyInit<NativeFunc<(i32, i32, f64, i32), i32>>,
+    #[wasmer(export(name = "dynCall_v", optional = true))]
+    pub dyn_call_v: LazyInit<NativeFunc<i32>>,
+    #[wasmer(export(name = "dynCall_vi", optional = true))]
+    pub dyn_call_vi: LazyInit<NativeFunc<(i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vii", optional = true))]
+    pub dyn_call_vii: LazyInit<NativeFunc<(i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viii", optional = true))]
+    pub dyn_call_viii: LazyInit<NativeFunc<(i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiii", optional = true))]
+    pub dyn_call_viiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
 
     // round 2
-    pub dyn_call_dii: Option<NativeFunc<'a, (i32, i32, i32), f64>>,
-    pub dyn_call_diiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32), f64>>,
-    pub dyn_call_iiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiiiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_dii", optional = true))]
+    pub dyn_call_dii: LazyInit<NativeFunc<(i32, i32, i32), f64>>,
+    #[wasmer(export(name = "dynCall_diiii", optional = true))]
+    pub dyn_call_diiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), f64>>,
+    #[wasmer(export(name = "dynCall_iiiii", optional = true))]
+    pub dyn_call_iiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiii", optional = true))]
+    pub dyn_call_iiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiiii", optional = true))]
+    pub dyn_call_iiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiiiii", optional = true))]
+    pub dyn_call_iiiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiiiiiiiiii", optional = true))]
     pub dyn_call_iiiiiiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_vd: Option<NativeFunc<'a, (i32, f64)>>,
-    pub dyn_call_viiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiiiiiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_vd", optional = true))]
+    pub dyn_call_vd: LazyInit<NativeFunc<(i32, f64)>>,
+    #[wasmer(export(name = "dynCall_viiiii", optional = true))]
+    pub dyn_call_viiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiiiii", optional = true))]
+    pub dyn_call_viiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiiiiii", optional = true))]
+    pub dyn_call_viiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiiiiiii", optional = true))]
+    pub dyn_call_viiiiiiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiiiiiiii", optional = true))]
     pub dyn_call_viiiiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiiiiiiiii", optional = true))]
     pub dyn_call_viiiiiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_iij: Option<NativeFunc<'a, (i32, i32, i32, i32), i32>>,
-    pub dyn_call_iji: Option<NativeFunc<'a, (i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiji: Option<NativeFunc<'a, (i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_iiijj: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_j: Option<NativeFunc<'a, i32, i32>>,
-    pub dyn_call_ji: Option<NativeFunc<'a, (i32, i32), i32>>,
-    pub dyn_call_jii: Option<NativeFunc<'a, (i32, i32, i32), i32>>,
-    pub dyn_call_jij: Option<NativeFunc<'a, (i32, i32, i32, i32), i32>>,
-    pub dyn_call_jjj: Option<NativeFunc<'a, (i32, i32, i32, i32, i32), i32>>,
-    pub dyn_call_viiij: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_iij", optional = true))]
+    pub dyn_call_iij: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iji", optional = true))]
+    pub dyn_call_iji: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiji", optional = true))]
+    pub dyn_call_iiji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_iiijj", optional = true))]
+    pub dyn_call_iiijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_j", optional = true))]
+    pub dyn_call_j: LazyInit<NativeFunc<i32, i32>>,
+    #[wasmer(export(name = "dynCall_ji", optional = true))]
+    pub dyn_call_ji: LazyInit<NativeFunc<(i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_jii", optional = true))]
+    pub dyn_call_jii: LazyInit<NativeFunc<(i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_jij", optional = true))]
+    pub dyn_call_jij: LazyInit<NativeFunc<(i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_jjj", optional = true))]
+    pub dyn_call_jjj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32), i32>>,
+    #[wasmer(export(name = "dynCall_viiij", optional = true))]
+    pub dyn_call_viiij: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiijiiii", optional = true))]
     pub dyn_call_viiijiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiijiiiiii", optional = true))]
     pub dyn_call_viiijiiiiii:
-        Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viij: Option<NativeFunc<'a, (i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viiji: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viijiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viijj: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_vj: Option<NativeFunc<'a, (i32, i32, i32)>>,
-    pub dyn_call_vjji: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_vij: Option<NativeFunc<'a, (i32, i32, i32, i32)>>,
-    pub dyn_call_viji: Option<NativeFunc<'a, (i32, i32, i32, i32, i32)>>,
-    pub dyn_call_vijiii: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_vijj: Option<NativeFunc<'a, (i32, i32, i32, i32, i32, i32)>>,
-    pub dyn_call_viid: Option<NativeFunc<'a, (i32, i32, i32, f64)>>,
-    pub dyn_call_vidd: Option<NativeFunc<'a, (i32, i32, f64, f64)>>,
-    pub dyn_call_viidii: Option<NativeFunc<'a, (i32, i32, i32, f64, i32, i32)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viij", optional = true))]
+    pub dyn_call_viij: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viiji", optional = true))]
+    pub dyn_call_viiji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viijiii", optional = true))]
+    pub dyn_call_viijiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viijj", optional = true))]
+    pub dyn_call_viijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vj", optional = true))]
+    pub dyn_call_vj: LazyInit<NativeFunc<(i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vjji", optional = true))]
+    pub dyn_call_vjji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vij", optional = true))]
+    pub dyn_call_vij: LazyInit<NativeFunc<(i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viji", optional = true))]
+    pub dyn_call_viji: LazyInit<NativeFunc<(i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vijiii", optional = true))]
+    pub dyn_call_vijiii: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_vijj", optional = true))]
+    pub dyn_call_vijj: LazyInit<NativeFunc<(i32, i32, i32, i32, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viid", optional = true))]
+    pub dyn_call_viid: LazyInit<NativeFunc<(i32, i32, i32, f64)>>,
+    #[wasmer(export(name = "dynCall_vidd", optional = true))]
+    pub dyn_call_vidd: LazyInit<NativeFunc<(i32, i32, f64, f64)>>,
+    #[wasmer(export(name = "dynCall_viidii", optional = true))]
+    pub dyn_call_viidii: LazyInit<NativeFunc<(i32, i32, i32, f64, i32, i32)>>,
+    #[wasmer(export(name = "dynCall_viidddddddd", optional = true))]
     pub dyn_call_viidddddddd:
-        Option<NativeFunc<'a, (i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
+        LazyInit<NativeFunc<(i32, i32, i32, f64, f64, f64, f64, f64, f64, f64, f64)>>,
     pub temp_ret_0: i32,
 
-    pub stack_save: Option<NativeFunc<'a, (), i32>>,
-    pub stack_restore: Option<NativeFunc<'a, i32>>,
-    pub set_threw: Option<NativeFunc<'a, (i32, i32)>>,
+    #[wasmer(export(name = "stackSave", optional = true))]
+    pub stack_save: LazyInit<NativeFunc<(), i32>>,
+    #[wasmer(export(name = "stackRestore", optional = true))]
+    pub stack_restore: LazyInit<NativeFunc<i32>>,
+    #[wasmer(export(name = "setThrew", alias = "_setThrew", optional = true))]
+    pub set_threw: LazyInit<NativeFunc<(i32, i32)>>,
     pub mapped_dirs: HashMap<String, PathBuf>,
 }
 
-impl<'a> EmscriptenData<'a> {
+impl EmscriptenData {
     pub fn new(
-        instance: &'a mut Instance,
-        globals: &'a EmscriptenGlobalsData,
+        globals: EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
-    ) -> EmscriptenData<'a> {
-        let malloc = instance
-            .exports
-            .get_native_function("_malloc")
-            .or(instance.exports.get_native_function("malloc"))
-            .ok();
-        let free = instance
-            .exports
-            .get_native_function("_free")
-            .or(instance.exports.get_native_function("free"))
-            .ok();
-        let memalign = instance
-            .exports
-            .get_native_function("_memalign")
-            .or(instance.exports.get_native_function("memalign"))
-            .ok();
-        let memset = instance
-            .exports
-            .get_native_function("_memset")
-            .or(instance.exports.get_native_function("memset"))
-            .ok();
-        let stack_alloc = instance.exports.get_native_function("stackAlloc").ok();
-
-        let dyn_call_i = instance.exports.get_native_function("dynCall_i").ok();
-        let dyn_call_ii = instance.exports.get_native_function("dynCall_ii").ok();
-        let dyn_call_iii = instance.exports.get_native_function("dynCall_iii").ok();
-        let dyn_call_iiii = instance.exports.get_native_function("dynCall_iiii").ok();
-        let dyn_call_iifi = instance.exports.get_native_function("dynCall_iifi").ok();
-        let dyn_call_v = instance.exports.get_native_function("dynCall_v").ok();
-        let dyn_call_vi = instance.exports.get_native_function("dynCall_vi").ok();
-        let dyn_call_vii = instance.exports.get_native_function("dynCall_vii").ok();
-        let dyn_call_viii = instance.exports.get_native_function("dynCall_viii").ok();
-        let dyn_call_viiii = instance.exports.get_native_function("dynCall_viiii").ok();
-
-        // round 2
-        let dyn_call_dii = instance.exports.get_native_function("dynCall_dii").ok();
-        let dyn_call_diiii = instance.exports.get_native_function("dynCall_diiii").ok();
-        let dyn_call_iiiii = instance.exports.get_native_function("dynCall_iiiii").ok();
-        let dyn_call_iiiiii = instance.exports.get_native_function("dynCall_iiiiii").ok();
-        let dyn_call_iiiiiii = instance.exports.get_native_function("dynCall_iiiiiii").ok();
-        let dyn_call_iiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_iiiiiiii")
-            .ok();
-        let dyn_call_iiiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_iiiiiiiii")
-            .ok();
-        let dyn_call_iiiiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_iiiiiiiiii")
-            .ok();
-        let dyn_call_iiiiiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_iiiiiiiiiii")
-            .ok();
-        let dyn_call_vd = instance.exports.get_native_function("dynCall_vd").ok();
-        let dyn_call_viiiii = instance.exports.get_native_function("dynCall_viiiii").ok();
-        let dyn_call_viiiiii = instance.exports.get_native_function("dynCall_viiiiii").ok();
-        let dyn_call_viiiiiii = instance
-            .exports
-            .get_native_function("dynCall_viiiiiii")
-            .ok();
-        let dyn_call_viiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_viiiiiiii")
-            .ok();
-        let dyn_call_viiiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_viiiiiiiii")
-            .ok();
-        let dyn_call_viiiiiiiiii = instance
-            .exports
-            .get_native_function("dynCall_viiiiiiiiii")
-            .ok();
-        let dyn_call_iij = instance.exports.get_native_function("dynCall_iij").ok();
-        let dyn_call_iji = instance.exports.get_native_function("dynCall_iji").ok();
-        let dyn_call_iiji = instance.exports.get_native_function("dynCall_iiji").ok();
-        let dyn_call_iiijj = instance.exports.get_native_function("dynCall_iiijj").ok();
-        let dyn_call_j = instance.exports.get_native_function("dynCall_j").ok();
-        let dyn_call_ji = instance.exports.get_native_function("dynCall_ji").ok();
-        let dyn_call_jii = instance.exports.get_native_function("dynCall_jii").ok();
-        let dyn_call_jij = instance.exports.get_native_function("dynCall_jij").ok();
-        let dyn_call_jjj = instance.exports.get_native_function("dynCall_jjj").ok();
-        let dyn_call_viiij = instance.exports.get_native_function("dynCall_viiij").ok();
-        let dyn_call_viiijiiii = instance
-            .exports
-            .get_native_function("dynCall_viiijiiii")
-            .ok();
-        let dyn_call_viiijiiiiii = instance
-            .exports
-            .get_native_function("dynCall_viiijiiiiii")
-            .ok();
-        let dyn_call_viij = instance.exports.get_native_function("dynCall_viij").ok();
-        let dyn_call_viiji = instance.exports.get_native_function("dynCall_viiji").ok();
-        let dyn_call_viijiii = instance.exports.get_native_function("dynCall_viijiii").ok();
-        let dyn_call_viijj = instance.exports.get_native_function("dynCall_viijj").ok();
-        let dyn_call_vj = instance.exports.get_native_function("dynCall_vj").ok();
-        let dyn_call_vjji = instance.exports.get_native_function("dynCall_vjji").ok();
-        let dyn_call_vij = instance.exports.get_native_function("dynCall_vij").ok();
-        let dyn_call_viji = instance.exports.get_native_function("dynCall_viji").ok();
-        let dyn_call_vijiii = instance.exports.get_native_function("dynCall_vijiii").ok();
-        let dyn_call_vijj = instance.exports.get_native_function("dynCall_vijj").ok();
-        let dyn_call_viid = instance.exports.get_native_function("dynCall_viid").ok();
-        let dyn_call_vidd = instance.exports.get_native_function("dynCall_vidd").ok();
-        let dyn_call_viidii = instance.exports.get_native_function("dynCall_viidii").ok();
-        let dyn_call_viidddddddd = instance
-            .exports
-            .get_native_function("dynCall_viidddddddd")
-            .ok();
-
-        let stack_save = instance.exports.get_native_function("stackSave").ok();
-        let stack_restore = instance.exports.get_native_function("stackRestore").ok();
-        let set_threw = instance
-            .exports
-            .get_native_function("_setThrew")
-            .or(instance.exports.get_native_function("setThrew"))
-            .ok();
-
+    ) -> EmscriptenData {
         EmscriptenData {
             globals,
-
-            malloc,
-            free,
-            memalign,
-            memset,
-            stack_alloc,
-            jumps: Vec::new(),
-            opened_dirs: HashMap::new(),
-
-            dyn_call_i,
-            dyn_call_ii,
-            dyn_call_iii,
-            dyn_call_iiii,
-            dyn_call_iifi,
-            dyn_call_v,
-            dyn_call_vi,
-            dyn_call_vii,
-            dyn_call_viii,
-            dyn_call_viiii,
-
-            // round 2
-            dyn_call_dii,
-            dyn_call_diiii,
-            dyn_call_iiiii,
-            dyn_call_iiiiii,
-            dyn_call_iiiiiii,
-            dyn_call_iiiiiiii,
-            dyn_call_iiiiiiiii,
-            dyn_call_iiiiiiiiii,
-            dyn_call_iiiiiiiiiii,
-            dyn_call_vd,
-            dyn_call_viiiii,
-            dyn_call_viiiiii,
-            dyn_call_viiiiiii,
-            dyn_call_viiiiiiii,
-            dyn_call_viiiiiiiii,
-            dyn_call_viiiiiiiiii,
-            dyn_call_iij,
-            dyn_call_iji,
-            dyn_call_iiji,
-            dyn_call_iiijj,
-            dyn_call_j,
-            dyn_call_ji,
-            dyn_call_jii,
-            dyn_call_jij,
-            dyn_call_jjj,
-            dyn_call_viiij,
-            dyn_call_viiijiiii,
-            dyn_call_viiijiiiiii,
-            dyn_call_viij,
-            dyn_call_viiji,
-            dyn_call_viijiii,
-            dyn_call_viijj,
-            dyn_call_vj,
-            dyn_call_vjji,
-            dyn_call_vij,
-            dyn_call_viji,
-            dyn_call_vijiii,
-            dyn_call_vijj,
-            dyn_call_viid,
-            dyn_call_vidd,
-            dyn_call_viidii,
-            dyn_call_viidddddddd,
             temp_ret_0: 0,
-
-            stack_save,
-            stack_restore,
-            set_threw,
             mapped_dirs,
+            ..Default::default()
         }
     }
 }
@@ -426,7 +318,7 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
 /// If you don't want to set it up yourself, consider using [`run_emscripten_instance`].
 pub fn emscripten_call_main(
     instance: &mut Instance,
-    env: &mut EmEnv,
+    env: &EmEnv,
     path: &str,
     args: &[&str],
 ) -> Result<(), RuntimeError> {
@@ -476,11 +368,8 @@ pub fn run_emscripten_instance(
     path: &str,
     args: Vec<&str>,
     entrypoint: Option<String>,
-    mapped_dirs: Vec<(String, PathBuf)>,
 ) -> Result<(), RuntimeError> {
-    let mut data = EmscriptenData::new(instance, &globals.data, mapped_dirs.into_iter().collect());
     env.set_memory(globals.memory.clone());
-    env.set_data(&mut data as *mut _ as *mut c_void);
     set_up_emscripten(instance)?;
 
     // println!("running emscripten instance");
@@ -503,7 +392,7 @@ pub fn run_emscripten_instance(
     Ok(())
 }
 
-fn store_module_arguments(ctx: &mut EmEnv, args: Vec<&str>) -> (u32, u32) {
+fn store_module_arguments(ctx: &EmEnv, args: Vec<&str>) -> (u32, u32) {
     let argc = args.len() + 1;
 
     let mut args_slice = vec![0; argc];
@@ -536,6 +425,7 @@ pub fn emscripten_set_up_memory(
     Ok(())
 }
 
+#[derive(Debug, Clone, Default)]
 pub struct EmscriptenGlobalsData {
     abort: u64,
     // Env namespace
@@ -652,7 +542,7 @@ impl EmscriptenGlobals {
 pub fn generate_emscripten_env(
     store: &Store,
     globals: &mut EmscriptenGlobals,
-    env: &mut EmEnv,
+    env: &EmEnv,
 ) -> ImportObject {
     let abort_on_cannot_grow_memory_export = if globals.data.use_old_abort_on_cannot_grow_memory {
         Function::new_native_with_env(
@@ -1112,8 +1002,7 @@ pub fn generate_emscripten_env(
     // Compatibility with newer versions of Emscripten
     let mut to_insert: Vec<(String, _)> = vec![];
     for (k, v) in env_ns.iter() {
-        if k.starts_with('_') {
-            let k = &k[1..];
+        if let Some(k) = k.strip_prefix('_') {
             if !env_ns.contains(k) {
                 to_insert.push((k.to_string(), v.clone()));
             }
@@ -1151,7 +1040,7 @@ pub fn generate_emscripten_env(
     import_object
 }
 
-pub fn nullfunc(ctx: &mut EmEnv, _x: u32) {
+pub fn nullfunc(ctx: &EmEnv, _x: u32) {
     use crate::process::abort_with_message;
     debug!("emscripten::nullfunc_i {}", _x);
     abort_with_message(

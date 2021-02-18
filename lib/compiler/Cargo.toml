@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-compiler"
-version = "1.0.0-alpha3"
+version = "1.0.2"
 description = "Base compiler abstraction for Wasmer WebAssembly runtime"
 categories = ["wasm", "no-std"]
 keywords = ["wasm", "webassembly", "compiler"]
@@ -11,19 +11,16 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-vm = { path = "../vm", version = "1.0.0-alpha3" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.0-alpha3", default-features = false }
-wasmparser = { version = "0.57", optional = true, default-features = false }
-target-lexicon = { version = "0.10", default-features = false }
+wasmer-vm = { path = "../vm", version = "1.0.2" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false }
+wasmparser = { version = "0.74", optional = true, default-features = false }
+target-lexicon = { version = "0.11", default-features = false }
 enumset = "1.0"
-hashbrown = { version = "0.8", optional = true }
+hashbrown = { version = "0.9", optional = true }
 serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
-smallvec = "1.4" 
-
-[target.'cfg(any(target_arch = "x86", target_arch = "x86_64"))'.dependencies]
-raw-cpuid = "7.0"
+smallvec = "1.6" 
 
 [features]
 default = ["std", "enable-serde"]

@@ -1,5 +1,6 @@
 use crate::new;
 
+pub use new::wasmer::{FromToNativeWasmType as WasmExternType, Val as Value};
 pub use new::wasmer_types::{
     //
     ExportType as ExportDescriptor,
@@ -27,7 +28,6 @@ pub use new::wasmer_types::{
     Type,
     ValueType,
 };
-pub use new::wasmer::{FromToNativeWasmType as WasmExternType, Val as Value};
 
 /// Describes the mutability and type of a Global
 #[derive(Debug, Copy, Clone, Eq, PartialEq)]

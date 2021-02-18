@@ -11,11 +11,14 @@ pub struct wasm_memory_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_new(
-    store: &wasm_store_t,
-    mt: &wasm_memorytype_t,
+    store: Option<&wasm_store_t>,
+    memory_type: Option<&wasm_memorytype_t>,
 ) -> Option<Box<wasm_memory_t>> {
-    let md = mt.as_memorytype().clone();
-    let memory = c_try!(Memory::new(&store.inner, md));
+    let store = store?;
+    let memory_type = memory_type?;
+
+    let memory_type = memory_type.inner().memory_type.clone();
+    let memory = c_try!(Memory::new(&store.inner, memory_type));
 
     Some(Box::new(wasm_memory_t { inner: memory }))
 }
@@ -25,16 +28,20 @@ pub unsafe extern "C" fn wasm_memory_delete(_memory: Option<Box<wasm_memory_t>>)
 
 // TODO: figure out if these should be deep or shallow copies
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_copy(wasm_memory: &wasm_memory_t) -> Box<wasm_memory_t> {
+pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_memory_t> {
     // do shallow copy
     Box::new(wasm_memory_t {
-        inner: wasm_memory.inner.clone(),
+        inner: memory.inner.clone(),
     })
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_type(_memory_ptr: &wasm_memory_t) -> *mut wasm_memorytype_t {
-    todo!("wasm_memory_type")
+pub unsafe extern "C" fn wasm_memory_type(
+    memory: Option<&wasm_memory_t>,
+) -> Option<Box<wasm_memorytype_t>> {
+    let memory = memory?;
+
+    Some(Box::new(wasm_memorytype_t::new(memory.inner.ty().clone())))
 }
 
 // get a raw pointer into bytes

@@ -1,8 +1,8 @@
 // The Wasmer C/C++ header file.
 
-#if !defined(WASMER_H_MACROS)
+#if !defined(WASMER_H_PRELUDE)
 
-#define WASMER_H_MACROS
+#define WASMER_H_PRELUDE
 
 // Define the `ARCH_X86_X64` constant.
 #if defined(MSVC) && defined(_M_AMD64)
@@ -30,7 +30,15 @@
 
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
-#endif // WASMER_H_MACROS
+
+// This file corresponds to the following Wasmer version.
+#define WASMER_VERSION "1.0.2"
+#define WASMER_VERSION_MAJOR 1
+#define WASMER_VERSION_MINOR 0
+#define WASMER_VERSION_PATCH 2
+#define WASMER_VERSION_PRE ""
+
+#endif // WASMER_H_PRELUDE
 
 
 //
@@ -47,7 +55,11 @@
 #include <stdlib.h>
 
 #if defined(WASMER_WASI_ENABLED)
-enum Version {
+enum Version
+#ifdef __cplusplus
+  : uint8_t
+#endif // __cplusplus
+ {
 #if defined(WASMER_WASI_ENABLED)
   /**
    * Version cannot be detected or is unknown.
@@ -74,13 +86,19 @@ enum Version {
   Snapshot1 = 3,
 #endif
 };
+#ifndef __cplusplus
 typedef uint8_t Version;
+#endif // __cplusplus
 #endif
 
 /**
  * List of export/import kinds.
  */
-enum wasmer_import_export_kind {
+enum wasmer_import_export_kind
+#ifdef __cplusplus
+  : uint32_t
+#endif // __cplusplus
+ {
   /**
    * The export/import is a function.
    */
@@ -98,7 +116,9 @@ enum wasmer_import_export_kind {
    */
   WASM_TABLE = 3,
 };
+#ifndef __cplusplus
 typedef uint32_t wasmer_import_export_kind;
+#endif // __cplusplus
 
 /**
  * The `wasmer_result_t` enum is a type that represents either a
@@ -120,7 +140,11 @@ typedef enum {
  *
  * See `wasmer_value_t` to get a complete example.
  */
-enum wasmer_value_tag {
+enum wasmer_value_tag
+#ifdef __cplusplus
+  : uint32_t
+#endif // __cplusplus
+ {
   /**
    * Represents the `i32` WebAssembly type.
    */
@@ -138,7 +162,9 @@ enum wasmer_value_tag {
    */
   WASM_F64,
 };
+#ifndef __cplusplus
 typedef uint32_t wasmer_value_tag;
+#endif // __cplusplus
 
 typedef struct {
 
@@ -400,6 +426,10 @@ typedef struct {
   wasmer_byte_array host_file_path;
 } wasmer_wasi_map_dir_entry_t;
 #endif
+
+#ifdef __cplusplus
+extern "C" {
+#endif // __cplusplus
 
 /**
  * Creates a new Module from the given wasm bytes.
@@ -1094,12 +1124,14 @@ wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance,
                                    int imports_len);
 
 /**
- * Gets the length in bytes of the last error if any.
+ * Gets the length in bytes of the last error if any, zero otherwise.
  *
  * This can be used to dynamically allocate a buffer with the correct number of
  * bytes needed to store a message.
  *
- * See `wasmer_last_error_message()` to get a full example.
+ * # Example
+ *
+ * See this module's documentation to get a complete example.
  */
 int wasmer_last_error_length(void);
 
@@ -1109,29 +1141,23 @@ int wasmer_last_error_length(void);
  *
  * The `length` parameter must be large enough to store the last
  * error message. Ideally, the value should come from
- * `wasmer_last_error_length()`.
+ * [`wasmer_last_error_length`].
  *
  * The function returns the length of the string in bytes, `-1` if an
  * error occurs. Potential errors are:
  *
- *  * The buffer is a null pointer,
- *  * The buffer is too small to hold the error message.
+ *  * The `buffer` is a null pointer,
+ *  * The `buffer` is too small to hold the error message.
  *
  * Note: The error message always has a trailing NUL character.
  *
- * Example:
+ * Important note: If the provided `buffer` is non-null, once this
+ * function has been called, regardless whether it fails or succeeds,
+ * the error is cleared.
  *
- * ```c
- * int error_length = wasmer_last_error_length();
+ * # Example
  *
- * if (error_length > 0) {
- *     char *error_message = malloc(error_length);
- *     wasmer_last_error_message(error_message, error_length);
- *     printf("Error message: `%s`\n", error_message);
- * } else {
- *     printf("No error message\n");
- * }
- * ```
+ * See this module's documentation to get a complete example.
  */
 int wasmer_last_error_message(char *buffer, int length);
 
@@ -1415,6 +1441,108 @@ wasmer_result_t wasmer_trap(const wasmer_instance_context_t *_ctx, const char *e
  */
 bool wasmer_validate(const uint8_t *wasm_bytes, uint32_t wasm_bytes_len);
 
+/**
+ * Get the version of the Wasmer C API.
+ *
+ * The `.h` files already define variables like `WASMER_VERSION*`,
+ * but if this file is unreachable, one can use this function to
+ * retrieve the full semver version of the Wasmer C API.
+ *
+ * The returned string is statically allocated. It must _not_ be
+ * freed!
+ *
+ * # Example
+ *
+ * See the module's documentation.
+ */
+const char *wasmer_version(void);
+
+/**
+ * Get the major version of the Wasmer C API.
+ *
+ * See [`wasmer_version`] to learn more.
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Get and print the version components.
+ *     uint8_t version_major = wasmer_version_major();
+ *     uint8_t version_minor = wasmer_version_minor();
+ *     uint8_t version_patch = wasmer_version_patch();
+ *
+ *     printf("%d.%d.%d", version_major, version_minor, version_patch);
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(
+ * #         format!(
+ * #             "{}.{}.{}",
+ * #             env!("CARGO_PKG_VERSION_MAJOR"),
+ * #             env!("CARGO_PKG_VERSION_MINOR"),
+ * #             env!("CARGO_PKG_VERSION_PATCH")
+ * #         )
+ * #     );
+ * # }
+ * ```
+ */
+uint8_t wasmer_version_major(void);
+
+/**
+ * Get the minor version of the Wasmer C API.
+ *
+ * See [`wasmer_version_major`] to learn more and get an example.
+ */
+uint8_t wasmer_version_minor(void);
+
+/**
+ * Get the patch version of the Wasmer C API.
+ *
+ * See [`wasmer_version_major`] to learn more and get an example.
+ */
+uint8_t wasmer_version_patch(void);
+
+/**
+ * Get the minor version of the Wasmer C API.
+ *
+ * See [`wasmer_version_major`] to learn more.
+ *
+ * The returned string is statically allocated. It must _not_ be
+ * freed!
+ *
+ * # Example
+ *
+ * ```rust
+ * # use inline_c::assert_c;
+ * # fn main() {
+ * #    (assert_c! {
+ * # #include "tests/wasmer_wasm.h"
+ * #
+ * int main() {
+ *     // Get and print the pre version.
+ *     const char* version_pre = wasmer_version_pre();
+ *     printf("%s", version_pre);
+ *
+ *     // No need to free the string. It's statically allocated on
+ *     // the Rust side.
+ *
+ *     return 0;
+ * }
+ * #    })
+ * #    .success()
+ * #    .stdout(env!("CARGO_PKG_VERSION_PRE"));
+ * # }
+ * ```
+ */
+const char *wasmer_version_pre(void);
+
 #if defined(WASMER_WASI_ENABLED)
 /**
  * Convenience function that creates a WASI import object with no arguments,
@@ -1472,5 +1600,9 @@ wasmer_import_object_t *wasmer_wasi_generate_import_object_for_version(unsigned 
  */
 Version wasmer_wasi_get_version(const wasmer_module_t *module);
 #endif
+
+#ifdef __cplusplus
+} // extern "C"
+#endif // __cplusplus
 
 #endif /* WASMER_H */

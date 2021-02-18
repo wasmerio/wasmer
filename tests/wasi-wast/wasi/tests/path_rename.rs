@@ -43,6 +43,25 @@ fn main() {
         println!("The original file does not still exist!");
     }
 
+    if !file_to_rename_to.exists() {
+        println!("The moved file does not exist!");
+        return;
+    }
+
+    // TODO: add temp directory suport for native execution...
+    // until then, don't actually inspect the directory when running native code.
+    #[cfg(target_os = "wasi")]
+    for item in fs::read_dir(&base).unwrap() {
+        println!(
+            "Found item: {}",
+            item.unwrap().path().file_name().unwrap().to_str().unwrap()
+        );
+    }
+    #[cfg(not(target_os = "wasi"))]
+    {
+        println!("Found item: path_renamed_file.txt");
+    }
+
     let mut out_str = String::new();
     file.read_to_string(&mut out_str).unwrap();
     let mut test_str = String::new();

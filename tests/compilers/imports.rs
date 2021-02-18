@@ -17,6 +17,8 @@ fn get_module(store: &Store) -> Result<Module> {
         (import "host" "1" (func (param i32) (result i32)))
         (import "host" "2" (func (param i32) (param i64)))
         (import "host" "3" (func (param i32 i64 i32 f32 f64)))
+        (memory $mem 1)
+        (export "memory" (memory $mem))
 
         (func $foo
             call 0
@@ -43,29 +45,29 @@ fn get_module(store: &Store) -> Result<Module> {
 
 #[test]
 fn dynamic_function() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
     static HITS: AtomicUsize = AtomicUsize::new(0);
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new(&store, &FunctionType::new(vec![], vec![]), |_values| {
+                "0" => Function::new(&store, FunctionType::new(vec![], vec![]), |_values| {
                     assert_eq!(HITS.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), |values| {
+                "1" => Function::new(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), |values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), |values| {
+                "2" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(HITS.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), |values| {
+                "3" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), |values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -83,30 +85,44 @@ fn dynamic_function() -> Result<()> {
 
 #[test]
 fn dynamic_function_with_env() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
-    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    #[derive(WasmerEnv, Clone)]
+    struct Env {
+        counter: Arc<AtomicUsize>,
+    }
+
+    impl std::ops::Deref for Env {
+        type Target = Arc<AtomicUsize>;
+        fn deref(&self) -> &Self::Target {
+            &self.counter
+        }
+    }
+
+    let env: Env = Env {
+        counter: Arc::new(AtomicUsize::new(0)),
+    };
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_with_env(&store, &FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                "0" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                     Ok(vec![])
                 }),
-                "1" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
+                "1" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32], vec![ValType::I32]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(0));
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     Ok(vec![Value::I32(1)])
                 }),
-                "2" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
+                "2" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(2));
                     assert_eq!(values[1], Value::I64(3));
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                     Ok(vec![])
                 }),
-                "3" => Function::new_with_env(&store, &FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
+                "3" => Function::new_with_env(&store, FunctionType::new(vec![ValType::I32, ValType::I64, ValType::I32, ValType::F32, ValType::F64], vec![]), env.clone(), |env, values| {
                     assert_eq!(values[0], Value::I32(100));
                     assert_eq!(values[1], Value::I64(200));
                     assert_eq!(values[2], Value::I32(300));
@@ -124,7 +140,7 @@ fn dynamic_function_with_env() -> Result<()> {
 
 #[test]
 fn static_function() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -162,7 +178,7 @@ fn static_function() -> Result<()> {
 
 #[test]
 fn static_function_with_results() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
     static HITS: AtomicUsize = AtomicUsize::new(0);
@@ -200,28 +216,38 @@ fn static_function_with_results() -> Result<()> {
 
 #[test]
 fn static_function_with_env() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let module = get_module(&store)?;
 
-    let env: Arc<AtomicUsize> = Arc::new(AtomicUsize::new(0));
+    #[derive(WasmerEnv, Clone)]
+    struct Env(Arc<AtomicUsize>);
+
+    impl std::ops::Deref for Env {
+        type Target = Arc<AtomicUsize>;
+        fn deref(&self) -> &Self::Target {
+            &self.0
+        }
+    }
+
+    let env: Env = Env(Arc::new(AtomicUsize::new(0)));
     Instance::new(
         &module,
         &imports! {
             "host" => {
-                "0" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>| {
+                "0" => Function::new_native_with_env(&store, env.clone(), |env: &Env| {
                     assert_eq!(env.fetch_add(1, SeqCst), 0);
                 }),
-                "1" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32| -> i32 {
+                "1" => Function::new_native_with_env(&store, env.clone(), |env: &Env, x: i32| -> i32 {
                     assert_eq!(x, 0);
                     assert_eq!(env.fetch_add(1, SeqCst), 1);
                     1
                 }),
-                "2" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, x: i32, y: i64| {
+                "2" => Function::new_native_with_env(&store, env.clone(), |env: &Env, x: i32, y: i64| {
                     assert_eq!(x, 2);
                     assert_eq!(y, 3);
                     assert_eq!(env.fetch_add(1, SeqCst), 2);
                 }),
-                "3" => Function::new_native_with_env(&store, env.clone(), |env: &mut Arc<AtomicUsize>, a: i32, b: i64, c: i32, d: f32, e: f64| {
+                "3" => Function::new_native_with_env(&store, env.clone(), |env: &Env, a: i32, b: i64, c: i32, d: f32, e: f64| {
                     assert_eq!(a, 100);
                     assert_eq!(b, 200);
                     assert_eq!(c, 300);
@@ -238,7 +264,7 @@ fn static_function_with_env() -> Result<()> {
 
 #[test]
 fn static_function_that_fails() -> Result<()> {
-    let store = get_store();
+    let store = get_store(false);
     let wat = r#"
         (import "host" "0" (func))
 
@@ -270,5 +296,97 @@ fn static_function_that_fails() -> Result<()> {
         _ => assert!(false),
     }
 
+    Ok(())
+}
+
+fn get_module2(store: &Store) -> Result<Module> {
+    let wat = r#"
+        (import "host" "fn" (func))
+        (memory $mem 1)
+        (export "memory" (memory $mem))
+        (export "main" (func $main))
+        (func $main (param) (result)
+          (call 0))
+    "#;
+
+    let module = Module::new(&store, &wat)?;
+    Ok(module)
+}
+
+#[test]
+fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
+    let store = get_store(false);
+    let module = get_module2(&store)?;
+
+    #[allow(dead_code)]
+    #[derive(WasmerEnv, Clone)]
+    struct Env {
+        #[wasmer(export)]
+        memory: LazyInit<Memory>,
+    }
+
+    let env: Env = Env {
+        memory: LazyInit::default(),
+    };
+    let instance = Instance::new(
+        &module,
+        &imports! {
+            "host" => {
+                "fn" => Function::new_with_env(&store, FunctionType::new(vec![], vec![]), env.clone(), |env, _values| {
+                    assert!(env.memory_ref().is_some());
+                    Ok(vec![])
+                }),
+            },
+        },
+    )?;
+    let f: NativeFunc<(), ()> = instance.exports.get_native_function("main")?;
+    f.call()?;
+    Ok(())
+}
+
+#[test]
+fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
+    let store = get_store(false);
+    let module = get_module2(&store)?;
+
+    #[allow(dead_code)]
+    #[derive(Clone)]
+    struct Env {
+        memory: LazyInit<Memory>,
+    }
+
+    impl WasmerEnv for Env {
+        fn init_with_instance(&mut self, instance: &Instance) -> Result<(), HostEnvInitError> {
+            let memory = instance.exports.get_memory("memory")?.clone();
+            self.memory.initialize(memory);
+            Ok(())
+        }
+    }
+
+    let env: Env = Env {
+        memory: LazyInit::default(),
+    };
+    fn host_fn(env: &Env) {
+        assert!(env.memory.get_ref().is_some());
+        println!("Hello, world!");
+    }
+
+    let imports = imports! {
+        "host" => {
+            "fn" => Function::new_native_with_env(&store, env.clone(), host_fn),
+        },
+    };
+    let instance1 = Instance::new(&module, &imports)?;
+    let instance2 = Instance::new(&module, &imports)?;
+    {
+        let f1: NativeFunc<(), ()> = instance1.exports.get_native_function("main")?;
+        f1.call()?;
+    }
+    drop(instance1);
+    {
+        let f2: NativeFunc<(), ()> = instance2.exports.get_native_function("main")?;
+        f2.call()?;
+    }
+    drop(instance2);
     Ok(())
 }

@@ -9,7 +9,7 @@ use wasmer_engine_native::Native;
 fuzz_target!(|wasm_bytes: &[u8]| {
     let serialized = {
         let mut compiler = Cranelift::default();
-        let store = Store::new(&Native::new(&mut compiler).engine());
+        let store = Store::new(&Native::new(compiler).engine());
         match Module::validate(&store, wasm_bytes) {
             Err(_) => return,
             Ok(_) => {}

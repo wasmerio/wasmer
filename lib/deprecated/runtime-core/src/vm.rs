@@ -1,5 +1,8 @@
-use crate::module::ModuleInfo;
+use crate::{module::ModuleInfo, new};
+use new::wasmer::WasmerEnv;
 use std::{ffi::c_void, ptr};
+
+use new::wasmer::internals::UnsafeMutableEnv;
 
 /// The context of the currently running WebAssembly instance.
 ///
@@ -13,7 +16,7 @@ use std::{ffi::c_void, ptr};
 /// it may someday be pinned to a register (especially
 /// on arm, which has a ton of registers) to reduce
 /// register shuffling.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, WasmerEnv)]
 #[repr(C)]
 pub struct Ctx {
     /// A pointer to the `ModuleInfo` of this instance.
@@ -37,6 +40,14 @@ pub struct Ctx {
     /// is dropped.
     pub data_finalizer: Option<fn(data: *mut c_void)>,
 }
+
+/// We mark `Ctx` as a legacy env that can be passed by `&mut`.
+unsafe impl UnsafeMutableEnv for Ctx {}
+/// This is correct because of the way we use the data in `Ctx`;
+/// it's not correct in general though, so we should be careful when
+/// updating this type.
+unsafe impl Send for Ctx {}
+unsafe impl Sync for Ctx {}
 
 impl Ctx {
     pub(crate) unsafe fn new_uninit() -> Self {

@@ -68,7 +68,7 @@ impl RuntimeError {
         let info = FRAME_INFO.read().unwrap();
         match trap {
             Trap::User(error) => {
-                match error.downcast::<RuntimeError>() {
+                match error.downcast::<Self>() {
                     // The error is already a RuntimeError, we return it directly
                     Ok(runtime_error) => *runtime_error,
                     Err(e) => Self::new_with_trace(
@@ -204,6 +204,15 @@ impl RuntimeError {
                 inner: Arc::new(inner),
             }),
             Err(inner) => Err(Self { inner }),
+        }
+    }
+
+    /// Returns trap code, if it's a Trap
+    pub fn to_trap(self) -> Option<TrapCode> {
+        if let RuntimeErrorSource::Trap(trap_code) = self.inner.source {
+            Some(trap_code)
+        } else {
+            None
         }
     }
 

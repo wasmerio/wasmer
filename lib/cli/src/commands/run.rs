@@ -77,14 +77,10 @@ impl Run {
             logging::set_up_logging().unwrap();
         }
         self.inner_execute().with_context(|| {
-            let compilers = CompilerType::enabled()
-                .iter()
-                .map(|c| c.to_string())
-                .collect::<Vec<String>>();
             format!(
                 "failed to run `{}`{}",
                 self.path.display(),
-                if compilers.is_empty() {
+                if CompilerType::enabled().is_empty() {
                     " (no compilers enabled)"
                 } else {
                     ""
@@ -120,11 +116,22 @@ impl Run {
             if is_emscripten_module(&module) {
                 let mut emscripten_globals = EmscriptenGlobals::new(module.store(), &module)
                     .map_err(|e| anyhow!("{}", e))?;
-                let mut em_env = EmEnv::new();
+                let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
-                let mut instance = Instance::new(&module, &import_object)
-                    .with_context(|| "Can't instantiate emscripten module")?;
+                let mut instance = match Instance::new(&module, &import_object) {
+                    Ok(instance) => instance,
+                    Err(e) => {
+                        let err: Result<(), _> = Err(e);
+                        #[cfg(feature = "wasi")]
+                        {
+                            if Wasi::has_wasi_imports(&module) {
+                                return err.with_context(|| "This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.");
+                            }
+                        }
+                        return err.with_context(|| "Can't instantiate emscripten module");
+                    }
+                };
 
                 run_emscripten_instance(
                     &mut instance,
@@ -136,8 +143,7 @@ impl Run {
                         self.path.to_str().unwrap()
                     },
                     self.args.iter().map(|arg| arg.as_str()).collect(),
-                    None,   //run.em_entrypoint.clone(),
-                    vec![], //mapped_dirs,
+                    None, //run.em_entrypoint.clone(),
                 )?;
                 return Ok(());
             }

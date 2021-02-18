@@ -7,13 +7,13 @@ use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
-use crate::translator::FunctionMiddlewareGenerator;
+use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
-use wasmparser::{validate, OperatorValidatorConfig, ValidatingParserConfig};
+use wasmparser::{Validator, WasmFeatures};
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
@@ -37,7 +37,7 @@ pub trait CompilerConfig {
     }
 
     /// Gets the custom compiler config
-    fn compiler(&self) -> Box<dyn Compiler + Send>;
+    fn compiler(self: Box<Self>) -> Box<dyn Compiler>;
 
     /// Gets the default features for this compiler in the given target
     fn default_features_for_target(&self, _target: &Target) -> Features {
@@ -45,11 +45,20 @@ pub trait CompilerConfig {
     }
 
     /// Pushes a middleware onto the back of the middleware chain.
-    fn push_middleware(&mut self, middleware: Arc<dyn FunctionMiddlewareGenerator>);
+    fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
+}
+
+impl<T> From<T> for Box<dyn CompilerConfig + 'static>
+where
+    T: CompilerConfig + 'static,
+{
+    fn from(other: T) -> Self {
+        Box::new(other)
+    }
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler {
+pub trait Compiler: Send {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
@@ -58,17 +67,25 @@ pub trait Compiler {
         features: &Features,
         data: &'data [u8],
     ) -> Result<(), CompileError> {
-        let config = ValidatingParserConfig {
-            operator_config: OperatorValidatorConfig {
-                enable_threads: features.threads,
-                enable_reference_types: features.reference_types,
-                enable_bulk_memory: features.bulk_memory,
-                enable_tail_call: false,
-                enable_simd: features.simd,
-                enable_multi_value: features.multi_value,
-            },
+        let mut validator = Validator::new();
+        let wasm_features = WasmFeatures {
+            bulk_memory: features.bulk_memory,
+            threads: features.threads,
+            reference_types: features.reference_types,
+            multi_value: features.multi_value,
+            simd: features.simd,
+            tail_call: features.tail_call,
+            module_linking: features.module_linking,
+            multi_memory: features.multi_memory,
+            memory64: features.memory64,
+            exceptions: features.exceptions,
+            deterministic_only: false,
         };
-        validate(data, Some(config)).map_err(|e| CompileError::Validate(format!("{}", e)))
+        validator.wasm_features(wasm_features);
+        validator
+            .validate_all(data)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        Ok(())
     }
 
     /// Compiles a parsed module.
@@ -77,7 +94,7 @@ pub trait Compiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module CompileModuleInfo,
+        module: &'module mut CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -89,7 +106,7 @@ pub trait Compiler {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         _target: &Target,
-        _module: &'module CompileModuleInfo,
+        _module: &'module mut CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,

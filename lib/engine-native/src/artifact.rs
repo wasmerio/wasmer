@@ -19,9 +19,7 @@ use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolReg
 use wasmer_compiler::{
     CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
 };
-use wasmer_engine::{
-    Artifact, DeserializeError, InstantiationError, LinkError, RuntimeError, SerializeError,
-};
+use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -42,9 +40,8 @@ use wasmer_vm::{
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
-    #[allow(dead_code)]
-    library: Option<Library>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
@@ -136,7 +133,7 @@ impl NativeArtifact {
             compile_info,
             translation.function_body_inputs,
             translation.data_initializers,
-            translation.module_translation,
+            translation.module_translation_state,
         ))
     }
 
@@ -179,7 +176,7 @@ impl NativeArtifact {
             .map(|_function_body| 0u64)
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
 
-        let metadata = ModuleMetadata {
+        let mut metadata = ModuleMetadata {
             compile_info,
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
@@ -193,12 +190,13 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
+        let (mut compile_info, symbol_registry) = metadata.split();
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            &metadata.compile_info,
+            &mut compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
-            &metadata,
+            &symbol_registry,
             &metadata_binary,
         );
 
@@ -219,14 +217,14 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &metadata.compile_info,
+                    &mut compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
                 emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
                     .map_err(to_compile_error)?;
-                emit_compilation(&mut obj, compilation, &metadata, &target_triple)
+                emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
                     .prefix("wasmer_native")
@@ -257,15 +255,32 @@ impl NativeArtifact {
         };
 
         let is_cross_compiling = engine_inner.is_cross_compiling();
+        let target_triple_str = {
+            let into_str = target_triple.to_string();
+            // We have to adapt the target triple string, because otherwise
+            // Apple's clang will not recognize it.
+            if into_str == "aarch64-apple-darwin" {
+                "arm64-apple-darwin".to_string()
+            } else {
+                into_str
+            }
+        };
+
         let cross_compiling_args: Vec<String> = if is_cross_compiling {
             vec![
-                format!("--target={}", target_triple),
+                format!("--target={}", target_triple_str),
                 "-fuse-ld=lld".to_string(),
                 "-nodefaultlibs".to_string(),
                 "-nostdlib".to_string(),
             ]
         } else {
-            vec![]
+            // We are explicit on the target when the host system is
+            // Apple Silicon, otherwise compilation fails.
+            if target_triple_str == "arm64-apple-darwin" {
+                vec![format!("--target={}", target_triple_str)]
+            } else {
+                vec![]
+            }
         };
         let target_args = match (target_triple.operating_system, is_cross_compiling) {
             (OperatingSystem::Windows, true) => vec!["-Wl,/force:unresolved,/noentry"],
@@ -274,7 +289,7 @@ impl NativeArtifact {
         };
         trace!(
             "Compiling for target {} from host {}",
-            target_triple.to_string(),
+            target_triple_str,
             Triple::host().to_string(),
         );
 
@@ -324,14 +339,17 @@ impl NativeArtifact {
         sharedobject_path: PathBuf,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
+        let finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::new();
         let finished_dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
         let signatures: PrimaryMap<SignatureIndex, VMSharedSignatureIndex> = PrimaryMap::new();
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: None,
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -347,34 +365,35 @@ impl NativeArtifact {
     ) -> Result<Self, CompileError> {
         let mut finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> =
             PrimaryMap::new();
-        for (function_local_index, function_len) in metadata.function_body_lengths.iter() {
-            let function_name =
-                metadata.symbol_to_name(Symbol::LocalFunction(function_local_index));
+        for (function_local_index, _function_len) in metadata.function_body_lengths.iter() {
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::LocalFunction(function_local_index));
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
                 let func: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                let raw = *func.into_raw();
-                // The function pointer is a fat pointer, however this information
-                // is only used when retrieving the trap information which is not yet
-                // implemented in this engine.
-                let func_pointer =
-                    std::slice::from_raw_parts(raw as *const (), *function_len as usize);
-                let func_pointer = func_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_functions.push(FunctionBodyPtr(func_pointer));
+                finished_functions.push(FunctionBodyPtr(
+                    func.into_raw().into_raw() as *const VMFunctionBody
+                ));
             }
         }
 
-        // Retrieve function call trampolines (for all signatures in the module)
-        for (sig_index, func_type) in metadata.compile_info.module.signatures.iter() {
-            let function_name = metadata.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+        // Retrieve function call trampolines
+        let mut finished_function_call_trampolines: PrimaryMap<SignatureIndex, VMTrampoline> =
+            PrimaryMap::with_capacity(metadata.compile_info.module.signatures.len());
+        for sig_index in metadata.compile_info.module.signatures.keys() {
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
                 let trampoline: LibrarySymbol<VMTrampoline> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                engine_inner.add_trampoline(&func_type, *trampoline);
+                let raw = *trampoline.into_raw();
+                finished_function_call_trampolines.push(raw);
             }
         }
 
@@ -388,17 +407,16 @@ impl NativeArtifact {
             .keys()
             .take(metadata.compile_info.module.num_imported_functions)
         {
-            let function_name =
-                metadata.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
+            let function_name = metadata
+                .get_symbol_registry()
+                .symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
             unsafe {
                 let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
                     .get(function_name.as_bytes())
                     .map_err(to_compile_error)?;
-                let raw = *trampoline.into_raw();
-                let trampoline_pointer = std::slice::from_raw_parts(raw as *const (), 0);
-                let trampoline_pointer =
-                    trampoline_pointer as *const [()] as *mut [VMFunctionBody];
-                finished_dynamic_function_trampolines.push(FunctionBodyPtr(trampoline_pointer));
+                finished_dynamic_function_trampolines.push(FunctionBodyPtr(
+                    trampoline.into_raw().into_raw() as *const VMFunctionBody,
+                ));
             }
         }
 
@@ -418,21 +436,23 @@ impl NativeArtifact {
 
         // Compute indices into the shared signature table.
         let signatures = {
-            let signature_registry = engine_inner.signatures();
             metadata
                 .compile_info
                 .module
                 .signatures
                 .values()
-                .map(|sig| signature_registry.register(sig))
+                .map(|sig| engine_inner.signatures().register(sig))
                 .collect::<PrimaryMap<_, _>>()
         };
+
+        engine_inner.add_library(lib);
 
         Ok(Self {
             sharedobject_path,
             metadata,
-            library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
+            finished_function_call_trampolines: finished_function_call_trampolines
+                .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
@@ -571,6 +591,10 @@ impl Artifact for NativeArtifact {
         &self.finished_functions
     }
 
+    fn finished_function_call_trampolines(&self) -> &BoxedSlice<SignatureIndex, VMTrampoline> {
+        &self.finished_function_call_trampolines
+    }
+
     fn finished_dynamic_function_trampolines(&self) -> &BoxedSlice<FunctionIndex, FunctionBodyPtr> {
         &self.finished_dynamic_function_trampolines
     }
@@ -580,11 +604,6 @@ impl Artifact for NativeArtifact {
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
-        if self.library.is_none() {
-            return Err(InstantiationError::Link(LinkError::Trap(
-                RuntimeError::new("Cross compiled artifacts can't be instantiated."),
-            )));
-        }
         Ok(())
     }
 

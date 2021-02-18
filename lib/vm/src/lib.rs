@@ -39,7 +39,9 @@ pub mod libcalls;
 pub use crate::export::*;
 pub use crate::global::*;
 pub use crate::imports::Imports;
-pub use crate::instance::InstanceHandle;
+pub use crate::instance::{
+    ImportFunctionEnv, ImportInitializerFuncPtr, InstanceAllocator, InstanceHandle,
+};
 pub use crate::memory::{LinearMemory, Memory, MemoryError, MemoryStyle};
 pub use crate::mmap::Mmap;
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
@@ -49,22 +51,22 @@ pub use crate::table::{LinearTable, Table, TableStyle};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
-    VMFunctionBody, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
-    VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition, VMTableImport,
-    VMTrampoline,
+    VMFunctionBody, VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition,
+    VMGlobalImport, VMMemoryDefinition, VMMemoryImport, VMSharedSignatureIndex, VMTableDefinition,
+    VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
-/// A safe wrapper around `VMFunctionBody`
+/// A safe wrapper around `VMFunctionBody`.
 #[derive(Clone, Copy, Debug)]
 #[repr(transparent)]
-pub struct FunctionBodyPtr(pub *mut [VMFunctionBody]);
+pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 
 impl std::ops::Deref for FunctionBodyPtr {
-    type Target = *mut [VMFunctionBody];
+    type Target = *const VMFunctionBody;
 
     fn deref(&self) -> &Self::Target {
         &self.0
@@ -72,10 +74,12 @@ impl std::ops::Deref for FunctionBodyPtr {
 }
 
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Send for FunctionBodyPtr {}
 /// # Safety
-/// TODO:
+/// The VMFunctionBody that this points to is opaque, so there's no data to
+/// read or write through this pointer. This is essentially a usize.
 unsafe impl Sync for FunctionBodyPtr {}
 
 /// Pointers to section data.

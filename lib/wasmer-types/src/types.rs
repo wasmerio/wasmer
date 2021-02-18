@@ -38,18 +38,15 @@ impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(self) -> bool {
-        match self {
-            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128 => true,
-            _ => false,
-        }
+        matches!(
+            self,
+            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128
+        )
     }
 
     /// Returns true if `Type` matches either of the reference types.
     pub fn is_ref(self) -> bool {
-        match self {
-            Self::ExternRef | Self::FuncRef => true,
-            _ => false,
-        }
+        matches!(self, Self::ExternRef | Self::FuncRef)
     }
 }
 
@@ -82,6 +79,12 @@ impl V128 {
     /// Convert the immediate into a slice.
     pub fn as_slice(&self) -> &[u8] {
         &self.0[..]
+    }
+}
+
+impl From<[u8; 16]> for V128 {
+    fn from(array: [u8; 16]) -> Self {
+        Self(array)
     }
 }
 
@@ -226,9 +229,9 @@ impl ExternType {
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FunctionType {
     /// The parameters of the function
-    params: Vec<Type>,
+    params: Box<[Type]>,
     /// The return values of the function
-    results: Vec<Type>,
+    results: Box<[Type]>,
 }
 
 impl FunctionType {
@@ -239,8 +242,8 @@ impl FunctionType {
         Returns: Into<Vec<Type>>,
     {
         Self {
-            params: params.into(),
-            results: returns.into(),
+            params: params.into().into_boxed_slice(),
+            results: returns.into().into_boxed_slice(),
         }
     }
 
@@ -270,6 +273,39 @@ impl fmt::Display for FunctionType {
             .collect::<Vec<_>>()
             .join(", ");
         write!(f, "[{}] -> [{}]", params, results)
+    }
+}
+
+// Macro needed until https://rust-lang.github.io/rfcs/2000-const-generics.html is stable.
+// See https://users.rust-lang.org/t/how-to-implement-trait-for-fixed-size-array-of-any-size/31494
+macro_rules! implement_from_pair_to_functiontype {
+    ($($N:literal,$M:literal)+) => {
+        $(
+            impl From<([Type; $N], [Type; $M])> for FunctionType {
+                fn from(pair: ([Type; $N], [Type; $M])) -> Self {
+                    Self::new(pair.0, pair.1)
+                }
+            }
+        )+
+    }
+}
+
+implement_from_pair_to_functiontype! {
+    0,0 0,1 0,2 0,3 0,4 0,5 0,6 0,7 0,8 0,9
+    1,0 1,1 1,2 1,3 1,4 1,5 1,6 1,7 1,8 1,9
+    2,0 2,1 2,2 2,3 2,4 2,5 2,6 2,7 2,8 2,9
+    3,0 3,1 3,2 3,3 3,4 3,5 3,6 3,7 3,8 3,9
+    4,0 4,1 4,2 4,3 4,4 4,5 4,6 4,7 4,8 4,9
+    5,0 5,1 5,2 5,3 5,4 5,5 5,6 5,7 5,8 5,9
+    6,0 6,1 6,2 6,3 6,4 6,5 6,6 6,7 6,8 6,9
+    7,0 7,1 7,2 7,3 7,4 7,5 7,6 7,7 7,8 7,9
+    8,0 8,1 8,2 8,3 8,4 8,5 8,6 8,7 8,8 8,9
+    9,0 9,1 9,2 9,3 9,4 9,5 9,6 9,7 9,8 9,9
+}
+
+impl From<&FunctionType> for FunctionType {
+    fn from(as_ref: &FunctionType) -> Self {
+        as_ref.clone()
     }
 }
 
@@ -323,9 +359,9 @@ pub struct GlobalType {
 
 /// A WebAssembly global descriptor.
 ///
-/// This type describes an instance of a global in a WebAssembly module. Globals
-/// are local to an [`Instance`](crate::Instance) and are either immutable or
-/// mutable.
+/// This type describes an instance of a global in a WebAssembly
+/// module. Globals are local to an `Instance` and are either
+/// immutable or mutable.
 impl GlobalType {
     /// Create a new Global variable
     /// # Usage:
@@ -484,10 +520,10 @@ impl fmt::Display for MemoryType {
 
 /// A descriptor for an imported value into a wasm module.
 ///
-/// This type is primarily accessed from the
-/// [`Module::imports`](crate::Module::imports) API. Each [`ImportType`]
-/// describes an import into the wasm module with the module/name that it's
-/// imported from as well as the type of item that's being imported.
+/// This type is primarily accessed from the `Module::imports`
+/// API. Each `ImportType` describes an import into the wasm module
+/// with the module/name that it's imported from as well as the type
+/// of item that's being imported.
 #[derive(Debug, Clone, PartialEq, Eq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct ImportType<T = ExternType> {
@@ -528,10 +564,9 @@ impl<T> ImportType<T> {
 
 /// A descriptor for an exported WebAssembly value.
 ///
-/// This type is primarily accessed from the
-/// [`Module::exports`](crate::Module::exports) accessor and describes what
-/// names are exported from a wasm module and the type of the item that is
-/// exported.
+/// This type is primarily accessed from the `Module::exports`
+/// accessor and describes what names are exported from a wasm module
+/// and the type of the item that is exported.
 ///
 /// The `<T>` refefers to `ExternType`, however it can also refer to use
 /// `MemoryType`, `TableType`, `FunctionType` and `GlobalType` for ease of
@@ -561,5 +596,39 @@ impl<T> ExportType<T> {
     /// Returns the type of this export.
     pub fn ty(&self) -> &T {
         &self.ty
+    }
+}
+
+#[cfg(test)]
+mod tests {
+    use super::*;
+
+    const VOID_TO_VOID: ([Type; 0], [Type; 0]) = ([], []);
+    const I32_I32_TO_VOID: ([Type; 2], [Type; 0]) = ([Type::I32, Type::I32], []);
+    const V128_I64_TO_I32: ([Type; 2], [Type; 1]) = ([Type::V128, Type::I64], [Type::I32]);
+    const NINE_V128_TO_NINE_I32: ([Type; 9], [Type; 9]) = ([Type::V128; 9], [Type::I32; 9]);
+
+    #[test]
+    fn convert_tuple_to_functiontype() {
+        let ty: FunctionType = VOID_TO_VOID.into();
+        assert_eq!(ty.params().len(), 0);
+        assert_eq!(ty.results().len(), 0);
+
+        let ty: FunctionType = I32_I32_TO_VOID.into();
+        assert_eq!(ty.params().len(), 2);
+        assert_eq!(ty.params()[0], Type::I32);
+        assert_eq!(ty.params()[1], Type::I32);
+        assert_eq!(ty.results().len(), 0);
+
+        let ty: FunctionType = V128_I64_TO_I32.into();
+        assert_eq!(ty.params().len(), 2);
+        assert_eq!(ty.params()[0], Type::V128);
+        assert_eq!(ty.params()[1], Type::I64);
+        assert_eq!(ty.results().len(), 1);
+        assert_eq!(ty.results()[0], Type::I32);
+
+        let ty: FunctionType = NINE_V128_TO_NINE_I32.into();
+        assert_eq!(ty.params().len(), 9);
+        assert_eq!(ty.results().len(), 9);
     }
 }

@@ -60,6 +60,12 @@ wasm_declare_boxed_vec!(valtype);
 
 impl From<wasm_valtype_t> for ValType {
     fn from(other: wasm_valtype_t) -> Self {
+        (&other).into()
+    }
+}
+
+impl From<&wasm_valtype_t> for ValType {
+    fn from(other: &wasm_valtype_t) -> Self {
         other.valkind.into()
     }
 }
@@ -76,6 +82,7 @@ impl From<ValType> for wasm_valtype_t {
 pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valtype_t>> {
     let kind_enum = kind.try_into().ok()?;
     let valtype = wasm_valtype_t { valkind: kind_enum };
+
     Some(Box::new(valtype))
 }
 
@@ -83,10 +90,8 @@ pub extern "C" fn wasm_valtype_new(kind: wasm_valkind_t) -> Option<Box<wasm_valt
 pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_valtype_kind(valtype: *const wasm_valtype_t) -> wasm_valkind_t {
-    if valtype.is_null() {
-        // TODO: handle error
-        panic!("wasm_valtype_kind: argument is null pointer");
-    }
-    return (*valtype).valkind as wasm_valkind_t;
+pub unsafe extern "C" fn wasm_valtype_kind(valtype: Option<&wasm_valtype_t>) -> wasm_valkind_t {
+    valtype
+        .expect("`wasm_valtype_kind: argument is a null pointer")
+        .valkind as wasm_valkind_t
 }

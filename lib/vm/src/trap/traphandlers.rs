@@ -5,8 +5,8 @@
 //! signalhandling mechanisms.
 
 use super::trapcode::TrapCode;
-use crate::instance::{InstanceHandle, SignalHandler};
-use crate::vmcontext::{VMContext, VMFunctionBody, VMTrampoline};
+use crate::instance::{Instance, SignalHandler};
+use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
 use std::any::Any;
 use std::cell::Cell;
@@ -91,7 +91,10 @@ cfg_if::cfg_if! {
         unsafe fn thread_stack() -> (usize, usize) {
             let this_thread = libc::pthread_self();
             let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+            #[cfg(not(target_os = "freebsd"))]
             libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+            #[cfg(target_os = "freebsd")]
+            libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
             let mut stackaddr: *mut libc::c_void = ptr::null_mut();
             let mut stacksize: libc::size_t = 0;
             libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
@@ -117,8 +120,8 @@ cfg_if::cfg_if! {
                     let (stackaddr, stacksize) = thread_stack();
                     // The stack and its guard page covers the
                     // range [stackaddr - guard pages .. stackaddr + stacksize).
-                    // We assume the guard page is 1 page, and pages are 4KiB.
-                    if stackaddr - 4096 <= addr && addr < stackaddr + stacksize {
+                    // We assume the guard page is 1 page, and pages are 4KiB (or 16KiB in Apple Silicon)
+                    if stackaddr - region::page::size() <= addr && addr < stackaddr + stacksize {
                         Some(TrapCode::StackOverflow)
                     } else {
                         Some(TrapCode::HeapAccessOutOfBounds)
@@ -202,9 +205,72 @@ cfg_if::cfg_if! {
                 } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     cx.uc_mcontext.pc as *const u8
-                } else if #[cfg(target_os = "macos")] {
+                } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
                     (*cx.uc_mcontext).__ss.__rip as *const u8
+                } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+                    use std::mem;
+                    // TODO: This should be integrated into rust/libc
+                    // Related issue: https://github.com/rust-lang/libc/issues/1977
+                    #[allow(non_camel_case_types)]
+                    pub struct __darwin_arm_thread_state64 {
+                        pub __x: [u64; 29], /* General purpose registers x0-x28 */
+                        pub __fp: u64,    /* Frame pointer x29 */
+                        pub __lr: u64,    /* Link register x30 */
+                        pub __sp: u64,    /* Stack pointer x31 */
+                        pub __pc: u64,   /* Program counter */
+                        pub __cpsr: u32,  /* Current program status register */
+                        pub __pad: u32,   /* Same size for 32-bit or 64-bit clients */
+                    }
+
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    let uc_mcontext = mem::transmute::<_, *const __darwin_arm_thread_state64>(&(*cx.uc_mcontext).__ss);
+                    (*uc_mcontext).__pc as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.mc_rip as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct gpregs {
+                        pub gp_x: [libc::register_t; 30],
+                        pub gp_lr: libc::register_t,
+                        pub gp_sp: libc::register_t,
+                        pub gp_elr: libc::register_t,
+                        pub gp_spsr: u32,
+                        pub gp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct fpregs {
+                        pub fp_q: [u128; 32],
+                        pub fp_sr: u32,
+                        pub fp_cr: u32,
+                        pub fp_flags: libc::c_int,
+                        pub fp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct mcontext_t {
+                        pub mc_gpregs: gpregs,
+                        pub mc_fpregs: fpregs,
+                        pub mc_flags: libc::c_int,
+                        pub mc_pad: libc::c_int,
+                        pub mc_spare: [u64; 8],
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct ucontext_t {
+                        pub uc_sigmask: libc::sigset_t,
+                        pub uc_mcontext: mcontext_t,
+                        pub uc_link: *mut ucontext_t,
+                        pub uc_stack: libc::stack_t,
+                        pub uc_flags: libc::c_int,
+                        __spare__: [libc::c_int; 4],
+                    }
+
+                    let cx = &*(cx as *const ucontext_t);
+                    cx.uc_mcontext.mc_gpregs.gp_elr as *const u8
                 } else {
                     compile_error!("unsupported platform");
                 }
@@ -429,13 +495,13 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    vmctx: *mut VMContext,
+    vmctx: VMFunctionEnvironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(vmctx, || {
-        mem::transmute::<_, extern "C" fn(*mut VMContext, *const VMFunctionBody, *mut u8)>(
+        mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec)
     })
@@ -447,7 +513,7 @@ pub unsafe fn wasmer_call_trampoline(
 /// # Safety
 ///
 /// Highly unsafe since `closure` won't have any destructors run.
-pub unsafe fn catch_traps<F>(vmctx: *mut VMContext, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(vmctx: VMFunctionEnvironment, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
 {
@@ -481,7 +547,7 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    vmctx: *mut VMContext,
+    vmctx: VMFunctionEnvironment,
     mut closure: F,
 ) -> Result<R, Trap>
 where
@@ -501,7 +567,7 @@ pub struct CallThreadState {
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Option<*const CallThreadState>,
-    vmctx: *mut VMContext,
+    vmctx: VMFunctionEnvironment,
     handling_trap: Cell<bool>,
 }
 
@@ -518,7 +584,7 @@ enum UnwindReason {
 }
 
 impl CallThreadState {
-    fn new(vmctx: *mut VMContext) -> Self {
+    fn new(vmctx: VMFunctionEnvironment) -> Self {
         Self {
             unwind: Cell::new(UnwindReason::None),
             vmctx,
@@ -559,9 +625,15 @@ impl CallThreadState {
         })
     }
 
-    fn any_instance(&self, func: impl Fn(&InstanceHandle) -> bool) -> bool {
+    fn any_instance(&self, func: impl Fn(&Instance) -> bool) -> bool {
         unsafe {
-            if func(&InstanceHandle::from_vmctx(self.vmctx)) {
+            if func(
+                self.vmctx
+                    .vmctx
+                    .as_ref()
+                    .expect("`VMContext` is null in `any_instance`")
+                    .instance(),
+            ) {
                 return true;
             }
             match self.prev {
@@ -614,13 +686,13 @@ impl CallThreadState {
         // First up see if any instance registered has a custom trap handler,
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
-        let any_instance = self.any_instance(|i| {
-            let handler = match i.instance().signal_handler.replace(None) {
+        let any_instance = self.any_instance(|instance: &Instance| {
+            let handler = match instance.signal_handler.replace(None) {
                 Some(handler) => handler,
                 None => return false,
             };
             let result = call_handler(&handler);
-            i.instance().signal_handler.set(Some(handler));
+            instance.signal_handler.set(Some(handler));
             result
         });
 
@@ -709,7 +781,6 @@ mod tls {
 #[cfg(unix)]
 fn setup_unix_sigaltstack() -> Result<(), Trap> {
     use std::cell::RefCell;
-    use std::convert::TryInto;
     use std::ptr::null_mut;
 
     thread_local! {
@@ -738,7 +809,6 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
             // already checked
             _ => return Ok(()),
         }
-
         // Check to see if the existing sigaltstack, if it exists, is big
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
@@ -751,7 +821,7 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
 
         // ... but failing that we need to allocate our own, so do all that
         // here.
-        let page_size: usize = libc::sysconf(libc::_SC_PAGESIZE).try_into().unwrap();
+        let page_size: usize = region::page::size();
         let guard_size = page_size;
         let alloc_size = guard_size + MIN_STACK_SIZE;
 

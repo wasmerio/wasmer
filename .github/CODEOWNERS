@@ -1,25 +1,24 @@
-# 
-src/                        @syrusakbary @MarkMcCaskey
-
-# Backends
-lib/compiler-singlepass   	@losfair @nlewycky
-lib/compiler-cranelift      @syrusakbary @nlewycky
-lib/compiler-llvm           @nlewycky @losfair
-
-# Runtime
-lib/runtime   	            @syrusakbary @Hywan
-lib/c-api        	        @Hywan
-
-# Frontend integrations
-
-## Emscripten
-lib/emscripten        	    @MarkMcCaskey @syrusakbary
-
-## WASI
-lib/wasi            	    @MarkMcCaskey
-
-# Examples
-examples                    @syrusakbary
-
-# Examples
-tests                       @syrusakbary @MarkMcCaskey
+benches                            @syrusakbary
+examples                           @Hywan @jubianchi
+fuzz                               @syrusakbary
+lib/api                            @syrusakbary @Hywan @MarkMcCaskey
+lib/c-api                          @Hywan @MarkMcCaskey @jubianchi
+lib/cache                          @syrusakbary @Hywan
+lib/cli                            @syrusakbary @MarkMcCaskey
+lib/compiler                       @syrusakbary @nlewycky @losfair @Hywan @MarkMcCaskey
+lib/compiler-cranelift             @nlewycky @syrusakbary
+lib/compiler-llvm                  @nlewycky @losfair
+lib/compiler-singlepass            @losfair @nlewycky
+lib/deprecated                     @Hywan @MarkMcCaskey
+lib/emscripten                     @MarkMcCaskey
+lib/engine                         @syrusakbary @MarkMcCaskey @Hywan
+lib/engine-jit                     @syrusakbary @MarkMcCaskey @Hywan
+lib/engine-native                  @syrusakbary @MarkMcCaskey @Hywan
+lib/engine-object-file             @syrusakbary @MarkMcCaskey @Hywan
+lib/object                         @syrusakbary @nlewycky
+lib/vm                             @syrusakbary @nlewycky @MarkMcCaskey
+lib/wasi                           @MarkMcCaskey
+lib/wasi-experimental-io-devices   @MarkMcCaskey
+lib/wasmer-types                   @syrusakbary @Hywan
+scripts                            @syrusakbary
+tests                              @MarkMcCaskey

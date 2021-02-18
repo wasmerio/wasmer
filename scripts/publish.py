@@ -21,11 +21,12 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0-alpha3"
+target_version = "1.0.2"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
     "wasmer-types": set([]),
+    "wasmer-derive": set([]),
     "wasmer-vm": set(["wasmer-types"]),
     "wasmer-compiler": set(["wasmer-vm", "wasmer-types"]),
     "wasmer-object": set(["wasmer-types", "wasmer-compiler"]),
@@ -36,22 +37,26 @@ dep_graph = {
     "wasmer-engine-jit": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine"]),
     "wasmer-engine-native": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
                                  "wasmer-object"]),
+    "wasmer-engine-object-file": set(["wasmer-types", "wasmer-vm", "wasmer-compiler", "wasmer-engine",
+                                      "wasmer-object"]),
     "wasmer": set(["wasmer-vm", "wasmer-compiler-singlepass", "wasmer-compiler-cranelift",
                    "wasmer-compiler-llvm", "wasmer-compiler", "wasmer-engine", "wasmer-engine-jit",
-                   "wasmer-engine-native", "wasmer-types"]),
+                   "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-types", "wasmer-derive"]),
     "wasmer-cache": set(["wasmer"]),
     "wasmer-wasi": set(["wasmer"]),
     "wasmer-wasi-experimental-io-devices": set(["wasmer-wasi"]),
     "wasmer-emscripten": set(["wasmer"]),
     "wasmer-c-api": set(["wasmer", "wasmer-compiler", "wasmer-compiler-cranelift", "wasmer-compiler-singlepass",
                          "wasmer-compiler-llvm", "wasmer-emscripten", "wasmer-engine", "wasmer-engine-jit",
-                         "wasmer-engine-native", "wasmer-wasi", "wasmer-types"]),
+                         "wasmer-engine-native", "wasmer-engine-object-file", "wasmer-wasi", "wasmer-types"]),
+    "wasmer-middlewares": set(["wasmer", "wasmer-types", "wasmer-vm"]),
 }
 
 # where each crate is located in the `lib` directory
 # TODO: this could also be generated from the toml files
 location = {
     "wasmer-types": "wasmer-types",
+    "wasmer-derive": "derive",
     "wasmer-vm": "vm",
     "wasmer-compiler": "compiler",
     "wasmer-object": "object",
@@ -62,12 +67,14 @@ location = {
     "wasmer-engine": "engine",
     "wasmer-engine-jit": "engine-jit",
     "wasmer-engine-native": "engine-native",
+    "wasmer-engine-object-file": "engine-object-file",
     "wasmer-cache": "cache",
     "wasmer": "api",
     "wasmer-wasi": "wasi",
     "wasmer-emscripten": "emscripten",
     "wasmer-wasi-experimental-io-devices": "wasi-experimental-io-devices",
     "wasmer-c-api": "c-api",
+    "wasmer-middlewares": "middlewares",
 }
 
 no_dry_run = False
@@ -88,7 +95,7 @@ def is_crate_already_published(crate_name: str) -> bool:
         return False
 
     return target_version == found_string
-    
+
 def publish_crate(crate: str):
     starting_dir = os.getcwd()
     os.chdir("lib/{}".format(location[crate]))
@@ -102,6 +109,7 @@ def publish_crate(crate: str):
     os.chdir(starting_dir)
 
 def main():
+    os.environ['WASMER_PUBLISH_SCRIPT_IS_RUNNING'] = '1'
     parser = argparse.ArgumentParser(description='Publish the Wasmer crates to crates.io')
     parser.add_argument('--no-dry-run', default=False, action='store_true',
                         help='Run the script without actually publishing anything to crates.io')
@@ -123,9 +131,12 @@ def main():
         # sleep for 16 seconds between crates to ensure the crates.io index has time to update
         # this can be optimized with knowledge of our dep graph via toposort; we can even publish
         # crates in parallel; however this is out of scope for the first version of this script
-        print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
-        time.sleep(16)
-        
+        if no_dry_run:
+            print("Sleeping for 16 seconds to allow the `crates.io` index to update...")
+            time.sleep(16)
+        else:
+            print("In dry-run: not sleeping for crates.io to update.")
+
 
 if __name__ == "__main__":
     main()

@@ -1,5 +1,5 @@
 //! Ordered Resolvers are a custom kind of [`Resolver`] that retrieves
-//! `Export`s based on the index of the import, and not the module or name.
+//! `EngineExport`s based on the index of the import, and not the module or name.
 //!
 //! This resolver is used in the Wasm-C-API as the imports are provided
 //! by index and not by module and name.
@@ -11,7 +11,7 @@ use wasmer::{Export, Exportable, Extern, Resolver};
 /// in a Vec, so we can retrieve them later based on index.
 #[derive(Clone)]
 pub struct OrderedResolver {
-    /// The externs to be resolved by inddex
+    /// The externs to be resolved by index
     externs: Vec<Extern>,
 }
 

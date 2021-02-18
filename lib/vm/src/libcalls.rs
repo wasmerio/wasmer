@@ -385,7 +385,8 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
 ///
 /// # Safety
 ///
-/// To be defined (TODO)
+/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+/// `wasmer_call_trampoline` must have been previously called.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
     let trap = Trap::new_from_runtime(trap_code);
@@ -464,6 +465,11 @@ impl LibCall {
             Self::FloorF64 => "wasmer_f64_floor",
             Self::NearestF32 => "wasmer_f32_nearest",
             Self::NearestF64 => "wasmer_f64_nearest",
+            // We have to do this because macOS requires a leading `_` and it's not
+            // a normal function, it's a static variable, so we have to do it manually.
+            #[cfg(target_os = "macos")]
+            Self::Probestack => "_wasmer_probestack",
+            #[cfg(not(target_os = "macos"))]
             Self::Probestack => "wasmer_probestack",
             Self::RaiseTrap => "wasmer_raise_trap",
             Self::TruncF32 => "wasmer_f32_trunc",

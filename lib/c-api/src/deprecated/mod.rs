@@ -90,12 +90,6 @@ pub mod instance;
 pub mod memory;
 pub mod module;
 pub mod table;
-// `not(target_family = "windows")` is simpler than `unix`.  See build.rs
-// if you want to change the meaning of these `cfg`s in the header file.
-/*
-TODO: reenable `trampoline` module when the refactor gains feature parity with Wasmer master
-#[cfg(all(not(target_family = "windows"), target_arch = "x86_64"))]
-pub mod trampoline;*/
 pub mod value;
 
 /// The `wasmer_result_t` enum is a type that represents either a

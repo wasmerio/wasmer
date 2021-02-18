@@ -56,10 +56,7 @@ impl SerializableFunctionFrameInfo {
     /// Returns true if the extra function info is not yet
     /// processed
     pub fn is_unprocessed(&self) -> bool {
-        match self {
-            Self::Unprocessed(_) => true,
-            _ => false,
-        }
+        matches!(self, Self::Unprocessed(_))
     }
 }
 
