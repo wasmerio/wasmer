@@ -246,22 +246,12 @@ wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
 #if defined(WASMER_COMPILER_ENABLED)
-DEPRECATED("This function has been renamed `wasmer_config_set_compiler`.")
-void wasm_config_set_compiler(wasm_config_t *config,
-                              wasmer_compiler_t compiler);
+void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
 #endif
 
-DEPRECATED("This function has been renamed `wasmer_config_set_engine`.")
-void wasm_config_set_engine(wasm_config_t *config,
-                            wasmer_engine_t engine);
+void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
-#if defined(WASMER_COMPILER_ENABLED)
-void wasmer_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
-#endif
-
-void wasmer_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
-
-void wasmer_config_set_target(wasm_config_t *config, wasmer_target_t *target);
+void wasm_config_set_target(wasm_config_t *config, wasmer_target_t *target);
 
 bool wasmer_cpu_features_add(wasmer_cpu_features_t *cpu_features, const wasm_name_t *feature);
 

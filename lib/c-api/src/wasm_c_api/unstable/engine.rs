@@ -25,7 +25,7 @@ use super::target_lexicon::wasmer_target_t;
 ///         wasmer_cpu_features_t* cpu_features = wasmer_cpu_features_new();
 ///         wasmer_target_t* target = wasmer_target_new(triple, cpu_features);
 ///
-///         wasmer_config_set_target(config, target);
+///         wasm_config_set_target(config, target);
 ///     }
 ///
 ///     // Create the engine.
@@ -44,7 +44,7 @@ use super::target_lexicon::wasmer_target_t;
 /// # }
 /// ```
 #[no_mangle]
-pub extern "C" fn wasmer_config_set_target(
+pub extern "C" fn wasm_config_set_target(
     config: &mut wasm_config_t,
     target: Box<wasmer_target_t>,
 ) {
