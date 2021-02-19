@@ -578,7 +578,7 @@ impl Instance {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-    ) -> Result<TableReference, Trap> {
+    ) -> Option<TableReference> {
         self.tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
@@ -596,7 +596,7 @@ impl Instance {
         &self,
         table_index: TableIndex,
         index: u32,
-    ) -> Result<TableReference, Trap> {
+    ) -> Option<TableReference> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
         from.get(index)
@@ -1261,11 +1261,7 @@ impl InstanceHandle {
     /// Get table element reference.
     ///
     /// Returns `None` if index is out of bounds.
-    pub fn table_get(
-        &self,
-        table_index: LocalTableIndex,
-        index: u32,
-    ) -> Result<TableReference, Trap> {
+    pub fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
         self.instance().as_ref().table_get(table_index, index)
     }
 

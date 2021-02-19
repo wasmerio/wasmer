@@ -322,8 +322,8 @@ pub unsafe extern "C" fn wasmer_table_get(
 
     // TODO: type checking, maybe have specialized accessors
     match instance.table_get(table_index, elem_index) {
-        Ok(table_ref) => table_ref.into(),
-        Err(trap) => raise_lib_trap(trap),
+        Some(table_ref) => table_ref.into(),
+        None => raise_lib_trap(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),
     }
 }
 
@@ -342,8 +342,8 @@ pub unsafe extern "C" fn wasmer_imported_table_get(
 
     // TODO: type checking, maybe have specialized accessors
     match instance.imported_table_get(table_index, elem_index) {
-        Ok(table_ref) => table_ref.into(),
-        Err(trap) => raise_lib_trap(trap),
+        Some(table_ref) => table_ref.into(),
+        None => raise_lib_trap(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),
     }
 }
 

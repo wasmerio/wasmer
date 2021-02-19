@@ -45,7 +45,7 @@ pub trait Table: fmt::Debug + Send + Sync {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Result<TableReference, Trap>;
+    fn get(&self, index: u32) -> Option<TableReference>;
 
     /// Set reference to the specified element.
     ///
@@ -332,14 +332,10 @@ impl Table for LinearTable {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Result<TableReference, Trap> {
+    fn get(&self, index: u32) -> Option<TableReference> {
         let vec_guard = self.vec.lock().unwrap();
-        let raw_data = vec_guard
-            .borrow()
-            .get(index as usize)
-            .cloned()
-            .ok_or_else(|| Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds))?;
-        Ok(match self.table.ty {
+        let raw_data = vec_guard.borrow().get(index as usize).cloned()?;
+        Some(match self.table.ty {
             ValType::ExternRef => {
                 // TODO: there is no matching `drop` for this `clone` implemented yet.
                 // thus extern refs will always leak memory if this path is touched.

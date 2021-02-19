@@ -950,7 +950,7 @@ mod inner {
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
     use wasmer_types::{FunctionType, NativeWasmType, Type};
-    use wasmer_vm::{raise_user_trap, resume_panic, VMExternRef, VMFuncRef, VMFunctionBody};
+    use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
