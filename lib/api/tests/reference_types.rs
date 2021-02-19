@@ -77,7 +77,7 @@ fn extern_ref_passed_and_returned() -> Result<()> {
             "extern_ref_identity" => Function::new(&store, FunctionType::new([Type::ExternRef], [Type::ExternRef]), |values| -> Result<Vec<_>, _> {
                 Ok(vec![values[0].clone()])
             }),
-            "extern_ref_identity_native" => Function::new_native(&store, |er: ExternRef<usize>| -> ExternRef<usize> {
+            "extern_ref_identity_native" => Function::new_native(&store, |er: ExternRef| -> ExternRef {
                 er
             }),
             "get_new_extern_ref" => Function::new(&store, FunctionType::new([], [Type::ExternRef]), |_| -> Result<Vec<_>, _> {
@@ -87,10 +87,10 @@ fn extern_ref_passed_and_returned() -> Result<()> {
                     .iter()
                     .cloned()
                     .collect::<HashMap<String, String>>();
-                let new_extern_ref = VMExternRef::new(inner);
+                let new_extern_ref = ExternRef::new(inner);
                 Ok(vec![Value::ExternRef(new_extern_ref)])
             }),
-            "get_new_extern_ref_native" => Function::new_native(&store, || -> ExternRef<HashMap<String, String>> {
+            "get_new_extern_ref_native" => Function::new_native(&store, || -> ExternRef {
                 let inner =
                     [("hello".to_string(), "world".to_string()),
                      ("color".to_string(), "orange".to_string())]
@@ -106,21 +106,21 @@ fn extern_ref_passed_and_returned() -> Result<()> {
     for run in &["run", "run_native"] {
         let f: &Function = instance.exports.get_function(run)?;
         let results = f.call(&[]).unwrap();
-        if let Value::ExternRef(er) = results[0] {
+        if let Value::ExternRef(er) = &results[0] {
             assert!(er.is_null());
         } else {
             panic!("result is not an extern ref!");
         }
 
-        let f: NativeFunc<(), ExternRef<usize>> = instance.exports.get_native_function(run)?;
-        let result: ExternRef<usize> = f.call()?;
+        let f: NativeFunc<(), ExternRef> = instance.exports.get_native_function(run)?;
+        let result: ExternRef = f.call()?;
         assert!(result.is_null());
     }
 
     for get_hashmap in &["get_hashmap", "get_hashmap_native"] {
         let f: &Function = instance.exports.get_function(get_hashmap)?;
         let results = f.call(&[]).unwrap();
-        if let Value::ExternRef(er) = results[0] {
+        if let Value::ExternRef(er) = &results[0] {
             let inner: &HashMap<String, String> = er.downcast().unwrap();
             assert_eq!(inner["hello"], "world");
             assert_eq!(inner["color"], "orange");
@@ -128,10 +128,9 @@ fn extern_ref_passed_and_returned() -> Result<()> {
             panic!("result is not an extern ref!");
         }
 
-        let f: NativeFunc<(), ExternRef<HashMap<String, String>>> =
-            instance.exports.get_native_function(get_hashmap)?;
+        let f: NativeFunc<(), ExternRef> = instance.exports.get_native_function(get_hashmap)?;
 
-        let result: ExternRef<HashMap<String, String>> = f.call()?;
+        let result: ExternRef = f.call()?;
         let inner: &HashMap<String, String> = result.downcast().unwrap();
         assert_eq!(inner["hello"], "world");
         assert_eq!(inner["color"], "orange");

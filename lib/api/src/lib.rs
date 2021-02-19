@@ -255,7 +255,6 @@
 
 mod env;
 mod exports;
-mod extern_ref;
 mod externals;
 mod import_object;
 mod instance;
@@ -286,7 +285,6 @@ pub mod internals {
 
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
-pub use crate::extern_ref::ExternRef;
 pub use crate::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
@@ -320,6 +318,7 @@ pub use wasmer_types::{
     Atomically,
     Bytes,
     ExportIndex,
+    ExternRef,
     GlobalInit,
     LocalFunctionIndex,
     MemoryView,

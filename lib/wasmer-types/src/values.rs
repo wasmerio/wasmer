@@ -1,4 +1,4 @@
-use crate::extern_ref::VMExternRef;
+use crate::extern_ref::ExternRef;
 use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ptr;
@@ -28,7 +28,7 @@ pub enum Value<T> {
     /// An `externref` value which can hold opaque data to the wasm instance itself.
     ///
     /// Note that this is a nullable value as well.
-    ExternRef(VMExternRef),
+    ExternRef(ExternRef),
 
     /// A first-class reference to a WebAssembly function.
     FuncRef(Option<T>),
@@ -76,7 +76,7 @@ where
 {
     /// Returns a null `externref` value.
     pub fn null() -> Self {
-        Self::ExternRef(VMExternRef::null())
+        Self::ExternRef(ExternRef::null())
     }
 
     /// Returns the corresponding [`Type`] for this `Value`.
@@ -107,7 +107,8 @@ where
             Self::V128(b) => ptr::write(p as *mut u128, *b),
             Self::FuncRef(Some(b)) => T::write_value_to(b, p),
             Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
-            Self::ExternRef(extern_ref) => ptr::write(p as *mut VMExternRef, *extern_ref),
+            // TODO: review clone here
+            Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
         }
     }
 
@@ -135,7 +136,7 @@ where
                 }
             }
             Type::ExternRef => {
-                let extern_ref = *(p as *const VMExternRef);
+                let extern_ref = (&*(p as *const ExternRef)).clone();
                 Self::ExternRef(extern_ref)
             }
         }
@@ -155,7 +156,7 @@ where
     /// `None` if it is not the correct type.
     ///
     /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
-    pub fn externref(&self) -> Option<VMExternRef> {
+    pub fn externref(&self) -> Option<ExternRef> {
         todo!("is anyone using this function?")
         /*
         match self {
@@ -171,7 +172,7 @@ where
     /// # Panics
     ///
     /// Panics if `self` is not of the right type.
-    pub fn unwrap_externref(&self) -> VMExternRef {
+    pub fn unwrap_externref(&self) -> ExternRef {
         self.externref().expect("expected externref")
     }
 }
@@ -267,11 +268,11 @@ where
     }
 }
 
-impl<T> From<VMExternRef> for Value<T>
+impl<T> From<ExternRef> for Value<T>
 where
     T: ValueEnumType,
 {
-    fn from(val: VMExternRef) -> Self {
+    fn from(val: ExternRef) -> Self {
         Self::ExternRef(val)
     }
 }

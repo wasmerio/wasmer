@@ -105,7 +105,10 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Self::ExternRef(extern_ref) => wasmer_vm::TableReference::ExternRef(*extern_ref),
+            // TODO: review this clone
+            Self::ExternRef(extern_ref) => {
+                wasmer_vm::TableReference::ExternRef(extern_ref.clone().into())
+            }
             Self::FuncRef(None) => wasmer_vm::TableReference::FuncRef(VMFuncRef::null()),
             Self::FuncRef(Some(f)) => wasmer_vm::TableReference::FuncRef(f.checked_anyfunc()),
             _ => return Err(RuntimeError::new("val is not reference")),
@@ -115,7 +118,7 @@ impl ValFuncRef for Val {
     fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self {
         match item {
             wasmer_vm::TableReference::FuncRef(f) => Self::from_checked_anyfunc(f, store),
-            wasmer_vm::TableReference::ExternRef(extern_ref) => Self::ExternRef(extern_ref),
+            wasmer_vm::TableReference::ExternRef(extern_ref) => Self::ExternRef(extern_ref.into()),
         }
     }
 }

@@ -177,3 +177,54 @@ impl VMExternRefInner {
         return true;
     }
 }
+
+#[derive(Debug, Clone, PartialEq, Eq)]
+#[repr(transparent)]
+/// An opaque reference to some data. This reference can be passed through Wasm.
+pub struct ExternRef {
+    inner: VMExternRef,
+}
+
+impl ExternRef {
+    /// Checks if the given ExternRef is null.
+    pub fn is_null(&self) -> bool {
+        self.inner.is_null()
+    }
+
+    /// New null extern ref
+    pub fn null() -> Self {
+        Self {
+            inner: VMExternRef::null(),
+        }
+    }
+
+    /// Make a new extern reference
+    pub fn new<T>(value: T) -> Self
+    where
+        T: Any + Send + Sync + 'static + Sized,
+    {
+        Self {
+            inner: VMExternRef::new(value),
+        }
+    }
+
+    /// Try to downcast to the given value
+    pub fn downcast<T>(&self) -> Option<&T>
+    where
+        T: Any + Send + Sync + 'static + Sized,
+    {
+        self.inner.downcast::<T>()
+    }
+}
+
+impl From<VMExternRef> for ExternRef {
+    fn from(other: VMExternRef) -> Self {
+        Self { inner: other }
+    }
+}
+
+impl From<ExternRef> for VMExternRef {
+    fn from(other: ExternRef) -> Self {
+        other.inner
+    }
+}

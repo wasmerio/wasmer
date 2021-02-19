@@ -65,7 +65,7 @@ pub mod entity {
     pub use cranelift_entity::*;
 }
 
-pub use crate::extern_ref::VMExternRef;
+pub use crate::extern_ref::{ExternRef, VMExternRef};
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,
