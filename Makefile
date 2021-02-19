@@ -300,15 +300,17 @@ endif
 
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
 
-ifneq (, $(LIBC))
-	$(info C standard library: $(bold)$(green)$(LIBC)$(reset))
-endif
-
 $(info -----------)
 $(info $(bold)$(green)INFORMATION$(reset))
 $(info -----------)
 $(info )
 $(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
+ifneq (, $(LIBC))
+		# We use spaces instead of tabs to indent `$(info)`
+		# otherwise it's considered as a command outside a
+		# target and it will fail.
+                $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
 $(info Cargo features:)
