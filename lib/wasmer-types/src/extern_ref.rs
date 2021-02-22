@@ -178,11 +178,25 @@ impl VMExternRefInner {
     }
 }
 
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, PartialEq, Eq)]
 #[repr(transparent)]
 /// An opaque reference to some data. This reference can be passed through Wasm.
 pub struct ExternRef {
     inner: VMExternRef,
+}
+
+impl Clone for ExternRef {
+    fn clone(&self) -> Self {
+        Self {
+            inner: self.inner.ref_clone(),
+        }
+    }
+}
+
+impl Drop for ExternRef {
+    fn drop(&mut self) {
+        self.inner.ref_drop()
+    }
 }
 
 impl ExternRef {
@@ -225,6 +239,10 @@ impl From<VMExternRef> for ExternRef {
 
 impl From<ExternRef> for VMExternRef {
     fn from(other: ExternRef) -> Self {
-        other.inner
+        let out = other.inner;
+        // TODO: clean this up
+        // hack, don't decrement the count
+        std::mem::forget(other);
+        out
     }
 }

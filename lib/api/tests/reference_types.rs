@@ -138,3 +138,68 @@ fn extern_ref_passed_and_returned() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn extern_ref_ref_counting() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (func (export "drop") (param $er externref) (result)
+          (drop (local.get $er)))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+    let f: NativeFunc<ExternRef, ()> = instance.exports.get_native_function("drop")?;
+
+    let er = ExternRef::new(3u32);
+    f.call(er.clone())?;
+
+    assert_eq!(er.downcast::<u32>().unwrap(), &3);
+
+    Ok(())
+}
+
+#[test]
+fn refs_in_globals() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (global $er_global (export "er_global") (mut externref) (ref.null extern))
+    (global $fr_global (export "fr_global") (mut funcref) (ref.null func))
+    (global $fr_immutable_global (export "fr_immutable_global") funcref (ref.func $hello))
+    (func $hello (param) (result funcref)
+          (global.get $fr_immutable_global))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+    {
+        let er_global: &Global = instance.exports.get_global("er_global")?;
+
+        if let Value::ExternRef(er) = er_global.get() {
+            assert!(er.is_null());
+        } else {
+            panic!("Did not find extern ref in the global");
+        }
+
+        er_global.set(Val::ExternRef(ExternRef::new(3u32)))?;
+
+        if let Value::ExternRef(er) = er_global.get() {
+            assert_eq!(er.downcast::<u32>().unwrap(), &3);
+        } else {
+            panic!("Did not find extern ref in the global");
+        }
+    }
+
+    // blocked on needing a store when reading from globals
+    /*
+    {
+        let er_global: &Global = instance.exports.get_global("fr_immutable_global")?;
+
+        if let Value::FuncRef(f) = er_global.get() {
+            dbg!(f);
+        } else {
+            panic!("Did not find func ref in the global");
+        }
+    }
+    */
+
+    Ok(())
+}

@@ -21,9 +21,8 @@ impl StoreObject for Val {
         match self {
             Self::FuncRef(None) => true,
             Self::FuncRef(Some(f)) => Store::same(store, f.store()),
-            Self::ExternRef(ext_ref) if ext_ref.is_null() => true,
-            // TODO: probably make this panic too
-            Self::ExternRef(_) => false,
+            // `ExternRef`s are not tied to specific stores
+            Self::ExternRef(_) => true,
             Self::I32(_) | Self::I64(_) | Self::F32(_) | Self::F64(_) | Self::V128(_) => true,
         }
     }

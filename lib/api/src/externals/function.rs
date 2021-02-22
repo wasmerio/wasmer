@@ -931,7 +931,7 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
                 ret.write_value_to(values_vec.add(i));
             }
             Ok(())
-        }));
+        })); // We get an extern ref drop at the end of this block that we don't want
 
         match result {
             Ok(Ok(())) => {}

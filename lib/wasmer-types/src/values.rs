@@ -148,32 +148,9 @@ where
         (I64(i64) i64 unwrap_i64 *e)
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
+        (ExternRef(ExternRef) externref unwrap_externref e.clone())
         (FuncRef(&Option<T>) funcref unwrap_funcref e)
         (V128(u128) v128 unwrap_v128 *e)
-    }
-
-    /// Attempt to access the underlying value of this `Value`, returning
-    /// `None` if it is not the correct type.
-    ///
-    /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
-    pub fn externref(&self) -> Option<ExternRef> {
-        todo!("is anyone using this function?")
-        /*
-        match self {
-            Self::ExternRef(e) => Some(e.clone()),
-            _ => None,
-        }
-        */
-    }
-
-    /// Returns the underlying value of this `Value`, panicking if it's the
-    /// wrong type.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `self` is not of the right type.
-    pub fn unwrap_externref(&self) -> ExternRef {
-        self.externref().expect("expected externref")
     }
 }
 

@@ -10,6 +10,7 @@ use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
+use crate::VMExternRef;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
@@ -498,6 +499,7 @@ pub union VMGlobalDefinitionStorage {
     as_f64: f64,
     as_u128: u128,
     as_funcref: VMFuncRef,
+    as_externref: VMExternRef,
     bytes: [u8; 16],
 }
 
@@ -694,6 +696,25 @@ impl VMGlobalDefinition {
     /// writes of globals inside wasm functions.
     pub unsafe fn as_funcref_mut(&mut self) -> &mut VMFuncRef {
         &mut self.storage.as_funcref
+    }
+
+    /// Return a mutable reference to the value as an `VMExternRef`.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_externref_mut(&mut self) -> &mut VMExternRef {
+        &mut self.storage.as_externref
+    }
+
+    /// Return a reference to the value as an `VMExternRef`.
+    ///
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_externref(&self) -> VMExternRef {
+        unsafe { self.storage.as_externref }
     }
 
     /// Return a reference to the value as an u128.
