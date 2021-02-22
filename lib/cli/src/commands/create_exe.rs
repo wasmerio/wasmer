@@ -155,7 +155,13 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(
-        env::var("WASMER_DIR").context("Trying to read env var `WASMER_DIR`")?,
+        env::var("WASMER_DIR")
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context("Trying to read env var `WASMER_DIR`")?,
     ))
 }
 
