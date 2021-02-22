@@ -323,10 +323,12 @@ $(info --------------)
 $(info )
 $(info )
 
-
 ############
 # Building #
 ############
+
+# Not really "all", just the default target that builds enough so make install will go through
+all: build-wasmer build-capi
 
 bench:
 	cargo bench $(compiler_features)
@@ -656,6 +658,43 @@ ifeq ($(IS_WINDOWS), 1)
 endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
+
+########################
+# (Distro-) Installing #
+########################
+
+DESTDIR ?= /usr/local
+
+install: install-wasmer install-capi-headers install-capi-lib install-capi-staticlib install-pkgconfig install-misc
+
+install-wasmer:
+	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
+
+install-capi-headers:
+	for header in lib/c-api/*.{h,hh}; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/doc/deprecated/index.md $(DESTDIR)/include/wasmer-README.md
+
+install-capi-lib:
+	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
+	shortver="$${pkgver%.*}" && \
+	majorver="$${shortver%.*}" && \
+	install -Dm755 target/release/libwasmer_c_api.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
+
+install-capi-staticlib:
+	install -Dm644 target/release/libwasmer_c_api.a "$(DESTDIR)/lib/libwasmer.a"
+
+install-misc:
+	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
+
+install-pkgconfig:
+	unset WASMER_DIR # Make sure WASMER_INSTALL_PREFIX is set during build
+	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
+
+install-wasmer-headless-minimal:
+	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer-headless
 
 #################
 # Miscellaneous #
