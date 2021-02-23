@@ -165,8 +165,8 @@ fn refs_in_globals() -> Result<()> {
     (global $er_global (export "er_global") (mut externref) (ref.null extern))
     (global $fr_global (export "fr_global") (mut funcref) (ref.null func))
     (global $fr_immutable_global (export "fr_immutable_global") funcref (ref.func $hello))
-    (func $hello (param) (result funcref)
-          (global.get $fr_immutable_global))
+    (func $hello (param) (result i32)
+          (i32.const 73))
 )"#;
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
@@ -188,18 +188,36 @@ fn refs_in_globals() -> Result<()> {
         }
     }
 
-    // blocked on needing a store when reading from globals
-    /*
     {
-        let er_global: &Global = instance.exports.get_global("fr_immutable_global")?;
+        let fr_global: &Global = instance.exports.get_global("fr_immutable_global")?;
 
-        if let Value::FuncRef(f) = er_global.get() {
-            dbg!(f);
+        if let Value::FuncRef(Some(f)) = fr_global.get() {
+            let native_func: NativeFunc<(), u32> = f.native()?;
+            assert_eq!(native_func.call()?, 73);
         } else {
-            panic!("Did not find func ref in the global");
+            panic!("Did not find non-null func ref in the global");
         }
     }
-    */
+
+    {
+        let fr_global: &Global = instance.exports.get_global("fr_global")?;
+
+        if let Value::FuncRef(None) = fr_global.get() {
+        } else {
+            panic!("Did not find a null func ref in the global");
+        }
+
+        let f = Function::new_native(&store, |arg1: i32, arg2: i32| -> i32 { arg1 + arg2 });
+
+        fr_global.set(Val::FuncRef(Some(f)))?;
+
+        if let Value::FuncRef(Some(f)) = fr_global.get() {
+            let native: NativeFunc<(i32, i32), i32> = f.native()?;
+            assert_eq!(native.call(5, 7)?, 12);
+        } else {
+            panic!("Did not find extern ref in the global");
+        }
+    }
 
     Ok(())
 }

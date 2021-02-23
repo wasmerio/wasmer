@@ -64,7 +64,7 @@ impl Global {
     }
 
     /// Get a value from the global.
-    pub fn get<T: ValueEnumType>(&self) -> Value<T> {
+    pub fn get<T: ValueEnumType>(&self, store: &dyn std::any::Any) -> Value<T> {
         let _global_guard = self.lock.lock().unwrap();
         unsafe {
             let definition = &*self.vm_global_definition.get();
@@ -77,13 +77,13 @@ impl Global {
                 Type::ExternRef => Value::ExternRef(definition.to_externref().into()),
                 // reading funcref from globals requires a Store
                 Type::FuncRef => {
-                    let p = definition.to_i64() as usize as *const i128;
-                    if (*(p as *const usize)) == 0 {
+                    let p = definition.to_u128() as i128;
+                    if p as usize == 0 {
                         Value::FuncRef(None)
                     } else {
                         // TODO:
-                        let store = todo!("Need a store here, there's no store to get here");
-                        let v = T::read_value_from(&store, p);
+                        //let store = todo!("Need a store here, there's no store to get here");
+                        let v = T::read_value_from(store, &p);
                         Value::FuncRef(Some(v))
                     }
                 }

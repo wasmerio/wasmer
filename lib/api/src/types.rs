@@ -72,7 +72,10 @@ impl ValFuncRef for Val {
         if func_ref.is_null() {
             return Self::FuncRef(None);
         }
-        let item: &wasmer_vm::VMCallerCheckedAnyfunc = unsafe { &**func_ref };
+        let item: &wasmer_vm::VMCallerCheckedAnyfunc = unsafe {
+            let anyfunc: *const wasmer_vm::VMCallerCheckedAnyfunc = *func_ref;
+            &*anyfunc
+        };
         let signature = store
             .engine()
             .lookup_signature(item.type_index)
@@ -84,6 +87,7 @@ impl ValFuncRef for Val {
             vm_function: wasmer_vm::VMExportFunction {
                 address: item.func_ptr,
                 signature,
+                // TODO: review this comment (unclear if it's still correct):
                 // All functions in tables are already Static (as dynamic functions
                 // are converted to use the trampolines with static signatures).
                 kind: wasmer_vm::VMFunctionKind::Static,
