@@ -5356,11 +5356,10 @@ impl<'a> FuncGen<'a> {
                     Location::GPR(table_count),
                 );
                 // Trap if the FuncRef is null
-                self.assembler.emit_cmp(
-                    Size::S64,
-                    Location::Imm32(0),
-                    Location::Memory(table_count, 0),
-                );
+                self.assembler
+                    .emit_cmp(Size::S64, Location::Imm32(0), Location::GPR(table_count));
+                self.assembler
+                    .emit_jmp(Condition::Equal, self.special_labels.indirect_call_null);
                 self.assembler.emit_mov(
                     Size::S64,
                     Location::Memory(
@@ -5369,19 +5368,6 @@ impl<'a> FuncGen<'a> {
                     ),
                     Location::GPR(sigidx),
                 );
-
-                // TODO: We can probably drop this check now. Needs review.
-                // Trap if the current table entry is null.
-                self.assembler.emit_cmp(
-                    Size::S64,
-                    Location::Imm32(0),
-                    Location::Memory(
-                        table_count,
-                        (self.vmoffsets.vmcaller_checked_anyfunc_func_ptr() as usize) as i32,
-                    ),
-                );
-                self.assembler
-                    .emit_jmp(Condition::Equal, self.special_labels.indirect_call_null);
 
                 // Trap if signature mismatches.
                 self.assembler.emit_cmp(
