@@ -246,7 +246,7 @@ mod test_features {
             default,
             Features {
                 threads: false,
-                reference_types: false,
+                reference_types: true,
                 simd: false,
                 bulk_memory: true,
                 multi_value: true,

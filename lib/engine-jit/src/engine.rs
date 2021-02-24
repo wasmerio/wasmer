@@ -157,8 +157,9 @@ pub struct JITEngineInner {
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
-    /// TODO:
-    /// func refs
+    /// The backing storage of `VMFuncRef`s. This centralized store ensures that 2
+    /// functions with the same `VMCallerCheckedAnyfunc` will have the same `VMFuncRef`.
+    /// It also guarantees that the `VMFuncRef`s stay valid until the engine is dropped.
     func_data: Arc<FuncDataRegistry>,
 }
 

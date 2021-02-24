@@ -55,16 +55,9 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            Self::ExternRef(_) => todo!("Extern ref not yet implemented"), /*wasmer_vm::VMCallerCheckedAnyfunc {
-            func_ptr: ptr::null(),
-            type_index: wasmer_vm::VMSharedSignatureIndex::default(),
-            vmctx: wasmer_vm::VMFunctionEnvironment {
-            host_env: ptr::null_mut(),
-            },
-            },*/
             Self::FuncRef(None) => VMFuncRef::null(),
             Self::FuncRef(Some(f)) => f.checked_anyfunc(),
-            _ => return Err(RuntimeError::new("val is not reference")),
+            _ => return Err(RuntimeError::new("val is not func ref")),
         })
     }
 

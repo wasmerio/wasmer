@@ -24,7 +24,6 @@ pub trait Engine {
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex;
 
     /// Register a function's data.
-    /// TODO: probably create a new type like `FuncRef`.
     fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef;
 
     /// Lookup a signature

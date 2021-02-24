@@ -1,15 +1,14 @@
-//! TODO: document this
+//! A registry for `VMFuncRef`s. This allows us to deduplicate funcrefs so that
+//! identical `VMCallerCheckedAnyfunc`s will give us identical funcrefs.
 //!
-//! We store metadata for functions here. This is what a funcref actually points to.
+//! This registry also helps ensure that the `VMFuncRef`s can stay valid for as
+//! long as we need them to.
 
 use crate::vmcontext::VMCallerCheckedAnyfunc;
 use std::collections::HashMap;
 use std::sync::Mutex;
 
-/// WebAssembly requires that the caller and callee signatures in an indirect
-/// call must match. To implement this efficiently, keep a registry of all
-/// signatures, shared by all instances, so that call sites can just do an
-/// index comparison.
+/// The registry that holds the values that `VMFuncRef`s point to.
 #[derive(Debug)]
 pub struct FuncDataRegistry {
     // This structure is stored in an `Engine` and is intended to be shared
@@ -24,7 +23,7 @@ pub struct FuncDataRegistry {
 unsafe impl Send for FuncDataRegistry {}
 unsafe impl Sync for FuncDataRegistry {}
 
-/// VM Func Ref, TODO document this
+/// A function reference. A single word that points to metadata about a function.
 #[repr(transparent)]
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash)]
 pub struct VMFuncRef(pub(crate) *const VMCallerCheckedAnyfunc);
@@ -56,13 +55,6 @@ impl wasmer_types::NativeWasmType for VMFuncRef {
 }
 
 impl VMFuncRef {
-    /// TODO: we probably don't want this function, need to do something about this,
-    /// it definitely needs to be unsafe
-    /// Hack to unblock myself:
-    pub fn new(inner: *const VMCallerCheckedAnyfunc) -> Self {
-        Self(inner)
-    }
-
     /// Check if the FuncRef is null
     // TODO: make this const when `std::ptr::is_null` is const
     pub fn is_null(&self) -> bool {

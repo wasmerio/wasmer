@@ -67,9 +67,7 @@ pub trait Artifact: Send + Sync + Upcastable {
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>;
 
     /// Get the func data registry
-    fn func_data_registry(&self) -> &FuncDataRegistry {
-        todo!("Implement this")
-    }
+    fn func_data_registry(&self) -> &FuncDataRegistry;
 
     /// Serializes an artifact into bytes
     fn serialize(&self) -> Result<Vec<u8>, SerializeError>;

@@ -44,6 +44,11 @@ impl DummyEngine {
     pub fn features(&self) -> &Features {
         &self.features
     }
+
+    /// Shared func metadata registry.
+    pub(crate) fn func_data(&self) -> &Arc<FuncDataRegistry> {
+        &self.func_data
+    }
 }
 
 impl Engine for DummyEngine {

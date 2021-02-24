@@ -70,6 +70,14 @@ pub trait ValueEnumType: std::fmt::Debug + 'static {
     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
 }
 
+impl ValueEnumType for () {
+    unsafe fn write_value_to(&self, _p: *mut i128) {}
+
+    unsafe fn read_value_from(store: &dyn std::any::Any, _p: *const i128) -> Self {
+        ()
+    }
+}
+
 impl<T> Value<T>
 where
     T: ValueEnumType,
