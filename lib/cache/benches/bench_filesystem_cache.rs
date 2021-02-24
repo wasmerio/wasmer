@@ -28,8 +28,24 @@ pub fn store_cache(c: &mut Criterion) {
 }
 
 pub fn load_cache(c: &mut Criterion) {
+    let tmp_dir = TempDir::new("wasmer-cache-bench").unwrap();
+    let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
+    let compiler = Singlepass::default();
+    let store = Store::new(&JIT::new(compiler).engine());
+    let module = Module::new(&store, std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap()).unwrap();
+    let key = Hash::new([0u8; 32]);
+    fs_cache.store(key, &module).unwrap();
 
+    c.bench_function("load module in filesystem cache", |b| {
+        b.iter(|| {
+            unsafe { fs_cache.load(&store, key.clone()).unwrap() }
+        })
+    });
 }
 
-criterion_group!(benches, store_cache);
+criterion_group! {
+    name = benches;
+    config = Criterion::default().sample_size(300);
+    targets = store_cache, load_cache
+}
 criterion_main!(benches);
