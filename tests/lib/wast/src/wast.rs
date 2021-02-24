@@ -25,7 +25,7 @@ pub struct Wast {
     current_is_allowed_failure: bool,
     /// Extern-ref manager: used for testing extern refs: they're referred to by
     /// number in WAST, so we map here.
-    extern_refs: BTreeMap<u32, VMExternRef>,
+    extern_refs: BTreeMap<u32, ExternRef>,
     /// The wasm Store
     store: Store,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
@@ -412,8 +412,8 @@ impl Wast {
                 let extern_ref = self
                     .extern_refs
                     .entry(*number)
-                    .or_insert_with(|| VMExternRef::new(*number));
-                Val::ExternRef(extern_ref.ref_clone())
+                    .or_insert_with(|| ExternRef::new(*number));
+                Val::ExternRef(extern_ref.clone())
             }
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
