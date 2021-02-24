@@ -75,19 +75,15 @@ impl Global {
                 Type::F64 => Value::F64(definition.to_f64()),
                 Type::V128 => Value::V128(definition.to_u128()),
                 Type::ExternRef => Value::ExternRef(definition.to_externref().into()),
-                // reading funcref from globals requires a Store
                 Type::FuncRef => {
                     let p = definition.to_u128() as i128;
                     if p as usize == 0 {
                         Value::FuncRef(None)
                     } else {
-                        // TODO:
-                        //let store = todo!("Need a store here, there's no store to get here");
                         let v = T::read_value_from(store, &p);
                         Value::FuncRef(Some(v))
                     }
                 }
-                _ => unimplemented!("Global::get for {:?}", self.ty),
             }
         }
     }
@@ -130,7 +126,6 @@ impl Global {
             Value::FuncRef(Some(r)) => {
                 r.write_value_to(definition.as_u128_mut() as *mut u128 as *mut i128)
             }
-            _ => unimplemented!("Global::set for {:?}", val.ty()),
         }
         Ok(())
     }

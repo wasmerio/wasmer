@@ -209,6 +209,8 @@ impl Instance {
             .cast()
     }
 
+    // TODO: remove this after review if changes don't re-require it
+    #[allow(dead_code)]
     /// Return the indexed `VMSharedSignatureIndex`.
     fn signature_id(&self, index: SignatureIndex) -> VMSharedSignatureIndex {
         let index = usize::try_from(index.as_u32()).unwrap();
