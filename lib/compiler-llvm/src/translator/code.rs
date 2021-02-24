@@ -2187,6 +2187,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 let func_index = self.state.pop1()?.into_int_value();
 
+                let truncated_table_bounds = self.builder.build_int_truncate(
+                    table_bound,
+                    self.intrinsics.i32_ty,
+                    "truncated_table_bounds",
+                );
+
+                // First, check if the index is outside of the table bounds.
+                let index_in_bounds = self.builder.build_int_compare(
+                    IntPredicate::ULT,
+                    func_index,
+                    truncated_table_bounds,
+                    "index_in_bounds",
+                );
+
+                let index_in_bounds = self
+                    .builder
+                    .build_call(
+                        self.intrinsics.expect_i1,
+                        &[
+                            index_in_bounds.as_basic_value_enum(),
+                            self.intrinsics
+                                .i1_ty
+                                .const_int(1, false)
+                                .as_basic_value_enum(),
+                        ],
+                        "index_in_bounds_expect",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap()
+                    .into_int_value();
+
+                let in_bounds_continue_block = self
+                    .context
+                    .append_basic_block(self.function, "in_bounds_continue_block");
+                let not_in_bounds_block = self
+                    .context
+                    .append_basic_block(self.function, "not_in_bounds_block");
+                self.builder.build_conditional_branch(
+                    index_in_bounds,
+                    in_bounds_continue_block,
+                    not_in_bounds_block,
+                );
+                self.builder.position_at_end(not_in_bounds_block);
+                self.builder.build_call(
+                    self.intrinsics.throw_trap,
+                    &[self.intrinsics.trap_table_access_oob],
+                    "throw",
+                );
+                self.builder.build_unreachable();
+                self.builder.position_at_end(in_bounds_continue_block);
+
                 // We assume the table has the `funcref` (pointer to `anyfunc`)
                 // element type.
                 let casted_table_base = self.builder.build_pointer_cast(
@@ -2262,58 +2314,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                         "ctx_ptr",
                     ),
                 );
-
-                let truncated_table_bounds = self.builder.build_int_truncate(
-                    table_bound,
-                    self.intrinsics.i32_ty,
-                    "truncated_table_bounds",
-                );
-
-                // First, check if the index is outside of the table bounds.
-                let index_in_bounds = self.builder.build_int_compare(
-                    IntPredicate::ULT,
-                    func_index,
-                    truncated_table_bounds,
-                    "index_in_bounds",
-                );
-
-                let index_in_bounds = self
-                    .builder
-                    .build_call(
-                        self.intrinsics.expect_i1,
-                        &[
-                            index_in_bounds.as_basic_value_enum(),
-                            self.intrinsics
-                                .i1_ty
-                                .const_int(1, false)
-                                .as_basic_value_enum(),
-                        ],
-                        "index_in_bounds_expect",
-                    )
-                    .try_as_basic_value()
-                    .left()
-                    .unwrap()
-                    .into_int_value();
-
-                let in_bounds_continue_block = self
-                    .context
-                    .append_basic_block(self.function, "in_bounds_continue_block");
-                let not_in_bounds_block = self
-                    .context
-                    .append_basic_block(self.function, "not_in_bounds_block");
-                self.builder.build_conditional_branch(
-                    index_in_bounds,
-                    in_bounds_continue_block,
-                    not_in_bounds_block,
-                );
-                self.builder.position_at_end(not_in_bounds_block);
-                self.builder.build_call(
-                    self.intrinsics.throw_trap,
-                    &[self.intrinsics.trap_table_access_oob],
-                    "throw",
-                );
-                self.builder.build_unreachable();
-                self.builder.position_at_end(in_bounds_continue_block);
 
                 // Next, check if the table element is initialized.
 
