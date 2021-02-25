@@ -10,9 +10,9 @@
 * If you split the package into several subpackages, beware that the create-exe command of wasmer requires `libwasmer.a` to be installed at `$WASMER_INSTALL_PREFIX/lib/libwasmer.a`.
   Suggestion for splitting:
   * `wasmer` and `wasmer-headless`, containing the respective executables
-    * `wasmer-headless` contains a subset of `wasmer`'s functionality and should only be packaged when splitting - it must be built explicitly with `make build-wasmer-headless-minimal insteall-wasmer-headless-minimal`
+    * `wasmer-headless` contains a subset of `wasmer`'s functionality and should only be packaged when splitting - it must be built explicitly with `make build-wasmer-headless-minimal install-wasmer-headless-minimal`
   * `libwasmer`, containing `libwasmer.so*`
-  * `libwasmer-dev`, containging the header files and a `.pc` file
+  * `libwasmer-dev`, containing the header files and a `.pc` file
   * `libwasmer-static`, containing `libwasmer.a`
 
 The wasmer distro packaging story is still in its infancy, so feedback is very welcome.
