@@ -36,18 +36,6 @@ cranelift::spec::skip_stack_guard_page on aarch64
 
 ## Reference types spectests
 # Used to disable tests during development; these ignores should not ship
-singlepass::spec::ref_func
-singlepass::spec::ref_is_null
-singlepass::spec::ref_null
-singlepass::spec::table_copy
-singlepass::spec::table_fill
-singlepass::spec::table_get
-singlepass::spec::table_grow
-singlepass::spec::table_init
-singlepass::spec::table_set
-singlepass::spec::table_size
-singlepass::spec::table_sub
-
 llvm::spec::ref_func
 llvm::spec::ref_is_null
 llvm::spec::ref_null

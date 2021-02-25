@@ -838,9 +838,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         val: ir::Value,
         len: ir::Value,
     ) -> WasmResult<()> {
-        //Err(WasmError::Unsupported(
-        //    "the `table.fill` instruction is not supported yet".into(),
-        //))
         let (func_sig, table_index_arg, func_idx) =
             self.get_table_fill_func(&mut pos.func, table_index);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
