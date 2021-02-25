@@ -148,7 +148,7 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
         .open(&header_file_path)?;
 
     use std::io::Write;
-    header.write(header_file_src)?;
+    header.write_all(header_file_src)?;
 
     Ok(())
 }

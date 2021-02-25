@@ -495,7 +495,7 @@ test-packages:
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-engine-jit --release --no-default-features
 	cargo test -p wasmer-compiler --release
-	cargo test -p wasmer-cli --release
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
 	cargo test -p wasmer-derive --release
@@ -717,7 +717,7 @@ lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-cranelift
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-singlepass
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cli
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
 
