@@ -323,6 +323,7 @@ $(info --------------)
 $(info )
 $(info )
 
+
 ############
 # Building #
 ############
@@ -672,8 +673,9 @@ install-wasmer:
 
 install-capi-headers:
 	for header in lib/c-api/*.{h,hh}; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
-	install -Dm644 lib/c-api/doc/deprecated/index.md $(DESTDIR)/include/wasmer-README.md
+	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
 
+# Currently implemented for linux only. TODO
 install-capi-lib:
 	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
 	shortver="$${pkgver%.*}" && \
@@ -694,7 +696,7 @@ install-pkgconfig:
 	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
 
 install-wasmer-headless-minimal:
-	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer-headless
+	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless
 
 #################
 # Miscellaneous #
