@@ -131,15 +131,6 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
-<span id="131">131</span>
-<span id="132">132</span>
-<span id="133">133</span>
-<span id="134">134</span>
-<span id="135">135</span>
-<span id="136">136</span>
-<span id="137">137</span>
-<span id="138">138</span>
-<span id="139">139</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
@@ -163,15 +154,6 @@
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">binemit</span>::<span class="ident">RelocSink</span> <span class="kw">for</span> <span class="ident">RelocSink</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
-    <span class="kw">fn</span> <span class="ident">reloc_block</span>(
-        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
-        <span class="ident">_offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
-        <span class="ident">_reloc</span>: <span class="ident">binemit</span>::<span class="ident">Reloc</span>,
-        <span class="ident">_block_offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
-    ) {
-        <span class="comment">// This should use the `offsets` field of `ir::Function`.</span>
-        <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;block headers not yet implemented&quot;</span>);
-    }
     <span class="kw">fn</span> <span class="ident">reloc_external</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">offset</span>: <span class="ident">binemit</span>::<span class="ident">CodeOffset</span>,
