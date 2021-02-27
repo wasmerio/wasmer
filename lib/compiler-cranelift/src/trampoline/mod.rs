@@ -21,14 +21,6 @@ pub mod binemit {
     pub struct TrampolineRelocSink {}
 
     impl binemit::RelocSink for TrampolineRelocSink {
-        fn reloc_block(
-            &mut self,
-            _offset: binemit::CodeOffset,
-            _reloc: binemit::Reloc,
-            _block_offset: binemit::CodeOffset,
-        ) {
-            panic!("trampoline compilation should not produce block relocs");
-        }
         fn reloc_external(
             &mut self,
             _offset: binemit::CodeOffset,
