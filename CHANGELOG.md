@@ -14,6 +14,7 @@
 
 ### Changed
 - [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
+- [#2144](https://github.com/wasmerio/wasmer/pull/2144) Bump cranelift version to 0.70
 
 ### Fixed
 - [#2117](https://github.com/wasmerio/wasmer/pull/2117) Formalize API prefixes in the C API. Only unstable functions have been renamed.
