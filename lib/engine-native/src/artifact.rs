@@ -293,7 +293,7 @@ impl NativeArtifact {
             Triple::host().to_string(),
         );
 
-        let linker: &'static str = engine_inner.linker().into();
+        let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
             .arg("-o")
