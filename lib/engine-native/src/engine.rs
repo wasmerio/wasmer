@@ -177,8 +177,8 @@ impl Engine for NativeEngine {
 #[derive(Clone, Copy)]
 pub(crate) enum Linker {
     None,
-    // this should be kept in sync with the llvm version required for wasmer-compiler-llvm
     Clang11,
+    Clang10,
     Clang,
     Gcc,
 }
@@ -186,10 +186,10 @@ pub(crate) enum Linker {
 impl Linker {
     #[cfg(feature = "compiler")]
     fn find_linker(is_cross_compiling: bool) -> Self {
-        let (possibilities, requirements) = if is_cross_compiling {
+        let (possibilities, requirements): (&[_], _) = if is_cross_compiling {
             (
-                &[Linker::Clang11, Linker::Clang],
-                "at least one of `clang-11` or `clang`",
+                &[Linker::Clang11, Linker::Clang10, Linker::Clang],
+                "at least one of `clang-11`, `clang-10`, or `clang`",
             )
         } else {
             (&[Linker::Gcc], "`gcc`")
@@ -211,6 +211,7 @@ impl Linker {
         match self {
             Self::None => "",
             Self::Clang11 => "clang-11",
+            Self::Clang10 => "clang-10",
             Self::Clang => "clang",
             Self::Gcc => "gcc",
         }
