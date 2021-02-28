@@ -293,6 +293,15 @@
 <span id="290">290</span>
 <span id="291">291</span>
 <span id="292">292</span>
+<span id="293">293</span>
+<span id="294">294</span>
+<span id="295">295</span>
+<span id="296">296</span>
+<span id="297">297</span>
+<span id="298">298</span>
+<span id="299">299</span>
+<span id="300">300</span>
+<span id="301">301</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Native Engine.</span>
 
@@ -309,8 +318,6 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">Features</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">FunctionType</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">SignatureRegistry</span>, <span class="ident">VMSharedSignatureIndex</span>};
-<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">which</span>::<span class="ident">which</span>;
 
 <span class="doccomment">/// A WebAssembly `Native` Engine.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
@@ -325,22 +332,8 @@
     <span class="doccomment">/// Create a new `NativeEngine` with the given config</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>(<span class="ident">compiler</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">Compiler</span><span class="op">&gt;</span>, <span class="ident">target</span>: <span class="ident">Target</span>, <span class="ident">features</span>: <span class="ident">Features</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
-        <span class="kw">let</span> <span class="ident">host_target</span> <span class="op">=</span> <span class="ident">Triple</span>::<span class="ident">host</span>();
-        <span class="kw">let</span> <span class="ident">is_cross_compiling</span> <span class="op">=</span> <span class="ident">target</span>.<span class="ident">triple</span>() <span class="op">!</span><span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">host_target</span>;
-
-        <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
-            <span class="ident">which</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span>::<span class="ident">into</span>(<span class="ident">Linker</span>::<span class="ident">Clang10</span>))
-                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Linker</span>::<span class="ident">Clang10</span>)
-                .<span class="ident">or_else</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> {
-                    <span class="ident">which</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span>::<span class="ident">into</span>(<span class="ident">Linker</span>::<span class="ident">Clang</span>))
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Linker</span>::<span class="ident">Clang</span>)
-                })
-                .<span class="ident">expect</span>(<span class="string">&quot;Nor `clang-10` or `clang` has been found, at least one of them is required for the `NativeEngine`&quot;</span>)
-        } <span class="kw">else</span> {
-            <span class="ident">which</span>(<span class="ident">Into</span>::<span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span>::<span class="ident">into</span>(<span class="ident">Linker</span>::<span class="ident">Gcc</span>))
-                .<span class="ident">map</span>(<span class="op">|</span><span class="kw">_</span><span class="op">|</span> <span class="ident">Linker</span>::<span class="ident">Gcc</span>)
-                .<span class="ident">expect</span>(<span class="string">&quot;`gcc` has not been found, it is required for the `NativeEngine`&quot;</span>)
-        };
+        <span class="kw">let</span> <span class="ident">is_cross_compiling</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">target</span>.<span class="ident">triple</span>() <span class="op">!</span><span class="op">=</span> <span class="ident">Triple</span>::<span class="ident">host</span>();
+        <span class="kw">let</span> <span class="ident">linker</span> <span class="op">=</span> <span class="ident">Linker</span>::<span class="ident">find_linker</span>(<span class="ident">is_cross_compiling</span>);
 
         <span class="self">Self</span> {
             <span class="ident">inner</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="ident">NativeEngineInner</span> {
@@ -489,15 +482,40 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">enum</span> <span class="ident">Linker</span> {
     <span class="prelude-val">None</span>,
+    <span class="ident">Clang11</span>,
     <span class="ident">Clang10</span>,
     <span class="ident">Clang</span>,
     <span class="ident">Gcc</span>,
 }
 
-<span class="kw">impl</span> <span class="ident">Into</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Linker</span> {
-    <span class="kw">fn</span> <span class="ident">into</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
+<span class="kw">impl</span> <span class="ident">Linker</span> {
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
+    <span class="kw">fn</span> <span class="ident">find_linker</span>(<span class="ident">is_cross_compiling</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> (<span class="ident">possibilities</span>, <span class="ident">requirements</span>): (<span class="kw-2">&amp;</span>[<span class="kw">_</span>], <span class="kw">_</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">is_cross_compiling</span> {
+            (
+                <span class="kw-2">&amp;</span>[<span class="ident">Linker</span>::<span class="ident">Clang11</span>, <span class="ident">Linker</span>::<span class="ident">Clang10</span>, <span class="ident">Linker</span>::<span class="ident">Clang</span>],
+                <span class="string">&quot;at least one of `clang-11`, `clang-10`, or `clang`&quot;</span>,
+            )
+        } <span class="kw">else</span> {
+            (<span class="kw-2">&amp;</span>[<span class="ident">Linker</span>::<span class="ident">Gcc</span>], <span class="string">&quot;`gcc`&quot;</span>)
+        };
+        <span class="kw-2">*</span><span class="ident">possibilities</span>
+            .<span class="ident">iter</span>()
+            .<span class="ident">filter</span>(<span class="op">|</span><span class="ident">linker</span><span class="op">|</span> <span class="ident">which</span>::<span class="ident">which</span>(<span class="ident">linker</span>.<span class="ident">executable</span>()).<span class="ident">is_ok</span>())
+            .<span class="ident">next</span>()
+            .<span class="ident">unwrap_or_else</span>(<span class="op">|</span><span class="op">|</span> {
+                <span class="macro">panic</span><span class="macro">!</span>(
+                    <span class="string">&quot;Need {} installed in order to use `NativeEngine` when {}cross-compiling&quot;</span>,
+                    <span class="ident">requirements</span>,
+                    <span class="kw">if</span> <span class="ident">is_cross_compiling</span> { <span class="string">&quot;&quot;</span> } <span class="kw">else</span> { <span class="string">&quot;not &quot;</span> }
+                )
+            })
+    }
+
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">executable</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> <span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="prelude-val">None</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;&quot;</span>,
+            <span class="self">Self</span>::<span class="ident">Clang11</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-11&quot;</span>,
             <span class="self">Self</span>::<span class="ident">Clang10</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang-10&quot;</span>,
             <span class="self">Self</span>::<span class="ident">Clang</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;clang&quot;</span>,
             <span class="self">Self</span>::<span class="ident">Gcc</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;gcc&quot;</span>,
