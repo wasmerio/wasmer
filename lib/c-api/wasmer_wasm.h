@@ -71,6 +71,9 @@
 // The `wasi` feature has been enabled for this build.
 #define WASMER_WASI_ENABLED
 
+// The `middlewares` feature has been enabled for this build.
+#define WASMER_MIDDLEWARES_ENABLED
+
 // This file corresponds to the following Wasmer version.
 #define WASMER_VERSION "1.0.2"
 #define WASMER_VERSION_MAJOR 1
@@ -136,6 +139,12 @@ typedef struct wasi_env_t wasi_env_t;
 
 typedef struct wasmer_cpu_features_t wasmer_cpu_features_t;
 
+typedef struct wasmer_metering_points_t wasmer_metering_points_t;
+
+typedef struct wasmer_metering_t wasmer_metering_t;
+
+typedef struct wasmer_module_middleware_t wasmer_module_middleware_t;
+
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasmer_named_extern_t wasmer_named_extern_t;
 #endif
@@ -143,12 +152,6 @@ typedef struct wasmer_named_extern_t wasmer_named_extern_t;
 typedef struct wasmer_target_t wasmer_target_t;
 
 typedef struct wasmer_triple_t wasmer_triple_t;
-
-typedef struct wasmer_metering_points_t wasmer_metering_points_t;
-
-typedef struct wasmer_metering_t wasmer_metering_t;
-
-typedef struct wasmer_module_middleware_t wasmer_module_middleware_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct {
@@ -277,6 +280,23 @@ int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
 
+wasmer_module_middleware_t *wasmer_metering_as_middleware(wasmer_metering_t *metering);
+
+void wasmer_metering_delete(wasmer_metering_t *_metering);
+
+wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
+
+wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
+
+void wasmer_metering_points_delete(wasmer_metering_points_t *_metering_points);
+
+bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
+
+uint64_t wasmer_metering_points_unwrap_or(const wasmer_metering_points_t *metering_points,
+                                          uint64_t exhausted);
+
+void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
+
 void wasmer_module_name(const wasm_module_t *module, wasm_name_t *out);
 
 bool wasmer_module_set_name(wasm_module_t *module, const wasm_name_t *name);
@@ -325,17 +345,6 @@ void wasmer_triple_delete(wasmer_triple_t *_triple);
 wasmer_triple_t *wasmer_triple_new(const wasm_name_t *triple);
 
 wasmer_triple_t *wasmer_triple_new_from_host(void);
-
-wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
-
-wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
-
-bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
-
-uint64_t wasmer_metering_points_value(const wasmer_metering_points_t *metering_points,
-                                      uint64_t exhausted);
-
-void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
 
 const char *wasmer_version(void);
 

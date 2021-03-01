@@ -166,16 +166,6 @@ enum wasmer_value_tag
 typedef uint32_t wasmer_value_tag;
 #endif // __cplusplus
 
-/**
- * Opaque type representing a MeteringPoints.
- */
-typedef struct wasmer_metering_points_t wasmer_metering_points_t;
-
-/**
- * Opaque type representing a MeteringPoints.
- */
-typedef struct wasmer_metering_t wasmer_metering_t;
-
 typedef struct {
 
 } wasmer_module_t;
@@ -1305,13 +1295,6 @@ uint32_t wasmer_memory_length(const wasmer_memory_t *memory);
  * ```
  */
 wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limits);
-
-wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
-
-bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
-
-uint64_t wasmer_metering_points_value(const wasmer_metering_points_t *metering_points,
-                                      uint64_t exhausted);
 
 /**
  * Deserialize the given serialized module.
