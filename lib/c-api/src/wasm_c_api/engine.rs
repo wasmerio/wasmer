@@ -113,7 +113,6 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
-    pub(super) target: Option<Box<wasm_target_t>>,
     #[cfg(feature = "middlewares")]
     pub(super) middlewares: Vec<wasmer_module_middleware_t>,
     pub(super) target: Option<Box<wasmer_target_t>>,
