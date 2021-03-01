@@ -62,6 +62,9 @@
 #  define DEPRECATED(message) __declspec(deprecated(message))
 #endif
 
+// The `jit` feature has been enabled for this build.
+#define WASMER_JIT_ENABLED
+
 // The `compiler` feature has been enabled for this build.
 #define WASMER_COMPILER_ENABLED
 
@@ -122,8 +125,6 @@ typedef enum {
   NATIVE = 1,
   OBJECT_FILE = 2,
 } wasmer_engine_t;
-
-typedef struct Box_wasmer_metering_points_t Box_wasmer_metering_points_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasi_config_t wasi_config_t;
@@ -323,9 +324,9 @@ wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instan
 
 wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
 
-bool wasmer_metering_points_is_exhausted(const Box_wasmer_metering_points_t *metering_points);
+bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
 
-uint64_t wasmer_metering_points_value(const Box_wasmer_metering_points_t *metering_points,
+uint64_t wasmer_metering_points_value(const wasmer_metering_points_t *metering_points,
                                       uint64_t exhausted);
 
 void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);

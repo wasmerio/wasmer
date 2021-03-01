@@ -1071,9 +1071,9 @@ wasmer_result_t wasmer_memory_new(wasmer_memory_t **memory, wasmer_limits_t limi
 
 Box<wasmer_metering_t> wasmer_metering_new(uint64_t initial_limit);
 
-bool wasmer_metering_points_is_exhausted(const Box<wasmer_metering_points_t> *metering_points);
+bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
 
-uint64_t wasmer_metering_points_value(const Box<wasmer_metering_points_t> *metering_points,
+uint64_t wasmer_metering_points_value(const wasmer_metering_points_t *metering_points,
                                       uint64_t exhausted);
 
 /// Deserialize the given serialized module.
