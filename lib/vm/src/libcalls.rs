@@ -142,6 +142,7 @@ pub extern "C" fn wasmer_f64_nearest(x: f64) -> f64 {
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -161,6 +162,7 @@ pub unsafe extern "C" fn wasmer_memory32_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_memory32_grow(
     vmctx: *mut VMContext,
     delta: u32,
@@ -180,6 +182,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_index: u32) -> u32 {
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
@@ -192,6 +195,7 @@ pub unsafe extern "C" fn wasmer_memory32_size(vmctx: *mut VMContext, memory_inde
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_memory32_size(
     vmctx: *mut VMContext,
     memory_index: u32,
@@ -207,6 +211,7 @@ pub unsafe extern "C" fn wasmer_imported_memory32_size(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_copy(
     vmctx: *mut VMContext,
     dst_table_index: u32,
@@ -233,6 +238,7 @@ pub unsafe extern "C" fn wasmer_table_copy(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_init(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -257,6 +263,7 @@ pub unsafe extern "C" fn wasmer_table_init(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_fill(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -285,6 +292,7 @@ pub unsafe extern "C" fn wasmer_table_fill(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_size(vmctx: *mut VMContext, table_index: u32) -> u32 {
     let instance = (&*vmctx).instance();
     let table_index = LocalTableIndex::from_u32(table_index);
@@ -297,6 +305,7 @@ pub unsafe extern "C" fn wasmer_table_size(vmctx: *mut VMContext, table_index: u
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_table_size(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -312,6 +321,7 @@ pub unsafe extern "C" fn wasmer_imported_table_size(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_get(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -332,6 +342,7 @@ pub unsafe extern "C" fn wasmer_table_get(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_table_get(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -352,6 +363,7 @@ pub unsafe extern "C" fn wasmer_imported_table_get(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_set(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -385,6 +397,7 @@ pub unsafe extern "C" fn wasmer_table_set(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_table_set(
     vmctx: *mut VMContext,
     table_index: u32,
@@ -412,6 +425,7 @@ pub unsafe extern "C" fn wasmer_imported_table_set(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_table_grow(
     vmctx: *mut VMContext,
     init_value: TableElement,
@@ -437,6 +451,7 @@ pub unsafe extern "C" fn wasmer_table_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_imported_table_grow(
     vmctx: *mut VMContext,
     init_value: TableElement,
@@ -461,6 +476,7 @@ pub unsafe extern "C" fn wasmer_imported_table_grow(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_func_ref(vmctx: *mut VMContext, function_index: u32) -> VMFuncRef {
     let instance = (&*vmctx).instance();
     let function_index = FunctionIndex::from_u32(function_index);
@@ -473,6 +489,7 @@ pub unsafe extern "C" fn wasmer_func_ref(vmctx: *mut VMContext, function_index: 
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32) {
     let elem_index = ElemIndex::from_u32(elem_index);
     let instance = (&*vmctx).instance();
@@ -484,7 +501,8 @@ pub unsafe extern "C" fn wasmer_elem_drop(vmctx: *mut VMContext, elem_index: u32
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
-pub unsafe extern "C" fn wasmer_local_memory_copy(
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_memory32_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
@@ -506,7 +524,8 @@ pub unsafe extern "C" fn wasmer_local_memory_copy(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
-pub unsafe extern "C" fn wasmer_imported_memory_copy(
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_imported_memory32_copy(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
@@ -528,7 +547,8 @@ pub unsafe extern "C" fn wasmer_imported_memory_copy(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
-pub unsafe extern "C" fn wasmer_memory_fill(
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_memory32_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
@@ -550,7 +570,8 @@ pub unsafe extern "C" fn wasmer_memory_fill(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
-pub unsafe extern "C" fn wasmer_imported_memory_fill(
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_imported_memory32_fill(
     vmctx: *mut VMContext,
     memory_index: u32,
     dst: u32,
@@ -572,7 +593,8 @@ pub unsafe extern "C" fn wasmer_imported_memory_fill(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
-pub unsafe extern "C" fn wasmer_memory_init(
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_memory32_init(
     vmctx: *mut VMContext,
     memory_index: u32,
     data_index: u32,
@@ -596,6 +618,7 @@ pub unsafe extern "C" fn wasmer_memory_init(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32) {
     let data_index = DataIndex::from_u32(data_index);
     let instance = (&*vmctx).instance();
@@ -646,18 +669,81 @@ pub enum LibCall {
     /// nearest.f64
     NearestF64,
 
-    /// probe for stack overflow. These are emitted for functions which need
-    /// when the `enable_probestack` setting is true.
-    Probestack,
+    /// trunc.f32
+    TruncF32,
+
+    /// trunc.f64
+    TruncF64,
+
+    /// memory.size for local functions
+    Memory32Size,
+
+    /// memory.size for imported functions
+    ImportedMemory32Size,
+
+    /// table.copy
+    TableCopy,
+
+    /// table.init
+    TableInit,
+
+    /// table.fill
+    TableFill,
+
+    /// table.size for local tables
+    TableSize,
+
+    /// table.size for imported tables
+    ImportedTableSize,
+
+    /// table.get for local tables
+    TableGet,
+
+    /// table.get for imported tables
+    ImportedTableGet,
+
+    /// table.set for local tables
+    TableSet,
+
+    /// table.set for imported tables
+    ImportedTableSet,
+
+    /// table.grow for local tables
+    TableGrow,
+
+    /// table.grow for imported tables
+    ImportedTableGrow,
+
+    /// ref.func
+    FuncRef,
+
+    /// elem.drop
+    ElemDrop,
+
+    /// memory.copy for local memories
+    Memory32Copy,
+
+    /// memory.copy for imported memories
+    ImportedMemory32Copy,
+
+    /// memory.fill for local memories
+    Memory32Fill,
+
+    /// memory.fill for imported memories
+    ImportedMemory32Fill,
+
+    /// memory.init
+    Memory32Init,
+
+    /// data.drop
+    DataDrop,
 
     /// A custom trap
     RaiseTrap,
 
-    /// trunc.f32
-    TruncF32,
-
-    /// frunc.f64
-    TruncF64,
+    /// probe for stack overflow. These are emitted for functions which need
+    /// when the `enable_probestack` setting is true.
+    Probestack,
 }
 
 impl LibCall {
@@ -670,10 +756,31 @@ impl LibCall {
             Self::FloorF64 => wasmer_f64_floor as usize,
             Self::NearestF32 => wasmer_f32_nearest as usize,
             Self::NearestF64 => wasmer_f64_nearest as usize,
-            Self::Probestack => wasmer_probestack as usize,
-            Self::RaiseTrap => wasmer_raise_trap as usize,
             Self::TruncF32 => wasmer_f32_trunc as usize,
             Self::TruncF64 => wasmer_f64_trunc as usize,
+            Self::Memory32Size => wasmer_memory32_size as usize,
+            Self::ImportedMemory32Size => wasmer_imported_memory32_size as usize,
+            Self::TableCopy => wasmer_table_copy as usize,
+            Self::TableInit => wasmer_table_init as usize,
+            Self::TableFill => wasmer_table_fill as usize,
+            Self::TableSize => wasmer_table_size as usize,
+            Self::ImportedTableSize => wasmer_imported_table_size as usize,
+            Self::TableGet => wasmer_table_get as usize,
+            Self::ImportedTableGet => wasmer_imported_table_get as usize,
+            Self::TableSet => wasmer_table_set as usize,
+            Self::ImportedTableSet => wasmer_imported_table_set as usize,
+            Self::TableGrow => wasmer_table_grow as usize,
+            Self::ImportedTableGrow => wasmer_imported_table_grow as usize,
+            Self::FuncRef => wasmer_func_ref as usize,
+            Self::ElemDrop => wasmer_elem_drop as usize,
+            Self::Memory32Copy => wasmer_memory32_copy as usize,
+            Self::ImportedMemory32Copy => wasmer_imported_memory32_copy as usize,
+            Self::Memory32Fill => wasmer_memory32_fill as usize,
+            Self::ImportedMemory32Fill => wasmer_memory32_fill as usize,
+            Self::Memory32Init => wasmer_memory32_init as usize,
+            Self::DataDrop => wasmer_data_drop as usize,
+            Self::Probestack => wasmer_probestack as usize,
+            Self::RaiseTrap => wasmer_raise_trap as usize,
         }
     }
 
@@ -686,15 +793,36 @@ impl LibCall {
             Self::FloorF64 => "wasmer_f64_floor",
             Self::NearestF32 => "wasmer_f32_nearest",
             Self::NearestF64 => "wasmer_f64_nearest",
+            Self::TruncF32 => "wasmer_f32_trunc",
+            Self::TruncF64 => "wasmer_f64_trunc",
+            Self::Memory32Size => "wasmer_memory32_size",
+            Self::ImportedMemory32Size => "wasmer_imported_memory32_size",
+            Self::TableCopy => "wasmer_table_copy",
+            Self::TableInit => "wasmer_table_init",
+            Self::TableFill => "wasmer_table_fill",
+            Self::TableSize => "wasmer_table_size",
+            Self::ImportedTableSize => "wasmer_imported_table_size",
+            Self::TableGet => "wasmer_table_get",
+            Self::ImportedTableGet => "wasmer_imported_table_get",
+            Self::TableSet => "wasmer_table_set",
+            Self::ImportedTableSet => "wasmer_imported_table_set",
+            Self::TableGrow => "wasmer_table_grow",
+            Self::ImportedTableGrow => "wasmer_imported_table_grow",
+            Self::FuncRef => "wasmer_func_ref",
+            Self::ElemDrop => "wasmer_elem_drop",
+            Self::Memory32Copy => "wasmer_memory32_copy",
+            Self::ImportedMemory32Copy => "wasmer_imported_memory32_copy",
+            Self::Memory32Fill => "wasmer_memory32_fill",
+            Self::ImportedMemory32Fill => "wasmer_imported_memory32_fill",
+            Self::Memory32Init => "wasmer_memory32_init",
+            Self::DataDrop => "wasmer_data_drop",
+            Self::RaiseTrap => "wasmer_raise_trap",
             // We have to do this because macOS requires a leading `_` and it's not
             // a normal function, it's a static variable, so we have to do it manually.
             #[cfg(target_os = "macos")]
             Self::Probestack => "_wasmer_probestack",
             #[cfg(not(target_os = "macos"))]
             Self::Probestack => "wasmer_probestack",
-            Self::RaiseTrap => "wasmer_raise_trap",
-            Self::TruncF32 => "wasmer_f32_trunc",
-            Self::TruncF64 => "wasmer_f64_trunc",
         }
     }
 }

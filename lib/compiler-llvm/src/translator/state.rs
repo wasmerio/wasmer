@@ -315,6 +315,22 @@ impl<'ctx> State<'ctx> {
         Ok((v1, v2))
     }
 
+    pub fn pop3(
+        &mut self,
+    ) -> Result<
+        (
+            BasicValueEnum<'ctx>,
+            BasicValueEnum<'ctx>,
+            BasicValueEnum<'ctx>,
+        ),
+        CompileError,
+    > {
+        let v3 = self.pop1()?;
+        let v2 = self.pop1()?;
+        let v1 = self.pop1()?;
+        Ok((v1, v2, v3))
+    }
+
     pub fn pop3_extra(
         &mut self,
     ) -> Result<
