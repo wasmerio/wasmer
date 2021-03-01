@@ -9348,8 +9348,10 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
              * Reference types.
              * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
              ***************************/
-            Operator::RefNull { .. } => {
-                self.state.push1(self.intrinsics.funcref_ty.const_null());
+            Operator::RefNull { ty } => {
+                let ty = wptype_to_type(ty).map_err(to_compile_error)?;
+                let ty = type_to_llvm(self.intrinsics, ty)?;
+                self.state.push1(ty.const_zero());
             }
             Operator::RefIsNull => {
                 let value = self.state.pop1()?.into_pointer_value();
