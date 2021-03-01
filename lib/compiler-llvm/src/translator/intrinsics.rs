@@ -590,12 +590,12 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             func_ref: module.add_function(
                 "wasmer_func_ref",
-                funcref_ty.fn_type(&[i8_ptr_ty_basic, i32_ty_basic], false),
+                funcref_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
                 None,
             ),
             elem_drop: module.add_function(
                 "wasmer_elem_drop",
-                void_ty.fn_type(&[i8_ptr_ty_basic, i32_ty_basic], false),
+                void_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
                 None,
             ),
             throw_trap: module.add_function(
