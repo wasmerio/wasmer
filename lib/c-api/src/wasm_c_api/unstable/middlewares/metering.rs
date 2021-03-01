@@ -73,7 +73,13 @@ pub struct wasmer_metering_points_t {
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_points_value(
+pub unsafe extern "C" fn wasmer_metering_points_delete(
+    _metering_points: Option<Box<wasmer_metering_points_t>>,
+) {
+}
+
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_metering_points_unwrap_or(
     metering_points: &wasmer_metering_points_t,
     exhausted: u64,
 ) -> u64 {
