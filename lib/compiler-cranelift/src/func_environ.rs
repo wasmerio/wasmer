@@ -575,7 +575,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             (
                 sig,
                 local_memory_index.index(),
-                VMBuiltinFunctionIndex::get_local_memory_copy_index(),
+                VMBuiltinFunctionIndex::get_memory_copy_index(),
             )
         } else {
             (

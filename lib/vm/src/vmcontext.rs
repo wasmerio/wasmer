@@ -890,7 +890,7 @@ impl VMBuiltinFunctionIndex {
         Self(6)
     }
     /// Returns an index for wasm's `memory.copy` for locally defined memories.
-    pub const fn get_local_memory_copy_index() -> Self {
+    pub const fn get_memory_copy_index() -> Self {
         Self(7)
     }
     /// Returns an index for wasm's `memory.copy` for imported memories.
@@ -1003,16 +1003,16 @@ impl VMBuiltinFunctionsArray {
         ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
             wasmer_elem_drop as usize;
 
-        ptrs[VMBuiltinFunctionIndex::get_local_memory_copy_index().index() as usize] =
-            wasmer_local_memory_copy as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as usize] =
+            wasmer_memory32_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as usize] =
-            wasmer_imported_memory_copy as usize;
+            wasmer_imported_memory32_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =
-            wasmer_memory_fill as usize;
+            wasmer_memory32_fill as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as usize] =
-            wasmer_imported_memory_fill as usize;
+            wasmer_imported_memory32_fill as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as usize] =
-            wasmer_memory_init as usize;
+            wasmer_memory32_init as usize;
         ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
             wasmer_data_drop as usize;
         ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
