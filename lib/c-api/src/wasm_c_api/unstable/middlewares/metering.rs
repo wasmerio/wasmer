@@ -9,14 +9,14 @@
 //! #    (assert_c! {
 //! # #include "tests/wasmer_wasm.h"
 //! #
-//! int main() {//!//!     
+//! int main() {
 //!     wasmer_metering_t* metering = wasmer_metering_new(10);
 //!     wasmer_module_middleware_t* middleware = wasmer_metering_as_middleware(metering);
 //!     
 //!     wasm_config_t* config = wasm_config_new();
 //!     wasm_config_push_middleware(config, middleware);
 //!     
-//!     wasm_engine_t* engine = wasm_engin_new_with_config(config);
+//!     wasm_engine_t* engine = wasm_engine_new_with_config(config);
 //!
 //!     wasm_store_t* store = wasm_store_new(engine);
 //!     
@@ -25,11 +25,13 @@
 //!         &wat,
 //!         "(module\n"
 //!         "  (type $add_t (func (param i32) (result i32)))\n"
-//!         "  (func $add_one_f (type $add_t) (param $value i32) (result i32)\n"
+//!         "  (func $add_two_f (type $add_t) (param $value i32) (result i32)\n"
 //!         "    local.get $value\n"
 //!         "    i32.const 1\n"
+//!         "    i32.add\n"
+//!         "    i32.const 1\n"
 //!         "    i32.add)\n"
-//!         "  (export "add_one" (func $add_one_f)))"
+//!         "  (export \"add_two\" (func $add_two_f)))"
 //!     );
 //!     wasm_byte_vec_t wasm;
 //!     wat2wasm(&wat, &wasm);
@@ -42,8 +44,53 @@
 //!     wasm_instance_t* instance = wasm_instance_new(store, module, &imports, &traps);
 //!     assert(instance);
 //!     
-//!     
-//!     
+//!     wasm_extern_vec_t exports;
+//!     wasm_instance_exports(instance, &exports);
+//!     assert(exports.size >= 1);
+//!     assert(wasm_extern_kind(exports.data[0]) == WASM_EXTERN_FUNC);
+//!
+//!     const wasm_func_t* add_two = wasm_extern_as_func(exports.data[0]);
+//!     assert(add_two);
+//!
+//!     wasm_val_t arguments[1] = { WASM_I32_VAL(40) };
+//!     wasm_val_t results[1] = { WASM_INIT_VAL };
+//!
+//!     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
+//!     wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
+//!
+//!     uint64_t exhausted_value = -1;
+//!
+//!     {
+//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         assert(trap == NULL);
+//!         assert(results[0].of.i32 == 42);
+//!
+//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
+//!         assert(wasmer_metering_points_unwrap_or(metering_points, exhausted_value) == 6);
+//!         assert(wasmer_metering_points_is_exhausted(metering_points) == false);
+//!         wasmer_metering_points_delete(metering_points);
+//!     }
+//!
+//!     {
+//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         assert(trap == NULL);
+//!         assert(results[0].of.i32 == 42);
+//!
+//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
+//!         assert(wasmer_metering_points_unwrap_or(metering_points, exhausted_value) == 2);
+//!         assert(wasmer_metering_points_is_exhausted(metering_points) == false);
+//!         wasmer_metering_points_delete(metering_points);
+//!     }
+//!
+//!     {
+//!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
+//!         assert(trap != NULL);
+//!
+//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
+//!         assert(wasmer_metering_points_unwrap_or(metering_points, exhausted_value) == exhausted_value);
+//!         assert(wasmer_metering_points_is_exhausted(metering_points) == true);
+//!         wasmer_metering_points_delete(metering_points);
+//!     }
 //!     
 //!     wasm_instance_delete(instance);
 //!     wasm_module_delete(module);
