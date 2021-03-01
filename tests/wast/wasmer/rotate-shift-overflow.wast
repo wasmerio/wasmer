@@ -1,5 +1,6 @@
-;; Test that constant folding which overflows doesn't produce an undefined value.
-;; Changing these tests to move the constants to the caller hides the bug.
+;; Test that constant folding an operation that overflows doesn't produce an
+;; undefined value. Changing these tests to move the constants to the
+;; assert_return line hides the bug.
 
 (module
   ;; shl
