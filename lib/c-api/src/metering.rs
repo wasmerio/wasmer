@@ -16,7 +16,7 @@ pub struct wasmer_metering_points_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_metering_points_value(
-    metering_points: &Box<wasmer_metering_points_t>,
+    metering_points: &wasmer_metering_points_t,
     exhausted: u64,
 ) -> u64 {
     match metering_points.inner {
@@ -27,7 +27,7 @@ pub unsafe extern "C" fn wasmer_metering_points_value(
 
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_metering_points_is_exhausted(
-    metering_points: &Box<wasmer_metering_points_t>,
+    metering_points: &wasmer_metering_points_t,
 ) -> bool {
     matches!(metering_points.inner, MeteringPoints::Exhausted)
 }
