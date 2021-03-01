@@ -1,4 +1,5 @@
 fn main() {
+    #[cfg(windows)]
     configure_dylib_windows();
 }
 
