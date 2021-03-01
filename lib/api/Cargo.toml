@@ -11,6 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
+wasmer-tracing = { path = "../tracing", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.2", optional = true }
