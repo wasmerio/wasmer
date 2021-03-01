@@ -136,6 +136,8 @@ typedef struct wasi_env_t wasi_env_t;
 
 typedef struct wasmer_cpu_features_t wasmer_cpu_features_t;
 
+typedef struct wasmer_features_t wasmer_features_t;
+
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasmer_named_extern_t wasmer_named_extern_t;
 #endif
@@ -251,6 +253,8 @@ void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler)
 
 void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
 
+void wasm_config_set_features(wasm_config_t *config, wasmer_features_t *features);
+
 void wasm_config_set_target(wasm_config_t *config, wasmer_target_t *target);
 
 bool wasmer_cpu_features_add(wasmer_cpu_features_t *cpu_features, const wasm_name_t *feature);
@@ -258,6 +262,28 @@ bool wasmer_cpu_features_add(wasmer_cpu_features_t *cpu_features, const wasm_nam
 void wasmer_cpu_features_delete(wasmer_cpu_features_t *_cpu_features);
 
 wasmer_cpu_features_t *wasmer_cpu_features_new(void);
+
+bool wasmer_features_bulk_memory(wasmer_features_t *features, bool enable);
+
+void wasmer_features_delete(wasmer_features_t *_features);
+
+bool wasmer_features_memory64(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_module_linking(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_multi_memory(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_multi_value(wasmer_features_t *features, bool enable);
+
+wasmer_features_t *wasmer_features_new(void);
+
+bool wasmer_features_reference_types(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_simd(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_tail_call(wasmer_features_t *features, bool enable);
+
+bool wasmer_features_threads(wasmer_features_t *features, bool enable);
 
 bool wasmer_is_compiler_available(wasmer_compiler_t compiler);
 
