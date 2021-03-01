@@ -2833,7 +2833,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v1 = self.apply_pending_canonicalization(v1, i1);
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let mask = self.intrinsics.i32_ty.const_int(63u64, false);
+                let mask = self.intrinsics.i64_ty.const_int(63u64, false);
                 let v2 = self.builder.build_and(v2, mask, "");
                 let res = self.builder.build_left_shift(v1, v2, "");
                 self.state.push1(res);
@@ -2914,7 +2914,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v1 = self.apply_pending_canonicalization(v1, i1);
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let mask = self.intrinsics.i32_ty.const_int(63u64, false);
+                let mask = self.intrinsics.i64_ty.const_int(63u64, false);
                 let v2 = self.builder.build_and(v2, mask, "");
                 let res = self.builder.build_right_shift(v1, v2, true, "");
                 self.state.push1(res);
@@ -2995,7 +2995,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v1 = self.apply_pending_canonicalization(v1, i1);
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let mask = self.intrinsics.i32_ty.const_int(63u64, false);
+                let mask = self.intrinsics.i64_ty.const_int(63u64, false);
                 let v2 = self.builder.build_and(v2, mask, "");
                 let res = self.builder.build_right_shift(v1, v2, false, "");
                 self.state.push1(res);
@@ -3082,7 +3082,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v1 = self.apply_pending_canonicalization(v1, i1);
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let mask = self.intrinsics.i32_ty.const_int(63u64, false);
+                let mask = self.intrinsics.i64_ty.const_int(63u64, false);
                 let v2 = self.builder.build_and(v2, mask, "");
                 let lhs = self.builder.build_left_shift(v1, v2, "");
                 let rhs = {
@@ -3114,7 +3114,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v1 = self.apply_pending_canonicalization(v1, i1);
                 let v2 = self.apply_pending_canonicalization(v2, i2);
                 let (v1, v2) = (v1.into_int_value(), v2.into_int_value());
-                let mask = self.intrinsics.i32_ty.const_int(63u64, false);
+                let mask = self.intrinsics.i64_ty.const_int(63u64, false);
                 let v2 = self.builder.build_and(v2, mask, "");
                 let lhs = self.builder.build_right_shift(v1, v2, false, "");
                 let rhs = {
