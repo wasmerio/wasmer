@@ -167,6 +167,9 @@ pub unsafe extern "C" fn wasmer_metering_new(initial_limit: u64) -> Box<wasmer_m
 }
 
 #[no_mangle]
+pub unsafe extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
+
+#[no_mangle]
 pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
     instance: &wasm_instance_t,
 ) -> Box<wasmer_metering_points_t> {
