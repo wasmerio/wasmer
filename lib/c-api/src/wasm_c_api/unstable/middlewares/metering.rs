@@ -1,6 +1,6 @@
 // C API for metering.
 
-use super::wasm_c_api::instance::wasm_instance_t;
+use super::super::super::instance::wasm_instance_t;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer_middlewares::{
