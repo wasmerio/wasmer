@@ -42,14 +42,14 @@ jobs:
         include:
           - build: linux-x64
             os: ubuntu-18.04
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos-x64
             os: macos-latest
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
@@ -61,7 +61,7 @@ jobs:
             artifact_name: 'wasmer-darwin-arm64'
           - build: windows-x64
             os: windows-latest
-            rust: 1.48
+            rust: 1.49
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
@@ -69,7 +69,7 @@ jobs:
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             random_sccache_port: true
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
@@ -105,12 +105,13 @@ jobs:
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.gz
-          mkdir ${{ env.LLVM_DIR }}
-          tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
-          echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_110_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.gz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-11
+          LLVM_DIR: .llvm
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -131,8 +132,8 @@ jobs:
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
-          if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
-            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Setup Rust target
@@ -164,10 +165,11 @@ jobs:
         shell: bash
       - name: Start sccache
         run: |
-          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
-          echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test
@@ -346,6 +348,7 @@ jobs:
         uses: actions/download-artifact@v2
         with:
           path: artifacts
+
       - name: Create Release
         id: create_release
         uses: actions/create-release@v1
@@ -356,18 +359,28 @@ jobs:
           release_name: Release ${{ needs.setup.outputs.VERSION }}
           draft: true
           prerelease: false
-      - name: Upload Release Asset Windows
-        id: upload-release-asset-windows
+
+      - name: Upload Release Asset Windows Installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+
+      - name: Upload Release Asset Windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
+          asset_name: wasmer-windows-amd64.tar.gz
+          asset_content_type: application/gzip
+
       - name: Upload Release Asset Linux amd64
-        id: upload-release-asset-linux-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -376,8 +389,8 @@ jobs:
           asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
+
       - name: Upload Release Asset Mac amd64
-        id: upload-release-asset-mac-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -386,8 +399,8 @@ jobs:
           asset_path: artifacts/wasmer-darwin-amd64/wasmer.tar.gz
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
+
       - name: Upload Release Asset Mac arm64
-        id: upload-release-asset-mac-arm64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -396,8 +409,8 @@ jobs:
           asset_path: artifacts/wasmer-darwin-arm64/wasmer.tar.gz
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
+
       - name: Upload Release Asset Linux aarch64
-        id: upload-release-asset-linux-aarch64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -419,7 +432,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-audit
           key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
       - run: |
-          echo "${{ runner.tool_cache }}/cargo-audit/bin" >> $GITHUB_PATH
+          echo "'${{ runner.tool_cache }}/cargo-audit/bin'" >> $GITHUB_PATH
       - run: |
-          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
+          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root '${{ runner.tool_cache }}/cargo-audit'
           cargo audit

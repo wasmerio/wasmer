@@ -1,5 +1,7 @@
-pub use super::unstable::engine::wasm_config_set_target;
-use super::unstable::target_lexicon::wasm_target_t;
+pub use super::unstable::engine::{
+    wasm_config_set_target, wasmer_is_compiler_available, wasmer_is_engine_available,
+};
+use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
@@ -114,6 +116,7 @@ pub struct wasm_config_t {
     pub(super) target: Option<Box<wasm_target_t>>,
     #[cfg(feature = "middlewares")]
     pub(super) middlewares: Vec<wasmer_module_middleware_t>,
+    pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
 /// Create a new default Wasmer configuration.
@@ -188,7 +191,7 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
@@ -198,8 +201,19 @@ pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
 ///     // Create the configuration.
 ///     wasm_config_t* config = wasm_config_new();
 ///
-///     // Use the Cranelift compiler.
-///     wasm_config_set_compiler(config, CRANELIFT);
+///     // Use the Cranelift compiler, if available.
+///     if (wasmer_is_compiler_available(CRANELIFT)) {
+///         wasm_config_set_compiler(config, CRANELIFT);
+///     }
+///     // Or maybe LLVM?
+///     else if (wasmer_is_compiler_available(LLVM)) {
+///         wasm_config_set_compiler(config, LLVM);
+///     }
+///     // Or maybe Singlepass?
+///     else if (wasmer_is_compiler_available(SINGLEPASS)) {
+///         wasm_config_set_compiler(config, SINGLEPASS);
+///     }
+///     // OK, let's run with no particular compiler.
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
@@ -231,7 +245,7 @@ pub extern "C" fn wasm_config_set_compiler(
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
@@ -241,8 +255,15 @@ pub extern "C" fn wasm_config_set_compiler(
 ///     // Create the configuration.
 ///     wasm_config_t* config = wasm_config_new();
 ///
-///     // Use the JIT engine.
-///     wasm_config_set_engine(config, JIT);
+///     // Use the JIT engine, if available.
+///     if (wasmer_is_engine_available(JIT)) {
+///         wasm_config_set_engine(config, JIT);
+///     }
+///     // Or maybe the Native engine?
+///     else if (wasmer_is_engine_available(NATIVE)) {
+///         wasm_config_set_engine(config, NATIVE);
+///     }
+///     // OK, let's do not specify any particular engine.
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);

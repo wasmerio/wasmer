@@ -105,7 +105,9 @@ pub fn parse_import_section<'data>(
                     field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Module(_sig) | ImportSectionEntryType::Instance(_sig) => {
+            ImportSectionEntryType::Module(_)
+            | ImportSectionEntryType::Instance(_)
+            | ImportSectionEntryType::Event(_) => {
                 unimplemented!("module linking not implemented yet")
             }
             ImportSectionEntryType::Memory(WPMemoryType::M32 {
@@ -292,7 +294,10 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
+            ExternalKind::Type
+            | ExternalKind::Module
+            | ExternalKind::Instance
+            | ExternalKind::Event => {
                 unimplemented!("module linking not implemented yet")
             }
         }

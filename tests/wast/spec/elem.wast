@@ -263,6 +263,41 @@
 )
 
 (assert_invalid
+  (module 
+    (table 1 funcref)
+    (elem (offset (;empty instruction sequence;)))
+  )
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (table 1 funcref)
+    (elem (offset (i32.const 0) (i32.const 0)))
+  )
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (global (import "test" "global-i32") i32)
+    (table 1 funcref)
+    (elem (offset (global.get 0) (global.get 0)))
+  )
+  "type mismatch"
+)
+
+(assert_invalid
+  (module
+    (global (import "test" "global-i32") i32)
+    (table 1 funcref)
+    (elem (offset (global.get 0) (i32.const 0)))
+  )
+  "type mismatch"
+)
+
+
+(assert_invalid
   (module
     (table 1 funcref)
     (elem (i32.ctz (i32.const 0)))
@@ -299,6 +334,32 @@
 ;;   (module (memory 1) (data (global.get $g)) (global $g (mut i32) (i32.const 0)))
 ;;   "constant expression required"
 ;; )
+
+(assert_invalid
+   (module 
+     (table 1 funcref)
+     (elem (global.get 0))
+   )
+   "unknown global 0"
+)
+
+(assert_invalid
+   (module
+     (global (import "test" "global-i32") i32)
+     (table 1 funcref)
+     (elem (global.get 1))
+   )
+   "unknown global 1"
+)
+
+(assert_invalid
+   (module 
+     (global (import "test" "global-mut-i32") (mut i32))
+     (table 1 funcref)
+     (elem (global.get 0))
+   )
+   "constant expression required"
+)
 
 ;; Two elements target the same slot
 

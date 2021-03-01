@@ -28,8 +28,17 @@
     (unreachable) (select)
     (unreachable) (i32.const 0) (select)
     (unreachable) (i32.const 0) (i32.const 0) (select)
+    (unreachable) (i32.const 0) (i32.const 0) (i32.const 0) (select)
     (unreachable) (f32.const 0) (i32.const 0) (select)
     (unreachable)
+  )
+
+  (func (export "select_unreached_result_1") (result i32)
+    (unreachable) (i32.add (select))
+  )
+
+  (func (export "select_unreached_result_2") (result i64)
+    (unreachable) (i64.add (select (i64.const 0) (i32.const 0)))
   )
 
   ;; As the argument of control constructs and instructions
@@ -287,22 +296,22 @@
 (assert_return (invoke "as-convert-operand" (i32.const 1)) (i32.const 1))
 
 (assert_invalid
-  (module (func $arity-0 (select (nop) (nop) (i32.const 1))))
+  (module (func $arity-0 (select (nop) (nop) (i32.const 1)) (drop)))
   "type mismatch"
 )
 
 ;; The first two operands should have the same type as each other
 
 (assert_invalid
-  (module (func $type-num-vs-num (select (i32.const 1) (i64.const 1) (i32.const 1))))
+  (module (func $type-num-vs-num (select (i32.const 1) (i64.const 1) (i32.const 1)) (drop)))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-num-vs-num (select (i32.const 1) (f32.const 1.0) (i32.const 1))))
+  (module (func $type-num-vs-num (select (i32.const 1) (f32.const 1.0) (i32.const 1)) (drop)))
   "type mismatch"
 )
 (assert_invalid
-  (module (func $type-num-vs-num (select (i32.const 1) (f64.const 1.0) (i32.const 1))))
+  (module (func $type-num-vs-num (select (i32.const 1) (f64.const 1.0) (i32.const 1)) (drop)))
   "type mismatch"
 )
 
@@ -412,3 +421,67 @@
   )
   "type mismatch"
 )
+
+;; Third operand must be i32
+
+(assert_invalid
+  (module (func (select (i32.const 1) (i32.const 1) (i64.const 1)) (drop)))
+  "type mismatch"
+)
+(assert_invalid
+  (module (func (select (i32.const 1) (i32.const 1) (f32.const 1)) (drop)))
+  "type mismatch"
+)
+(assert_invalid
+  (module (func (select (i32.const 1) (i32.const 1) (f64.const 1)) (drop)))
+  "type mismatch"
+)
+
+;; Result of select has type of first two operands
+
+(assert_invalid
+  (module (func (result i32) (select (i64.const 1) (i64.const 1) (i32.const 1))))
+  "type mismatch"
+)
+
+;; Validation after unreachable
+
+;; The first two operands should have the same type as each other
+(assert_invalid
+  (module (func (unreachable) (select (i32.const 1) (i64.const 1) (i32.const 1)) (drop)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (func (unreachable) (select (i64.const 1) (i32.const 1) (i32.const 1)) (drop)))
+  "type mismatch"
+)
+
+;; Third operand must be i32
+(assert_invalid
+  (module (func (unreachable) (select (i32.const 1) (i32.const 1) (i64.const 1)) (drop)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (func (unreachable) (select (i32.const 1) (i64.const 1)) (drop)))
+  "type mismatch"
+)
+
+(assert_invalid
+  (module (func (unreachable) (select (i64.const 1)) (drop)))
+  "type mismatch"
+)
+
+;; Result of select has type of first two operands (type of second operand when first one is omitted)
+(assert_invalid
+  (module (func (result i32) (unreachable) (select (i64.const 1) (i32.const 1))))
+  "type mismatch"
+)
+
+;; select always has non-empty result
+(assert_invalid
+  (module (func (unreachable) (select)))
+  "type mismatch"
+)
+
