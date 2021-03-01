@@ -9394,6 +9394,18 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .try_as_basic_value()
                     .left()
                     .unwrap();
+                let value = self.builder.build_bitcast(
+                    value,
+                    type_to_llvm(
+                        self.intrinsics,
+                        self.wasm_module
+                            .tables
+                            .get(TableIndex::from_u32(table))
+                            .unwrap()
+                            .ty,
+                    )?,
+                    "",
+                );
                 self.state.push1(value);
             }
             Operator::TableSet { table } => {
@@ -9403,6 +9415,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .const_int(table.into(), false)
                     .as_basic_value_enum();
                 let (elem, value) = self.state.pop2()?;
+                let value = self
+                    .builder
+                    .build_bitcast(value, self.intrinsics.anyref_ty, "");
                 let table_set = if let Some(_) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))
@@ -9475,6 +9490,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .const_int(table as u64, false)
                     .as_basic_value_enum();
                 let (start, elem, len) = self.state.pop3()?;
+                let elem = self
+                    .builder
+                    .build_bitcast(elem, self.intrinsics.anyref_ty, "");
                 self.builder.build_call(
                     self.intrinsics.table_fill,
                     &[self.ctx.basic(), table, start, elem, len],
@@ -9483,6 +9501,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
             }
             Operator::TableGrow { table } => {
                 let (elem, delta) = self.state.pop2()?;
+                let elem = self
+                    .builder
+                    .build_bitcast(elem, self.intrinsics.anyref_ty, "");
                 let (table_grow, table_index) = if let Some(local_table_index) = self
                     .wasm_module
                     .local_table_index(TableIndex::from_u32(table))

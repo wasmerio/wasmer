@@ -40,7 +40,7 @@ pub fn type_to_llvm_ptr<'ctx>(
         Type::F64 => Ok(intrinsics.f64_ptr_ty),
         Type::V128 => Ok(intrinsics.i128_ptr_ty),
         Type::FuncRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::Generic)),
-        Type::ExternRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::Generic)),
+        Type::ExternRef => Ok(intrinsics.externref_ty.ptr_type(AddressSpace::Generic)),
     }
 }
 
@@ -55,7 +55,7 @@ pub fn type_to_llvm<'ctx>(
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
         Type::FuncRef => Ok(intrinsics.funcref_ty.as_basic_type_enum()),
-        Type::ExternRef => Ok(intrinsics.funcref_ty.as_basic_type_enum()),
+        Type::ExternRef => Ok(intrinsics.externref_ty.as_basic_type_enum()),
     }
 }
 
@@ -141,9 +141,11 @@ pub struct Intrinsics<'ctx> {
     pub f32_ptr_ty: PointerType<'ctx>,
     pub f64_ptr_ty: PointerType<'ctx>,
 
-    pub funcref_ty: PointerType<'ctx>,
-
     pub anyfunc_ty: StructType<'ctx>,
+
+    pub funcref_ty: PointerType<'ctx>,
+    pub externref_ty: PointerType<'ctx>,
+    pub anyref_ty: PointerType<'ctx>,
 
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
@@ -265,6 +267,8 @@ impl<'ctx> Intrinsics<'ctx> {
             false,
         );
         let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
+        let externref_ty = funcref_ty;
+        let anyref_ty = i8_ptr_ty;
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -414,6 +418,8 @@ impl<'ctx> Intrinsics<'ctx> {
             anyfunc_ty,
 
             funcref_ty,
+            externref_ty,
+            anyref_ty,
 
             i1_zero,
             i8_zero,
@@ -503,7 +509,7 @@ impl<'ctx> Intrinsics<'ctx> {
                         ctx_ptr_ty.as_basic_type_enum(),
                         i32_ty_basic,
                         i32_ty_basic,
-                        funcref_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
                         i32_ty_basic,
                     ],
                     false,
@@ -522,7 +528,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             table_get: module.add_function(
                 "wasmer_table_get",
-                funcref_ty.fn_type(
+                anyref_ty.fn_type(
                     &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
                     false,
                 ),
@@ -530,7 +536,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             imported_table_get: module.add_function(
                 "wasmer_imported_table_get",
-                i8_ptr_ty.fn_type(
+                anyref_ty.fn_type(
                     &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
                     false,
                 ),
@@ -543,7 +549,7 @@ impl<'ctx> Intrinsics<'ctx> {
                         ctx_ptr_ty.as_basic_type_enum(),
                         i32_ty_basic,
                         i32_ty_basic,
-                        funcref_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
                     ],
                     false,
                 ),
@@ -556,7 +562,7 @@ impl<'ctx> Intrinsics<'ctx> {
                         ctx_ptr_ty.as_basic_type_enum(),
                         i32_ty_basic,
                         i32_ty_basic,
-                        funcref_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
                     ],
                     false,
                 ),
@@ -567,7 +573,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 i32_ty.fn_type(
                     &[
                         ctx_ptr_ty.as_basic_type_enum(),
-                        funcref_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
                         i32_ty_basic,
                         i32_ty_basic,
                     ],
@@ -580,7 +586,7 @@ impl<'ctx> Intrinsics<'ctx> {
                 i32_ty.fn_type(
                     &[
                         ctx_ptr_ty.as_basic_type_enum(),
-                        funcref_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
                         i32_ty_basic,
                         i32_ty_basic,
                     ],
