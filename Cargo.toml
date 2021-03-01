@@ -30,13 +30,13 @@ cfg-if = "1.0"
 [workspace]
 members = [
     "lib/api",
-    "lib/cache",
     "lib/c-api",
+    "lib/cache",
     "lib/cli",
     "lib/compiler",
     "lib/compiler-cranelift",
-    "lib/compiler-singlepass",
     "lib/compiler-llvm",
+    "lib/compiler-singlepass",
     "lib/derive",
     "lib/emscripten",
     "lib/engine",
@@ -44,12 +44,13 @@ members = [
     "lib/engine-native",
     "lib/engine-object-file",
     "lib/object",
+    "lib/tracing",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
     "lib/wasmer-types",
-    "tests/lib/wast",
     "tests/integration/cli",
+    "tests/lib/wast",
 ]
 exclude = [
     "lib/deprecated",
