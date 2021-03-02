@@ -125,7 +125,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     pub fn deref(self, memory: &Memory, index: u32, length: u32) -> Option<&[Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
+        let item_size = mem::size_of::<T>();
         let slice_full_len = index as usize + length as usize;
         let memory_size = memory.size().bytes().0;
 
@@ -163,7 +163,7 @@ impl<T: Copy + ValueType> WasmPtr<T, Array> {
     ) -> Option<&mut [Cell<T>]> {
         // gets the size of the item in the array with padding added such that
         // for any index, we will always result an aligned memory access
-        let item_size = mem::size_of::<T>() + (mem::size_of::<T>() % mem::align_of::<T>());
+        let item_size = mem::size_of::<T>();
         let slice_full_len = index as usize + length as usize;
         let memory_size = memory.size().bytes().0;
 
