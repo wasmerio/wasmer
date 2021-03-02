@@ -98,7 +98,6 @@ impl Default for wasmer_engine_t {
 ///
 #[cfg(feature = "middlewares")]
 #[derive(Debug)]
-#[repr(C)]
 #[allow(non_camel_case_types)]
 pub struct wasmer_module_middleware_t {
     pub(super) inner: Arc<dyn ModuleMiddleware>,
