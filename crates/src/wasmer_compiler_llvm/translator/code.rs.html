@@ -9371,6 +9371,48 @@
 <span id="9370">9370</span>
 <span id="9371">9371</span>
 <span id="9372">9372</span>
+<span id="9373">9373</span>
+<span id="9374">9374</span>
+<span id="9375">9375</span>
+<span id="9376">9376</span>
+<span id="9377">9377</span>
+<span id="9378">9378</span>
+<span id="9379">9379</span>
+<span id="9380">9380</span>
+<span id="9381">9381</span>
+<span id="9382">9382</span>
+<span id="9383">9383</span>
+<span id="9384">9384</span>
+<span id="9385">9385</span>
+<span id="9386">9386</span>
+<span id="9387">9387</span>
+<span id="9388">9388</span>
+<span id="9389">9389</span>
+<span id="9390">9390</span>
+<span id="9391">9391</span>
+<span id="9392">9392</span>
+<span id="9393">9393</span>
+<span id="9394">9394</span>
+<span id="9395">9395</span>
+<span id="9396">9396</span>
+<span id="9397">9397</span>
+<span id="9398">9398</span>
+<span id="9399">9399</span>
+<span id="9400">9400</span>
+<span id="9401">9401</span>
+<span id="9402">9402</span>
+<span id="9403">9403</span>
+<span id="9404">9404</span>
+<span id="9405">9405</span>
+<span id="9406">9406</span>
+<span id="9407">9407</span>
+<span id="9408">9408</span>
+<span id="9409">9409</span>
+<span id="9410">9410</span>
+<span id="9411">9411</span>
+<span id="9412">9412</span>
+<span id="9413">9413</span>
+<span id="9414">9414</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
@@ -12192,12 +12234,23 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32Shl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Shl</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32Shl</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
-                <span class="comment">// TODO: missing &#39;and&#39; of v2?</span>
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">31u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_left_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+            }
+            <span class="ident">Operator</span>::<span class="ident">I64Shl</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
+                <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">63u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_left_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
@@ -12262,12 +12315,23 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32ShrS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64ShrS</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32ShrS</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
-                <span class="comment">// TODO: check wasm spec, is this missing v2 mod LaneBits?</span>
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">31u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>);
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+            }
+            <span class="ident">Operator</span>::<span class="ident">I64ShrS</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
+                <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">63u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">true</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
@@ -12332,11 +12396,23 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32ShrU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64ShrU</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32ShrU</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">31u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
+                <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>);
+                <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
+            }
+            <span class="ident">Operator</span>::<span class="ident">I64ShrU</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop2_extra</span>()<span class="question-mark">?</span>;
+                <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
+                <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">63u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
@@ -12406,10 +12482,12 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">31u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_left_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">int_width</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">32</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
-                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_sub</span>(<span class="ident">int_width</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">negv2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_neg</span>(<span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">negv2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                     <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">rhs</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>)
                 };
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_or</span>(<span class="ident">lhs</span>, <span class="ident">rhs</span>, <span class="string">&quot;&quot;</span>);
@@ -12420,10 +12498,12 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">63u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_left_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">int_width</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">64</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
-                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_sub</span>(<span class="ident">int_width</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">negv2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_neg</span>(<span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">negv2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                     <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">rhs</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>)
                 };
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_or</span>(<span class="ident">lhs</span>, <span class="ident">rhs</span>, <span class="string">&quot;&quot;</span>);
@@ -12434,10 +12514,12 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">31u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> {
-                    <span class="kw">let</span> <span class="ident">int_width</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i32_ty</span>.<span class="ident">const_int</span>(<span class="number">32</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
-                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_sub</span>(<span class="ident">int_width</span>, <span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">negv2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_int_neg</span>(<span class="ident">v2</span>, <span class="string">&quot;&quot;</span>);
+                    <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">negv2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                     <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_left_shift</span>(<span class="ident">v1</span>, <span class="ident">rhs</span>, <span class="string">&quot;&quot;</span>)
                 };
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_or</span>(<span class="ident">lhs</span>, <span class="ident">rhs</span>, <span class="string">&quot;&quot;</span>);
@@ -12448,6 +12530,8 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v1</span>, <span class="ident">i1</span>);
                 <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">apply_pending_canonicalization</span>(<span class="ident">v2</span>, <span class="ident">i2</span>);
                 <span class="kw">let</span> (<span class="ident">v1</span>, <span class="ident">v2</span>) <span class="op">=</span> (<span class="ident">v1</span>.<span class="ident">into_int_value</span>(), <span class="ident">v2</span>.<span class="ident">into_int_value</span>());
+                <span class="kw">let</span> <span class="ident">mask</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">63u64</span>, <span class="bool-val">false</span>);
+                <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_and</span>(<span class="ident">v2</span>, <span class="ident">mask</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">lhs</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_right_shift</span>(<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="bool-val">false</span>, <span class="string">&quot;&quot;</span>);
                 <span class="kw">let</span> <span class="ident">rhs</span> <span class="op">=</span> {
                     <span class="kw">let</span> <span class="ident">int_width</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">const_int</span>(<span class="number">64</span> <span class="kw">as</span> <span class="ident">u64</span>, <span class="bool-val">false</span>);
