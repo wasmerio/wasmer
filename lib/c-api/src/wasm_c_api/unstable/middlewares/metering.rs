@@ -125,6 +125,7 @@
 //! ```
 
 use super::super::super::instance::wasm_instance_t;
+use super::super::parser::operator::Operator as COperator;
 use super::wasmer_middleware_t;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
@@ -197,9 +198,11 @@ pub unsafe extern "C" fn wasmer_metering_points_is_exhausted(
 /// See module's documentation.
 #[allow(non_camel_case_types)]
 pub struct wasmer_metering_t {
-    #[allow(dead_code)]
-    pub(crate) inner: Arc<Metering<fn(&Operator) -> u64>>,
+    pub(crate) inner: Arc<Metering<dyn Fn(&Operator) -> u64>>,
 }
+
+#[allow(non_camel_case_types)]
+pub type wasmer_metering_cost_function_t = extern "C" fn(operator: COperator) -> u64;
 
 /// Creates a new metering middleware with an initial limit, i.e. a
 /// total number of operators to execute (regarding their respective
@@ -209,16 +212,12 @@ pub struct wasmer_metering_t {
 ///
 /// See module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_new(initial_limit: u64) -> Box<wasmer_metering_t> {
-    let cost_function = |operator: &Operator| -> u64 {
-        match operator {
-            Operator::I32Const { .. }
-            | Operator::I64Const { .. }
-            | Operator::F32Const { .. }
-            | Operator::F64Const { .. } => 0,
-            _ => 1,
-        }
-    };
+pub extern "C" fn wasmer_metering_new(
+    initial_limit: u64,
+    cost_function: wasmer_metering_cost_function_t,
+) -> Box<wasmer_metering_t> {
+    let cost_function = |operator: &Operator| -> u64 { cost_function(operator.into()) };
+
     Box::new(wasmer_metering_t {
         inner: Arc::new(Metering::new(initial_limit, cost_function)),
     })

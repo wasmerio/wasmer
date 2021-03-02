@@ -160,6 +160,8 @@ typedef struct {
 } wasmer_named_extern_vec_t;
 #endif
 
+typedef uint64_t (*wasmer_metering_cost_function_t)(COperator operator);
+
 #ifdef __cplusplus
 extern "C" {
 #endif // __cplusplus
@@ -286,7 +288,8 @@ void wasmer_metering_delete(wasmer_metering_t *_metering);
 
 wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
 
-wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit);
+wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit,
+                                       wasmer_metering_cost_function_t cost_function);
 
 void wasmer_metering_points_delete(wasmer_metering_points_t *_metering_points);
 
