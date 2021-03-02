@@ -40,6 +40,7 @@ use crate::probestack::PROBESTACK;
 use crate::table::{TableElement, TableReference};
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
+use crate::VMExternRef;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{
@@ -482,6 +483,31 @@ pub unsafe extern "C" fn wasmer_func_ref(vmctx: *mut VMContext, function_index: 
     let function_index = FunctionIndex::from_u32(function_index);
 
     instance.func_ref(function_index).unwrap()
+}
+
+/// Implementation of externref increment
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+///
+/// This function must only be called at precise locations to prevent memory leaks.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_externref_inc(externref: VMExternRef) {
+    externref.ref_clone();
+}
+
+/// Implementation of externref decrement
+///
+/// # Safety
+///
+/// `vmctx` must be valid and not null.
+///
+/// This function must only be called at precise locations, otherwise use-after-free
+/// and other serious memory bugs may occur.
+#[no_mangle]
+pub unsafe extern "C" fn wasmer_externref_dec(mut externref: VMExternRef) {
+    externref.ref_drop()
 }
 
 /// Implementation of `elem.drop`.

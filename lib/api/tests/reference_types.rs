@@ -183,6 +183,7 @@ fn refs_in_globals() -> Result<()> {
 
         if let Value::ExternRef(er) = er_global.get() {
             assert_eq!(er.downcast::<u32>().unwrap(), &3);
+            assert_eq!(er.strong_count(), 1);
         } else {
             panic!("Did not find extern ref in the global");
         }

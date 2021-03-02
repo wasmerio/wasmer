@@ -17,7 +17,10 @@ use wasmer_compiler::wasmparser::Type;
 use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_types::{
+    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
+    Type as WasmerType,
+};
 use wasmer_vm::VMBuiltinFunctionIndex;
 use wasmer_vm::VMOffsets;
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
@@ -44,6 +47,9 @@ pub struct FuncEnvironment<'module_environment> {
 
     /// The module-level environment which this function-level environment belongs to.
     module: &'module_environment ModuleInfo,
+
+    /// A stack tracking the type of local variables.
+    type_stack: Vec<WasmerType>,
 
     /// The module function signatures
     signatures: &'module_environment PrimaryMap<SignatureIndex, ir::Signature>,
@@ -103,6 +109,11 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.fill`.
     table_fill_sig: Option<ir::SigRef>,
 
+    /// The external function signature for implementing reference increment for `extern.ref`
+    externref_inc_sig: Option<ir::SigRef>,
+
+    /// The external function signature for implementing reference decrement for `extern.ref`
+    externref_dec_sig: Option<ir::SigRef>,
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
 
@@ -125,6 +136,7 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             target_config,
             module,
             signatures,
+            type_stack: vec![],
             vmctx: None,
             memory32_size_sig: None,
             table_size_sig: None,
@@ -141,6 +153,8 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             data_drop_sig: None,
             func_ref_sig: None,
             table_fill_sig: None,
+            externref_inc_sig: None,
+            externref_dec_sig: None,
             offsets: VMOffsets::new(target_config.pointer_bytes(), module),
             memory_styles,
             table_styles,
@@ -190,6 +204,50 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
             self.get_table_fill_sig(func),
             table_index.index(),
             VMBuiltinFunctionIndex::get_table_fill_index(),
+        )
+    }
+
+    fn get_externref_inc_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.externref_inc_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![AbiParam::new(R64)],
+                returns: vec![],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.externref_inc_sig = Some(sig);
+        sig
+    }
+
+    fn get_externref_inc_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        (
+            self.get_externref_inc_sig(func),
+            VMBuiltinFunctionIndex::get_externref_inc_index(),
+        )
+    }
+
+    fn get_externref_dec_sig(&mut self, func: &mut Function) -> ir::SigRef {
+        let sig = self.externref_dec_sig.unwrap_or_else(|| {
+            func.import_signature(Signature {
+                params: vec![AbiParam::new(R64)],
+                returns: vec![],
+                call_conv: self.target_config.default_call_conv,
+            })
+        });
+        self.externref_dec_sig = Some(sig);
+        sig
+    }
+
+    fn get_externref_dec_func(
+        &mut self,
+        func: &mut Function,
+    ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
+        (
+            self.get_externref_dec_sig(func),
+            VMBuiltinFunctionIndex::get_externref_dec_index(),
         )
     }
 
@@ -852,6 +910,32 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Ok(())
     }
 
+    fn translate_externref_inc(
+        &mut self,
+        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        externref: ir::Value,
+    ) -> WasmResult<()> {
+        let (func_sig, func_idx) = self.get_externref_inc_func(&mut pos.func);
+        let (_vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+
+        pos.ins().call_indirect(func_sig, func_addr, &[externref]);
+
+        Ok(())
+    }
+
+    fn translate_externref_dec(
+        &mut self,
+        mut pos: cranelift_codegen::cursor::FuncCursor<'_>,
+        externref: ir::Value,
+    ) -> WasmResult<()> {
+        let (func_sig, func_idx) = self.get_externref_dec_func(&mut pos.func);
+        let (_vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
+
+        pos.ins().call_indirect(func_sig, func_addr, &[externref]);
+
+        Ok(())
+    }
+
     fn translate_ref_null(
         &mut self,
         mut pos: cranelift_codegen::cursor::FuncCursor,
@@ -1422,5 +1506,26 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         Err(WasmError::Unsupported(
             "wasm atomics (fn translate_atomic_notify)".to_string(),
         ))
+    }
+
+    fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType> {
+        Some(self.module.globals.get(global_index)?.ty)
+    }
+
+    fn push_local_decl_on_stack(&mut self, ty: WasmerType) {
+        self.type_stack.push(ty);
+    }
+
+    fn push_params_on_stack(&mut self, function_index: LocalFunctionIndex) {
+        let func_index = self.module.func_index(function_index);
+        let sig_idx = self.module.functions[func_index];
+        let signature = &self.module.signatures[sig_idx];
+        for param in signature.params() {
+            self.type_stack.push(*param);
+        }
+    }
+
+    fn get_local_type(&self, local_index: u32) -> Option<WasmerType> {
+        self.type_stack.get(local_index as usize).cloned()
     }
 }

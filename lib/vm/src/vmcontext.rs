@@ -957,9 +957,17 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_table_fill_index() -> Self {
         Self(23)
     }
+    /// Returns an index for a function to increment the externref count.
+    pub const fn get_externref_inc_index() -> Self {
+        Self(24)
+    }
+    /// Returns an index for a function to decrement the externref count.
+    pub const fn get_externref_dec_index() -> Self {
+        Self(25)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        24
+        26
     }
 
     /// Return the index as an u32 number.
@@ -1037,6 +1045,10 @@ impl VMBuiltinFunctionsArray {
             wasmer_func_ref as usize;
         ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
             wasmer_table_fill as usize;
+        ptrs[VMBuiltinFunctionIndex::get_externref_inc_index().index() as usize] =
+            wasmer_externref_inc as usize;
+        ptrs[VMBuiltinFunctionIndex::get_externref_dec_index().index() as usize] =
+            wasmer_externref_dec as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

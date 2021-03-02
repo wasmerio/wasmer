@@ -44,10 +44,12 @@ use cranelift_frontend::{FunctionBuilder, Variable};
 use smallvec::SmallVec;
 use std::vec::Vec;
 
-use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
+use wasmer_compiler::wasmparser::{MemoryImmediate, Operator, Type as WPType};
 use wasmer_compiler::WasmResult;
 use wasmer_compiler::{wasm_unsupported, ModuleTranslationState};
-use wasmer_types::{FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex};
+use wasmer_types::{
+    FunctionIndex, GlobalIndex, MemoryIndex, SignatureIndex, TableIndex, Type as WasmerType,
+};
 
 // Clippy warns about "align: _" but its important to document that the align field is ignored
 #[cfg_attr(
@@ -79,13 +81,24 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             state.push1(val);
             let label = ValueLabel::from_u32(*local_index);
             builder.set_val_label(val, label);
+
+            let local_type = environ.get_local_type(*local_index).unwrap();
+            if local_type == WasmerType::ExternRef {
+                environ.translate_externref_inc(builder.cursor(), val)?;
+            }
         }
         Operator::LocalSet { local_index } => {
             let mut val = state.pop1();
 
             // Ensure SIMD values are cast to their default Cranelift type, I8x16.
             let ty = builder.func.dfg.value_type(val);
-            if ty.is_vector() {
+            let local_type = environ.get_local_type(*local_index).unwrap();
+            if local_type == WasmerType::ExternRef {
+                environ.translate_externref_dec(builder.cursor(), val)?;
+            }
+            if ty.is_ref() {
+                environ.translate_externref_inc(builder.cursor(), val)?;
+            } else if ty.is_vector() {
                 val = optionally_bitcast_vector(val, I8X16, builder);
             }
 
@@ -98,6 +111,13 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
 
             // Ensure SIMD values are cast to their default Cranelift type, I8x16.
             let ty = builder.func.dfg.value_type(val);
+            // decrement the existing value in the local if it's an extern ref
+            let local_type = environ.get_local_type(*local_index).unwrap();
+            if local_type == WasmerType::ExternRef {
+                environ.translate_externref_dec(builder.cursor(), val)?;
+            }
+            // TODO(reftypes): Increment ref count here conditionally
+            //       Need access to types on the stack
             if ty.is_vector() {
                 val = optionally_bitcast_vector(val, I8X16, builder);
             }
@@ -110,24 +130,31 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  `get_global` and `set_global` are handled by the environment.
          ***********************************************************************************/
         Operator::GlobalGet { global_index } => {
-            let val = match state.get_global(builder.func, *global_index, environ)? {
+            let global_index = GlobalIndex::from_u32(*global_index);
+            let val = match state.get_global(builder.func, global_index.as_u32(), environ)? {
                 GlobalVariable::Const(val) => val,
                 GlobalVariable::Memory { gv, offset, ty } => {
+                    let global_type = environ.get_global_type(global_index).unwrap();
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let flags = ir::MemFlags::trusted();
-                    builder.ins().load(ty, flags, addr, offset)
+                    let value = builder.ins().load(ty, flags, addr, offset);
+                    if global_type == WasmerType::ExternRef {
+                        environ.translate_externref_inc(builder.cursor(), value)?;
+                    }
+                    value
                 }
-                GlobalVariable::Custom => environ.translate_custom_global_get(
-                    builder.cursor(),
-                    GlobalIndex::from_u32(*global_index),
-                )?,
+                GlobalVariable::Custom => {
+                    environ.translate_custom_global_get(builder.cursor(), global_index)?
+                }
             };
             state.push1(val);
         }
         Operator::GlobalSet { global_index } => {
-            match state.get_global(builder.func, *global_index, environ)? {
-                GlobalVariable::Const(_) => panic!("global #{} is a constant", *global_index),
+            let global_index = GlobalIndex::from_u32(*global_index);
+            match state.get_global(builder.func, global_index.as_u32(), environ)? {
+                GlobalVariable::Const(_) => panic!("global #{} is a constant", global_index.as_u32()),
                 GlobalVariable::Memory { gv, offset, ty } => {
+                    let global_type = environ.get_global_type(global_index).unwrap();
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);
                     let flags = ir::MemFlags::trusted();
                     let mut val = state.pop1();
@@ -136,15 +163,15 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                         val = optionally_bitcast_vector(val, I8X16, builder);
                     }
                     debug_assert_eq!(ty, builder.func.dfg.value_type(val));
+                    if global_type == WasmerType::ExternRef {
+                        let value = builder.ins().load(ty, flags, addr, offset);
+                        environ.translate_externref_dec(builder.cursor(), value)?;
+                    }
                     builder.ins().store(flags, val, addr, offset);
                 }
                 GlobalVariable::Custom => {
                     let val = state.pop1();
-                    environ.translate_custom_global_set(
-                        builder.cursor(),
-                        GlobalIndex::from_u32(*global_index),
-                        val,
-                    )?;
+                    environ.translate_custom_global_set(builder.cursor(), global_index, val)?;
                 }
             }
         }
@@ -152,18 +179,23 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
          *  `drop`, `nop`, `unreachable` and `select`.
          ***********************************************************************************/
         Operator::Drop => {
+            // TODO(reftypes): conditionally decrement ref count here
             state.pop1();
         }
         Operator::Select => {
             let (arg1, arg2, cond) = state.pop3();
             state.push1(builder.ins().select(cond, arg1, arg2));
         }
-        Operator::TypedSelect { ty: _ } => {
-            // We ignore the explicit type parameter as it is only needed for
-            // validation, which we require to have been performed before
-            // translation.
+        Operator::TypedSelect { ty } => {
             let (arg1, arg2, cond) = state.pop3();
-            state.push1(builder.ins().select(cond, arg1, arg2));
+            if *ty == WPType::ExternRef {
+                let selected_ref = builder.ins().select(cond, arg1, arg2);
+                let not_selected_ref = builder.ins().select(cond, arg2, arg1);
+                state.push1(selected_ref);
+                environ.translate_externref_dec(builder.cursor(), not_selected_ref)?;
+            } else {
+                state.push1(builder.ins().select(cond, arg1, arg2));
+            }
         }
         Operator::Nop => {
             // We do nothing

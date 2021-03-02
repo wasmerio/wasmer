@@ -105,6 +105,15 @@ impl VMExternRef {
             }
         }
     }
+
+    /// Get the number of strong references to this data.
+    fn strong_count(&self) -> usize {
+        if self.0.is_null() {
+            0
+        } else {
+            unsafe { (&*self.0).strong.load(atomic::Ordering::SeqCst) }
+        }
+    }
 }
 
 #[derive(Debug)]
@@ -228,6 +237,11 @@ impl ExternRef {
         T: Any + Send + Sync + 'static + Sized,
     {
         self.inner.downcast::<T>()
+    }
+
+    /// Get the number of strong references to this data.
+    pub fn strong_count(&self) -> usize {
+        self.inner.strong_count()
     }
 }
 

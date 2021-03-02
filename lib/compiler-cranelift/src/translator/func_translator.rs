@@ -19,8 +19,8 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
-    WasmResult,
+    wasm_unsupported, wptype_to_type, MiddlewareBinaryReader, ModuleMiddlewareChain,
+    ModuleTranslationState, WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
 
@@ -77,6 +77,7 @@ impl FuncTranslator {
                 .middlewares
                 .generate_function_middleware_chain(local_function_index),
         );
+        environ.push_params_on_stack(local_function_index);
         self.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
@@ -211,12 +212,14 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
     };
 
+    let wasmer_ty = wptype_to_type(wasm_type).unwrap();
     let ty = builder.func.dfg.value_type(zeroval);
     for _ in 0..count {
         let local = Variable::new(*next_local);
         builder.declare_var(local, ty);
         builder.def_var(local, zeroval);
         builder.set_val_label(zeroval, ValueLabel::new(*next_local));
+        environ.push_local_decl_on_stack(wasmer_ty);
         *next_local += 1;
     }
     Ok(())
