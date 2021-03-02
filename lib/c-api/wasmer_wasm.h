@@ -143,7 +143,7 @@ typedef struct wasmer_metering_points_t wasmer_metering_points_t;
 
 typedef struct wasmer_metering_t wasmer_metering_t;
 
-typedef struct wasmer_module_middleware_t wasmer_module_middleware_t;
+typedef struct wasmer_middleware_t wasmer_middleware_t;
 
 #if defined(WASMER_WASI_ENABLED)
 typedef struct wasmer_named_extern_t wasmer_named_extern_t;
@@ -254,7 +254,7 @@ bool wasi_get_unordered_imports(const wasm_store_t *store,
 wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
-void wasm_config_push_middleware(wasm_config_t *config, wasmer_module_middleware_t *middleware);
+void wasm_config_push_middleware(wasm_config_t *config, wasmer_middleware_t *middleware);
 
 #if defined(WASMER_COMPILER_ENABLED)
 void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
@@ -280,7 +280,7 @@ int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
 
-wasmer_module_middleware_t *wasmer_metering_as_middleware(wasmer_metering_t *metering);
+wasmer_middleware_t *wasmer_metering_as_middleware(wasmer_metering_t *metering);
 
 void wasmer_metering_delete(wasmer_metering_t *_metering);
 

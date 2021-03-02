@@ -516,7 +516,7 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_metering_points_unwrap_or")
         .exclude_item("wasmer_metering_set_remaining_points")
         .exclude_item("wasmer_metering_t")
-        .exclude_item("wasmer_module_middleware_t")
+        .exclude_item("wasmer_middleware_t")
         .exclude_item("wasmer_module_name")
         .exclude_item("wasmer_module_set_name")
         .exclude_item("wasmer_named_extern_module")
