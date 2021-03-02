@@ -474,12 +474,9 @@ pub extern "C" fn wasm_engine_new_with_config(
                 },
             };
 
-            cfg_if! {
-                if #[cfg(feature = "middlewares")] {
-                    for middleware in config.middlewares {
-                        compiler_config.push_middleware(middleware.inner);
-                    }
-                }
+            #[cfg(feature = "middlewares")]
+            for middleware in config.middlewares {
+                compiler_config.push_middleware(middleware.inner);
             }
 
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
