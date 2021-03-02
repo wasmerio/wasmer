@@ -2602,7 +2602,8 @@ pub fn sock_send(
 }
 pub fn sock_shutdown(env: &WasiEnv, sock: __wasi_fd_t, how: __wasi_sdflags_t) -> __wasi_errno_t {
     debug!("wasi::sock_shutdown");
-    unimplemented!("wasi::sock_shutdown")
+    __WASI_ESUCCESS
+    // unimplemented!("wasi::sock_shutdown")
 }
 
 #[cfg(feature = "wasio")]

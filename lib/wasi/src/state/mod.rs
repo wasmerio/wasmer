@@ -1186,8 +1186,15 @@ impl WasiFs {
         debug!("fdstat: {:?}", fd);
 
         Ok(__wasi_fdstat_t {
-            fs_filetype: match self.inodes[fd.inode].kind {
-                Kind::File { .. } => __WASI_FILETYPE_REGULAR_FILE,
+            fs_filetype: match &self.inodes[fd.inode].kind {
+                Kind::File { handle, .. } => {
+                    if handle.as_ref().unwrap().is_socket() {
+                        __WASI_FILETYPE_SOCKET_STREAM
+                    }
+                    else {
+                        __WASI_FILETYPE_REGULAR_FILE
+                    }
+                },
                 Kind::Dir { .. } => __WASI_FILETYPE_DIRECTORY,
                 Kind::Symlink { .. } => __WASI_FILETYPE_SYMBOLIC_LINK,
                 _ => __WASI_FILETYPE_UNKNOWN,

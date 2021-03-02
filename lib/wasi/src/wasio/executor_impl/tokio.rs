@@ -857,6 +857,11 @@ impl WasiFile for AbstractTcpSocket {
         self.flags = flags;
         Ok(())
     }
+
+    // TODO: Fix this and move into a better abstraction structure
+    fn is_socket(&self) -> bool {
+        true
+    }
 }
 
 fn from_tokio_error(e: tokio::io::Error) -> __wasi_errno_t {
