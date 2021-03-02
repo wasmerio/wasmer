@@ -178,11 +178,59 @@
 <span id="177">177</span>
 <span id="178">178</span>
 <span id="179">179</span>
+<span id="180">180</span>
+<span id="181">181</span>
+<span id="182">182</span>
+<span id="183">183</span>
+<span id="184">184</span>
+<span id="185">185</span>
+<span id="186">186</span>
+<span id="187">187</span>
+<span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
+<span id="195">195</span>
+<span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
+<span id="199">199</span>
+<span id="200">200</span>
+<span id="201">201</span>
+<span id="202">202</span>
+<span id="203">203</span>
+<span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
+<span id="207">207</span>
+<span id="208">208</span>
+<span id="209">209</span>
+<span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
+<span id="223">223</span>
+<span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unstable non-standard Wasmer-specific types for the</span>
 <span class="doccomment">//! `wasm_engine_t` and siblings.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">engine</span>::{<span class="ident">wasm_config_t</span>, <span class="ident">wasmer_compiler_t</span>, <span class="ident">wasmer_engine_t</span>};
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">features</span>::<span class="ident">wasmer_features_t</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasmer_target_t</span>;
 
 <span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the</span>
@@ -227,6 +275,52 @@
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_target</span>(<span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_config_t</span>, <span class="ident">target</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span>) {
     <span class="ident">config</span>.<span class="ident">target</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>);
+}
+
+<span class="doccomment">/// Unstable non-standard Wasmer-specific API to update the</span>
+<span class="doccomment">/// configuration to specify particular features for the engine.</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// # Example</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// ```rust</span>
+<span class="doccomment">/// # use inline_c::assert_c;</span>
+<span class="doccomment">/// # fn main() {</span>
+<span class="doccomment">/// #    (assert_c! {</span>
+<span class="doccomment">/// # #include &quot;tests/wasmer_wasm.h&quot;</span>
+<span class="doccomment">/// #</span>
+<span class="doccomment">/// int main() {</span>
+<span class="doccomment">///     // Create the configuration.</span>
+<span class="doccomment">///     wasm_config_t* config = wasm_config_new();</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Set the target.</span>
+<span class="doccomment">///     {</span>
+<span class="doccomment">///         wasmer_features_t* features = wasmer_features_new();</span>
+<span class="doccomment">///         wasmer_features_simd(features, true);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///         wasm_config_set_features(config, features);</span>
+<span class="doccomment">///     }</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Create the engine.</span>
+<span class="doccomment">///     wasm_engine_t* engine = wasm_engine_new_with_config(config);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Check we have an engine!</span>
+<span class="doccomment">///     assert(engine);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     // Free everything.</span>
+<span class="doccomment">///     wasm_engine_delete(engine);</span>
+<span class="doccomment">///</span>
+<span class="doccomment">///     return 0;</span>
+<span class="doccomment">/// }</span>
+<span class="doccomment">/// #    })</span>
+<span class="doccomment">/// #    .success();</span>
+<span class="doccomment">/// # }</span>
+<span class="doccomment">/// ```</span>
+<span class="attribute">#[<span class="ident">no_mangle</span>]</span>
+<span class="kw">pub</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_config_set_features</span>(
+    <span class="ident">config</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">wasm_config_t</span>,
+    <span class="ident">features</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span>,
+) {
+    <span class="ident">config</span>.<span class="ident">features</span> <span class="op">=</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>);
 }
 
 <span class="doccomment">/// Check whether the given compiler is available, i.e. part of this</span>

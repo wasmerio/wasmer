@@ -593,10 +593,39 @@
 <span id="592">592</span>
 <span id="593">593</span>
 <span id="594">594</span>
+<span id="595">595</span>
+<span id="596">596</span>
+<span id="597">597</span>
+<span id="598">598</span>
+<span id="599">599</span>
+<span id="600">600</span>
+<span id="601">601</span>
+<span id="602">602</span>
+<span id="603">603</span>
+<span id="604">604</span>
+<span id="605">605</span>
+<span id="606">606</span>
+<span id="607">607</span>
+<span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
+<span id="611">611</span>
+<span id="612">612</span>
+<span id="613">613</span>
+<span id="614">614</span>
+<span id="615">615</span>
+<span id="616">616</span>
+<span id="617">617</span>
+<span id="618">618</span>
+<span id="619">619</span>
+<span id="620">620</span>
+<span id="621">621</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">engine</span>::{
-    <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>, <span class="ident">wasmer_is_engine_available</span>,
+    <span class="ident">wasm_config_set_features</span>, <span class="ident">wasm_config_set_target</span>, <span class="ident">wasmer_is_compiler_available</span>,
+    <span class="ident">wasmer_is_engine_available</span>,
 };
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">features</span>::<span class="ident">wasmer_features_t</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">unstable</span>::<span class="ident">target_lexicon</span>::<span class="ident">wasmer_target_t</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">update_last_error</span>, <span class="ident">CApiError</span>};
 <span class="kw">use</span> <span class="ident">cfg_if</span>::<span class="ident">cfg_if</span>;
@@ -693,6 +722,7 @@
     <span class="ident">engine</span>: <span class="ident">wasmer_engine_t</span>,
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
     <span class="ident">compiler</span>: <span class="ident">wasmer_compiler_t</span>,
+    <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">features</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_features_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="kw">pub</span>(<span class="kw">super</span>) <span class="ident">target</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasmer_target_t</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }
 
@@ -1074,6 +1104,10 @@
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
                             }
 
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
+                            }
+
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
                             <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `jit` feature.&quot;</span>);
@@ -1087,6 +1121,10 @@
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
+                            }
+
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
                             }
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
@@ -1104,6 +1142,10 @@
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
+                            }
+
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
                             }
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
@@ -1125,6 +1167,10 @@
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
                             }
 
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
+                            }
+
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
                             <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `jit` feature.&quot;</span>);
@@ -1140,6 +1186,10 @@
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
                             }
 
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
+                            }
+
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
                         } <span class="kw">else</span> {
                             <span class="kw">return</span> <span class="ident">return_with_error</span>(<span class="string">&quot;Wasmer has not been compiled with the `native` feature.&quot;</span>);
@@ -1153,6 +1203,10 @@
 
                             <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">target</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">target</span> {
                                 <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">target</span>(<span class="ident">target</span>.<span class="ident">inner</span>);
+                            }
+
+                            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">features</span>) <span class="op">=</span> <span class="ident">config</span>.<span class="ident">features</span> {
+                                <span class="ident">builder</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">features</span>(<span class="ident">features</span>.<span class="ident">inner</span>);
                             }
 
                             <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">builder</span>.<span class="ident">engine</span>())
