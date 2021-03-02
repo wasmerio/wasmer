@@ -876,12 +876,12 @@
     <span class="doccomment">/// Creates a new Function Type with the given parameter and return types.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span><span class="op">&lt;</span><span class="ident">Params</span>, <span class="ident">Returns</span><span class="op">&gt;</span>(<span class="ident">params</span>: <span class="ident">Params</span>, <span class="ident">returns</span>: <span class="ident">Returns</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>
     <span class="kw">where</span>
-        <span class="ident">Params</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span><span class="op">&gt;</span>,
-        <span class="ident">Returns</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Type</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">Params</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+        <span class="ident">Returns</span>: <span class="ident">Into</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">Type</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
     {
         <span class="self">Self</span> {
-            <span class="ident">params</span>: <span class="ident">params</span>.<span class="ident">into</span>().<span class="ident">into_boxed_slice</span>(),
-            <span class="ident">results</span>: <span class="ident">returns</span>.<span class="ident">into</span>().<span class="ident">into_boxed_slice</span>(),
+            <span class="ident">params</span>: <span class="ident">params</span>.<span class="ident">into</span>(),
+            <span class="ident">results</span>: <span class="ident">returns</span>.<span class="ident">into</span>(),
         }
     }
 
