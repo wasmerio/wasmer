@@ -9,5 +9,5 @@ fn configure_dylib_windows() {
     let lib = "msvcrtd";
     #[cfg(not(debug_assertions))]
     let lib = "msvcrt";
-    println!("cargo:rustc-link-lib=dylib={}", lib);
+    println!("cargo:rustc-link-lib={}", lib);
 }
