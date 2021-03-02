@@ -2,6 +2,7 @@
 //! `wasm_engine_t` and siblings.
 
 use super::super::engine::{wasm_config_t, wasmer_compiler_t, wasmer_engine_t};
+use super::features::wasmer_features_t;
 use super::target_lexicon::wasmer_target_t;
 
 /// Unstable non-standard Wasmer-specific API to update the
@@ -46,6 +47,52 @@ use super::target_lexicon::wasmer_target_t;
 #[no_mangle]
 pub extern "C" fn wasm_config_set_target(config: &mut wasm_config_t, target: Box<wasmer_target_t>) {
     config.target = Some(target);
+}
+
+/// Unstable non-standard Wasmer-specific API to update the
+/// configuration to specify particular features for the engine.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Set the target.
+///     {
+///         wasmer_features_t* features = wasmer_features_new();
+///         wasmer_features_simd(features, true);
+///
+///         wasm_config_set_features(config, features);
+///     }
+///
+///     // Create the engine.
+///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
+///
+///     // Check we have an engine!
+///     assert(engine);
+///
+///     // Free everything.
+///     wasm_engine_delete(engine);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+#[no_mangle]
+pub extern "C" fn wasm_config_set_features(
+    config: &mut wasm_config_t,
+    features: Box<wasmer_features_t>,
+) {
+    config.features = Some(features);
 }
 
 /// Check whether the given compiler is available, i.e. part of this
