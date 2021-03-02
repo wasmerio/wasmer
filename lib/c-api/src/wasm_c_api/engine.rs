@@ -1,23 +1,21 @@
 pub use super::unstable::engine::{
     wasm_config_set_target, wasmer_is_compiler_available, wasmer_is_engine_available,
 };
+#[cfg(feature = "middlewares")]
+pub use super::unstable::middlewares::wasm_config_push_middleware;
+#[cfg(feature = "middlewares")]
+use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
 use wasmer::Engine;
-#[cfg(feature = "middlewares")]
-use wasmer_compiler::ModuleMiddleware;
 #[cfg(feature = "jit")]
 use wasmer_engine_jit::JIT;
 #[cfg(feature = "native")]
 use wasmer_engine_native::Native;
 #[cfg(feature = "object-file")]
 use wasmer_engine_object_file::ObjectFile;
-
-#[cfg(feature = "middlewares")]
-#[cfg(not(feature = "compiler"))]
-compile_error!("middlewares features requires compilers feature");
 
 /// Kind of compilers that can be used by the engines.
 ///
@@ -94,15 +92,6 @@ impl Default for wasmer_engine_t {
     }
 }
 
-/// Opaque representing a middleware.
-///
-#[cfg(feature = "middlewares")]
-#[derive(Debug)]
-#[allow(non_camel_case_types)]
-pub struct wasmer_module_middleware_t {
-    pub(super) inner: Arc<dyn ModuleMiddleware>,
-}
-
 /// A configuration holds the compiler and the engine used by the store.
 ///
 /// cbindgen:ignore
@@ -113,7 +102,7 @@ pub struct wasm_config_t {
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
     #[cfg(feature = "middlewares")]
-    pub(super) middlewares: Vec<wasmer_module_middleware_t>,
+    pub(super) middlewares: Vec<wasmer_middleware_t>,
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
@@ -281,16 +270,6 @@ pub extern "C" fn wasm_config_set_compiler(
 #[no_mangle]
 pub extern "C" fn wasm_config_set_engine(config: &mut wasm_config_t, engine: wasmer_engine_t) {
     config.engine = engine;
-}
-
-// TODO: documentation
-#[cfg(feature = "middlewares")]
-#[no_mangle]
-pub extern "C" fn wasm_config_push_middleware(
-    config: &mut wasm_config_t,
-    middleware: Box<wasmer_module_middleware_t>,
-) {
-    config.middlewares.push(*middleware);
 }
 
 /// An engine is used by the store to drive the compilation and the

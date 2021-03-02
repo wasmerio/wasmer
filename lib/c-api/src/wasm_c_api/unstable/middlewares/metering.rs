@@ -104,8 +104,8 @@
 //! # }
 //! ```
 
-use super::super::super::engine::wasmer_module_middleware_t;
 use super::super::super::instance::wasm_instance_t;
+use super::wasmer_middleware_t;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer_middlewares::{
@@ -189,10 +189,10 @@ pub unsafe extern "C" fn wasmer_metering_set_remaining_points(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_metering_as_middleware(
     metering: Option<Box<wasmer_metering_t>>,
-) -> Option<Box<wasmer_module_middleware_t>> {
+) -> Option<Box<wasmer_middleware_t>> {
     let metering = metering?;
 
-    Some(Box::new(wasmer_module_middleware_t {
+    Some(Box::new(wasmer_middleware_t {
         inner: metering.inner,
     }))
 }
