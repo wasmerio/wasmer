@@ -152,7 +152,9 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::GlobalSet { global_index } => {
             let global_index = GlobalIndex::from_u32(*global_index);
             match state.get_global(builder.func, global_index.as_u32(), environ)? {
-                GlobalVariable::Const(_) => panic!("global #{} is a constant", global_index.as_u32()),
+                GlobalVariable::Const(_) => {
+                    panic!("global #{} is a constant", global_index.as_u32())
+                }
                 GlobalVariable::Memory { gv, offset, ty } => {
                     let global_type = environ.get_global_type(global_index).unwrap();
                     let addr = builder.ins().global_value(environ.pointer_type(), gv);

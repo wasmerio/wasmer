@@ -140,7 +140,7 @@ fn extern_ref_passed_and_returned() -> Result<()> {
 }
 
 #[test]
-fn extern_ref_ref_counting() -> Result<()> {
+fn extern_ref_ref_counting_basic() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
     (func (export "drop") (param $er externref) (result)
@@ -154,6 +154,7 @@ fn extern_ref_ref_counting() -> Result<()> {
     f.call(er.clone())?;
 
     assert_eq!(er.downcast::<u32>().unwrap(), &3);
+    assert_eq!(er.strong_count(), 1);
 
     Ok(())
 }
@@ -219,6 +220,35 @@ fn refs_in_globals() -> Result<()> {
             panic!("Did not find extern ref in the global");
         }
     }
+
+    Ok(())
+}
+
+#[test]
+fn extern_ref_ref_counting_tables() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (global $global (export "global") (mut externref) (ref.null extern))
+    (table $table (export "table") 4 4 externref)
+    (func $insert (param $er externref) (param $idx i32)
+           (table.set $table (local.get $idx) (local.get $er)))
+    (func $intermediate (param $er externref) (param $idx i32)
+          (call $insert (local.get $er) (local.get $idx)))
+    (func $insert_into_table (export "insert_into_table") (param $er externref) (param $idx i32) (result externref)
+          (call $intermediate (local.get $er) (local.get $idx))
+          (local.get $er))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+
+    let f: NativeFunc<(ExternRef, i32), ExternRef> =
+        instance.exports.get_native_function("insert_into_table")?;
+
+    let er = ExternRef::new(3usize);
+
+    let er = f.call(er, 1)?;
+
+    assert_eq!(er.strong_count(), 2);
 
     Ok(())
 }
