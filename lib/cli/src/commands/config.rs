@@ -45,10 +45,16 @@ impl Config {
     }
     fn inner_execute(&self) -> Result<()> {
         let key = "WASMER_DIR";
-        let wasmer_dir = env::var(key).context(format!(
-            "failed to retrieve the {} environment variables",
-            key
-        ))?;
+        let wasmer_dir = env::var(key)
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context(format!(
+                "failed to retrieve the {} environment variables",
+                key
+            ))?;
 
         let prefix = PathBuf::from(wasmer_dir);
 

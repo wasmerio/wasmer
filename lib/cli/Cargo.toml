@@ -10,6 +10,7 @@ license = "MIT"
 readme = "README.md"
 edition = "2018"
 default-run = "wasmer"
+build = "build.rs"
 
 [[bin]]
 name = "wasmer"

@@ -148,14 +148,20 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
         .open(&header_file_path)?;
 
     use std::io::Write;
-    header.write(header_file_src)?;
+    header.write_all(header_file_src)?;
 
     Ok(())
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(
-        env::var("WASMER_DIR").context("Trying to read env var `WASMER_DIR`")?,
+        env::var("WASMER_DIR")
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context("Trying to read env var `WASMER_DIR`")?,
     ))
 }
 

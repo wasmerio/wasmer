@@ -330,6 +330,9 @@ $(info )
 # Building #
 ############
 
+# Not really "all", just the default target that builds enough so make install will go through
+all: build-wasmer build-capi
+
 bench:
 	cargo bench $(compiler_features)
 
@@ -495,7 +498,7 @@ test-packages:
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-engine-jit --release --no-default-features
 	cargo test -p wasmer-compiler --release
-	cargo test -p wasmer-cli --release
+	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
 	cargo test -p wasmer-derive --release
@@ -659,6 +662,44 @@ endif
 	tar -C package -zcvf wasmer.tar.gz bin lib include LICENSE ATTRIBUTIONS
 	mv wasmer.tar.gz dist/
 
+########################
+# (Distro-) Installing #
+########################
+
+DESTDIR ?= /usr/local
+
+install: install-wasmer install-capi-headers install-capi-lib install-capi-staticlib install-pkgconfig install-misc
+
+install-wasmer:
+	install -Dm755 target/release/wasmer $(DESTDIR)/bin/wasmer
+
+install-capi-headers:
+	for header in lib/c-api/*.{h,hh}; do install -Dm644 "$$header" $(DESTDIR)/include/$$(basename $$header); done
+	install -Dm644 lib/c-api/README.md $(DESTDIR)/include/wasmer-README.md
+
+# Currently implemented for linux only. TODO
+install-capi-lib:
+	pkgver=$$(target/release/wasmer --version | cut -d\  -f2) && \
+	shortver="$${pkgver%.*}" && \
+	majorver="$${shortver%.*}" && \
+	install -Dm755 target/release/libwasmer_c_api.so "$(DESTDIR)/lib/libwasmer.so.$$pkgver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$shortver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so.$$majorver" && \
+	ln -sf "libwasmer.so.$$pkgver" "$(DESTDIR)/lib/libwasmer.so"
+
+install-capi-staticlib:
+	install -Dm644 target/release/libwasmer_c_api.a "$(DESTDIR)/lib/libwasmer.a"
+
+install-misc:
+	install -Dm644 LICENSE "$(DESTDIR)"/share/licenses/wasmer/LICENSE
+
+install-pkgconfig:
+	unset WASMER_DIR # Make sure WASMER_INSTALL_PREFIX is set during build
+	target/release/wasmer config --pkg-config | install -Dm644 /dev/stdin "$(DESTDIR)"/lib/pkgconfig/wasmer.pc
+
+install-wasmer-headless-minimal:
+	install -Dm755 target/release/wasmer-headless $(DESTDIR)/bin/wasmer-headless
+
 #################
 # Miscellaneous #
 #################
@@ -680,7 +721,7 @@ lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-cranelift
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-singlepass
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cli
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
 
