@@ -94,6 +94,7 @@
 //!
 //!         // There is 6 points left!
 //!         assert(wasmer_metering_get_remaining_points(instance) == 6);
+//!         assert(wasmer_metering_points_are_exhausted(instance) == false);
 //!     }
 //!
 //!     // Let's call `add_two` for the second time!
@@ -104,6 +105,7 @@
 //!
 //!         // There is 2 points left!
 //!         assert(wasmer_metering_get_remaining_points(instance) == 2);
+//!         assert(wasmer_metering_points_are_exhausted(instance) == false);
 //!     }
 //!
 //!     // Let's call `add_two` for the third time!
@@ -113,7 +115,7 @@
 //!         assert(trap != NULL);
 //!
 //!         // There is 0 point left… they are exhausted.
-//!         assert(wasmer_metering_get_remaining_points(instance) == 0);
+//!         assert(wasmer_metering_points_are_exhausted(instance) == true);
 //!     }
 //!     
 //!     wasm_instance_delete(instance);
@@ -188,8 +190,10 @@ pub extern "C" fn wasmer_metering_new(
 #[no_mangle]
 pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
 
-/// Returns the remaining metering points. Zero means points are
-/// exhausted, otherwise it returns the number of points.
+/// Returns the remaining metering points. `u64::MAX` means
+/// points are exhausted, otherwise it returns the number of
+/// points. Notice that it could include zero! Zero doesn't mean
+/// points are exhausted _yet_.
 ///
 /// # Example
 ///
@@ -198,8 +202,21 @@ pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t
 pub extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_t) -> u64 {
     match get_remaining_points(&instance.inner) {
         MeteringPoints::Remaining(value) => value,
-        MeteringPoints::Exhausted => 0,
+        MeteringPoints::Exhausted => std::u64::MAX,
     }
+}
+
+/// Returns true if the remaning points are exhausted, false otherwise.
+///
+/// # Example
+///
+/// See module's documentation.
+#[no_mangle]
+pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_t) -> bool {
+    matches!(
+        get_remaining_points(&instance.inner),
+        MeteringPoints::Exhausted,
+    )
 }
 
 /// Set a new amount of points for the given metering middleware.

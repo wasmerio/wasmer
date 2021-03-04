@@ -820,6 +820,8 @@ uint64_t wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
 struct wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit,
                                               wasmer_metering_cost_function_t cost_function);
 
+bool wasmer_metering_points_are_exhausted(const wasm_instance_t *instance);
+
 void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
 
 void wasmer_module_name(const wasm_module_t *module, wasm_name_t *out);

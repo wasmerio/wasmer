@@ -523,6 +523,7 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_metering_delete")
         .exclude_item("wasmer_metering_get_remaining_points")
         .exclude_item("wasmer_metering_new")
+        .exclude_item("wasmer_metering_points_are_exhausted")
         .exclude_item("wasmer_metering_set_remaining_points")
         .exclude_item("wasmer_metering_t")
         .exclude_item("wasmer_middleware_t")
