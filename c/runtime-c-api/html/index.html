@@ -93,7 +93,7 @@ Usage</h1>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Instantiate!</span></div>
 <div class="line">    <a class="code" href="structwasmer__instance__t.html">wasmer_instance_t</a> *instance = NULL;</div>
-<div class="line">    <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> instantiation_result = <a class="code" href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a>(&amp;instance, bytes, len, imports, 0);</div>
+<div class="line">    <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> instantiation_result = <a class="code" href="wasmer_8h.html#adfd8ba25ce4437f739447ebca9a4cc97">wasmer_instantiate</a>(&amp;instance, bytes, len, imports, 0);</div>
 <div class="line"> </div>
 <div class="line">    assert(instantiation_result == <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">WASMER_OK</a>);</div>
 <div class="line"> </div>
@@ -103,12 +103,12 @@ Usage</h1>
 <div class="line">    <span class="comment">// Value of argument #1 is `7i32`.</span></div>
 <div class="line">    <a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> argument_one;</div>
 <div class="line">    argument_one.<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> = <a class="code" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>;</div>
-<div class="line">    argument_one.<a class="code" href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a> = 7;</div>
+<div class="line">    argument_one.<a class="code" href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a> = 7;</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Value of argument #2 is `8i32`.</span></div>
 <div class="line">    <a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> argument_two;</div>
 <div class="line">    argument_two.<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> = <a class="code" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>;</div>
-<div class="line">    argument_two.<a class="code" href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a> = 8;</div>
+<div class="line">    argument_two.<a class="code" href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a> = 8;</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Prepare the arguments.</span></div>
 <div class="line">    <a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> arguments[] = {argument_one, argument_two};</div>
@@ -118,7 +118,7 @@ Usage</h1>
 <div class="line">    <a class="code" href="structwasmer__value__t.html">wasmer_value_t</a> results[] = {result_one};</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Call the `sum` function with the prepared arguments and the return value.</span></div>
-<div class="line">    <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> call_result = <a class="code" href="wasmer_8h.html#a05d595a60b647088d5e71f1d2a1fdc81">wasmer_instance_call</a>(instance, <span class="stringliteral">&quot;sum&quot;</span>, arguments, 2, results, 1);</div>
+<div class="line">    <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a> call_result = <a class="code" href="wasmer_8h.html#a0cc7d0f9de0dea399a9427a91b34574d">wasmer_instance_call</a>(instance, <span class="stringliteral">&quot;sum&quot;</span>, arguments, 2, results, 1);</div>
 <div class="line"> </div>
 <div class="line">    <span class="comment">// Let&#39;s display the result.</span></div>
 <div class="line">    printf(<span class="stringliteral">&quot;Call result:  %d\n&quot;</span>, call_result);</div>
@@ -128,7 +128,7 @@ Usage</h1>
 <div class="line">    assert(results[0].value.I32 == 15);</div>
 <div class="line">    assert(call_result == <a class="code" href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">WASMER_OK</a>);</div>
 <div class="line"> </div>
-<div class="line">    <a class="code" href="wasmer_8h.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy</a>(instance);</div>
+<div class="line">    <a class="code" href="wasmer_8h.html#a4b0de11e91ae0256c1bf6ce0440cc161">wasmer_instance_destroy</a>(instance);</div>
 <div class="line"> </div>
 <div class="line">    <span class="keywordflow">return</span> 0;</div>
 <div class="line">}</div>
@@ -147,19 +147,19 @@ License</h1>
 </div></div><!-- PageDoc -->
 </div><!-- contents -->
 </div><!-- doc-content -->
-<div class="ttc" id="awasmer_8h_html_a851ffc7c0de470300c66891f571878a5"><div class="ttname"><a href="wasmer_8h.html#a851ffc7c0de470300c66891f571878a5">wasmer_instantiate</a></div><div class="ttdeci">wasmer_result_t wasmer_instantiate(wasmer_instance_t **instance, uint8_t *wasm_bytes, uint32_t wasm_bytes_len, wasmer_import_t *imports, int imports_len)</div></div>
 <div class="ttc" id="awasmer_8h_html_ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532"><div class="ttname"><a href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847a78f894307d2f7f59c52558cf0a62f532">WASMER_OK</a></div><div class="ttdeci">@ WASMER_OK</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00131">wasmer.h:131</a></div></div>
 <div class="ttc" id="astructwasmer__value__t_html"><div class="ttname"><a href="structwasmer__value__t.html">wasmer_value_t</a></div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00260">wasmer.h:260</a></div></div>
+<div class="ttc" id="awasmer_8h_html_adfd8ba25ce4437f739447ebca9a4cc97"><div class="ttname"><a href="wasmer_8h.html#adfd8ba25ce4437f739447ebca9a4cc97">wasmer_instantiate</a></div><div class="ttdeci">enum wasmer_result_t wasmer_instantiate(struct wasmer_instance_t **instance, uint8_t *wasm_bytes, uint32_t wasm_bytes_len, struct wasmer_import_t *imports, int imports_len)</div></div>
 <div class="ttc" id="astructwasmer__import__t_html"><div class="ttname"><a href="structwasmer__import__t.html">wasmer_import_t</a></div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00336">wasmer.h:336</a></div></div>
 <div class="ttc" id="awasmer_8h_html_ab3c4192a4579aa2510cbbfdb0a3d7847"><div class="ttname"><a href="wasmer_8h.html#ab3c4192a4579aa2510cbbfdb0a3d7847">wasmer_result_t</a></div><div class="ttdeci">wasmer_result_t</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00127">wasmer.h:127</a></div></div>
 <div class="ttc" id="astructwasmer__value__t_html_ade0da74bca0aa810f7f45069ff6e239d"><div class="ttname"><a href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">wasmer_value_t::tag</a></div><div class="ttdeci">wasmer_value_tag tag</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00264">wasmer.h:264</a></div></div>
 <div class="ttc" id="awasmer_8h_html_aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440"><div class="ttname"><a href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a></div><div class="ttdeci">@ WASM_I32</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00151">wasmer.h:151</a></div></div>
-<div class="ttc" id="awasmer_8h_html_a05d595a60b647088d5e71f1d2a1fdc81"><div class="ttname"><a href="wasmer_8h.html#a05d595a60b647088d5e71f1d2a1fdc81">wasmer_instance_call</a></div><div class="ttdeci">wasmer_result_t wasmer_instance_call(wasmer_instance_t *instance, const char *name, const wasmer_value_t *params, uint32_t params_len, wasmer_value_t *results, uint32_t results_len)</div></div>
+<div class="ttc" id="awasmer_8h_html_a4b0de11e91ae0256c1bf6ce0440cc161"><div class="ttname"><a href="wasmer_8h.html#a4b0de11e91ae0256c1bf6ce0440cc161">wasmer_instance_destroy</a></div><div class="ttdeci">void wasmer_instance_destroy(struct wasmer_instance_t *instance)</div></div>
 <div class="ttc" id="astructwasmer__instance__t_html"><div class="ttname"><a href="structwasmer__instance__t.html">wasmer_instance_t</a></div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00180">wasmer.h:180</a></div></div>
-<div class="ttc" id="astructwasmer__value__t_html_a8091c4a097af1f0040a32396be8c7af6"><div class="ttname"><a href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">wasmer_value_t::value</a></div><div class="ttdeci">wasmer_value value</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00268">wasmer.h:268</a></div></div>
-<div class="ttc" id="awasmer_8h_html_afab1426069281f315cc1d140c2b5d105"><div class="ttname"><a href="wasmer_8h.html#afab1426069281f315cc1d140c2b5d105">wasmer_instance_destroy</a></div><div class="ttdeci">void wasmer_instance_destroy(wasmer_instance_t *instance)</div></div>
+<div class="ttc" id="awasmer_8h_html_a0cc7d0f9de0dea399a9427a91b34574d"><div class="ttname"><a href="wasmer_8h.html#a0cc7d0f9de0dea399a9427a91b34574d">wasmer_instance_call</a></div><div class="ttdeci">enum wasmer_result_t wasmer_instance_call(struct wasmer_instance_t *instance, const char *name, const struct wasmer_value_t *params, uint32_t params_len, struct wasmer_value_t *results, uint32_t results_len)</div></div>
 <div class="ttc" id="aunionwasmer__value_html_a2bdcc05e6d042bc646c1c3f1eee1756c"><div class="ttname"><a href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">wasmer_value::I32</a></div><div class="ttdeci">int32_t I32</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00232">wasmer.h:232</a></div></div>
 <div class="ttc" id="awasmer_8h_html"><div class="ttname"><a href="wasmer_8h.html">wasmer.h</a></div></div>
+<div class="ttc" id="astructwasmer__value__t_html_aa0649d12c0f00824a5117d073a601561"><div class="ttname"><a href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">wasmer_value_t::value</a></div><div class="ttdeci">union wasmer_value value</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00268">wasmer.h:268</a></div></div>
 
 <div id="nav-path" class="navpath" role="footer">
   Generated by

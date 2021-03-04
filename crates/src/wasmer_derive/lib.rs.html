@@ -330,7 +330,7 @@
             ..
         }*/) =&gt; ,
         Enum(ref e) =&gt; impl_wasmer_env_for_enum(struct_name, &amp;e.variants, &amp;input.attrs),
-        _ =&gt; abort_call_site!(&quot;structopt only supports non-tuple structs and enums&quot;),
+        _ =&gt; abort_call_site!(&quot;Clap only supports non-tuple structs and enums&quot;),
     }*/</span>
 }
 

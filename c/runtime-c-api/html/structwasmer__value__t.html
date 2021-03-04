@@ -63,8 +63,8 @@ $(document).ready(function(){initNavTree('structwasmer__value__t.html',''); init
 Data Fields</h2></td></tr>
 <tr class="memitem:ade0da74bca0aa810f7f45069ff6e239d"><td class="memItemLeft" align="right" valign="top"><a class="el" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ec">wasmer_value_tag</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a></td></tr>
 <tr class="separator:ade0da74bca0aa810f7f45069ff6e239d"><td class="memSeparator" colspan="2">&#160;</td></tr>
-<tr class="memitem:a8091c4a097af1f0040a32396be8c7af6"><td class="memItemLeft" align="right" valign="top"><a class="el" href="unionwasmer__value.html">wasmer_value</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">value</a></td></tr>
-<tr class="separator:a8091c4a097af1f0040a32396be8c7af6"><td class="memSeparator" colspan="2">&#160;</td></tr>
+<tr class="memitem:aa0649d12c0f00824a5117d073a601561"><td class="memItemLeft" align="right" valign="top">union <a class="el" href="unionwasmer__value.html">wasmer_value</a>&#160;</td><td class="memItemRight" valign="bottom"><a class="el" href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">value</a></td></tr>
+<tr class="separator:aa0649d12c0f00824a5117d073a601561"><td class="memSeparator" colspan="2">&#160;</td></tr>
 </table>
 <a name="details" id="details"></a><h2 class="groupheader">Detailed Description</h2>
 <div class="textblock"><p>Represents a WebAssembly type and value pair, i.e. <code>wasmer_value_tag</code> and <code><a class="el" href="unionwasmer__value.html">wasmer_value</a></code>. Since the latter is an union, it's the safe way to read or write a WebAssembly value in C.</p>
@@ -77,7 +77,7 @@ Data Fields</h2></td></tr>
 <div class="line"> </div>
 <div class="line"><span class="comment">// Read a WebAssembly value.</span></div>
 <div class="line"><span class="keywordflow">if</span> (wasm_value.<a class="code" href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">tag</a> == <a class="code" href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a>) {</div>
-<div class="line">    int32_t x = wasm_value.<a class="code" href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a>;</div>
+<div class="line">    int32_t x = wasm_value.<a class="code" href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">value</a>.<a class="code" href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">I32</a>;</div>
 <div class="line">    <span class="comment">// …</span></div>
 <div class="line">}</div>
 </div><!-- fragment --> 
@@ -100,14 +100,14 @@ Data Fields</h2></td></tr>
 
 </div>
 </div>
-<a id="a8091c4a097af1f0040a32396be8c7af6"></a>
-<h2 class="memtitle"><span class="permalink"><a href="#a8091c4a097af1f0040a32396be8c7af6">&#9670;&nbsp;</a></span>value</h2>
+<a id="aa0649d12c0f00824a5117d073a601561"></a>
+<h2 class="memtitle"><span class="permalink"><a href="#aa0649d12c0f00824a5117d073a601561">&#9670;&nbsp;</a></span>value</h2>
 
 <div class="memitem">
 <div class="memproto">
       <table class="memname">
         <tr>
-          <td class="memname"><a class="el" href="unionwasmer__value.html">wasmer_value</a> wasmer_value_t::value</td>
+          <td class="memname">union <a class="el" href="unionwasmer__value.html">wasmer_value</a> wasmer_value_t::value</td>
         </tr>
       </table>
 </div><div class="memdoc">
@@ -125,8 +125,8 @@ Data Fields</h2></td></tr>
 <div class="ttc" id="astructwasmer__value__t_html"><div class="ttname"><a href="structwasmer__value__t.html">wasmer_value_t</a></div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00260">wasmer.h:260</a></div></div>
 <div class="ttc" id="astructwasmer__value__t_html_ade0da74bca0aa810f7f45069ff6e239d"><div class="ttname"><a href="structwasmer__value__t.html#ade0da74bca0aa810f7f45069ff6e239d">wasmer_value_t::tag</a></div><div class="ttdeci">wasmer_value_tag tag</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00264">wasmer.h:264</a></div></div>
 <div class="ttc" id="awasmer_8h_html_aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440"><div class="ttname"><a href="wasmer_8h.html#aa63a7da088760a79a8f9c5f0879369ecabd706ef1b12a0f58c838b4425a1de440">WASM_I32</a></div><div class="ttdeci">@ WASM_I32</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00151">wasmer.h:151</a></div></div>
-<div class="ttc" id="astructwasmer__value__t_html_a8091c4a097af1f0040a32396be8c7af6"><div class="ttname"><a href="structwasmer__value__t.html#a8091c4a097af1f0040a32396be8c7af6">wasmer_value_t::value</a></div><div class="ttdeci">wasmer_value value</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00268">wasmer.h:268</a></div></div>
 <div class="ttc" id="aunionwasmer__value_html_a2bdcc05e6d042bc646c1c3f1eee1756c"><div class="ttname"><a href="unionwasmer__value.html#a2bdcc05e6d042bc646c1c3f1eee1756c">wasmer_value::I32</a></div><div class="ttdeci">int32_t I32</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00232">wasmer.h:232</a></div></div>
+<div class="ttc" id="astructwasmer__value__t_html_aa0649d12c0f00824a5117d073a601561"><div class="ttname"><a href="structwasmer__value__t.html#aa0649d12c0f00824a5117d073a601561">wasmer_value_t::value</a></div><div class="ttdeci">union wasmer_value value</div><div class="ttdef"><b>Definition:</b> <a href="wasmer_8h_source.html#l00268">wasmer.h:268</a></div></div>
 
 <div id="nav-path" class="navpath" role="footer">
   Generated by
