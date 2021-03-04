@@ -129,7 +129,7 @@ typedef enum wasmer_engine_t {
   OBJECT_FILE = 2,
 } wasmer_engine_t;
 
-typedef enum {
+typedef enum wasmer_parser_operator_t {
   Unreachable,
   Nop,
   Block,
@@ -664,7 +664,7 @@ typedef struct wasmer_named_extern_vec_t {
 } wasmer_named_extern_vec_t;
 #endif
 
-typedef uint64_t (*wasmer_metering_cost_function_t)(wasmer_parser_operator_t operator);
+typedef uint64_t (*wasmer_metering_cost_function_t)(enum wasmer_parser_operator_t operator);
 
 #ifdef __cplusplus
 extern "C" {
@@ -760,7 +760,7 @@ bool wasi_get_unordered_imports(const wasm_store_t *store,
 enum wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
-void wasm_config_push_middleware(wasm_config_t *config, wasmer_middleware_t *middleware);
+void wasm_config_push_middleware(wasm_config_t *config, struct wasmer_middleware_t *middleware);
 
 #if defined(WASMER_COMPILER_ENABLED)
 void wasm_config_set_compiler(wasm_config_t *config, enum wasmer_compiler_t compiler);
@@ -811,14 +811,14 @@ int wasmer_last_error_length(void);
 
 int wasmer_last_error_message(char *buffer, int length);
 
-wasmer_middleware_t *wasmer_metering_as_middleware(wasmer_metering_t *metering);
+struct wasmer_middleware_t *wasmer_metering_as_middleware(struct wasmer_metering_t *metering);
 
-void wasmer_metering_delete(wasmer_metering_t *_metering);
+void wasmer_metering_delete(struct wasmer_metering_t *_metering);
 
 uint64_t wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
 
-wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit,
-                                       wasmer_metering_cost_function_t cost_function);
+struct wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit,
+                                              wasmer_metering_cost_function_t cost_function);
 
 void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
 
