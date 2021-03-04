@@ -286,7 +286,7 @@ pub struct wasm_engine_t {
 
 // Compiler JIT
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
+use wasmer::CompilerConfig;
 #[cfg(feature = "compiler")]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {

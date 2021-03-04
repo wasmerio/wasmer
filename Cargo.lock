@@ -2354,7 +2354,6 @@ dependencies = [
  "thiserror",
  "typetag",
  "wasmer",
- "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
