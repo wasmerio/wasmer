@@ -12,8 +12,8 @@ compile_error!("The `middlewares` feature requires the `compiler` feature to be 
 
 /// Opaque representing any kind of middleware.
 ///
-/// It's used by `wasm_config_push_middleware`. A specific middleware
-/// is transformed into this type to get a generic middleware. See for
+/// Used by `wasm_config_push_middleware`. A specific middleware is
+/// transformed into this type to get a generic middleware. See for
 /// example
 /// [`wasmer_metering_as_middleware`][metering::wasmer_metering_as_middleware].
 #[derive(Debug)]

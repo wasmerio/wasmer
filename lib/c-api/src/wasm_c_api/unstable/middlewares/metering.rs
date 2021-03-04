@@ -223,9 +223,9 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 ///
 /// # Example
 ///
-/// This example is pointless as the number of points aren't updated
-/// by the WebAssembly module execution, it only illustrates the
-/// `wasmer_metering_set_remaining_points` function.
+/// This example only illustrates the
+/// `wasmer_metering_set_remaining_points` function, as the number of
+/// points aren't updated by the WebAssembly module execution
 ///
 /// ```rust
 /// # use inline_c::assert_c;
@@ -242,7 +242,7 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 /// }
 ///
 /// int main() {
-///     // Set the initial amount of points to 10.
+///     // Set the initial amount of points to 7.
 ///     wasmer_metering_t* metering = wasmer_metering_new(7, cost_function);
 ///
 ///     // Consume `metering` to produce `middleware`.
