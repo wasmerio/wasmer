@@ -2,39 +2,39 @@
 
 use crate::store::{CompilerOptions, EngineType};
 use anyhow::{Context, Result};
+use clap::Clap;
 use std::env;
 use std::fs;
 use std::path::{Path, PathBuf};
 use std::process::Command;
-use structopt::StructOpt;
 use wasmer::*;
 
 const WASMER_MAIN_C_SOURCE: &[u8] = include_bytes!("wasmer_create_exe_main.c");
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 /// The options for the `wasmer create-exe` subcommand
 pub struct CreateExe {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 
-    #[structopt(short = "m", multiple = true)]
+    #[clap(short = 'm', multiple = true)]
     cpu_features: Vec<CpuFeature>,
 
     /// Additional libraries to link against.
     /// This is useful for fixing linker errors that may occur on some systems.
-    #[structopt(short = "l", multiple = true)]
+    #[clap(short = 'l', multiple = true)]
     libraries: Vec<String>,
 }
 
