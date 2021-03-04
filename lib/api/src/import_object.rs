@@ -145,20 +145,6 @@ impl IntoIterator for ImportObject {
 
 impl fmt::Debug for ImportObject {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        enum SecretOption {
-            None,
-            Some,
-        }
-
-        impl fmt::Debug for SecretOption {
-            fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-                match self {
-                    Self::None => write!(f, "None"),
-                    Self::Some => write!(f, "Some(...)"),
-                }
-            }
-        }
-
         enum SecretMap {
             Empty,
             Some(usize),

@@ -1,4 +1,5 @@
 pub mod engine;
+pub mod features;
 #[cfg(feature = "middlewares")]
 pub mod middlewares;
 pub mod module;

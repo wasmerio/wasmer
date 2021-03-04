@@ -1,6 +1,8 @@
 pub use super::unstable::engine::{
-    wasm_config_set_target, wasmer_is_compiler_available, wasmer_is_engine_available,
+    wasm_config_set_features, wasm_config_set_target, wasmer_is_compiler_available,
+    wasmer_is_engine_available,
 };
+use super::unstable::features::wasmer_features_t;
 #[cfg(feature = "middlewares")]
 pub use super::unstable::middlewares::wasm_config_push_middleware;
 #[cfg(feature = "middlewares")]
@@ -103,6 +105,7 @@ pub struct wasm_config_t {
     compiler: wasmer_compiler_t,
     #[cfg(feature = "middlewares")]
     pub(super) middlewares: Vec<wasmer_middleware_t>,
+    pub(super) features: Option<Box<wasmer_features_t>>,
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
@@ -489,6 +492,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                                 builder = builder.target(target.inner);
                             }
 
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
                             Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `jit` feature.");
@@ -502,6 +509,10 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
                             }
 
                             Arc::new(builder.engine())
@@ -519,6 +530,10 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
                             }
 
                             Arc::new(builder.engine())
@@ -540,6 +555,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                                 builder = builder.target(target.inner);
                             }
 
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
                             Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `jit` feature.");
@@ -555,6 +574,10 @@ pub extern "C" fn wasm_engine_new_with_config(
                                 builder = builder.target(target.inner);
                             }
 
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
                             Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `native` feature.");
@@ -568,6 +591,10 @@ pub extern "C" fn wasm_engine_new_with_config(
 
                             if let Some(target) = config.target {
                                 builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
                             }
 
                             Arc::new(builder.engine())
