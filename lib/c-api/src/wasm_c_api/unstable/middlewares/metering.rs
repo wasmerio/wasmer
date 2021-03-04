@@ -1,5 +1,5 @@
 //! Unstable non-standard Wasmer-specific API that contains everything
-//! to create a the middleware metering API.
+//! to create the middleware metering API.
 //!
 //! The metering middleware is used for tracking how many operators
 //! are executed in total and putting a limit on the total number of
@@ -35,7 +35,7 @@
 //!     // Create a new metering middleware, with our cost function.
 //!     wasmer_metering_t* metering = wasmer_metering_new(10, cost_function);
 //!
-//!     // Consume `metering` to produce a generic `wasmer_middle_t` value.
+//!     // Consume `metering` to produce a generic `wasmer_middleware_t` value.
 //!     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);
 //!     
 //!     // Create a new configuration, and push the middleware in it.
@@ -175,7 +175,7 @@ pub unsafe extern "C" fn wasmer_metering_points_delete(
 ) {
 }
 
-/// Returns the number of remaining points if any, otherwise returned
+/// Returns the number of remaining points if any, otherwise returns
 /// the given `exhausted` value if points are exhausted.
 ///
 /// # Example
