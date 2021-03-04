@@ -1,33 +1,33 @@
 use crate::store::{EngineType, StoreOptions};
 use crate::warning;
 use anyhow::{Context, Result};
+use clap::Clap;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use wasmer::*;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Output path for generated header file
-    #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
+    #[clap(name = "HEADER PATH", long = "header", parse(from_os_str))]
     header_path: Option<PathBuf>,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 
-    #[structopt(short = "m", multiple = true)]
+    #[clap(short = 'm', multiple = true)]
     cpu_features: Vec<CpuFeature>,
 }
 
