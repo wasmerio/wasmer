@@ -18,8 +18,8 @@ use wasmer_compiler::{WasmError, WasmResult};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
-    Type as WasmerType,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type as WasmerType,
 };
 use wasmer_vm::VMBuiltinFunctionIndex;
 use wasmer_vm::VMOffsets;
@@ -1527,5 +1527,18 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn get_local_type(&self, local_index: u32) -> Option<WasmerType> {
         self.type_stack.get(local_index as usize).cloned()
+    }
+
+    fn get_local_types(&self) -> &[WasmerType] {
+        &self.type_stack
+    }
+
+    fn get_function_type(&self, function_index: FunctionIndex) -> Option<&FunctionType> {
+        let sig_idx = self.module.functions.get(function_index)?;
+        Some(&self.module.signatures[*sig_idx])
+    }
+
+    fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType> {
+        self.module.signatures.get(sig_index)
     }
 }

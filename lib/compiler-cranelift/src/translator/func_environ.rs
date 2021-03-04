@@ -15,8 +15,8 @@ use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::wasmparser::{Operator, Type};
 use wasmer_compiler::WasmResult;
 use wasmer_types::{
-    FunctionIndex, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex, TableIndex,
-    Type as WasmerType,
+    FunctionIndex, FunctionType, GlobalIndex, LocalFunctionIndex, MemoryIndex, SignatureIndex,
+    TableIndex, Type as WasmerType,
 };
 
 /// The value of a WebAssembly global variable.
@@ -499,4 +499,13 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Get the type of the local at the given index.
     fn get_local_type(&self, local_index: u32) -> Option<WasmerType>;
+
+    /// Get the types of all the current locals.
+    fn get_local_types(&self) -> &[WasmerType];
+
+    /// Get the type of the local at the given index.
+    fn get_function_type(&self, function_index: FunctionIndex) -> Option<&FunctionType>;
+
+    /// Get the type of a function with the given signature index.
+    fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
 }
