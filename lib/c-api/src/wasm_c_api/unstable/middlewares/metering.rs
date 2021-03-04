@@ -16,14 +16,18 @@
 //! // Define our “cost function”.
 //! uint64_t cost_function(wasmer_parser_operator_t operator) {
 //!     switch(operator) {
+//!         // `local.get` and `i32.const` cost 1 unit.
+//!         case LocalGet:
 //!         case I32Const:
-//!         case I64Const:
-//!         case F32Const:
-//!         case F64Const:
-//!             return 0;
-//!
-//!         default:
 //!             return 1;
+//!
+//!         // `i32.add` costs 2 units.
+//!         case I32Add:
+//!             return 2;
+//!
+//!         // The other operations are free.
+//!         default:
+//!             return 0;
 //!     }
 //! }
 //!
@@ -51,8 +55,6 @@
 //!         "  (func $add_two_f (type $add_t) (param $value i32) (result i32)\n"
 //!         "    local.get $value\n"
 //!         "    i32.const 1\n"
-//!         "    i32.add\n"
-//!         "    i32.const 1\n"
 //!         "    i32.add)\n"
 //!         "  (export \"add_two\" (func $add_two_f)))"
 //!     );
@@ -78,7 +80,7 @@
 //!     const wasm_func_t* add_two = wasm_extern_as_func(exports.data[0]);
 //!     assert(add_two);
 //!
-//!     wasm_val_t arguments[1] = { WASM_I32_VAL(40) };
+//!     wasm_val_t arguments[1] = { WASM_I32_VAL(41) };
 //!     wasm_val_t results[1] = { WASM_INIT_VAL };
 //!
 //!     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
