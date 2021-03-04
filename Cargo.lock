@@ -1134,6 +1134,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "libloading"
+version = "0.7.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6f84d96438c15fcd6c3f244c8fce01d1e2b9c6b5623e9c711dc9286d8fc92d6a"
+dependencies = [
+ "cfg-if 1.0.0",
+ "winapi",
+]
+
+[[package]]
 name = "llvm-sys"
 version = "110.0.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1619,9 +1629,9 @@ dependencies = [
 
 [[package]]
 name = "ref_thread_local"
-version = "0.0.0"
+version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d813022b2e00774a48eaf43caaa3c20b45f040ba8cbf398e2e8911a06668dbe6"
+checksum = "13ed77408f669435578692a16ae54efbbc662f9727c85315d9beb319be098d94"
 
 [[package]]
 name = "regalloc"
