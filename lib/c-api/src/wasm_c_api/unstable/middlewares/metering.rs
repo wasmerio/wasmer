@@ -13,9 +13,23 @@
 //! #    (assert_c! {
 //! # #include "tests/wasmer_wasm.h"
 //! #
+//! // Define our “cost function”.
+//! uint64_t cost_function(wasmer_parser_operator_t operator) {
+//!     switch(operator) {
+//!         case I32Const:
+//!         case I64Const:
+//!         case F32Const:
+//!         case F64Const:
+//!             return 0;
+//!
+//!         default:
+//!             return 1;
+//!     }
+//! }
+//!
 //! int main() {
-//!     // Create a new metering middleware.
-//!     wasmer_metering_t* metering = wasmer_metering_new(10);
+//!     // Create a new metering middleware, with our cost function.
+//!     wasmer_metering_t* metering = wasmer_metering_new(10, cost_function);
 //!
 //!     // Consume `metering` to produce a generic `wasmer_middle_t` value.
 //!     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);
@@ -261,9 +275,17 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
 /// #    (assert_c! {
 /// # #include "tests/wasmer_wasm.h"
 /// #
+/// // Define a dummy “cost function”.
+/// uint64_t cost_function(wasmer_parser_operator_t operator) {
+///     switch(operator) {
+///         default:
+///             return 0;
+///     }
+/// }
+///
 /// int main() {
 ///     // Set the initial amount of points to 10.
-///     wasmer_metering_t* metering = wasmer_metering_new(7);
+///     wasmer_metering_t* metering = wasmer_metering_new(7, cost_function);
 ///
 ///     // Consume `metering` to produce `middleware`.
 ///     wasmer_middleware_t* middleware = wasmer_metering_as_middleware(metering);
