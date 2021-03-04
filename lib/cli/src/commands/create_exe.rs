@@ -148,14 +148,20 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
         .open(&header_file_path)?;
 
     use std::io::Write;
-    header.write(header_file_src)?;
+    header.write_all(header_file_src)?;
 
     Ok(())
 }
 
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(
-        env::var("WASMER_DIR").context("Trying to read env var `WASMER_DIR`")?,
+        env::var("WASMER_DIR")
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context("Trying to read env var `WASMER_DIR`")?,
     ))
 }
 
@@ -279,9 +285,13 @@ impl LinkCode {
             command
         };
         // Add libraries required per platform.
-        // We need userenv, sockets (Ws2_32), and advapi32 to call a system call (for random numbers I think).
+        // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
         #[cfg(windows)]
-        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32");
+        let command = command
+            .arg("-luserenv")
+            .arg("-lWs2_32")
+            .arg("-ladvapi32")
+            .arg("-lbcrypt");
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
