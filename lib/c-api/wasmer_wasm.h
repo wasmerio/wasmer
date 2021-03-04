@@ -99,7 +99,7 @@
 #include "wasm.h"
 
 #if defined(WASMER_WASI_ENABLED)
-typedef enum {
+typedef enum wasi_version_t {
 #if defined(WASMER_WASI_ENABLED)
   INVALID_VERSION = -1,
 #endif
@@ -116,14 +116,14 @@ typedef enum {
 #endif
 
 #if defined(WASMER_COMPILER_ENABLED)
-typedef enum {
+typedef enum wasmer_compiler_t {
   CRANELIFT = 0,
   LLVM = 1,
   SINGLEPASS = 2,
 } wasmer_compiler_t;
 #endif
 
-typedef enum {
+typedef enum wasmer_engine_t {
   JIT = 0,
   NATIVE = 1,
   OBJECT_FILE = 2,
@@ -658,9 +658,9 @@ typedef struct wasmer_target_t wasmer_target_t;
 typedef struct wasmer_triple_t wasmer_triple_t;
 
 #if defined(WASMER_WASI_ENABLED)
-typedef struct {
+typedef struct wasmer_named_extern_vec_t {
   uintptr_t size;
-  wasmer_named_extern_t **data;
+  struct wasmer_named_extern_t **data;
 } wasmer_named_extern_vec_t;
 #endif
 
@@ -671,77 +671,77 @@ extern "C" {
 #endif // __cplusplus
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_arg(wasi_config_t *config, const char *arg);
+void wasi_config_arg(struct wasi_config_t *config, const char *arg);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_capture_stderr(wasi_config_t *config);
+void wasi_config_capture_stderr(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_capture_stdout(wasi_config_t *config);
+void wasi_config_capture_stdout(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_env(wasi_config_t *config, const char *key, const char *value);
+void wasi_config_env(struct wasi_config_t *config, const char *key, const char *value);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stderr(wasi_config_t *config);
+void wasi_config_inherit_stderr(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stdin(wasi_config_t *config);
+void wasi_config_inherit_stdin(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_config_inherit_stdout(wasi_config_t *config);
+void wasi_config_inherit_stdout(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-bool wasi_config_mapdir(wasi_config_t *config, const char *alias, const char *dir);
+bool wasi_config_mapdir(struct wasi_config_t *config, const char *alias, const char *dir);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-wasi_config_t *wasi_config_new(const char *program_name);
+struct wasi_config_t *wasi_config_new(const char *program_name);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-bool wasi_config_preopen_dir(wasi_config_t *config, const char *dir);
+bool wasi_config_preopen_dir(struct wasi_config_t *config, const char *dir);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasi_env_delete(wasi_env_t *_state);
+void wasi_env_delete(struct wasi_env_t *_state);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-wasi_env_t *wasi_env_new(wasi_config_t *config);
+struct wasi_env_t *wasi_env_new(struct wasi_config_t *config);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-intptr_t wasi_env_read_stderr(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+intptr_t wasi_env_read_stderr(struct wasi_env_t *env, char *buffer, uintptr_t buffer_len);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-intptr_t wasi_env_read_stdout(wasi_env_t *env, char *buffer, uintptr_t buffer_len);
+intptr_t wasi_env_read_stdout(struct wasi_env_t *env, char *buffer, uintptr_t buffer_len);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
 DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-bool wasi_env_set_instance(wasi_env_t *_env,
+bool wasi_env_set_instance(struct wasi_env_t *_env,
                            const wasm_instance_t *_instance);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
 DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
-void wasi_env_set_memory(wasi_env_t *_env,
+void wasi_env_set_memory(struct wasi_env_t *_env,
                          const wasm_memory_t *_memory);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
 bool wasi_get_imports(const wasm_store_t *store,
                       const wasm_module_t *module,
-                      const wasi_env_t *wasi_env,
+                      const struct wasi_env_t *wasi_env,
                       wasm_extern_vec_t *imports);
 #endif
 
@@ -752,57 +752,58 @@ wasm_func_t *wasi_get_start_function(wasm_instance_t *instance);
 #if defined(WASMER_WASI_ENABLED)
 bool wasi_get_unordered_imports(const wasm_store_t *store,
                                 const wasm_module_t *module,
-                                const wasi_env_t *wasi_env,
-                                wasmer_named_extern_vec_t *imports);
+                                const struct wasi_env_t *wasi_env,
+                                struct wasmer_named_extern_vec_t *imports);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
+enum wasi_version_t wasi_get_wasi_version(const wasm_module_t *module);
 #endif
 
 void wasm_config_push_middleware(wasm_config_t *config, wasmer_middleware_t *middleware);
 
 #if defined(WASMER_COMPILER_ENABLED)
-void wasm_config_set_compiler(wasm_config_t *config, wasmer_compiler_t compiler);
+void wasm_config_set_compiler(wasm_config_t *config, enum wasmer_compiler_t compiler);
 #endif
 
-void wasm_config_set_engine(wasm_config_t *config, wasmer_engine_t engine);
+void wasm_config_set_engine(wasm_config_t *config, enum wasmer_engine_t engine);
 
-void wasm_config_set_features(wasm_config_t *config, wasmer_features_t *features);
+void wasm_config_set_features(wasm_config_t *config, struct wasmer_features_t *features);
 
-void wasm_config_set_target(wasm_config_t *config, wasmer_target_t *target);
+void wasm_config_set_target(wasm_config_t *config, struct wasmer_target_t *target);
 
-bool wasmer_cpu_features_add(wasmer_cpu_features_t *cpu_features, const wasm_name_t *feature);
+bool wasmer_cpu_features_add(struct wasmer_cpu_features_t *cpu_features,
+                             const wasm_name_t *feature);
 
-void wasmer_cpu_features_delete(wasmer_cpu_features_t *_cpu_features);
+void wasmer_cpu_features_delete(struct wasmer_cpu_features_t *_cpu_features);
 
-wasmer_cpu_features_t *wasmer_cpu_features_new(void);
+struct wasmer_cpu_features_t *wasmer_cpu_features_new(void);
 
-bool wasmer_features_bulk_memory(wasmer_features_t *features, bool enable);
+bool wasmer_features_bulk_memory(struct wasmer_features_t *features, bool enable);
 
-void wasmer_features_delete(wasmer_features_t *_features);
+void wasmer_features_delete(struct wasmer_features_t *_features);
 
-bool wasmer_features_memory64(wasmer_features_t *features, bool enable);
+bool wasmer_features_memory64(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_module_linking(wasmer_features_t *features, bool enable);
+bool wasmer_features_module_linking(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_multi_memory(wasmer_features_t *features, bool enable);
+bool wasmer_features_multi_memory(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_multi_value(wasmer_features_t *features, bool enable);
+bool wasmer_features_multi_value(struct wasmer_features_t *features, bool enable);
 
-wasmer_features_t *wasmer_features_new(void);
+struct wasmer_features_t *wasmer_features_new(void);
 
-bool wasmer_features_reference_types(wasmer_features_t *features, bool enable);
+bool wasmer_features_reference_types(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_simd(wasmer_features_t *features, bool enable);
+bool wasmer_features_simd(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_tail_call(wasmer_features_t *features, bool enable);
+bool wasmer_features_tail_call(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_features_threads(wasmer_features_t *features, bool enable);
+bool wasmer_features_threads(struct wasmer_features_t *features, bool enable);
 
-bool wasmer_is_compiler_available(wasmer_compiler_t compiler);
+bool wasmer_is_compiler_available(enum wasmer_compiler_t compiler);
 
-bool wasmer_is_engine_available(wasmer_engine_t engine);
+bool wasmer_is_engine_available(enum wasmer_engine_t engine);
 
 bool wasmer_is_headless(void);
 
@@ -826,49 +827,51 @@ void wasmer_module_name(const wasm_module_t *module, wasm_name_t *out);
 bool wasmer_module_set_name(wasm_module_t *module, const wasm_name_t *name);
 
 #if defined(WASMER_WASI_ENABLED)
-const wasm_name_t *wasmer_named_extern_module(const wasmer_named_extern_t *named_extern);
+const wasm_name_t *wasmer_named_extern_module(const struct wasmer_named_extern_t *named_extern);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-const wasm_name_t *wasmer_named_extern_name(const wasmer_named_extern_t *named_extern);
+const wasm_name_t *wasmer_named_extern_name(const struct wasmer_named_extern_t *named_extern);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-const wasm_extern_t *wasmer_named_extern_unwrap(const wasmer_named_extern_t *named_extern);
+const wasm_extern_t *wasmer_named_extern_unwrap(const struct wasmer_named_extern_t *named_extern);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasmer_named_extern_vec_copy(wasmer_named_extern_vec_t *out_ptr,
-                                  const wasmer_named_extern_vec_t *in_ptr);
+void wasmer_named_extern_vec_copy(struct wasmer_named_extern_vec_t *out_ptr,
+                                  const struct wasmer_named_extern_vec_t *in_ptr);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasmer_named_extern_vec_delete(wasmer_named_extern_vec_t *ptr);
+void wasmer_named_extern_vec_delete(struct wasmer_named_extern_vec_t *ptr);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasmer_named_extern_vec_new(wasmer_named_extern_vec_t *out,
+void wasmer_named_extern_vec_new(struct wasmer_named_extern_vec_t *out,
                                  uintptr_t length,
-                                 wasmer_named_extern_t *const *init);
+                                 struct wasmer_named_extern_t *const *init);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasmer_named_extern_vec_new_empty(wasmer_named_extern_vec_t *out);
+void wasmer_named_extern_vec_new_empty(struct wasmer_named_extern_vec_t *out);
 #endif
 
 #if defined(WASMER_WASI_ENABLED)
-void wasmer_named_extern_vec_new_uninitialized(wasmer_named_extern_vec_t *out, uintptr_t length);
+void wasmer_named_extern_vec_new_uninitialized(struct wasmer_named_extern_vec_t *out,
+                                               uintptr_t length);
 #endif
 
-void wasmer_target_delete(wasmer_target_t *_target);
+void wasmer_target_delete(struct wasmer_target_t *_target);
 
-wasmer_target_t *wasmer_target_new(wasmer_triple_t *triple, wasmer_cpu_features_t *cpu_features);
+struct wasmer_target_t *wasmer_target_new(struct wasmer_triple_t *triple,
+                                          struct wasmer_cpu_features_t *cpu_features);
 
-void wasmer_triple_delete(wasmer_triple_t *_triple);
+void wasmer_triple_delete(struct wasmer_triple_t *_triple);
 
-wasmer_triple_t *wasmer_triple_new(const wasm_name_t *triple);
+struct wasmer_triple_t *wasmer_triple_new(const wasm_name_t *triple);
 
-wasmer_triple_t *wasmer_triple_new_from_host(void);
+struct wasmer_triple_t *wasmer_triple_new_from_host(void);
 
 const char *wasmer_version(void);
 

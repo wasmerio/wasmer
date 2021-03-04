@@ -61,7 +61,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
             ..
         }*/) => ,
         Enum(ref e) => impl_wasmer_env_for_enum(struct_name, &e.variants, &input.attrs),
-        _ => abort_call_site!("structopt only supports non-tuple structs and enums"),
+        _ => abort_call_site!("Clap only supports non-tuple structs and enums"),
     }*/
 }
 
