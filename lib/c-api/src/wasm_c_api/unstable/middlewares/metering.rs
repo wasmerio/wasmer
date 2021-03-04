@@ -198,7 +198,7 @@ pub unsafe extern "C" fn wasmer_metering_points_is_exhausted(
 /// See module's documentation.
 #[allow(non_camel_case_types)]
 pub struct wasmer_metering_t {
-    pub(crate) inner: Arc<Metering<dyn Fn(&Operator) -> u64>>,
+    pub(crate) inner: Arc<Metering<Box<dyn Fn(&Operator) -> u64 + Send + Sync>>>,
 }
 
 #[allow(non_camel_case_types)]
@@ -216,10 +216,10 @@ pub extern "C" fn wasmer_metering_new(
     initial_limit: u64,
     cost_function: wasmer_metering_cost_function_t,
 ) -> Box<wasmer_metering_t> {
-    let cost_function = |operator: &Operator| -> u64 { cost_function(operator.into()) };
+    let cost_function = move |operator: &Operator| -> u64 { cost_function(operator.into()) };
 
     Box::new(wasmer_metering_t {
-        inner: Arc::new(Metering::new(initial_limit, cost_function)),
+        inner: Arc::new(Metering::new(initial_limit, Box::new(cost_function))),
     })
 }
 
