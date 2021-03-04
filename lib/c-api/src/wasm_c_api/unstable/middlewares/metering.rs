@@ -186,7 +186,7 @@ pub extern "C" fn wasmer_metering_new(
 ///
 /// See module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
+pub extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
 
 /// Returns the remaining metering points. Zero means points are
 /// exhausted, otherwise it returns the number of points.
@@ -195,7 +195,7 @@ pub unsafe extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_met
 ///
 /// See module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_t) -> u64 {
+pub extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_t) -> u64 {
     match get_remaining_points(&instance.inner) {
         MeteringPoints::Remaining(value) => value,
         MeteringPoints::Exhausted => 0,
@@ -275,10 +275,7 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_in
 /// # }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_set_remaining_points(
-    instance: &wasm_instance_t,
-    new_limit: u64,
-) {
+pub extern "C" fn wasmer_metering_set_remaining_points(instance: &wasm_instance_t, new_limit: u64) {
     set_remaining_points(&instance.inner, new_limit);
 }
 
@@ -292,7 +289,7 @@ pub unsafe extern "C" fn wasmer_metering_set_remaining_points(
 ///
 /// See module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_as_middleware(
+pub extern "C" fn wasmer_metering_as_middleware(
     metering: Option<Box<wasmer_metering_t>>,
 ) -> Option<Box<wasmer_middleware_t>> {
     let metering = metering?;
