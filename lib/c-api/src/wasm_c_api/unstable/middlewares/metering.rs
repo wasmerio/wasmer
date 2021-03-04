@@ -125,7 +125,7 @@
 //! ```
 
 use super::super::super::instance::wasm_instance_t;
-use super::super::parser::operator::Operator as COperator;
+use super::super::parser::operator::wasmer_parser_operator_t;
 use super::wasmer_middleware_t;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
@@ -202,7 +202,7 @@ pub struct wasmer_metering_t {
 }
 
 #[allow(non_camel_case_types)]
-pub type wasmer_metering_cost_function_t = extern "C" fn(operator: COperator) -> u64;
+pub type wasmer_metering_cost_function_t = extern "C" fn(operator: wasmer_parser_operator_t) -> u64;
 
 /// Creates a new metering middleware with an initial limit, i.e. a
 /// total number of operators to execute (regarding their respective

@@ -1,7 +1,8 @@
-use wasmer::wasmparser::Operator as OriginalOperator;
+use wasmer::wasmparser::Operator;
 
 #[repr(C)]
-pub enum Operator {
+#[allow(non_camel_case_types)]
+pub enum wasmer_parser_operator_t {
     Unreachable,
     Nop,
     Block,
@@ -505,9 +506,9 @@ pub enum Operator {
     I32x4TruncSatF64x2UZero,
 }
 
-impl<'a> From<&OriginalOperator<'a>> for Operator {
-    fn from(operator: &OriginalOperator<'a>) -> Self {
-        use OriginalOperator::*;
+impl<'a> From<&Operator<'a>> for wasmer_parser_operator_t {
+    fn from(operator: &Operator<'a>) -> Self {
+        use Operator::*;
 
         match operator {
             Unreachable => Self::Unreachable,
