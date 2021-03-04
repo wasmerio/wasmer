@@ -664,7 +664,7 @@ typedef struct wasmer_named_extern_vec_t {
 } wasmer_named_extern_vec_t;
 #endif
 
-typedef uint64_t (*wasmer_metering_cost_function_t)(enum wasmer_parser_operator_t operator);
+typedef uint64_t (*wasmer_metering_cost_function_t)(enum wasmer_parser_operator_t wasm_operator);
 
 #ifdef __cplusplus
 extern "C" {

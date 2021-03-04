@@ -14,8 +14,8 @@
 //! # #include "tests/wasmer_wasm.h"
 //! #
 //! // Define our “cost function”.
-//! uint64_t cost_function(wasmer_parser_operator_t operator) {
-//!     switch(operator) {
+//! uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {
+//!     switch(wasm_operator) {
 //!         // `local.get` and `i32.const` cost 1 unit.
 //!         case LocalGet:
 //!         case I32Const:
@@ -160,7 +160,8 @@ pub struct wasmer_metering_t {
 ///
 /// See module's documentation.
 #[allow(non_camel_case_types)]
-pub type wasmer_metering_cost_function_t = extern "C" fn(operator: wasmer_parser_operator_t) -> u64;
+pub type wasmer_metering_cost_function_t =
+    extern "C" fn(wasm_operator: wasmer_parser_operator_t) -> u64;
 
 /// Creates a new metering middleware with an initial limit, i.e. a
 /// total number of operators to execute (regarding their respective
@@ -234,8 +235,8 @@ pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_
 /// # #include "tests/wasmer_wasm.h"
 /// #
 /// // Define a dummy “cost function”.
-/// uint64_t cost_function(wasmer_parser_operator_t operator) {
-///     switch(operator) {
+/// uint64_t cost_function(wasmer_parser_operator_t wasm_operator) {
+///     switch(wasm_operator) {
 ///         default:
 ///             return 0;
 ///     }
