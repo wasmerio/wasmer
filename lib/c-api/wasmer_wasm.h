@@ -645,8 +645,6 @@ typedef struct wasmer_cpu_features_t wasmer_cpu_features_t;
 
 typedef struct wasmer_features_t wasmer_features_t;
 
-typedef struct wasmer_metering_points_t wasmer_metering_points_t;
-
 typedef struct wasmer_metering_t wasmer_metering_t;
 
 typedef struct wasmer_middleware_t wasmer_middleware_t;
@@ -816,17 +814,10 @@ wasmer_middleware_t *wasmer_metering_as_middleware(wasmer_metering_t *metering);
 
 void wasmer_metering_delete(wasmer_metering_t *_metering);
 
-wasmer_metering_points_t *wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
+uint64_t wasmer_metering_get_remaining_points(const wasm_instance_t *instance);
 
 wasmer_metering_t *wasmer_metering_new(uint64_t initial_limit,
                                        wasmer_metering_cost_function_t cost_function);
-
-void wasmer_metering_points_delete(wasmer_metering_points_t *_metering_points);
-
-bool wasmer_metering_points_is_exhausted(const wasmer_metering_points_t *metering_points);
-
-uint64_t wasmer_metering_points_unwrap_or(const wasmer_metering_points_t *metering_points,
-                                          uint64_t exhausted);
 
 void wasmer_metering_set_remaining_points(const wasm_instance_t *instance, uint64_t new_limit);
 

@@ -86,9 +86,6 @@
 //!     wasm_val_vec_t arguments_as_array = WASM_ARRAY_VEC(arguments);
 //!     wasm_val_vec_t results_as_array = WASM_ARRAY_VEC(results);
 //!
-//!     // Let's define a value when points are exhausted.
-//!     uint64_t is_exhausted = -1;
-//!
 //!     // Let's call `add_two` for the first time!
 //!     {
 //!         wasm_trap_t* trap = wasm_func_call(add_two, &arguments_as_array, &results_as_array);
@@ -96,10 +93,7 @@
 //!         assert(results[0].of.i32 == 42);
 //!
 //!         // There is 6 points left!
-//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
-//!         assert(wasmer_metering_points_unwrap_or(metering_points, is_exhausted) == 6);
-//!         assert(wasmer_metering_points_is_exhausted(metering_points) == false);
-//!         wasmer_metering_points_delete(metering_points);
+//!         assert(wasmer_metering_get_remaining_points(instance) == 6);
 //!     }
 //!
 //!     // Let's call `add_two` for the second time!
@@ -109,10 +103,7 @@
 //!         assert(results[0].of.i32 == 42);
 //!
 //!         // There is 2 points left!
-//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
-//!         assert(wasmer_metering_points_unwrap_or(metering_points, is_exhausted) == 2);
-//!         assert(wasmer_metering_points_is_exhausted(metering_points) == false);
-//!         wasmer_metering_points_delete(metering_points);
+//!         assert(wasmer_metering_get_remaining_points(instance) == 2);
 //!     }
 //!
 //!     // Let's call `add_two` for the third time!
@@ -122,10 +113,7 @@
 //!         assert(trap != NULL);
 //!
 //!         // There is 0 point left… they are exhausted.
-//!         wasmer_metering_points_t* metering_points = wasmer_metering_get_remaining_points(instance);
-//!         assert(wasmer_metering_points_unwrap_or(metering_points, is_exhausted) == is_exhausted);
-//!         assert(wasmer_metering_points_is_exhausted(metering_points) == true);
-//!         wasmer_metering_points_delete(metering_points);
+//!         assert(wasmer_metering_get_remaining_points(instance) == 0);
 //!     }
 //!     
 //!     wasm_instance_delete(instance);
@@ -150,60 +138,6 @@ use wasmer_middlewares::{
     Metering,
 };
 
-/// Opaque type representing metering points, i.e. the actual number
-/// of remaining points for a given [`wasmer_metering_t`].
-///
-/// To get a value of that type, see the
-/// [`wasmer_metering_get_remaining_points`].
-///
-/// # Example
-///
-/// See module's documentation.
-#[allow(non_camel_case_types)]
-pub struct wasmer_metering_points_t {
-    pub(crate) inner: MeteringPoints,
-}
-
-/// Deletes a [`wasmer_metering_points_t`].
-///
-/// # Example
-///
-/// See module's documentation.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_points_delete(
-    _metering_points: Option<Box<wasmer_metering_points_t>>,
-) {
-}
-
-/// Returns the number of remaining points if any, otherwise returns
-/// the given `exhausted` value if points are exhausted.
-///
-/// # Example
-///
-/// See module's documentation.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_points_unwrap_or(
-    metering_points: &wasmer_metering_points_t,
-    exhausted: u64,
-) -> u64 {
-    match metering_points.inner {
-        MeteringPoints::Remaining(value) => value,
-        MeteringPoints::Exhausted => exhausted,
-    }
-}
-
-/// Checks whether the number of metering points are exhausted.
-///
-/// # Example
-///
-/// See module's documentation.
-#[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_points_is_exhausted(
-    metering_points: &wasmer_metering_points_t,
-) -> bool {
-    matches!(metering_points.inner, MeteringPoints::Exhausted)
-}
-
 /// Opaque type representing a metering middleware.
 ///
 /// To transform this specific middleware into a generic one, please
@@ -217,12 +151,19 @@ pub struct wasmer_metering_t {
     pub(crate) inner: Arc<Metering<Box<dyn Fn(&Operator) -> u64 + Send + Sync>>>,
 }
 
+/// Function type to represent a user-defined cost function
+/// implemented in C.
+///
+/// # Example
+///
+/// See module's documentation.
 #[allow(non_camel_case_types)]
 pub type wasmer_metering_cost_function_t = extern "C" fn(operator: wasmer_parser_operator_t) -> u64;
 
 /// Creates a new metering middleware with an initial limit, i.e. a
 /// total number of operators to execute (regarding their respective
-/// cost).
+/// cost), in addition to a cost function. The cost function defines
+/// the cost of an operation, that will decrease the initial limit.
 ///
 /// # Example
 ///
@@ -247,20 +188,18 @@ pub extern "C" fn wasmer_metering_new(
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_metering_delete(_metering: Option<Box<wasmer_metering_t>>) {}
 
-/// Returns the remaining metering points, inside a
-/// [`wasmer_metering_points_t`] value. The caller is responsible to
-/// free this value by using [`wasmer_metering_points_delete`].
+/// Returns the remaining metering points. Zero means points are
+/// exhausted, otherwise it returns the number of points.
 ///
 /// # Example
 ///
 /// See module's documentation.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
-    instance: &wasm_instance_t,
-) -> Box<wasmer_metering_points_t> {
-    Box::new(wasmer_metering_points_t {
-        inner: get_remaining_points(&instance.inner),
-    })
+pub unsafe extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_t) -> u64 {
+    match get_remaining_points(&instance.inner) {
+        MeteringPoints::Remaining(value) => value,
+        MeteringPoints::Exhausted => 0,
+    }
 }
 
 /// Set a new amount of points for the given metering middleware.
@@ -316,23 +255,13 @@ pub unsafe extern "C" fn wasmer_metering_get_remaining_points(
 ///     assert(instance);
 ///
 ///     // Read the number of points.
-///     {
-///         wasmer_metering_points_t* points = wasmer_metering_get_remaining_points(instance);
-///         assert(wasmer_metering_points_unwrap_or(points, -1) == 7);
-///
-///         wasmer_metering_points_delete(points);
-///     }
+///     assert(wasmer_metering_get_remaining_points(instance) == 7);
 ///
 ///     // Set a new number of points.
 ///     wasmer_metering_set_remaining_points(instance, 42);
 ///
 ///     // Read the number of points.
-///     {
-///         wasmer_metering_points_t* points = wasmer_metering_get_remaining_points(instance);
-///         assert(wasmer_metering_points_unwrap_or(points, -1) == 42);
-///
-///         wasmer_metering_points_delete(points);
-///     }
+///     assert(wasmer_metering_get_remaining_points(instance) == 42);
 ///
 ///     wasm_instance_delete(instance);
 ///     wasm_module_delete(module);
