@@ -164,7 +164,7 @@ impl ModuleInfo {
     }
 
     /// Get the export types of the module
-    pub fn exports<'a>(&'a self) -> ExportsIterator<impl Iterator<Item = ExportType> + 'a> {
+    pub fn exports(&self) -> ExportsIterator<impl Iterator<Item = ExportType>> {
         let iter = self.exports.iter().map(move |(name, export_index)| {
             let extern_type = match export_index {
                 ExportIndex::Function(i) => {
@@ -187,6 +187,7 @@ impl ModuleInfo {
             };
             ExportType::new(name, extern_type)
         });
+
         ExportsIterator {
             iter,
             size: self.exports.len(),
@@ -194,7 +195,7 @@ impl ModuleInfo {
     }
 
     /// Get the export types of the module
-    pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
+    pub fn imports(&self) -> ImportsIterator<impl Iterator<Item = ImportType>> {
         let iter = self
             .imports
             .iter()
@@ -220,6 +221,7 @@ impl ModuleInfo {
                 };
                 ImportType::new(module, field, extern_type)
             });
+
         ImportsIterator {
             iter,
             size: self.imports.len(),
@@ -322,7 +324,7 @@ impl ModuleInfo {
     }
 
     /// Get the imported function types of the module.
-    pub fn imported_function_types<'a>(&'a self) -> impl Iterator<Item = FunctionType> + 'a {
+    pub fn imported_function_types(&self) -> impl Iterator<Item = FunctionType> {
         self.functions
             .values()
             .take(self.num_imported_functions)

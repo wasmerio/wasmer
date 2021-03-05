@@ -156,7 +156,7 @@ impl Clone for InstanceRef {
         Self {
             strong: self.strong.clone(),
             instance_layout: self.instance_layout,
-            instance: self.instance.clone(),
+            instance: self.instance,
         }
     }
 }
