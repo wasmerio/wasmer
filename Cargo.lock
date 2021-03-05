@@ -2329,7 +2329,6 @@ dependencies = [
  "thiserror",
  "typetag",
  "wasmer",
- "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
@@ -2338,6 +2337,7 @@ dependencies = [
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
 ]
