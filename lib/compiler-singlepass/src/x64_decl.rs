@@ -1,8 +1,9 @@
 //! X64 structures.
 
 use crate::common_decl::{MachineState, MachineValue, RegisterIndex};
-use std::collections::BTreeMap;
+use crate::lib::std::collections::BTreeMap;
 use wasmer_types::Type;
+use crate::lib::std::vec;
 
 /// General-purpose registers.
 #[repr(u8)]
@@ -217,6 +218,6 @@ pub fn new_machine_state() -> MachineState {
         register_values: vec![MachineValue::Undefined; 16 + 8],
         prev_frame: BTreeMap::new(),
         wasm_stack: vec![],
-        wasm_inst_offset: std::usize::MAX,
+        wasm_inst_offset: crate::lib::std::usize::MAX,
     }
 }

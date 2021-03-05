@@ -897,7 +897,7 @@ impl Emitter for Assembler {
             (Location::Imm64(x), Location::Imm64(y)) => Some((x as i64, y as i64)),
             _ => None,
         };
-        use std::cmp::Ordering;
+        use crate::lib::std::cmp::Ordering;
         match consts {
             Some((x, y)) => match x.cmp(&y) {
                 Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),

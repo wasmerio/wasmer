@@ -1,4 +1,7 @@
-use std::collections::BTreeMap;
+use crate::lib::std::collections::BTreeMap;
+use crate::lib::std::vec::Vec;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::vec;
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 pub struct RegisterIndex(pub usize);

@@ -1,4 +1,5 @@
 use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
+use crate::lib::std::vec::Vec;
 
 pub fn get_function_address_map<'data>(
     instructions: Vec<InstructionAddressMap>,
