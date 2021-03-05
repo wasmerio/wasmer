@@ -110,8 +110,8 @@ qjs >
 
 [c logo]: ./assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
-[`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
-[c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/
+[`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/runtime-c-api/html/
+[c docs]: https://wasmerio.github.io/wasmer/c/runtime-c-api/html/
 
 [c# logo]: ./assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
