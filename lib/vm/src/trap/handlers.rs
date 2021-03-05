@@ -4,7 +4,7 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use super::trapcode::TrapCode;
+use super::code::TrapCode;
 use crate::instance::{Instance, SignalHandler};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use backtrace::Backtrace;
@@ -16,13 +16,14 @@ use std::mem;
 use std::ptr;
 use std::sync::Once;
 
+// The following functions are implemented in `handlers.c`.
 extern "C" {
-    fn RegisterSetjmp(
+    fn register_setjmp(
         jmp_buf: *mut *const u8,
         callback: extern "C" fn(*mut u8),
         payload: *mut u8,
     ) -> i32;
-    fn Unwind(jmp_buf: *const u8) -> !;
+    fn unwind(jmp_buf: *const u8) -> !;
 }
 
 cfg_if::cfg_if! {
@@ -160,7 +161,7 @@ cfg_if::cfg_if! {
                 } else if jmp_buf as usize == 1 {
                     true
                 } else {
-                    Unwind(jmp_buf)
+                    unwind(jmp_buf)
                 }
             });
 
@@ -338,7 +339,7 @@ cfg_if::cfg_if! {
                 } else if jmp_buf as usize == 1 {
                     EXCEPTION_CONTINUE_EXECUTION
                 } else {
-                    Unwind(jmp_buf)
+                    unwind(jmp_buf)
                 }
             })
         }
@@ -522,7 +523,7 @@ where
     setup_unix_sigaltstack()?;
 
     return CallThreadState::new(vmctx).with(|cx| {
-        RegisterSetjmp(
+        register_setjmp(
             cx.jmp_buf.as_ptr(),
             call_closure::<F>,
             &mut closure as *mut F as *mut u8,
@@ -646,7 +647,7 @@ impl CallThreadState {
     fn unwind_with(&self, reason: UnwindReason) -> ! {
         self.unwind.replace(reason);
         unsafe {
-            Unwind(self.jmp_buf.get());
+            unwind(self.jmp_buf.get());
         }
     }
 
