@@ -7,9 +7,11 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use crate::lib::std::string::ToString;
 use crate::lib::std::sync::Arc;
+use crate::lib::std::vec;
 use crate::lib::std::vec::Vec;
+use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
     Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
@@ -20,8 +22,6 @@ use wasmer_compiler::{FunctionBody, FunctionBodyData};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, MemoryIndex, TableIndex};
 use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
-use crate::lib::std::string::ToString;
-use crate::lib::std::vec;
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass

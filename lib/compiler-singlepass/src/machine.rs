@@ -1,12 +1,12 @@
 use crate::common_decl::*;
 use crate::emitter_x64::*;
+use crate::lib::std::cmp;
+use crate::lib::std::collections::HashSet;
+use crate::lib::std::vec::Vec;
 use crate::x64_decl::{new_machine_state, X64Register};
 use smallvec::smallvec;
 use smallvec::SmallVec;
-use crate::lib::std::cmp;
-use crate::lib::std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
-use crate::lib::std::vec::Vec;
 
 const NATIVE_PAGE_SIZE: usize = 4096;
 

@@ -1,9 +1,14 @@
 use crate::address_map::get_function_address_map;
+use crate::lib::std::collections::BTreeMap;
+use crate::lib::std::format;
+use crate::lib::std::iter;
+use crate::lib::std::string::String;
+use crate::lib::std::string::ToString;
+use crate::lib::std::vec;
+use crate::lib::std::vec::Vec;
 use crate::{common_decl::*, config::Singlepass, emitter_x64::*, machine::Machine, x64_decl::*};
 use dynasmrt::{x64::Assembler, DynamicLabel};
 use smallvec::{smallvec, SmallVec};
-use crate::lib::std::collections::BTreeMap;
-use crate::lib::std::iter;
 use wasmer_compiler::wasmparser::{
     MemoryImmediate, Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType,
 };
@@ -21,11 +26,6 @@ use wasmer_types::{
     TableIndex, Type,
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
-use crate::lib::std::string::ToString;
-use crate::lib::std::vec::Vec;
-use crate::lib::std::string::String;
-use crate::lib::std::vec;
-use crate::lib::std::format;
 
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a> {
@@ -8400,7 +8400,8 @@ pub fn gen_std_dynamic_import_trampoline(
     let mut a = Assembler::new().unwrap();
 
     // Allocate argument array.
-    let stack_offset: usize = 16 * crate::lib::std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
+    let stack_offset: usize =
+        16 * crate::lib::std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
     a.emit_sub(
         Size::S64,
         Location::Imm32(stack_offset as _),

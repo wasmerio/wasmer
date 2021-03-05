@@ -2,12 +2,12 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
+use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
+use crate::lib::std::vec;
+use crate::lib::std::vec::Vec;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
-use crate::lib::std::boxed::Box;
-use crate::lib::std::vec::Vec;
-use crate::lib::std::vec;
 
 #[derive(Debug, Clone)]
 pub struct Singlepass {

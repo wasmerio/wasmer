@@ -26,11 +26,11 @@ mod lib {
     #[cfg(feature = "core")]
     pub mod std {
         pub use alloc::{borrow, boxed, format, str, string, sync, vec};
-        pub use core::{convert, fmt, ops, iter, cmp, usize, u64, i64, i32, u32};
+        pub use core::{cmp, convert, fmt, i32, i64, iter, ops, u32, u64, usize};
 
         pub mod collections {
-            pub use alloc::collections::vec_deque::VecDeque;
             pub use alloc::collections::btree_map::BTreeMap;
+            pub use alloc::collections::vec_deque::VecDeque;
             pub use hashbrown::*;
         }
     }
@@ -38,7 +38,8 @@ mod lib {
     #[cfg(feature = "std")]
     pub mod std {
         pub use std::{
-            borrow, boxed, collections, convert, fmt, format, ops, str, string, sync, usize, u64, i64, i32, u32, vec, iter, cmp
+            borrow, boxed, cmp, collections, convert, fmt, format, i32, i64, iter, ops, str,
+            string, sync, u32, u64, usize, vec,
         };
     }
 }
