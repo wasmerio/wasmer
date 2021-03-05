@@ -3,6 +3,10 @@ pub use super::unstable::engine::{
     wasmer_is_engine_available,
 };
 use super::unstable::features::wasmer_features_t;
+#[cfg(feature = "middlewares")]
+pub use super::unstable::middlewares::wasm_config_push_middleware;
+#[cfg(feature = "middlewares")]
+use super::unstable::middlewares::wasmer_middleware_t;
 use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
@@ -99,6 +103,8 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
+    #[cfg(feature = "middlewares")]
+    pub(super) middlewares: Vec<wasmer_middleware_t>,
     pub(super) features: Option<Box<wasmer_features_t>>,
     pub(super) target: Option<Box<wasmer_target_t>>,
 }
@@ -280,7 +286,7 @@ pub struct wasm_engine_t {
 
 // Compiler JIT
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
+use wasmer::CompilerConfig;
 #[cfg(feature = "compiler")]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
@@ -334,7 +340,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
@@ -470,6 +476,11 @@ pub extern "C" fn wasm_engine_new_with_config(
                     }
                 },
             };
+
+            #[cfg(feature = "middlewares")]
+            for middleware in config.middlewares {
+                compiler_config.push_middleware(middleware.inner);
+            }
 
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
                 wasmer_engine_t::JIT => {

@@ -58,7 +58,7 @@ use crate::error::CApiError;
 use enumset::EnumSet;
 use std::slice;
 use std::str::{self, FromStr};
-use wasmer_compiler::{CpuFeature, Target, Triple};
+use wasmer::{CpuFeature, Target, Triple};
 
 /// Unstable non-standard Wasmer-specific API to represent a triple +
 /// CPU features pair.
