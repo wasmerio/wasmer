@@ -266,7 +266,7 @@ checksum = "f54d78e30b388d4815220c8dd03fea5656b6c6d32adb59e89061552a102f8da1"
 dependencies = [
  "glob",
  "libc",
- "libloading 0.7.0",
+ "libloading",
 ]
 
 [[package]]
@@ -1111,26 +1111,6 @@ checksum = "3b6d65142f1c3b06ca3f4216da4d32b3124d14d932cef8dfd8792037acd2160b"
 dependencies = [
  "cc",
  "make-cmd",
-]
-
-[[package]]
-name = "libloading"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f84d96438c15fcd6c3f244c8fce01d1e2b9c6b5623e9c711dc9286d8fc92d6a"
-dependencies = [
- "cfg-if 1.0.0",
- "winapi",
-]
-
-[[package]]
-name = "libloading"
-version = "0.7.0"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "6f84d96438c15fcd6c3f244c8fce01d1e2b9c6b5623e9c711dc9286d8fc92d6a"
-dependencies = [
- "cfg-if 1.0.0",
- "winapi",
 ]
 
 [[package]]
@@ -2349,7 +2329,6 @@ dependencies = [
  "thiserror",
  "typetag",
  "wasmer",
- "wasmer-compiler",
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
@@ -2358,6 +2337,7 @@ dependencies = [
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-engine-object-file",
+ "wasmer-middlewares",
  "wasmer-types",
  "wasmer-wasi",
 ]
@@ -2561,7 +2541,7 @@ dependencies = [
  "bincode",
  "cfg-if 0.1.10",
  "leb128",
- "libloading 0.6.7",
+ "libloading",
  "serde",
  "tempfile",
  "tracing",
@@ -2580,7 +2560,7 @@ dependencies = [
  "bincode",
  "cfg-if 0.1.10",
  "leb128",
- "libloading 0.6.7",
+ "libloading",
  "serde",
  "tempfile",
  "tracing",
