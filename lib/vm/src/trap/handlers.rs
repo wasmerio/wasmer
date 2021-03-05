@@ -310,7 +310,6 @@ cfg_if::cfg_if! {
         unsafe fn set_pc(cx: *mut c_void, pc: usize, arg1: usize) {
             cfg_if::cfg_if! {
                 if #[cfg(not(target_os = "macos"))] {
-                    drop((cx, pc, arg1));
                     unreachable!(); // not used on these platforms
                 } else if #[cfg(target_arch = "x86_64")] {
                     let cx = &mut *(cx as *mut libc::ucontext_t);
