@@ -42,6 +42,9 @@ const COMPILER_FEATURE_AS_C_DEFINE: &'static str = "WASMER_COMPILER_ENABLED";
 const WASI_FEATURE_AS_C_DEFINE: &'static str = "WASMER_WASI_ENABLED";
 
 #[allow(unused)]
+const MIDDLEWARES_FEATURE_AS_C_DEFINE: &'static str = "WASMER_MIDDLEWARES_ENABLED";
+
+#[allow(unused)]
 const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &'static str = "WASMER_EMSCRIPTEN_ENABLED";
 
 macro_rules! map_feature_as_c_define {
@@ -135,6 +138,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     map_feature_as_c_define!("jit", JIT_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
+    map_feature_as_c_define!("middlewares", MIDDLEWARES_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE, pre_header);
 
     add_wasmer_version(&mut pre_header);
@@ -467,6 +471,7 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_get_unordered_imports")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t")
+        .exclude_item("wasm_config_push_middleware")
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
         .exclude_item("wasm_config_set_features")
@@ -492,6 +497,14 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasmer_is_compiler_available")
         .exclude_item("wasmer_is_engine_available")
         .exclude_item("wasmer_is_headless")
+        .exclude_item("wasmer_metering_as_middleware")
+        .exclude_item("wasmer_metering_delete")
+        .exclude_item("wasmer_metering_get_remaining_points")
+        .exclude_item("wasmer_metering_new")
+        .exclude_item("wasmer_metering_points_are_exhausted")
+        .exclude_item("wasmer_metering_set_remaining_points")
+        .exclude_item("wasmer_metering_t")
+        .exclude_item("wasmer_middleware_t")
         .exclude_item("wasmer_module_name")
         .exclude_item("wasmer_module_set_name")
         .exclude_item("wasmer_named_extern_module")
