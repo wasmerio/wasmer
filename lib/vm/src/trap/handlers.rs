@@ -185,15 +185,17 @@ cfg_if::cfg_if! {
                 // want to call that here but it's unlikely there's a
                 // stable way for us to call that.
                 //
-                // Given all that, on macOS only, we do the next best thing. We
-                // return from the signal handler after updating the register
-                // context. This will cause control to return to our
-                // `unwind_shim` function defined here which will perform the
-                // `unwind` (`siglongjmp`) for us. The reason this works is that
-                // by returning from the signal handler we'll trigger all the
-                // normal machinery for "the signal handler is done running"
-                // which will clear the sigaltstack flag and allow reusing it
-                // for the next signal. Then upon resuming in our custom code we
+                // Given all that, on macOS only, we do the next best
+                // thing. We return from the signal handler after
+                // updating the register context. This will cause
+                // control to return to our `unwind_shim` function
+                // defined here which will perform the `unwind`
+                // (`siglongjmp`) for us. The reason this works is
+                // that by returning from the signal handler we'll
+                // trigger all the normal machinery for "the signal
+                // handler is done running" which will clear the
+                // sigaltstack flag and allow reusing it for the next
+                // signal. Then upon resuming in our custom code we
                 // blow away the stack anyway with a `longjmp`.
                 else if cfg!(target_os = "macos") {
                     unsafe extern "C" fn unwind_shim(jmp_buf: *const c_void) {
