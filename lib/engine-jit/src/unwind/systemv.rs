@@ -65,7 +65,11 @@ impl UnwindRegistry {
             // deregistering it. We must avoid this
             // scenario. Usually, this is handled upstream by the
             // compilers.
-            debug_assert_ne!(eh_frame, &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
+            debug_assert_ne!(
+                eh_frame,
+                &[0, 0, 0, 0],
+                "`eh_frame` seems to contain empty FDEs"
+            );
 
             // On gnu (libgcc), `__register_frame` will walk the FDEs until an entry of length 0
             let ptr = eh_frame.as_ptr();
