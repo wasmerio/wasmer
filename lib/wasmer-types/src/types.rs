@@ -304,7 +304,7 @@ implement_from_pair_to_functiontype! {
 }
 
 impl From<&FunctionType> for FunctionType {
-    fn from(as_ref: &FunctionType) -> Self {
+    fn from(as_ref: &Self) -> Self {
         as_ref.clone()
     }
 }

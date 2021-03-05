@@ -57,6 +57,13 @@ where
     T: ValueType,
 {
     /// Creates a new MemoryView given a `pointer` and `length`.
+    ///
+    /// # Safety
+    ///
+    /// * `ptr` must come from `VMMemoryDefinition.base` to be valid and
+    ///   safe.
+    /// * The length must be carefully calculated to not overflow the
+    ///   size of the memory.
     pub unsafe fn new(ptr: *mut T, length: u32) -> Self {
         Self {
             ptr,
