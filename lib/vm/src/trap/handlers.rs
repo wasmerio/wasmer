@@ -307,6 +307,7 @@ cfg_if::cfg_if! {
             }
         }
 
+        #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
         unsafe fn set_pc(cx: *mut c_void, pc: usize, arg1: usize) {
             cfg_if::cfg_if! {
                 if #[cfg(not(target_os = "macos"))] {
