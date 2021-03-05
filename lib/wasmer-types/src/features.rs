@@ -26,6 +26,8 @@ pub struct Features {
     pub multi_memory: bool,
     /// 64-bit Memory proposal should be enabled
     pub memory64: bool,
+    /// Wasm exceptions proposal should be enabled
+    pub exceptions: bool,
 }
 
 impl Features {
@@ -43,6 +45,7 @@ impl Features {
             module_linking: false,
             multi_memory: false,
             memory64: false,
+            exceptions: false,
         }
     }
 
@@ -249,6 +252,7 @@ mod test_features {
                 module_linking: false,
                 multi_memory: false,
                 memory64: false,
+                exceptions: false,
             }
         );
     }

@@ -35,7 +35,7 @@ use std::sync::Arc;
 ///
 ///     // Read the module's name.
 ///     wasm_name_t name;
-///     wasm_module_name(module, &name);
+///     wasmer_module_name(module, &name);
 ///
 ///     // It works!
 ///     wasmer_assert_name(&name, "moduleName");
@@ -55,7 +55,7 @@ use std::sync::Arc;
 /// # }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_name(
+pub unsafe extern "C" fn wasmer_module_name(
     module: &wasm_module_t,
     // own
     out: &mut wasm_name_t,
@@ -102,7 +102,7 @@ pub unsafe extern "C" fn wasm_module_name(
 ///     // Read the module's name. There is none for the moment.
 ///     {
 ///         wasm_name_t name;
-///         wasm_module_name(module, &name);
+///         wasmer_module_name(module, &name);
 ///
 ///         assert(name.size == 0);
 ///     }
@@ -111,13 +111,13 @@ pub unsafe extern "C" fn wasm_module_name(
 ///     {
 ///         wasm_name_t name;
 ///         wasmer_byte_vec_new_from_string(&name, "hello");
-///         wasm_module_set_name(module, &name);
+///         wasmer_module_set_name(module, &name);
 ///     }
 ///
 ///     // And now, let's see the new name.
 ///     {
 ///         wasm_name_t name;
-///         wasm_module_name(module, &name);
+///         wasmer_module_name(module, &name);
 ///
 ///         // It works!
 ///         wasmer_assert_name(&name, "hello");
@@ -139,7 +139,7 @@ pub unsafe extern "C" fn wasm_module_name(
 /// # }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_set_name(
+pub unsafe extern "C" fn wasmer_module_set_name(
     module: &mut wasm_module_t,
     // own
     name: &wasm_name_t,

@@ -8,11 +8,21 @@
 ## **[Unreleased]**
 
 ### Added
+- [#2153](https://github.com/wasmerio/wasmer/pull/2153) Add a `wasmer_features_t` unstable C API to define features for the engine and the compiler in the Wasm C API.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
+- [#2118](https://github.com/wasmerio/wasmer/pull/2118) Add an unstable non-standard C API to query available engines and compilers.
+- [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
+- [#2144](https://github.com/wasmerio/wasmer/pull/2144) Bump cranelift version to 0.70
+- [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
 
 ### Fixed
+- [#2117](https://github.com/wasmerio/wasmer/pull/2117) Formalize API prefixes in the C API. Only unstable functions have been renamed.
 - [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
+- [#2101](https://github.com/wasmerio/wasmer/pull/2101) cflags emitted by `wasmer config --pkg-config` are now correct.
 
 ## 1.0.2 - 2021-02-04
 
