@@ -11,6 +11,7 @@ use backtrace::Backtrace;
 use std::any::Any;
 use std::cell::Cell;
 use std::error::Error;
+use std::ffi::c_void;
 use std::io;
 use std::mem;
 use std::ptr;
@@ -19,11 +20,11 @@ use std::sync::Once;
 // The following functions are implemented in `handlers.c`.
 extern "C" {
     fn register_setjmp(
-        jmp_buf: *mut *const u8,
-        callback: extern "C" fn(*mut u8),
-        payload: *mut u8,
+        jmp_buf: *mut *const c_void,
+        callback: extern "C" fn(*mut c_void),
+        payload: *mut c_void,
     ) -> i32;
-    fn unwind(jmp_buf: *const u8) -> !;
+    fn unwind(jmp_buf: *const c_void) -> !;
 }
 
 cfg_if::cfg_if! {
@@ -195,7 +196,7 @@ cfg_if::cfg_if! {
             }
         }
 
-        unsafe fn get_pc(cx: *mut libc::c_void) -> *const u8 {
+        unsafe fn get_pc(cx: *mut c_void) -> *const u8 {
             cfg_if::cfg_if! {
                 if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
                     let cx = &*(cx as *const libc::ucontext_t);
@@ -299,6 +300,7 @@ cfg_if::cfg_if! {
             // wasm code. If anything else happens we want to defer to whatever
             // the rest of the system wants to do for this exception.
             let record = &*(*exception_info).ExceptionRecord;
+
             if record.ExceptionCode != EXCEPTION_ACCESS_VIOLATION &&
                 record.ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION &&
                 record.ExceptionCode != EXCEPTION_STACK_OVERFLOW &&
@@ -526,11 +528,11 @@ where
         register_setjmp(
             cx.jmp_buf.as_ptr(),
             call_closure::<F>,
-            &mut closure as *mut F as *mut u8,
+            &mut closure as *mut F as *mut c_void,
         )
     });
 
-    extern "C" fn call_closure<F>(payload: *mut u8)
+    extern "C" fn call_closure<F>(payload: *mut c_void)
     where
         F: FnMut(),
     {
@@ -565,7 +567,7 @@ where
 /// below for calls into wasm.
 pub struct CallThreadState {
     unwind: Cell<UnwindReason>,
-    jmp_buf: Cell<*const u8>,
+    jmp_buf: Cell<*const c_void>,
     reset_guard_page: Cell<bool>,
     prev: Option<*const CallThreadState>,
     vmctx: VMFunctionEnvironment,
@@ -674,7 +676,7 @@ impl CallThreadState {
         reset_guard_page: bool,
         signal_trap: Option<TrapCode>,
         call_handler: impl Fn(&SignalHandler) -> bool,
-    ) -> *const u8 {
+    ) -> *const c_void {
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
         //
