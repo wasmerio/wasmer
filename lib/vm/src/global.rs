@@ -2,9 +2,9 @@ use crate::vmcontext::VMGlobalDefinition;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{GlobalType, Mutability, Type, Value};
 #[cfg(feature = "std")]
 use thiserror::Error;
+use wasmer_types::{GlobalType, Mutability, Type, Value};
 
 #[derive(Debug)]
 /// A Global instance
@@ -34,7 +34,10 @@ pub enum GlobalError {
 
     /// The error returned when attempting to operate on a global as a specific type
     /// that differs from the global's own type.
-    #[cfg_attr(feature = "std", error("Attempted to operate on a global of type {expected} as a global of type {found}"))]
+    #[cfg_attr(
+        feature = "std",
+        error("Attempted to operate on a global of type {expected} as a global of type {found}")
+    )]
     IncorrectType {
         /// The type that the global is.
         expected: Type,

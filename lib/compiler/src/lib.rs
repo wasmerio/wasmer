@@ -55,6 +55,8 @@ mod lib {
     }
 }
 
+pub use lib::std::format;
+
 mod address_map;
 #[cfg(feature = "translator")]
 mod compiler;
