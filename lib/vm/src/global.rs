@@ -2,8 +2,9 @@ use crate::vmcontext::VMGlobalDefinition;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use thiserror::Error;
 use wasmer_types::{GlobalType, Mutability, Type, Value};
+#[cfg(feature = "std")]
+use thiserror::Error;
 
 #[derive(Debug)]
 /// A Global instance
@@ -24,15 +25,16 @@ unsafe impl Send for Global {}
 unsafe impl Sync for Global {}
 
 /// Error type describing things that can go wrong when operating on Wasm Globals.
-#[derive(Error, Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum GlobalError {
     /// The error returned when attempting to set an immutable global.
-    #[error("Attempted to set an immutable global")]
+    #[cfg_attr(feature = "std", error("Attempted to set an immutable global"))]
     ImmutableGlobalCannotBeSet,
 
     /// The error returned when attempting to operate on a global as a specific type
     /// that differs from the global's own type.
-    #[error("Attempted to operate on a global of type {expected} as a global of type {found}")]
+    #[cfg_attr(feature = "std", error("Attempted to operate on a global of type {expected} as a global of type {found}"))]
     IncorrectType {
         /// The type that the global is.
         expected: Type,

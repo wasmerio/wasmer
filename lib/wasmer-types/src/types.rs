@@ -10,6 +10,9 @@ use crate::values::Value;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
+#[cfg(feature = "core")]
+use crate::lib::std::boxed::Box;
+
 // Type Representations
 
 // Value Types

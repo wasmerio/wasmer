@@ -1,9 +1,9 @@
-use crate::lib::std::convert::TryFrom;
+use crate::lib::std::convert::{TryFrom, TryInto};
 use crate::lib::std::fmt;
 use crate::lib::std::ops::{Add, Sub};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
-use std::convert::TryInto;
+#[cfg(feature = "std")]
 use thiserror::Error;
 
 /// WebAssembly page sizes are fixed to be 64KiB.
@@ -111,8 +111,9 @@ where
 }
 
 /// The only error that can happen when converting `Bytes` to `Pages`
-#[derive(Debug, Clone, Copy, PartialEq, Error)]
-#[error("Number of pages exceeds uint32 range")]
+#[derive(Debug, Clone, Copy, PartialEq)]
+#[cfg_attr(feature = "std", derive(Error))]
+#[cfg_attr(feature = "std", error("Number of pages exceeds uint32 range"))]
 pub struct PageCountOutOfRange;
 
 impl TryFrom<Bytes> for Pages {

@@ -5,13 +5,17 @@
 
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
+#[cfg(feature = "std")]
 use thiserror::Error;
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash)]
+#[cfg_attr(feature = "std", derive(Error))]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.

@@ -11,16 +11,23 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.2" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false }
 region = "2.2"
 libc = { version = "^0.2", default-features = false }
 memoffset = "0.6"
 indexmap = { version = "1.4", features = ["serde-1"] }
-thiserror = "1.0"
+thiserror = { version = "1.0", optional = true }
 more-asserts = "0.2"
 cfg-if = "0.1"
 backtrace = "0.3"
-serde = { version = "1.0", features = ["derive", "rc"] }
+serde = { version = "1.0", features = ["derive", "rc"], optional = true }
+hashbrown = { version = "0.9", optional = true }
+
+[features]
+default = ["std", "enable-serde"]
+std = ["wasmer-types/std", "thiserror"]
+core = ["hashbrown", "wasmer-types/core"]
+enable-serde = ["serde", "wasmer-types/enable-serde"]
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winbase", "memoryapi", "errhandlingapi"] }

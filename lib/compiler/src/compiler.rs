@@ -4,7 +4,10 @@
 use crate::error::CompileError;
 use crate::function::Compilation;
 use crate::lib::std::boxed::Box;
+use crate::lib::std::format;
+use crate::lib::std::string::String;
 use crate::lib::std::sync::Arc;
+use crate::lib::std::vec::Vec;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
 use crate::translator::ModuleMiddleware;

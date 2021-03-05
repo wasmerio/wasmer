@@ -38,14 +38,20 @@ extern crate alloc;
 mod lib {
     #[cfg(feature = "core")]
     pub mod std {
-        pub use alloc::{borrow, boxed, str, string, sync, vec};
-        pub use core::fmt;
-        pub use hashbrown as collections;
+        pub use alloc::{borrow, boxed, format, str, string, sync, vec};
+        pub use core::{convert, fmt, ops, u32};
+
+        pub mod collections {
+            pub use alloc::collections::vec_deque::VecDeque;
+            pub use hashbrown::*;
+        }
     }
 
     #[cfg(feature = "std")]
     pub mod std {
-        pub use std::{borrow, boxed, collections, fmt, str, string, sync, vec};
+        pub use std::{
+            borrow, boxed, collections, convert, fmt, format, ops, str, string, sync, u32, vec,
+        };
     }
 }
 

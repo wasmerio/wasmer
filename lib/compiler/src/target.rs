@@ -43,7 +43,7 @@ pub enum CpuFeature {
 }
 
 impl CpuFeature {
-    #[cfg(any(target_arch = "x86", target_arch = "x86_64"))]
+    #[cfg(all(feature = "std", any(target_arch = "x86", target_arch = "x86_64")))]
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         let mut features = EnumSet::new();
@@ -92,7 +92,7 @@ impl CpuFeature {
         }
         features
     }
-    #[cfg(not(any(target_arch = "x86", target_arch = "x86_64")))]
+    #[cfg(not(all(feature = "std", any(target_arch = "x86", target_arch = "x86_64"))))]
     /// Retrieves the features for the current Host
     pub fn for_host() -> EnumSet<Self> {
         // We default to an empty hash set

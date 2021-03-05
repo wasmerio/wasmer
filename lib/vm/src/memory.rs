@@ -8,6 +8,7 @@
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
 use more_asserts::assert_ge;
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
 use std::cell::UnsafeCell;
@@ -15,18 +16,20 @@ use std::convert::TryInto;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
+#[cfg(feature = "std")]
 use thiserror::Error;
 use wasmer_types::{Bytes, MemoryType, Pages};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
-#[derive(Error, Debug, Clone, PartialEq, Hash)]
+#[derive(Debug, Clone, PartialEq, Hash)]
+#[cfg_attr(feature = "std", derive(Error))]
 pub enum MemoryError {
     /// Low level error with mmap.
-    #[error("Error when allocating memory: {0}")]
+    #[cfg_attr(feature = "std", error("Error when allocating memory: {0}"))]
     Region(String),
     /// The operation would cause the size of the memory to exceed the maximum or would cause
     /// an overflow leading to unindexable memory.
-    #[error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0)]
+    #[cfg_attr(feature = "std", error("The memory could not grow: current size {} pages, requested increase: {} pages", current.0, attempted_delta.0))]
     CouldNotGrow {
         /// The current size in pages.
         current: Pages,
@@ -34,13 +37,13 @@ pub enum MemoryError {
         attempted_delta: Pages,
     },
     /// The operation would cause the size of the memory size exceed the maximum.
-    #[error("The memory is invalid because {}", reason)]
+    #[cfg_attr(feature = "std", error("The memory is invalid because {}", reason))]
     InvalidMemory {
         /// The reason why the provided memory is invalid.
         reason: String,
     },
     /// Caller asked for more minimum memory than we can give them.
-    #[error("The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)", min_requested.0, max_allowed.0)]
+    #[cfg_attr(feature = "std", error("The minimum requested ({} pages) memory is greater than the maximum allowed memory ({} pages)", min_requested.0, max_allowed.0))]
     MinimumMemoryTooLarge {
         /// The number of pages requested as the minimum amount of memory.
         min_requested: Pages,
@@ -48,7 +51,7 @@ pub enum MemoryError {
         max_allowed: Pages,
     },
     /// Caller asked for a maximum memory greater than we can give them.
-    #[error("The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)", max_requested.0, max_allowed.0)]
+    #[cfg_attr(feature = "std", error("The maximum requested memory ({} pages) is greater than the maximum allowed memory ({} pages)", max_requested.0, max_allowed.0))]
     MaximumMemoryTooLarge {
         /// The number of pages requested as the maximum amount of memory.
         max_requested: Pages,
@@ -56,12 +59,13 @@ pub enum MemoryError {
         max_allowed: Pages,
     },
     /// A user defined error value, used for error cases not listed above.
-    #[error("A user-defined error occurred: {0}")]
+    #[cfg_attr(feature = "std", error("A user-defined error occurred: {0}"))]
     Generic(String),
 }
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {

@@ -7,6 +7,7 @@
 
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+#[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
@@ -17,7 +18,8 @@ use std::sync::Mutex;
 use wasmer_types::{TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
     CallerChecksSignature,

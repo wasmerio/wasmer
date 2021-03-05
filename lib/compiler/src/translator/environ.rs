@@ -4,11 +4,11 @@
 use super::module::translate_module;
 use super::state::ModuleTranslationState;
 use crate::lib::std::borrow::ToOwned;
+use crate::lib::std::convert::{TryFrom, TryInto};
 use crate::lib::std::string::ToString;
+use crate::lib::std::sync::Arc;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
 use crate::{WasmError, WasmResult};
-use std::convert::{TryFrom, TryInto};
-use std::sync::Arc;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::FunctionType;
 use wasmer_types::{

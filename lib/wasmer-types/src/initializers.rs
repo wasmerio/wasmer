@@ -5,7 +5,8 @@ use crate::lib::std::boxed::Box;
 use serde::{Deserialize, Serialize};
 
 /// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash)]
+#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct TableInitializer {
     /// The index of a table to initialize.
     pub table_index: TableIndex,

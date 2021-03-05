@@ -12,12 +12,12 @@
 //! interpreted on the fly.
 use super::environ::ModuleEnvironment;
 use super::state::ModuleTranslationState;
+use crate::lib::std::boxed::Box;
+use crate::lib::std::collections::HashMap;
+use crate::lib::std::vec::Vec;
 use crate::wasm_unsupported;
 use crate::{WasmError, WasmResult};
 use core::convert::TryFrom;
-use std::boxed::Box;
-use std::collections::HashMap;
-use std::vec::Vec;
 use wasmer_types::entity::packed_option::ReservedValue;
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{
@@ -161,7 +161,7 @@ pub fn parse_function_section(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     let num_functions = functions.get_count();
-    if num_functions == std::u32::MAX {
+    if num_functions == crate::lib::std::u32::MAX {
         // We reserve `u32::MAX` for our own use.
         return Err(WasmError::ImplLimitExceeded);
     }
@@ -456,7 +456,7 @@ fn parse_function_name_subsection(
     let mut function_names = HashMap::new();
     for _ in 0..naming_reader.get_count() {
         let Naming { index, name } = naming_reader.read().ok()?;
-        if index == std::u32::MAX {
+        if index == crate::lib::std::u32::MAX {
             // We reserve `u32::MAX` for our own use.
             return None;
         }

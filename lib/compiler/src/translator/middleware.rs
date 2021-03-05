@@ -2,14 +2,17 @@
 //! with the chosen functions.
 
 use smallvec::SmallVec;
-use std::collections::VecDeque;
-use std::fmt::Debug;
-use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
 use wasmparser::{BinaryReader, Operator, Type};
 
 use crate::error::{MiddlewareError, WasmResult};
+use crate::lib::std::boxed::Box;
+use crate::lib::std::collections::VecDeque;
+use crate::lib::std::fmt::Debug;
+use crate::lib::std::ops::Deref;
+use crate::lib::std::vec;
+use crate::lib::std::vec::Vec;
 
 /// A shared builder for function middlewares.
 pub trait ModuleMiddleware: Debug + Send + Sync {

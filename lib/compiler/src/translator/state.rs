@@ -1,8 +1,8 @@
 // This file contains code from external sources.
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
+use crate::lib::std::boxed::Box;
 use crate::{wasm_unsupported, WasmResult};
-use std::boxed::Box;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::SignatureIndex;
 
