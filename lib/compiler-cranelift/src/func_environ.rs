@@ -11,7 +11,7 @@ use cranelift_codegen::ir::immediates::{Offset32, Uimm64};
 use cranelift_codegen::ir::types::*;
 use cranelift_codegen::ir::{AbiParam, ArgumentPurpose, Function, InstBuilder, Signature};
 use cranelift_codegen::isa::TargetFrontendConfig;
-use cranelift_frontend::FunctionBuilder;
+use cranelift_frontend::{FunctionBuilder, Variable};
 use std::convert::TryFrom;
 use wasmer_compiler::wasmparser::Type;
 use wasmer_compiler::{WasmError, WasmResult};
@@ -1540,5 +1540,17 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType> {
         self.module.signatures.get(sig_index)
+    }
+
+    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()> {
+        // TODO: this allocation can be removed without too much effort but it will require
+        //       maneuvering around the borrow checker
+        for (local_index, local_type) in self.type_stack.to_vec().iter().enumerate() {
+            if *local_type == WasmerType::ExternRef {
+                let val = builder.use_var(Variable::with_u32(local_index as _));
+                self.translate_externref_dec(builder.cursor(), val)?;
+            }
+        }
+        Ok(())
     }
 }

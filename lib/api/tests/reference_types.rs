@@ -292,3 +292,27 @@ fn extern_ref_ref_counting_global_basic() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn extern_ref_ref_counting_traps() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (func $pass_er (export "pass_extern_ref") (param externref)
+          (local.get 0)
+          (unreachable))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+
+    let pass_extern_ref: NativeFunc<ExternRef, ()> =
+        instance.exports.get_native_function("pass_extern_ref")?;
+
+    let er = ExternRef::new(3usize);
+    assert_eq!(er.strong_count(), 1);
+
+    let result = pass_extern_ref.call(er.clone());
+    assert!(result.is_err());
+    assert_eq!(er.strong_count(), 1);
+
+    Ok(())
+}

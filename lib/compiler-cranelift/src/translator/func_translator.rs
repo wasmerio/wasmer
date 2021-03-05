@@ -249,10 +249,6 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     }
 
     // When returning we drop all values in locals and on the stack.
-    // TODO:
-    // - [ ] figure out which values on the stack are being returned so we can filter them out from being dropped
-    // - [ ] drop all locals
-    //environ.
 
     // The final `End` operator left us in the exit block where we need to manually add a return
     // instruction.
@@ -262,13 +258,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     if state.reachable {
         debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
-            // TODO: encapsulate this logic into `environ` to avoid needing to allocate a `Vec` for the borrow checker
-            for (local_index, local_type) in environ.get_local_types().to_vec().iter().enumerate() {
-                if *local_type == WasmerType::ExternRef {
-                    let val = builder.use_var(Variable::with_u32(local_index as _));
-                    environ.translate_externref_dec(builder.cursor(), val)?;
-                }
-            }
+            environ.translate_drop_locals(builder)?;
 
             let num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
             // drop elements on the stack that we're not returning

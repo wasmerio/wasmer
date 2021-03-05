@@ -508,4 +508,7 @@ pub trait FuncEnvironment: TargetEnvironment {
 
     /// Get the type of a function with the given signature index.
     fn get_function_sig(&self, sig_index: SignatureIndex) -> Option<&FunctionType>;
+
+    /// Drops all locals that need to be dropped. Useful for returning from functions.
+    fn translate_drop_locals(&mut self, builder: &mut FunctionBuilder) -> WasmResult<()>;
 }

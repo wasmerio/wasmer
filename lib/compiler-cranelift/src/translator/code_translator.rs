@@ -97,14 +97,14 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::LocalSet { local_index } => {
             let (mut val, _metadata) = state.pop1();
 
-            // Ensure SIMD values are cast to their default Cranelift type, I8x16.
-            let ty = builder.func.dfg.value_type(val);
             let local_type = environ.get_local_type(*local_index).unwrap();
             if local_type == WasmerType::ExternRef {
                 debug_assert!(_metadata.ref_counted);
                 let existing_val = builder.use_var(Variable::with_u32(*local_index));
                 environ.translate_externref_dec(builder.cursor(), existing_val)?;
             }
+            // Ensure SIMD values are cast to their default Cranelift type, I8x16.
+            let ty = builder.func.dfg.value_type(val);
             if ty.is_vector() {
                 val = optionally_bitcast_vector(val, I8X16, builder);
             }
@@ -562,17 +562,7 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::Call { function_index } => {
             let (fref, num_args) = state.get_direct_func(builder.func, *function_index, environ)?;
 
-            let (args, args_metadata) = state.peekn_mut(num_args);
-            // increment the ref count of all ref-counted values passed to this function
-            for arg in args
-                .iter()
-                .zip(args_metadata.iter())
-                .filter(|(_, metadata)| metadata.ref_counted)
-                .map(|(arg, _)| arg)
-            {
-                // TODO: figure out if we can avoid this due to popping at the end
-                environ.translate_externref_inc(builder.cursor(), *arg)?;
-            }
+            let (args, _args_metadata) = state.peekn_mut(num_args);
 
             // Bitcast any vector arguments to their default type, I8X16, before calling.
             let callee_signature =
@@ -604,23 +594,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                     Default::default()
                 });
             }
-            let (args, args_metadata) = state.peekn(num_args);
-            // work around borrow checker
-            let args = args.to_vec();
-            let args_metadata = args_metadata.to_vec();
             state.popn(num_args);
             state.pushn(inst_results, &results_metadata);
-
-            // decrement the ref count of all ref-counted values as we pop them off the stack
-            for arg in args
-                .iter()
-                .zip(args_metadata.iter())
-                .filter(|(_, metadata)| metadata.ref_counted)
-                .map(|(arg, _)| arg)
-            {
-                // TODO: figure out if we can avoid this
-                environ.translate_externref_dec(builder.cursor(), *arg)?;
-            }
         }
         Operator::CallIndirect { index, table_index } => {
             // `index` is the index of the function's signature and `table_index` is the index of
@@ -638,7 +613,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             bitcast_arguments(args, &types, builder);
 
             let (args, _args_metadata) = state.peekn(num_args);
-            // TOOD(reftypes): ref count here with ^
             let sig_idx = SignatureIndex::from_u32(*index);
 
             let call = environ.translate_call_indirect(
