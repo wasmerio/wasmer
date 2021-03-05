@@ -225,7 +225,7 @@ fn refs_in_globals() -> Result<()> {
 }
 
 #[test]
-fn extern_ref_ref_counting_tables() -> Result<()> {
+fn extern_ref_ref_counting_table_basic() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
     (global $global (export "global") (mut externref) (ref.null extern))
@@ -247,8 +247,48 @@ fn extern_ref_ref_counting_tables() -> Result<()> {
     let er = ExternRef::new(3usize);
 
     let er = f.call(er, 1)?;
+    assert_eq!(er.strong_count(), 2);
+
+    let table: &Table = instance.exports.get_table("table")?;
+
+    {
+        let er2 = table.get(1).unwrap().externref().unwrap();
+        assert_eq!(er2.strong_count(), 3);
+    }
 
     assert_eq!(er.strong_count(), 2);
+    table.set(1, Val::ExternRef(ExternRef::null()))?;
+
+    assert_eq!(er.strong_count(), 1);
+
+    Ok(())
+}
+
+#[test]
+fn extern_ref_ref_counting_global_basic() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (global $global (export "global") (mut externref) (ref.null extern))
+    (func $get_from_global (export "get_from_global") (result externref)
+          (drop (global.get $global))
+          (global.get $global))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+
+    let global: &Global = instance.exports.get_global("global")?;
+    {
+        let er = ExternRef::new(3usize);
+        global.set(Val::ExternRef(er.clone()))?;
+        assert_eq!(er.strong_count(), 2);
+    }
+    let get_from_global: NativeFunc<(), ExternRef> =
+        instance.exports.get_native_function("get_from_global")?;
+
+    let er = get_from_global.call()?;
+    assert_eq!(er.strong_count(), 2);
+    global.set(Val::ExternRef(ExternRef::null()))?;
+    assert_eq!(er.strong_count(), 1);
 
     Ok(())
 }

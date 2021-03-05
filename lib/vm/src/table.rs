@@ -359,9 +359,7 @@ impl Table for LinearTable {
             Some(slot) => {
                 match (self.table.ty, reference) {
                     (ValType::ExternRef, TableReference::ExternRef(extern_ref)) => {
-                        let element_data = TableElement {
-                            extern_ref: extern_ref.ref_clone(),
-                        };
+                        let element_data = TableElement { extern_ref };
 
                         unsafe {
                             (&mut *slot).extern_ref.ref_drop();

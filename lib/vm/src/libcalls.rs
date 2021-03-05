@@ -364,6 +364,9 @@ pub unsafe extern "C" fn wasmer_imported_table_get(
 /// # Safety
 ///
 /// `vmctx` must be valid and not null.
+///
+/// It is the caller's responsibility to increment the ref count of any ref counted
+/// type before passing it to this function.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_table_set(
     vmctx: *mut VMContext,
@@ -379,7 +382,6 @@ pub unsafe extern "C" fn wasmer_table_set(
         .unwrap();
 
     let elem = match instance.get_local_table(table_index).ty().ty {
-        // TODO: review if we should do the clone here or inside (currently it's done in set)
         Type::ExternRef => TableReference::ExternRef(value.extern_ref),
         Type::FuncRef => TableReference::FuncRef(value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),

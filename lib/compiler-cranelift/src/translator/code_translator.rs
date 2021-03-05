@@ -104,7 +104,6 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
                 debug_assert!(_metadata.ref_counted);
                 let existing_val = builder.use_var(Variable::with_u32(*local_index));
                 environ.translate_externref_dec(builder.cursor(), existing_val)?;
-                environ.translate_externref_inc(builder.cursor(), val)?;
             }
             if ty.is_vector() {
                 val = optionally_bitcast_vector(val, I8X16, builder);
@@ -1407,13 +1406,11 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         Operator::TableSet { table: index } => {
             let table_index = TableIndex::from_u32(*index);
             let table = state.get_or_create_table(builder.func, *index, environ)?;
-            let (value, value_metadata) = state.pop1();
+            // We don't touch the ref count here because we're passing it to the host
+            // then dropping it from the stack. Thus 1 + -1 = 0.
+            let (value, _) = state.pop1();
             let (index, _) = state.pop1();
             environ.translate_table_set(builder, table_index, table, value, index)?;
-            if value_metadata.ref_counted {
-                // TODO: look into using "move"-like semantics here to avoid doing this
-                environ.translate_externref_dec(builder.cursor(), value)?;
-            }
         }
         Operator::TableCopy {
             dst_table: dst_table_index,

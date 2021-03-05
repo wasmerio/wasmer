@@ -121,7 +121,11 @@ impl Global {
             Value::F32(f) => *definition.as_f32_mut() = f,
             Value::F64(f) => *definition.as_f64_mut() = f,
             Value::V128(x) => *definition.as_bytes_mut() = x.to_ne_bytes(),
-            Value::ExternRef(r) => *definition.as_externref_mut() = r.into(),
+            Value::ExternRef(r) => {
+                let extern_ref = definition.as_externref_mut();
+                extern_ref.ref_drop();
+                *extern_ref = r.into()
+            }
             Value::FuncRef(None) => *definition.as_u128_mut() = 0,
             Value::FuncRef(Some(r)) => {
                 r.write_value_to(definition.as_u128_mut() as *mut u128 as *mut i128)
