@@ -642,7 +642,7 @@ endif
 endif
 
 package-docs: build-docs build-docs-capi
-	mkdir -p "package/docs/c/runtime-c-api"
+	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
 	cp -R lib/c-api/doc/deprecated/html/* package/docs/c
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
