@@ -6,12 +6,16 @@
 <span id="5">5</span>
 <span id="6">6</span>
 <span id="7">7</span>
+<span id="8">8</span>
+<span id="9">9</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">engine</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">features</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;middlewares&quot;</span>)]</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">middlewares</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">module</span>;
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">parser</span>;
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">target_lexicon</span>;
-
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">wasi</span>;
 </pre></div>
