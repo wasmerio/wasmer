@@ -319,11 +319,6 @@ fn extern_ref_ref_counting_traps() -> Result<()> {
 
 #[test]
 fn extern_ref_ref_counting_table_instructions() -> Result<()> {
-    // table.copy
-    // table.grow
-    // table.fill
-    // table.init
-    // select, tee, set, etc
     let store = Store::default();
     let wat = r#"(module
     (table $table1 (export "table1") 2 12 externref)
@@ -333,7 +328,7 @@ fn extern_ref_ref_counting_table_instructions() -> Result<()> {
     (func $fill_table_with_ref (export "fill_table_with_ref") (param $er externref) (param $start i32) (param $end i32)
           (table.fill $table1 (local.get $start) (local.get $er) (local.get $end)))
     (func $copy_into_table2 (export "copy_into_table2")
-          (table.copy $table1 $table2 (i32.const 4) (i32.const 1) (i32.const 1)))
+          (table.copy $table2 $table1 (i32.const 0) (i32.const 0) (i32.const 4)))
 )"#;
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
@@ -351,6 +346,7 @@ fn extern_ref_ref_counting_table_instructions() -> Result<()> {
 
     let er1 = ExternRef::new(3usize);
     let er2 = ExternRef::new(5usize);
+    let er3 = ExternRef::new(7usize);
     {
         let result = grow_table_with_ref.call(er1.clone(), 0)?;
         assert_eq!(result, 2);
@@ -376,6 +372,44 @@ fn extern_ref_ref_counting_table_instructions() -> Result<()> {
         fill_table_with_ref.call(er2.clone(), 0, 2)?;
         assert_eq!(er2.strong_count(), 3);
     }
+
+    {
+        table2.set(0, Val::ExternRef(er3.clone()))?;
+        table2.set(1, Val::ExternRef(er3.clone()))?;
+        table2.set(2, Val::ExternRef(er3.clone()))?;
+        table2.set(3, Val::ExternRef(er3.clone()))?;
+        table2.set(4, Val::ExternRef(er3.clone()))?;
+        assert_eq!(er3.strong_count(), 6);
+    }
+
+    {
+        copy_into_table2.call()?;
+        assert_eq!(er3.strong_count(), 2);
+        assert_eq!(er2.strong_count(), 5);
+        assert_eq!(er1.strong_count(), 11);
+        for i in 1..5 {
+            let e = table2.get(i).unwrap().unwrap_externref();
+            let value = e.downcast::<usize>().unwrap();
+            match i {
+                0 | 1 => assert_eq!(*value, 5),
+                4 => assert_eq!(*value, 7),
+                _ => assert_eq!(*value, 3),
+            }
+        }
+    }
+
+    {
+        for i in 0..table1.size() {
+            table1.set(i, Val::ExternRef(ExternRef::null()))?;
+        }
+        for i in 0..table2.size() {
+            table2.set(i, Val::ExternRef(ExternRef::null()))?;
+        }
+    }
+
+    assert_eq!(er1.strong_count(), 1);
+    assert_eq!(er2.strong_count(), 1);
+    assert_eq!(er3.strong_count(), 1);
 
     Ok(())
 }
