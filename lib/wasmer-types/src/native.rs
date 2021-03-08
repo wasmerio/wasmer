@@ -34,11 +34,11 @@ pub trait NativeWasmType: Sized {
     fn into_abi(self) -> Self::Abi;
 
     /// Convert self to i128 binary representation.
-    #[clippy(allow(wrong_self_convention))]
+    #[allow(clippy::wrong_self_convention)]
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`.
-    #[clippy(allow(wrong_self_convention))]
+    #[allow(clippy::wrong_self_convention)]
     fn to_value<T>(self) -> Value<T> {
         let binary = self.to_binary();
 
