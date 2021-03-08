@@ -316,3 +316,66 @@ fn extern_ref_ref_counting_traps() -> Result<()> {
 
     Ok(())
 }
+
+#[test]
+fn extern_ref_ref_counting_table_instructions() -> Result<()> {
+    // table.copy
+    // table.grow
+    // table.fill
+    // table.init
+    // select, tee, set, etc
+    let store = Store::default();
+    let wat = r#"(module
+    (table $table1 (export "table1") 2 12 externref)
+    (table $table2 (export "table2") 6 12 externref)
+    (func $grow_table_with_ref (export "grow_table_with_ref") (param $er externref) (param $size i32) (result i32)
+          (table.grow $table1 (local.get $er) (local.get $size)))
+    (func $fill_table_with_ref (export "fill_table_with_ref") (param $er externref) (param $start i32) (param $end i32)
+          (table.fill $table1 (local.get $start) (local.get $er) (local.get $end)))
+    (func $copy_into_table2 (export "copy_into_table2")
+          (table.copy $table1 $table2 (i32.const 4) (i32.const 1) (i32.const 1)))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let instance = Instance::new(&module, &imports! {})?;
+
+    let grow_table_with_ref: NativeFunc<(ExternRef, i32), i32> = instance
+        .exports
+        .get_native_function("grow_table_with_ref")?;
+    let fill_table_with_ref: NativeFunc<(ExternRef, i32, i32), ()> = instance
+        .exports
+        .get_native_function("fill_table_with_ref")?;
+    let copy_into_table2: NativeFunc<(), ()> =
+        instance.exports.get_native_function("copy_into_table2")?;
+    let table1: &Table = instance.exports.get_table("table1")?;
+    let table2: &Table = instance.exports.get_table("table2")?;
+
+    let er1 = ExternRef::new(3usize);
+    let er2 = ExternRef::new(5usize);
+    {
+        let result = grow_table_with_ref.call(er1.clone(), 0)?;
+        assert_eq!(result, 2);
+        assert_eq!(er1.strong_count(), 1);
+
+        let result = grow_table_with_ref.call(er1.clone(), 10_000)?;
+        assert_eq!(result, -1);
+        assert_eq!(er1.strong_count(), 1);
+
+        let result = grow_table_with_ref.call(er1.clone(), 8)?;
+        assert_eq!(result, 2);
+        assert_eq!(er1.strong_count(), 9);
+
+        for i in 2..10 {
+            let e = table1.get(i).unwrap().unwrap_externref();
+            assert_eq!(*e.downcast::<usize>().unwrap(), 3);
+            assert_eq!(&e, &er1);
+        }
+        assert_eq!(er1.strong_count(), 9);
+    }
+
+    {
+        fill_table_with_ref.call(er2.clone(), 0, 2)?;
+        assert_eq!(er2.strong_count(), 3);
+    }
+
+    Ok(())
+}

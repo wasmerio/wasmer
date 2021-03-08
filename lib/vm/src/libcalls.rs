@@ -276,7 +276,7 @@ pub unsafe extern "C" fn wasmer_table_fill(
         let table_index = TableIndex::from_u32(table_index);
         let instance = (&*vmctx).instance();
         let elem = match instance.get_table(table_index).ty().ty {
-            Type::ExternRef => TableReference::ExternRef(item.extern_ref),
+            Type::ExternRef => TableReference::ExternRef(item.extern_ref.into()),
             Type::FuncRef => TableReference::FuncRef(item.func_ref),
             _ => panic!("Unrecognized table type: does not contain references"),
         };
@@ -382,7 +382,7 @@ pub unsafe extern "C" fn wasmer_table_set(
         .unwrap();
 
     let elem = match instance.get_local_table(table_index).ty().ty {
-        Type::ExternRef => TableReference::ExternRef(value.extern_ref),
+        Type::ExternRef => TableReference::ExternRef(value.extern_ref.into()),
         Type::FuncRef => TableReference::FuncRef(value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };
@@ -411,7 +411,7 @@ pub unsafe extern "C" fn wasmer_imported_table_set(
     let table_index = TableIndex::from_u32(table_index);
     let elem = match instance.get_table(table_index).ty().ty {
         // TODO: review if we should do the clone here or inside (currently it's done in set)
-        Type::ExternRef => TableReference::ExternRef(value.extern_ref),
+        Type::ExternRef => TableReference::ExternRef(value.extern_ref.into()),
         Type::FuncRef => TableReference::FuncRef(value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };
@@ -439,7 +439,7 @@ pub unsafe extern "C" fn wasmer_table_grow(
     let table_index = LocalTableIndex::from_u32(table_index);
 
     let init_value = match instance.get_local_table(table_index).ty().ty {
-        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref),
+        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref.into()),
         Type::FuncRef => TableReference::FuncRef(init_value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };
@@ -464,7 +464,7 @@ pub unsafe extern "C" fn wasmer_imported_table_grow(
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
     let init_value = match instance.get_table(table_index).ty().ty {
-        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref),
+        Type::ExternRef => TableReference::ExternRef(init_value.extern_ref.into()),
         Type::FuncRef => TableReference::FuncRef(init_value.func_ref),
         _ => panic!("Unrecognized table type: does not contain references"),
     };

@@ -62,6 +62,46 @@ impl VMExternRef {
         }
     }
 
+    /// Panic if the ref count gets too high.
+    #[track_caller]
+    fn sanity_check_ref_count(old_size: usize, growth_amount: usize) {
+        // If we exceed 18_446_744_073_709_551_614 references on a 64bit system (or
+        // 2_147_483_646 references on a 32bit system) then we either live in a future with
+        // magic technology or we have a bug in our ref counting logic (i.e. a leak).
+        // Either way, the best course of action is to terminate the program and update
+        // some code on our side.
+        //
+        // Note to future readers: exceeding `usize` ref count is trivially provable as a
+        // bug on systems that can address `usize` sized memory blocks or smaller because
+        // the reference itself is at least `usize` in size and all virtual memory would be
+        // taken by references to the data leaving no room for the data itself.
+        if old_size
+            .checked_add(growth_amount)
+            .map(|v| v > Self::MAX_REFCOUNT)
+            .unwrap_or(true)
+        {
+            panic!("Too many references to `ExternRef`");
+        }
+    }
+
+    /// A low-level function to increment the strong-count a given number of times.
+    ///
+    /// This is used as an optimization when implementing some low-level VM primitives.
+    /// If you're using this type directly for whatever reason, you probably want
+    /// [`Self::ref_clone`] instead.
+    pub fn ref_inc_by(&self, val: usize) {
+        if self.0.is_null() {
+            return;
+        }
+
+        let old_size = unsafe {
+            let ref_inner = &*self.0;
+            ref_inner.increment_ref_count(val)
+        };
+
+        Self::sanity_check_ref_count(old_size, val);
+    }
+
     /// A deep copy of the reference, increments the strong count.
     pub fn ref_clone(&self) -> Self {
         if self.0.is_null() {
@@ -70,22 +110,12 @@ impl VMExternRef {
 
         let old_size = unsafe {
             let ref_inner = &*self.0;
-            ref_inner.increment_ref_count()
+            ref_inner.increment_ref_count(1)
         };
 
-        // However we need to guard against massive refcounts in case
-        // someone is `mem::forget`ing `InstanceRef`. If we
-        // don't do this the count can overflow and users will
-        // use-after free. We racily saturate to `isize::MAX` on the
-        // assumption that there aren't ~2 billion threads
-        // incrementing the reference count at once. This branch will
-        // never be taken in any realistic program.
-        //
-        // We abort because such a program is incredibly degenerate,
-        // and we don't care to support it.
-
+        // See comments in [`Self::sanity_check_ref_count`] for more information.
         if old_size > Self::MAX_REFCOUNT {
-            panic!("Too many references of `InstanceRef`");
+            panic!("Too many references to `ExternRef`");
         }
 
         Self(self.0)
@@ -138,7 +168,7 @@ impl VMExternRefInner {
 
     /// Returns the old value.
     /// TODO: document this
-    fn increment_ref_count(&self) -> usize {
+    fn increment_ref_count(&self, val: usize) -> usize {
         // Using a relaxed ordering is alright here, as knowledge of
         // the original reference prevents other threads from
         // erroneously deleting the object.
@@ -152,7 +182,7 @@ impl VMExternRefInner {
         // > provide any required synchronization.
         //
         // [1]: https://www.boost.org/doc/libs/1_55_0/doc/html/atomic/usage_examples.html
-        self.strong.fetch_add(1, atomic::Ordering::Relaxed)
+        self.strong.fetch_add(val, atomic::Ordering::Relaxed)
     }
 
     /// Decrement the count and drop the data if the count hits 0

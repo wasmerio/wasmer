@@ -16,7 +16,7 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{TableType, Type as ValType};
+use wasmer_types::{ExternRef, TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
 #[derive(Debug, Clone, Hash, Serialize, Deserialize)]
@@ -107,9 +107,10 @@ pub trait Table: fmt::Debug + Send + Sync {
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
 pub enum TableReference {
-    // TODO: implement extern refs
     /// Opaque pointer to arbitrary host data.
-    ExternRef(VMExternRef),
+    // Note: we use `ExternRef` instead of `VMExternRef` here to ensure that we don't
+    // leak by not dec-refing on failure types.
+    ExternRef(ExternRef),
     /// Pointer to function: contains enough information to call it.
     FuncRef(VMFuncRef),
 }
@@ -117,7 +118,9 @@ pub enum TableReference {
 impl From<TableReference> for TableElement {
     fn from(other: TableReference) -> Self {
         match other {
-            TableReference::ExternRef(extern_ref) => Self { extern_ref },
+            TableReference::ExternRef(extern_ref) => Self {
+                extern_ref: extern_ref.into(),
+            },
             TableReference::FuncRef(func_ref) => Self { func_ref },
         }
     }
@@ -307,16 +310,25 @@ impl Table for LinearTable {
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
-
-        // update ref count
-        if let TableReference::ExternRef(extern_ref) = init_value {
-            // TODO: add a func to inc/dec strong count by some amount
-            for _ in size..new_len {
-                extern_ref.ref_clone();
-            }
+        if new_len == size {
+            debug_assert_eq!(delta, 0);
+            return Some(size);
         }
 
-        let element = init_value.into();
+        // Update the ref count
+        let element = match init_value {
+            TableReference::ExternRef(extern_ref) => {
+                let extern_ref: VMExternRef = extern_ref.into();
+                // We reduce the amount we increment by because `into` prevents
+                // dropping `init_value` (which is a caller-inc'd ref).
+                (new_len as usize)
+                    .checked_sub(size as usize + 1)
+                    .map(|val| extern_ref.ref_inc_by(val));
+                TableElement { extern_ref }
+            }
+            TableReference::FuncRef(func_ref) => TableElement { func_ref },
+        };
+
         vec.resize(usize::try_from(new_len).unwrap(), element);
 
         // update table definition
@@ -337,10 +349,7 @@ impl Table for LinearTable {
         let raw_data = vec_guard.borrow().get(index as usize).cloned()?;
         Some(match self.table.ty {
             ValType::ExternRef => {
-                // TODO: there is no matching `drop` for this `clone` implemented yet.
-                // thus extern refs will always leak memory if this path is touched.
-                // This is fine for development but needs to be resolved before shipping.
-                TableReference::ExternRef(unsafe { raw_data.extern_ref.ref_clone() })
+                TableReference::ExternRef(unsafe { raw_data.extern_ref.ref_clone() }.into())
             }
             ValType::FuncRef => TableReference::FuncRef(unsafe { raw_data.func_ref }),
             _ => todo!("getting invalid type from table, handle this error"),
@@ -359,19 +368,23 @@ impl Table for LinearTable {
             Some(slot) => {
                 match (self.table.ty, reference) {
                     (ValType::ExternRef, TableReference::ExternRef(extern_ref)) => {
-                        let element_data = TableElement { extern_ref };
-
+                        let extern_ref = extern_ref.into();
                         unsafe {
-                            (&mut *slot).extern_ref.ref_drop();
-                            *slot = element_data;
+                            let elem = &mut *slot;
+                            elem.extern_ref.ref_drop();
+                            elem.extern_ref = extern_ref
                         }
                     }
                     (ValType::FuncRef, r @ TableReference::FuncRef(_)) => {
                         let element_data = r.into();
                         *slot = element_data;
                     }
-                    // There is no trap code for this, are we supposed to statically verify that this can't happen?
-                    _ => todo!("Trap if we set the wrong type"), //return Err(Trap::new_from_runtime(TrapCode::TableTypeMismatch))
+                    // This path should never be hit by the generated code due to Wasm
+                    // validation.
+                    (ty, v) => panic!(
+                        "Attempted to set a table of type {} with the value {:?}",
+                        ty, v
+                    ),
                 };
 
                 Ok(())
