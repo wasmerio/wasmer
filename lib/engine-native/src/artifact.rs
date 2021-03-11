@@ -545,8 +545,10 @@ impl NativeArtifact {
         })?;
         let metadata_slice: &'static [u8] =
             slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize);
+        let now = std::time::Instant::now();
         let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        println!("{:?}", now.elapsed());
         let mut engine_inner = engine.inner_mut();
 
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
