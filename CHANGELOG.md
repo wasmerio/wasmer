@@ -11,7 +11,7 @@
 - [#2154](https://github.com/wasmerio/wasmer/pull/2154) Implement reference types in the LLVM compiler.
 - [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.
 - [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
-- [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installed, but all the `lib` and `include` files as for macOS and Linux.
+- [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installer, but all the `lib` and `include` files as for macOS and Linux.
 - [#2153](https://github.com/wasmerio/wasmer/pull/2153) Add a `wasmer_features_t` unstable C API to define features for the engine and the compiler in the Wasm C API.
 - [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
 - [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
