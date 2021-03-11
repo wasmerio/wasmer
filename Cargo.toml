@@ -44,7 +44,6 @@ members = [
     "lib/engine-native",
     "lib/engine-object-file",
     "lib/object",
-    "lib/tracing",
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",

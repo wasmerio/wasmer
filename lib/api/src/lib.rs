@@ -262,6 +262,8 @@ mod module;
 mod native;
 mod ptr;
 mod store;
+#[cfg(feature = "tracing")]
+mod tracing;
 mod tunables;
 mod types;
 mod utils;

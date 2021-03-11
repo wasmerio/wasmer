@@ -11,7 +11,6 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-tracing = { path = "../tracing", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2", optional = true }
 wasmer-compiler-cranelift = { path = "../compiler-cranelift", version = "1.0.2", optional = true }
@@ -38,6 +37,9 @@ libc = { version = "^0.2", default-features = false }
 wat = "1.0"
 tempfile = "3.1"
 anyhow = "1.0"
+
+[build-dependencies]
+sonde = "0.1"
 
 [badges]
 maintenance = { status = "actively-developed" }
@@ -99,3 +101,5 @@ default-native = [
     "native",
     "default-engine"
 ]
+
+tracing = []

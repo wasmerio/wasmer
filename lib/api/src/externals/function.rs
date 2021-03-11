@@ -9,7 +9,6 @@ use crate::WasmerEnv;
 pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, WithoutEnv};
 #[cfg(feature = "deprecated")]
 pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
-use wasmer_tracing as tracing;
 
 use std::cmp::max;
 use std::ffi::c_void;
@@ -622,19 +621,14 @@ impl Function {
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
-        tracing::function_start();
-
         let mut results = vec![Val::null(); self.result_arity()];
 
         match &self.definition {
             FunctionDefinition::Wasm(wasm) => {
-                tracing::function_invoke2(params[0].unwrap_i64() as _, params[1].unwrap_i64() as _);
                 self.call_wasm(&wasm, params, &mut results)?;
             }
             _ => unimplemented!("The function definition isn't supported for the moment"),
         }
-
-        tracing::function_end();
 
         Ok(results.into_boxed_slice())
     }

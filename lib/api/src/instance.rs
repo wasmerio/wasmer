@@ -7,7 +7,6 @@ use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;
 use wasmer_engine::Resolver;
-use wasmer_tracing as tracing;
 use wasmer_vm::{InstanceHandle, VMContext};
 
 /// A WebAssembly Instance is a stateful, executable
@@ -113,7 +112,8 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
-        tracing::instance_start();
+        #[cfg(feature = "tracing")]
+        crate::tracing::wasmer::instance_start();
 
         let store = module.store();
         let handle = module.instantiate(resolver)?;
@@ -178,6 +178,7 @@ impl fmt::Debug for Instance {
 
 impl Drop for Instance {
     fn drop(&mut self) {
-        tracing::instance_end();
+        #[cfg(feature = "tracing")]
+        crate::tracing::wasmer::instance_stop();
     }
 }
