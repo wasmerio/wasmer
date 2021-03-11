@@ -8,7 +8,6 @@
 ## **[Unreleased]**
 
 ### Added
-- [#2154](https://github.com/wasmerio/wasmer/pull/2154) Implement reference types in the LLVM compiler.
 - [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.
 - [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
 - [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installer, but all the `lib` and `include` files as for macOS and Linux.
