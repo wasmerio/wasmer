@@ -31,7 +31,6 @@ use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
 use std::cell::{Cell, RefCell};
-use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ffi;
 use std::fmt;
