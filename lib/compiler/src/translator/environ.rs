@@ -363,7 +363,7 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        let old = self.result.module.passive_elements[elem_index] = segments;
+        self.result.module.passive_elements[elem_index] = segments;
         Ok(())
     }
 
@@ -415,7 +415,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self.result.module.passive_data[data_index] = Arc::from(data);
+        self.result.module.passive_data[data_index] = Arc::from(data);
         Ok(())
     }
 
