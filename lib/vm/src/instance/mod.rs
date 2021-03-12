@@ -82,11 +82,11 @@ pub(crate) struct Instance {
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
     /// entries get removed. A missing entry is considered equivalent to an
     /// empty slice.
-    passive_elements: RefCell<HashMap<ElemIndex, Box<[VMCallerCheckedAnyfunc]>>>,
+    passive_elements: RefCell<PrimaryMap<ElemIndex, Box<[VMCallerCheckedAnyfunc]>>>,
 
     /// Passive data segments from our module. As `data.drop`s happen, entries
     /// get removed. A missing entry is considered equivalent to an empty slice.
-    passive_data: RefCell<HashMap<DataIndex, Arc<[u8]>>>,
+    passive_data: RefCell<PrimaryMap<DataIndex, Arc<[u8]>>>,
 
     /// Hosts can store arbitrary per-instance information here.
     host_state: Box<dyn Any>,
@@ -600,7 +600,7 @@ impl Instance {
         let table = self.get_table(table_index);
         let passive_elements = self.passive_elements.borrow();
         let elem = passive_elements
-            .get(&elem_index)
+            .get(elem_index)
             .map_or_else(|| -> &[VMCallerCheckedAnyfunc] { &[] }, |e| &**e);
 
         if src
@@ -625,7 +625,7 @@ impl Instance {
         // https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-elem-drop
 
         let mut passive_elements = self.passive_elements.borrow_mut();
-        passive_elements.remove(&elem_index);
+        passive_elements[elem_index] = Box::new([]);
         // Note that we don't check that we actually removed an element because
         // dropping a non-passive element is a no-op (not a trap).
     }
@@ -718,9 +718,7 @@ impl Instance {
 
         let memory = self.get_memory(memory_index);
         let passive_data = self.passive_data.borrow();
-        let data = passive_data
-            .get(&data_index)
-            .map_or(&[][..], |data| &**data);
+        let data = passive_data.get(data_index).map_or(&[][..], |data| &**data);
 
         if src
             .checked_add(len)
@@ -746,7 +744,7 @@ impl Instance {
     /// Drop the given data segment, truncating its length to zero.
     pub(crate) fn data_drop(&self, data_index: DataIndex) {
         let mut passive_data = self.passive_data.borrow_mut();
-        passive_data.remove(&data_index);
+        passive_data[data_index] = Arc::new([]);
     }
 
     /// Get a table by index regardless of whether it is locally-defined or an
@@ -1308,22 +1306,20 @@ fn initialize_passive_elements(instance: &Instance) {
         "should only be called once, at initialization time"
     );
 
-    passive_elements.extend(
-        instance
-            .module
-            .passive_elements
+    for (segments, passive_element) in instance
+        .module
+        .passive_elements
+        .values()
+        .zip(passive_elements.values_mut())
+    {
+        if segments.is_empty() {
+            continue;
+        }
+        *passive_element = segments
             .iter()
-            .filter(|(_, segments)| !segments.is_empty())
-            .map(|(idx, segments)| {
-                (
-                    *idx,
-                    segments
-                        .iter()
-                        .map(|s| instance.get_caller_checked_anyfunc(*s))
-                        .collect(),
-                )
-            }),
-    );
+            .map(|s| instance.get_caller_checked_anyfunc(*s))
+            .collect();
+    }
 }
 
 /// Initialize the table memory from the provided initializers.
