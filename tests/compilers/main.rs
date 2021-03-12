@@ -4,6 +4,7 @@
 //! implementation, such as: singlepass, cranelift or llvm depending
 //! on what's available on the target.
 
+mod deterministic;
 mod imports;
 mod metering;
 mod middlewares;
