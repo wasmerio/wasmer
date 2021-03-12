@@ -597,16 +597,10 @@ impl Instance {
 
         let table = self.get_table(table_index);
         let passive_elements = self.passive_elements.borrow();
-        let elem = passive_elements.get(elem_index).map_or_else(
-            || -> &[VMCallerCheckedAnyfunc] { &[] },
-            |e| {
-                if let Some(e) = e {
-                    &**e
-                } else {
-                    &[]
-                }
-            },
-        );
+        let elem = passive_elements
+            .get(elem_index)
+            .and_then(|e| e.as_ref().map(|e| &**e))
+            .unwrap_or(&[]);
 
         if src
             .checked_add(len)
@@ -723,13 +717,10 @@ impl Instance {
 
         let memory = self.get_memory(memory_index);
         let passive_data = self.passive_data.borrow();
-        let data = passive_data.get(data_index).map_or(&[][..], |data| {
-            if let Some(data) = data {
-                &**data
-            } else {
-                &[][..]
-            }
-        });
+        let data = passive_data
+            .get(data_index)
+            .and_then(|data| data.as_ref().map(|d| &**d))
+            .unwrap_or(&[][..]);
 
         if src
             .checked_add(len)
