@@ -1381,6 +1381,10 @@
 <span id="1378">1378</span>
 <span id="1379">1379</span>
 <span id="1380">1380</span>
+<span id="1381">1381</span>
+<span id="1382">1382</span>
+<span id="1383">1383</span>
+<span id="1384">1384</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1415,7 +1419,6 @@
 <span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_lt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::{<span class="ident">Cell</span>, <span class="ident">RefCell</span>};
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::{<span class="ident">TryFrom</span>, <span class="ident">TryInto</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
@@ -1464,13 +1467,12 @@
     <span class="ident">function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Passive elements in this instantiation. As `elem.drop`s happen, these</span>
-    <span class="doccomment">/// entries get removed. A missing entry is considered equivalent to an</span>
-    <span class="doccomment">/// empty slice.</span>
-    <span class="ident">passive_elements</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">VMCallerCheckedAnyfunc</span>]<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="doccomment">/// entries get removed.</span>
+    <span class="ident">passive_elements</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">VMCallerCheckedAnyfunc</span>]<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Passive data segments from our module. As `data.drop`s happen, entries</span>
     <span class="doccomment">/// get removed. A missing entry is considered equivalent to an empty slice.</span>
-    <span class="ident">passive_data</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="ident">passive_data</span>: <span class="ident">RefCell</span><span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Hosts can store arbitrary per-instance information here.</span>
     <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
@@ -1984,8 +1986,9 @@
         <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_table</span>(<span class="ident">table_index</span>);
         <span class="kw">let</span> <span class="ident">passive_elements</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">passive_elements</span>.<span class="ident">borrow</span>();
         <span class="kw">let</span> <span class="ident">elem</span> <span class="op">=</span> <span class="ident">passive_elements</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">elem_index</span>)
-            .<span class="ident">map_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">VMCallerCheckedAnyfunc</span>] { <span class="kw-2">&amp;</span>[] }, <span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">e</span>);
+            .<span class="ident">get</span>(<span class="ident">elem_index</span>)
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">e</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">e</span>))
+            .<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span>[]);
 
         <span class="kw">if</span> <span class="ident">src</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
@@ -2009,7 +2012,7 @@
         <span class="comment">// https://webassembly.github.io/reference-types/core/exec/instructions.html#exec-elem-drop</span>
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">passive_elements</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">passive_elements</span>.<span class="ident">borrow_mut</span>();
-        <span class="ident">passive_elements</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">elem_index</span>);
+        <span class="ident">passive_elements</span>[<span class="ident">elem_index</span>] <span class="op">=</span> <span class="prelude-val">None</span>;
         <span class="comment">// Note that we don&#39;t check that we actually removed an element because</span>
         <span class="comment">// dropping a non-passive element is a no-op (not a trap).</span>
     }
@@ -2103,8 +2106,9 @@
         <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">get_memory</span>(<span class="ident">memory_index</span>);
         <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">passive_data</span>.<span class="ident">borrow</span>();
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">passive_data</span>
-            .<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">data_index</span>)
-            .<span class="ident">map_or</span>(<span class="kw-2">&amp;</span>[][..], <span class="op">|</span><span class="ident">data</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">data</span>);
+            .<span class="ident">get</span>(<span class="ident">data_index</span>)
+            .<span class="ident">and_then</span>(<span class="op">|</span><span class="ident">data</span><span class="op">|</span> <span class="ident">data</span>.<span class="ident">as_ref</span>().<span class="ident">map</span>(<span class="op">|</span><span class="ident">d</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">d</span>))
+            .<span class="ident">unwrap_or</span>(<span class="kw-2">&amp;</span>[][..]);
 
         <span class="kw">if</span> <span class="ident">src</span>
             .<span class="ident">checked_add</span>(<span class="ident">len</span>)
@@ -2130,7 +2134,7 @@
     <span class="doccomment">/// Drop the given data segment, truncating its length to zero.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">data_drop</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">data_index</span>: <span class="ident">DataIndex</span>) {
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">passive_data</span>.<span class="ident">borrow_mut</span>();
-        <span class="ident">passive_data</span>.<span class="ident">remove</span>(<span class="kw-2">&amp;</span><span class="ident">data_index</span>);
+        <span class="ident">passive_data</span>[<span class="ident">data_index</span>] <span class="op">=</span> <span class="prelude-val">None</span>;
     }
 
     <span class="doccomment">/// Get a table by index regardless of whether it is locally-defined or an</span>
@@ -2207,7 +2211,13 @@
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">m</span><span class="op">|</span> <span class="ident">m</span>.<span class="ident">vmglobal</span>())
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_boxed_slice</span>();
-        <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="ident">RefCell</span>::<span class="ident">new</span>(<span class="ident">module</span>.<span class="ident">passive_data</span>.<span class="ident">clone</span>());
+        <span class="kw">let</span> <span class="ident">passive_data</span> <span class="op">=</span> <span class="ident">RefCell</span>::<span class="ident">new</span>(
+            <span class="ident">module</span>
+                .<span class="ident">passive_data</span>
+                .<span class="ident">values</span>()
+                .<span class="ident">map</span>(<span class="op">|</span><span class="ident">data</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">data</span>.<span class="ident">clone</span>()))
+                .<span class="ident">collect</span>(),
+        );
 
         <span class="kw">let</span> <span class="ident">handle</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">offsets</span> <span class="op">=</span> <span class="ident">allocator</span>.<span class="ident">offsets</span>().<span class="ident">clone</span>();
@@ -2692,22 +2702,20 @@
         <span class="string">&quot;should only be called once, at initialization time&quot;</span>
     );
 
-    <span class="ident">passive_elements</span>.<span class="ident">extend</span>(
-        <span class="ident">instance</span>
-            .<span class="ident">module</span>
-            .<span class="ident">passive_elements</span>
+    <span class="kw">for</span> (<span class="ident">segments</span>, <span class="ident">passive_element</span>) <span class="kw">in</span> <span class="ident">instance</span>
+        .<span class="ident">module</span>
+        .<span class="ident">passive_elements</span>
+        .<span class="ident">values</span>()
+        .<span class="ident">zip</span>(<span class="ident">passive_elements</span>.<span class="ident">values_mut</span>())
+    {
+        <span class="kw">if</span> <span class="ident">segments</span>.<span class="ident">is_empty</span>() {
+            <span class="kw">continue</span>;
+        }
+        <span class="kw-2">*</span><span class="ident">passive_element</span> <span class="op">=</span> <span class="ident">segments</span>
             .<span class="ident">iter</span>()
-            .<span class="ident">filter</span>(<span class="op">|</span>(<span class="kw">_</span>, <span class="ident">segments</span>)<span class="op">|</span> <span class="op">!</span><span class="ident">segments</span>.<span class="ident">is_empty</span>())
-            .<span class="ident">map</span>(<span class="op">|</span>(<span class="ident">idx</span>, <span class="ident">segments</span>)<span class="op">|</span> {
-                (
-                    <span class="kw-2">*</span><span class="ident">idx</span>,
-                    <span class="ident">segments</span>
-                        .<span class="ident">iter</span>()
-                        .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="ident">instance</span>.<span class="ident">get_caller_checked_anyfunc</span>(<span class="kw-2">*</span><span class="ident">s</span>))
-                        .<span class="ident">collect</span>(),
-                )
-            }),
-    );
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">s</span><span class="op">|</span> <span class="prelude-val">Some</span>(<span class="ident">instance</span>.<span class="ident">get_caller_checked_anyfunc</span>(<span class="kw-2">*</span><span class="ident">s</span>)))
+            .<span class="ident">collect</span>();
+    }
 }
 
 <span class="doccomment">/// Initialize the table memory from the provided initializers.</span>

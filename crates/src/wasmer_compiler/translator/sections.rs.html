@@ -476,6 +476,7 @@
 <span id="473">473</span>
 <span id="474">474</span>
 <span id="475">475</span>
+<span id="476">476</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -811,6 +812,7 @@
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ModuleEnvironment</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
     <span class="ident">environ</span>.<span class="ident">reserve_table_initializers</span>(<span class="ident">elements</span>.<span class="ident">get_count</span>())<span class="question-mark">?</span>;
+    <span class="ident">environ</span>.<span class="ident">reserve_passive_elements</span>(<span class="ident">elements</span>.<span class="ident">get_count</span>())<span class="question-mark">?</span>;
 
     <span class="kw">for</span> (<span class="ident">index</span>, <span class="ident">entry</span>) <span class="kw">in</span> <span class="ident">elements</span>.<span class="ident">into_iter</span>().<span class="ident">enumerate</span>() {
         <span class="kw">let</span> <span class="ident">Element</span> { <span class="ident">kind</span>, <span class="ident">items</span>, <span class="ident">ty</span> } <span class="op">=</span> <span class="ident">entry</span><span class="question-mark">?</span>;

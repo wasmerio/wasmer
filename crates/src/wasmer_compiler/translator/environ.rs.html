@@ -471,15 +471,6 @@
 <span id="468">468</span>
 <span id="469">469</span>
 <span id="470">470</span>
-<span id="471">471</span>
-<span id="472">472</span>
-<span id="473">473</span>
-<span id="474">474</span>
-<span id="475">475</span>
-<span id="476">476</span>
-<span id="477">477</span>
-<span id="478">478</span>
-<span id="479">479</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -814,6 +805,14 @@
         <span class="prelude-val">Ok</span>(())
     }
 
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">reserve_passive_elements</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">num</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
+        <span class="self">self</span>.<span class="ident">result</span>
+            .<span class="ident">module</span>
+            .<span class="ident">passive_elements</span>
+            .<span class="ident">reserve_exact</span>(<span class="ident">usize</span>::<span class="ident">try_from</span>(<span class="ident">num</span>).<span class="ident">unwrap</span>());
+        <span class="prelude-val">Ok</span>(())
+    }
+
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">declare_table_initializers</span>(
         <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
         <span class="ident">table_index</span>: <span class="ident">TableIndex</span>,
@@ -838,16 +837,7 @@
         <span class="ident">elem_index</span>: <span class="ident">ElemIndex</span>,
         <span class="ident">segments</span>: <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">result</span>
-            .<span class="ident">module</span>
-            .<span class="ident">passive_elements</span>
-            .<span class="ident">insert</span>(<span class="ident">elem_index</span>, <span class="ident">segments</span>);
-        <span class="macro">debug_assert</span><span class="macro">!</span>(
-            <span class="ident">old</span>.<span class="ident">is_none</span>(),
-            <span class="string">&quot;should never get duplicate element indices, that would be a bug in `wasmer_compiler`&#39;s \
-             translation&quot;</span>
-        );
+        <span class="self">self</span>.<span class="ident">result</span>.<span class="ident">module</span>.<span class="ident">passive_elements</span>[<span class="ident">elem_index</span>] <span class="op">=</span> <span class="ident">segments</span>;
         <span class="prelude-val">Ok</span>(())
     }
 
@@ -899,15 +889,7 @@
         <span class="ident">data_index</span>: <span class="ident">DataIndex</span>,
         <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">old</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">result</span>
-            .<span class="ident">module</span>
-            .<span class="ident">passive_data</span>
-            .<span class="ident">insert</span>(<span class="ident">data_index</span>, <span class="ident">Arc</span>::<span class="ident">from</span>(<span class="ident">data</span>));
-        <span class="macro">debug_assert</span><span class="macro">!</span>(
-            <span class="ident">old</span>.<span class="ident">is_none</span>(),
-            <span class="string">&quot;a module can&#39;t have duplicate indices, this would be a wasmer-compiler bug&quot;</span>
-        );
+        <span class="self">self</span>.<span class="ident">result</span>.<span class="ident">module</span>.<span class="ident">passive_data</span>[<span class="ident">data_index</span>] <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">from</span>(<span class="ident">data</span>);
         <span class="prelude-val">Ok</span>(())
     }
 

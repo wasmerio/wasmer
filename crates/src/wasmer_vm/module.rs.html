@@ -522,10 +522,10 @@
     <span class="kw">pub</span> <span class="ident">table_initializers</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">TableInitializer</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// WebAssembly passive elements.</span>
-    <span class="kw">pub</span> <span class="ident">passive_elements</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">passive_elements</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">ElemIndex</span>, <span class="ident">Box</span><span class="op">&lt;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// WebAssembly passive data segments.</span>
-    <span class="kw">pub</span> <span class="ident">passive_data</span>: <span class="ident">HashMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
+    <span class="kw">pub</span> <span class="ident">passive_data</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">DataIndex</span>, <span class="ident">Arc</span><span class="op">&lt;</span>[<span class="ident">u8</span>]<span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// WebAssembly global initializers.</span>
     <span class="kw">pub</span> <span class="ident">global_initializers</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalGlobalIndex</span>, <span class="ident">GlobalInit</span><span class="op">&gt;</span>,
@@ -577,8 +577,8 @@
             <span class="ident">exports</span>: <span class="ident">IndexMap</span>::<span class="ident">new</span>(),
             <span class="ident">start_function</span>: <span class="prelude-val">None</span>,
             <span class="ident">table_initializers</span>: <span class="ident">Vec</span>::<span class="ident">new</span>(),
-            <span class="ident">passive_elements</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
-            <span class="ident">passive_data</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
+            <span class="ident">passive_elements</span>: <span class="ident">PrimaryMap</span>::<span class="ident">new</span>(),
+            <span class="ident">passive_data</span>: <span class="ident">PrimaryMap</span>::<span class="ident">new</span>(),
             <span class="ident">global_initializers</span>: <span class="ident">PrimaryMap</span>::<span class="ident">new</span>(),
             <span class="ident">function_names</span>: <span class="ident">HashMap</span>::<span class="ident">new</span>(),
             <span class="ident">signatures</span>: <span class="ident">PrimaryMap</span>::<span class="ident">new</span>(),
@@ -597,7 +597,7 @@
 
     <span class="doccomment">/// Get the given passive element, if it exists.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_passive_element</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">ElemIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span>[<span class="ident">FunctionIndex</span>]<span class="op">&gt;</span> {
-        <span class="self">self</span>.<span class="ident">passive_elements</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="ident">index</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">es</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">es</span>)
+        <span class="self">self</span>.<span class="ident">passive_elements</span>.<span class="ident">get</span>(<span class="ident">index</span>).<span class="ident">map</span>(<span class="op">|</span><span class="ident">es</span><span class="op">|</span> <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="kw-2">*</span><span class="ident">es</span>)
     }
 
     <span class="doccomment">/// Get the exported signatures of the module</span>
