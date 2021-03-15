@@ -1,19 +1,15 @@
 #![no_main]
-#[macro_use]
-extern crate libfuzzer_sys;
 
+use libfuzzer_sys::fuzz_target;
 use wasmer::{imports, Instance, Module, Store};
 use wasmer_compiler_singlepass::Singlepass;
 use wasmer_engine_jit::JIT;
+use wasm_smith::Module as FuzzModule;
 
-fuzz_target!(|wasm_bytes: &[u8]| {
+fuzz_target!(|module: FuzzModule| {
+    let wasm_bytes = module.to_bytes();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
-    match Module::validate(&store, wasm_bytes) {
-        Ok(_) => {
-            let module = Module::new(&store, wasm_bytes).unwrap();
-            let _instance = Instance::new(&module, &imports! {});
-        }
-        Err(_) => {}
-    };
+    let module = Module::new(&store, &wasm_bytes).unwrap();
+    Instance::new(&module, &imports! {}).unwrap();
 });
