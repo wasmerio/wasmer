@@ -18,6 +18,7 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
+use loupe_derive::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::CompileError;
@@ -32,6 +33,7 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,
 /// optimizing it and then translating to assembly.
+#[derive(MemoryUsage)]
 pub struct CraneliftCompiler {
     config: Cranelift,
 }

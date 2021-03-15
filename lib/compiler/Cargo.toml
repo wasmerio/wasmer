@@ -21,6 +21,8 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6" 
+loupe = { path = "../../../loupe/crates/loupe" }
+loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
 
 [features]
 default = ["std", "enable-serde"]

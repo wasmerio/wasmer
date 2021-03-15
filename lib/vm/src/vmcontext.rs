@@ -9,6 +9,7 @@ use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
+use loupe_derive::MemoryUsage;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
@@ -705,7 +706,7 @@ impl VMGlobalDefinition {
 /// An index into the shared signature registry, usable for checking signatures
 /// at indirect calls.
 #[repr(C)]
-#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash)]
+#[derive(Debug, Eq, PartialEq, Clone, Copy, Hash, MemoryUsage)]
 pub struct VMSharedSignatureIndex(u32);
 
 #[cfg(test)]

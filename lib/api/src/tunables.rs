@@ -1,4 +1,5 @@
 use crate::{MemoryType, Pages, TableType};
+use loupe_derive::MemoryUsage;
 use std::cmp::min;
 use std::ptr::NonNull;
 use std::sync::Arc;
@@ -19,7 +20,7 @@ use wasmer_vm::{
 /// implementation or use composition to wrap your Tunables around
 /// this one. The later approach is demonstrated in the
 /// tunables-limit-memory example.
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct BaseTunables {
     /// For static heaps, the size in wasm pages of the heap protected by bounds checking.
     pub static_memory_bound: Pages,

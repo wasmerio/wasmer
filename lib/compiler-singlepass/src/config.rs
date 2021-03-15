@@ -2,11 +2,12 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
+use loupe_derive::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,

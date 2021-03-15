@@ -545,9 +545,9 @@ dependencies = [
 
 [[package]]
 name = "csv"
-version = "1.1.5"
+version = "1.1.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f9d58633299b24b515ac72a3f869f8b91306a3cec616a602843a383acd6f9e97"
+checksum = "22813a6dc45b335f9bade10bf7271dc477e81113e89eb251a0bc2a8a81c536e1"
 dependencies = [
  "bstr",
  "csv-core",
@@ -941,9 +941,9 @@ checksum = "b9e0384b61958566e926dc50660321d12159025e767c18e043daf26b70104c39"
 
 [[package]]
 name = "indexmap"
-version = "1.6.1"
+version = "1.6.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4fb1fa934250de4de8aef298d81c729a7d33d8c239daa3a7575e6b92bfc7313b"
+checksum = "824845a0bf897a9042383849b02c1bc219c2383772efcd5c6f9766fa4b81aef3"
 dependencies = [
  "autocfg",
  "hashbrown",
@@ -1088,9 +1088,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "libc"
-version = "0.2.87"
+version = "0.2.88"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "265d751d31d6780a3f956bb5b8022feba2d94eeee5a84ba64f4212eedca42213"
+checksum = "03b07a082330a35e43f63177cc01689da34fbffa0105e1246cf0311472cac73a"
 
 [[package]]
 name = "libffi"
@@ -1152,6 +1152,19 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "loupe"
+version = "0.1.0"
+
+[[package]]
+name = "loupe-derive"
+version = "0.1.0"
+dependencies = [
+ "loupe",
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -1372,9 +1385,9 @@ dependencies = [
 
 [[package]]
 name = "paste"
-version = "1.0.4"
+version = "1.0.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c5d65c4d95931acda4498f675e332fcbdc9a06705cd07086c510e9b6009cd1c1"
+checksum = "acbf547ad0c65e31259204bd90935776d1c693cec2f4ff7abb7a1bbbd40dfe58"
 
 [[package]]
 name = "peeking_take_while"
@@ -1393,9 +1406,9 @@ dependencies = [
 
 [[package]]
 name = "pin-project-lite"
-version = "0.2.5"
+version = "0.2.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0cf491442e4b033ed1c722cb9f0df5fcfcf4de682466c46469c36bc47dc5548a"
+checksum = "dc0e1f259c92177c30a4c9d177246edd0a3568b25756a977d0632cf8fa37e905"
 
 [[package]]
 name = "pkg-config"
@@ -1627,14 +1640,13 @@ dependencies = [
 
 [[package]]
 name = "regex"
-version = "1.4.3"
+version = "1.4.5"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "d9251239e129e16308e70d853559389de218ac275b515068abc96829d05b948a"
+checksum = "957056ecddbeba1b26965114e191d2e8589ce74db242b6ea25fc4062427a5c19"
 dependencies = [
  "aho-corasick",
  "memchr",
  "regex-syntax",
- "thread_local",
 ]
 
 [[package]]
@@ -1648,9 +1660,9 @@ dependencies = [
 
 [[package]]
 name = "regex-syntax"
-version = "0.6.22"
+version = "0.6.23"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "b5eb417147ba9860a96cfe72a0b93bf88fee1744b5636ec99ab20c1aa9376581"
+checksum = "24d5f089152e60f62d28b835fbff2cd2e8dc0baf1ac13343bef92ab7eed84548"
 
 [[package]]
 name = "region"
@@ -1825,9 +1837,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "92d5161132722baa40d802cc70b15262b98258453e85e5d1d365c757c73869ae"
+checksum = "bd761ff957cb2a45fbb9ab3da6512de9de55872866160b23c25f1a841e99d29f"
 dependencies = [
  "serde_derive",
 ]
@@ -1853,9 +1865,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.123"
+version = "1.0.124"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "9391c295d64fc0abb2c556bad848f33cb8296276b1ad2677d1ae1ace4f258f31"
+checksum = "1800f7693e94e186f5e25a28291ae1570da908aff7d97a095dec1e56ff99069b"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1922,9 +1934,9 @@ checksum = "1e81da0851ada1f3e9d4312c704aa4f8806f0f9d69faaf8df2f3464b4a9437c2"
 
 [[package]]
 name = "syn"
-version = "1.0.60"
+version = "1.0.64"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c700597eca8a5a762beb35753ef6b94df201c81cca676604f547495a0d7f0081"
+checksum = "3fd9d1e9976102a03c542daa2eff1b43f9d72306342f3f8b3ed5fb8908195d6f"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2042,15 +2054,6 @@ dependencies = [
 ]
 
 [[package]]
-name = "thread_local"
-version = "1.1.3"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "8018d24e04c95ac8790716a5987d0fec4f8b27249ffa0f7d33f1369bdfb88cbd"
-dependencies = [
- "once_cell",
-]
-
-[[package]]
 name = "time"
 version = "0.1.43"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2094,9 +2097,9 @@ dependencies = [
 
 [[package]]
 name = "tracing-attributes"
-version = "0.1.13"
+version = "0.1.15"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "a8a9bd1db7706f2373a190b0d067146caa39350c486f3d455b0e33b431f94c07"
+checksum = "c42e6fa53307c8a17e4ccd4dc81cf5ec38db9209f59b222210375b54ee40d1e2"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -2120,9 +2123,9 @@ checksum = "a7f741b240f1a48843f9b8e0444fb55fb2a4ff67293b50a9179dfd5ea67f8d41"
 
 [[package]]
 name = "typenum"
-version = "1.12.0"
+version = "1.13.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "373c8a200f9e67a0c95e62a4f52fbf80c23b4381c05a17845531982fa99e6b33"
+checksum = "879f6906492a7cd215bfa4cf595b600146ccfac0c79bcbd1f3000162af5e8b06"
 
 [[package]]
 name = "typetag"
@@ -2295,6 +2298,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
  "libc",
+ "loupe",
+ "loupe-derive",
  "more-asserts",
  "target-lexicon",
  "tempfile",
@@ -2390,6 +2395,8 @@ version = "1.0.2"
 dependencies = [
  "enumset",
  "hashbrown",
+ "loupe",
+ "loupe-derive",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -2409,6 +2416,8 @@ dependencies = [
  "gimli",
  "hashbrown",
  "lazy_static",
+ "loupe",
+ "loupe-derive",
  "more-asserts",
  "rayon",
  "serde",
@@ -2431,6 +2440,8 @@ dependencies = [
  "itertools 0.10.0",
  "lazy_static",
  "libc",
+ "loupe",
+ "loupe-derive",
  "rayon",
  "regex",
  "rustc_version 0.2.3",
@@ -2451,6 +2462,8 @@ dependencies = [
  "dynasmrt",
  "hashbrown",
  "lazy_static",
+ "loupe",
+ "loupe-derive",
  "more-asserts",
  "rayon",
  "serde",
@@ -2493,6 +2506,8 @@ dependencies = [
  "backtrace",
  "bincode",
  "lazy_static",
+ "loupe",
+ "loupe-derive",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -2510,6 +2525,8 @@ name = "wasmer-engine-dummy"
 version = "1.0.2"
 dependencies = [
  "bincode",
+ "loupe",
+ "loupe-derive",
  "serde",
  "serde_bytes",
  "wasmer-compiler",
@@ -2524,6 +2541,8 @@ version = "1.0.2"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
+ "loupe",
+ "loupe-derive",
  "region",
  "serde",
  "serde_bytes",
@@ -2542,6 +2561,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "loupe",
+ "loupe-derive",
  "serde",
  "tempfile",
  "tracing",
@@ -2561,6 +2582,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "loupe",
+ "loupe-derive",
  "serde",
  "tempfile",
  "tracing",
@@ -2583,6 +2606,8 @@ dependencies = [
 name = "wasmer-middlewares"
 version = "1.0.2"
 dependencies = [
+ "loupe",
+ "loupe-derive",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -2603,6 +2628,8 @@ name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
  "cranelift-entity",
+ "loupe",
+ "loupe-derive",
  "serde",
  "thiserror",
 ]
@@ -2616,6 +2643,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
  "libc",
+ "loupe",
+ "loupe-derive",
  "memoffset",
  "more-asserts",
  "region",

@@ -16,6 +16,8 @@ edition = "2018"
 cranelift-entity = "0.70"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
+loupe = { path = "../../../loupe/crates/loupe" }
+loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
 
 [features]
 default = ["std", "enable-serde"]

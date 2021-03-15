@@ -1,6 +1,7 @@
 //! Dummy Engine.
 
 use crate::DummyArtifact;
+use loupe_derive::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{CompileError, Features, Target};
 use wasmer_engine::{Artifact, DeserializeError, Engine, EngineId, Tunables};
@@ -17,7 +18,7 @@ extern "C" fn dummy_trampoline(
 }
 
 /// A WebAssembly `Dummy` Engine.
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct DummyEngine {
     signatures: Arc<SignatureRegistry>,
     features: Arc<Features>,

@@ -2,9 +2,12 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 //! Module for System V ABI unwind registry.
+
+use loupe_derive::MemoryUsage;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information for System V ABI.
+#[derive(MemoryUsage)]
 pub struct UnwindRegistry {
     registrations: Vec<usize>,
     published: bool,
@@ -65,7 +68,11 @@ impl UnwindRegistry {
             // deregistering it. We must avoid this
             // scenario. Usually, this is handled upstream by the
             // compilers.
-            debug_assert_ne!(eh_frame, &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
+            debug_assert_ne!(
+                eh_frame,
+                &[0, 0, 0, 0],
+                "`eh_frame` seems to contain empty FDEs"
+            );
 
             // On gnu (libgcc), `__register_frame` will walk the FDEs until an entry of length 0
             let ptr = eh_frame.as_ptr();
