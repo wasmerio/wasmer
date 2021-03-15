@@ -2,9 +2,10 @@ use serde::{Deserialize, Serialize};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,

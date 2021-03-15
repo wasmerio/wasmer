@@ -16,9 +16,11 @@ edition = "2018"
 cranelift-entity = "0.70"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
+rkyv = { path = "../../../rkyv/rkyv", optional = true }
 
 [features]
-default = ["std", "enable-serde"]
+default = ["std", "enable-serde", "enable-rkyv"]
 std = ["serde/std"]
 core = []
 enable-serde = ["serde", "cranelift-entity/enable-serde"]
+enable-rkyv = ["rkyv"]

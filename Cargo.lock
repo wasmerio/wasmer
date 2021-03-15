@@ -1512,6 +1512,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptr_meta"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "aad980f4bb4053abd4733b1680024a8c71ffde345f6e584c6af9eb6f0067a198"
+dependencies = [
+ "ptr_meta_derive",
+]
+
+[[package]]
+name = "ptr_meta_derive"
+version = "0.1.1"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "7bcd6232fa7d7fcd15703da5c07c9f10d203ee4fdf6ecf6d7ac5056db78089a3"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1717,6 +1737,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "rkyv"
+version = "0.4.1"
+dependencies = [
+ "indexmap",
+ "memoffset",
+ "ptr_meta",
+ "rkyv_derive",
+ "seahash",
+]
+
+[[package]]
+name = "rkyv_derive"
+version = "0.4.0"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1832,6 +1872,12 @@ dependencies = [
  "unidiff",
  "version-compare",
 ]
+
+[[package]]
+name = "seahash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "semver"
@@ -2449,6 +2495,7 @@ version = "1.0.2"
 dependencies = [
  "enumset",
  "hashbrown",
+ "rkyv",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -2601,6 +2648,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "rkyv",
  "serde",
  "tempfile",
  "tracing",
@@ -2662,6 +2710,7 @@ name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
  "cranelift-entity",
+ "rkyv",
  "serde",
  "thiserror",
 ]
@@ -2678,6 +2727,7 @@ dependencies = [
  "memoffset",
  "more-asserts",
  "region",
+ "rkyv",
  "serde",
  "thiserror",
  "wasmer-types",

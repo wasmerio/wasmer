@@ -18,8 +18,9 @@ use wasmer_types::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableInitializer, TableType,
 };
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
     id: usize,
 }
@@ -41,12 +42,13 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
     /// We skip serialization/deserialization of this field, as it
     /// should be computed by the process.
+    /// TODO: rkyv cannot skip
     #[serde(skip_serializing, skip_deserializing)]
     pub id: ModuleId,
 

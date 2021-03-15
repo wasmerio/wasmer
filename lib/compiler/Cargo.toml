@@ -21,9 +21,10 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6" 
+rkyv = { path = "../../../rkyv/rkyv", optional = true }
 
 [features]
-default = ["std", "enable-serde"]
+default = ["std", "enable-serde", "enable-rkyv"]
 # This feature is for compiler implementors, it enables using `Compiler` and
 # `CompilerConfig`, as well as the included wasmparser.
 # Disable this feature if you just want a headless engine.
@@ -31,6 +32,7 @@ translator = ["wasmparser"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
+enable-rkyv = ["rkyv"]
 
 [badges]
 maintenance = { status = "experimental" }
