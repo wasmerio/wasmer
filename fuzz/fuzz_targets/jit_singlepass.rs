@@ -35,6 +35,8 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
             let error_message = format!("{}", e);
             if error_message
                 .contains("RuntimeError: memory out of bounds: data segment does not fit")
+                || error_message
+                    .contains("RuntimeError: table out of bounds: elements segment does not fit")
             {
                 return;
             }
