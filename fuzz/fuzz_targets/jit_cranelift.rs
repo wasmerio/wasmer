@@ -21,5 +21,16 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     compiler.enable_verifier();
     let store = Store::new(&JIT::new(compiler).engine());
     let module = Module::new(&store, &wasm_bytes).unwrap();
-    Instance::new(&module, &imports! {}).unwrap();
+    match Instance::new(&module, &imports! {}) {
+        Ok(_) => {}
+        Err(e) => {
+            let error_message = format!("{}", e);
+            if error_message
+                .contains("RuntimeError: memory out of bounds: data segment does not fit")
+            {
+                return;
+            }
+            panic!("{}", e);
+        }
+    }
 });

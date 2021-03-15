@@ -29,5 +29,16 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
             panic!("{}", e);
         }
     };
-    let _ignored = Instance::new(&module, &imports! {});
+    match Instance::new(&module, &imports! {}) {
+        Ok(_) => {}
+        Err(e) => {
+            let error_message = format!("{}", e);
+            if error_message
+                .contains("RuntimeError: memory out of bounds: data segment does not fit")
+            {
+                return;
+            }
+            panic!("{}", e);
+        }
+    }
 });

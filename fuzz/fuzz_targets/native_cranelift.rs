@@ -26,5 +26,16 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     let engine = Native::headless().engine();
     let store = Store::new(&engine);
     let module = unsafe { Module::deserialize(&store, serialized.as_slice()) }.unwrap();
-    Instance::new(&module, &imports! {}).unwrap();
+    match Instance::new(&module, &imports! {}) {
+        Ok(_) => {}
+        Err(e) => {
+            let error_message = format!("{}", e);
+            if error_message
+                .contains("RuntimeError: memory out of bounds: data segment does not fit")
+            {
+                return;
+            }
+            panic!("{}", e);
+        }
+    }
 });
