@@ -1,12 +1,20 @@
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
+use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
+use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, CompilerConfig, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
-use wasm_smith::Module as FuzzModule;
 
-fuzz_target!(|module: FuzzModule| {
+#[derive(Arbitrary, Debug, Default, Copy, Clone)]
+struct NoImportsConfig;
+impl Config for NoImportsConfig {
+    fn max_imports(&self) -> usize {
+        0
+    }
+}
+
+fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     let wasm_bytes = module.to_bytes();
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);

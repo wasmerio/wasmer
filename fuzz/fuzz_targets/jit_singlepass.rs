@@ -1,12 +1,20 @@
 #![no_main]
 
-use libfuzzer_sys::fuzz_target;
-use wasm_smith::Module as FuzzModule;
+use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
+use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, Instance, Module, Store};
 use wasmer_compiler_singlepass::Singlepass;
 use wasmer_engine_jit::JIT;
 
-fuzz_target!(|module: FuzzModule| {
+#[derive(Arbitrary, Debug, Default, Copy, Clone)]
+struct NoImportsConfig;
+impl Config for NoImportsConfig {
+    fn max_imports(&self) -> usize {
+        0
+    }
+}
+
+fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     let wasm_bytes = module.to_bytes();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
