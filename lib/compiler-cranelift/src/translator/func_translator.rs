@@ -260,9 +260,9 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         if !builder.is_unreachable() {
             environ.translate_drop_locals(builder)?;
 
-            let num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
+            let _num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
             // drop elements on the stack that we're not returning
-            for val in state
+            /*for val in state
                 .stack
                 .iter()
                 .zip(state.metadata_stack.iter())
@@ -271,7 +271,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
                 .map(|(val, _)| val)
             {
                 environ.translate_externref_dec(builder.cursor(), *val)?;
-            }
+            }*/
 
             // TODO: look into what `state.reachable` check above does as well as `!builder.is_unreachable`, do we need that too for ref counting?
 
@@ -291,7 +291,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     // Discard any remaining values on the stack. Either we just returned them,
     // or the end of the function is unreachable.
     state.stack.clear();
-    state.metadata_stack.clear();
+    //state.metadata_stack.clear();
 
     debug_assert!(reader.eof());
 

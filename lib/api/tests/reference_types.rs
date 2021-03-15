@@ -140,6 +140,7 @@ fn extern_ref_passed_and_returned() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn extern_ref_ref_counting_basic() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
@@ -265,6 +266,7 @@ fn extern_ref_ref_counting_table_basic() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn extern_ref_ref_counting_global_basic() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module
@@ -294,6 +296,7 @@ fn extern_ref_ref_counting_global_basic() -> Result<()> {
 }
 
 #[test]
+#[ignore]
 fn extern_ref_ref_counting_traps() -> Result<()> {
     let store = Store::default();
     let wat = r#"(module

@@ -229,9 +229,6 @@ pub struct FuncTranslationState {
     /// A stack of values corresponding to the active values in the input wasm function at this
     /// point.
     pub(crate) stack: Vec<Value>,
-    /// Extra info about the values on the `stack`. `metadata_stack` must be kept in sync
-    /// with `stack` at all times.
-    pub(crate) metadata_stack: Vec<ValueExtraInfo>,
     /// A stack of active control flow operations at this point in the input wasm function.
     pub(crate) control_stack: Vec<ControlStackFrame>,
     /// Is the current translation state still reachable? This is false when translating operators
@@ -273,7 +270,7 @@ impl FuncTranslationState {
     pub(crate) fn new() -> Self {
         Self {
             stack: Vec::new(),
-            metadata_stack: Vec::new(),
+            //metadata_stack: Vec::new(),
             control_stack: Vec::new(),
             reachable: true,
             globals: HashMap::new(),
@@ -314,20 +311,20 @@ impl FuncTranslationState {
     /// Push a value with extra info attached.
     pub(crate) fn push1_extra(&mut self, val: (Value, ValueExtraInfo)) {
         self.stack.push(val.0);
-        self.metadata_stack.push(val.1);
+        //self.metadata_stack.push(val.1);
     }
 
     /// Push a value with default extra info.
     pub(crate) fn push1(&mut self, val: Value) {
         self.stack.push(val);
-        self.metadata_stack.push(ValueExtraInfo::default());
+        //self.metadata_stack.push(ValueExtraInfo::default());
     }
 
     /// Push multiple values.
-    pub(crate) fn pushn(&mut self, vals: &[Value], vals_metadata: &[ValueExtraInfo]) {
-        assert_eq!(vals.len(), vals_metadata.len());
+    pub(crate) fn pushn(&mut self, vals: &[Value], _vals_metadata: &[ValueExtraInfo]) {
+        assert_eq!(vals.len(), _vals_metadata.len());
         self.stack.extend_from_slice(vals);
-        self.metadata_stack.extend_from_slice(vals_metadata);
+        //self.metadata_stack.extend_from_slice(vals_metadata);
     }
 
     /// Pop one value.
@@ -336,10 +333,7 @@ impl FuncTranslationState {
             .stack
             .pop()
             .expect("attempted to pop a value from an empty stack");
-        let val_metadata = self
-            .metadata_stack
-            .pop()
-            .expect("attempted to pop a value from an empty stack");
+        let val_metadata = Default::default();
         (val, val_metadata)
     }
 
@@ -349,11 +343,7 @@ impl FuncTranslationState {
             .stack
             .last()
             .expect("attempted to peek at a value on an empty stack");
-        let val_metadata = self
-            .metadata_stack
-            .last()
-            .expect("attempted to peek at a value on an empty stack")
-            .clone();
+        let val_metadata = Default::default();
         (val, val_metadata)
     }
 
@@ -388,12 +378,12 @@ impl FuncTranslationState {
             n,
             self.stack.len()
         );
-        debug_assert!(
+        /*debug_assert!(
             n <= self.metadata_stack.len(),
             "attempted to access {} values but stack only has {} values",
             n,
             self.metadata_stack.len()
-        );
+        );*/
     }
 
     /// Pop the top `n` values on the stack.
@@ -409,7 +399,7 @@ impl FuncTranslationState {
     pub(crate) fn peekn(&self, n: usize) -> (&[Value], &[ValueExtraInfo]) {
         self.ensure_length_is_at_least(n);
         let vals = &self.stack[self.stack.len() - n..];
-        let vals_metadata = &self.metadata_stack[self.metadata_stack.len() - n..];
+        let vals_metadata = &[]; //&self.metadata_stack[self.metadata_stack.len() - n..];
         (vals, vals_metadata)
     }
 
@@ -417,10 +407,10 @@ impl FuncTranslationState {
     pub(crate) fn peekn_mut(&mut self, n: usize) -> (&mut [Value], &mut [ValueExtraInfo]) {
         self.ensure_length_is_at_least(n);
         let len = self.stack.len();
-        let metadata_len = self.metadata_stack.len();
-        assert_eq!(len, metadata_len);
+        //let metadata_len = self.metadata_stack.len();
+        //assert_eq!(len, metadata_len);
         let vals = &mut self.stack[len - n..];
-        let vals_metadata = &mut self.metadata_stack[metadata_len - n..];
+        let vals_metadata = &mut []; //&mut self.metadata_stack[metadata_len - n..];
         (vals, vals_metadata)
     }
 
