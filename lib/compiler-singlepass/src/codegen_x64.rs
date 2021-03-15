@@ -1,4 +1,5 @@
 use crate::address_map::get_function_address_map;
+use crate::lib::std;
 use crate::lib::std::collections::BTreeMap;
 use crate::lib::std::format;
 use crate::lib::std::iter;
@@ -1729,7 +1730,7 @@ impl<'a> FuncGen<'a> {
 
     pub fn get_state_diff(&mut self) -> usize {
         if !self.machine.track_state {
-            return crate::lib::std::usize::MAX;
+            return std::usize::MAX;
         }
         let last_frame = self.control_stack.last_mut().unwrap();
         let mut diff = self.machine.state.diff(&last_frame.state);
@@ -1794,9 +1795,9 @@ impl<'a> FuncGen<'a> {
             .insert(offset, TrapCode::StackOverflow);
         self.mark_instruction_address_end(offset);
 
-        if self.machine.state.wasm_inst_offset != crate::lib::std::usize::MAX {
+        if self.machine.state.wasm_inst_offset != std::usize::MAX {
             return Err(CodegenError {
-                message: "emit_head: wasm_inst_offset not crate::lib::std::usize::MAX".to_string(),
+                message: "emit_head: wasm_inst_offset not std::usize::MAX".to_string(),
             });
         }
         Ok(())
@@ -3838,7 +3839,7 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::u32::MAX),
+                            Location::Imm32(std::u32::MAX),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -3929,14 +3930,14 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::i32::MIN as u32),
+                            Location::Imm32(std::i32::MIN as u32),
                             Location::GPR(tmp_out),
                         );
                     },
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::i32::MAX as u32),
+                            Location::Imm32(std::i32::MAX as u32),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4033,14 +4034,14 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::i64::MIN as u64),
+                            Location::Imm64(std::i64::MIN as u64),
                             Location::GPR(tmp_out),
                         );
                     },
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::i64::MAX as u64),
+                            Location::Imm64(std::i64::MAX as u64),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4177,7 +4178,7 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::u64::MAX),
+                            Location::Imm64(std::u64::MAX),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4316,7 +4317,7 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::u32::MAX),
+                            Location::Imm32(std::u32::MAX),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4439,14 +4440,14 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::i32::MIN as u32),
+                            Location::Imm32(std::i32::MIN as u32),
                             Location::GPR(tmp_out),
                         );
                     },
                     |this| {
                         this.assembler.emit_mov(
                             Size::S32,
-                            Location::Imm32(crate::lib::std::i32::MAX as u32),
+                            Location::Imm32(std::i32::MAX as u32),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4544,14 +4545,14 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::i64::MIN as u64),
+                            Location::Imm64(std::i64::MIN as u64),
                             Location::GPR(tmp_out),
                         );
                     },
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::i64::MAX as u64),
+                            Location::Imm64(std::i64::MAX as u64),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -4689,7 +4690,7 @@ impl<'a> FuncGen<'a> {
                     |this| {
                         this.assembler.emit_mov(
                             Size::S64,
-                            Location::Imm64(crate::lib::std::u64::MAX),
+                            Location::Imm64(std::u64::MAX),
                             Location::GPR(tmp_out),
                         );
                     },
@@ -5211,7 +5212,7 @@ impl<'a> FuncGen<'a> {
                 // The Imm64 value is relocated by the JIT linker.
                 self.assembler.emit_mov(
                     Size::S64,
-                    Location::Imm64(crate::lib::std::u64::MAX),
+                    Location::Imm64(std::u64::MAX),
                     Location::GPR(GPR::RAX),
                 );
 
@@ -8400,8 +8401,7 @@ pub fn gen_std_dynamic_import_trampoline(
     let mut a = Assembler::new().unwrap();
 
     // Allocate argument array.
-    let stack_offset: usize =
-        16 * crate::lib::std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
+    let stack_offset: usize = 16 * std::cmp::max(sig.params().len(), sig.results().len()) + 8; // 16 bytes each + 8 bytes sysv call padding
     a.emit_sub(
         Size::S64,
         Location::Imm32(stack_offset as _),
