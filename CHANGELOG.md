@@ -9,6 +9,9 @@
 
 ### Added
 - [#2168](https://github.com/wasmerio/wasmer/pull/2168) Added `wasmer-compiler` support for no-std environments.
+- [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.
+- [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
+- [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installer, but all the `lib` and `include` files as for macOS and Linux.
 - [#2153](https://github.com/wasmerio/wasmer/pull/2153) Add a `wasmer_features_t` unstable C API to define features for the engine and the compiler in the Wasm C API.
 - [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
 - [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
@@ -16,11 +19,15 @@
 - [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2140](https://github.com/wasmerio/wasmer/pull/2140) Reduce the number of dependencies in the `wasmer.dll` shared library by statically compiling CRT.
 - [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
 - [#2144](https://github.com/wasmerio/wasmer/pull/2144) Bump cranelift version to 0.70
 - [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
 
 ### Fixed
+- [#2108](https://github.com/wasmerio/wasmer/pull/2108) The Object Native Engine generates code that now compiles correctly with C++.
+- [#2125](https://github.com/wasmerio/wasmer/pull/2125) Fix RUSTSEC-2021-0023.
+- [#2155](https://github.com/wasmerio/wasmer/pull/2155) Fix the implementation of shift and rotate in the LLVM compiler.
 - [#2117](https://github.com/wasmerio/wasmer/pull/2117) Formalize API prefixes in the C API. Only unstable functions have been renamed.
 - [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
 - [#2101](https://github.com/wasmerio/wasmer/pull/2101) cflags emitted by `wasmer config --pkg-config` are now correct.
