@@ -23,14 +23,12 @@ path = "../lib/compiler-singlepass"
 path = "../lib/engine-jit"
 [dependencies.wasmer-engine-native]
 path = "../lib/engine-native"
+[dependencies.wasmer-middlewares]
+path = "../lib/middlewares"
 
 # Prevent this from interfering with workspaces
 [workspace]
 members = ["."]
-
-[[bin]]
-name = "validate"
-path = "fuzz_targets/validate.rs"
 
 [[bin]]
 name = "jit_cranelift"
@@ -45,5 +43,13 @@ name = "jit_singlepass"
 path = "fuzz_targets/jit_singlepass.rs"
 
 [[bin]]
+name = "metering"
+path = "fuzz_targets/metering.rs"
+
+[[bin]]
 name = "native_cranelift"
 path = "fuzz_targets/native_cranelift.rs"
+
+[[bin]]
+name = "validate"
+path = "fuzz_targets/validate.rs"
