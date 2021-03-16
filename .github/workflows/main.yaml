@@ -38,18 +38,17 @@ jobs:
     strategy:
       fail-fast: false
       matrix:
-        build: [linux-x64, macos-x64, macos-arm64, windows-x64, linux-aarch64]
         include:
           - build: linux-x64
             os: ubuntu-18.04
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos-x64
             os: macos-latest
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
@@ -61,7 +60,7 @@ jobs:
             artifact_name: 'wasmer-darwin-arm64'
           - build: windows-x64
             os: windows-latest
-            rust: 1.48
+            rust: 1.49
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
@@ -69,7 +68,7 @@ jobs:
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             random_sccache_port: true
-            rust: 1.48
+            rust: 1.49
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
@@ -77,14 +76,15 @@ jobs:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
+      TARGET: ${{ matrix.target }}
     steps:
       - uses: actions/checkout@v2
       - name: Set up libstdc++ on Linux
+        if: matrix.build == 'linux-x64'
         run: |
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
-        if: matrix.os == 'ubuntu-18.04'
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
@@ -105,12 +105,13 @@ jobs:
         shell: bash
         run: |
           curl --proto '=https' --tlsv1.2 -sSf ${{ matrix.llvm_url }} -L -o llvm.tar.gz
-          mkdir ${{ env.LLVM_DIR }}
-          tar xf llvm.tar.gz --strip-components=1 -C ${{ env.LLVM_DIR }}
-          echo "${{ env.LLVM_DIR }}/bin" >> $GITHUB_PATH
-          echo "LLVM_SYS_110_PREFIX=${{ env.LLVM_DIR }}" >> $GITHUB_ENV
+          LLVM_DIR=$(pwd)/${{ env.LLVM_DIR }}
+          mkdir ${LLVM_DIR}
+          tar xf llvm.tar.gz --strip-components=1 -C ${LLVM_DIR}
+          echo "${LLVM_DIR}/bin" >> $GITHUB_PATH
+          echo "LLVM_SYS_110_PREFIX=${LLVM_DIR}" >> $GITHUB_ENV
         env:
-          LLVM_DIR: ${{ github.workspace }}/llvm-11
+          LLVM_DIR: .llvm
       - name: Set up dependencies for Mac OS
         run: |
           brew install automake
@@ -124,15 +125,14 @@ jobs:
             ~/.cargo/registry
             ~/.cargo/git
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
-      # Install sccache
       - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
-          if [ ! -f ${{ runner.tool_cache }}/cargo-sccache/bin/sccache ]; then
-            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root ${{ runner.tool_cache }}/cargo-sccache
+          if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
+            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Setup Rust target
@@ -164,14 +164,15 @@ jobs:
         shell: bash
       - name: Start sccache
         run: |
-          chmod +x ${{ runner.tool_cache }}/cargo-sccache/bin/sccache
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache --start-server
-          ${{ runner.tool_cache }}/cargo-sccache/bin/sccache -s
-          echo "RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache" >> $GITHUB_ENV
+          chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
+          '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' -s
+          echo 'RUSTC_WRAPPER=${{ runner.tool_cache }}/cargo-sccache/bin/sccache' >> $GITHUB_ENV
+        shell: bash
       - name: Test
         run: |
           make test
-        if: matrix.target != 'aarch64-apple-darwin'
+        if: matrix.build != 'macos-arm64'
       - name: Test C API
         run: |
           make test-capi
@@ -188,9 +189,9 @@ jobs:
         run: |
           make build-wasmer
       - name: Build Wapm binary
+        if: needs.setup.outputs.DOING_RELEASE == '1'
         run: |
           make build-wapm
-        if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Install Nightly Rust for Headless
         uses: actions-rs/toolchain@v1
         with:
@@ -200,6 +201,7 @@ jobs:
           components: "rust-src"
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
+        if: needs.setup.outputs.DOING_RELEASE == '1'
         run: |
           cargo install xargo
           echo "" >> Cargo.toml
@@ -214,17 +216,6 @@ jobs:
           echo "codegen-units = 1" >> Cargo.toml
           echo "rpath = false" >> Cargo.toml
           make build-wasmer-headless-minimal
-        if: needs.setup.outputs.DOING_RELEASE == '1'
-      - name: Copy target binaries
-        run: |
-          mkdir -p target/release
-          cp target/${{matrix.target}}/release/wasmer* target/release
-          cp target/${{matrix.target}}/release/libwasmer* target/release
-          if [ -d "wapm-cli" ]; then
-            mkdir -p wapm-cli/target/release 
-            cp wapm-cli/target/${{matrix.target}}/release/wapm* wapm-cli/target/release
-          fi
-        if: matrix.target
       - name: Dist
         run: |
           make distribution
@@ -241,7 +232,7 @@ jobs:
           make test-integration
         if: matrix.run_integration_tests && matrix.os != 'windows-latest'
       - name: Cross compile from Linux
-        if: matrix.os == 'ubuntu-18.04'
+        if: matrix.build == 'linux-x64'
         shell: bash
         run: |
           ls target/release
@@ -280,6 +271,64 @@ jobs:
         with:
           name: ${{ matrix.cross_compilation_artifact_name }}
           path: cross
+      - name: Upload Artifacts
+        uses: actions/upload-artifact@v2
+        with:
+          name: ${{ matrix.artifact_name }}
+          path: dist
+          if-no-files-found: error
+          retention-days: 1
+
+  test-docker:
+    name: Test on ${{ matrix.build }}
+    runs-on: ubuntu-latest
+    needs: setup
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - build: linux-musl-x64
+            image: alpine:latest
+            rust: 1.49
+            artifact_name: 'wasmer-linux-musl-amd64'
+    steps:
+      - uses: actions/checkout@v2
+
+      - uses: addnab/docker-run-action@v1
+        with:
+          image: ${{ matrix.image }}
+          options: -v ${{ github.workspace }}:/work
+          run: |
+            set -e
+
+            # Set up tools
+            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
+
+            # Install Rust ${{ matrix.rust }}
+            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
+            sh ./rustup.sh -y
+            source ~/.cargo/env
+            rm -f ./rustup.sh
+
+            # Set up Rust
+            rustup toolchain install ${{ matrix.rust }}
+            rustup default ${{ matrix.rust }}
+
+            # Change working directory
+            cd /work
+
+            # Test
+            make test test-capi
+
+            # Build C API, Wasmer & Wapm
+            make build-capi build-wasmer build-wapm
+
+            # Dist
+            make distribution
+
+            # Run integration tests
+            export WASMER_DIR=`pwd`/package
+            make test-integration
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
@@ -338,7 +387,7 @@ jobs:
   #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   release:
-    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
+    needs: [setup, test, test-docker, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
@@ -356,18 +405,25 @@ jobs:
           release_name: Release ${{ needs.setup.outputs.VERSION }}
           draft: true
           prerelease: false
-      - name: Upload Release Asset Windows
-        id: upload-release-asset-windows
+      - name: Upload Release Asset Windows Installer
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          upload_url: ${{ steps.create_release.outputs.upload_url }} # This pulls from the CREATE RELEASE step above, referencing it's ID to get its outputs object, which include a `upload_url`. See this blog post for more info: https://jasonet.co/posts/new-features-of-github-actions/#passing-data-to-future-steps 
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
           asset_path: artifacts/wasmer-windows-amd64/WasmerInstaller.exe
           asset_name: wasmer-windows.exe
           asset_content_type: application/vnd.microsoft.portable-executable
+      - name: Upload Release Asset Windows
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-windows-amd64/wasmer.tar.gz
+          asset_name: wasmer-windows-amd64.tar.gz
+          asset_content_type: application/gzip
       - name: Upload Release Asset Linux amd64
-        id: upload-release-asset-linux-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -376,8 +432,17 @@ jobs:
           asset_path: artifacts/wasmer-linux-amd64/wasmer.tar.gz
           asset_name: wasmer-linux-amd64.tar.gz
           asset_content_type: application/gzip
+      - name: Upload Release Asset Linux amd64 (musl)
+        id: upload-release-asset-linux-musl-amd64
+        uses: actions/upload-release-asset@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          upload_url: ${{ steps.create_release.outputs.upload_url }}
+          asset_path: artifacts/wasmer-linux-musl-amd64/wasmer.tar.gz
+          asset_name: wasmer-linux-musl-amd64.tar.gz
+          asset_content_type: application/gzip
       - name: Upload Release Asset Mac amd64
-        id: upload-release-asset-mac-amd64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -387,7 +452,6 @@ jobs:
           asset_name: wasmer-darwin-amd64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Mac arm64
-        id: upload-release-asset-mac-arm64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -397,7 +461,6 @@ jobs:
           asset_name: wasmer-darwin-arm64.tar.gz
           asset_content_type: application/gzip
       - name: Upload Release Asset Linux aarch64
-        id: upload-release-asset-linux-aarch64
         uses: actions/upload-release-asset@v1
         env:
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
@@ -419,7 +482,7 @@ jobs:
           path: ${{ runner.tool_cache }}/cargo-audit
           key: cargo-audit-bin-${{ env.CARGO_AUDIT_VERSION }}
       - run: |
-          echo "${{ runner.tool_cache }}/cargo-audit/bin" >> $GITHUB_PATH
+          echo "'${{ runner.tool_cache }}/cargo-audit/bin'" >> $GITHUB_PATH
       - run: |
-          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root ${{ runner.tool_cache }}/cargo-audit
+          cargo install cargo-audit --version ${{ env.CARGO_AUDIT_VERSION }} --root '${{ runner.tool_cache }}/cargo-audit'
           cargo audit

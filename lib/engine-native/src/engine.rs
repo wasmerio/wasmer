@@ -15,8 +15,6 @@ use wasmer_types::FunctionType;
 use wasmer_vm::{
     FuncDataRegistry, SignatureRegistry, VMCallerCheckedAnyfunc, VMFuncRef, VMSharedSignatureIndex,
 };
-#[cfg(feature = "compiler")]
-use which::which;
 
 /// A WebAssembly `Native` Engine.
 #[derive(Clone)]
@@ -31,22 +29,8 @@ impl NativeEngine {
     /// Create a new `NativeEngine` with the given config
     #[cfg(feature = "compiler")]
     pub fn new(compiler: Box<dyn Compiler>, target: Target, features: Features) -> Self {
-        let host_target = Triple::host();
-        let is_cross_compiling = target.triple() != &host_target;
-
-        let linker = if is_cross_compiling {
-            which(Into::<&'static str>::into(Linker::Clang10))
-                .map(|_| Linker::Clang10)
-                .or_else(|_| {
-                    which(Into::<&'static str>::into(Linker::Clang))
-                        .map(|_| Linker::Clang)
-                })
-                .expect("Nor `clang-10` or `clang` has been found, at least one of them is required for the `NativeEngine`")
-        } else {
-            which(Into::<&'static str>::into(Linker::Gcc))
-                .map(|_| Linker::Gcc)
-                .expect("`gcc` has not been found, it is required for the `NativeEngine`")
-        };
+        let is_cross_compiling = *target.triple() != Triple::host();
+        let linker = Linker::find_linker(is_cross_compiling);
 
         Self {
             inner: Arc::new(Mutex::new(NativeEngineInner {
@@ -202,15 +186,40 @@ impl Engine for NativeEngine {
 #[derive(Clone, Copy)]
 pub(crate) enum Linker {
     None,
+    Clang11,
     Clang10,
     Clang,
     Gcc,
 }
 
-impl Into<&'static str> for Linker {
-    fn into(self) -> &'static str {
+impl Linker {
+    #[cfg(feature = "compiler")]
+    fn find_linker(is_cross_compiling: bool) -> Self {
+        let (possibilities, requirements): (&[_], _) = if is_cross_compiling {
+            (
+                &[Linker::Clang11, Linker::Clang10, Linker::Clang],
+                "at least one of `clang-11`, `clang-10`, or `clang`",
+            )
+        } else {
+            (&[Linker::Gcc], "`gcc`")
+        };
+        *possibilities
+            .iter()
+            .filter(|linker| which::which(linker.executable()).is_ok())
+            .next()
+            .unwrap_or_else(|| {
+                panic!(
+                    "Need {} installed in order to use `NativeEngine` when {}cross-compiling",
+                    requirements,
+                    if is_cross_compiling { "" } else { "not " }
+                )
+            })
+    }
+
+    pub(crate) fn executable(self) -> &'static str {
         match self {
             Self::None => "",
+            Self::Clang11 => "clang-11",
             Self::Clang10 => "clang-10",
             Self::Clang => "clang",
             Self::Gcc => "gcc",

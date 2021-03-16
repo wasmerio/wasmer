@@ -238,12 +238,12 @@ impl FunctionType {
     /// Creates a new Function Type with the given parameter and return types.
     pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
     where
-        Params: Into<Vec<Type>>,
-        Returns: Into<Vec<Type>>,
+        Params: Into<Box<[Type]>>,
+        Returns: Into<Box<[Type]>>,
     {
         Self {
-            params: params.into().into_boxed_slice(),
-            results: returns.into().into_boxed_slice(),
+            params: params.into(),
+            results: returns.into(),
         }
     }
 

@@ -36,7 +36,7 @@ pub enum Extern {
 }
 
 impl Extern {
-    /// Return the undelying type of the inner `Extern`.
+    /// Return the underlying type of the inner `Extern`.
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),

@@ -285,6 +285,20 @@ example.
    ```
 
    </details>
+   
+5. [**Features**][features], illustrates how to enable WebAssembly
+   features that aren't yet stable.
+   
+   _Keywords_: engine, features.
+   
+   <details>
+   <summary><em>Execute the example</em></summary>
+   
+   ```shell
+   $ cargo run --example features --release --features "cranelift"
+   ```
+   
+   </details>
 
 ### Compilers
 
@@ -380,6 +394,7 @@ example.
 [memory]: ./memory.rs
 [errors]: ./errors.rs
 [tunables-limit-memory]: ./tunables_limit_memory.rs
+[features]: ./features.rs
 [`wasmer-compiler-singlepass`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-singlepass
 [`wasmer-compiler-cranelift`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-cranelift
 [`wasmer-compiler-llvm`]: https://github.com/wasmerio/wasmer/tree/master/lib/compiler-llvm
