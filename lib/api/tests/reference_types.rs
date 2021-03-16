@@ -1,3 +1,5 @@
+#![cfg(feature = "experimental-reference-types-extern-ref")]
+
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};

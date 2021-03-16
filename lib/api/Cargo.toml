@@ -98,3 +98,8 @@ default-native = [
     "native",
     "default-engine"
 ]
+
+# experimental / in-development features
+experimental-reference-types-extern-ref = [
+    "wasmer-types/experimental-reference-types-extern-ref",
+]

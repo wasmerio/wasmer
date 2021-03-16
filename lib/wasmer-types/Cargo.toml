@@ -22,3 +22,6 @@ default = ["std", "enable-serde"]
 std = ["serde/std"]
 core = []
 enable-serde = ["serde", "cranelift-entity/enable-serde"]
+
+# experimental / in-development features
+experimental-reference-types-extern-ref = []

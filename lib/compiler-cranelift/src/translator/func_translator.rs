@@ -22,7 +22,7 @@ use wasmer_compiler::{
     wasm_unsupported, wptype_to_type, MiddlewareBinaryReader, ModuleMiddlewareChain,
     ModuleTranslationState, WasmResult,
 };
-use wasmer_types::{LocalFunctionIndex, Type as WasmerType};
+use wasmer_types::LocalFunctionIndex;
 
 /// WebAssembly to Cranelift IR function translator.
 ///

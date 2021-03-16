@@ -314,9 +314,11 @@ pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError, Tunables,
 };
+#[cfg(feature = "experimental-reference-types-extern-ref")]
+pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
-    Atomically, Bytes, ExportIndex, ExternRef, GlobalInit, LocalFunctionIndex, MemoryView, Pages,
-    ValueType, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
+    Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
+    WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?

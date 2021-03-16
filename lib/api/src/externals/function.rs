@@ -950,8 +950,11 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
-    use wasmer_types::{ExternRef, FunctionType, NativeWasmType, Type};
-    use wasmer_vm::{raise_user_trap, resume_panic, VMExternRef, VMFunctionBody};
+
+    #[cfg(feature = "experimental-reference-types-extern-ref")]
+    pub use wasmer_types::{ExternRef, VMExternRef};
+    use wasmer_types::{FunctionType, NativeWasmType, Type};
+    use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
     /// A trait to convert a Rust value to a `WasmNativeType` value,
     /// or to convert `WasmNativeType` value to a Rust value.
@@ -1042,6 +1045,7 @@ mod inner {
         f64 => f64
     );
 
+    #[cfg(feature = "experimental-reference-types-extern-ref")]
     unsafe impl FromToNativeWasmType for ExternRef {
         type Native = VMExternRef;
 
