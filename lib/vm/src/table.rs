@@ -15,9 +15,10 @@ use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use wasmer_types::{TableType, Type as ValType};
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, RkyvSerialize, RkyvDeserialize, Archive)]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
     CallerChecksSignature,

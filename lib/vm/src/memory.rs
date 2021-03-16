@@ -17,6 +17,7 @@ use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
 use wasmer_types::{Bytes, MemoryType, Pages};
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// Error type describing things that can go wrong when operating on Wasm Memories.
 #[derive(Error, Debug, Clone, PartialEq, Hash)]
@@ -61,7 +62,7 @@ pub enum MemoryError {
 }
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, RkyvSerialize, RkyvDeserialize, Archive)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {

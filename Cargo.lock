@@ -1740,6 +1740,7 @@ dependencies = [
 name = "rkyv"
 version = "0.4.1"
 dependencies = [
+ "cranelift-entity",
  "indexmap",
  "memoffset",
  "ptr_meta",
