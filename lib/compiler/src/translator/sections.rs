@@ -332,7 +332,6 @@ pub fn parse_element_section<'data>(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     environ.reserve_table_initializers(elements.get_count())?;
-    environ.reserve_passive_elements(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry?;

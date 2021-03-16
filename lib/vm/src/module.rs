@@ -70,10 +70,10 @@ pub struct ModuleInfo {
     pub table_initializers: Vec<TableInitializer>,
 
     /// WebAssembly passive elements.
-    pub passive_elements: PrimaryMap<ElemIndex, Box<[FunctionIndex]>>,
+    pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: PrimaryMap<DataIndex, Arc<[u8]>>,
+    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -125,8 +125,8 @@ impl ModuleInfo {
             exports: IndexMap::new(),
             start_function: None,
             table_initializers: Vec::new(),
-            passive_elements: PrimaryMap::new(),
-            passive_data: PrimaryMap::new(),
+            passive_elements: HashMap::new(),
+            passive_data: HashMap::new(),
             global_initializers: PrimaryMap::new(),
             function_names: HashMap::new(),
             signatures: PrimaryMap::new(),
@@ -145,7 +145,7 @@ impl ModuleInfo {
 
     /// Get the given passive element, if it exists.
     pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
-        self.passive_elements.get(index).map(|es| &**es)
+        self.passive_elements.get(&index).map(|es| &**es)
     }
 
     /// Get the exported signatures of the module
