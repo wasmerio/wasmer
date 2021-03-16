@@ -16,6 +16,9 @@ impl Config for NoImportsConfig {
         // https://github.com/wasmerio/wasmer/issues/2187
         65535
     }
+    fn allow_start_export(&self) -> bool {
+        false
+    }
 }
 
 fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
