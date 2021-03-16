@@ -12,6 +12,10 @@ impl Config for NoImportsConfig {
     fn max_imports(&self) -> usize {
         0
     }
+    fn max_memory_pages(&self) -> u32 {
+        // https://github.com/wasmerio/wasmer/issues/2187
+        65535
+    }
 }
 
 fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
@@ -23,7 +27,7 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
         Ok(m) => m,
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") {
+            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
                 return;
             }
             panic!("{}", e);
@@ -33,7 +37,8 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
         Ok(_) => {}
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message
+            if 
+                error_message
                 .contains("RuntimeError: memory out of bounds: data segment does not fit")
                 || error_message
                     .contains("RuntimeError: table out of bounds: elements segment does not fit")
