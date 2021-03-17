@@ -18,7 +18,7 @@ fn get_default_table_value(table_type: ValType) -> Val {
         ValType::F64 => Val::F64(0.),
         ValType::V128 => Val::V128(0),
         ValType::ExternRef => Val::ExternRef(ExternRef::null()),
-        ValType::FuncRef => Val::ExternRef(ExternRef::null()),
+        ValType::FuncRef => Val::FuncRef(None),
     }
 }
 
