@@ -21,7 +21,7 @@ serde = { version = "1.0", features = ["derive"], optional = true }
 thiserror = "1.0"
 serde_bytes = { version = "0.11", optional = true }
 smallvec = "1.6" 
-rkyv = { path = "../../../rkyv/rkyv", optional = true }
+rkyv = { git = "https://github.com/ailisp/rkyv", rev = "52a393aa564b80b05a255d3536e96ea053a4b841", optional = true }
 
 [features]
 default = ["std", "enable-serde", "enable-rkyv"]

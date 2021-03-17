@@ -1739,6 +1739,7 @@ dependencies = [
 [[package]]
 name = "rkyv"
 version = "0.4.1"
+source = "git+https://github.com/ailisp/rkyv?rev=52a393aa564b80b05a255d3536e96ea053a4b841#52a393aa564b80b05a255d3536e96ea053a4b841"
 dependencies = [
  "cranelift-entity",
  "indexmap",
@@ -1751,6 +1752,7 @@ dependencies = [
 [[package]]
 name = "rkyv_derive"
 version = "0.4.0"
+source = "git+https://github.com/ailisp/rkyv?rev=52a393aa564b80b05a255d3536e96ea053a4b841#52a393aa564b80b05a255d3536e96ea053a4b841"
 dependencies = [
  "proc-macro2",
  "quote",
