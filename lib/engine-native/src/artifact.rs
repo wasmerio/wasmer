@@ -293,7 +293,7 @@ impl NativeArtifact {
             Triple::host().to_string(),
         );
 
-        let linker: &'static str = engine_inner.linker().into();
+        let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
             .arg("-o")
@@ -317,7 +317,7 @@ impl NativeArtifact {
         if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, shared_filepath)
         } else {
-            let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
+            let lib = unsafe { Library::new(&shared_filepath).map_err(to_compile_error)? };
             Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
         }
     }

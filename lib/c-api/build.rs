@@ -4,7 +4,10 @@
 //! * setting `inline-c` up.
 
 use cbindgen::{Builder, Language};
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 const PRE_HEADER: &'static str = r#"
 // Define the `ARCH_X86_X64` constant.
@@ -40,6 +43,9 @@ const COMPILER_FEATURE_AS_C_DEFINE: &'static str = "WASMER_COMPILER_ENABLED";
 
 #[allow(unused)]
 const WASI_FEATURE_AS_C_DEFINE: &'static str = "WASMER_WASI_ENABLED";
+
+#[allow(unused)]
+const MIDDLEWARES_FEATURE_AS_C_DEFINE: &'static str = "WASMER_MIDDLEWARES_ENABLED";
 
 #[allow(unused)]
 const EMSCRIPTEN_FEATURE_AS_C_DEFINE: &'static str = "WASMER_EMSCRIPTEN_ENABLED";
@@ -135,6 +141,7 @@ fn build_wasm_c_api_headers(crate_dir: &str, out_dir: &str) {
     map_feature_as_c_define!("jit", JIT_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("compiler", COMPILER_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("wasi", WASI_FEATURE_AS_C_DEFINE, pre_header);
+    map_feature_as_c_define!("middlewares", MIDDLEWARES_FEATURE_AS_C_DEFINE, pre_header);
     map_feature_as_c_define!("emscripten", EMSCRIPTEN_FEATURE_AS_C_DEFINE, pre_header);
 
     add_wasmer_version(&mut pre_header);
@@ -467,36 +474,58 @@ fn exclude_items_from_wasm_c_api(builder: Builder) -> Builder {
         .exclude_item("wasi_get_unordered_imports")
         .exclude_item("wasi_get_wasi_version")
         .exclude_item("wasi_version_t")
+        .exclude_item("wasm_config_push_middleware")
         .exclude_item("wasm_config_set_compiler")
         .exclude_item("wasm_config_set_engine")
+        .exclude_item("wasm_config_set_features")
         .exclude_item("wasm_config_set_target")
-        .exclude_item("wasm_cpu_features_add")
-        .exclude_item("wasm_cpu_features_delete")
-        .exclude_item("wasm_cpu_features_new")
-        .exclude_item("wasm_cpu_features_t")
-        .exclude_item("wasm_module_name")
-        .exclude_item("wasm_module_set_name")
-        .exclude_item("wasm_named_extern_module")
-        .exclude_item("wasm_named_extern_name")
-        .exclude_item("wasm_named_extern_t")
-        .exclude_item("wasm_named_extern_unwrap")
-        .exclude_item("wasm_named_extern_vec_copy")
-        .exclude_item("wasm_named_extern_vec_delete")
-        .exclude_item("wasm_named_extern_vec_new")
-        .exclude_item("wasm_named_extern_vec_new_empty")
-        .exclude_item("wasm_named_extern_vec_new_uninitialized")
-        .exclude_item("wasm_target_delete")
-        .exclude_item("wasm_target_new")
-        .exclude_item("wasm_target_t")
-        .exclude_item("wasm_triple_delete")
-        .exclude_item("wasm_triple_new")
-        .exclude_item("wasm_triple_new_from_host")
-        .exclude_item("wasm_triple_t")
         .exclude_item("wasmer_compiler_t")
+        .exclude_item("wasmer_cpu_features_add")
+        .exclude_item("wasmer_cpu_features_delete")
+        .exclude_item("wasmer_cpu_features_new")
+        .exclude_item("wasmer_cpu_features_t")
         .exclude_item("wasmer_engine_t")
+        .exclude_item("wasmer_features_bulk_memory")
+        .exclude_item("wasmer_features_delete")
+        .exclude_item("wasmer_features_memory64")
+        .exclude_item("wasmer_features_module_linking")
+        .exclude_item("wasmer_features_multi_memory")
+        .exclude_item("wasmer_features_multi_value")
+        .exclude_item("wasmer_features_new")
+        .exclude_item("wasmer_features_reference_types")
+        .exclude_item("wasmer_features_simd")
+        .exclude_item("wasmer_features_t")
+        .exclude_item("wasmer_features_tail_call")
+        .exclude_item("wasmer_features_threads")
         .exclude_item("wasmer_is_compiler_available")
         .exclude_item("wasmer_is_engine_available")
         .exclude_item("wasmer_is_headless")
+        .exclude_item("wasmer_metering_as_middleware")
+        .exclude_item("wasmer_metering_delete")
+        .exclude_item("wasmer_metering_get_remaining_points")
+        .exclude_item("wasmer_metering_new")
+        .exclude_item("wasmer_metering_points_are_exhausted")
+        .exclude_item("wasmer_metering_set_remaining_points")
+        .exclude_item("wasmer_metering_t")
+        .exclude_item("wasmer_middleware_t")
+        .exclude_item("wasmer_module_name")
+        .exclude_item("wasmer_module_set_name")
+        .exclude_item("wasmer_named_extern_module")
+        .exclude_item("wasmer_named_extern_name")
+        .exclude_item("wasmer_named_extern_t")
+        .exclude_item("wasmer_named_extern_unwrap")
+        .exclude_item("wasmer_named_extern_vec_copy")
+        .exclude_item("wasmer_named_extern_vec_delete")
+        .exclude_item("wasmer_named_extern_vec_new")
+        .exclude_item("wasmer_named_extern_vec_new_empty")
+        .exclude_item("wasmer_named_extern_vec_new_uninitialized")
+        .exclude_item("wasmer_target_delete")
+        .exclude_item("wasmer_target_new")
+        .exclude_item("wasmer_target_t")
+        .exclude_item("wasmer_triple_delete")
+        .exclude_item("wasmer_triple_new")
+        .exclude_item("wasmer_triple_new_from_host")
+        .exclude_item("wasmer_triple_t")
         .exclude_item("wat2wasm")
 }
 
@@ -556,7 +585,17 @@ fn build_inline_c_env_vars() {
         } else if cfg!(target_os = "macos") {
             "libwasmer_c_api.dylib".to_string()
         } else {
-            "libwasmer_c_api.so".to_string()
+            let path = format!(
+                "{shared_object_dir}/{lib}",
+                shared_object_dir = shared_object_dir,
+                lib = "libwasmer_c_api.so"
+            );
+
+            if Path::new(path.as_str()).exists() {
+                "libwasmer_c_api.so".to_string()
+            } else {
+                "libwasmer_c_api.a".to_string()
+            }
         }
     );
 }

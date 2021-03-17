@@ -21,7 +21,7 @@ Wasmer binary also ships with [`wasmer-config`](#wasmer-config)
 an utility tool that outputs config information needed to compile programs which use Wasmer.
 
 The full C API documentation can be found here:
-https://wasmerio.github.io/wasmer/c-api/
+https://wasmerio.github.io/wasmer/c/
 
 Here is a simple example to use the C API:
 

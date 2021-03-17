@@ -3,63 +3,63 @@
 
 use crate::common::WasmFeatures;
 use anyhow::{Error, Result};
+use clap::Clap;
 use std::path::PathBuf;
 use std::str::FromStr;
 use std::string::ToString;
 #[allow(unused_imports)]
 use std::sync::Arc;
-use structopt::StructOpt;
 use wasmer::*;
 #[cfg(feature = "compiler")]
 use wasmer_compiler::CompilerConfig;
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Clap)]
 /// The compiler and engine options
 pub struct StoreOptions {
-    #[structopt(flatten)]
+    #[clap(flatten)]
     compiler: CompilerOptions,
 
     /// Use JIT Engine.
-    #[structopt(long, conflicts_with_all = &["native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["native", "object_file"])]
     jit: bool,
 
     /// Use Native Engine.
-    #[structopt(long, conflicts_with_all = &["jit", "object_file"])]
+    #[clap(long, conflicts_with_all = &["jit", "object_file"])]
     native: bool,
 
     /// Use ObjectFile Engine.
-    #[structopt(long, conflicts_with_all = &["jit", "native"])]
+    #[clap(long, conflicts_with_all = &["jit", "native"])]
     object_file: bool,
 }
 
-#[derive(Debug, Clone, StructOpt)]
+#[derive(Debug, Clone, Clap)]
 /// The compiler options
 pub struct CompilerOptions {
     /// Use Singlepass compiler.
-    #[structopt(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
+    #[clap(long, conflicts_with_all = &["cranelift", "llvm", "backend"])]
     singlepass: bool,
 
     /// Use Cranelift compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "llvm", "backend"])]
     cranelift: bool,
 
     /// Use LLVM compiler.
-    #[structopt(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
+    #[clap(long, conflicts_with_all = &["singlepass", "cranelift", "backend"])]
     llvm: bool,
 
     /// Enable compiler internal verification.
-    #[structopt(long)]
+    #[clap(long)]
     enable_verifier: bool,
 
     /// LLVM debug directory, where IR and object files will be written to.
-    #[structopt(long, parse(from_os_str))]
+    #[clap(long, parse(from_os_str))]
     llvm_debug_dir: Option<PathBuf>,
 
     /// The deprecated backend flag - Please do not use
-    #[structopt(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
+    #[clap(long = "backend", hidden = true, conflicts_with_all = &["singlepass", "cranelift", "llvm"])]
     backend: Option<String>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     features: WasmFeatures,
 }
 

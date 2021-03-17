@@ -4,7 +4,7 @@ use std::path::PathBuf;
 use wasmer::{Instance, Module};
 use wasmer_wasi::{get_wasi_version, WasiError, WasiState, WasiVersion};
 
-use structopt::StructOpt;
+use clap::Clap;
 
 #[cfg(feature = "wasio")]
 mod wasio {
@@ -62,28 +62,28 @@ mod wasio {
     }
 }
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, Clap, Clone)]
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
-    #[structopt(long = "dir", name = "DIR", multiple = true, group = "wasi")]
+    #[clap(long = "dir", name = "DIR", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
-    #[structopt(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
+    #[clap(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
     mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[structopt(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
+    #[clap(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
     env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[clap(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 
     #[cfg(feature = "wasio")]
-    #[structopt(default_value, long = "wasio-executor")]
+    #[clap(default_value, long = "wasio-executor")]
     wasio_executor: wasio::ExecutorType,
 }
 
