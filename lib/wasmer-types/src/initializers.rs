@@ -7,7 +7,7 @@ use serde::{Deserialize, Serialize};
 use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// A WebAssembly table initializer.
-#[derive(Clone, Debug, Hash, Serialize, Deserialize)]
+#[derive(Clone, Debug, Hash, Serialize, Deserialize, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct TableInitializer {
     /// The index of a table to initialize.
@@ -22,7 +22,7 @@ pub struct TableInitializer {
 
 /// A memory index and offset within that memory where a data initialization
 /// should be performed.
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct DataInitializerLocation {
@@ -49,7 +49,7 @@ pub struct DataInitializer<'data> {
 
 /// As `DataInitializer` but owning the data rather than
 /// holding a reference to it
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct OwnedDataInitializer {

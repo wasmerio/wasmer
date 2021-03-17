@@ -48,7 +48,8 @@ pub struct ModuleInfo {
     ///
     /// We skip serialization/deserialization of this field, as it
     /// should be computed by the process.
-    /// TODO: rkyv cannot skip
+    /// It's not skipped in rkyv, but that is okay, because even though it's skipped in bincode/serde
+    /// it's still deserialized back as a garbage number, and later override from computed by the process
     #[serde(skip_serializing, skip_deserializing)]
     pub id: ModuleId,
 
@@ -116,6 +117,34 @@ pub struct ModuleInfo {
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
 }
+
+// For test serialization correctness, everything except module id should be same
+impl PartialEq for ModuleInfo {
+    fn eq(&self, other: &ModuleInfo) -> bool {
+        self.name == other.name &&
+            self.imports == other.imports &&
+            self.exports == other.exports &&
+            self.start_function == other.start_function &&
+            self.table_initializers == other.table_initializers &&
+            self.passive_elements == other.passive_elements &&
+            self.passive_data == other.passive_data &&
+            self.global_initializers == other.global_initializers &&
+            self.function_names == other.function_names &&
+            self.signatures == other.signatures &&
+            self.functions == other.functions &&
+            self.tables == other.tables &&
+            self.memories == other.memories &&
+            self.globals == other.globals &&
+            self.custom_sections == other.custom_sections &&
+            self.custom_sections_data == other.custom_sections_data &&
+            self.num_imported_functions == other.num_imported_functions &&
+            self.num_imported_tables == other.num_imported_tables &&
+            self.num_imported_memories == other.num_imported_memories &&
+            self.num_imported_globals == other.num_imported_globals
+    }
+}
+
+impl Eq for ModuleInfo {}
 
 impl ModuleInfo {
     /// Allocates the module data structures.

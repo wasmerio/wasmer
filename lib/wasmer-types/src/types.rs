@@ -396,7 +396,7 @@ impl fmt::Display for GlobalType {
 }
 
 /// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub enum GlobalInit {
@@ -417,6 +417,8 @@ pub enum GlobalInit {
     /// A `ref.func <index>`.
     RefFunc(FunctionIndex),
 }
+
+impl Eq for GlobalInit {}
 
 impl GlobalInit {
     /// Get the `GlobalInit` from a given `Value`

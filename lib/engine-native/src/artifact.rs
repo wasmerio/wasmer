@@ -188,8 +188,13 @@ impl NativeArtifact {
             data_initializers,
             function_body_lengths,
         };
+        println!("!!! {:?}", (*(metadata.compile_info.module)).id);
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
+
+        let md: ModuleMetadata = bincode::deserialize(&serialized_data).unwrap();
+        assert_eq!(metadata, md);
+
         let mut metadata_binary = vec![0; 10];
         let mut writable = &mut metadata_binary[..];
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
@@ -555,7 +560,6 @@ impl NativeArtifact {
         let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
             .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         println!("{:?}", now.elapsed());
-        println!("+++ {}", metadata.compile_info.features.threads);
 
         let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
         let pos = serializer.serialize_value(&metadata)
@@ -569,13 +573,14 @@ impl NativeArtifact {
         let pos: u64 = u64::from_le_bytes(pos);
         let archived = unsafe { archived_value::<ModuleMetadata>(&bytes[8..], pos as usize )};
         println!("rkyv archive {:?}", now.elapsed());
-        println!("=== {}", archived.compile_info.features.threads);
 
         let now = std::time::Instant::now();
         let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
         let m = RkyvDeserialize::deserialize(archived, &mut deserializer).unwrap();
-        println!("--- {}", m.compile_info.features.threads);
         println!("rkyv deser {:?}", now.elapsed());
+        assert_eq!(metadata, m);
+
+        let serialized_data = bincode::serialize(&m).unwrap();
 
         let mut engine_inner = engine.inner_mut();
 

@@ -12,7 +12,7 @@ use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 /// This differs from [`ModuleInfo`] because it have extra info only
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
-#[derive(Debug)]
+#[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct CompileModuleInfo {

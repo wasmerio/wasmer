@@ -5,7 +5,7 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Sign
 use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,
