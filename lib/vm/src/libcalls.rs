@@ -480,7 +480,10 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_grow(
 ///
 /// `vmctx` must be valid and not null.
 #[no_mangle]
-pub unsafe extern "C" fn wasmer_vm_func_ref(vmctx: *mut VMContext, function_index: u32) -> VMFuncRef {
+pub unsafe extern "C" fn wasmer_vm_func_ref(
+    vmctx: *mut VMContext,
+    function_index: u32,
+) -> VMFuncRef {
     let instance = (&*vmctx).instance();
     let function_index = FunctionIndex::from_u32(function_index);
 
