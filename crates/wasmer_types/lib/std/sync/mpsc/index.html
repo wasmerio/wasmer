@@ -30,13 +30,13 @@ channel where each sender atomically hands off a message to a receiver.</p>
 </li>
 </ol>
 <h2 id="disconnection" class="section-header"><a href="#disconnection">Disconnection</a></h2>
-<p>The send and receive operations on channels will all return a <a href="../../../../../wasmer_types/entity/__core/result/enum.Result.html" title="Result"><code>Result</code></a>
+<p>The send and receive operations on channels will all return a <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html" title="Result"><code>Result</code></a>
 indicating whether the operation succeeded or not. An unsuccessful operation
 is normally indicative of the other half of a channel having &quot;hung up&quot; by
 being dropped in its corresponding thread.</p>
 <p>Once half of a channel has been deallocated, most operations can no longer
-continue to make progress, so <a href="../../../../../wasmer_types/entity/__core/result/enum.Result.html#variant.Err" title="Err"><code>Err</code></a> will be returned. Many applications
-will continue to <a href="../../../../../wasmer_types/entity/__core/result/enum.Result.html#method.unwrap"><code>unwrap</code></a> the results returned from this module,
+continue to make progress, so <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html#variant.Err" title="Err"><code>Err</code></a> will be returned. Many applications
+will continue to <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html#method.unwrap"><code>unwrap</code></a> the results returned from this module,
 instigating a propagation of failure among threads if one unexpectedly dies.</p>
 <h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>
 <p>Simple usage:</p>

@@ -1,1 +1,1 @@
-initSidebarItems({"mod":[["std",""]]});
+initSidebarItems({"mod":[["std","Custom `std` module."]]});

@@ -6,20 +6,20 @@
 threads, and are the building blocks of other concurrent
 types.</p>
 <p>This module defines atomic versions of a select number of primitive
-types, including <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicBool.html" title="AtomicBool"><code>AtomicBool</code></a>, <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicIsize.html" title="AtomicIsize"><code>AtomicIsize</code></a>, <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicUsize.html" title="AtomicUsize"><code>AtomicUsize</code></a>,
-<a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicI8.html" title="AtomicI8"><code>AtomicI8</code></a>, <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicU16.html" title="AtomicU16"><code>AtomicU16</code></a>, etc.
+types, including <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicBool.html" title="AtomicBool"><code>AtomicBool</code></a>, <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicIsize.html" title="AtomicIsize"><code>AtomicIsize</code></a>, <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicUsize.html" title="AtomicUsize"><code>AtomicUsize</code></a>,
+<a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicI8.html" title="AtomicI8"><code>AtomicI8</code></a>, <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicU16.html" title="AtomicU16"><code>AtomicU16</code></a>, etc.
 Atomic types present operations that, when used correctly, synchronize
 updates between threads.</p>
-<p>Each method takes an <a href="../../../../../wasmer_types/entity/__core/sync/atomic/enum.Ordering.html" title="Ordering"><code>Ordering</code></a> which represents the strength of
+<p>Each method takes an <a href="../../../../../wasmer_types/lib/std/sync/atomic/enum.Ordering.html" title="Ordering"><code>Ordering</code></a> which represents the strength of
 the memory barrier for that operation. These orderings are the
 same as the <a href="https://en.cppreference.com/w/cpp/atomic/memory_order">C++20 atomic orderings</a>. For more information see the <a href="../../../nomicon/atomics.html">nomicon</a>.</p>
-<p>Atomic variables are safe to share between threads (they implement <a href="../../../../../wasmer_types/entity/__core/marker/trait.Sync.html" title="Sync"><code>Sync</code></a>)
+<p>Atomic variables are safe to share between threads (they implement <a href="../../../../../wasmer_types/lib/std/marker/trait.Sync.html" title="Sync"><code>Sync</code></a>)
 but they do not themselves provide the mechanism for sharing and follow the
 <a href="../../../std/thread/index.html#the-threading-model">threading model</a> of Rust.
 The most common way to share an atomic variable is to put it into an <a href="../../../std/sync/struct.Arc.html"><code>Arc</code></a> (an
 atomically-reference-counted shared pointer).</p>
 <p>Atomic types may be stored in static variables, initialized using
-the constant initializers like <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicBool.html#method.new" title="AtomicBool::new"><code>AtomicBool::new</code></a>. Atomic statics
+the constant initializers like <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicBool.html#method.new" title="AtomicBool::new"><code>AtomicBool::new</code></a>. Atomic statics
 are often used for lazy global initialization.</p>
 <h1 id="portability" class="section-header"><a href="#portability">Portability</a></h1>
 <p>All atomic types in this module are guaranteed to be <a href="https://en.wikipedia.org/wiki/Non-blocking_algorithm">lock-free</a> if they're
@@ -105,7 +105,7 @@ conditionally compile in code with atomics. There is an unstable
 </td></tr><tr class="unstable deprecated module-item"><td><a class="constant" href="constant.ATOMIC_U16_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_U16_INIT constant">ATOMIC_U16_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><span class="stab unstable" title="">Experimental</span><p>An atomic integer initialized to <code>0</code>.</p>
 </td></tr><tr class="unstable deprecated module-item"><td><a class="constant" href="constant.ATOMIC_U32_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_U32_INIT constant">ATOMIC_U32_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><span class="stab unstable" title="">Experimental</span><p>An atomic integer initialized to <code>0</code>.</p>
 </td></tr><tr class="unstable deprecated module-item"><td><a class="constant" href="constant.ATOMIC_U64_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_U64_INIT constant">ATOMIC_U64_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><span class="stab unstable" title="">Experimental</span><p>An atomic integer initialized to <code>0</code>.</p>
-</td></tr><tr class="deprecated module-item"><td><a class="constant" href="constant.ATOMIC_BOOL_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_BOOL_INIT constant">ATOMIC_BOOL_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><p>An <a href="../../../../../wasmer_types/entity/__core/sync/atomic/struct.AtomicBool.html" title="AtomicBool"><code>AtomicBool</code></a> initialized to <code>false</code>.</p>
+</td></tr><tr class="deprecated module-item"><td><a class="constant" href="constant.ATOMIC_BOOL_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_BOOL_INIT constant">ATOMIC_BOOL_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><p>An <a href="../../../../../wasmer_types/lib/std/sync/atomic/struct.AtomicBool.html" title="AtomicBool"><code>AtomicBool</code></a> initialized to <code>false</code>.</p>
 </td></tr><tr class="deprecated module-item"><td><a class="constant" href="constant.ATOMIC_ISIZE_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_ISIZE_INIT constant">ATOMIC_ISIZE_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><p>An atomic integer initialized to <code>0</code>.</p>
 </td></tr><tr class="deprecated module-item"><td><a class="constant" href="constant.ATOMIC_USIZE_INIT.html" title="wasmer_types::lib::std::sync::atomic::ATOMIC_USIZE_INIT constant">ATOMIC_USIZE_INIT</a></td><td class="docblock-short"><span class="stab deprecated" title="">Deprecated</span><p>An atomic integer initialized to <code>0</code>.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>

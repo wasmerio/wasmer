@@ -7,10 +7,10 @@ memory in <code>src</code> unchanged.</p>
 <p>Behavior is undefined if any of the following conditions are violated:</p>
 <ul>
 <li>
-<p><code>src</code> must be <a href="../../../../wasmer_types/entity/__core/ptr/index.html#safety">valid</a> for reads.</p>
+<p><code>src</code> must be <a href="../../../../wasmer_types/lib/std/ptr/index.html#safety">valid</a> for reads.</p>
 </li>
 <li>
-<p><code>src</code> must be properly aligned. Use <a href="../../../../wasmer_types/entity/__core/ptr/fn.read_unaligned.html" title="read_unaligned"><code>read_unaligned</code></a> if this is not the
+<p><code>src</code> must be properly aligned. Use <a href="../../../../wasmer_types/lib/std/ptr/fn.read_unaligned.html" title="read_unaligned"><code>read_unaligned</code></a> if this is not the
 case.</p>
 </li>
 <li>
@@ -28,7 +28,7 @@ case.</p>
 <span class="kw">unsafe</span> {
     <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">read</span>(<span class="ident">y</span>), <span class="number">12</span>);
 }</pre></div>
-<p>Manually implement <a href="../../../../wasmer_types/entity/__core/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a>:</p>
+<p>Manually implement <a href="../../../../wasmer_types/lib/std/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a>:</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;
@@ -66,11 +66,11 @@ case.</p>
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">foo</span>, <span class="string">&quot;bar&quot;</span>);
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">bar</span>, <span class="string">&quot;foo&quot;</span>);</pre></div>
 <h2 id="ownership-of-the-returned-value" class="section-header"><a href="#ownership-of-the-returned-value">Ownership of the Returned Value</a></h2>
-<p><code>read</code> creates a bitwise copy of <code>T</code>, regardless of whether <code>T</code> is <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>.
-If <code>T</code> is not <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the returned value and the value at
+<p><code>read</code> creates a bitwise copy of <code>T</code>, regardless of whether <code>T</code> is <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>.
+If <code>T</code> is not <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the returned value and the value at
 <code>*src</code> can violate memory safety. Note that assigning to <code>*src</code> counts as a
 use because it will attempt to drop the value at <code>*src</code>.</p>
-<p><a href="../../../../wasmer_types/entity/__core/ptr/fn.write.html" title="write()"><code>write()</code></a> can be used to overwrite data without causing it to be dropped.</p>
+<p><a href="../../../../wasmer_types/lib/std/ptr/fn.write.html" title="write()"><code>write()</code></a> can be used to overwrite data without causing it to be dropped.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>;

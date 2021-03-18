@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["BoxedSlice","A slice mapping `K -> V` allocating dense entity references."]]});

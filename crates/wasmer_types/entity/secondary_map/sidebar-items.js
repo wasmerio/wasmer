@@ -1,0 +1,1 @@
+initSidebarItems({"struct":[["SecondaryMap","A mapping `K -> V` for densely indexed entity references."]]});

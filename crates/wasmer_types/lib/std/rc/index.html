@@ -4,24 +4,24 @@
                 <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="https://doc.rust-lang.org/nightly/src/alloc/lib.rs.html#175" title="goto source code">[src]</a></span><span class="in-band">Module <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a class="mod" href="">rc</a></span></h1><div class="docblock"><p>Single-threaded reference-counting pointers. 'Rc' stands for 'Reference
 Counted'.</p>
 <p>The type <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a> provides shared ownership of a value of type <code>T</code>,
-allocated in the heap. Invoking <a href="../../../../wasmer_types/entity/__core/clone/trait.Clone.html#tymethod.clone"><code>clone</code></a> on <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> produces a new
+allocated in the heap. Invoking <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html#tymethod.clone"><code>clone</code></a> on <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> produces a new
 pointer to the same allocation in the heap. When the last <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> pointer to a
 given allocation is destroyed, the value stored in that allocation (often
 referred to as &quot;inner value&quot;) is also dropped.</p>
 <p>Shared references in Rust disallow mutation by default, and <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>
 is no exception: you cannot generally obtain a mutable reference to
-something inside an <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>. If you need mutability, put a <a href="../../../../wasmer_types/entity/__core/cell/struct.Cell.html"><code>Cell</code></a>
-or <a href="../../../../wasmer_types/entity/__core/cell/struct.RefCell.html"><code>RefCell</code></a> inside the <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>; see <a href="../../../../wasmer_types/entity/__core/cell/index.html#introducing-mutability-inside-of-something-immutable">an example of mutability
+something inside an <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>. If you need mutability, put a <a href="../../../../wasmer_types/lib/std/cell/struct.Cell.html"><code>Cell</code></a>
+or <a href="../../../../wasmer_types/lib/std/cell/struct.RefCell.html"><code>RefCell</code></a> inside the <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>; see <a href="../../../../wasmer_types/lib/std/cell/index.html#introducing-mutability-inside-of-something-immutable">an example of mutability
 inside an <code>Rc</code></a>.</p>
 <p><a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> uses non-atomic reference counting. This means that overhead is very
 low, but an <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> cannot be sent between threads, and consequently <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>
-does not implement <a href="../../../../wasmer_types/entity/__core/marker/trait.Send.html"><code>Send</code></a>. As a result, the Rust compiler
+does not implement <a href="../../../../wasmer_types/lib/std/marker/trait.Send.html"><code>Send</code></a>. As a result, the Rust compiler
 will check <em>at compile time</em> that you are not sending <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>s between
 threads. If you need multi-threaded, atomic reference counting, use
 <a href="../../../../wasmer_types/lib/std/sync/struct.Arc.html"><code>sync::Arc</code></a>.</p>
 <p>The <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html#method.downgrade"><code>downgrade</code></a> method can be used to create a non-owning
 <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html" title="Weak"><code>Weak</code></a> pointer. A <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html" title="Weak"><code>Weak</code></a> pointer can be <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html#method.upgrade"><code>upgrade</code></a>d
-to an <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>, but this will return <a href="../../../../wasmer_types/entity/__core/option/enum.Option.html#variant.None" title="None"><code>None</code></a> if the value stored in the allocation has
+to an <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a>, but this will return <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html#variant.None" title="None"><code>None</code></a> if the value stored in the allocation has
 already been dropped. In other words, <code>Weak</code> pointers do not keep the value
 inside the allocation alive; however, they <em>do</em> keep the allocation
 (the backing store for the inner value) alive.</p>
@@ -29,7 +29,7 @@ inside the allocation alive; however, they <em>do</em> keep the allocation
 <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html" title="Weak"><code>Weak</code></a> is used to break cycles. For example, a tree could have strong
 <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> pointers from parent nodes to children, and <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html" title="Weak"><code>Weak</code></a> pointers from
 children back to their parents.</p>
-<p><code>Rc&lt;T&gt;</code> automatically dereferences to <code>T</code> (via the <a href="../../../../wasmer_types/entity/__core/ops/trait.Deref.html"><code>Deref</code></a> trait),
+<p><code>Rc&lt;T&gt;</code> automatically dereferences to <code>T</code> (via the <a href="../../../../wasmer_types/lib/std/ops/trait.Deref.html"><code>Deref</code></a> trait),
 so you can call <code>T</code>'s methods on a value of type <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a>. To avoid name
 clashes with <code>T</code>'s methods, the methods of <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc&lt;T&gt;</code></a> itself are associated
 functions, called using [fully qualified syntax]:</p>
@@ -136,9 +136,9 @@ place. In order to end up with two values that point at each other, one of
 them needs to be mutable. This is difficult because <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> enforces
 memory safety by only giving out shared references to the value it wraps,
 and these don't allow direct mutation. We need to wrap the part of the
-value we wish to mutate in a <a href="../../../../wasmer_types/entity/__core/cell/struct.RefCell.html"><code>RefCell</code></a>, which provides <em>interior
+value we wish to mutate in a <a href="../../../../wasmer_types/lib/std/cell/struct.RefCell.html"><code>RefCell</code></a>, which provides <em>interior
 mutability</em>: a method to achieve mutability through a shared reference.
-<a href="../../../../wasmer_types/entity/__core/cell/struct.RefCell.html"><code>RefCell</code></a> enforces Rust's borrowing rules at runtime.</p>
+<a href="../../../../wasmer_types/lib/std/cell/struct.RefCell.html"><code>RefCell</code></a> enforces Rust's borrowing rules at runtime.</p>
 
 <div class="example-wrap"><pre class="rust rust-example-rendered">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">rc</span>::<span class="ident">Rc</span>;
@@ -216,5 +216,5 @@ mutability</em>: a method to achieve mutability through a shared reference.
 Counted'.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Weak.html" title="wasmer_types::lib::std::rc::Weak struct">Weak</a></td><td class="docblock-short"><p><code>Weak</code> is a version of <a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a> that holds a non-owning reference to the
 managed allocation. The allocation is accessed by calling <a href="../../../../wasmer_types/lib/std/rc/struct.Weak.html#method.upgrade"><code>upgrade</code></a> on the <code>Weak</code>
-pointer, which returns an <a href="../../../../wasmer_types/entity/__core/option/enum.Option.html" title="Option"><code>Option</code></a><code>&lt;</code><a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a><code>&lt;T&gt;&gt;</code>.</p>
+pointer, which returns an <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="Option"><code>Option</code></a><code>&lt;</code><a href="../../../../wasmer_types/lib/std/rc/struct.Rc.html" title="Rc"><code>Rc</code></a><code>&lt;T&gt;&gt;</code>.</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../../";window.currentCrate = "wasmer_types";</script><script src="../../../../main.js"></script><script defer src="../../../../search-index.js"></script></body></html>

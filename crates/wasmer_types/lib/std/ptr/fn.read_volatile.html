@@ -19,7 +19,7 @@ and may be ignored.</p>
 <p>Behavior is undefined if any of the following conditions are violated:</p>
 <ul>
 <li>
-<p><code>src</code> must be <a href="../../../../wasmer_types/entity/__core/ptr/index.html#safety">valid</a> for reads.</p>
+<p><code>src</code> must be <a href="../../../../wasmer_types/lib/std/ptr/index.html#safety">valid</a> for reads.</p>
 </li>
 <li>
 <p><code>src</code> must be properly aligned.</p>
@@ -28,10 +28,10 @@ and may be ignored.</p>
 <p><code>src</code> must point to a properly initialized value of type <code>T</code>.</p>
 </li>
 </ul>
-<p>Like <a href="../../../../wasmer_types/entity/__core/ptr/fn.read.html" title="read"><code>read</code></a>, <code>read_volatile</code> creates a bitwise copy of <code>T</code>, regardless of
-whether <code>T</code> is <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>. If <code>T</code> is not <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the returned
-value and the value at <code>*src</code> can <a href="../../../../wasmer_types/entity/__core/ptr/fn.read.html#ownership-of-the-returned-value">violate memory safety</a>.
-However, storing non-<a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a> types in volatile memory is almost certainly
+<p>Like <a href="../../../../wasmer_types/lib/std/ptr/fn.read.html" title="read"><code>read</code></a>, <code>read_volatile</code> creates a bitwise copy of <code>T</code>, regardless of
+whether <code>T</code> is <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>. If <code>T</code> is not <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the returned
+value and the value at <code>*src</code> can <a href="../../../../wasmer_types/lib/std/ptr/fn.read.html#ownership-of-the-returned-value">violate memory safety</a>.
+However, storing non-<a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a> types in volatile memory is almost certainly
 incorrect.</p>
 <p>Note that even if <code>T</code> has size <code>0</code>, the pointer must be non-NULL and properly aligned.</p>
 <p>Just like in C, whether an operation is volatile has no bearing whatsoever

@@ -12,10 +12,10 @@ literal. The power of the formatting string is in the <code>{}</code>s contained
 formatting string in the order given unless named or positional parameters
 are used; see <a href="../std/fmt/index.html"><code>std::fmt</code></a> for more information.</p>
 <p>A common use for <code>format!</code> is concatenation and interpolation of strings.
-The same convention is used with <a href="../std/macro.print.html"><code>print!</code></a> and <a href="../../../wasmer_types/entity/__core/macro.write.html"><code>write!</code></a> macros,
+The same convention is used with <a href="../std/macro.print.html"><code>print!</code></a> and <a href="https://doc.rust-lang.org/nightly/core/macro.write.html"><code>write!</code></a> macros,
 depending on the intended destination of the string.</p>
 <p>To convert a single value to a string, use the <a href="../../../wasmer_types/lib/std/string/trait.ToString.html"><code>to_string</code></a> method. This
-will use the <a href="../../../wasmer_types/entity/__core/fmt/trait.Display.html"><code>Display</code></a> formatting trait.</p>
+will use the <a href="../../../wasmer_types/lib/std/fmt/trait.Display.html"><code>Display</code></a> formatting trait.</p>
 <h1 id="panics" class="section-header"><a href="#panics">Panics</a></h1>
 <p><code>format!</code> panics if a formatting trait implementation returns an error.
 This indicates an incorrect implementation

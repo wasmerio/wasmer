@@ -161,6 +161,7 @@
 <span id="158">158</span>
 <span id="159">159</span>
 <span id="160">160</span>
+<span id="161">161</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Helper functions and structures for the translation.</span>
 
@@ -170,6 +171,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">binemit</span>::<span class="ident">Reloc</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">ir</span>::{<span class="self">self</span>, <span class="ident">AbiParam</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::<span class="ident">TargetFrontendConfig</span>;
+<span class="kw">use</span> <span class="ident">cranelift_entity</span>::{<span class="ident">EntityRef</span> <span class="kw">as</span> <span class="ident">CraneliftEntityRef</span>, <span class="ident">SecondaryMap</span> <span class="kw">as</span> <span class="ident">CraneliftSecondaryMap</span>};
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::<span class="ident">FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasm_unsupported</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasmparser</span>;
@@ -312,7 +314,7 @@
 
 <span class="doccomment">/// Transforms Cranelift JumpTable&#39;s into runtime JumpTables</span>
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">transform_jump_table</span>(
-    <span class="ident">jt_offsets</span>: <span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">JumpTable</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
+    <span class="ident">jt_offsets</span>: <span class="ident">CraneliftSecondaryMap</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">JumpTable</span>, <span class="ident">u32</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">SecondaryMap</span><span class="op">&lt;</span><span class="ident">JumpTable</span>, <span class="ident">u32</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">func_jt_offsets</span> <span class="op">=</span> <span class="ident">SecondaryMap</span>::<span class="ident">with_capacity</span>(<span class="ident">jt_offsets</span>.<span class="ident">capacity</span>());
 

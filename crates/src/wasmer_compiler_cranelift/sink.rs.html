@@ -131,12 +131,14 @@
 <span id="128">128</span>
 <span id="129">129</span>
 <span id="130">130</span>
+<span id="131">131</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">translator</span>::{<span class="ident">irlibcall_to_libcall</span>, <span class="ident">irreloc_to_relocationkind</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">binemit</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">ir</span>::{<span class="self">self</span>, <span class="ident">ExternalName</span>};
+<span class="kw">use</span> <span class="ident">cranelift_entity</span>::<span class="ident">EntityRef</span> <span class="kw">as</span> <span class="ident">CraneliftEntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">JumpTable</span>, <span class="ident">Relocation</span>, <span class="ident">RelocationTarget</span>, <span class="ident">TrapInformation</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">EntityRef</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>};

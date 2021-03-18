@@ -91,6 +91,7 @@
 <span id="88">88</span>
 <span id="89">89</span>
 <span id="90">90</span>
+<span id="91">91</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This are the common types and utility tools for using WebAssembly</span>
 <span class="doccomment">//! in a Rust environment.</span>
@@ -128,18 +129,22 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
 <span class="kw">extern</span> <span class="kw">crate</span> <span class="ident">alloc</span>;
 
-<span class="kw">mod</span> <span class="ident">lib</span> {
+<span class="doccomment">/// The `lib` module defines a `std` module that is identical whether</span>
+<span class="doccomment">/// the `core` or the `std` feature is enabled.</span>
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">lib</span> {
+    <span class="doccomment">/// Custom `std` module.</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;core&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">std</span> {
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">alloc</span>::{<span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">format</span>, <span class="ident">rc</span>, <span class="ident">slice</span>, <span class="ident">string</span>, <span class="ident">vec</span>};
-        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">any</span>, <span class="ident">cell</span>, <span class="ident">convert</span>, <span class="ident">fmt</span>, <span class="ident">hash</span>, <span class="ident">marker</span>, <span class="ident">ops</span>, <span class="ident">ptr</span>, <span class="ident">sync</span>};
+        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">alloc</span>::{<span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">format</span>, <span class="ident">iter</span>, <span class="ident">rc</span>, <span class="ident">slice</span>, <span class="ident">string</span>, <span class="ident">vec</span>};
+        <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">any</span>, <span class="ident">cell</span>, <span class="ident">cmp</span>, <span class="ident">convert</span>, <span class="ident">fmt</span>, <span class="ident">hash</span>, <span class="ident">marker</span>, <span class="ident">mem</span>, <span class="ident">ops</span>, <span class="ident">ptr</span>, <span class="ident">sync</span>, <span class="ident">u32</span>};
     }
 
+    <span class="doccomment">/// Custom `std` module.</span>
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
     <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">std</span> {
         <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">std</span>::{
-            <span class="ident">any</span>, <span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">cell</span>, <span class="ident">convert</span>, <span class="ident">fmt</span>, <span class="ident">format</span>, <span class="ident">hash</span>, <span class="ident">marker</span>, <span class="ident">ops</span>, <span class="ident">ptr</span>, <span class="ident">rc</span>, <span class="ident">slice</span>,
-            <span class="ident">string</span>, <span class="ident">sync</span>, <span class="ident">vec</span>,
+            <span class="ident">any</span>, <span class="ident">borrow</span>, <span class="ident">boxed</span>, <span class="ident">cell</span>, <span class="ident">cmp</span>, <span class="ident">convert</span>, <span class="ident">fmt</span>, <span class="ident">format</span>, <span class="ident">hash</span>, <span class="ident">iter</span>, <span class="ident">marker</span>, <span class="ident">mem</span>, <span class="ident">ops</span>, <span class="ident">ptr</span>,
+            <span class="ident">rc</span>, <span class="ident">slice</span>, <span class="ident">string</span>, <span class="ident">sync</span>, <span class="ident">u32</span>, <span class="ident">vec</span>,
         };
     }
 }
@@ -155,10 +160,7 @@
 <span class="kw">mod</span> <span class="ident">values</span>;
 
 <span class="doccomment">/// The entity module, with common helpers for Rust structures</span>
-<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">entity</span> {
-    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">cranelift_entity</span>::<span class="kw-2">*</span>;
-}
-
+<span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">entity</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">features</span>::<span class="ident">Features</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">indexes</span>::{
     <span class="ident">CustomSectionIndex</span>, <span class="ident">DataIndex</span>, <span class="ident">ElemIndex</span>, <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">ImportIndex</span>,

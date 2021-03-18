@@ -1,1 +1,0 @@
-initSidebarItems({"struct":[["Duration","A `Duration` type to represent a span of time, typically used for system timeouts."]]});

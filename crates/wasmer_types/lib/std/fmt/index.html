@@ -24,7 +24,7 @@ variable passed in (in order to perform validity checking). The compiler
 will then parse the format string and determine if the list of arguments
 provided is suitable to pass to this format string.</p>
 <p>To convert a single value to a string, use the <a href="../../../../wasmer_types/lib/std/string/trait.ToString.html"><code>to_string</code></a> method. This
-will use the <a href="../../../../wasmer_types/entity/__core/fmt/trait.Display.html" title="Display"><code>Display</code></a> formatting trait.</p>
+will use the <a href="../../../../wasmer_types/lib/std/fmt/trait.Display.html" title="Display"><code>Display</code></a> formatting trait.</p>
 <h2 id="positional-parameters" class="section-header"><a href="#positional-parameters">Positional parameters</a></h2>
 <p>Each formatting argument is allowed to specify which value argument it's
 referencing, and if omitted it is assumed to be &quot;the next argument&quot;. For
@@ -129,7 +129,7 @@ should always be printed.</li>
 <li><code>#</code> - This flag indicates that the &quot;alternate&quot; form of printing should
 be used. The alternate forms are:
 <ul>
-<li><code>#?</code> - pretty-print the <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> formatting</li>
+<li><code>#?</code> - pretty-print the <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> formatting</li>
 <li><code>#x</code> - precedes the argument with a <code>0x</code></li>
 <li><code>#X</code> - precedes the argument with a <code>0x</code></li>
 <li><code>#b</code> - precedes the argument with a <code>0b</code></li>
@@ -251,23 +251,23 @@ are actually requesting that an argument ascribes to a particular trait.
 This allows multiple actual types to be formatted via <code>{:x}</code> (like <a href="https://doc.rust-lang.org/nightly/std/primitive.i8.html" title="i8"><code>i8</code></a> as
 well as <a href="https://doc.rust-lang.org/nightly/std/primitive.isize.html" title="isize"><code>isize</code></a>). The current mapping of types to traits is:</p>
 <ul>
-<li><em>nothing</em> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Display.html" title="Display"><code>Display</code></a></li>
-<li><code>?</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a></li>
-<li><code>x?</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> with lower-case hexadecimal integers</li>
-<li><code>X?</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> with upper-case hexadecimal integers</li>
-<li><code>o</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Octal.html" title="Octal"><code>Octal</code></a></li>
-<li><code>x</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.LowerHex.html" title="LowerHex"><code>LowerHex</code></a></li>
-<li><code>X</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.UpperHex.html" title="UpperHex"><code>UpperHex</code></a></li>
-<li><code>p</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Pointer.html" title="Pointer"><code>Pointer</code></a></li>
-<li><code>b</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.Binary.html" title="Binary"><code>Binary</code></a></li>
-<li><code>e</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.LowerExp.html" title="LowerExp"><code>LowerExp</code></a></li>
-<li><code>E</code> ⇒ <a href="../../../../wasmer_types/entity/__core/fmt/trait.UpperExp.html" title="UpperExp"><code>UpperExp</code></a></li>
+<li><em>nothing</em> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Display.html" title="Display"><code>Display</code></a></li>
+<li><code>?</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a></li>
+<li><code>x?</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> with lower-case hexadecimal integers</li>
+<li><code>X?</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> with upper-case hexadecimal integers</li>
+<li><code>o</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Octal.html" title="Octal"><code>Octal</code></a></li>
+<li><code>x</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.LowerHex.html" title="LowerHex"><code>LowerHex</code></a></li>
+<li><code>X</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.UpperHex.html" title="UpperHex"><code>UpperHex</code></a></li>
+<li><code>p</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Pointer.html" title="Pointer"><code>Pointer</code></a></li>
+<li><code>b</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.Binary.html" title="Binary"><code>Binary</code></a></li>
+<li><code>e</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.LowerExp.html" title="LowerExp"><code>LowerExp</code></a></li>
+<li><code>E</code> ⇒ <a href="../../../../wasmer_types/lib/std/fmt/trait.UpperExp.html" title="UpperExp"><code>UpperExp</code></a></li>
 </ul>
 <p>What this means is that any type of argument which implements the
-<a href="../../../../wasmer_types/entity/__core/fmt/trait.Binary.html" title="Binary"><code>fmt::Binary</code></a> trait can then be formatted with <code>{:b}</code>. Implementations
+<a href="../../../../wasmer_types/lib/std/fmt/trait.Binary.html" title="Binary"><code>fmt::Binary</code></a> trait can then be formatted with <code>{:b}</code>. Implementations
 are provided for these traits for a number of primitive types by the
 standard library as well. If no format is specified (as in <code>{}</code> or <code>{:6}</code>),
-then the format trait used is the <a href="../../../../wasmer_types/entity/__core/fmt/trait.Display.html" title="Display"><code>Display</code></a> trait.</p>
+then the format trait used is the <a href="../../../../wasmer_types/lib/std/fmt/trait.Display.html" title="Display"><code>Display</code></a> trait.</p>
 <p>When implementing a format trait for your own type, you will have to
 implement a method of the signature:</p>
 
@@ -277,14 +277,14 @@ implement a method of the signature:</p>
 should emit output into the <code>f.buf</code> stream. It is up to each format trait
 implementation to correctly adhere to the requested formatting parameters.
 The values of these parameters will be listed in the fields of the
-<a href="../../../../wasmer_types/entity/__core/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> struct. In order to help with this, the <a href="../../../../wasmer_types/entity/__core/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> struct also
+<a href="../../../../wasmer_types/lib/std/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> struct. In order to help with this, the <a href="../../../../wasmer_types/lib/std/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> struct also
 provides some helper methods.</p>
-<p>Additionally, the return value of this function is <a href="../../../../wasmer_types/entity/__core/fmt/type.Result.html"><code>fmt::Result</code></a> which is a
-type alias of <a href="../../../../wasmer_types/entity/__core/result/enum.Result.html"><code>Result</code></a><code>&lt;(), </code><a href="../../../../wasmer_types/entity/__core/fmt/struct.Error.html"><code>std::fmt::Error</code></a><code>&gt;</code>. Formatting implementations
-should ensure that they propagate errors from the <a href="../../../../wasmer_types/entity/__core/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> (e.g., when
-calling <a href="../../../../wasmer_types/entity/__core/macro.write.html"><code>write!</code></a>). However, they should never return errors spuriously. That
+<p>Additionally, the return value of this function is <a href="../../../../wasmer_types/lib/std/fmt/type.Result.html"><code>fmt::Result</code></a> which is a
+type alias of <a href="https://doc.rust-lang.org/nightly/core/result/enum.Result.html"><code>Result</code></a><code>&lt;(), </code><a href="../../../../wasmer_types/lib/std/fmt/struct.Error.html"><code>std::fmt::Error</code></a><code>&gt;</code>. Formatting implementations
+should ensure that they propagate errors from the <a href="../../../../wasmer_types/lib/std/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> (e.g., when
+calling <a href="https://doc.rust-lang.org/nightly/core/macro.write.html"><code>write!</code></a>). However, they should never return errors spuriously. That
 is, a formatting implementation must and may only return an error if the
-passed-in <a href="../../../../wasmer_types/entity/__core/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> returns an error. This is because, contrary to what
+passed-in <a href="../../../../wasmer_types/lib/std/fmt/struct.Formatter.html" title="Formatter"><code>Formatter</code></a> returns an error. This is because, contrary to what
 the function signature might suggest, string formatting is an infallible
 operation. This function only returns a result because writing to the
 underlying stream might fail and it must provide a way to propagate the fact
@@ -337,12 +337,12 @@ like:</p>
 <h3 id="fmtdisplay-vs-fmtdebug" class="section-header"><a href="#fmtdisplay-vs-fmtdebug"><code>fmt::Display</code> vs <code>fmt::Debug</code></a></h3>
 <p>These two formatting traits have distinct purposes:</p>
 <ul>
-<li><a href="../../../../wasmer_types/entity/__core/fmt/trait.Display.html" title="Display"><code>fmt::Display</code></a> implementations assert that the type can be faithfully
+<li><a href="../../../../wasmer_types/lib/std/fmt/trait.Display.html" title="Display"><code>fmt::Display</code></a> implementations assert that the type can be faithfully
 represented as a UTF-8 string at all times. It is <strong>not</strong> expected that
-all types implement the <a href="../../../../wasmer_types/entity/__core/fmt/trait.Display.html" title="Display"><code>Display</code></a> trait.</li>
-<li><a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>fmt::Debug</code></a> implementations should be implemented for <strong>all</strong> public types.
+all types implement the <a href="../../../../wasmer_types/lib/std/fmt/trait.Display.html" title="Display"><code>Display</code></a> trait.</li>
+<li><a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>fmt::Debug</code></a> implementations should be implemented for <strong>all</strong> public types.
 Output will typically represent the internal state as faithfully as possible.
-The purpose of the <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> trait is to facilitate debugging Rust code. In
+The purpose of the <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html" title="Debug"><code>Debug</code></a> trait is to facilitate debugging Rust code. In
 most cases, using <code>#[derive(Debug)]</code> is sufficient and recommended.</li>
 </ul>
 <p>Some examples of the output from both traits:</p>
@@ -365,7 +365,7 @@ are currently implemented are:</p>
 <span class="macro">eprintln</span><span class="macro">!</span>    <span class="comment">// same as eprint but appends a newline</span>
 <span class="macro">format_args</span><span class="macro">!</span> <span class="comment">// described below.</span></pre></div>
 <h3 id="write" class="section-header"><a href="#write"><code>write!</code></a></h3>
-<p>This and <a href="../../../../wasmer_types/entity/__core/macro.writeln.html"><code>writeln!</code></a> are two macros which are used to emit the format string
+<p>This and <a href="https://doc.rust-lang.org/nightly/core/macro.writeln.html"><code>writeln!</code></a> are two macros which are used to emit the format string
 to a specified stream. This is used to prevent intermediate allocations of
 format strings and instead directly write the output. Under the hood, this
 function is actually invoking the <a href="../../std/io/trait.Write.html#method.write_fmt"><code>write_fmt</code></a> function defined on the
@@ -376,7 +376,7 @@ function is actually invoking the <a href="../../std/io/trait.Write.html#method.
 <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">w</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">new</span>();
 <span class="macro">write</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">w</span>, <span class="string">&quot;Hello {}!&quot;</span>, <span class="string">&quot;world&quot;</span>);</pre></div>
 <h3 id="print" class="section-header"><a href="#print"><code>print!</code></a></h3>
-<p>This and <a href="../../std/macro.println.html"><code>println!</code></a> emit their output to stdout. Similarly to the <a href="../../../../wasmer_types/entity/__core/macro.write.html"><code>write!</code></a>
+<p>This and <a href="../../std/macro.println.html"><code>println!</code></a> emit their output to stdout. Similarly to the <a href="https://doc.rust-lang.org/nightly/core/macro.write.html"><code>write!</code></a>
 macro, the goal of these macros is to avoid intermediate allocations when
 printing output. Example usage is:</p>
 
@@ -406,8 +406,8 @@ off, some example usage is:</p>
     <span class="macro">write</span><span class="macro">!</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">io</span>::<span class="ident">stdout</span>(), <span class="string">&quot;{}&quot;</span>, <span class="ident">args</span>);
 }
 <span class="ident">my_fmt_fn</span>(<span class="macro">format_args</span><span class="macro">!</span>(<span class="string">&quot;, or a {} too&quot;</span>, <span class="string">&quot;function&quot;</span>));</pre></div>
-<p>The result of the <a href="../../../../wasmer_types/entity/__core/macro.format_args.html"><code>format_args!</code></a> macro is a value of type <a href="../../../../wasmer_types/entity/__core/fmt/struct.Arguments.html"><code>fmt::Arguments</code></a>.
-This structure can then be passed to the <a href="../../../../wasmer_types/entity/__core/macro.write.html"><code>write</code></a> and <a href="../../../../wasmer_types/lib/std/macro.format.html"><code>format</code></a> functions
+<p>The result of the <a href="https://doc.rust-lang.org/nightly/core/macro.format_args.html"><code>format_args!</code></a> macro is a value of type <a href="../../../../wasmer_types/lib/std/fmt/struct.Arguments.html"><code>fmt::Arguments</code></a>.
+This structure can then be passed to the <a href="https://doc.rust-lang.org/nightly/core/macro.write.html"><code>write</code></a> and <a href="../../../../wasmer_types/lib/std/macro.format.html"><code>format</code></a> functions
 inside this module in order to process the format string.
 The goal of this macro is to even further prevent intermediate allocations
 when dealing with formatting strings.</p>
@@ -421,11 +421,11 @@ where output should go to.</p>
 and its arguments. This cannot be generated at runtime because it cannot
 safely be done, so no constructors are given and the fields are private
 to prevent modification.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugList.html" title="wasmer_types::lib::std::fmt::DebugList struct">DebugList</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugMap.html" title="wasmer_types::lib::std::fmt::DebugMap struct">DebugMap</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugSet.html" title="wasmer_types::lib::std::fmt::DebugSet struct">DebugSet</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugStruct.html" title="wasmer_types::lib::std::fmt::DebugStruct struct">DebugStruct</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugTuple.html" title="wasmer_types::lib::std::fmt::DebugTuple struct">DebugTuple</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/entity/__core/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugList.html" title="wasmer_types::lib::std::fmt::DebugList struct">DebugList</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugMap.html" title="wasmer_types::lib::std::fmt::DebugMap struct">DebugMap</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugSet.html" title="wasmer_types::lib::std::fmt::DebugSet struct">DebugSet</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugStruct.html" title="wasmer_types::lib::std::fmt::DebugStruct struct">DebugStruct</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.DebugTuple.html" title="wasmer_types::lib::std::fmt::DebugTuple struct">DebugTuple</a></td><td class="docblock-short"><p>A struct to help with <a href="../../../../wasmer_types/lib/std/fmt/trait.Debug.html"><code>fmt::Debug</code></a> implementations.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Error.html" title="wasmer_types::lib::std::fmt::Error struct">Error</a></td><td class="docblock-short"><p>The error type which is returned from formatting a message into a stream.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Formatter.html" title="wasmer_types::lib::std::fmt::Formatter struct">Formatter</a></td><td class="docblock-short"><p>Configuration for formatting.</p>
 </td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
@@ -442,7 +442,7 @@ to prevent modification.</p>
 </td></tr><tr class="module-item"><td><a class="trait" href="trait.UpperHex.html" title="wasmer_types::lib::std::fmt::UpperHex trait">UpperHex</a></td><td class="docblock-short"><p><code>X</code> formatting.</p>
 </td></tr><tr class="module-item"><td><a class="trait" href="trait.Write.html" title="wasmer_types::lib::std::fmt::Write trait">Write</a></td><td class="docblock-short"><p>A trait for writing or formatting into Unicode-accepting buffers or streams.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
-<table><tr class="module-item"><td><a class="fn" href="fn.format.html" title="wasmer_types::lib::std::fmt::format fn">format</a></td><td class="docblock-short"><p>The <code>format</code> function takes an <a href="../../../../wasmer_types/entity/__core/fmt/struct.Arguments.html" title="Arguments"><code>Arguments</code></a> struct and returns the resulting
+<table><tr class="module-item"><td><a class="fn" href="fn.format.html" title="wasmer_types::lib::std::fmt::format fn">format</a></td><td class="docblock-short"><p>The <code>format</code> function takes an <a href="../../../../wasmer_types/lib/std/fmt/struct.Arguments.html" title="Arguments"><code>Arguments</code></a> struct and returns the resulting
 formatted string.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.write.html" title="wasmer_types::lib::std::fmt::write fn">write</a></td><td class="docblock-short"><p>The <code>write</code> function takes an output stream, and an <code>Arguments</code> struct
 that can be precompiled with the <code>format_args!</code> macro.</p>

@@ -68,7 +68,7 @@ might hoist memory loads at the top of a code block, so that the CPU can
 start <a href="https://en.wikipedia.org/wiki/Cache_prefetching">prefetching</a> the values from memory.</p>
 <p>In single-threaded scenarios, this can cause issues when writing
 signal handlers or certain kinds of low-level code.
-Use <a href="../../../../wasmer_types/entity/__core/sync/atomic/fn.compiler_fence.html">compiler fences</a> to prevent this reordering.</p>
+Use <a href="../../../../wasmer_types/lib/std/sync/atomic/fn.compiler_fence.html">compiler fences</a> to prevent this reordering.</p>
 </li>
 <li>
 <p>A <strong>single processor</strong> executing instructions <a href="https://en.wikipedia.org/wiki/Out-of-order_execution">out-of-order</a>:
@@ -82,9 +82,9 @@ even though the machine code describes a sequential process.</p>
 at the same time: In multi-threaded scenarios, you can use two
 kinds of primitives to deal with synchronization:</p>
 <ul>
-<li><a href="../../../../wasmer_types/entity/__core/sync/atomic/fn.fence.html">memory fences</a> to ensure memory accesses are made visible to
+<li><a href="../../../../wasmer_types/lib/std/sync/atomic/fn.fence.html">memory fences</a> to ensure memory accesses are made visible to
 other CPUs in the right order.</li>
-<li><a href="../../../../wasmer_types/entity/__core/sync/atomic/index.html">atomic operations</a> to ensure simultaneous access to the same
+<li><a href="../../../../wasmer_types/lib/std/sync/atomic/index.html">atomic operations</a> to ensure simultaneous access to the same
 memory location doesn't lead to undefined behavior.</li>
 </ul>
 </li>
@@ -165,7 +165,7 @@ dropped.</p>
 due to a time out or not.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.Weak.html" title="wasmer_types::lib::std::sync::Weak struct">Weak</a></td><td class="docblock-short"><p><code>Weak</code> is a version of <a href="../../../../wasmer_types/lib/std/sync/struct.Arc.html" title="Arc"><code>Arc</code></a> that holds a non-owning reference to the
 managed allocation. The allocation is accessed by calling <a href="../../../../wasmer_types/lib/std/sync/struct.Weak.html#method.upgrade"><code>upgrade</code></a> on the <code>Weak</code>
-pointer, which returns an <a href="../../../../wasmer_types/entity/__core/option/enum.Option.html" title="Option"><code>Option</code></a><code>&lt;</code><a href="../../../../wasmer_types/lib/std/sync/struct.Arc.html" title="Arc"><code>Arc</code></a><code>&lt;T&gt;&gt;</code>.</p>
+pointer, which returns an <a href="https://doc.rust-lang.org/nightly/core/option/enum.Option.html" title="Option"><code>Option</code></a><code>&lt;</code><a href="../../../../wasmer_types/lib/std/sync/struct.Arc.html" title="Arc"><code>Arc</code></a><code>&lt;T&gt;&gt;</code>.</p>
 </td></tr></table><h2 id="enums" class="section-header"><a href="#enums">Enums</a></h2>
 <table><tr class="module-item"><td><a class="enum" href="enum.TryLockError.html" title="wasmer_types::lib::std::sync::TryLockError enum">TryLockError</a></td><td class="docblock-short"><p>An enumeration of possible errors associated with a <a href="../../../../wasmer_types/lib/std/sync/type.TryLockResult.html" title="TryLockResult"><code>TryLockResult</code></a> which
 can occur while trying to acquire a lock, from the <a href="../../../../wasmer_types/lib/std/sync/struct.Mutex.html#method.try_lock"><code>try_lock</code></a> method on a

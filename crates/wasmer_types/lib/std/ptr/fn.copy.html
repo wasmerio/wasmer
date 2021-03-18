@@ -4,7 +4,7 @@
                 <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/intrinsics.rs.html#1926" title="goto source code">[src]</a></span><span class="in-band">Function <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a href="index.html">ptr</a>::<wbr><a class="fn" href="">copy</a></span></h1><pre class="rust fn">pub unsafe fn copy&lt;T&gt;(src: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*const T</a>, dst: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut T</a>, count: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.usize.html">usize</a>)</pre><div class="docblock"><p>Copies <code>count * size_of::&lt;T&gt;()</code> bytes from <code>src</code> to <code>dst</code>. The source
 and destination may overlap.</p>
 <p>If the source and destination will <em>never</em> overlap,
-<a href="../../../../wasmer_types/entity/__core/ptr/fn.copy_nonoverlapping.html" title="copy_nonoverlapping"><code>copy_nonoverlapping</code></a> can be used instead.</p>
+<a href="../../../../wasmer_types/lib/std/ptr/fn.copy_nonoverlapping.html" title="copy_nonoverlapping"><code>copy_nonoverlapping</code></a> can be used instead.</p>
 <p><code>copy</code> is semantically equivalent to C's <a href="https://en.cppreference.com/w/c/string/byte/memmove"><code>memmove</code></a>, but with the argument
 order swapped. Copying takes place as if the bytes were copied from <code>src</code>
 to a temporary array and then copied from the array to <code>dst</code>.</p>
@@ -12,19 +12,19 @@ to a temporary array and then copied from the array to <code>dst</code>.</p>
 <p>Behavior is undefined if any of the following conditions are violated:</p>
 <ul>
 <li>
-<p><code>src</code> must be <a href="../../../../wasmer_types/entity/__core/ptr/index.html#safety">valid</a> for reads of <code>count * size_of::&lt;T&gt;()</code> bytes.</p>
+<p><code>src</code> must be <a href="../../../../wasmer_types/lib/std/ptr/index.html#safety">valid</a> for reads of <code>count * size_of::&lt;T&gt;()</code> bytes.</p>
 </li>
 <li>
-<p><code>dst</code> must be <a href="../../../../wasmer_types/entity/__core/ptr/index.html#safety">valid</a> for writes of <code>count * size_of::&lt;T&gt;()</code> bytes.</p>
+<p><code>dst</code> must be <a href="../../../../wasmer_types/lib/std/ptr/index.html#safety">valid</a> for writes of <code>count * size_of::&lt;T&gt;()</code> bytes.</p>
 </li>
 <li>
 <p>Both <code>src</code> and <code>dst</code> must be properly aligned.</p>
 </li>
 </ul>
-<p>Like <a href="../../../../wasmer_types/entity/__core/ptr/fn.read.html"><code>read</code></a>, <code>copy</code> creates a bitwise copy of <code>T</code>, regardless of
-whether <code>T</code> is <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>. If <code>T</code> is not <a href="../../../../wasmer_types/entity/__core/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the values
+<p>Like <a href="../../../../wasmer_types/lib/std/ptr/fn.read.html"><code>read</code></a>, <code>copy</code> creates a bitwise copy of <code>T</code>, regardless of
+whether <code>T</code> is <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>. If <code>T</code> is not <a href="../../../../wasmer_types/lib/std/marker/trait.Copy.html" title="Copy"><code>Copy</code></a>, using both the values
 in the region beginning at <code>*src</code> and the region beginning at <code>*dst</code> can
-<a href="../../../../wasmer_types/entity/__core/ptr/fn.read.html#ownership-of-the-returned-value">violate memory safety</a>.</p>
+<a href="../../../../wasmer_types/lib/std/ptr/fn.read.html#ownership-of-the-returned-value">violate memory safety</a>.</p>
 <p>Note that even if the effectively copied size (<code>count * size_of::&lt;T&gt;()</code>) is
 <code>0</code>, the pointers must be non-NULL and properly aligned.</p>
 <h1 id="examples" class="section-header"><a href="#examples">Examples</a></h1>

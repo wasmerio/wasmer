@@ -4,11 +4,11 @@
                 <a id="settings-menu" href="../../../../settings.html"><img src="../../../../wheel.svg" width="18" alt="Change settings"></a></div></form></nav><section id="main" class="content"><h1 class="fqn"><span class="out-of-band"><span class="since" title="Stable since Rust version 1.0.0">1.0.0</span><span id="render-detail"><a id="toggle-all-docs" href="javascript:void(0)" title="collapse all docs">[<span class="inner">&#x2212;</span>]</a></span><a class="srclink" href="https://doc.rust-lang.org/nightly/src/core/ptr/mod.rs.html#371" title="goto source code">[src]</a></span><span class="in-band">Function <a href="../../../index.html">wasmer_types</a>::<wbr><a href="../../index.html">lib</a>::<wbr><a href="../index.html">std</a>::<wbr><a href="index.html">ptr</a>::<wbr><a class="fn" href="">swap</a></span></h1><pre class="rust fn">pub unsafe fn swap&lt;T&gt;(x: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut T</a>, y: <a class="primitive" href="https://doc.rust-lang.org/nightly/std/primitive.pointer.html">*mut T</a>)</pre><div class="docblock"><p>Swaps the values at two mutable locations of the same type, without
 deinitializing either.</p>
 <p>But for the following two exceptions, this function is semantically
-equivalent to <a href="../../../../wasmer_types/entity/__core/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a>:</p>
+equivalent to <a href="../../../../wasmer_types/lib/std/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a>:</p>
 <ul>
 <li>
 <p>It operates on raw pointers instead of references. When references are
-available, <a href="../../../../wasmer_types/entity/__core/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a> should be preferred.</p>
+available, <a href="../../../../wasmer_types/lib/std/mem/fn.swap.html" title="mem::swap"><code>mem::swap</code></a> should be preferred.</p>
 </li>
 <li>
 <p>The two pointed-to values may overlap. If the values do overlap, then the
@@ -20,7 +20,7 @@ in the second example below.</p>
 <p>Behavior is undefined if any of the following conditions are violated:</p>
 <ul>
 <li>
-<p>Both <code>x</code> and <code>y</code> must be <a href="../../../../wasmer_types/entity/__core/ptr/index.html#safety">valid</a> for both reads and writes.</p>
+<p>Both <code>x</code> and <code>y</code> must be <a href="../../../../wasmer_types/lib/std/ptr/index.html#safety">valid</a> for both reads and writes.</p>
 </li>
 <li>
 <p>Both <code>x</code> and <code>y</code> must be properly aligned.</p>

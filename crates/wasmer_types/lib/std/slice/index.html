@@ -23,15 +23,15 @@ points to:</p>
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">x</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">7</span>, <span class="number">3</span>]);</pre></div>
 <p>Here are some of the things this module contains:</p>
 <h2 id="structs" class="section-header"><a href="#structs">Structs</a></h2>
-<p>There are several structs that are useful for slices, such as <a href="../../../../wasmer_types/entity/__core/slice/struct.Iter.html" title="Iter"><code>Iter</code></a>, which
+<p>There are several structs that are useful for slices, such as <a href="../../../../wasmer_types/lib/std/slice/struct.Iter.html" title="Iter"><code>Iter</code></a>, which
 represents iteration over a slice.</p>
 <h2 id="trait-implementations-1" class="section-header"><a href="#trait-implementations-1">Trait Implementations</a></h2>
 <p>There are several implementations of common traits for slices. Some examples
 include:</p>
 <ul>
-<li><a href="../../../../wasmer_types/entity/__core/clone/trait.Clone.html" title="Clone"><code>Clone</code></a></li>
-<li><a href="../../../../wasmer_types/entity/__core/cmp/trait.Eq.html" title="Eq"><code>Eq</code></a>, <a href="../../../../wasmer_types/entity/__core/cmp/trait.Ord.html" title="Ord"><code>Ord</code></a> - for slices whose element type are <a href="../../../../wasmer_types/entity/__core/cmp/trait.Eq.html" title="Eq"><code>Eq</code></a> or <a href="../../../../wasmer_types/entity/__core/cmp/trait.Ord.html" title="Ord"><code>Ord</code></a>.</li>
-<li><a href="../../../../wasmer_types/entity/__core/hash/trait.Hash.html"><code>Hash</code></a> - for slices whose element type is <a href="../../../../wasmer_types/entity/__core/hash/trait.Hash.html"><code>Hash</code></a>.</li>
+<li><a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="Clone"><code>Clone</code></a></li>
+<li><a href="../../../../wasmer_types/lib/std/cmp/trait.Eq.html" title="Eq"><code>Eq</code></a>, <a href="../../../../wasmer_types/lib/std/cmp/trait.Ord.html" title="Ord"><code>Ord</code></a> - for slices whose element type are <a href="../../../../wasmer_types/lib/std/cmp/trait.Eq.html" title="Eq"><code>Eq</code></a> or <a href="../../../../wasmer_types/lib/std/cmp/trait.Ord.html" title="Ord"><code>Ord</code></a>.</li>
+<li><a href="../../../../wasmer_types/lib/std/hash/trait.Hash.html"><code>Hash</code></a> - for slices whose element type is <a href="../../../../wasmer_types/lib/std/hash/trait.Hash.html"><code>Hash</code></a>.</li>
 </ul>
 <h2 id="iteration" class="section-header"><a href="#iteration">Iteration</a></h2>
 <p>The slices implement <code>IntoIterator</code>. The iterator yields references to the
@@ -109,7 +109,7 @@ function, limited to a given number of splits.</p>
 </td></tr></table><h2 id="functions" class="section-header"><a href="#functions">Functions</a></h2>
 <table><tr class="module-item"><td><a class="fn" href="fn.from_mut.html" title="wasmer_types::lib::std::slice::from_mut fn">from_mut</a></td><td class="docblock-short"><p>Converts a reference to T into a slice of length 1 (without copying).</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.from_raw_parts.html" title="wasmer_types::lib::std::slice::from_raw_parts fn">from_raw_parts</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Forms a slice from a pointer and a length.</p>
-</td></tr><tr class="module-item"><td><a class="fn" href="fn.from_raw_parts_mut.html" title="wasmer_types::lib::std::slice::from_raw_parts_mut fn">from_raw_parts_mut</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Performs the same functionality as <a href="../../../../wasmer_types/entity/__core/slice/fn.from_raw_parts.html" title="from_raw_parts"><code>from_raw_parts</code></a>, except that a
+</td></tr><tr class="module-item"><td><a class="fn" href="fn.from_raw_parts_mut.html" title="wasmer_types::lib::std::slice::from_raw_parts_mut fn">from_raw_parts_mut</a><a title="unsafe function" href="#"><sup>⚠</sup></a></td><td class="docblock-short"><p>Performs the same functionality as <a href="../../../../wasmer_types/lib/std/slice/fn.from_raw_parts.html" title="from_raw_parts"><code>from_raw_parts</code></a>, except that a
 mutable slice is returned.</p>
 </td></tr><tr class="module-item"><td><a class="fn" href="fn.from_ref.html" title="wasmer_types::lib::std::slice::from_ref fn">from_ref</a></td><td class="docblock-short"><p>Converts a reference to T into a slice of length 1 (without copying).</p>
 </td></tr></table></section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../../";window.currentCrate = "wasmer_types";</script><script src="../../../../main.js"></script><script defer src="../../../../search-index.js"></script></body></html>

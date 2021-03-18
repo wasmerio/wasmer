@@ -27,7 +27,7 @@ There are two forms of this macro:</p>
 <span class="kw">let</span> <span class="ident">v</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[<span class="number">1</span>; <span class="number">3</span>];
 <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">v</span>, [<span class="number">1</span>, <span class="number">1</span>, <span class="number">1</span>]);</pre></div>
 <p>Note that unlike array expressions this syntax supports all elements
-which implement <a href="../../../wasmer_types/entity/__core/clone/trait.Clone.html" title="Clone"><code>Clone</code></a> and the number of elements doesn't have to be
+which implement <a href="https://doc.rust-lang.org/nightly/core/clone/trait.Clone.html" title="Clone"><code>Clone</code></a> and the number of elements doesn't have to be
 a constant.</p>
 <p>This will use <code>clone</code> to duplicate an expression, so one should be careful
 using this with types having a nonstandard <code>Clone</code> implementation. For
