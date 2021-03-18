@@ -130,7 +130,6 @@ pub trait StoreObject {
 #[cfg(test)]
 mod tests {
     use super::*;
-    use crate::Module;
 
     #[cfg(feature = "singlepass")]
     #[cfg(feature = "native")]

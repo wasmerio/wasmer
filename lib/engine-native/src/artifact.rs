@@ -35,12 +35,11 @@ use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
 };
-use rkyv::{ser::{Serializer as RkyvSerializer, SharedSerializer, serializers::WriteSerializer}, archived_value,
+use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer}, archived_value,
            de::{deserializers::AllocDeserializer, adapters::SharedDeserializerAdapter},
            Deserialize as RkyvDeserialize,
            ser::adapters::SharedSerializerAdapter,
 };
-use bincode::Options;
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
@@ -188,12 +187,12 @@ impl NativeArtifact {
             data_initializers,
             function_body_lengths,
         };
-        println!("!!! {:?}", (*(metadata.compile_info.module)).id);
 
-        let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-
-        let md: ModuleMetadata = bincode::deserialize(&serialized_data).unwrap();
-        assert_eq!(metadata, md);
+        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
+        let pos = serializer.serialize_value(&metadata)
+            .map_err(to_compile_error)?;
+        let mut serialized_data = serializer.into_inner().into_inner();
+        serialized_data[0..8].copy_from_slice(&pos.to_le_bytes());
 
         let mut metadata_binary = vec![0; 10];
         let mut writable = &mut metadata_binary[..];
@@ -556,31 +555,14 @@ impl NativeArtifact {
         })?;
         let metadata_slice: &'static [u8] =
             slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize);
-        let now = std::time::Instant::now();
-        let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        println!("{:?}", now.elapsed());
 
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
-        let pos = serializer.serialize_value(&metadata)
-            .expect("failed to archive test");
-        let mut bytes = serializer.into_inner().into_inner();
-        bytes[0..8].copy_from_slice(&pos.to_le_bytes());
-
-        let now = std::time::Instant::now();
         let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&bytes[0..8]);
+        pos.copy_from_slice(&metadata_slice[0..8]);
         let pos: u64 = u64::from_le_bytes(pos);
-        let archived = unsafe { archived_value::<ModuleMetadata>(&bytes[8..], pos as usize )};
-        println!("rkyv archive {:?}", now.elapsed());
-
-        let now = std::time::Instant::now();
+        let archived = archived_value::<ModuleMetadata>(&metadata_slice[8..], pos as usize );
         let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
-        let m = RkyvDeserialize::deserialize(archived, &mut deserializer).unwrap();
-        println!("rkyv deser {:?}", now.elapsed());
-        assert_eq!(metadata, m);
-
-        let serialized_data = bincode::serialize(&m).unwrap();
+        let metadata = RkyvDeserialize::deserialize(archived, &mut deserializer)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
         let mut engine_inner = engine.inner_mut();
 
