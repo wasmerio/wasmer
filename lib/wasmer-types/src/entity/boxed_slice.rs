@@ -144,8 +144,8 @@ where
 #[cfg(test)]
 mod tests {
     use super::*;
+    use crate::entity::PrimaryMap;
     use crate::lib::std::vec::Vec;
-    use crate::primary::PrimaryMap;
 
     // `EntityRef` impl for testing.
     #[derive(Clone, Copy, Debug, PartialEq, Eq)]
