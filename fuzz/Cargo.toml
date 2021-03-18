@@ -53,3 +53,7 @@ path = "fuzz_targets/native_cranelift.rs"
 [[bin]]
 name = "validate"
 path = "fuzz_targets/validate.rs"
+
+[[bin]]
+name = "deterministic"
+path = "fuzz_targets/deterministic.rs"
