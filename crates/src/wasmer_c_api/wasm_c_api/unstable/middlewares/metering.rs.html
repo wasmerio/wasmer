@@ -317,6 +317,7 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
+<span id="319">319</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains everything</span>
 <span class="doccomment">//! to create the middleware metering API.</span>
@@ -437,7 +438,8 @@
 <span class="doccomment">//!         // There is 0 point left… they are exhausted.</span>
 <span class="doccomment">//!         assert(wasmer_metering_points_are_exhausted(instance) == true);</span>
 <span class="doccomment">//!     }</span>
-<span class="doccomment">//!     </span>
+<span class="doccomment">//!</span>
+<span class="doccomment">//!     wasm_extern_vec_delete(&amp;exports);</span>
 <span class="doccomment">//!     wasm_instance_delete(instance);</span>
 <span class="doccomment">//!     wasm_module_delete(module);</span>
 <span class="doccomment">//!     wasm_store_delete(store);</span>

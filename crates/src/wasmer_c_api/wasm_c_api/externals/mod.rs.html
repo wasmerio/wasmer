@@ -193,6 +193,7 @@
 <span id="192">192</span>
 <span id="193">193</span>
 <span id="194">194</span>
+<span id="195">195</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">mod</span> <span class="ident">function</span>;
 <span class="kw">mod</span> <span class="ident">global</span>;
@@ -375,6 +376,7 @@
                 <span class="ident">assert</span>(<span class="ident">wasm_extern_kind</span>(<span class="ident">function_copy</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">WASM_EXTERN_FUNC</span>);
 
                 <span class="ident">wasm_extern_delete</span>(<span class="ident">function_copy</span>);
+                <span class="ident">wasm_extern_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">exports</span>);
                 <span class="ident">wasm_instance_delete</span>(<span class="ident">instance</span>);
                 <span class="ident">wasm_module_delete</span>(<span class="ident">module</span>);
                 <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>);

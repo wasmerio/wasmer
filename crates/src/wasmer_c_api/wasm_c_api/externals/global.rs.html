@@ -155,6 +155,7 @@
 <span id="154">154</span>
 <span id="155">155</span>
 <span id="156">156</span>
+<span id="157">157</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">store</span>::<span class="ident">wasm_store_t</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">types</span>::<span class="ident">wasm_globaltype_t</span>;
@@ -303,6 +304,7 @@
                 <span class="ident">wasm_instance_delete</span>(<span class="ident">instance</span>);
                 <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wasm_bytes</span>);
                 <span class="ident">wasm_byte_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">wat</span>);
+                <span class="ident">wasm_extern_vec_delete</span>(<span class="kw-2">&amp;</span><span class="ident">exports</span>);
                 <span class="ident">wasm_store_delete</span>(<span class="ident">store</span>);
                 <span class="ident">wasm_engine_delete</span>(<span class="ident">engine</span>);
 
