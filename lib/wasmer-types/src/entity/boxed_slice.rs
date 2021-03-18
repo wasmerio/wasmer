@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 //! Boxed slices for `PrimaryMap`.
 
 use crate::entity::iter::{Iter, IterMut};

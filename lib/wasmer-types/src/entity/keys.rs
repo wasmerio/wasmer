@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 //! A double-ended iterator over entity references.
 //!
 //! When `core::iter::Step` is stabilized, `Keys` could be implemented as a wrapper around

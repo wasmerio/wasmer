@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 /// A type wrapping a small integer index should implement `EntityRef` so it can be used as the key
 /// of an `SecondaryMap` or `SparseMap`.
 pub trait EntityRef: Copy + Eq {

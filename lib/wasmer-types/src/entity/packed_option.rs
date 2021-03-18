@@ -1,7 +1,10 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 //! Compact representation of `Option<T>` for types with a reserved value.
 //!
-//! Small Cranelift types like the 32-bit entity references are often used in tables and linked
-//! lists where an `Option<T>` is needed. Unfortunately, that would double the size of the tables
+//! Small types are often used in tables and linked lists where an
+//! `Option<T>` is needed. Unfortunately, that would double the size of the tables
 //! because `Option<T>` is twice as big as `T`.
 //!
 //! This module provides a `PackedOption<T>` for types that have a reserved value that can be used
