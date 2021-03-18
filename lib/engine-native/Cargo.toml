@@ -26,6 +26,10 @@ tempfile = "3.1"
 which = "4.0"
 rkyv = { git = "https://github.com/ailisp/rkyv", rev = "52a393aa564b80b05a255d3536e96ea053a4b841" }
 
+[dev-dependencies]
+wasmer-compiler-singlepass = { version = "1.0.2", path = "../compiler-singlepass" }
+#wasmer = { version = "1.0.2", path = "../api" }
+
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.

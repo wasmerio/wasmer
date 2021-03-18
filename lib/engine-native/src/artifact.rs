@@ -587,6 +587,11 @@ impl NativeArtifact {
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
             .map_err(DeserializeError::Compiler)
     }
+
+    /// Used in test deserialize metadata is correct
+    pub fn metadata(&self) -> &ModuleMetadata {
+        &self.metadata
+    }
 }
 
 impl Artifact for NativeArtifact {
