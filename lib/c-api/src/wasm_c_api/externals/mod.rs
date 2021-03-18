@@ -179,6 +179,7 @@ mod tests {
                 assert(wasm_extern_kind(function_copy) == WASM_EXTERN_FUNC);
 
                 wasm_extern_delete(function_copy);
+                wasm_extern_vec_delete(&exports);
                 wasm_instance_delete(instance);
                 wasm_module_delete(module);
                 wasm_byte_vec_delete(&wasm);
