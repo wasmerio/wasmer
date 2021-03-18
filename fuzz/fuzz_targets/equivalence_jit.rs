@@ -78,15 +78,14 @@ impl PartialEq for InstanceResult {
                 if let InstanceResult::Error(other_message) = other {
                     return self_message == other_message;
                 }
-                return false;
             }
             InstanceResult::Values(self_values) => {
                 if let InstanceResult::Values(other_values) = other {
                     return self_values == other_values;
                 }
-                return false;
             }
         }
+        false
     }
 }
 
@@ -109,8 +108,7 @@ fn evaluate_instance(instance: Result<Instance>) -> Vec<InstanceResult> {
             // TODO: support functions which take params.
             if f.ty().params().is_empty() {
                 let result = f.call(&[]);
-                let result = if result.is_ok() {
-                    let values = result.unwrap();
+                let result = if let Ok(values) = result {
                     InstanceResult::Values(values.into())
                 } else {
                     let err = result.unwrap_err();
@@ -129,9 +127,15 @@ fuzz_target!(|module: ConfiguredModule<ExportedFunctionConfig>| {
     module.ensure_termination(100000);
     let wasm_bytes = module.to_bytes();
 
-    let singlepass = maybe_instantiate_singlepass(&wasm_bytes).transpose().map(evaluate_instance);
-    let cranelift = maybe_instantiate_cranelift(&wasm_bytes).transpose().map(evaluate_instance);
-    let llvm = maybe_instantiate_llvm(&wasm_bytes).transpose().map(evaluate_instance);
+    let singlepass = maybe_instantiate_singlepass(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
+    let cranelift = maybe_instantiate_cranelift(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
+    let llvm = maybe_instantiate_llvm(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
 
     if singlepass.is_some() && cranelift.is_some() {
         assert_eq!(singlepass.as_ref().unwrap(), cranelift.as_ref().unwrap());
