@@ -426,9 +426,6 @@ name = "cranelift-entity"
 version = "0.70.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e55e9043403f0dec775f317280015150e78b2352fb947d2f37407fd4ce6311c7"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "cranelift-frontend"
@@ -2602,7 +2599,6 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
- "cranelift-entity",
  "serde",
  "thiserror",
 ]
