@@ -33,13 +33,12 @@ fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let module = Module::new(&store, &wasm_bytes);
     let module = match module {
         Ok(m) => m,
-        Err(ref e) => {
+        Err(e) => {
             let error_message = format!("{}", e);
             if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
                 return Ok(None);
             }
-            module?;
-            unreachable!("");
+            return Err(e.into());
         }
     };
     let instance = Instance::new(&module, &imports! {})?;
