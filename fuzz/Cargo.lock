@@ -1111,6 +1111,7 @@ name = "wasmer-compiler-cranelift"
 version = "1.0.2"
 dependencies = [
  "cranelift-codegen",
+ "cranelift-entity",
  "cranelift-frontend",
  "gimli",
  "more-asserts",
@@ -1249,7 +1250,6 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
- "cranelift-entity",
  "serde",
  "thiserror",
 ]
