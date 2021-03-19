@@ -515,7 +515,7 @@ test-packages:
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
 	cargo test -p wasmer-derive --release
-	cargo check --manifest-path fuzz/Cargo.toml --release
+	cargo check --manifest-path fuzz/Cargo.toml $(compiler_features) --release
 
 
 # We want to run all the tests for all available compilers. The C API
@@ -740,7 +740,7 @@ lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path fuzz/Cargo.toml
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 lint-formatting:
 	cargo fmt --all -- --check
