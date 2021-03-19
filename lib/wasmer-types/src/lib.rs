@@ -59,6 +59,8 @@ mod r#ref;
 mod types;
 mod units;
 mod values;
+#[cfg(feature = "enable-rkyv")]
+mod archives;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity {
@@ -84,6 +86,11 @@ pub use crate::values::Value;
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
+};
+
+#[cfg(feature = "enable-rkyv")]
+pub use archives::{
+    ArchivablePrimaryMap, ArchivedPrimaryMap
 };
 
 /// Version number of this crate.

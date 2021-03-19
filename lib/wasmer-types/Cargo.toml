@@ -16,7 +16,8 @@ edition = "2018"
 cranelift-entity = "0.70"
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
-rkyv = { git = "https://github.com/ailisp/rkyv", rev = "52a393aa564b80b05a255d3536e96ea053a4b841", optional = true }
+indexmap = { version = "1.4", features = ["serde-1"] }
+rkyv = { version = "0.4.1", optional = true }
 
 [features]
 default = ["std", "enable-serde", "enable-rkyv"]
