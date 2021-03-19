@@ -34,18 +34,22 @@ compile_error!("Both the `std` and `core` features are disabled. Please enable o
 #[cfg(feature = "core")]
 extern crate alloc;
 
-mod lib {
+/// The `lib` module defines a `std` module that is identical whether
+/// the `core` or the `std` feature is enabled.
+pub mod lib {
+    /// Custom `std` module.
     #[cfg(feature = "core")]
     pub mod std {
-        pub use alloc::{borrow, boxed, format, rc, slice, string, vec};
-        pub use core::{any, cell, convert, fmt, hash, marker, ops, ptr, sync};
+        pub use alloc::{borrow, boxed, format, iter, rc, slice, string, vec};
+        pub use core::{any, cell, cmp, convert, fmt, hash, marker, mem, ops, ptr, sync, u32};
     }
 
+    /// Custom `std` module.
     #[cfg(feature = "std")]
     pub mod std {
         pub use std::{
-            any, borrow, boxed, cell, convert, fmt, format, hash, marker, ops, ptr, rc, slice,
-            string, sync, vec,
+            any, borrow, boxed, cell, cmp, convert, fmt, format, hash, iter, marker, mem, ops, ptr,
+            rc, slice, string, sync, u32, vec,
         };
     }
 }
@@ -63,10 +67,7 @@ mod values;
 mod archives;
 
 /// The entity module, with common helpers for Rust structures
-pub mod entity {
-    pub use cranelift_entity::*;
-}
-
+pub mod entity;
 pub use crate::features::Features;
 pub use crate::indexes::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, ImportIndex,

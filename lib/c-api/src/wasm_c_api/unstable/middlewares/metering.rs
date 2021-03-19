@@ -117,7 +117,8 @@
 //!         // There is 0 point left… they are exhausted.
 //!         assert(wasmer_metering_points_are_exhausted(instance) == true);
 //!     }
-//!     
+//!
+//!     wasm_extern_vec_delete(&exports);
 //!     wasm_instance_delete(instance);
 //!     wasm_module_delete(module);
 //!     wasm_store_delete(store);

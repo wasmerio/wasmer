@@ -6,6 +6,7 @@ use core::u32;
 use cranelift_codegen::binemit::Reloc;
 use cranelift_codegen::ir::{self, AbiParam};
 use cranelift_codegen::isa::TargetFrontendConfig;
+use cranelift_entity::{EntityRef as CraneliftEntityRef, SecondaryMap as CraneliftSecondaryMap};
 use cranelift_frontend::FunctionBuilder;
 use wasmer_compiler::wasm_unsupported;
 use wasmer_compiler::wasmparser;
@@ -148,7 +149,7 @@ pub fn get_vmctx_value_label() -> ir::ValueLabel {
 
 /// Transforms Cranelift JumpTable's into runtime JumpTables
 pub fn transform_jump_table(
-    jt_offsets: SecondaryMap<ir::JumpTable, u32>,
+    jt_offsets: CraneliftSecondaryMap<ir::JumpTable, u32>,
 ) -> SecondaryMap<JumpTable, u32> {
     let mut func_jt_offsets = SecondaryMap::with_capacity(jt_offsets.capacity());
 

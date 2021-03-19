@@ -14,6 +14,7 @@ int main(int argc, const char* argv[]) {
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
     wasm_byte_vec_t wasm_bytes;
     wat2wasm(&wat, &wasm_bytes);
+    wasm_byte_vec_delete(&wat);
 
     printf("Creating the config and the features...\n");
     wasm_config_t* config = wasm_config_new();
@@ -81,7 +82,8 @@ int main(int argc, const char* argv[]) {
     }
 
     printf("Got `(2, 1)`!\n");
-    
+
+    wasm_extern_vec_delete(&exports);
     wasm_module_delete(module);
     wasm_instance_delete(instance);
     wasm_store_delete(store);
