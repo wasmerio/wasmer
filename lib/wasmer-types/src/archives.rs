@@ -108,3 +108,13 @@ impl<K: Hash + Eq + Archive + Clone, V: Archive> From<IndexMap<K, V>> for RkyvIn
         r
     }
 }
+
+impl<K: Hash + Eq + Archive + Clone, V: Archive> Into<IndexMap<K, V>> for RkyvIndexMap<K, V> {
+    fn into(self) -> IndexMap<K, V> {
+        let mut r = IndexMap::new();
+        for (k, v) in self.entries.into_iter() {
+            r.insert(k, v);
+        }
+        r
+    }
+}

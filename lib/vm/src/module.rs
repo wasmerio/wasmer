@@ -18,7 +18,7 @@ use wasmer_types::{
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
     TableIndex, TableInitializer, TableType, RkyvIndexMap,
 };
-use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive, Fallible, Archived, ser::Serializer, ser::SharedSerializer};
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive, Fallible, Archived, ser::Serializer, ser::SharedSerializer, de::SharedDeserializer};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
@@ -120,7 +120,7 @@ pub struct ModuleInfo {
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-struct RkyvModuleInfo {
+pub struct RkyvModuleInfo {
     name: Option<String>,
     imports: RkyvIndexMap<(String, String, u32), ImportIndex>,
     exports: RkyvIndexMap<String, ExportIndex>,
@@ -170,6 +170,40 @@ impl From<ModuleInfo> for RkyvModuleInfo {
     }
 }
 
+impl From<RkyvModuleInfo> for ModuleInfo {
+    fn from(it: RkyvModuleInfo) -> ModuleInfo {
+        ModuleInfo {
+            id: Default::default(),
+            name: it.name,
+            imports: it.imports.into(),
+            exports: it.exports.into(),
+            start_function: it.start_function,
+            table_initializers: it.table_initializers,
+            passive_elements: it.passive_elements,
+            passive_data: it.passive_data,
+            global_initializers: it.global_initializers,
+            function_names: it.function_names,
+            signatures: it.signatures,
+            functions: it.functions,
+            tables: it.tables,
+            memories: it.memories,
+            globals: it.globals,
+            custom_sections: it.custom_sections.into(),
+            custom_sections_data: it.custom_sections_data,
+            num_imported_functions: it.num_imported_functions,
+            num_imported_tables: it.num_imported_tables,
+            num_imported_memories: it.num_imported_memories,
+            num_imported_globals: it.num_imported_globals
+        }
+    }
+}
+
+impl From<&ModuleInfo> for RkyvModuleInfo {
+    fn from(it: &ModuleInfo) -> RkyvModuleInfo {
+        RkyvModuleInfo::from(it.clone())
+    }
+}
+
 impl Archive for ModuleInfo {
     type Archived = <RkyvModuleInfo as Archive>::Archived;
     type Resolver = <RkyvModuleInfo as Archive>::Resolver;
@@ -185,9 +219,10 @@ impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo 
     }
 }
 
-impl<D: Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D> for Archived<ModuleInfo> {
+impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D> for Archived<ModuleInfo> {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
-        ArchivedRkyvModuleInfo::from(self).deserialize(deserializer)
+        let r: RkyvModuleInfo = RkyvDeserialize::<RkyvModuleInfo, D>::deserialize(self, deserializer)?;
+        Ok(ModuleInfo::from(r))
     }
 }
 
