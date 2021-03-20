@@ -16,9 +16,9 @@ use wasmer_types::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableInitializer, TableType,
+    TableIndex, TableInitializer, TableType, RkyvIndexMap,
 };
-use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
+use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive, Fallible, Archived, ser::Serializer, ser::SharedSerializer};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
@@ -42,7 +42,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Serialize, Deserialize, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///
@@ -116,6 +116,79 @@ pub struct ModuleInfo {
 
     /// Number of imported globals in the module.
     pub num_imported_globals: usize,
+}
+
+/// Mirror version of ModuleInfo that can derive rkyv traits
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+struct RkyvModuleInfo {
+    name: Option<String>,
+    imports: RkyvIndexMap<(String, String, u32), ImportIndex>,
+    exports: RkyvIndexMap<String, ExportIndex>,
+    start_function: Option<FunctionIndex>,
+    table_initializers: Vec<TableInitializer>,
+    passive_elements: PrimaryMap<ElemIndex, Box<[FunctionIndex]>>,
+    passive_data: PrimaryMap<DataIndex, Arc<[u8]>>,
+    global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
+    function_names: HashMap<FunctionIndex, String>,
+    signatures: PrimaryMap<SignatureIndex, FunctionType>,
+    functions: PrimaryMap<FunctionIndex, SignatureIndex>,
+    tables: PrimaryMap<TableIndex, TableType>,
+    memories: PrimaryMap<MemoryIndex, MemoryType>,
+    globals: PrimaryMap<GlobalIndex, GlobalType>,
+    custom_sections: RkyvIndexMap<String, CustomSectionIndex>,
+    custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+    num_imported_functions: usize,
+    num_imported_tables: usize,
+    num_imported_memories: usize,
+    num_imported_globals: usize,
+}
+
+impl From<ModuleInfo> for RkyvModuleInfo {
+    fn from(it: ModuleInfo) -> RkyvModuleInfo {
+        RkyvModuleInfo {
+            name: it.name,
+            imports: RkyvIndexMap::from(it.imports),
+            exports: RkyvIndexMap::from(it.exports),
+            start_function: it.start_function,
+            table_initializers: it.table_initializers,
+            passive_elements: it.passive_elements,
+            passive_data: it.passive_data,
+            global_initializers: it.global_initializers,
+            function_names: it.function_names,
+            signatures: it.signatures,
+            functions: it.functions,
+            tables: it.tables,
+            memories: it.memories,
+            globals: it.globals,
+            custom_sections: RkyvIndexMap::from(it.custom_sections),
+            custom_sections_data: it.custom_sections_data,
+            num_imported_functions: it.num_imported_functions,
+            num_imported_tables: it.num_imported_tables,
+            num_imported_memories: it.num_imported_memories,
+            num_imported_globals: it.num_imported_globals
+        }
+    }
+}
+
+impl Archive for ModuleInfo {
+    type Archived = <RkyvModuleInfo as Archive>::Archived;
+    type Resolver = <RkyvModuleInfo as Archive>::Resolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        RkyvModuleInfo::from(self).resolve(pos, resolver)
+    }
+}
+
+impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        RkyvModuleInfo::from(self).serialize(serializer)
+    }
+}
+
+impl<D: Fallible + ?Sized> RkyvDeserialize<ModuleInfo, D> for Archived<ModuleInfo> {
+    fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
+        ArchivedRkyvModuleInfo::from(self).deserialize(deserializer)
+    }
 }
 
 // For test serialization correctness, everything except module id should be same

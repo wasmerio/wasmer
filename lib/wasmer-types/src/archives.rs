@@ -90,7 +90,21 @@ for Archived<PrimaryMap<K, V>>
 }
 
 #[derive(Serialize, Deserialize, Archive)]
+/// Rkyv Archivable IndexMap
 pub struct RkyvIndexMap<K: Hash + Eq + Archive, V: Archive> {
     indices: HashMap<K, u64>,
-    entries: Vec<V>
+    entries: Vec<(K, V)>
+}
+
+impl<K: Hash + Eq + Archive + Clone, V: Archive> From<IndexMap<K, V>> for RkyvIndexMap<K, V> {
+    fn from(it: IndexMap<K, V>) -> RkyvIndexMap<K, V> {
+        let mut r = RkyvIndexMap { indices: HashMap::new(), entries: Vec::new() };
+        let mut i: u64 = 0;
+        for (k, v) in it.into_iter() {
+            r.indices.insert(k.clone(), i);
+            r.entries.push((k, v));
+            i += 1;
+        }
+        r
+    }
 }
