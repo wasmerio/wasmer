@@ -36,8 +36,8 @@ pub struct PrimaryMap<K, V>
 where
     K: EntityRef,
 {
-    elems: Vec<V>,
-    unused: PhantomData<K>,
+    pub(crate) elems: Vec<V>,
+    pub(crate) unused: PhantomData<K>,
 }
 
 impl<K, V> PrimaryMap<K, V>
