@@ -2701,6 +2701,7 @@ dependencies = [
  "criterion",
  "glob",
  "lazy_static",
+ "loupe",
  "rustc_version 0.3.3",
  "tempfile",
  "test-generator",
