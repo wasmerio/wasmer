@@ -35,9 +35,6 @@ use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
 };
-use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer},
-           ser::adapters::SharedSerializerAdapter,
-};
 
 /// A compiled wasm module, ready to be instantiated.
 pub struct NativeArtifact {
@@ -186,11 +183,7 @@ impl NativeArtifact {
             function_body_lengths,
         };
 
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
-        let pos = serializer.serialize_value(&metadata)
-            .map_err(to_compile_error)?;
-        let mut serialized_data = serializer.into_inner().into_inner();
-        serialized_data[0..8].copy_from_slice(&pos.to_le_bytes());
+        let serialized_data = metadata.serialize()?;
 
         let mut metadata_binary = vec![0; 10];
         let mut writable = &mut metadata_binary[..];

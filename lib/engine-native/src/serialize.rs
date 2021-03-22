@@ -1,15 +1,21 @@
 use serde::{Deserialize, Serialize};
-use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
+use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry, CompileError};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 use wasmer_engine::DeserializeError;
-use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer}, archived_value,
-           de::{deserializers::AllocDeserializer, adapters::SharedDeserializerAdapter},
-           Deserialize as RkyvDeserialize,
-           Serialize as RkyvSerialize,
-           ser::adapters::SharedSerializerAdapter,
+use rkyv::{
+    ser::{Serializer as RkyvSerializer, serializers::WriteSerializer}, archived_value,
+    de::{deserializers::AllocDeserializer, adapters::SharedDeserializerAdapter},
+    Deserialize as RkyvDeserialize,
+    Serialize as RkyvSerialize,
+    ser::adapters::SharedSerializerAdapter,
     Archive
 };
+use std::error::Error;
+
+fn to_compile_error(err: impl Error) -> CompileError {
+    CompileError::Codegen(format!("{}", err))
+}
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq)]
@@ -40,6 +46,15 @@ impl ModuleMetadata {
         ModuleMetadataSymbolRegistry {
             prefix: &self.prefix,
         }
+    }
+
+    pub fn serialize(&mut self) -> Result<Vec<u8>, CompileError> {
+        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
+        let pos = serializer.serialize_value(self)
+            .map_err(to_compile_error)? as u64;
+        let mut serialized_data = serializer.into_inner().into_inner();
+        serialized_data[0..8].copy_from_slice(&pos.to_le_bytes());
+        Ok(serialized_data)
     }
 
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
