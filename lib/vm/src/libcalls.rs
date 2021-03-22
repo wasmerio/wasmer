@@ -38,7 +38,7 @@
 use crate::probestack::PROBESTACK;
 use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{DataIndex, ElemIndex, LocalMemoryIndex, MemoryIndex, TableIndex};

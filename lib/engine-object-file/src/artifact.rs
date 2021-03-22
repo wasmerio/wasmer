@@ -3,7 +3,7 @@
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;

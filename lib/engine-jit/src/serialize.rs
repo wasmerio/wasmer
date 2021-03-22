@@ -1,4 +1,4 @@
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,

@@ -1,4 +1,4 @@
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};

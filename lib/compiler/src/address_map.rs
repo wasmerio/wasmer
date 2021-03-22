@@ -3,7 +3,7 @@
 
 use crate::lib::std::vec::Vec;
 use crate::sourceloc::SourceLoc;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 

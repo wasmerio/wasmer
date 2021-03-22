@@ -5,7 +5,7 @@
 //! `wasmer::Module`.
 
 use indexmap::IndexMap;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;

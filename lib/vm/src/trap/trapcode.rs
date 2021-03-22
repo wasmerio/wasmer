@@ -5,7 +5,7 @@
 
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 

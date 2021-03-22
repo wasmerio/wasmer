@@ -2,7 +2,7 @@
 
 use crate::NativeArtifact;
 use libloading::Library;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::path::Path;
 use std::sync::Arc;
 use std::sync::Mutex;

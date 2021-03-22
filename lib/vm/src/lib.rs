@@ -56,7 +56,7 @@ pub use crate::vmcontext::{
     VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

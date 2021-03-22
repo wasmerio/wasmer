@@ -7,7 +7,7 @@
 
 use crate::lib::std::vec::Vec;
 use crate::Relocation;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::entity_impl;

@@ -1,4 +1,4 @@
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};

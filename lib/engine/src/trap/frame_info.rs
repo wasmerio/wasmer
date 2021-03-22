@@ -11,7 +11,7 @@
 //! FRAME_INFO.register(module, compiled_functions);
 //! ```
 use crate::serialize::SerializableFunctionFrameInfo;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::cmp;
 use std::collections::BTreeMap;
 use std::sync::{Arc, RwLock};

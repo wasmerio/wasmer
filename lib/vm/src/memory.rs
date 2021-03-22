@@ -8,7 +8,6 @@
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
 use loupe::MemoryUsage;
-use loupe_derive::MemoryUsage;
 use more_asserts::assert_ge;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;

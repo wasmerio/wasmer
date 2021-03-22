@@ -1,6 +1,6 @@
 use crate::indexes::{FunctionIndex, GlobalIndex, MemoryIndex, TableIndex};
 use crate::lib::std::boxed::Box;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

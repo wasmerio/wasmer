@@ -1,5 +1,5 @@
 use crate::vmcontext::VMGlobalDefinition;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;

@@ -6,7 +6,7 @@
 //!
 //! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
 use crate::lib::std::vec::Vec;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 

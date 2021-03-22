@@ -8,7 +8,7 @@
 //! and tracing errors.
 
 use crate::lib::std::fmt;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 

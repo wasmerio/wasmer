@@ -1160,9 +1160,9 @@ version = "0.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "f0700ebea6c2a63815aa6f376f1c6dac93223d7b11c4728a7f71ff951a6eca67"
 dependencies = [
+ "indexmap",
  "loupe-derive",
  "rustversion",
- "indexmap",
 ]
 
 [[package]]
