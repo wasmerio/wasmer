@@ -320,9 +320,19 @@ impl ObjectFileArtifact {
         let func_data_registry = engine_inner.func_data().clone();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
+        let num_imported_functions = metadata.compile_info.module.num_imported_functions;
+        // set up the imported functions first...
+        for i in 0..num_imported_functions {
+            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
+            let func_type = &metadata.compile_info.module.signatures[sig_idx];
+            let vm_shared_idx = signature_registry.register(&func_type);
+            sig_map.insert(sig_idx, vm_shared_idx);
+        }
         // read finished functions in order now...
         for i in 0..num_finished_functions {
-            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
+            let local_func_idx = LocalFunctionIndex::new(i);
+            let func_idx = metadata.compile_info.module.func_index(local_func_idx);
+            let sig_idx = metadata.compile_info.module.functions[func_idx];
             let func_type = &metadata.compile_info.module.signatures[sig_idx];
             let vm_shared_idx = signature_registry.register(&func_type);
             sig_map.insert(sig_idx, vm_shared_idx);
