@@ -2,7 +2,14 @@ use serde::{Deserialize, Serialize};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
-use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
+use wasmer_engine::DeserializeError;
+use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer}, archived_value,
+           de::{deserializers::AllocDeserializer, adapters::SharedDeserializerAdapter},
+           Deserialize as RkyvDeserialize,
+           Serialize as RkyvSerialize,
+           ser::adapters::SharedSerializerAdapter,
+    Archive
+};
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(Serialize, Deserialize, Debug, RkyvSerialize, RkyvDeserialize, Archive, PartialEq, Eq)]
@@ -33,6 +40,24 @@ impl ModuleMetadata {
         ModuleMetadataSymbolRegistry {
             prefix: &self.prefix,
         }
+    }
+
+    pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
+        let archived = Self::archive_from_slice(metadata_slice);
+        Self::deserialize_from_archive(archived)
+    }
+
+    unsafe fn archive_from_slice<'a>(metadata_slice: &'a [u8]) -> &'a ArchivedModuleMetadata {
+        let mut pos: [u8; 8] = Default::default();
+        pos.copy_from_slice(&metadata_slice[0..8]);
+        let pos: u64 = u64::from_le_bytes(pos);
+        archived_value::<ModuleMetadata>(&metadata_slice[8..], pos as usize)
+    }
+
+    pub fn deserialize_from_archive(archived: &ArchivedModuleMetadata) -> Result<Self, DeserializeError> {
+        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
+        RkyvDeserialize::deserialize(archived, &mut deserializer)
+            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))
     }
 }
 

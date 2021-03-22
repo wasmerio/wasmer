@@ -35,9 +35,7 @@ use wasmer_vm::{
     FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
     VMTrampoline,
 };
-use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer}, archived_value,
-           de::{deserializers::AllocDeserializer, adapters::SharedDeserializerAdapter},
-           Deserialize as RkyvDeserialize,
+use rkyv::{ser::{Serializer as RkyvSerializer, serializers::WriteSerializer},
            ser::adapters::SharedSerializerAdapter,
 };
 
@@ -556,13 +554,7 @@ impl NativeArtifact {
         let metadata_slice: &'static [u8] =
             slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize);
 
-        let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[0..8]);
-        let pos: u64 = u64::from_le_bytes(pos);
-        let archived = archived_value::<ModuleMetadata>(&metadata_slice[8..], pos as usize );
-        let mut deserializer = SharedDeserializerAdapter::new(AllocDeserializer);
-        let metadata = RkyvDeserialize::deserialize(archived, &mut deserializer)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        let metadata = ModuleMetadata::deserialize(metadata_slice)?;
 
         let mut engine_inner = engine.inner_mut();
 

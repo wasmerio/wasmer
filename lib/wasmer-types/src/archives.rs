@@ -4,36 +4,21 @@ use indexmap::IndexMap;
 use rkyv::{
     offset_of,
     ser::Serializer,
-    std_impl::chd::{ArchivedHashMap, ArchivedHashMapResolver},
     std_impl::{ArchivedVec, VecResolver},
-    Archive, Archived, ArchivedUsize, Deserialize, DeserializeUnsized, Fallible, MetadataResolver,
-    RawRelPtr, Serialize,
+    Archive, Archived, Deserialize, DeserializeUnsized, Fallible, MetadataResolver,
+    Serialize,
 };
 
 #[cfg(feature = "core")]
 use core::{
-    borrow::Borrow,
-    cmp::Reverse,
-    hash::{Hash, Hasher},
-    iter::FusedIterator,
+    hash::Hash,
     marker::PhantomData,
-    mem::size_of,
-    ops::Index,
-    pin::Pin,
-    slice,
 };
 
 #[cfg(feature = "std")]
 use std::{
-    borrow::Borrow,
-    cmp::Reverse,
-    hash::{Hash, Hasher},
-    iter::FusedIterator,
+    hash::Hash,
     marker::PhantomData,
-    mem::size_of,
-    ops::Index,
-    pin::Pin,
-    slice,
     collections::HashMap,
 };
 
@@ -48,17 +33,14 @@ impl<K: Archive + EntityRef, V: Archive> Archive for PrimaryMap<K, V>
     type Resolver = VecResolver<MetadataResolver<[V]>>;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        #[allow(clippy::unit_arg)]
-        unsafe {
-            ArchivedPrimaryMap(
-                Vec::resolve(
-                    &self.elems,
-                    pos,
-                    resolver,
-                ),
-                PhantomData,
-            )
-        }
+        ArchivedPrimaryMap(
+            Vec::resolve(
+                &self.elems,
+                pos,
+                resolver,
+            ),
+            PhantomData,
+        )
     }
 }
 

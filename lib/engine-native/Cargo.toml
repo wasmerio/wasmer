@@ -28,7 +28,6 @@ rkyv = "0.4.1"
 
 [dev-dependencies]
 wasmer-compiler-singlepass = { version = "1.0.2", path = "../compiler-singlepass" }
-#wasmer = { version = "1.0.2", path = "../api" }
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile
