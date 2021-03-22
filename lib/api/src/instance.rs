@@ -3,7 +3,7 @@ use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::{HostEnvInitError, LinkError, RuntimeError};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::{Arc, Mutex};
 use thiserror::Error;

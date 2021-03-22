@@ -1,4 +1,4 @@
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_vm::{
     ImportInitializerFuncPtr, VMExport, VMExportFunction, VMExportGlobal, VMExportMemory,
@@ -76,11 +76,11 @@ pub struct ExportFunctionMetadata {
     /// we create the `api::Instance`.
     // This one is optional for now because dynamic host envs need the rest
     // of this without the init fn
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub(crate) import_init_function_ptr: Option<ImportInitializerFuncPtr>,
 
     /// A function analogous to `Clone::clone` that returns a leaked `Box`.
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub(crate) host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
 
     /// The destructor to free the host environment.
@@ -88,7 +88,7 @@ pub struct ExportFunctionMetadata {
     /// # Safety
     /// - This function should only be called in when properly synchronized.
     /// For example, in the `Drop` implementation of this type.
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
 }
 

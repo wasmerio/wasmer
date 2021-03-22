@@ -3,7 +3,7 @@ use crate::import_object::LikeNamespace;
 use crate::native::NativeFunc;
 use crate::WasmTypeList;
 use indexmap::IndexMap;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use std::sync::Arc;

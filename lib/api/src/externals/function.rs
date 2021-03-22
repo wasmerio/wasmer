@@ -10,7 +10,7 @@ pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, Witho
 #[cfg(feature = "deprecated")]
 pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
@@ -26,7 +26,7 @@ use wasmer_vm::{
 #[derive(Clone, PartialEq, MemoryUsage)]
 pub struct WasmFunctionDefinition {
     // Address of the trampoline to do the call.
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub(crate) trampoline: VMTrampoline,
 }
 

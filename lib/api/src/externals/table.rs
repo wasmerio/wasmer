@@ -4,7 +4,7 @@ use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportTable};
 use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};

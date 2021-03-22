@@ -8,7 +8,7 @@
 
 use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasmer_types::{

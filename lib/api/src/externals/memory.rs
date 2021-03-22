@@ -2,7 +2,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
 use crate::{MemoryType, MemoryView};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;

@@ -26,7 +26,6 @@ wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
 wasmer-types = { version = "1.0.2", path = "lib/wasmer-types" }
 wasmer-middlewares = { version = "1.0.2", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
-loupe = { path = "../loupe/crates/loupe" }
 
 [workspace]
 members = [

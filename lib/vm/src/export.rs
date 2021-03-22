@@ -6,7 +6,7 @@ use crate::instance::InstanceRef;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
@@ -47,7 +47,7 @@ pub struct VMExportFunction {
     ///
     /// May be `None` when the function is a host function (`FunctionType`
     /// == `Dynamic` or `vmctx` == `nullptr`).
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub call_trampoline: Option<VMTrampoline>,
 
     /// A “reference” to the instance through the

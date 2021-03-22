@@ -16,7 +16,7 @@ pub use self::table::Table;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt;
 use wasmer_engine::Export;
 

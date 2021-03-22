@@ -5,7 +5,7 @@ use crate::types::Val;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportGlobal};

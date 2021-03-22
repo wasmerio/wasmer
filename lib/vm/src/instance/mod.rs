@@ -28,7 +28,6 @@ use crate::vmcontext::{
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
 use loupe::{MemoryUsage, MemoryUsageTracker};
-use loupe_derive::MemoryUsage;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
@@ -80,7 +79,7 @@ pub(crate) struct Instance {
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Pointers to function call trampolines in executable memory.
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
@@ -95,7 +94,7 @@ pub(crate) struct Instance {
     host_state: Box<dyn Any>,
 
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
     /// Functions to operate on host environments in the imports
@@ -109,7 +108,7 @@ pub(crate) struct Instance {
     /// field is last, and represents a dynamically-sized array that
     /// extends beyond the nominal end of the struct (similar to a
     /// flexible array member).
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     vmctx: VMContext,
 }
 
