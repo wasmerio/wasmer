@@ -16,42 +16,42 @@
   </p>
 
   <h3>
-    <a href="https://wasmer.io/">Website</a>
+    <a href="https://wasmer.io/">网站</a>
     <span> • </span>
-    <a href="https://docs.wasmer.io">Docs</a>
+    <a href="https://docs.wasmer.io">文件资料</a>
     <span> • </span>
-    <a href="https://slack.wasmer.io/">Chat</a>
+    <a href="https://slack.wasmer.io/">聊天</a>
   </h3>
 
 </div>
 
 <br />
 
-[Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer#language-integrations).
+[Wasmer]https://wasmer.io/）使得能够基于 [WebAssembly](https://webassembly.org/)，其可以在任何地方运行超轻型容器：从桌面到云和的IoT装置，并且也嵌入在 [*任何编程语言*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This readme is also available in: [🇨🇳 中文 / Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇪🇸 Español / Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français / French](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md).
+> This readme is also available in: [🇬🇧 English / 英文](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español / 西班牙语](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français / 法语/法语](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md).
 
-## Features
+## 特征
 
-* **Fast & Safe**. Wasmer runs WebAssembly at *near-native* speed in a fully sandboxed environment.
+* **快速又安全**. Wasmer 在完全沙盒化的环境中以“接近本机”的速度运行 WebAssembly。
 
-* **Pluggable**. Wasmer supports different compilation frameworks to best suit your needs (LLVM, Cranelift...).
+* **可插拔**. Wasmer支持不同的编译框架以最适合您的需求（LLVM，Cranelift ...).
 
-* **Universal**. You can run Wasmer in any *platform* (macOS, Linux and Windows) and *chipset*.
+* **普遍的**. 您可以在任何*平台*（macOS，Linux和Windows）和*芯片组*中运行Wasmer.
 
-* **Standards compliant**. The runtime passes [official WebAssembly test
-  suite](https://github.com/WebAssembly/testsuite) supporting [WASI](https://github.com/WebAssembly/WASI) and [Emscripten](https://emscripten.org/).
+* **符合标准**. 运行时通过了[官方WebAssembly测试
+   套件](https://github.com/WebAssembly/testsuite) 支持[WASI](https://github.com/WebAssembly/WASI) 和[Emscripten](https://emscripten.org/).
 
-## Quickstart
+## 快速开始
 
-Wasmer ships with no dependencies. You can install it using the installers below:
+Wasmer出厂时没有任何依赖关系. 您可以使用以下安装程序进行安装:
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
 <details>
-  <summary>With PowerShell (Windows)</summary>
+  <summary>使用Powershell (Windows)</summary>
   <p>
 
 ```powershell
@@ -61,14 +61,14 @@ iwr https://win.wasmer.io -useb | iex
 </p>
 </details>
 
-> See [wasmer-install](https://github.com/wasmerio/wasmer-install) for more installation options: Homebrew, Scoop, Cargo...
+> 有关更多安装选项，请参见 [wasmer-install](https://github.com/wasmerio/wasmer-install): Homebrew, Scoop, Cargo...
 
 
-#### Executing a WebAssembly file
+#### 执行WebAssembly文件
 
-After installing Wasmer you should be ready to execute your first WebAssemby file! 🎉
+安装Wasmer之后，您应该已经准备好执行第一个WebAssemby文件! 🎉
 
-You can start by running QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+您可以通过运行QuickJS开始: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
 $ wasmer qjs.wasm
@@ -76,32 +76,32 @@ QuickJS - Type "\h" for help
 qjs >
 ```
 
-#### Here is what you can do next:
+#### 接下来是您可以做的:
 
-- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
-- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
-- [Read more about Wasmer](https://medium.com/wasmer/)
+- [在您的Rust应用程序中使用Wasmer](https://docs.wasmer.io/integrations/rust)
+- [在WAPM上发布Wasm程序包](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [阅读有关Wasmer的更多信息](https://medium.com/wasmer/)
 
-## Language Integrations
+## 语言整合
 
-📦 Wasmer runtime can be used as a library **embedded in different languages**, so you can use WebAssembly _anywhere_.
+📦 Wasmer运行时可以用作**以不同语言嵌入的库**，因此您可以在任何位置使用WebAssembly.
 
-| &nbsp; | Language | Package | Docs |
+| &nbsp; | 语言 | 箱 | 文件资料 |
 |-|-|-|-|
-| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
-| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
-| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [Docs][c# docs] |
-| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [Docs][d docs] |
-| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [Docs][python docs] |
-| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [Docs][js docs] |
-| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [Docs][go docs] |
-| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [Docs][php docs] |
-| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Docs][ruby docs] |
-| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Docs][java docs] |
-| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
-| ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
-|  | [**Swift**][Swift integration] | *no published package* | |
+| ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [文件资料][rust docs]
+| ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [文件资料][c docs] |
+| ![C# logo] | [**C#**][C# integration] | [`WasmerSharp` NuGet package] | [文件资料][c# docs] |
+| ![D logo] | [**D**][D integration] | [`wasmer` Dub package] | [文件资料][d docs] |
+| ![Python logo] | [**Python**][Python integration] | [`wasmer` PyPI package] | [文件资料][python docs] |
+| ![JS logo] | [**Javascript**][JS integration] | [`@wasmerio` NPM packages] | [文件资料][js docs] |
+| ![Go logo] | [**Go**][Go integration] | [`wasmer` Go package] | [文件资料][go docs] |
+| ![PHP logo] | [**PHP**][PHP integration] | [`wasm` PECL package] | [文件资料][php docs] |
+| ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [文件资料][ruby docs] |
+| ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [文件资料][java docs] |
+| ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [文件资料][elixir docs] |
+| ![R logo] | [**R**][R integration] | *没有已发布的软件包* | [文件资料][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres integration] | *没有已发布的软件包* | [文件资料][postgres docs] |
+|  | [**Swift**][Swift integration] | *没有已发布的软件包* | |
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
@@ -170,21 +170,21 @@ qjs >
 
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
-## Contribute
+## 贡献
 
-**We welcome any form of contribution, especially from new members of our community** 💜
+**我们欢迎任何形式的贡献，尤其是来自社区新成员的贡献** 💜
 
-You can check how to build the Wasmer runtime in [our awesome docs](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+您可以在[我们的出色文档](https://docs.wasmer.io/ecosystem/wasmer/building-from-source) 中检查如何构建Wasmer运行时!
 
-### Testing
+### 测试
 
-Test you want? The [Wasmer docs will show you how](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
+要测试吗? The [Wasmer文档将向您展示如何](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing).
 
-## Community
+## 社区
 
-Wasmer has an amazing community of developers and contributors. Welcome, please join us! 👋
+Wasmer拥有一个了不起的开发人员和贡献者社区。 欢迎您，请加入我们! 👋
 
-### Channels
+### 频道
 
 - [Slack](https://slack.wasmer.io/)
 - [Twitter](https://twitter.com/wasmerio)
