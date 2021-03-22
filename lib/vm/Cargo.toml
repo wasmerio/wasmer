@@ -21,7 +21,7 @@ more-asserts = "0.2"
 cfg-if = "0.1"
 backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
-rkyv = "0.4.1"
+rkyv = { version = "0.4.1", optional = true}
 
 [target.'cfg(target_os = "windows")'.dependencies]
 winapi = { version = "0.3", features = ["winbase", "memoryapi", "errhandlingapi"] }
@@ -31,3 +31,7 @@ cc = "1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+enable-rkyv = ["rkyv"]

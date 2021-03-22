@@ -16,8 +16,11 @@ use wasmer_types::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
     LocalGlobalIndex, LocalMemoryIndex, LocalTableIndex, MemoryIndex, MemoryType, SignatureIndex,
-    TableIndex, TableInitializer, TableType, RkyvIndexMap,
+    TableIndex, TableInitializer, TableType,
 };
+#[cfg(feature = "enable-rkyv")]
+use wasmer_types::RkyvIndexMap;
+#[cfg(feature = "enable-rkyv")]
 use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive, Fallible, Archived, ser::Serializer, ser::SharedSerializer, de::SharedDeserializer};
 
 #[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
@@ -119,6 +122,7 @@ pub struct ModuleInfo {
 }
 
 /// Mirror version of ModuleInfo that can derive rkyv traits
+#[cfg(feature = "enable-rkyv")]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct RkyvModuleInfo {
     name: Option<String>,
@@ -143,6 +147,7 @@ pub struct RkyvModuleInfo {
     num_imported_globals: usize,
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl From<ModuleInfo> for RkyvModuleInfo {
     fn from(it: ModuleInfo) -> RkyvModuleInfo {
         RkyvModuleInfo {
@@ -170,6 +175,7 @@ impl From<ModuleInfo> for RkyvModuleInfo {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl From<RkyvModuleInfo> for ModuleInfo {
     fn from(it: RkyvModuleInfo) -> ModuleInfo {
         ModuleInfo {
@@ -198,12 +204,14 @@ impl From<RkyvModuleInfo> for ModuleInfo {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl From<&ModuleInfo> for RkyvModuleInfo {
     fn from(it: &ModuleInfo) -> RkyvModuleInfo {
         RkyvModuleInfo::from(it.clone())
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl Archive for ModuleInfo {
     type Archived = <RkyvModuleInfo as Archive>::Archived;
     type Resolver = <RkyvModuleInfo as Archive>::Resolver;
@@ -213,12 +221,14 @@ impl Archive for ModuleInfo {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
         RkyvModuleInfo::from(self).serialize(serializer)
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
 impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D> for Archived<ModuleInfo> {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
         let r: RkyvModuleInfo = RkyvDeserialize::<RkyvModuleInfo, D>::deserialize(self, deserializer)?;
