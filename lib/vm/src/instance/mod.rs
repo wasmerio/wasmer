@@ -28,6 +28,7 @@ use crate::vmcontext::{
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
 use loupe::{MemoryUsage, MemoryUsageTracker};
+use loupe_derive::MemoryUsage;
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
@@ -57,6 +58,7 @@ pub type ImportInitializerFuncPtr<ResultErr = *mut ffi::c_void> =
 /// contain various data. That's why the type has a C representation
 /// to ensure that the `vmctx` field is last. See the documentation of
 /// the `vmctx` field to learn more.
+#[derive(MemoryUsage)]
 #[repr(C)]
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
@@ -78,6 +80,7 @@ pub(crate) struct Instance {
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Pointers to function call trampolines in executable memory.
+    #[memoryusage(ignore)]
     function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
@@ -92,6 +95,7 @@ pub(crate) struct Instance {
     host_state: Box<dyn Any>,
 
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
+    #[memoryusage(ignore)]
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
     /// Functions to operate on host environments in the imports
@@ -105,6 +109,7 @@ pub(crate) struct Instance {
     /// field is last, and represents a dynamically-sized array that
     /// extends beyond the nominal end of the struct (similar to a
     /// flexible array member).
+    #[memoryusage(ignore)]
     vmctx: VMContext,
 }
 
@@ -785,7 +790,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, MemoryUsage)]
 pub struct InstanceHandle {
     /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,

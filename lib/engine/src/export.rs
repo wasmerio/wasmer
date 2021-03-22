@@ -1,9 +1,9 @@
+use loupe_derive::MemoryUsage;
+use std::sync::Arc;
 use wasmer_vm::{
     ImportInitializerFuncPtr, VMExport, VMExportFunction, VMExportGlobal, VMExportMemory,
     VMExportTable,
 };
-
-use std::sync::Arc;
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -54,7 +54,7 @@ impl From<VMExport> for Export {
 ///
 /// This struct owns the original `host_env`, thus when it gets dropped
 /// it calls the `drop` function on it.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, MemoryUsage)]
 pub struct ExportFunctionMetadata {
     /// This field is stored here to be accessible by `Drop`.
     ///
@@ -69,20 +69,26 @@ pub struct ExportFunctionMetadata {
     /// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of
     /// this pointer that is used by the VM when creating an `Instance`.
     pub(crate) host_env: *mut std::ffi::c_void,
+
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
     /// This function is called to finish setting up the environment after
     /// we create the `api::Instance`.
     // This one is optional for now because dynamic host envs need the rest
     // of this without the init fn
+    #[memoryusage(ignore)]
     pub(crate) import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+
     /// A function analogous to `Clone::clone` that returns a leaked `Box`.
+    #[memoryusage(ignore)]
     pub(crate) host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+
     /// The destructor to free the host environment.
     ///
     /// # Safety
     /// - This function should only be called in when properly synchronized.
     /// For example, in the `Drop` implementation of this type.
+    #[memoryusage(ignore)]
     pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
 }
 
@@ -132,7 +138,7 @@ impl Drop for ExportFunctionMetadata {
 
 /// A function export value with an extra function pointer to initialize
 /// host environments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, MemoryUsage)]
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
     pub vm_function: VMExportFunction,

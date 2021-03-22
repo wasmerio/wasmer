@@ -3,6 +3,7 @@ use crate::import_object::LikeNamespace;
 use crate::native::NativeFunc;
 use crate::WasmTypeList;
 use indexmap::IndexMap;
+use loupe_derive::MemoryUsage;
 use std::fmt;
 use std::iter::{ExactSizeIterator, FromIterator};
 use std::sync::Arc;
@@ -61,7 +62,7 @@ pub enum ExportError {
 /// the types of instances.
 ///
 /// TODO: add examples of using exports
-#[derive(Clone, Default)]
+#[derive(Clone, Default, MemoryUsage)]
 pub struct Exports {
     map: Arc<IndexMap<String, Extern>>,
 }

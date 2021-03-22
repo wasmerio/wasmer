@@ -175,7 +175,7 @@ mod test_vmfunction_body {
 }
 
 /// A function kind is a calling convention into and out of wasm code.
-#[derive(Debug, Copy, Clone, PartialEq)]
+#[derive(Debug, Copy, Clone, PartialEq, MemoryUsage)]
 #[repr(C)]
 pub enum VMFunctionKind {
     /// A static function has the native signature:

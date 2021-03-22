@@ -5,6 +5,7 @@ use crate::types::Val;
 use crate::GlobalType;
 use crate::Mutability;
 use crate::RuntimeError;
+use loupe_derive::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportGlobal};
@@ -16,7 +17,7 @@ use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
 /// It consists of an individual value and a flag indicating whether it is mutable.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#global-instances>
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct Global {
     store: Store,
     global: Arc<RuntimeGlobal>,
