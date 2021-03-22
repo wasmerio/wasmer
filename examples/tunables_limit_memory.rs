@@ -1,6 +1,8 @@
+use std::mem;
 use std::ptr::NonNull;
 use std::sync::Arc;
 
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use wasmer::{
     imports,
     vm::{self, MemoryError, MemoryStyle, TableStyle, VMMemoryDefinition, VMTableDefinition},
@@ -128,6 +130,12 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<Arc<dyn vm::Table>, String> {
         self.base.create_vm_table(ty, style, vm_definition_location)
+    }
+}
+
+impl<T: Tunables> MemoryUsage for LimitingTunables<T> {
+    fn size_of_val(&self, _tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
     }
 }
 
