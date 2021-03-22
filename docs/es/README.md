@@ -27,7 +27,7 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) hace posible tener contenedores ultraligeros basados en [WebAssembly](https://webassembly.org/) que pueden ser ejecutados en cualquier sitio: desde tu ordenador hasta la nube y dispositivos de IoT, además de ser [*any programming language*](https://github.com/wasmerio/wasmer#language-integrations).
+[Wasmer](https://wasmer.io/) hace posible tener contenedores ultraligeros basados en [WebAssembly](https://webassembly.org/) que pueden ser ejecutados en cualquier sitio: desde tu ordenador hasta la nube y dispositivos de IoT, además de poder ser ejecutados [*en cualquier lenguaje de programación*](https://github.com/wasmerio/wasmer#language-integrations).
 
 > This README is also available in: [🇬🇧 English-Inglés](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇫🇷 Français-Francés](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇨🇳 中文-Chino](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md).
 
@@ -75,11 +75,11 @@ QuickJS - Type "\h" for help
 qjs >
 ```
 
-#### Here is what you can do next:
+#### Esto es lo que puedes hacer:
 
-- [Use Wasmer from your Rust application](https://docs.wasmer.io/integrations/rust)
-- [Publish a Wasm package on WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
-- [Read more about Wasmer](https://medium.com/wasmer/)
+- [Usa Wasmer desde tu aplicación de Rust](https://docs.wasmer.io/integrations/rust)
+- [Publica un paquete de Wasm en WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [Lee más sobre Wasmer](https://medium.com/wasmer/)
 
 ## Integraciones en diferentes Lenguajes
 
