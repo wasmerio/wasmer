@@ -2,7 +2,7 @@
 #![allow(unused_imports, dead_code)]
 
 use crate::compiler::SinglepassCompiler;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;

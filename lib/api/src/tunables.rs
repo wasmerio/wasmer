@@ -1,5 +1,5 @@
 use crate::{MemoryType, Pages, TableType};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::cmp::min;
 use std::ptr::NonNull;
 use std::sync::Arc;

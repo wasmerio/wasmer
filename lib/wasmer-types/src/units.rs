@@ -1,7 +1,7 @@
 use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ops::{Add, Sub};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::convert::TryInto;

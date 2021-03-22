@@ -1,5 +1,5 @@
 use crate::tunables::BaseTunables;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]

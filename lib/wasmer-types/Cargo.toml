@@ -13,8 +13,7 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
-loupe = { path = "../../../loupe/crates/loupe" }
-loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
+loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
 
 [features]
 default = ["std", "enable-serde"]

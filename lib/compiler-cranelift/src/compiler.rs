@@ -18,7 +18,7 @@ use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{binemit, Context};
 #[cfg(feature = "unwind")]
 use gimli::write::{Address, EhFrame, FrameTable};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::CompileError;

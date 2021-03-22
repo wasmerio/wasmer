@@ -24,8 +24,7 @@ leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"
 which = "4.0"
-loupe = { path = "../../../loupe/crates/loupe" }
-loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
+loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile

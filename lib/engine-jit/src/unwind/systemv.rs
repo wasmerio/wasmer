@@ -3,7 +3,7 @@
 
 //! Module for System V ABI unwind registry.
 
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use wasmer_compiler::CompiledFunctionUnwindInfo;
 
 /// Represents a registry of function unwind information for System V ABI.

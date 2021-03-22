@@ -1157,12 +1157,17 @@ dependencies = [
 [[package]]
 name = "loupe"
 version = "0.1.0"
+source = "git+https://github.com/wasmerio/loupe?branch=master#63c2f4a5acf1f3a8ed3568119cad96a731c71d21"
+dependencies = [
+ "loupe-derive",
+ "rustversion",
+]
 
 [[package]]
 name = "loupe-derive"
 version = "0.1.0"
+source = "git+https://github.com/wasmerio/loupe?branch=master#63c2f4a5acf1f3a8ed3568119cad96a731c71d21"
 dependencies = [
- "loupe",
  "quote",
  "syn",
 ]
@@ -2299,7 +2304,6 @@ dependencies = [
  "indexmap",
  "libc",
  "loupe",
- "loupe-derive",
  "more-asserts",
  "target-lexicon",
  "tempfile",
@@ -2396,7 +2400,6 @@ dependencies = [
  "enumset",
  "hashbrown",
  "loupe",
- "loupe-derive",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -2418,7 +2421,6 @@ dependencies = [
  "hashbrown",
  "lazy_static",
  "loupe",
- "loupe-derive",
  "more-asserts",
  "rayon",
  "serde",
@@ -2442,7 +2444,6 @@ dependencies = [
  "lazy_static",
  "libc",
  "loupe",
- "loupe-derive",
  "rayon",
  "regex",
  "rustc_version 0.2.3",
@@ -2464,7 +2465,6 @@ dependencies = [
  "hashbrown",
  "lazy_static",
  "loupe",
- "loupe-derive",
  "more-asserts",
  "rayon",
  "serde",
@@ -2508,7 +2508,6 @@ dependencies = [
  "bincode",
  "lazy_static",
  "loupe",
- "loupe-derive",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -2527,7 +2526,6 @@ version = "1.0.2"
 dependencies = [
  "bincode",
  "loupe",
- "loupe-derive",
  "serde",
  "serde_bytes",
  "wasmer-compiler",
@@ -2543,7 +2541,6 @@ dependencies = [
  "bincode",
  "cfg-if 0.1.10",
  "loupe",
- "loupe-derive",
  "region",
  "serde",
  "serde_bytes",
@@ -2563,7 +2560,6 @@ dependencies = [
  "leb128",
  "libloading",
  "loupe",
- "loupe-derive",
  "serde",
  "tempfile",
  "tracing",
@@ -2584,7 +2580,6 @@ dependencies = [
  "leb128",
  "libloading",
  "loupe",
- "loupe-derive",
  "serde",
  "tempfile",
  "tracing",
@@ -2608,7 +2603,6 @@ name = "wasmer-middlewares"
 version = "1.0.2"
 dependencies = [
  "loupe",
- "loupe-derive",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -2629,7 +2623,6 @@ name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
  "loupe",
- "loupe-derive",
  "serde",
  "thiserror",
 ]
@@ -2644,7 +2637,6 @@ dependencies = [
  "indexmap",
  "libc",
  "loupe",
- "loupe-derive",
  "memoffset",
  "more-asserts",
  "region",

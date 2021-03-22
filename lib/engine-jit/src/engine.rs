@@ -1,7 +1,7 @@
 //! JIT compilation.
 
 use crate::{CodeMemory, JITArtifact};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;

@@ -1,7 +1,7 @@
 use crate::compiler::CraneliftCompiler;
 use cranelift_codegen::isa::{lookup, TargetIsa};
 use cranelift_codegen::settings::{self, Configurable};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_compiler::{
     Architecture, Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target,

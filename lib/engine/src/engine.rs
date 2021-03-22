@@ -3,7 +3,6 @@
 use crate::tunables::Tunables;
 use crate::{Artifact, DeserializeError};
 use loupe::MemoryUsage;
-use loupe_derive::MemoryUsage;
 use memmap2::Mmap;
 use std::path::Path;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};

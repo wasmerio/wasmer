@@ -22,8 +22,7 @@ libc = { version = "^0.2", default-features = false }
 byteorder = "1"
 itertools = "0.10"
 rayon = "1.5"
-loupe = { path = "../../../loupe/crates/loupe" }
-loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
+loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
 
 [dependencies.inkwell]
 version = "=0.1.0-beta.2"

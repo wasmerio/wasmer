@@ -1,4 +1,4 @@
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 

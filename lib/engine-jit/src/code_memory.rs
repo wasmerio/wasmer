@@ -3,7 +3,7 @@
 
 //! Memory management for executable code.
 use crate::unwind::UnwindRegistry;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use wasmer_compiler::{CompiledFunctionUnwindInfo, CustomSection, FunctionBody};
 use wasmer_vm::{Mmap, VMFunctionBody};
 

@@ -14,8 +14,7 @@ edition = "2018"
 wasmer = { path = "../api", version = "1.0.2" }
 wasmer-types = { path = "../wasmer-types", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
-loupe = { path = "../../../loupe/crates/loupe" }
-loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
+loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
 
 [badges]
 maintenance = { status = "actively-developed" }

@@ -2,7 +2,6 @@
 //! and putting a limit on the total number of operators executed.
 
 use loupe::{MemoryUsage, MemoryUsageTracker};
-use loupe_derive::MemoryUsage;
 use std::convert::TryInto;
 use std::fmt;
 use std::mem;

@@ -25,8 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 more-asserts = "0.2"
 gimli = { version = "0.23", optional = true }
 smallvec = "1.6"
-loupe = { path = "../../../loupe/crates/loupe" }
-loupe-derive = { path = "../../../loupe/crates/loupe-derive" }
+loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }

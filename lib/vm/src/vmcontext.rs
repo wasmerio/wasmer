@@ -9,7 +9,7 @@ use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;

@@ -7,7 +7,7 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;

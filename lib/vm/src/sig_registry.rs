@@ -5,7 +5,7 @@
 //! signature checking.
 
 use crate::vmcontext::VMSharedSignatureIndex;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use more_asserts::{assert_lt, debug_assert_lt};
 use std::collections::{hash_map, HashMap};
 use std::convert::TryFrom;

@@ -6,7 +6,7 @@ use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::Value;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};

@@ -7,7 +7,7 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
