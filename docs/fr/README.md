@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) active des conteneurs super légers basés sur [WebAssembly](https://webassembly.org/) qui peuvent fonctionner n'importe où: du bureau au cloud et aux appareils IoT, et également intégrés dans [*tout langage de programmation*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This readme is also available in: [🇬🇧 English / Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español / Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文 / Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md)
+> This readme is also available in: [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md)
 
 ## Fonctionnalités
 
@@ -104,66 +104,66 @@ qjs >
 
 [👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
-[rust logo]: ./assets/languages/rust.svg
+[rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
 [rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
 
-[c logo]: ./assets/languages/c.svg
+[c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
 [`wasmer.h` headers]: https://wasmerio.github.io/wasmer/c/
 [c docs]: https://wasmerio.github.io/wasmer/c/
 
-[c# logo]: ./assets/languages/csharp.svg
+[c# logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/csharp.svg
 [c# integration]: https://github.com/migueldeicaza/WasmerSharp
 [`wasmersharp` nuget package]: https://www.nuget.org/packages/WasmerSharp/
 [c# docs]: https://migueldeicaza.github.io/WasmerSharp/
 
-[d logo]: ./assets/languages/d.svg
+[d logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/d.svg
 [d integration]: https://github.com/chances/wasmer-d
 [`wasmer` Dub package]: https://code.dlang.org/packages/wasmer
 [d docs]: https://chances.github.io/wasmer-d
 
-[python logo]: ./assets/languages/python.svg
+[python logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/python.svg
 [python integration]: https://github.com/wasmerio/wasmer-python
 [`wasmer` pypi package]: https://pypi.org/project/wasmer/
 [python docs]: https://github.com/wasmerio/wasmer-python#api-of-the-wasmer-extensionmodule
 
-[go logo]: ./assets/languages/go.svg
+[go logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/go.svg
 [go integration]: https://github.com/wasmerio/wasmer-go
 [`wasmer` go package]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer
 [go docs]: https://pkg.go.dev/github.com/wasmerio/wasmer-go/wasmer?tab=doc
 
-[php logo]: ./assets/languages/php.svg
+[php logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/php.svg
 [php integration]: https://github.com/wasmerio/wasmer-php
 [`wasm` pecl package]: https://pecl.php.net/package/wasm
 [php docs]: https://wasmerio.github.io/wasmer-php/wasm/
 
-[js logo]: ./assets/languages/js.svg
+[js logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/js.svg
 [js integration]: https://github.com/wasmerio/wasmer-js
 [`@wasmerio` npm packages]: https://www.npmjs.com/org/wasmer
 [js docs]: https://docs.wasmer.io/integrations/js/reference-api
 
-[ruby logo]: ./assets/languages/ruby.svg
+[ruby logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/ruby.svg
 [ruby integration]: https://github.com/wasmerio/wasmer-ruby
 [`wasmer` ruby gem]: https://rubygems.org/gems/wasmer
 [ruby docs]: https://www.rubydoc.info/gems/wasmer/
 
-[java logo]: ./assets/languages/java.svg
+[java logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/java.svg
 [java integration]: https://github.com/wasmerio/wasmer-java
 [`wasmer/wasmer-jni` bintray package]: https://bintray.com/wasmer/wasmer-jni/wasmer-jni
 [java docs]: https://github.com/wasmerio/wasmer-java/#api-of-the-wasmer-library
 
-[elixir logo]: ./assets/languages/elixir.svg
+[elixir logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/elixir.svg
 [elixir integration]: https://github.com/tessi/wasmex
 [elixir docs]: https://hexdocs.pm/wasmex/api-reference.html
 [`wasmex` hex package]: https://hex.pm/packages/wasmex
 
-[r logo]: ./assets/languages/r.svg
+[r logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/r.svg
 [r integration]: https://github.com/dirkschumacher/wasmr
 [r docs]: https://github.com/dirkschumacher/wasmr#example
 
-[postgres logo]: ./assets/languages/postgres.svg
+[postgres logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/postgres.svg
 [postgres integration]: https://github.com/wasmerio/wasmer-postgres
 [postgres docs]: https://github.com/wasmerio/wasmer-postgres#usage--documentation
 
