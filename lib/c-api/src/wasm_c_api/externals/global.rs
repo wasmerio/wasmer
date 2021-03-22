@@ -145,6 +145,7 @@ mod tests {
                 wasm_instance_delete(instance);
                 wasm_byte_vec_delete(&wasm_bytes);
                 wasm_byte_vec_delete(&wat);
+                wasm_extern_vec_delete(&exports);
                 wasm_store_delete(store);
                 wasm_engine_delete(engine);
 

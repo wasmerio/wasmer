@@ -1,10 +1,13 @@
 #![no_main]
 
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
+use std::sync::Arc;
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, Instance, Module, Store};
-use wasmer_compiler_singlepass::Singlepass;
+use wasmer::wasmparser::Operator;
+use wasmer::{imports, CompilerConfig, Instance, Module, Store};
+use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
+use wasmer_middlewares::Metering;
 
 #[derive(Arbitrary, Debug, Default, Copy, Clone)]
 struct NoImportsConfig;
@@ -21,21 +24,23 @@ impl Config for NoImportsConfig {
     }
 }
 
+fn cost(operator: &Operator) -> u64 {
+    match operator {
+        Operator::LocalGet { .. } | Operator::I32Const { .. } => 1,
+        Operator::I32Add { .. } => 2,
+        _ => 0,
+    }
+}
+
 fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
     let wasm_bytes = module.to_bytes();
-    let compiler = Singlepass::default();
+    let mut compiler = Cranelift::default();
+    compiler.canonicalize_nans(true);
+    compiler.enable_verifier();
+    let metering = Arc::new(Metering::new(10, cost));
+    compiler.push_middleware(metering);
     let store = Store::new(&JIT::new(compiler).engine());
-    let module = Module::new(&store, &wasm_bytes);
-    let module = match module {
-        Ok(m) => m,
-        Err(e) => {
-            let error_message = format!("{}", e);
-            if error_message.contains("Validation error: invalid result arity: func type returns multiple values") || error_message.contains("Validation error: blocks, loops, and ifs accept no parameters when multi-value is not enabled") || error_message.contains("multi-value returns not yet implemented") {
-                return;
-            }
-            panic!("{}", e);
-        }
-    };
+    let module = Module::new(&store, &wasm_bytes).unwrap();
     match Instance::new(&module, &imports! {}) {
         Ok(_) => {}
         Err(e) => {
