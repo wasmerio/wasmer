@@ -5,7 +5,7 @@ use inkwell::targets::{
 };
 pub use inkwell::OptimizationLevel as LLVMOptLevel;
 use itertools::Itertools;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 use std::fmt::Debug;
 use std::sync::Arc;
 use target_lexicon::Architecture;
