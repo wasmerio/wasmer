@@ -57,7 +57,7 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 /// The WebAssembly V128 type
 pub struct V128(pub(crate) [u8; 16]);

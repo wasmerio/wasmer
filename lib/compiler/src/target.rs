@@ -3,7 +3,7 @@ use crate::error::ParseCpuFeatureError;
 use crate::lib::std::str::FromStr;
 use crate::lib::std::string::{String, ToString};
 use enumset::{EnumSet, EnumSetType};
-use loupe::MemoryUsage;
+use loupe_derive::MemoryUsage;
 pub use target_lexicon::{
     Architecture, BinaryFormat, CallingConvention, Endianness, OperatingSystem, PointerWidth,
     Triple,
