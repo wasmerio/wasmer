@@ -5,7 +5,7 @@
   
   <p>
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="Build Status">
+      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="État des tests">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
       <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="Licence">
@@ -35,15 +35,15 @@
 
 * **Rapide et sûr**. Wasmer exécute WebAssembly à une vitesse *quasi native* dans un environnement entièrement contrôlé (bac à sable, _sandbox_).
 
-* **Enfichable**. Wasmer prend en charge différents frameworks de compilation pour répondre au mieux à vos besoins (LLVM, Cranelift ...).
+* **Modulaire**. Wasmer prend en charge différents frameworks de compilation pour répondre au mieux à vos besoins (LLVM, Cranelift ...).
 
-* **Universal**. Vous pouvez exécuter Wasmer sur n'importe quelle *plate-forme* (macOS, Linux et Windows) et *chipset*.
+* **Universel**. Vous pouvez exécuter Wasmer sur n'importe quelle *plate-forme* (macOS, Linux et Windows) et *processeur*.
 
 * **Conforme aux normes**. Wasmer passe [la suite de tests officielle de WebAssembly](https://github.com/WebAssembly/testsuite) prenant en charge [WASI](https://github.com/WebAssembly/WASI) et [Emscripten](https://emscripten.org/)
 
 ## Quickstart
 
-Wasmer est livré sans aucune dépendance. Vous pouvez l'installer à l'aide des programmes d'installation ci-dessous:
+Wasmer est livré sans aucune dépendance. Vous pouvez l'installer à l'aide des programmes d'installation ci-dessous :
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
@@ -65,9 +65,9 @@ iwr https://win.wasmer.io -useb | iex
 
 #### Exécution d'un fichier WebAssembly
 
-Après avoir installé Wasmer, vous devriez être prêt à exécuter votre premier fichier WebAssemby! 🎉
+Après avoir installé Wasmer, vous devriez être prêt à exécuter votre premier fichier WebAssemby ! 🎉
 
-Vous pouvez commencer par exécuter QuickJS: [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+Vous pouvez commencer par exécuter QuickJS : [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
 
 ```bash
 $ wasmer qjs.wasm
@@ -75,7 +75,7 @@ QuickJS - Type "\h" for help
 qjs >
 ```
 
-#### Voici ce que vous pouvez faire ensuite:
+#### Voici ce que vous pouvez faire ensuite
 
 - [Utilisez Wasmer depuis votre application Rust](https://docs.wasmer.io/integrations/rust)
 - [Publier un paquet Wasm sur WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
@@ -171,9 +171,9 @@ qjs >
 
 ## Contribuer
 
-**Nous accueillons toute forme de contribution, en particulier de la part des nouveaux membres de notre communauté** 💜
+**Nous accueillons toutes formes de contributions, en particulier de la part des nouveaux membres de notre communauté**. 💜
 
-Vous pouvez vérifier comment compiler Wasmer dans [nos super documents](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+Vous pouvez vérifier comment compiler Wasmer dans [notre documentation](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
 
 ### Test
 
@@ -181,9 +181,9 @@ Vous voulez des tests ? La [documentation de Wasmer](https://docs.wasmer.io/ecos
 
 ## Communauté
 
-Wasmer a une incroyable communauté de développeurs et de contributeurs. Bienvenue, rejoignez-nous! 👋
+Wasmer a une incroyable communauté de développeurs et de contributeurs. Bienvenue et rejoignez-nous ! 👋
 
-### Canaux
+### Canaux de communications
 
 - [Slack](https://slack.wasmer.io/)
 - [Twitter](https://twitter.com/wasmerio)

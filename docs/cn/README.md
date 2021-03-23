@@ -103,7 +103,7 @@ qjs >
 | ![Postgres logo] | [**Postgres**][Postgres integration] | *没有已发布的软件包* | [文件资料][postgres docs] |
 |  | [**Swift**][Swift integration] | *没有已发布的软件包* | |
 
-[👋 Missing a language?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+[👋 缺少语言？](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
