@@ -19,7 +19,7 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 #[cfg(feature = "enable-rkyv")]
-use wasmer_types::RkyvIndexMap;
+use wasmer_types::ArchivableIndexMap;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive, Fallible, Archived, ser::Serializer, ser::SharedSerializer, de::SharedDeserializer};
 
@@ -124,10 +124,10 @@ pub struct ModuleInfo {
 /// Mirror version of ModuleInfo that can derive rkyv traits
 #[cfg(feature = "enable-rkyv")]
 #[derive(RkyvSerialize, RkyvDeserialize, Archive)]
-pub struct RkyvModuleInfo {
+pub struct ArchivableModuleInfo {
     name: Option<String>,
-    imports: RkyvIndexMap<(String, String, u32), ImportIndex>,
-    exports: RkyvIndexMap<String, ExportIndex>,
+    imports: ArchivableIndexMap<(String, String, u32), ImportIndex>,
+    exports: ArchivableIndexMap<String, ExportIndex>,
     start_function: Option<FunctionIndex>,
     table_initializers: Vec<TableInitializer>,
     passive_elements: PrimaryMap<ElemIndex, Box<[FunctionIndex]>>,
@@ -139,7 +139,7 @@ pub struct RkyvModuleInfo {
     tables: PrimaryMap<TableIndex, TableType>,
     memories: PrimaryMap<MemoryIndex, MemoryType>,
     globals: PrimaryMap<GlobalIndex, GlobalType>,
-    custom_sections: RkyvIndexMap<String, CustomSectionIndex>,
+    custom_sections: ArchivableIndexMap<String, CustomSectionIndex>,
     custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
     num_imported_functions: usize,
     num_imported_tables: usize,
@@ -148,12 +148,12 @@ pub struct RkyvModuleInfo {
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl From<ModuleInfo> for RkyvModuleInfo {
-    fn from(it: ModuleInfo) -> RkyvModuleInfo {
-        RkyvModuleInfo {
+impl From<ModuleInfo> for ArchivableModuleInfo {
+    fn from(it: ModuleInfo) -> ArchivableModuleInfo {
+        ArchivableModuleInfo {
             name: it.name,
-            imports: RkyvIndexMap::from(it.imports),
-            exports: RkyvIndexMap::from(it.exports),
+            imports: ArchivableIndexMap::from(it.imports),
+            exports: ArchivableIndexMap::from(it.exports),
             start_function: it.start_function,
             table_initializers: it.table_initializers,
             passive_elements: it.passive_elements,
@@ -165,7 +165,7 @@ impl From<ModuleInfo> for RkyvModuleInfo {
             tables: it.tables,
             memories: it.memories,
             globals: it.globals,
-            custom_sections: RkyvIndexMap::from(it.custom_sections),
+            custom_sections: ArchivableIndexMap::from(it.custom_sections),
             custom_sections_data: it.custom_sections_data,
             num_imported_functions: it.num_imported_functions,
             num_imported_tables: it.num_imported_tables,
@@ -176,8 +176,8 @@ impl From<ModuleInfo> for RkyvModuleInfo {
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl From<RkyvModuleInfo> for ModuleInfo {
-    fn from(it: RkyvModuleInfo) -> ModuleInfo {
+impl From<ArchivableModuleInfo> for ModuleInfo {
+    fn from(it: ArchivableModuleInfo) -> ModuleInfo {
         ModuleInfo {
             id: Default::default(),
             name: it.name,
@@ -205,33 +205,33 @@ impl From<RkyvModuleInfo> for ModuleInfo {
 }
 
 #[cfg(feature = "enable-rkyv")]
-impl From<&ModuleInfo> for RkyvModuleInfo {
-    fn from(it: &ModuleInfo) -> RkyvModuleInfo {
-        RkyvModuleInfo::from(it.clone())
+impl From<&ModuleInfo> for ArchivableModuleInfo {
+    fn from(it: &ModuleInfo) -> ArchivableModuleInfo {
+        ArchivableModuleInfo::from(it.clone())
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
 impl Archive for ModuleInfo {
-    type Archived = <RkyvModuleInfo as Archive>::Archived;
-    type Resolver = <RkyvModuleInfo as Archive>::Resolver;
+    type Archived = <ArchivableModuleInfo as Archive>::Archived;
+    type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        RkyvModuleInfo::from(self).resolve(pos, resolver)
+        ArchivableModuleInfo::from(self).resolve(pos, resolver)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
 impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        RkyvModuleInfo::from(self).serialize(serializer)
+        ArchivableModuleInfo::from(self).serialize(serializer)
     }
 }
 
 #[cfg(feature = "enable-rkyv")]
 impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D> for Archived<ModuleInfo> {
     fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
-        let r: RkyvModuleInfo = RkyvDeserialize::<RkyvModuleInfo, D>::deserialize(self, deserializer)?;
+        let r: ArchivableModuleInfo = RkyvDeserialize::<ArchivableModuleInfo, D>::deserialize(self, deserializer)?;
         Ok(ModuleInfo::from(r))
     }
 }

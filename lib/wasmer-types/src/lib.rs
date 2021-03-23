@@ -91,7 +91,7 @@ pub use types::{
 
 #[cfg(feature = "enable-rkyv")]
 pub use archives::{
-    ArchivedPrimaryMap, RkyvIndexMap
+    ArchivedPrimaryMap, ArchivableIndexMap
 };
 
 /// Version number of this crate.
