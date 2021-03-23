@@ -253,6 +253,8 @@
 <span id="250">250</span>
 <span id="251">251</span>
 <span id="252">252</span>
+<span id="253">253</span>
+<span id="254">254</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Cranelift.</span>
 
@@ -274,6 +276,7 @@
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">binemit</span>, <span class="ident">Context</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;unwind&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">gimli</span>::<span class="ident">write</span>::{<span class="ident">Address</span>, <span class="ident">EhFrame</span>, <span class="ident">FrameTable</span>};
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::{<span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">CompileError</span>;
@@ -288,6 +291,7 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Cranelift, translating the Wasm to Cranelift IR,</span>
 <span class="doccomment">/// optimizing it and then translating to assembly.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">CraneliftCompiler</span> {
     <span class="ident">config</span>: <span class="ident">Cranelift</span>,
 }

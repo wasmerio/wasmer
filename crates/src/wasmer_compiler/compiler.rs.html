@@ -147,6 +147,7 @@
 <span id="144">144</span>
 <span id="145">145</span>
 <span id="146">146</span>
+<span id="147">147</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
@@ -161,6 +162,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">FunctionBodyData</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ModuleTranslationState</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">SectionIndex</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::<span class="ident">PrimaryMap</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">Features</span>, <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">Validator</span>, <span class="ident">WasmFeatures</span>};
@@ -208,7 +210,7 @@
 }
 
 <span class="doccomment">/// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Compiler</span>: <span class="ident">Send</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Compiler</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
     <span class="doccomment">/// Validates a module.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// It returns the a succesful Result in case is valid, `CompileError` in case is not.</span>

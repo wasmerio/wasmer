@@ -212,10 +212,12 @@
 <span id="209">209</span>
 <span id="210">210</span>
 <span id="211">211</span>
+<span id="212">212</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">compiler</span>::<span class="ident">CraneliftCompiler</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">settings</span>::{<span class="self">self</span>, <span class="ident">Configurable</span>};
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">Architecture</span>, <span class="ident">Compiler</span>, <span class="ident">CompilerConfig</span>, <span class="ident">CpuFeature</span>, <span class="ident">ModuleMiddleware</span>, <span class="ident">Target</span>,
@@ -225,7 +227,7 @@
 
 <span class="doccomment">/// Possible optimization levels for the Cranelift codegen backend.</span>
 <span class="attribute">#[<span class="ident">non_exhaustive</span>]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">CraneliftOptLevel</span> {
     <span class="doccomment">/// No optimizations performed, minimizes compilation time by disabling most</span>
     <span class="doccomment">/// optimizations.</span>
@@ -242,7 +244,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This structure exposes a builder-like interface and is primarily</span>
 <span class="doccomment">/// consumed by `wasmer_engine::Engine::new`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Cranelift</span> {
     <span class="ident">enable_nan_canonicalization</span>: <span class="ident">bool</span>,
     <span class="ident">enable_verifier</span>: <span class="ident">bool</span>,

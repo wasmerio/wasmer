@@ -407,12 +407,23 @@
 <span id="404">404</span>
 <span id="405">405</span>
 <span id="406">406</span>
+<span id="407">407</span>
+<span id="408">408</span>
+<span id="409">409</span>
+<span id="410">410</span>
+<span id="411">411</span>
+<span id="412">412</span>
+<span id="413">413</span>
+<span id="414">414</span>
+<span id="415">415</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! `metering` is a middleware for tracking how many operators are executed in total</span>
 <span class="doccomment">//! and putting a limit on the total number of operators executed.</span>
 
+<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryInto</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::<span class="ident">wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WpType</span>, <span class="ident">TypeOrFuncType</span> <span class="kw">as</span> <span class="ident">WpTypeOrFuncType</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
@@ -422,7 +433,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">GlobalIndex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">struct</span> <span class="ident">MeteringGlobalIndexes</span>(<span class="ident">GlobalIndex</span>, <span class="ident">GlobalIndex</span>);
 
 <span class="kw">impl</span> <span class="ident">MeteringGlobalIndexes</span> {
@@ -561,6 +572,13 @@
             <span class="ident">remaining_points_global_index</span>,
             <span class="ident">points_exhausted_global_index</span>,
         ))
+    }
+}
+
+<span class="kw">impl</span><span class="op">&lt;</span><span class="ident">F</span>: <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Operator</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u64</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="lifetime">&#39;static</span><span class="op">&gt;</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">Metering</span><span class="op">&lt;</span><span class="ident">F</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">global_indexes</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
+            <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">global_indexes</span>)
     }
 }
 

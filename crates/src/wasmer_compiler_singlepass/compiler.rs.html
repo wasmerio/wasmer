@@ -225,6 +225,8 @@
 <span id="222">222</span>
 <span id="223">223</span>
 <span id="224">224</span>
+<span id="225">225</span>
+<span id="226">226</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
@@ -235,6 +237,7 @@
     <span class="ident">CodegenError</span>, <span class="ident">FuncGen</span>,
 };
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">config</span>::<span class="ident">Singlepass</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">TrapInformation</span>;
@@ -250,6 +253,7 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with Singlepass.</span>
 <span class="doccomment">/// It does the compilation in one pass</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SinglepassCompiler</span> {
     <span class="ident">config</span>: <span class="ident">Singlepass</span>,
 }

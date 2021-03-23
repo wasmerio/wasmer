@@ -116,10 +116,12 @@
 <span id="113">113</span>
 <span id="114">114</span>
 <span id="115">115</span>
+<span id="116">116</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Dummy Engine.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">DummyArtifact</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">Features</span>, <span class="ident">Target</span>};
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">Engine</span>, <span class="ident">EngineId</span>, <span class="ident">Tunables</span>};
@@ -136,7 +138,7 @@
 }
 
 <span class="doccomment">/// A WebAssembly `Dummy` Engine.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">DummyEngine</span> {
     <span class="ident">signatures</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">SignatureRegistry</span><span class="op">&gt;</span>,
     <span class="ident">features</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">Features</span><span class="op">&gt;</span>,

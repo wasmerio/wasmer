@@ -99,11 +99,13 @@
 <span id="96">96</span>
 <span id="97">97</span>
 <span id="98">98</span>
+<span id="99">99</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! JIT compilation.</span>
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">tunables</span>::<span class="ident">Tunables</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>};
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">memmap2</span>::<span class="ident">Mmap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">Path</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>};
@@ -118,7 +120,7 @@
 <span class="doccomment">/// such as: JIT or Native.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// The product that an `Engine` produces and consumes is the [`Artifact`].</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Engine</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Engine</span>: <span class="ident">MemoryUsage</span> {
     <span class="doccomment">/// Gets the target</span>
     <span class="kw">fn</span> <span class="ident">target</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Target</span>;
 
@@ -170,7 +172,7 @@
     <span class="kw">fn</span> <span class="ident">cloned</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">Engine</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>;
 }
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">transparent</span>)]</span>
 <span class="doccomment">/// A unique identifier for an Engine.</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">EngineId</span> {

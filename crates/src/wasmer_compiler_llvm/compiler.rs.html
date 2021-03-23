@@ -374,6 +374,8 @@
 <span id="373">373</span>
 <span id="374">374</span>
 <span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">config</span>::<span class="ident">LLVM</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trampoline</span>::<span class="ident">FuncTrampoline</span>;
@@ -384,6 +386,7 @@
 <span class="kw">use</span> <span class="ident">inkwell</span>::<span class="ident">module</span>::{<span class="ident">Linkage</span>, <span class="ident">Module</span>};
 <span class="kw">use</span> <span class="ident">inkwell</span>::<span class="ident">targets</span>::<span class="ident">FileType</span>;
 <span class="kw">use</span> <span class="ident">inkwell</span>::<span class="ident">DLLStorageClass</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">iter</span>::<span class="ident">ParallelBridge</span>;
 <span class="kw">use</span> <span class="ident">rayon</span>::<span class="ident">prelude</span>::{<span class="ident">IntoParallelIterator</span>, <span class="ident">IntoParallelRefIterator</span>, <span class="ident">ParallelIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
@@ -399,6 +402,7 @@
 
 <span class="doccomment">/// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,</span>
 <span class="doccomment">/// optimizing it and then translating to assembly.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LLVMCompiler</span> {
     <span class="ident">config</span>: <span class="ident">LLVM</span>,
 }
