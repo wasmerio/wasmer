@@ -6,7 +6,7 @@ use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::Value;
-use loupe::MemoryUsage;
+use loupe::{MemoryUsage, MemoryUsageTracker};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -57,7 +57,7 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, MemoryUsage)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 /// The WebAssembly V128 type
 pub struct V128(pub(crate) [u8; 16]);
@@ -95,6 +95,12 @@ impl From<&[u8]> for V128 {
         let mut buffer = [0; 16];
         buffer.copy_from_slice(slice);
         Self(buffer)
+    }
+}
+
+impl MemoryUsage for V128 {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        self.as_slice().size_of_val(tracker)
     }
 }
 
