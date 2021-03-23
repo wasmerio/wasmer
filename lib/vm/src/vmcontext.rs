@@ -9,10 +9,11 @@ use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
-use loupe::MemoryUsage;
+use loupe::{MemoryUsage, MemoryUsageTracker, POINTER_BYTE_SIZE};
 use std::any::Any;
 use std::convert::TryFrom;
 use std::fmt;
+use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::Arc;
 use std::u32;
@@ -50,8 +51,14 @@ impl std::cmp::PartialEq for VMFunctionEnvironment {
     }
 }
 
+impl MemoryUsage for VMFunctionEnvironment {
+    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
+    }
+}
+
 /// An imported function.
-#[derive(Debug, Copy, Clone)]
+#[derive(Debug, Copy, Clone, MemoryUsage)]
 #[repr(C)]
 pub struct VMFunctionImport {
     /// A pointer to the imported function body.
@@ -189,7 +196,7 @@ pub enum VMFunctionKind {
 
 /// The fields compiled code needs to access to utilize a WebAssembly table
 /// imported from another instance.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 #[repr(C)]
 pub struct VMTableImport {
     /// A pointer to the imported table description.
@@ -227,7 +234,7 @@ mod test_vmtable_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly linear
 /// memory imported from another instance.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 #[repr(C)]
 pub struct VMMemoryImport {
     /// A pointer to the imported memory description.
@@ -265,7 +272,7 @@ mod test_vmmemory_import {
 
 /// The fields compiled code needs to access to utilize a WebAssembly global
 /// variable imported from another instance.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 #[repr(C)]
 pub struct VMGlobalImport {
     /// A pointer to the imported global variable description.
@@ -336,6 +343,16 @@ unsafe impl Send for VMMemoryDefinition {}
 /// really no difference between passing it by reference or by value as far as
 /// correctness in a multi-threaded context is concerned.
 unsafe impl Sync for VMMemoryDefinition {}
+
+impl MemoryUsage for VMMemoryDefinition {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        if tracker.track(self.base as *const _ as *const ()) {
+            POINTER_BYTE_SIZE * (self.current_length as usize)
+        } else {
+            0
+        }
+    }
+}
 
 impl VMMemoryDefinition {
     /// Do an unsynchronized, non-atomic `memory.copy` for the memory.
@@ -446,6 +463,16 @@ pub struct VMTableDefinition {
     pub current_elements: u32,
 }
 
+impl MemoryUsage for VMTableDefinition {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        if tracker.track(self.base as *const _ as *const ()) {
+            POINTER_BYTE_SIZE * (self.current_elements as usize)
+        } else {
+            0
+        }
+    }
+}
+
 #[cfg(test)]
 mod test_vmtable_definition {
     use super::VMTableDefinition;
@@ -500,11 +527,17 @@ impl fmt::Debug for VMGlobalDefinitionStorage {
     }
 }
 
+impl MemoryUsage for VMGlobalDefinitionStorage {
+    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
+    }
+}
+
 /// The storage for a WebAssembly global defined within the instance.
 ///
 /// TODO: Pack the globals more densely, rather than using the same size
 /// for every type.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 #[repr(C, align(16))]
 pub struct VMGlobalDefinition {
     storage: VMGlobalDefinitionStorage,
@@ -751,7 +784,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.
