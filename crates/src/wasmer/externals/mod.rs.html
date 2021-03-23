@@ -124,6 +124,7 @@
 <span id="123">123</span>
 <span id="124">124</span>
 <span id="125">125</span>
+<span id="126">126</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">mod</span> <span class="ident">function</span>;
 <span class="kw">mod</span> <span class="ident">global</span>;
@@ -143,6 +144,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::{<span class="ident">Store</span>, <span class="ident">StoreObject</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">ExternType</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::<span class="ident">Export</span>;
 
@@ -150,7 +152,7 @@
 <span class="doccomment">/// can be imported or exported.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#external-values&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">Extern</span> {
     <span class="doccomment">/// A external [`Function`].</span>
     <span class="ident">Function</span>(<span class="ident">Function</span>),

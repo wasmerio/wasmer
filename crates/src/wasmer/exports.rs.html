@@ -311,12 +311,14 @@
 <span id="310">310</span>
 <span id="311">311</span>
 <span id="312">312</span>
+<span id="313">313</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::{<span class="ident">Extern</span>, <span class="ident">Function</span>, <span class="ident">Global</span>, <span class="ident">Memory</span>, <span class="ident">Table</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">import_object</span>::<span class="ident">LikeNamespace</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">native</span>::<span class="ident">NativeFunc</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">WasmTypeList</span>;
 <span class="kw">use</span> <span class="ident">indexmap</span>::<span class="ident">IndexMap</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::{<span class="ident">ExactSizeIterator</span>, <span class="ident">FromIterator</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
@@ -375,7 +377,7 @@
 <span class="doccomment">/// the types of instances.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// TODO: add examples of using exports</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Default</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Exports</span> {
     <span class="ident">map</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">IndexMap</span><span class="op">&lt;</span><span class="ident">String</span>, <span class="ident">Extern</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 }

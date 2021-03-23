@@ -197,6 +197,8 @@
 <span id="194">194</span>
 <span id="195">195</span>
 <span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -206,6 +208,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory</span>::{<span class="ident">Memory</span>, <span class="ident">MemoryStyle</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">table</span>::{<span class="ident">Table</span>, <span class="ident">TableStyle</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{<span class="ident">VMFunctionBody</span>, <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>};
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">MemoryType</span>, <span class="ident">TableType</span>};
 
@@ -226,7 +229,7 @@
 }
 
 <span class="doccomment">/// A function export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">VMExportFunction</span> {
     <span class="doccomment">/// The address of the native-code function.</span>
     <span class="kw">pub</span> <span class="ident">address</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFunctionBody</span>,
@@ -246,6 +249,7 @@
     <span class="doccomment">///</span>
     <span class="doccomment">/// May be `None` when the function is a host function (`FunctionType`</span>
     <span class="doccomment">/// == `Dynamic` or `vmctx` == `nullptr`).</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span> <span class="ident">call_trampoline</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// A “reference” to the instance through the</span>

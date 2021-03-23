@@ -171,6 +171,7 @@
 <span id="170">170</span>
 <span id="171">171</span>
 <span id="172">172</span>
+<span id="173">173</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::<span class="ident">Extern</span>;
@@ -178,6 +179,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">Val</span>, <span class="ident">ValFuncRef</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">RuntimeError</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">TableType</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Export</span>, <span class="ident">ExportTable</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Table</span> <span class="kw">as</span> <span class="ident">RuntimeTable</span>, <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMExportTable</span>};
@@ -191,7 +193,7 @@
 <span class="doccomment">/// mutable from both host and WebAssembly.</span>
 <span class="doccomment">///</span>
 <span class="doccomment">/// Spec: &lt;https://webassembly.github.io/spec/core/exec/runtime.html#table-instances&gt;</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Table</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">table</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">RuntimeTable</span><span class="op">&gt;</span>,

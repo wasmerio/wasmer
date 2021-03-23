@@ -1394,6 +1394,10 @@
 <span id="1391">1391</span>
 <span id="1392">1392</span>
 <span id="1393">1393</span>
+<span id="1394">1394</span>
+<span id="1395">1395</span>
+<span id="1396">1396</span>
+<span id="1397">1397</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1454,6 +1458,7 @@
 <span class="doccomment">/// contain various data. That&#39;s why the type has a C representation</span>
 <span class="doccomment">/// to ensure that the `vmctx` field is last. See the documentation of</span>
 <span class="doccomment">/// the `vmctx` field to learn more.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="attribute">#[<span class="ident">repr</span>(<span class="ident">C</span>)]</span>
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">struct</span> <span class="ident">Instance</span> {
     <span class="doccomment">/// The `ModuleInfo` this `Instance` was instantiated from.</span>
@@ -1475,6 +1480,7 @@
     <span class="ident">functions</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Pointers to function call trampolines in executable memory.</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Passive elements in this instantiation. As `elem.drop`s happen, these</span>
@@ -1489,6 +1495,7 @@
     <span class="ident">host_state</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">dyn</span> <span class="ident">Any</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">signal_handler</span>: <span class="ident">Cell</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="ident">SignalHandler</span><span class="op">&gt;</span><span class="op">&gt;</span><span class="op">&gt;</span>,
 
     <span class="doccomment">/// Functions to operate on host environments in the imports</span>
@@ -1502,6 +1509,7 @@
     <span class="doccomment">/// field is last, and represents a dynamically-sized array that</span>
     <span class="doccomment">/// extends beyond the nominal end of the struct (similar to a</span>
     <span class="doccomment">/// flexible array member).</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="ident">vmctx</span>: <span class="ident">VMContext</span>,
 }
 
@@ -2182,7 +2190,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This is more or less a public facade of the private `Instance`,</span>
 <span class="doccomment">/// providing useful higher-level API.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">InstanceHandle</span> {
     <span class="doccomment">/// The [`InstanceRef`]. See its documentation to learn more.</span>
     <span class="ident">instance</span>: <span class="ident">InstanceRef</span>,

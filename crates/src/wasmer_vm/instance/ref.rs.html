@@ -211,9 +211,23 @@
 <span id="208">208</span>
 <span id="209">209</span>
 <span id="210">210</span>
+<span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
+<span id="216">216</span>
+<span id="217">217</span>
+<span id="218">218</span>
+<span id="219">219</span>
+<span id="220">220</span>
+<span id="221">221</span>
+<span id="222">222</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">Instance</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">alloc</span>::<span class="ident">Layout</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ptr</span>::{<span class="self">self</span>, <span class="ident">NonNull</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">atomic</span>, <span class="ident">Arc</span>};
 
@@ -420,6 +434,16 @@
         <span class="comment">// but the way `InstanceHandle` creates the</span>
         <span class="comment">// `InstanceRef` ensures that.</span>
         <span class="kw">unsafe</span> { <span class="self">Self</span>::<span class="ident">deallocate_instance</span>(<span class="self">self</span>) };
+    }
+}
+
+<span class="kw">impl</span> <span class="ident">MemoryUsage</span> <span class="kw">for</span> <span class="ident">InstanceRef</span> {
+    <span class="kw">fn</span> <span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">tracker</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">dyn</span> <span class="ident">MemoryUsageTracker</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+        <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="self">self</span>) <span class="op">+</span> <span class="self">self</span>.<span class="ident">strong</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>) <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">strong</span>)
+            <span class="op">+</span> <span class="self">self</span>.<span class="ident">instance_layout</span>.<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
+            <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance_layout</span>)
+            <span class="op">+</span> <span class="self">self</span>.<span class="ident">as_ref</span>().<span class="ident">size_of_val</span>(<span class="ident">tracker</span>)
+            <span class="op">-</span> <span class="ident">mem</span>::<span class="ident">size_of_val</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">instance</span>)
     }
 }
 </pre></div>

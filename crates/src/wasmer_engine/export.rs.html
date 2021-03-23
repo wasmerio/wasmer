@@ -189,13 +189,19 @@
 <span id="186">186</span>
 <span id="187">187</span>
 <span id="188">188</span>
+<span id="189">189</span>
+<span id="190">190</span>
+<span id="191">191</span>
+<span id="192">192</span>
+<span id="193">193</span>
+<span id="194">194</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
     <span class="ident">ImportInitializerFuncPtr</span>, <span class="ident">VMExport</span>, <span class="ident">VMExportFunction</span>, <span class="ident">VMExportGlobal</span>, <span class="ident">VMExportMemory</span>,
     <span class="ident">VMExportTable</span>,
 };
-
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 
 <span class="doccomment">/// The value of an export passed from one instance to another.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -246,7 +252,7 @@
 <span class="doccomment">///</span>
 <span class="doccomment">/// This struct owns the original `host_env`, thus when it gets dropped</span>
 <span class="doccomment">/// it calls the `drop` function on it.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportFunctionMetadata</span> {
     <span class="doccomment">/// This field is stored here to be accessible by `Drop`.</span>
     <span class="doccomment">///</span>
@@ -261,20 +267,26 @@
     <span class="doccomment">/// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of</span>
     <span class="doccomment">/// this pointer that is used by the VM when creating an `Instance`.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">host_env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
+
     <span class="doccomment">/// Function pointer to `WasmerEnv::init_with_instance(&amp;mut self, instance: &amp;Instance)`.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This function is called to finish setting up the environment after</span>
     <span class="doccomment">/// we create the `api::Instance`.</span>
     <span class="comment">// This one is optional for now because dynamic host envs need the rest</span>
     <span class="comment">// of this without the init fn</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">import_init_function_ptr</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">ImportInitializerFuncPtr</span><span class="op">&gt;</span>,
+
     <span class="doccomment">/// A function analogous to `Clone::clone` that returns a leaked `Box`.</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">host_env_clone_fn</span>: <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
+
     <span class="doccomment">/// The destructor to free the host environment.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// # Safety</span>
     <span class="doccomment">/// - This function should only be called in when properly synchronized.</span>
     <span class="doccomment">/// For example, in the `Drop` implementation of this type.</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">host_env_drop_fn</span>: <span class="kw">unsafe</span> <span class="kw">fn</span>(<span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>),
 }
 
@@ -324,7 +336,7 @@
 
 <span class="doccomment">/// A function export value with an extra function pointer to initialize</span>
 <span class="doccomment">/// host environments.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportFunction</span> {
     <span class="doccomment">/// The VM function, containing most of the data.</span>
     <span class="kw">pub</span> <span class="ident">vm_function</span>: <span class="ident">VMExportFunction</span>,

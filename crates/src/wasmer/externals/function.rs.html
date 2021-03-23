@@ -1714,6 +1714,8 @@
 <span id="1713">1713</span>
 <span id="1714">1714</span>
 <span id="1715">1715</span>
+<span id="1716">1716</span>
+<span id="1717">1717</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::<span class="ident">Extern</span>;
@@ -1727,6 +1729,7 @@
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;deprecated&quot;</span>)]</span>
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">inner</span>::{<span class="ident">UnsafeMutableEnv</span>, <span class="ident">WithUnsafeMutableEnv</span>};
 
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>::<span class="ident">max</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
@@ -1739,21 +1742,22 @@
 };
 
 <span class="doccomment">/// A function defined in the Wasm module</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">WasmFunctionDefinition</span> {
     <span class="comment">// Address of the trampoline to do the call.</span>
+    <span class="attribute">#[<span class="ident">loupe</span>(<span class="ident">skip</span>)]</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">trampoline</span>: <span class="ident">VMTrampoline</span>,
 }
 
 <span class="doccomment">/// A function defined in the Host</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">HostFunctionDefinition</span> {
     <span class="doccomment">/// If the host function has a custom environment attached</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">has_env</span>: <span class="ident">bool</span>,
 }
 
 <span class="doccomment">/// The inner helper</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">FunctionDefinition</span> {
     <span class="doccomment">/// A function defined in the Wasm side</span>
     <span class="ident">Wasm</span>(<span class="ident">WasmFunctionDefinition</span>),
@@ -1778,7 +1782,7 @@
 <span class="doccomment">///   with native functions. Attempting to create a native `Function` with one will</span>
 <span class="doccomment">///   result in a panic.</span>
 <span class="doccomment">///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Function</span> {
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">definition</span>: <span class="ident">FunctionDefinition</span>,
