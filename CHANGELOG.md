@@ -18,6 +18,7 @@
 - [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2201](https://github.com/wasmerio/wasmer/pull/2201) Implement `loupe::MemoryUsage` for `wasmer::Instance`.
 - [#2200](https://github.com/wasmerio/wasmer/pull/2200) Implement `loupe::MemoryUsage` for `wasmer::Module`.
 - [#2199](https://github.com/wasmerio/wasmer/pull/2199) Implement `loupe::MemoryUsage` for `wasmer::Store`.
 - [#2140](https://github.com/wasmerio/wasmer/pull/2140) Reduce the number of dependencies in the `wasmer.dll` shared library by statically compiling CRT.
