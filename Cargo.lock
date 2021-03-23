@@ -2657,7 +2657,6 @@ dependencies = [
  "tempfile",
  "tracing",
  "wasmer-compiler",
- "wasmer-compiler-singlepass",
  "wasmer-engine",
  "wasmer-object",
  "wasmer-types",

@@ -26,9 +26,6 @@ tempfile = "3.1"
 which = "4.0"
 rkyv = "0.4.1"
 
-[dev-dependencies]
-wasmer-compiler-singlepass = { version = "1.0.2", path = "../compiler-singlepass" }
-
 [features]
 # Enable the `compiler` feature if you want the engine to compile
 # and not be only on headless mode.
