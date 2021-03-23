@@ -135,10 +135,10 @@ mod tests {
     #[cfg(feature = "native")]
     #[test]
     fn test_rkyv_deserialize_is_correct() {
-        use wasmer_compiler_singlepass::Singlepass;
         use crate::Native;
-        use wasmer_engine_native::NativeArtifact;
+        use wasmer_compiler_singlepass::Singlepass;
         use wasmer_engine::Artifact;
+        use wasmer_engine_native::NativeArtifact;
 
         let compiler = Singlepass::default();
         let engine = Native::new(compiler).engine();
@@ -147,7 +147,8 @@ mod tests {
         let artifact = NativeArtifact::new(&engine, &binary, store.tunables()).unwrap();
 
         let artifact_serialized = artifact.serialize().unwrap();
-        let artifact_deserialized = unsafe { NativeArtifact::deserialize(&engine, &artifact_serialized) }.unwrap();
+        let artifact_deserialized =
+            unsafe { NativeArtifact::deserialize(&engine, &artifact_serialized) }.unwrap();
 
         assert_eq!(artifact.metadata(), artifact_deserialized.metadata());
     }

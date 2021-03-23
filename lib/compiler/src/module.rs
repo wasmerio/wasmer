@@ -1,11 +1,11 @@
 use crate::lib::std::sync::Arc;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, MemoryIndex, TableIndex};
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
-#[cfg(feature = "enable-rkyv")]
-use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 
 /// The required info for compiling a module.
 ///
@@ -14,7 +14,10 @@ use rkyv::{Serialize as RkyvSerialize, Deserialize as RkyvDeserialize, Archive};
 /// or the `MemoryStyle` and `TableStyle`).
 #[derive(Debug, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

@@ -54,6 +54,8 @@ pub mod lib {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
+mod archives;
 mod features;
 mod indexes;
 mod initializers;
@@ -63,8 +65,6 @@ mod r#ref;
 mod types;
 mod units;
 mod values;
-#[cfg(feature = "enable-rkyv")]
-mod archives;
 
 /// The entity module, with common helpers for Rust structures
 pub mod entity;
@@ -90,9 +90,7 @@ pub use types::{
 };
 
 #[cfg(feature = "enable-rkyv")]
-pub use archives::{
-    ArchivedPrimaryMap, ArchivableIndexMap
-};
+pub use archives::{ArchivableIndexMap, ArchivedPrimaryMap};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
