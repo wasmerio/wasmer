@@ -69,7 +69,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 tempfile = "3.1"
-loupe = { git = "https://github.com/wasmerio/loupe", branch = "master" }
+loupe = "0.1"
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

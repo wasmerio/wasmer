@@ -28,9 +28,9 @@ dependencies = [
 
 [[package]]
 name = "anyhow"
-version = "1.0.38"
+version = "1.0.39"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
+checksum = "81cddc5f91628367664cc7c69714ff08deee8a3efc54623011c772544d7b2767"
 
 [[package]]
 name = "arbitrary"
@@ -454,9 +454,9 @@ checksum = "3576a87f2ba00f6f106fdfcd16db1d698d648a26ad8e0573cad8537c3c362d2a"
 
 [[package]]
 name = "libc"
-version = "0.2.89"
+version = "0.2.91"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "538c092e5586f4cdd7dd8078c4a79220e3e168880218124dcbce860f0ea938c6"
+checksum = "8916b1f6ca17130ec6568feccee27c156ad12037880833a3b842a823236502e7"
 
 [[package]]
 name = "libfuzzer-sys"
@@ -507,6 +507,26 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "loupe"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "f0700ebea6c2a63815aa6f376f1c6dac93223d7b11c4728a7f71ff951a6eca67"
+dependencies = [
+ "loupe-derive",
+ "rustversion",
+]
+
+[[package]]
+name = "loupe-derive"
+version = "0.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "da9a2f753a29753600fa1e3f5c2b311babaca3bb66929bdc37082996e9c46cfb"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -823,6 +843,12 @@ dependencies = [
 ]
 
 [[package]]
+name = "rustversion"
+version = "1.0.4"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cb5d2a036dc6d2d8fd16fde3498b04306e29bd193bf306a57427019b823d5acd"
+
+[[package]]
 name = "scopeguard"
 version = "1.1.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -883,9 +909,9 @@ dependencies = [
 
 [[package]]
 name = "serde"
-version = "1.0.124"
+version = "1.0.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "bd761ff957cb2a45fbb9ab3da6512de9de55872866160b23c25f1a841e99d29f"
+checksum = "558dc50e1a5a5fa7112ca2ce4effcb321b0300c0d4ccf0776a9f60cd89031171"
 dependencies = [
  "serde_derive",
 ]
@@ -901,9 +927,9 @@ dependencies = [
 
 [[package]]
 name = "serde_derive"
-version = "1.0.124"
+version = "1.0.125"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1800f7693e94e186f5e25a28291ae1570da908aff7d97a095dec1e56ff99069b"
+checksum = "b093b7a2bb58203b5da3056c05b4ec1fed827dcfdb37347a8841695263b3d06d"
 dependencies = [
  "proc-macro2",
  "quote",
@@ -1038,7 +1064,7 @@ checksum = "fd6fbd9a79829dd1ad0cc20627bf1ed606756a7f77edff7b66b7064f9cb327c6"
 [[package]]
 name = "wasm-encoder"
 version = "0.4.0"
-source = "git+https://github.com/bytecodealliance/wasm-tools#ea17086f38b3bd452a99340109bfdc9759f109a1"
+source = "git+https://github.com/bytecodealliance/wasm-tools#4e86f2a84fc54264388040b200eb32a165ec6453"
 dependencies = [
  "leb128",
 ]
@@ -1046,7 +1072,7 @@ dependencies = [
 [[package]]
 name = "wasm-smith"
 version = "0.4.0"
-source = "git+https://github.com/bytecodealliance/wasm-tools#ea17086f38b3bd452a99340109bfdc9759f109a1"
+source = "git+https://github.com/bytecodealliance/wasm-tools#4e86f2a84fc54264388040b200eb32a165ec6453"
 dependencies = [
  "arbitrary",
  "indexmap",
@@ -1060,6 +1086,7 @@ version = "1.0.2"
 dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
+ "loupe",
  "more-asserts",
  "target-lexicon",
  "thiserror",
@@ -1096,6 +1123,7 @@ name = "wasmer-compiler"
 version = "1.0.2"
 dependencies = [
  "enumset",
+ "loupe",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -1111,8 +1139,10 @@ name = "wasmer-compiler-cranelift"
 version = "1.0.2"
 dependencies = [
  "cranelift-codegen",
+ "cranelift-entity",
  "cranelift-frontend",
  "gimli",
+ "loupe",
  "more-asserts",
  "rayon",
  "serde",
@@ -1134,6 +1164,7 @@ dependencies = [
  "itertools",
  "lazy_static",
  "libc",
+ "loupe",
  "rayon",
  "regex",
  "rustc_version",
@@ -1153,6 +1184,7 @@ dependencies = [
  "dynasm",
  "dynasmrt",
  "lazy_static",
+ "loupe",
  "more-asserts",
  "rayon",
  "serde",
@@ -1179,6 +1211,7 @@ dependencies = [
  "backtrace",
  "bincode",
  "lazy_static",
+ "loupe",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -1197,6 +1230,7 @@ version = "1.0.2"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
+ "loupe",
  "region",
  "serde",
  "serde_bytes",
@@ -1215,6 +1249,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "loupe",
  "serde",
  "tempfile",
  "tracing",
@@ -1230,6 +1265,7 @@ dependencies = [
 name = "wasmer-middlewares"
 version = "1.0.2"
 dependencies = [
+ "loupe",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -1249,7 +1285,7 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
- "cranelift-entity",
+ "loupe",
  "serde",
  "thiserror",
 ]
@@ -1263,6 +1299,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
  "libc",
+ "loupe",
  "memoffset",
  "more-asserts",
  "region",
