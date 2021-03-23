@@ -56,11 +56,7 @@ pub struct DataInitializer<'data> {
 
 /// As `DataInitializer` but owning the data rather than
 /// holding a reference to it
-<<<<<<< HEAD:lib/wasmer-types/src/initializers.rs
 #[derive(Debug, Clone, MemoryUsage, PartialEq, Eq)]
-=======
-#[derive(Debug, Clone, MemoryUsage)]
->>>>>>> master:lib/types/src/initializers.rs
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 #[cfg_attr(
     feature = "enable-rkyv",
