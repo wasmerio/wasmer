@@ -1,8 +1,10 @@
 //! `metering` is a middleware for tracking how many operators are executed in total
 //! and putting a limit on the total number of operators executed.
 
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::convert::TryInto;
 use std::fmt;
+use std::mem;
 use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer::{
@@ -12,7 +14,7 @@ use wasmer::{
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
 
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 struct MeteringGlobalIndexes(GlobalIndex, GlobalIndex);
 
 impl MeteringGlobalIndexes {
@@ -151,6 +153,13 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
             remaining_points_global_index,
             points_exhausted_global_index,
         ))
+    }
+}
+
+impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> MemoryUsage for Metering<F> {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self) + self.global_indexes.size_of_val(tracker)
+            - mem::size_of_val(&self.global_indexes)
     }
 }
 
