@@ -1,4 +1,5 @@
 use crate::tunables::BaseTunables;
+use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
@@ -15,7 +16,7 @@ use wasmer_engine::{Engine, Tunables};
 /// [`Tunables`] (that are used to create the memories, tables and globals).
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#store>
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct Store {
     engine: Arc<dyn Engine + Send + Sync>,
     tunables: Arc<dyn Tunables + Send + Sync>,

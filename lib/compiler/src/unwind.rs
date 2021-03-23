@@ -6,6 +6,7 @@
 //!
 //! [Learn more](https://en.wikipedia.org/wiki/Call_stack).
 use crate::lib::std::vec::Vec;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -17,7 +18,7 @@ use serde::{Deserialize, Serialize};
 ///
 /// [unwind info]: https://docs.microsoft.com/en-us/cpp/build/exception-handling-x64?view=vs-2019
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(Debug, Clone, PartialEq, Eq)]
+#[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub enum CompiledFunctionUnwindInfo {
     /// Windows UNWIND_INFO.
     WindowsX64(Vec<u8>),

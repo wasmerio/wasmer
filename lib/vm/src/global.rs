@@ -1,11 +1,12 @@
 use crate::vmcontext::VMGlobalDefinition;
+use loupe::MemoryUsage;
 use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
 use wasmer_types::{GlobalType, Mutability, Type, Value, ValueEnumType};
 
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 /// A Global instance
 pub struct Global {
     ty: GlobalType,

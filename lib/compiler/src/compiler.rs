@@ -11,6 +11,7 @@ use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
+use loupe::MemoryUsage;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
@@ -58,7 +59,7 @@ where
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler: Send {
+pub trait Compiler: Send + MemoryUsage {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.

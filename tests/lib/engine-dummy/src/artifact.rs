@@ -2,6 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::DummyEngine;
+use loupe::MemoryUsage;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -21,6 +22,7 @@ use wasmer_vm::{
 
 /// Serializable struct for the artifact
 #[cfg_attr(feature = "serialize", derive(Serialize, Deserialize))]
+#[derive(MemoryUsage)]
 pub struct DummyArtifactMetadata {
     pub module: Arc<ModuleInfo>,
     pub features: Features,
@@ -34,10 +36,11 @@ pub struct DummyArtifactMetadata {
 ///
 /// This artifact will point to fake finished functions and trampolines
 /// as no functions are really compiled.
+#[derive(MemoryUsage)]
 pub struct DummyArtifact {
     metadata: DummyArtifactMetadata,
-
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

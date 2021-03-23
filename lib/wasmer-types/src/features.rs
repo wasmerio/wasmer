@@ -1,3 +1,4 @@
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -5,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Features usually have a corresponding [WebAssembly proposal].
 ///
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Features {
     /// Threads proposal should be enabled

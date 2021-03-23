@@ -8,6 +8,7 @@
 
 use crate::module::ModuleInfo;
 use crate::VMBuiltinFunctionIndex;
+use loupe::MemoryUsage;
 use more_asserts::assert_lt;
 use std::convert::TryFrom;
 use wasmer_types::{
@@ -33,7 +34,7 @@ const fn align(offset: u32, width: u32) -> u32 {
 /// related structs that JIT code accesses directly.
 ///
 /// [`VMContext`]: crate::vmcontext::VMContext
-#[derive(Clone, Debug)]
+#[derive(Clone, Debug, MemoryUsage)]
 pub struct VMOffsets {
     /// The size in bytes of a pointer on the target.
     pub pointer_size: u8,

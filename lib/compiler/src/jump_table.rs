@@ -5,6 +5,7 @@
 //! [Learn more](https://en.wikipedia.org/wiki/Branch_table).
 
 use super::CodeOffset;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::{entity_impl, SecondaryMap};
@@ -14,7 +15,7 @@ use wasmer_types::entity::{entity_impl, SecondaryMap};
 /// `JumpTable`s are used for indirect branching and are specialized for dense,
 /// 0-based jump offsets.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord)]
+#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, MemoryUsage)]
 pub struct JumpTable(u32);
 
 entity_impl!(JumpTable, "jt");

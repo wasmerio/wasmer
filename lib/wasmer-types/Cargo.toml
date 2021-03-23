@@ -13,6 +13,7 @@ edition = "2018"
 [dependencies]
 serde = { version = "1.0", features = ["derive"], optional = true, default-features = false }
 thiserror = "1.0"
+loupe = "0.1"
 
 [features]
 default = ["std", "enable-serde"]

@@ -28,6 +28,7 @@ use crate::vmcontext::{
 };
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
@@ -36,9 +37,10 @@ use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ffi;
 use std::fmt;
-use std::ptr::NonNull;
+use std::mem;
+use std::ptr::{self, NonNull};
+use std::slice;
 use std::sync::Arc;
-use std::{mem, ptr, slice};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
@@ -57,6 +59,7 @@ pub type ImportInitializerFuncPtr<ResultErr = *mut ffi::c_void> =
 /// contain various data. That's why the type has a C representation
 /// to ensure that the `vmctx` field is last. See the documentation of
 /// the `vmctx` field to learn more.
+#[derive(MemoryUsage)]
 #[repr(C)]
 pub(crate) struct Instance {
     /// The `ModuleInfo` this `Instance` was instantiated from.
@@ -78,6 +81,7 @@ pub(crate) struct Instance {
     functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
 
     /// Pointers to function call trampolines in executable memory.
+    #[loupe(skip)]
     function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
 
     /// Passive elements in this instantiation. As `elem.drop`s happen, these
@@ -95,6 +99,7 @@ pub(crate) struct Instance {
     host_state: Box<dyn Any>,
 
     /// Handler run when `SIGBUS`, `SIGFPE`, `SIGILL`, or `SIGSEGV` are caught by the instance thread.
+    #[loupe(skip)]
     pub(crate) signal_handler: Cell<Option<Box<SignalHandler>>>,
 
     /// Functions to operate on host environments in the imports
@@ -108,6 +113,7 @@ pub(crate) struct Instance {
     /// field is last, and represents a dynamically-sized array that
     /// extends beyond the nominal end of the struct (similar to a
     /// flexible array member).
+    #[loupe(skip)]
     vmctx: VMContext,
 }
 
@@ -127,6 +133,7 @@ pub enum ImportFunctionEnv {
         /// The function environment. This is not always the user-supplied
         /// env.
         env: *mut ffi::c_void,
+
         /// A clone function for duplicating the env.
         clone: fn(*mut ffi::c_void) -> *mut ffi::c_void,
         /// This field is not always present. When it is present, it
@@ -189,6 +196,12 @@ impl Drop for ImportFunctionEnv {
             }
             Self::NoEnv => (),
         }
+    }
+}
+
+impl MemoryUsage for ImportFunctionEnv {
+    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
     }
 }
 
@@ -872,7 +885,7 @@ impl Instance {
 ///
 /// This is more or less a public facade of the private `Instance`,
 /// providing useful higher-level API.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, MemoryUsage)]
 pub struct InstanceHandle {
     /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,
