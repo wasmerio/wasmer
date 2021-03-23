@@ -2,7 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::DummyEngine;
-use loupe_derive::MemoryUsage;
+use loupe::MemoryUsage;
 #[cfg(feature = "serialize")]
 use serde::{Deserialize, Serialize};
 use std::sync::Arc;
@@ -40,7 +40,7 @@ pub struct DummyArtifactMetadata {
 pub struct DummyArtifact {
     metadata: DummyArtifactMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    #[memoryusage(ignore)]
+    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

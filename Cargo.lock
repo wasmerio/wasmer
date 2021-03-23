@@ -1156,9 +1156,9 @@ dependencies = [
 
 [[package]]
 name = "loupe"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "f0700ebea6c2a63815aa6f376f1c6dac93223d7b11c4728a7f71ff951a6eca67"
+checksum = "1acf065b51eb58abbc66a07c27ec63142205d339a9f5093dc3e1d7cda3d5c9a3"
 dependencies = [
  "indexmap",
  "loupe-derive",
@@ -1167,9 +1167,9 @@ dependencies = [
 
 [[package]]
 name = "loupe-derive"
-version = "0.1.0"
+version = "0.1.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "da9a2f753a29753600fa1e3f5c2b311babaca3bb66929bdc37082996e9c46cfb"
+checksum = "e40881c741681f26b0f4c0261f493c8df600998807184b524e34b7e208324834"
 dependencies = [
  "quote",
  "syn",
