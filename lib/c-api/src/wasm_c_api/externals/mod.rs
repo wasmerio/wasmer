@@ -12,10 +12,94 @@ use wasmer::{Extern, Instance};
 
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
+#[repr(transparent)]
 pub struct wasm_extern_t {
-    // this is how we ensure the instance stays alive
-    pub(crate) instance: Option<Arc<Instance>>,
-    pub(crate) inner: Extern,
+    pub(crate) inner: wasm_extern_inner,
+}
+
+/// All elements in this union must be `repr(C)` and have a
+/// `CApiExternTag` as their first element.
+pub(crate) union wasm_extern_inner {
+    function: wasm_func_t,
+    memory: wasm_memory_t,
+    global: wasm_global_t,
+    table: wasm_table_t,
+}
+
+#[cfg(test)]
+mod extern_tests {
+    use super::*;
+
+    #[test]
+    fn externs_are_the_same_size() {
+        use std::mem::size_of;
+        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_func_t>());
+        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_memory_t>());
+        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_global_t>());
+        assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_table_t>());
+    }
+}
+
+impl wasm_extern_t {
+    pub(crate) fn get_tag(&self) -> CApiExternTag {
+        unsafe { self.inner.function.tag }
+    }
+
+    pub(crate) fn ty(&self) -> ExternType {
+        match self.get_tag() {
+            CApiExternTag::Function => unsafe { self.inner.function.inner.ty() },
+            CApiExternTag::Memory => unsafe { self.inner.memory.inner.ty() },
+            CApiExternTag::Global => unsafe { self.inner.global.inner.ty() },
+            CApiExternTag::Table => unsafe { self.inner.table.inner.ty() },
+        }
+    }
+}
+
+impl From<Extern> for wasm_extern_t {
+    fn from(other: Extern) -> Self {
+        match other {
+            Extern::Function(function) => Self {
+                inner: wasm_extern_inner {
+                    function: wasm_func_t::new(function),
+                },
+            },
+            Extern::Memory(memory) => Self {
+                inner: wasm_extern_inner {
+                    memory: wasm_memory_t::new(memory),
+                },
+            },
+            Extern::Table(table) => Self {
+                inner: wasm_extern_inner {
+                    table: wasm_table_t::new(table),
+                },
+            },
+            Extern::Global(global) => Self {
+                inner: wasm_extern_inner {
+                    global: wasm_global_t::new(global),
+                },
+            },
+        }
+    }
+}
+
+impl From<wasm_extern_t> for Extern {
+    fn from(other: wasm_extern_t) -> Self {
+        match other.get_tag() {
+            CApiExternTag::Function => unsafe { self.inner.function.inner.clone().into() },
+            CApiExternTag::Memory => unsafe { self.inner.memory.inner.clone().into() },
+            CApiExternTag::Table => unsafe { self.inner.table.inner.clone().into() },
+            CApiExternTag::Global => unsafe { self.inner.global.inner.clone().into() },
+        }
+    }
+}
+
+#[derive(Clone, Copy, Debug)]
+#[repr(C)]
+pub(crate) enum CApiExternTag {
+    Function,
+    Global,
+    Table,
+    Memory,
 }
 
 wasm_declare_boxed_vec!(extern);

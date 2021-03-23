@@ -1,12 +1,23 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_memorytype_t;
+use super::CApiExternTag;
 use std::mem;
 use wasmer::{Memory, Pages};
 
 #[allow(non_camel_case_types)]
+#[repr(C)]
 pub struct wasm_memory_t {
-    // maybe needs to hold onto instance
-    pub(crate) inner: Memory,
+    pub(crate) tag: CApiExternTag,
+    pub(crate) inner: Box<Memory>,
+}
+
+impl wasm_memory_t {
+    pub(crate) fn new(memory: Memory) -> Self {
+        Self {
+            tag: CApiExternTag::Memory,
+            inner: Box::new(memory),
+        }
+    }
 }
 
 #[no_mangle]

@@ -192,10 +192,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
                 None
             };
 
-            Box::into_raw(Box::new(wasm_extern_t {
-                instance: Some(Arc::clone(instance)),
-                inner: r#extern.clone(),
-            }))
+            Box::into_raw(Box::new(r#extern.clone().into()))
         })
         .collect::<Vec<*mut wasm_extern_t>>();
     extern_vec.shrink_to_fit();

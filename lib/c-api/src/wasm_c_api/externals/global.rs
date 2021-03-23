@@ -1,14 +1,25 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_globaltype_t;
 use super::super::value::wasm_val_t;
+use super::CApiExternTag;
 use crate::error::update_last_error;
 use std::convert::TryInto;
 use wasmer::{Global, Val};
 
 #[allow(non_camel_case_types)]
+#[repr(C)]
 pub struct wasm_global_t {
-    // maybe needs to hold onto instance
-    pub(crate) inner: Global,
+    pub(crate) tag: CApiExternTag,
+    pub(crate) inner: Box<Global>,
+}
+
+impl wasm_global_t {
+    pub(crate) fn new(global: Global) -> Self {
+        Self {
+            tag: CApiExternTag::Global,
+            inner: Box::new(global),
+        }
+    }
 }
 
 #[no_mangle]
