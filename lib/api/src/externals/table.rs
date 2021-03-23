@@ -4,6 +4,7 @@ use crate::store::Store;
 use crate::types::{Val, ValFuncRef};
 use crate::RuntimeError;
 use crate::TableType;
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportTable};
 use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
@@ -17,7 +18,7 @@ use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#table-instances>
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct Table {
     store: Store,
     table: Arc<dyn RuntimeTable>,

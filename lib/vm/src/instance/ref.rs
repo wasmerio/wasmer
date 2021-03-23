@@ -1,5 +1,7 @@
 use super::Instance;
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::alloc::Layout;
+use std::mem;
 use std::ptr::{self, NonNull};
 use std::sync::{atomic, Arc};
 
@@ -206,5 +208,15 @@ impl Drop for InstanceRef {
         // but the way `InstanceHandle` creates the
         // `InstanceRef` ensures that.
         unsafe { Self::deallocate_instance(self) };
+    }
+}
+
+impl MemoryUsage for InstanceRef {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self) + self.strong.size_of_val(tracker) - mem::size_of_val(&self.strong)
+            + self.instance_layout.size_of_val(tracker)
+            - mem::size_of_val(&self.instance_layout)
+            + self.as_ref().size_of_val(tracker)
+            - mem::size_of_val(&self.instance)
     }
 }
