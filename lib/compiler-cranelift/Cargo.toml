@@ -14,7 +14,7 @@ edition = "2018"
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.70", default-features = false }
 cranelift-codegen = { version = "0.70", default-features = false, features = ["x86", "arm64"] }
 cranelift-frontend = { version = "0.70", default-features = false }
@@ -25,6 +25,7 @@ serde = { version = "1.0", features = ["derive"] }
 more-asserts = "0.2"
 gimli = { version = "0.23", optional = true }
 smallvec = "1.6"
+loupe = "0.1"
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }

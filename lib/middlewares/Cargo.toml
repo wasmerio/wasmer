@@ -12,8 +12,9 @@ edition = "2018"
 
 [dependencies]
 wasmer = { path = "../api", version = "1.0.2" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.2" }
+wasmer-types = { path = "../types", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
+loupe = "0.1"
 
 [badges]
 maintenance = { status = "actively-developed" }

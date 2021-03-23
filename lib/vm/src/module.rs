@@ -5,6 +5,7 @@
 //! `wasmer::Module`.
 
 use indexmap::IndexMap;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{
     de::SharedDeserializer, ser::Serializer, ser::SharedSerializer, Archive, Archived,
@@ -26,7 +27,7 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 
-#[derive(Debug, Clone, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, MemoryUsage, RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct ModuleId {
     id: usize,
 }
@@ -48,7 +49,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, MemoryUsage)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///

@@ -1,11 +1,15 @@
 #![no_main]
+#![deny(unused_variables)]
 
 use anyhow::Result;
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use wasm_smith::{Config, ConfiguredModule};
 use wasmer::{imports, CompilerConfig, Instance, Module, Store, Val};
+#[cfg(feature = "cranelift")]
 use wasmer_compiler_cranelift::Cranelift;
+#[cfg(feature = "llvm")]
 use wasmer_compiler_llvm::LLVM;
+#[cfg(feature = "singlepass")]
 use wasmer_compiler_singlepass::Singlepass;
 use wasmer_engine_jit::JIT;
 
@@ -27,6 +31,7 @@ impl Config for ExportedFunctionConfig {
     }
 }
 
+#[cfg(feature = "singlepass")]
 fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
@@ -45,6 +50,7 @@ fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     Ok(Some(instance))
 }
 
+#[cfg(feature = "cranelift")]
 fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = Cranelift::default();
     compiler.canonicalize_nans(true);
@@ -55,6 +61,7 @@ fn maybe_instantiate_cranelift(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     Ok(Some(instance))
 }
 
+#[cfg(feature = "llvm")]
 fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
@@ -78,15 +85,14 @@ impl PartialEq for InstanceResult {
                 if let InstanceResult::Error(other_message) = other {
                     return self_message == other_message;
                 }
-                return false;
             }
             InstanceResult::Values(self_values) => {
                 if let InstanceResult::Values(other_values) = other {
                     return self_values == other_values;
                 }
-                return false;
             }
         }
+        false
     }
 }
 
@@ -109,8 +115,7 @@ fn evaluate_instance(instance: Result<Instance>) -> Vec<InstanceResult> {
             // TODO: support functions which take params.
             if f.ty().params().is_empty() {
                 let result = f.call(&[]);
-                let result = if result.is_ok() {
-                    let values = result.unwrap();
+                let result = if let Ok(values) = result {
                     InstanceResult::Values(values.into())
                 } else {
                     let err = result.unwrap_err();
@@ -129,16 +134,28 @@ fuzz_target!(|module: ConfiguredModule<ExportedFunctionConfig>| {
     module.ensure_termination(100000);
     let wasm_bytes = module.to_bytes();
 
-    let singlepass = maybe_instantiate_singlepass(&wasm_bytes).transpose().map(evaluate_instance);
-    let cranelift = maybe_instantiate_cranelift(&wasm_bytes).transpose().map(evaluate_instance);
-    let llvm = maybe_instantiate_llvm(&wasm_bytes).transpose().map(evaluate_instance);
+    #[cfg(feature = "singlepass")]
+    let singlepass = maybe_instantiate_singlepass(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
+    #[cfg(feature = "cranelift")]
+    let cranelift = maybe_instantiate_cranelift(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
+    #[cfg(feature = "llvm")]
+    let llvm = maybe_instantiate_llvm(&wasm_bytes)
+        .transpose()
+        .map(evaluate_instance);
 
+    #[cfg(all(feature = "singlepass", feature = "cranelift"))]
     if singlepass.is_some() && cranelift.is_some() {
         assert_eq!(singlepass.as_ref().unwrap(), cranelift.as_ref().unwrap());
     }
+    #[cfg(all(feature = "singlepass", feature = "llvm"))]
     if singlepass.is_some() && llvm.is_some() {
         assert_eq!(singlepass.as_ref().unwrap(), llvm.as_ref().unwrap());
     }
+    #[cfg(all(feature = "cranelift", feature = "llvm"))]
     if cranelift.is_some() && llvm.is_some() {
         assert_eq!(cranelift.as_ref().unwrap(), llvm.as_ref().unwrap());
     }

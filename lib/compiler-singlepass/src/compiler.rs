@@ -7,6 +7,7 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
+use loupe::MemoryUsage;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
@@ -22,6 +23,7 @@ use wasmer_vm::{ModuleInfo, TrapCode, VMOffsets};
 
 /// A compiler that compiles a WebAssembly module with Singlepass.
 /// It does the compilation in one pass
+#[derive(MemoryUsage)]
 pub struct SinglepassCompiler {
     config: Singlepass,
 }

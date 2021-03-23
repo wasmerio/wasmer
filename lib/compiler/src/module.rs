@@ -1,4 +1,5 @@
 use crate::lib::std::sync::Arc;
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
@@ -12,7 +13,7 @@ use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 /// This differs from [`ModuleInfo`] because it have extra info only
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
-#[derive(Debug, PartialEq, Eq)]
+#[derive(Debug, MemoryUsage, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
     feature = "enable-rkyv",
