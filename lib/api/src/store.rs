@@ -126,30 +126,3 @@ pub trait StoreObject {
     /// Return true if the object `Store` is the same as the provided `Store`.
     fn comes_from_same_store(&self, store: &Store) -> bool;
 }
-
-#[cfg(test)]
-mod tests {
-    use super::*;
-
-    #[cfg(feature = "singlepass")]
-    #[cfg(feature = "native")]
-    #[test]
-    fn test_rkyv_deserialize_is_correct() {
-        use crate::Native;
-        use wasmer_compiler_singlepass::Singlepass;
-        use wasmer_engine::Artifact;
-        use wasmer_engine_native::NativeArtifact;
-
-        let compiler = Singlepass::default();
-        let engine = Native::new(compiler).engine();
-        let store = Store::new(&engine);
-        let binary = std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap();
-        let artifact = NativeArtifact::new(&engine, &binary, store.tunables()).unwrap();
-
-        let artifact_serialized = artifact.serialize().unwrap();
-        let artifact_deserialized =
-            unsafe { NativeArtifact::deserialize(&engine, &artifact_serialized) }.unwrap();
-
-        assert_eq!(artifact.metadata(), artifact_deserialized.metadata());
-    }
-}
