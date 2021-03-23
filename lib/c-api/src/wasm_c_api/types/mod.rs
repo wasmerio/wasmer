@@ -28,16 +28,49 @@ wasm_declare_vec!(byte);
 #[allow(non_camel_case_types)]
 pub type wasm_name_t = wasm_byte_vec_t;
 
-impl From<String> for wasm_name_t {
+impl AsRef<wasm_name_t> for wasm_name_t {
+    fn as_ref(&self) -> &wasm_name_t {
+        &self
+    }
+}
+
+/// An owned version of `wasm_name_t`.
+///
+/// Assumes that data is either valid host-owned or null.
+// NOTE: `wasm_name_t` already does a deep copy, so we just derive `Clone` here.
+#[derive(Debug, Clone)]
+#[repr(transparent)]
+#[allow(non_camel_case_types)]
+pub struct owned_wasm_name_t(wasm_name_t);
+
+impl Drop for owned_wasm_name_t {
+    fn drop(&mut self) {
+        if !self.0.data.is_null() {
+            let _v = unsafe { Vec::from_raw_parts(self.0.data, self.0.size, self.0.size) };
+            self.0.data = std::ptr::null_mut();
+            self.0.size = 0;
+        }
+        // why can't we call this function?
+        //unsafe { crate::wasm_c_api::macros::wasm_byte_vec_delete(Some(self.0)) }
+    }
+}
+
+impl AsRef<wasm_name_t> for owned_wasm_name_t {
+    fn as_ref(&self) -> &wasm_name_t {
+        &self.0
+    }
+}
+
+impl From<String> for owned_wasm_name_t {
     fn from(string: String) -> Self {
         let mut boxed_str: Box<str> = string.into_boxed_str();
         let data = boxed_str.as_mut_ptr();
         let size = boxed_str.bytes().len();
-        let wasm_name = Self { data, size };
+        let wasm_name = wasm_name_t { data, size };
 
         Box::leak(boxed_str);
 
-        wasm_name
+        Self(wasm_name)
     }
 }
 

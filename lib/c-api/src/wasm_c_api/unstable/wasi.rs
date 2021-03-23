@@ -2,7 +2,10 @@
 //! API.
 
 use super::super::{
-    externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
+    externals::wasm_extern_t,
+    module::wasm_module_t,
+    store::wasm_store_t,
+    types::{owned_wasm_name_t, wasm_name_t},
     wasi::wasi_env_t,
 };
 use crate::error::CApiError;
@@ -19,8 +22,8 @@ use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub struct wasmer_named_extern_t {
-    module: Box<wasm_name_t>,
-    name: Box<wasm_name_t>,
+    module: Box<owned_wasm_name_t>,
+    name: Box<owned_wasm_name_t>,
     r#extern: Box<wasm_extern_t>,
 }
 
@@ -118,7 +121,7 @@ mod __cbindgen_hack__ {
 pub extern "C" fn wasmer_named_extern_module(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.module.as_ref())
+    Some(named_extern?.module.as_ref().as_ref())
 }
 
 /// Non-standard function to get the name of a `wasmer_named_extern_t`.
@@ -128,7 +131,7 @@ pub extern "C" fn wasmer_named_extern_module(
 pub extern "C" fn wasmer_named_extern_name(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.name.as_ref())
+    Some(named_extern?.name.as_ref().as_ref())
 }
 
 /// Non-standard function to get the wrapped extern of a
