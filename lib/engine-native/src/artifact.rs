@@ -616,4 +616,9 @@ impl Artifact for NativeArtifact {
     fn preinstantiate(&self) -> Result<(), InstantiationError> {
         Ok(())
     }
+
+    /// Serialize a NativeArtifact
+    fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
+        Ok(std::fs::read(&self.sharedobject_path)?)
+    }
 }
