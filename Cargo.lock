@@ -1758,9 +1758,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.4.1"
+version = "0.4.3"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "45a6fdbe501948402e00ede914b4dc21d340105b2eff740ed47e3d45ac846f5c"
+checksum = "70de01b38fe7baba4ecdd33b777096d2b326993d8ea99bc5b6ede691883d3010"
 dependencies = [
  "memoffset",
  "ptr_meta",
@@ -2510,11 +2510,8 @@ version = "1.0.2"
 dependencies = [
  "enumset",
  "hashbrown",
-<<<<<<< HEAD
- "rkyv",
-=======
  "loupe",
->>>>>>> master
+ "rkyv",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -2674,11 +2671,8 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
-<<<<<<< HEAD
- "rkyv",
-=======
  "loupe",
->>>>>>> master
+ "rkyv",
  "serde",
  "tempfile",
  "tracing",
@@ -2741,12 +2735,9 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
-<<<<<<< HEAD
  "indexmap",
- "rkyv",
-=======
  "loupe",
->>>>>>> master
+ "rkyv",
  "serde",
  "thiserror",
 ]
