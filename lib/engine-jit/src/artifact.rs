@@ -6,6 +6,7 @@ use crate::link::link_module;
 #[cfg(feature = "compiler")]
 use crate::serialize::SerializableCompilation;
 use crate::serialize::SerializableModule;
+use loupe_derive::MemoryUsage;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
@@ -26,9 +27,11 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
+#[derive(MemoryUsage)]
 pub struct JITArtifact {
     serializable: SerializableModule,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[memoryusage(ignore)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

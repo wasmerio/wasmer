@@ -57,7 +57,7 @@ impl fmt::Display for Type {
     }
 }
 
-#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
+#[derive(Copy, Clone, Debug, Eq, PartialEq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 /// The WebAssembly V128 type
 pub struct V128(pub(crate) [u8; 16]);
@@ -311,7 +311,7 @@ impl From<&FunctionType> for FunctionType {
 }
 
 /// Indicator of whether a global is mutable or not
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Mutability {
     /// The global is constant and its value does not change
@@ -347,7 +347,7 @@ impl From<Mutability> for bool {
 }
 
 /// WebAssembly global.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct GlobalType {
     /// The type of the value stored in the global.
@@ -390,7 +390,7 @@ impl fmt::Display for GlobalType {
 }
 
 /// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum GlobalInit {
     /// An `i32.const`.
@@ -441,7 +441,7 @@ impl GlobalInit {
 /// Tables are contiguous chunks of a specific element, typically a `funcref` or
 /// an `externref`. The most common use for tables is a function table through
 /// which `call_indirect` can invoke other functions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct TableType {
     /// The type of data stored in elements of the table.
@@ -480,7 +480,7 @@ impl fmt::Display for TableType {
 ///
 /// Memories are described in units of pages (64KB) and represent contiguous
 /// chunks of addressable memory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.

@@ -5,6 +5,7 @@
 //! `wasmer::Module`.
 
 use indexmap::IndexMap;
+use loupe_derive::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -19,7 +20,7 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct ModuleId {
     id: usize,
 }
@@ -41,7 +42,7 @@ impl Default for ModuleId {
 
 /// A translated WebAssembly module, excluding the function bodies and
 /// memory initializers.
-#[derive(Debug, Clone, Serialize, Deserialize)]
+#[derive(Debug, Clone, Serialize, Deserialize, MemoryUsage)]
 pub struct ModuleInfo {
     /// A unique identifier (within this process) for this module.
     ///

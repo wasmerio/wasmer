@@ -27,6 +27,7 @@ use crate::vmcontext::{
 };
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
 use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
@@ -34,9 +35,10 @@ use std::cell::{Cell, RefCell};
 use std::convert::{TryFrom, TryInto};
 use std::ffi;
 use std::fmt;
-use std::ptr::NonNull;
+use std::mem;
+use std::ptr::{self, NonNull};
+use std::slice;
 use std::sync::Arc;
-use std::{mem, ptr, slice};
 use wasmer_types::entity::{packed_option::ReservedValue, BoxedSlice, EntityRef, PrimaryMap};
 use wasmer_types::{
     DataIndex, DataInitializer, ElemIndex, ExportIndex, FunctionIndex, GlobalIndex, GlobalInit,
@@ -122,6 +124,7 @@ pub enum ImportFunctionEnv {
         /// The function environment. This is not always the user-supplied
         /// env.
         env: *mut ffi::c_void,
+
         /// A clone function for duplicating the env.
         clone: fn(*mut ffi::c_void) -> *mut ffi::c_void,
         /// This field is not always present. When it is present, it
@@ -184,6 +187,12 @@ impl Drop for ImportFunctionEnv {
             }
             Self::NoEnv => (),
         }
+    }
+}
+
+impl MemoryUsage for ImportFunctionEnv {
+    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
     }
 }
 

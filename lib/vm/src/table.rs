@@ -7,6 +7,8 @@
 
 use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+use loupe::MemoryUsage;
+use loupe_derive::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
@@ -17,14 +19,14 @@ use std::sync::Mutex;
 use wasmer_types::{TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, Hash, Serialize, Deserialize, MemoryUsage)]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
     CallerChecksSignature,
 }
 
 /// Trait for implementing the interface of a Wasm table.
-pub trait Table: fmt::Debug + Send + Sync {
+pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
     /// Returns the style for this Table.
     fn style(&self) -> &TableStyle;
 
@@ -103,7 +105,7 @@ pub trait Table: fmt::Debug + Send + Sync {
 }
 
 /// A table instance.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 pub struct LinearTable {
     // TODO: we can remove the mutex by using atomic swaps and preallocating the max table size
     vec: Mutex<Vec<VMCallerCheckedAnyfunc>>,
@@ -117,7 +119,7 @@ pub struct LinearTable {
 
 /// A type to help manage who is responsible for the backing table of the
 /// `VMTableDefinition`.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 enum VMTableDefinitionOwnership {
     /// The `VMTableDefinition` is owned by the `Instance` and we should use
     /// its table. This is how a local table that's exported should be stored.

@@ -5,13 +5,14 @@
 
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
+use loupe_derive::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
 /// A trap code describing the reason for a trap.
 ///
 /// All trap instructions have an explicit trap code.
-#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error)]
+#[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error, MemoryUsage)]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.

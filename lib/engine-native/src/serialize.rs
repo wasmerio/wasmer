@@ -1,10 +1,11 @@
+use loupe_derive::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{CompileModuleInfo, SectionIndex, Symbol, SymbolRegistry};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize, Debug)]
+#[derive(Serialize, Deserialize, Debug, MemoryUsage)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,

@@ -11,12 +11,14 @@ use crate::lib::std::marker::PhantomData;
 use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
+use loupe::{MemoryUsage, MemoryUsageTracker};
 #[cfg(feature = "enable-serde")]
 use serde::{
     de::{Deserializer, SeqAccess, Visitor},
     ser::{SerializeSeq, Serializer},
     Deserialize, Serialize,
 };
+use std::mem;
 
 /// A mapping `K -> V` for densely indexed entity references.
 ///
@@ -276,6 +278,21 @@ where
         deserializer.deserialize_seq(SecondaryMapVisitor {
             unused: PhantomData {},
         })
+    }
+}
+
+impl<K, V> MemoryUsage for SecondaryMap<K, V>
+where
+    K: EntityRef,
+    V: Clone + MemoryUsage,
+{
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self)
+            + self
+                .elems
+                .iter()
+                .map(|value| value.size_of_val(tracker) - mem::size_of_val(value))
+                .sum::<usize>()
     }
 }
 

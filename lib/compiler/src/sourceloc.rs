@@ -8,7 +8,7 @@
 //! and tracing errors.
 
 use crate::lib::std::fmt;
-
+use loupe_derive::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -22,7 +22,7 @@ use serde::{Deserialize, Serialize};
     serde(transparent)
 )]
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, MemoryUsage)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

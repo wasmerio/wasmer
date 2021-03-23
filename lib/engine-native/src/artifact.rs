@@ -4,6 +4,7 @@
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
 use libloading::{Library, Symbol as LibrarySymbol};
+use loupe_derive::MemoryUsage;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -37,10 +38,12 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
+#[derive(MemoryUsage)]
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[memoryusage(ignore)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,

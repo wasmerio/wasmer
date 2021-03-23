@@ -56,12 +56,13 @@ pub use crate::vmcontext::{
     VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
+use loupe_derive::MemoryUsage;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, MemoryUsage)]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 

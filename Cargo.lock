@@ -1162,6 +1162,7 @@ checksum = "f0700ebea6c2a63815aa6f376f1c6dac93223d7b11c4728a7f71ff951a6eca67"
 dependencies = [
  "loupe-derive",
  "rustversion",
+ "indexmap",
 ]
 
 [[package]]
