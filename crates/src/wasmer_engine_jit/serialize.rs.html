@@ -46,7 +46,9 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
+<span id="46">46</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
     <span class="ident">CompileModuleInfo</span>, <span class="ident">CustomSection</span>, <span class="ident">Dwarf</span>, <span class="ident">FunctionBody</span>, <span class="ident">JumpTableOffsets</span>, <span class="ident">Relocation</span>,
@@ -67,7 +69,7 @@
 <span class="comment">// }</span>
 
 <span class="doccomment">/// The compilation related data for a serialized modules</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableCompilation</span> {
     <span class="kw">pub</span> <span class="ident">function_bodies</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBody</span><span class="op">&gt;</span>,
     <span class="kw">pub</span> <span class="ident">function_relocations</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Relocation</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -86,7 +88,7 @@
 
 <span class="doccomment">/// Serializable struct that is able to serialize from and to</span>
 <span class="doccomment">/// a `JITArtifactInfo`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">SerializableModule</span> {
     <span class="kw">pub</span> <span class="ident">compilation</span>: <span class="ident">SerializableCompilation</span>,
     <span class="kw">pub</span> <span class="ident">compile_info</span>: <span class="ident">CompileModuleInfo</span>,

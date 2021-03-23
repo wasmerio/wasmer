@@ -371,6 +371,8 @@
 <span id="368">368</span>
 <span id="369">369</span>
 <span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
@@ -385,6 +387,7 @@
 <span class="doccomment">//! FRAME_INFO.register(module, compiled_functions);</span>
 <span class="doccomment">//! ```</span>
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">serialize</span>::<span class="ident">SerializableFunctionFrameInfo</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">RwLock</span>};
@@ -418,6 +421,7 @@
 
 <span class="doccomment">/// An RAII structure used to unregister a module&#39;s frame information when the</span>
 <span class="doccomment">/// module is destroyed.</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">GlobalFrameInfoRegistration</span> {
     <span class="doccomment">/// The key that will be removed from the global `ranges` map when this is</span>
     <span class="doccomment">/// dropped.</span>

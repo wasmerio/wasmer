@@ -37,6 +37,7 @@
 <span id="34">34</span>
 <span id="35">35</span>
 <span id="36">36</span>
+<span id="37">37</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! A jump table is a method of transferring program control (branching)</span>
 <span class="doccomment">//! to another part of a program (or a different program that may have</span>
@@ -45,6 +46,7 @@
 <span class="doccomment">//! [Learn more](https://en.wikipedia.org/wiki/Branch_table).</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">CodeOffset</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">entity_impl</span>, <span class="ident">SecondaryMap</span>};
@@ -54,7 +56,7 @@
 <span class="doccomment">/// `JumpTable`s are used for indirect branching and are specialized for dense,</span>
 <span class="doccomment">/// 0-based jump offsets.</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>, <span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>))]</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Copy</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">PartialOrd</span>, <span class="ident">Ord</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">JumpTable</span>(<span class="ident">u32</span>);
 
 <span class="macro">entity_impl</span><span class="macro">!</span>(<span class="ident">JumpTable</span>, <span class="string">&quot;jt&quot;</span>);

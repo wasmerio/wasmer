@@ -87,14 +87,17 @@
 <span id="84">84</span>
 <span id="85">85</span>
 <span id="86">86</span>
+<span id="87">87</span>
+<span id="88">88</span>
 </pre><div class="example-wrap"><pre class="rust ">
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileModuleInfo</span>, <span class="ident">SectionIndex</span>, <span class="ident">Symbol</span>, <span class="ident">SymbolRegistry</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>};
 
 <span class="doccomment">/// Serializable struct that represents the compiled metadata.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleMetadata</span> {
     <span class="kw">pub</span> <span class="ident">compile_info</span>: <span class="ident">CompileModuleInfo</span>,
     <span class="kw">pub</span> <span class="ident">prefix</span>: <span class="ident">String</span>,
@@ -103,6 +106,7 @@
     <span class="kw">pub</span> <span class="ident">function_body_lengths</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">u64</span><span class="op">&gt;</span>,
 }
 
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ModuleMetadataSymbolRegistry</span> {
     <span class="kw">pub</span> <span class="ident">prefix</span>: <span class="ident">String</span>,
 }

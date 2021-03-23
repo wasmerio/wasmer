@@ -415,6 +415,7 @@
 <span id="412">412</span>
 <span id="413">413</span>
 <span id="414">414</span>
+<span id="415">415</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -425,6 +426,7 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">mmap</span>::<span class="ident">Mmap</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::<span class="ident">VMMemoryDefinition</span>;
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">more_asserts</span>::<span class="ident">assert_ge</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">BorrowMut</span>;
@@ -479,7 +481,7 @@
 }
 
 <span class="doccomment">/// Implementation styles for WebAssembly linear memory.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">MemoryStyle</span> {
     <span class="doccomment">/// The actual memory can be resized and moved.</span>
     <span class="ident">Dynamic</span> {
@@ -514,7 +516,7 @@
 }
 
 <span class="doccomment">/// Trait for implementing Wasm Memory used by Wasmer.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Memory</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Memory</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
     <span class="doccomment">/// Returns the memory type for this memory.</span>
     <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>;
 
@@ -534,7 +536,7 @@
 }
 
 <span class="doccomment">/// A linear memory instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LinearMemory</span> {
     <span class="comment">// The underlying allocation.</span>
     <span class="ident">mmap</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">WasmMmap</span><span class="op">&gt;</span>,
@@ -562,7 +564,7 @@
 
 <span class="doccomment">/// A type to help manage who is responsible for the backing memory of them</span>
 <span class="doccomment">/// `VMMemoryDefinition`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">enum</span> <span class="ident">VMMemoryDefinitionOwnership</span> {
     <span class="doccomment">/// The `VMMemoryDefinition` is owned by the `Instance` and we should use</span>
     <span class="doccomment">/// its memory. This is how a local memory that&#39;s exported should be stored.</span>
@@ -585,7 +587,7 @@
 <span class="doccomment">/// This is correct because all internal mutability is protected by a mutex.</span>
 <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">Sync</span> <span class="kw">for</span> <span class="ident">LinearMemory</span> {}
 
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">struct</span> <span class="ident">WasmMmap</span> {
     <span class="comment">// Our OS allocation of mmap&#39;d memory.</span>
     <span class="ident">alloc</span>: <span class="ident">Mmap</span>,

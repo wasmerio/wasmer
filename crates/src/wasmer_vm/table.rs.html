@@ -302,6 +302,7 @@
 <span id="299">299</span>
 <span id="300">300</span>
 <span id="301">301</span>
+<span id="302">302</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -312,6 +313,7 @@
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::{<span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::{<span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMTableDefinition</span>};
+<span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">UnsafeCell</span>;
@@ -322,14 +324,14 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">TableType</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
 
 <span class="doccomment">/// Implementation styles for WebAssembly tables.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableStyle</span> {
     <span class="doccomment">/// Signatures are stored in the table and checked in the caller.</span>
     <span class="ident">CallerChecksSignature</span>,
 }
 
 <span class="doccomment">/// Trait for implementing the interface of a Wasm table.</span>
-<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
+<span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Table</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
     <span class="doccomment">/// Returns the style for this Table.</span>
     <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">TableStyle</span>;
 
@@ -408,7 +410,7 @@
 }
 
 <span class="doccomment">/// A table instance.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">LinearTable</span> {
     <span class="comment">// TODO: we can remove the mutex by using atomic swaps and preallocating the max table size</span>
     <span class="ident">vec</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">VMCallerCheckedAnyfunc</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -422,7 +424,7 @@
 
 <span class="doccomment">/// A type to help manage who is responsible for the backing table of the</span>
 <span class="doccomment">/// `VMTableDefinition`.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">enum</span> <span class="ident">VMTableDefinitionOwnership</span> {
     <span class="doccomment">/// The `VMTableDefinition` is owned by the `Instance` and we should use</span>
     <span class="doccomment">/// its table. This is how a local table that&#39;s exported should be stored.</span>
