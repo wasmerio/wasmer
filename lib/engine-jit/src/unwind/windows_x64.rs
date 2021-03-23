@@ -118,7 +118,7 @@ impl MemoryUsage for UnwindRegistry {
         // [doc2]: https://docs.rs/winapi/0.3.9/winapi/um/winnt/struct._IMAGE_RUNTIME_FUNCTION_ENTRY.html
         self.functions
             .iter()
-            .map(|(key, _)| (key, std::mem::size_of::<u64>() * 3))
+            .map(|(_, _)| std::mem::size_of::<u64>() * 3)
             .sum::<usize>()
             + self.published.size_of_val(tracker)
     }
