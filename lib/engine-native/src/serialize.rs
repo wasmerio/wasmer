@@ -49,24 +49,33 @@ impl ModuleMetadata {
     }
 
     pub fn serialize(&mut self) -> Result<Vec<u8>, CompileError> {
-        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8;8]));
+        let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![0u8; 9]));
         let pos = serializer.serialize_value(self)
             .map_err(to_compile_error)? as u64;
         let mut serialized_data = serializer.into_inner().into_inner();
-        serialized_data[0..8].copy_from_slice(&pos.to_le_bytes());
+        if cfg!(target_endian = "big") {
+            serialized_data[0] = b'b';
+        } else if cfg!(target_endian = "little") {
+            serialized_data[0] = b'l';
+        }
+        serialized_data[1..9].copy_from_slice(&pos.to_le_bytes());
         Ok(serialized_data)
     }
 
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
-        let archived = Self::archive_from_slice(metadata_slice);
+        let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
     }
 
-    unsafe fn archive_from_slice<'a>(metadata_slice: &'a [u8]) -> &'a ArchivedModuleMetadata {
+    unsafe fn archive_from_slice<'a>(metadata_slice: &'a [u8]) -> Result<&'a ArchivedModuleMetadata, DeserializeError> {
         let mut pos: [u8; 8] = Default::default();
-        pos.copy_from_slice(&metadata_slice[0..8]);
+        let endian = metadata_slice[0];
+        if (cfg!(target_endian = "big") && endian == b'l') || (cfg!(target_endian = "little") && endian == b'b') {
+            return Err(DeserializeError::Incompatible("incompatible endian".into()));
+        }
+        pos.copy_from_slice(&metadata_slice[1..9]);
         let pos: u64 = u64::from_le_bytes(pos);
-        archived_value::<ModuleMetadata>(&metadata_slice[8..], pos as usize)
+        Ok(archived_value::<ModuleMetadata>(&metadata_slice[9..], pos as usize))
     }
 
     pub fn deserialize_from_archive(archived: &ArchivedModuleMetadata) -> Result<Self, DeserializeError> {
