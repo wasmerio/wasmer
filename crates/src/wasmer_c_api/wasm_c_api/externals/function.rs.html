@@ -248,7 +248,6 @@
 <span id="247">247</span>
 <span id="248">248</span>
 <span id="249">249</span>
-<span id="250">250</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">store</span>::<span class="ident">wasm_store_t</span>;
 <span class="kw">use</span> <span class="kw">super</span>::<span class="kw">super</span>::<span class="ident">trap</span>::<span class="ident">wasm_trap_t</span>;
@@ -367,9 +366,8 @@
 
     <span class="kw">impl</span> <span class="ident">Drop</span> <span class="kw">for</span> <span class="ident">WrapperEnv</span> {
         <span class="kw">fn</span> <span class="ident">drop</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) {
-            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">env_finalizer</span>) <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">env_finalizer</span>)
-                .<span class="ident">map</span>(<span class="prelude-ty">Option</span>::<span class="ident">take</span>)
-                .<span class="ident">flatten</span>()
+            <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">env_finalizer</span>) <span class="op">=</span>
+                <span class="ident">Arc</span>::<span class="ident">get_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>.<span class="ident">env_finalizer</span>).<span class="ident">and_then</span>(<span class="prelude-ty">Option</span>::<span class="ident">take</span>)
             {
                 <span class="kw">if</span> <span class="op">!</span><span class="self">self</span>.<span class="ident">env</span>.<span class="ident">is_null</span>() {
                     <span class="kw">unsafe</span> { (<span class="ident">env_finalizer</span>)(<span class="self">self</span>.<span class="ident">env</span> <span class="kw">as</span> <span class="kw">_</span>) }

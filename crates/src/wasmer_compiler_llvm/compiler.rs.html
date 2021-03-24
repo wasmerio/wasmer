@@ -373,9 +373,6 @@
 <span id="372">372</span>
 <span id="373">373</span>
 <span id="374">374</span>
-<span id="375">375</span>
-<span id="376">376</span>
-<span id="377">377</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">config</span>::<span class="ident">LLVM</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trampoline</span>::<span class="ident">FuncTrampoline</span>;
@@ -436,10 +433,7 @@
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
         <span class="kw">let</span> (<span class="ident">ty</span>, <span class="ident">idx</span>) <span class="op">=</span> <span class="ident">name</span>.<span class="ident">split_at</span>(<span class="number">1</span>);
-        <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">idx</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>() {
-            <span class="prelude-val">Ok</span>(<span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">v</span>,
-            <span class="prelude-val">Err</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">return</span> <span class="prelude-val">None</span>,
-        };
+        <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">idx</span>.<span class="ident">parse</span>::<span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span>().<span class="ident">ok</span>()<span class="question-mark">?</span>;
         <span class="kw">match</span> <span class="ident">ty</span>.<span class="ident">chars</span>().<span class="ident">next</span>().<span class="ident">unwrap</span>() {
             <span class="string">&#39;f&#39;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Symbol</span>::<span class="ident">LocalFunction</span>(<span class="ident">LocalFunctionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">idx</span>))),
             <span class="string">&#39;s&#39;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Some</span>(<span class="ident">Symbol</span>::<span class="ident">Section</span>(<span class="ident">SectionIndex</span>::<span class="ident">from_u32</span>(<span class="ident">idx</span>))),

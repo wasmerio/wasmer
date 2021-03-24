@@ -1382,10 +1382,10 @@
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
     <span class="kw">let</span> (<span class="ident">function_name</span>, <span class="ident">main_func</span>) <span class="op">=</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="string">&quot;_main&quot;</span>) {
         <span class="prelude-val">Ok</span>(<span class="ident">func</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>((<span class="string">&quot;_main&quot;</span>, <span class="ident">func</span>)),
-        <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="string">&quot;main&quot;</span>) {
-            <span class="prelude-val">Ok</span>(<span class="ident">func</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>((<span class="string">&quot;main&quot;</span>, <span class="ident">func</span>)),
-            <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">e</span>),
-        },
+        <span class="prelude-val">Err</span>(<span class="ident">_e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">instance</span>
+            .<span class="ident">exports</span>
+            .<span class="ident">get</span>::<span class="op">&lt;</span><span class="ident">Function</span><span class="op">&gt;</span>(<span class="string">&quot;main&quot;</span>)
+            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">func</span><span class="op">|</span> (<span class="string">&quot;main&quot;</span>, <span class="ident">func</span>)),
     }
     .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">RuntimeError</span>::<span class="ident">new</span>(<span class="ident">e</span>.<span class="ident">to_string</span>()))<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">num_params</span> <span class="op">=</span> <span class="ident">main_func</span>.<span class="ident">ty</span>().<span class="ident">params</span>().<span class="ident">len</span>();
