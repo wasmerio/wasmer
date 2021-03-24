@@ -115,9 +115,8 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
 
     impl Drop for WrapperEnv {
         fn drop(&mut self) {
-            if let Some(env_finalizer) = Arc::get_mut(&mut self.env_finalizer)
-                .map(Option::take)
-                .flatten()
+            if let Some(env_finalizer) =
+                Arc::get_mut(&mut self.env_finalizer).and_then(Option::take)
             {
                 if !self.env.is_null() {
                     unsafe { (env_finalizer)(self.env as _) }
