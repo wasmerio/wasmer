@@ -23,7 +23,7 @@ wasmer-engine-object-file = { version = "1.0.2", path = "lib/engine-object-file"
 wasmer-wasi = { version = "1.0.2", path = "lib/wasi", optional = true }
 wasmer-wast = { version = "1.0.2", path = "tests/lib/wast", optional = true }
 wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.2", path = "lib/wasmer-types" }
+wasmer-types = { version = "1.0.2", path = "lib/types" }
 wasmer-middlewares = { version = "1.0.2", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
 
@@ -47,7 +47,7 @@ members = [
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
-    "lib/wasmer-types",
+    "lib/types",
     "tests/lib/wast",
     "tests/integration/cli",
 ]
@@ -69,6 +69,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 tempfile = "3.1"
+loupe = "0.1"
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile

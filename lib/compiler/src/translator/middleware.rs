@@ -1,6 +1,7 @@
 //! The middleware parses the function binary bytecodes and transform them
 //! with the chosen functions.
 
+use loupe::MemoryUsage;
 use smallvec::SmallVec;
 use std::collections::VecDeque;
 use std::fmt::Debug;
@@ -12,7 +13,7 @@ use wasmparser::{BinaryReader, Operator, Type};
 use crate::error::{MiddlewareError, WasmResult};
 
 /// A shared builder for function middlewares.
-pub trait ModuleMiddleware: Debug + Send + Sync {
+pub trait ModuleMiddleware: Debug + Send + Sync + MemoryUsage {
     /// Generates a `FunctionMiddleware` for a given function.
     ///
     /// Here we generate a separate object for each function instead of executing directly on per-function operators,

@@ -2,6 +2,7 @@ use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
 use crate::{MemoryType, MemoryView};
+use loupe::MemoryUsage;
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
@@ -23,7 +24,7 @@ use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
 /// mutable from both host and WebAssembly.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#memory-instances>
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct Memory {
     store: Store,
     memory: Arc<dyn RuntimeMemory>,
