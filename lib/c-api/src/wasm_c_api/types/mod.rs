@@ -43,6 +43,20 @@ impl AsRef<wasm_name_t> for wasm_name_t {
 #[allow(non_camel_case_types)]
 pub struct owned_wasm_name_t(wasm_name_t);
 
+impl owned_wasm_name_t {
+    /// Take ownership of some `wasm_name_t`
+    ///
+    /// # Safety
+    /// You must ensure that the data pointed to by `wasm_name_t` is valid and
+    /// that it is not owned by anyone else.
+    pub unsafe fn new(name: &wasm_name_t) -> Self {
+        Self(wasm_name_t {
+            size: name.size,
+            data: name.data,
+        })
+    }
+}
+
 impl Drop for owned_wasm_name_t {
     fn drop(&mut self) {
         if !self.0.data.is_null() {
