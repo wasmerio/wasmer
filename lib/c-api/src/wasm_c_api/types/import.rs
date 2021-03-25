@@ -33,12 +33,12 @@ pub extern "C" fn wasm_importtype_new(
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_module(import_type: &wasm_importtype_t) -> &wasm_name_t {
-    import_type.module.as_ref().as_ref()
+    import_type.module.as_ref()
 }
 
 #[no_mangle]
 pub extern "C" fn wasm_importtype_name(import_type: &wasm_importtype_t) -> &wasm_name_t {
-    import_type.name.as_ref().as_ref()
+    import_type.name.as_ref()
 }
 
 #[no_mangle]

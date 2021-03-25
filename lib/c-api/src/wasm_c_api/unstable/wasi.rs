@@ -121,7 +121,7 @@ mod __cbindgen_hack__ {
 pub extern "C" fn wasmer_named_extern_module(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.module.as_ref().as_ref())
+    Some(named_extern?.module.as_ref())
 }
 
 /// Non-standard function to get the name of a `wasmer_named_extern_t`.
@@ -131,7 +131,7 @@ pub extern "C" fn wasmer_named_extern_module(
 pub extern "C" fn wasmer_named_extern_name(
     named_extern: Option<&wasmer_named_extern_t>,
 ) -> Option<&wasm_name_t> {
-    Some(named_extern?.name.as_ref().as_ref())
+    Some(named_extern?.name.as_ref())
 }
 
 /// Non-standard function to get the wrapped extern of a
