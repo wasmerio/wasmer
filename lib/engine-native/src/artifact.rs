@@ -226,7 +226,7 @@ impl NativeArtifact {
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
+                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 4)
                     .map_err(to_compile_error)?;
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
