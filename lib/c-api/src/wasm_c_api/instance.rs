@@ -53,9 +53,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         .into_slice()
         .map(|imports| imports.iter())
         .unwrap_or_else(|| [].iter())
-        .map(|imp| &imp.inner)
+        .map(|imp| Extern::from((&**imp).clone()))
         .take(module_import_count)
-        .cloned()
         .collect();
 
     let instance = match Instance::new(wasm_module, &resolver) {

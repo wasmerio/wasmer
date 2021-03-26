@@ -8,6 +8,7 @@ use wasmer::{Global, Val};
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
+#[derive(Clone, Debug)]
 pub struct wasm_global_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Global>,
@@ -41,7 +42,7 @@ pub unsafe extern "C" fn wasm_global_new(
         Global::new(store, wasm_val)
     };
 
-    Some(Box::new(wasm_global_t { inner: global }))
+    Some(Box::new(wasm_global_t::new(global)))
 }
 
 #[no_mangle]
@@ -51,9 +52,7 @@ pub unsafe extern "C" fn wasm_global_delete(_global: Option<Box<wasm_global_t>>)
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_copy(global: &wasm_global_t) -> Box<wasm_global_t> {
     // do shallow copy
-    Box::new(wasm_global_t {
-        inner: global.inner.clone(),
-    })
+    Box::new(wasm_global_t::new((&*global.inner).clone()))
 }
 
 #[no_mangle]

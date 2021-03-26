@@ -6,12 +6,11 @@ mod table;
 pub use function::*;
 pub use global::*;
 pub use memory::*;
-use std::sync::Arc;
+use std::mem;
 pub use table::*;
-use wasmer::{Extern, Instance};
+use wasmer::{Extern, ExternType};
 
 #[allow(non_camel_case_types)]
-#[derive(Clone)]
 #[repr(transparent)]
 pub struct wasm_extern_t {
     pub(crate) inner: wasm_extern_inner,
@@ -19,11 +18,12 @@ pub struct wasm_extern_t {
 
 /// All elements in this union must be `repr(C)` and have a
 /// `CApiExternTag` as their first element.
+#[allow(non_camel_case_types)]
 pub(crate) union wasm_extern_inner {
-    function: wasm_func_t,
-    memory: wasm_memory_t,
-    global: wasm_global_t,
-    table: wasm_table_t,
+    function: mem::ManuallyDrop<wasm_func_t>,
+    memory: mem::ManuallyDrop<wasm_memory_t>,
+    global: mem::ManuallyDrop<wasm_global_t>,
+    table: mem::ManuallyDrop<wasm_table_t>,
 }
 
 #[cfg(test)]
@@ -40,6 +40,20 @@ mod extern_tests {
     }
 }
 
+impl Drop for wasm_extern_inner {
+    fn drop(&mut self) {
+        unsafe {
+            let tag = self.function.tag;
+            match tag {
+                CApiExternTag::Function => mem::ManuallyDrop::drop(&mut self.function),
+                CApiExternTag::Global => mem::ManuallyDrop::drop(&mut self.global),
+                CApiExternTag::Table => mem::ManuallyDrop::drop(&mut self.table),
+                CApiExternTag::Memory => mem::ManuallyDrop::drop(&mut self.memory),
+            }
+        }
+    }
+}
+
 impl wasm_extern_t {
     pub(crate) fn get_tag(&self) -> CApiExternTag {
         unsafe { self.inner.function.tag }
@@ -47,10 +61,45 @@ impl wasm_extern_t {
 
     pub(crate) fn ty(&self) -> ExternType {
         match self.get_tag() {
-            CApiExternTag::Function => unsafe { self.inner.function.inner.ty() },
-            CApiExternTag::Memory => unsafe { self.inner.memory.inner.ty() },
-            CApiExternTag::Global => unsafe { self.inner.global.inner.ty() },
-            CApiExternTag::Table => unsafe { self.inner.table.inner.ty() },
+            CApiExternTag::Function => {
+                ExternType::Function(unsafe { self.inner.function.inner.ty().clone() })
+            }
+            CApiExternTag::Memory => {
+                ExternType::Memory(unsafe { self.inner.memory.inner.ty().clone() })
+            }
+            CApiExternTag::Global => {
+                ExternType::Global(unsafe { self.inner.global.inner.ty().clone() })
+            }
+            CApiExternTag::Table => {
+                ExternType::Table(unsafe { self.inner.table.inner.ty().clone() })
+            }
+        }
+    }
+}
+
+impl Clone for wasm_extern_t {
+    fn clone(&self) -> Self {
+        match self.get_tag() {
+            CApiExternTag::Function => Self {
+                inner: wasm_extern_inner {
+                    function: unsafe { self.inner.function.clone() },
+                },
+            },
+            CApiExternTag::Memory => Self {
+                inner: wasm_extern_inner {
+                    memory: unsafe { self.inner.memory.clone() },
+                },
+            },
+            CApiExternTag::Global => Self {
+                inner: wasm_extern_inner {
+                    global: unsafe { self.inner.global.clone() },
+                },
+            },
+            CApiExternTag::Table => Self {
+                inner: wasm_extern_inner {
+                    table: unsafe { self.inner.table.clone() },
+                },
+            },
         }
     }
 }
@@ -60,22 +109,22 @@ impl From<Extern> for wasm_extern_t {
         match other {
             Extern::Function(function) => Self {
                 inner: wasm_extern_inner {
-                    function: wasm_func_t::new(function),
+                    function: mem::ManuallyDrop::new(wasm_func_t::new(function)),
                 },
             },
             Extern::Memory(memory) => Self {
                 inner: wasm_extern_inner {
-                    memory: wasm_memory_t::new(memory),
+                    memory: mem::ManuallyDrop::new(wasm_memory_t::new(memory)),
                 },
             },
             Extern::Table(table) => Self {
                 inner: wasm_extern_inner {
-                    table: wasm_table_t::new(table),
+                    table: mem::ManuallyDrop::new(wasm_table_t::new(table)),
                 },
             },
             Extern::Global(global) => Self {
                 inner: wasm_extern_inner {
-                    global: wasm_global_t::new(global),
+                    global: mem::ManuallyDrop::new(wasm_global_t::new(global)),
                 },
             },
         }
@@ -85,15 +134,15 @@ impl From<Extern> for wasm_extern_t {
 impl From<wasm_extern_t> for Extern {
     fn from(other: wasm_extern_t) -> Self {
         match other.get_tag() {
-            CApiExternTag::Function => unsafe { self.inner.function.inner.clone().into() },
-            CApiExternTag::Memory => unsafe { self.inner.memory.inner.clone().into() },
-            CApiExternTag::Table => unsafe { self.inner.table.inner.clone().into() },
-            CApiExternTag::Global => unsafe { self.inner.global.inner.clone().into() },
+            CApiExternTag::Function => unsafe { (&*other.inner.function.inner).clone().into() },
+            CApiExternTag::Memory => unsafe { (&*other.inner.memory.inner).clone().into() },
+            CApiExternTag::Table => unsafe { (&*other.inner.table.inner).clone().into() },
+            CApiExternTag::Global => unsafe { (&*other.inner.global.inner).clone().into() },
         }
     }
 }
 
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, PartialEq, Eq)]
 #[repr(C)]
 pub(crate) enum CApiExternTag {
     Function,
@@ -115,67 +164,41 @@ pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_
 pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_func_as_extern(
-    func: Option<&wasm_func_t>,
-) -> Option<Box<wasm_extern_t>> {
-    let func = func?;
-
-    Some(Box::new(wasm_extern_t {
-        instance: func.instance.clone(),
-        inner: Extern::Function(func.inner.clone()),
-    }))
+pub unsafe extern "C" fn wasm_func_as_extern(func: Option<&wasm_func_t>) -> Option<&wasm_extern_t> {
+    std::mem::transmute::<Option<&wasm_func_t>, Option<&wasm_extern_t>>(func)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_global_as_extern(
     global: Option<&wasm_global_t>,
-) -> Option<Box<wasm_extern_t>> {
-    let global = global?;
-
-    Some(Box::new(wasm_extern_t {
-        // TODO: update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Global(global.inner.clone()),
-    }))
+) -> Option<&wasm_extern_t> {
+    std::mem::transmute::<Option<&wasm_global_t>, Option<&wasm_extern_t>>(global)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_as_extern(
     memory: Option<&wasm_memory_t>,
-) -> Option<Box<wasm_extern_t>> {
-    let memory = memory?;
-
-    Some(Box::new(wasm_extern_t {
-        // TODO: update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Memory(memory.inner.clone()),
-    }))
+) -> Option<&wasm_extern_t> {
+    std::mem::transmute::<Option<&wasm_memory_t>, Option<&wasm_extern_t>>(memory)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_as_extern(
     table: Option<&wasm_table_t>,
-) -> Option<Box<wasm_extern_t>> {
-    let table = table?;
-
-    Some(Box::new(wasm_extern_t {
-        // TODO: update this if global does hold onto an `instance`
-        instance: None,
-        inner: Extern::Table(table.inner.clone()),
-    }))
+) -> Option<&wasm_extern_t> {
+    std::mem::transmute::<Option<&wasm_table_t>, Option<&wasm_extern_t>>(table)
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_func(
     r#extern: Option<&wasm_extern_t>,
-) -> Option<Box<wasm_func_t>> {
+) -> Option<&wasm_func_t> {
     let r#extern = r#extern?;
 
-    if let Extern::Function(f) = &r#extern.inner {
-        Some(Box::new(wasm_func_t {
-            inner: f.clone(),
-            instance: r#extern.instance.clone(),
-        }))
+    if r#extern.get_tag() == CApiExternTag::Function {
+        Some(std::mem::transmute::<&wasm_extern_t, &wasm_func_t>(
+            r#extern,
+        ))
     } else {
         None
     }
@@ -184,11 +207,13 @@ pub unsafe extern "C" fn wasm_extern_as_func(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_global(
     r#extern: Option<&wasm_extern_t>,
-) -> Option<Box<wasm_global_t>> {
+) -> Option<&wasm_global_t> {
     let r#extern = r#extern?;
 
-    if let Extern::Global(g) = &r#extern.inner {
-        Some(Box::new(wasm_global_t { inner: g.clone() }))
+    if r#extern.get_tag() == CApiExternTag::Global {
+        Some(std::mem::transmute::<&wasm_extern_t, &wasm_global_t>(
+            r#extern,
+        ))
     } else {
         None
     }
@@ -197,11 +222,13 @@ pub unsafe extern "C" fn wasm_extern_as_global(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_memory(
     r#extern: Option<&wasm_extern_t>,
-) -> Option<Box<wasm_memory_t>> {
+) -> Option<&wasm_memory_t> {
     let r#extern = r#extern?;
 
-    if let Extern::Memory(m) = &r#extern.inner {
-        Some(Box::new(wasm_memory_t { inner: m.clone() }))
+    if r#extern.get_tag() == CApiExternTag::Memory {
+        Some(std::mem::transmute::<&wasm_extern_t, &wasm_memory_t>(
+            r#extern,
+        ))
     } else {
         None
     }
@@ -210,11 +237,13 @@ pub unsafe extern "C" fn wasm_extern_as_memory(
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_as_table(
     r#extern: Option<&wasm_extern_t>,
-) -> Option<Box<wasm_table_t>> {
+) -> Option<&wasm_table_t> {
     let r#extern = r#extern?;
 
-    if let Extern::Table(t) = &r#extern.inner {
-        Some(Box::new(wasm_table_t { inner: t.clone() }))
+    if r#extern.get_tag() == CApiExternTag::Table {
+        Some(std::mem::transmute::<&wasm_extern_t, &wasm_table_t>(
+            r#extern,
+        ))
     } else {
         None
     }

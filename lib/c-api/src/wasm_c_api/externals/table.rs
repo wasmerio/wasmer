@@ -5,6 +5,7 @@ use wasmer::Table;
 
 #[allow(non_camel_case_types)]
 #[repr(C)]
+#[derive(Clone)]
 pub struct wasm_table_t {
     pub(crate) tag: CApiExternTag,
     pub(crate) inner: Box<Table>,
@@ -43,9 +44,7 @@ pub unsafe extern "C" fn wasm_table_delete(_table: Option<Box<wasm_table_t>>) {}
 #[no_mangle]
 pub unsafe extern "C" fn wasm_table_copy(table: &wasm_table_t) -> Box<wasm_table_t> {
     // do shallow copy
-    Box::new(wasm_table_t {
-        inner: table.inner.clone(),
-    })
+    Box::new(wasm_table_t::new((&*table.inner).clone()))
 }
 
 #[no_mangle]

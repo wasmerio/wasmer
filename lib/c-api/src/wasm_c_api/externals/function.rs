@@ -8,7 +8,7 @@ use std::ffi::c_void;
 use std::sync::Arc;
 use wasmer::{Function, RuntimeError, Val};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
 #[repr(C)]
 pub struct wasm_func_t {
@@ -90,7 +90,7 @@ pub unsafe extern "C" fn wasm_func_new(
     };
     let function = Function::new(&store.inner, func_sig, inner_callback);
 
-    Some(Box::new(wasm_func_t { inner: function }))
+    Some(Box::new(wasm_func_t::new(function)))
 }
 
 #[no_mangle]
@@ -179,7 +179,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         trampoline,
     );
 
-    Some(Box::new(wasm_func_t { inner: function }))
+    Some(Box::new(wasm_func_t::new(function)))
 }
 
 #[no_mangle]
