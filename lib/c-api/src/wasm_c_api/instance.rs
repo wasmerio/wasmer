@@ -154,6 +154,7 @@ pub unsafe extern "C" fn wasm_instance_delete(_instance: Option<Box<wasm_instanc
 ///     assert(wasm_extern_kind(exports.data[3]) == WASM_EXTERN_MEMORY);
 ///
 ///     // Free everything.
+///     wasm_extern_vec_delete(&exports);
 ///     wasm_instance_delete(instance);
 ///     wasm_module_delete(module);
 ///     wasm_byte_vec_delete(&wasm);
@@ -290,6 +291,7 @@ mod tests {
                 assert(results[0].of.i32 == 2);
 
                 // Free everything.
+                wasm_extern_vec_delete(&exports);
                 wasm_instance_delete(instance);
                 wasm_func_delete(sum_function);
                 wasm_functype_delete(sum_type);

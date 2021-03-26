@@ -1,3 +1,4 @@
+use loupe::MemoryUsage;
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -5,7 +6,7 @@ use std::fmt;
 use wasmer_compiler::CompiledFunctionFrameInfo;
 
 /// This is the unserialized verison of `CompiledFunctionFrameInfo`.
-#[derive(Clone, Serialize, Deserialize)]
+#[derive(Clone, Serialize, Deserialize, MemoryUsage)]
 #[serde(transparent)]
 #[repr(transparent)]
 pub struct UnprocessedFunctionFrameInfo {
@@ -44,7 +45,7 @@ impl UnprocessedFunctionFrameInfo {
 /// of compiling at the same time that emiting the JIT.
 /// In that case, we don't need to deserialize/process anything
 /// as the data is already in memory.
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub enum SerializableFunctionFrameInfo {
     /// The unprocessed frame info (binary)
     Unprocessed(UnprocessedFunctionFrameInfo),

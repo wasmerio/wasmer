@@ -1,6 +1,7 @@
 //! JIT compilation.
 
 use crate::{CodeMemory, JITArtifact};
+use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::Compiler;
@@ -17,7 +18,7 @@ use wasmer_vm::{
 };
 
 /// A WebAssembly `JIT` Engine.
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub struct JITEngine {
     inner: Arc<Mutex<JITEngineInner>>,
     /// The target for the compiler
@@ -138,6 +139,7 @@ impl Engine for JITEngine {
 }
 
 /// The inner contents of `JITEngine`
+#[derive(MemoryUsage)]
 pub struct JITEngineInner {
     /// The compiler
     #[cfg(feature = "compiler")]

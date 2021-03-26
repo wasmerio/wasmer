@@ -1,11 +1,12 @@
 use crate::utils::get_store_with_middlewares;
 use anyhow::Result;
 
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer::wasmparser::Operator;
 use wasmer::*;
 
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 struct Add2MulGen {
     value_off: i32,
 }
@@ -47,7 +48,7 @@ impl FunctionMiddleware for Add2Mul {
     }
 }
 
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 struct FusionGen;
 
 #[derive(Debug)]

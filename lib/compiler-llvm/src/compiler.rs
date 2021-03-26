@@ -7,6 +7,7 @@ use inkwell::memory_buffer::MemoryBuffer;
 use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
 use inkwell::DLLStorageClass;
+use loupe::MemoryUsage;
 use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
@@ -22,6 +23,7 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
 
 /// A compiler that compiles a WebAssembly module with LLVM, translating the Wasm to LLVM IR,
 /// optimizing it and then translating to assembly.
+#[derive(MemoryUsage)]
 pub struct LLVMCompiler {
     config: LLVM,
 }
@@ -55,10 +57,7 @@ impl SymbolRegistry for ShortNames {
             return None;
         }
         let (ty, idx) = name.split_at(1);
-        let idx = match idx.parse::<u32>() {
-            Ok(v) => v,
-            Err(_) => return None,
-        };
+        let idx = idx.parse::<u32>().ok()?;
         match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),

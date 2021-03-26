@@ -1,3 +1,4 @@
+use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{
     CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
@@ -18,7 +19,7 @@ use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, Sign
 // }
 
 /// The compilation related data for a serialized modules
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, MemoryUsage)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -37,7 +38,7 @@ pub struct SerializableCompilation {
 
 /// Serializable struct that is able to serialize from and to
 /// a `JITArtifactInfo`.
-#[derive(Serialize, Deserialize)]
+#[derive(Serialize, Deserialize, MemoryUsage)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
     pub compile_info: CompileModuleInfo,

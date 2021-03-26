@@ -21,7 +21,7 @@ Wasmer binary also ships with [`wasmer-config`](#wasmer-config)
 an utility tool that outputs config information needed to compile programs which use Wasmer.
 
 The full C API documentation can be found here:
-https://wasmerio.github.io/wasmer/c-api/
+https://wasmerio.github.io/wasmer/c/
 
 Here is a simple example to use the C API:
 
@@ -43,6 +43,7 @@ int main(int argc, const char* argv[]) {
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
     wasm_byte_vec_t wasm_bytes;
     wat2wasm(&wat, &wasm_bytes);
+    wasm_byte_vec_delete(&wat);
 
     printf("Creating the store...\n");
     wasm_engine_t* engine = wasm_engine_new();
@@ -102,6 +103,7 @@ int main(int argc, const char* argv[]) {
 
     wasm_func_delete(sum_func);
     wasm_module_delete(module);
+    wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);
     wasm_store_delete(store);
     wasm_engine_delete(engine);

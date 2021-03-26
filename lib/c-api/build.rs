@@ -4,7 +4,10 @@
 //! * setting `inline-c` up.
 
 use cbindgen::{Builder, Language};
-use std::{env, fs, path::PathBuf};
+use std::{
+    env, fs,
+    path::{Path, PathBuf},
+};
 
 const PRE_HEADER: &'static str = r#"
 // Define the `ARCH_X86_X64` constant.
@@ -582,7 +585,17 @@ fn build_inline_c_env_vars() {
         } else if cfg!(target_os = "macos") {
             "libwasmer_c_api.dylib".to_string()
         } else {
-            "libwasmer_c_api.so".to_string()
+            let path = format!(
+                "{shared_object_dir}/{lib}",
+                shared_object_dir = shared_object_dir,
+                lib = "libwasmer_c_api.so"
+            );
+
+            if Path::new(path.as_str()).exists() {
+                "libwasmer_c_api.so".to_string()
+            } else {
+                "libwasmer_c_api.a".to_string()
+            }
         }
     );
 }

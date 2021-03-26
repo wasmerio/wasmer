@@ -295,21 +295,34 @@ capi_compiler_features := --features $(subst $(space),$(comma),$(filter-out llvm
 ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	bold := $(shell tput bold 2>/dev/null || echo -n '')
 	green := $(shell tput setaf 2 2>/dev/null || echo -n '')
+	yellow := $(shell tput setaf 3 2>/dev/null || echo -n '')
 	reset := $(shell tput sgr0 2>/dev/null || echo -n '')
 endif
 
 HOST_TARGET=$(shell rustup show | grep 'Default host: ' | cut -d':' -f2 | tr -d ' ')
+
+TARGET_DIR := target/release
+
+ifneq (, $(TARGET))
+	TARGET_DIR := target/$(TARGET)/release
+endif
 
 $(info -----------)
 $(info $(bold)$(green)INFORMATION$(reset))
 $(info -----------)
 $(info )
 $(info Host Target: `$(bold)$(green)$(HOST_TARGET)$(reset)`.)
+ifneq (, $(TARGET))
+	# We use spaces instead of tabs to indent `$(info)`
+	# otherwise it's considered as a command outside a
+	# target and it will fail.
+        $(info Build Target: $(bold)$(green)$(TARGET)$(reset) $(yellow)($(TARGET_DIR))$(reset))
+endif
 ifneq (, $(LIBC))
-		# We use spaces instead of tabs to indent `$(info)`
-		# otherwise it's considered as a command outside a
-		# target and it will fail.
-                $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
+	# We use spaces instead of tabs to indent `$(info)`
+	# otherwise it's considered as a command outside a
+	# target and it will fail.
+        $(info C standard library: $(bold)$(green)$(LIBC)$(reset))
 endif
 $(info Enabled Compilers: $(bold)$(green)$(subst $(space),$(reset)$(comma)$(space)$(bold)$(green),$(compilers))$(reset).)
 $(info Compilers + engines pairs (for testing): $(bold)$(green)${compilers_engines}$(reset))
@@ -324,7 +337,6 @@ $(info $(bold)$(green)RULE EXECUTION$(reset))
 $(info --------------)
 $(info )
 $(info )
-
 
 ############
 # Building #
@@ -354,8 +366,9 @@ build-wasmer-debug:
 # incremental = false
 # codegen-units = 1
 # rpath = false
+build-wasmer-headless-minimal: RUSTFLAGS += "-C panic=abort" 
 build-wasmer-headless-minimal:
-	RUSTFLAGS="-C panic=abort" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+	RUSTFLAGS=${RUSTFLAGS} xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
@@ -502,6 +515,7 @@ test-packages:
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release
 	cargo test -p wasmer-derive --release
+	cargo check --manifest-path fuzz/Cargo.toml $(compiler_features) --release
 
 
 # We want to run all the tests for all available compilers. The C API
@@ -579,13 +593,13 @@ package-wapm:
 	mkdir -p "package/bin"
 ifneq (, $(filter 1, $(IS_DARWIN) $(IS_LINUX)))
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/ ;\
+		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 		echo "#!/bin/bash\nwapm execute \"\$$@\"" > package/bin/wax ;\
 		chmod +x package/bin/wax ;\
 	fi
 else
 	if [ -d "wapm-cli" ]; then \
-		cp wapm-cli/target/release/wapm package/bin/ ;\
+		cp wapm-cli/$(TARGET_DIR)/wapm package/bin/ ;\
 	fi
 ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wapm
@@ -606,9 +620,9 @@ endif
 package-wasmer:
 	mkdir -p "package/bin"
 ifeq ($(IS_WINDOWS), 1)
-	cp target/release/wasmer.exe package/bin/
+	cp $(TARGET_DIR)/wasmer.exe package/bin/
 else
-	cp target/release/wasmer package/bin/
+	cp $(TARGET_DIR)/wasmer package/bin/
 ifeq ($(IS_DARWIN), 1)
 	codesign -s - package/bin/wasmer
 endif
@@ -621,31 +635,33 @@ package-capi:
 	cp lib/c-api/wasmer_wasm.h* package/include
 	cp lib/c-api/wasm.h* package/include
 	cp lib/c-api/README.md package/include/README.md
-ifeq ($(IS_WINDOWS), 1)
-	cp target/release/wasmer_c_api.dll package/lib/wasmer.dll
-	cp target/release/wasmer_c_api.lib package/lib/wasmer.lib
-else
-ifeq ($(IS_DARWIN), 1)
+
+	# Windows
+	if [ -f $(TARGET_DIR)/wasmer_c_api.dll ]; then \
+		cp $(TARGET_DIR)/wasmer_c_api.dll package/lib/wasmer.dll ;\
+	fi
+	if [ -f $(TARGET_DIR)/wasmer_c_api.lib ]; then \
+		cp $(TARGET_DIR)/wasmer_c_api.lib package/lib/wasmer.lib ;\
+	fi
+
 	# For some reason in macOS arm64 there are issues if we copy constantly in the install_name_tool util
 	rm -f package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.dylib package/lib/libwasmer.dylib
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
-	# Fix the rpath for the dylib
-	install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib
-else
-	# In some cases the .so may not be available, for example when building against musl (static linking)
-	if [ -f target/release/libwasmer_c_api.so ]; then \
-		cp target/release/libwasmer_c_api.so package/lib/libwasmer.so ;\
-	fi;
-	cp target/release/libwasmer_c_api.a package/lib/libwasmer.a
-endif
-endif
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.dylib ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.dylib package/lib/libwasmer.dylib ;\
+		install_name_tool -id "@rpath/libwasmer.dylib" package/lib/libwasmer.dylib ;\
+	fi
+
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.so ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.so package/lib/libwasmer.so ;\
+	fi
+	if [ -f $(TARGET_DIR)/libwasmer_c_api.a ]; then \
+		cp $(TARGET_DIR)/libwasmer_c_api.a package/lib/libwasmer.a ;\
+	fi
 
 package-docs: build-docs build-docs-capi
-	mkdir -p "package/docs"
-	mkdir -p "package/docs/c/runtime-c-api"
+	mkdir -p "package/docs/c"
 	cp -R target/doc package/docs/crates
-	cp -R lib/c-api/doc/deprecated/html/ package/docs/c/runtime-c-api
+	cp -R lib/c-api/doc/deprecated/html/* package/docs/c
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=crates/wasmer/index.html">' > package/docs/index.html
 	echo '<!-- Build $(SOURCE_VERSION) --><meta http-equiv="refresh" content="0; url=wasmer/index.html">' > package/docs/crates/index.html
 
@@ -708,7 +724,7 @@ install-wasmer-headless-minimal:
 update-testsuite:
 	git subtree pull --prefix tests/wast/spec https://github.com/WebAssembly/testsuite.git master --squash
 
-RUSTFLAGS := "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
+lint-packages: RUSTFLAGS += "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-c-api
@@ -724,9 +740,11 @@ lint-packages:
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
 	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
+	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 lint-formatting:
 	cargo fmt --all -- --check
+	cargo fmt --manifest-path fuzz/Cargo.toml -- --check
 
 lint: lint-formatting lint-packages
 

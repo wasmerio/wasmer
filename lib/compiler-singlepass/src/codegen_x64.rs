@@ -186,20 +186,14 @@ trait PopMany<T> {
 
 impl<T> PopMany<T> for Vec<T> {
     fn peek1(&self) -> Result<&T, CodegenError> {
-        match self.last() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "peek1() expects at least 1 element".into(),
-            }),
-        }
+        self.last().ok_or_else(|| CodegenError {
+            message: "peek1() expects at least 1 element".into(),
+        })
     }
     fn pop1(&mut self) -> Result<T, CodegenError> {
-        match self.pop() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "pop1() expects at least 1 element".into(),
-            }),
-        }
+        self.pop().ok_or_else(|| CodegenError {
+            message: "pop1() expects at least 1 element".into(),
+        })
     }
     fn pop2(&mut self) -> Result<(T, T), CodegenError> {
         if self.len() < 2 {
