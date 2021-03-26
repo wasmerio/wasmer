@@ -511,9 +511,9 @@ dependencies = [
 
 [[package]]
 name = "loupe"
-version = "0.1.1"
+version = "0.1.2"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "1acf065b51eb58abbc66a07c27ec63142205d339a9f5093dc3e1d7cda3d5c9a3"
+checksum = "d79b0cc3aa7552a59274f642a0a6e7419b7f5438aba06a0a82825918ba69f0e6"
 dependencies = [
  "indexmap",
  "loupe-derive",
