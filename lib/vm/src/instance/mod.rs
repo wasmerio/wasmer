@@ -18,7 +18,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
-use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
+use crate::trap::{catch_traps, init_traps, Trap, TrapCode, TrapInfo};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
@@ -398,7 +398,7 @@ impl Instance {
     }
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
-    fn invoke_start_function(&self) -> Result<(), Trap> {
+    fn invoke_start_function(&self, trap_info: &impl TrapInfo) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
             None => return Ok(()),
@@ -427,7 +427,7 @@ impl Instance {
 
         // Make the call.
         unsafe {
-            catch_traps(callee_vmctx, || {
+            catch_traps(trap_info, || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
                 )(callee_vmctx)
@@ -620,7 +620,7 @@ impl Instance {
             .map_or(true, |n| n as usize > elem.len())
             || dst.checked_add(len).map_or(true, |m| m > table.size())
         {
-            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
@@ -742,7 +742,7 @@ impl Instance {
                 .checked_add(len)
                 .map_or(true, |m| m > memory.current_length)
         {
-            return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
         let src_slice = &data[src as usize..(src + len) as usize];
@@ -932,6 +932,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
+        trap_info: &impl TrapInfo,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance().as_ref();
@@ -944,7 +945,7 @@ impl InstanceHandle {
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        instance.invoke_start_function()?;
+        instance.invoke_start_function(trap_info)?;
         Ok(())
     }
 
@@ -1214,7 +1215,7 @@ fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
 
         let size = usize::try_from(table.size()).unwrap();
         if size < start + init.elements.len() {
-            return Err(Trap::new_from_runtime(TrapCode::TableSetterOutOfBounds));
+            return Err(Trap::lib(TrapCode::TableSetterOutOfBounds));
         }
     }
 
@@ -1266,7 +1267,7 @@ fn check_memory_init_bounds(
         unsafe {
             let mem_slice = get_memory_slice(init, instance);
             if mem_slice.get_mut(start..start + init.data.len()).is_none() {
-                return Err(Trap::new_from_runtime(TrapCode::HeapSetterOutOfBounds));
+                return Err(Trap::lib(TrapCode::HeapSetterOutOfBounds));
             }
         }
     }
@@ -1303,7 +1304,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
             .checked_add(init.elements.len())
             .map_or(true, |end| end > table.size() as usize)
         {
-            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
@@ -1356,7 +1357,7 @@ fn initialize_memories(
             .checked_add(init.data.len())
             .map_or(true, |end| end > memory.current_length.try_into().unwrap())
         {
-            return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
+            return Err(Trap::lib(TrapCode::HeapAccessOutOfBounds));
         }
 
         unsafe {

@@ -5,6 +5,7 @@ use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::{Engine, Tunables};
+use wasmer_vm::{SignalHandler, TrapInfo};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -66,6 +67,21 @@ impl Store {
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
+    }
+}
+
+
+unsafe impl TrapInfo for Store {
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+
+    fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool {
+        if let Some(handler) = &*self.inner.signal_handler.borrow() {
+            return call(handler);
+        }
+        false
     }
 }
 

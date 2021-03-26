@@ -533,6 +533,7 @@ impl Function {
         // Call the trampoline.
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
+                &self.store,
                 self.exported.vm_function.vmctx,
                 func.trampoline,
                 self.exported.vm_function.address,

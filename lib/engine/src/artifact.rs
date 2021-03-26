@@ -14,7 +14,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
-    VMSharedSignatureIndex, VMTrampoline,
+    VMSharedSignatureIndex, VMTrampoline, TrapInfo
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -157,6 +157,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
     /// See [`InstanceHandle::finish_instantiation`].
     unsafe fn finish_instantiation(
         &self,
+        trap_info: &impl TrapInfo,
         handle: &InstanceHandle,
     ) -> Result<(), InstantiationError> {
         let data_initializers = self
@@ -168,7 +169,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             })
             .collect::<Vec<_>>();
         handle
-            .finish_instantiation(&data_initializers)
+            .finish_instantiation(trap_info, &data_initializers)
             .map_err(|trap| InstantiationError::Start(RuntimeError::from_trap(trap)))
     }
 }

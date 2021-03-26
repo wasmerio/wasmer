@@ -75,11 +75,11 @@ pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
             .checked_add(len)
             .map_or(true, |n| n > src_table.size())
         {
-            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
+            return Err(Trap::lib(TrapCode::TableAccessOutOfBounds));
         }
 
         if dst_index.checked_add(len).map_or(true, |m| m > self.size()) {
-            return Err(Trap::new_from_runtime(TrapCode::TableSetterOutOfBounds));
+            return Err(Trap::lib(TrapCode::TableSetterOutOfBounds));
         }
 
         let srcs = src_index..src_index + len;
@@ -290,7 +290,7 @@ impl Table for LinearTable {
                 *slot = func;
                 Ok(())
             }
-            None => Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),
+            None => Err(Trap::lib(TrapCode::TableAccessOutOfBounds)),
         }
     }
 

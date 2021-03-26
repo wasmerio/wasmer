@@ -101,8 +101,8 @@ impl RuntimeError {
                     });
                 Self::new_with_trace(info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
-            // A trap triggered manually from the Wasmer runtime
-            Trap::Runtime {
+            // A trap triggered manually from the Wasmer VM
+            Trap::Lib {
                 trap_code,
                 backtrace,
             } => Self::new_with_trace(info, None, RuntimeErrorSource::Trap(trap_code), backtrace),

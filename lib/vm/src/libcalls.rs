@@ -390,7 +390,7 @@ pub unsafe extern "C" fn wasmer_data_drop(vmctx: *mut VMContext, data_index: u32
 /// `wasmer_call_trampoline` must have been previously called.
 #[no_mangle]
 pub unsafe extern "C" fn wasmer_raise_trap(trap_code: TrapCode) -> ! {
-    let trap = Trap::new_from_runtime(trap_code);
+    let trap = Trap::lib(trap_code);
     raise_lib_trap(trap)
 }
 
