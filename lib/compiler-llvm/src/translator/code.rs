@@ -3118,8 +3118,8 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let v2 = self.builder.build_and(v2, mask, "");
                 let lhs = self.builder.build_right_shift(v1, v2, false, "");
                 let rhs = {
-                    let int_width = self.intrinsics.i64_ty.const_int(64 as u64, false);
-                    let rhs = self.builder.build_int_sub(int_width, v2, "");
+                    let negv2 = self.builder.build_int_neg(v2, "");
+                    let rhs = self.builder.build_and(negv2, mask, "");
                     self.builder.build_left_shift(v1, rhs, "")
                 };
                 let res = self.builder.build_or(lhs, rhs, "");
