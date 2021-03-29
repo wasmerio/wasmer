@@ -9,5 +9,6 @@ mod handlers;
 
 pub use code::TrapCode;
 pub use handlers::{
-    catch_traps, catch_traps_with_result, raise_lib_trap, raise_user_trap, wasmer_call_trampoline,
-    Trap, TrapInfo, SignalHandler, init_traps, resume_panic};
+    catch_traps, catch_traps_with_result, init_traps, raise_lib_trap, raise_user_trap,
+    resume_panic, wasmer_call_trampoline, SignalHandler, Trap, TrapInfo,
+};

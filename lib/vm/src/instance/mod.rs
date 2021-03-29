@@ -398,7 +398,7 @@ impl Instance {
     }
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
-    fn invoke_start_function(&self, trap_info: &impl TrapInfo) -> Result<(), Trap> {
+    fn invoke_start_function(&self, trap_info: &dyn TrapInfo) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
             None => return Ok(()),
@@ -932,7 +932,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
-        trap_info: &impl TrapInfo,
+        trap_info: &dyn TrapInfo,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance().as_ref();

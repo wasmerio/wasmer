@@ -1,4 +1,4 @@
-use super::{tls, Trap, unwind as do_unwind};
+use super::{tls, unwind as do_unwind, Trap};
 use std::io;
 use winapi::um::errhandlingapi::*;
 use winapi::um::minwinbase::*;

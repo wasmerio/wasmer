@@ -1,5 +1,6 @@
 use crate::tunables::BaseTunables;
 use loupe::MemoryUsage;
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
@@ -70,7 +71,6 @@ impl PartialEq for Store {
     }
 }
 
-
 unsafe impl TrapInfo for Store {
     #[inline]
     fn as_any(&self) -> &dyn Any {
@@ -78,9 +78,9 @@ unsafe impl TrapInfo for Store {
     }
 
     fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool {
-        if let Some(handler) = &*self.inner.signal_handler.borrow() {
-            return call(handler);
-        }
+        // if let Some(handler) = &*self.inner.signal_handler.borrow() {
+        //     return call(handler);
+        // }
         false
     }
 }

@@ -4,8 +4,8 @@
 //! WebAssembly trap handling, which is built on top of the lower-level
 //! signalhandling mechanisms.
 
-use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 use super::code::TrapCode;
+use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
 
 use backtrace::Backtrace;
 use std::any::Any;
@@ -46,7 +46,7 @@ pub use sys::SignalHandler;
 ///
 /// This is initialized during `init_traps` below. The definition lives within
 /// `wasmer` currently.
-static mut IS_WASM_PC: fn(usize) -> bool = |_| false;
+static mut IS_WASM_PC: fn(usize) -> bool = |_| true;
 
 /// This function is required to be called before any WebAssembly is entered.
 /// This will configure global state such as signal handlers to prepare the
@@ -63,11 +63,11 @@ static mut IS_WASM_PC: fn(usize) -> bool = |_| false;
 /// bugs in Rust or elsewhere.
 // pub fn init_traps(is_wasm_pc: fn(usize) -> bool) -> Result<(), Trap> {
 pub fn init_traps() -> Result<(), Trap> {
-    // static INIT: Once = Once::new();
-    // INIT.call_once(|| unsafe {
-    //     IS_WASM_PC = is_wasm_pc;
-    //     sys::platform_init();
-    // });
+    static INIT: Once = Once::new();
+    INIT.call_once(|| unsafe {
+        // IS_WASM_PC = is_wasm_pc;
+        sys::platform_init();
+    });
     sys::lazy_per_thread_init()
 }
 
@@ -119,7 +119,7 @@ pub enum Trap {
     User(Box<dyn Error + Send + Sync>),
 
     /// A trap raised from the Wasm generated code
-    /// 
+    ///
     /// Note: this trap is deterministic (assuming a deterministic host implementation)
     Wasm {
         /// The program counter in JIT code where this trap happened.
@@ -127,11 +127,11 @@ pub enum Trap {
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
         /// Optional trapcode associated to the signal that caused the trap
-        signal_trap: Option<TrapCode>
+        signal_trap: Option<TrapCode>,
     },
 
     /// A trap raised from a wasm libcall
-    /// 
+    ///
     /// Note: this trap is deterministic (assuming a deterministic host implementation)
     Lib {
         /// Code of the trap.
@@ -141,7 +141,7 @@ pub enum Trap {
     },
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    /// 
+    ///
     /// Note: this trap is undeterministic, since it depends on the host system.
     OOM {
         /// Native stack backtrace at the time the OOM occurred
@@ -185,7 +185,7 @@ impl Trap {
 /// returning them as a `Result`.
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
-pub unsafe fn catch_traps<F>(trap_info: &impl TrapInfo, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(trap_info: &dyn TrapInfo, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
 {
@@ -215,7 +215,7 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    trap_info: &impl TrapInfo,
+    trap_info: &dyn TrapInfo,
     mut closure: F,
 ) -> Result<R, Trap>
 where
@@ -227,7 +227,6 @@ where
     })?;
     Ok(global_results.assume_init())
 }
-
 
 /// Call the wasm function pointed to by `callee`.
 ///
@@ -323,13 +322,11 @@ impl<'a> CallThreadState<'a> {
         match unsafe { (*self.unwind.get()).as_ptr().read() } {
             UnwindReason::UserTrap(data) => Err(Trap::User(data)),
             UnwindReason::LibTrap(trap) => Err(trap),
-            UnwindReason::WasmTrap { backtrace, pc } => {
-                Err(Trap::Wasm {
-                    pc,
-                    backtrace,
-                    signal_trap: None
-                })
-            }
+            UnwindReason::WasmTrap { backtrace, pc } => Err(Trap::Wasm {
+                pc,
+                backtrace,
+                signal_trap: None,
+            }),
             UnwindReason::Panic(panic) => std::panic::resume_unwind(panic),
         }
     }
@@ -339,59 +336,6 @@ impl<'a> CallThreadState<'a> {
             (*self.unwind.get()).as_mut_ptr().write(reason);
             unwind(self.jmp_buf.get());
         }
-    }
-
-    /// Trap handler using our thread-local state.
-    ///
-    /// * `pc` - the program counter the trap happened at
-    /// * `call_handler` - a closure used to invoke the platform-specific
-    ///   signal handler for each instance, if available.
-    ///
-    /// Attempts to handle the trap if it's a wasm trap. Returns a few
-    /// different things:
-    ///
-    /// * null - the trap didn't look like a wasm trap and should continue as a
-    ///   trap
-    /// * 1 as a pointer - the trap was handled by a custom trap handler on an
-    ///   instance, and the trap handler should quickly return.
-    /// * a different pointer - a jmp_buf buffer to longjmp to, meaning that
-    ///   the wasm trap was succesfully handled.
-    #[cfg_attr(target_os = "macos", allow(dead_code))] // macOS is more raw and doesn't use this
-    fn jmp_buf_if_trap(
-        &self,
-        pc: *const u8,
-        call_handler: impl Fn(&SignalHandler) -> bool,
-    ) -> *const u8 {
-        // If we hit a fault while handling a previous trap, that's quite bad,
-        // so bail out and let the system handle this recursive segfault.
-        //
-        // Otherwise flag ourselves as handling a trap, do the trap handling,
-        // and reset our trap handling flag.
-        if self.handling_trap.replace(true) {
-            return ptr::null();
-        }
-        let _reset = ResetCell(&self.handling_trap, false);
-
-        // If we haven't even started to handle traps yet, bail out.
-        if self.jmp_buf.get().is_null() {
-            return ptr::null();
-        }
-
-        // First up see if any instance registered has a custom trap handler,
-        // in which case run them all. If anything handles the trap then we
-        // return that the trap was handled.
-        if self.trap_info.custom_signal_handler(&call_handler) {
-            return 1 as *const _;
-        }
-
-        // If this fault wasn't in wasm code, then it's not our problem
-        if unsafe { !IS_WASM_PC(pc as usize) } {
-            return ptr::null();
-        }
-
-        // If all that passed then this is indeed a wasm trap, so return the
-        // `jmp_buf` passed to `Unwind` to resume.
-        self.jmp_buf.get()
     }
 
     fn capture_backtrace(&self, pc: *const u8) {
@@ -434,7 +378,7 @@ mod tls {
     // Note that this is specially done to fully encapsulate that the accessors
     // for tls must not be inlined. Wasmer's (not yet implemented async support
     // will employ stack switching which can resume execution on different OS threads.
-    // 
+    //
     // This means that borrows of our TLS pointer must never live across accesses because
     // otherwise the access may be split across two threads and cause unsafety.
     //

@@ -79,6 +79,9 @@ impl RuntimeError {
                     ),
                 }
             }
+            Trap::OOM { backtrace } => {
+                unimplemented!("OOM memory errors are not yet handled");
+            }
             // A trap caused by an error on the generated machine code for a Wasm function
             Trap::Wasm {
                 pc,

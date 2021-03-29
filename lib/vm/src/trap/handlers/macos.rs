@@ -34,7 +34,7 @@
 
 #![allow(non_snake_case)]
 
-use super::{tls, Trap, unwind as do_unwind};
+use super::{tls, unwind as do_unwind, Trap};
 use mach::exception_types::*;
 use mach::kern_return::*;
 use mach::mach_init::*;
@@ -154,15 +154,15 @@ pub enum Void {}
 pub type SignalHandler<'a> = dyn Fn(Void) -> bool + 'a;
 
 /// Process-global port that we use to route thread-level exceptions to.
-static mut WASMER_PORT_PORT: mach_port_name_t = MACH_PORT_NULL;
+static mut WASMER_PORT: mach_port_name_t = MACH_PORT_NULL;
 
 pub unsafe fn platform_init() {
-    // Allocate our WASMER_PORT_PORT and make sure that it can be sent to so we
+    // Allocate our WASMER_PORT and make sure that it can be sent to so we
     // can receive exceptions.
     let me = mach_task_self();
-    let kret = mach_port_allocate(me, MACH_PORT_RIGHT_RECEIVE, &mut WASMER_PORT_PORT);
+    let kret = mach_port_allocate(me, MACH_PORT_RIGHT_RECEIVE, &mut WASMER_PORT);
     assert_eq!(kret, KERN_SUCCESS, "failed to allocate port");
-    let kret = mach_port_insert_right(me, WASMER_PORT_PORT, WASMER_PORT_PORT, MACH_MSG_TYPE_MAKE_SEND);
+    let kret = mach_port_insert_right(me, WASMER_PORT, WASMER_PORT, MACH_MSG_TYPE_MAKE_SEND);
     assert_eq!(kret, KERN_SUCCESS, "failed to insert right");
 
     // Spin up our handler thread which will solely exist to service exceptions
@@ -193,7 +193,7 @@ unsafe fn handler_thread() {
             MACH_RCV_MSG,
             0,
             mem::size_of_val(&request) as u32,
-            WASMER_PORT_PORT,
+            WASMER_PORT,
             MACH_MSG_TIMEOUT_NONE,
             MACH_PORT_NULL,
         );
@@ -243,6 +243,7 @@ unsafe fn handler_thread() {
 }
 
 unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
+    println!("Handle exception");
     // First make sure that this exception is one that we actually expect to
     // get raised by wasm code. All other exceptions we safely ignore.
     match request.body.exception as u32 {
@@ -412,7 +413,7 @@ impl Drop for ClosePort {
 /// exception ports. In wasmer we choose to send the exceptions to
 /// thread-level ports. This means that we need to, for each thread that can
 /// generate an exception, register our thread's exception port as
-/// `WASMER_PORT_PORT` above.
+/// `WASMER_PORT` above.
 ///
 /// Note that this choice is done because at the current time if we were to
 /// implement a task-level (process-wide) port we'd have to figure out how to
@@ -436,11 +437,11 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         }
 
         unsafe {
-            assert!(WASMER_PORT_PORT != MACH_PORT_NULL);
+            assert!(WASMER_PORT != MACH_PORT_NULL);
             let kret = thread_set_exception_ports(
                 MY_PORT.with(|p| p.0),
                 EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION,
-                WASMER_PORT_PORT,
+                WASMER_PORT,
                 EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
                 mach_addons::THREAD_STATE_NONE,
             );
