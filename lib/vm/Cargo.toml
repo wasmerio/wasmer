@@ -30,3 +30,7 @@ cc = "1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+async = []

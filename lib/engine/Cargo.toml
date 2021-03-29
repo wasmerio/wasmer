@@ -28,3 +28,7 @@ lazy_static = "1.4"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+async = []

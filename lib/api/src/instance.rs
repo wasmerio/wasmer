@@ -187,7 +187,7 @@ impl Instance {
         use crate::externals::function::FunctionDefinition;
         use crate::Val;
 
-        let task = async_wormhole::AsyncWormhole::new(stack, |yielder| -> Result<Box<[crate::Val]>, RuntimeError> {
+        let mut task = async_wormhole::AsyncWormhole::new(stack, |yielder| -> Result<Box<[crate::Val]>, RuntimeError> {
             let yielder_ptr: *mut std::ffi::c_void = unsafe {
                 std::mem::transmute(&yielder)
             };
@@ -216,10 +216,10 @@ impl Instance {
             Ok(results.into_boxed_slice())
         }).expect("Failed to create async function call");
 
-        task.await.unwrap()
+        task.set_pre_post_poll(|| {});
+
+        task.await
     }
-
-
 
     /// Returns the [`Store`] where the `Instance` belongs.
     pub fn store(&self) -> &Store {

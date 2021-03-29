@@ -13,6 +13,7 @@ pub enum WasmerAttr {
         identifier: Option<LitStr>,
         span: Span,
     },
+    #[ cfg(feature="async") ]
     Yielder {
         identifier: Option<LitStr>,
         span: Span,
@@ -88,6 +89,7 @@ impl Parse for WasmerAttrInner {
                     span,
                 }
             }
+            #[ cfg(feature="async") ]
             "yielder" => {
                 let export_expr;
                 let name = if input.peek(token::Paren) {

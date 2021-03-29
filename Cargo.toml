@@ -84,6 +84,7 @@ default = [
     "emscripten",
     "middlewares",
 ]
+async = ["wasmer/async"]
 engine = []
 jit = [
     "wasmer-engine-jit",
