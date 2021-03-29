@@ -25,7 +25,6 @@ pub struct Mmap {
     // the coordination all happens at the OS layer.
     ptr: usize,
     len: usize,
-    access_len: usize,
 }
 
 impl Mmap {
@@ -38,26 +37,7 @@ impl Mmap {
         Self {
             ptr: empty.as_ptr() as usize,
             len: 0,
-            access_len: 0,
         }
-    }
-
-    /// Create a new `Mmap` with the same content
-    pub fn deep_clone(&self) -> Result<Self, String> {
-        let result = Self::accessible_reserved(self.access_len, self.len);
-
-        //FIXME use COW here
-        if let Ok(res) = &result {
-            unsafe {
-                libc::memcpy(
-                    res.ptr as *mut std::ffi::c_void,
-                    self.ptr as *const std::ffi::c_void,
-                    self.access_len,
-                );
-            }
-        };
-
-        result
     }
 
     /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
@@ -105,7 +85,6 @@ impl Mmap {
             Self {
                 ptr: ptr as usize,
                 len: mapping_size,
-                access_len: accessible_size,
             }
         } else {
             // Reserve the mapping size.
@@ -126,12 +105,11 @@ impl Mmap {
             let mut result = Self {
                 ptr: ptr as usize,
                 len: mapping_size,
-                access_len: 0,
             };
 
             if accessible_size != 0 {
                 // Commit the accessible size.
-                result.make_accessible(accessible_size)?;
+                result.make_accessible(0, accessible_size)?;
             }
 
             result
@@ -204,10 +182,8 @@ impl Mmap {
     /// `start` and `len` must be native page-size multiples and describe a range within
     /// `self`'s reserved memory.
     #[cfg(not(target_os = "windows"))]
-    pub fn make_accessible(&mut self, len: usize) -> Result<(), String> {
+    pub fn make_accessible(&mut self, start: usize, len: usize) -> Result<(), String> {
         let page_size = region::page::size();
-        let start = self.access_len;
-
         assert_eq!(start & (page_size - 1), 0);
         assert_eq!(len & (page_size - 1), 0);
         assert_lt!(len, self.len);
@@ -215,15 +191,8 @@ impl Mmap {
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
-        let result =
-            unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
-                .map_err(|e| e.to_string());
-
-        if result.is_ok() {
-            self.access_len += len;
-        }
-
-        result
+        unsafe { region::protect(ptr.add(start), len, region::Protection::READ_WRITE) }
+            .map_err(|e| e.to_string())
     }
 
     /// Make the memory starting at `start` and extending for `len` bytes accessible.

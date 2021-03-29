@@ -12,12 +12,12 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, Memory, MemoryStyle, ModuleInfo,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo,
     TableStyle, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
-/// implementations produce and use.
+/// implementation produce and use.
 ///
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
@@ -34,7 +34,7 @@ pub trait Artifact: Send + Sync + Upcastable {
     /// Note: this will return `None` if the module is already instantiated.
     fn module_mut(&mut self) -> Option<&mut ModuleInfo>;
 
-    /// Register the `Artifact` stack frame information into the global scope.
+    /// Register thie `Artifact` stack frame information into the global scope.
     ///
     /// This is required to ensure that any traps can be properly symbolicated.
     fn register_frame_info(&self);
@@ -81,7 +81,7 @@ pub trait Artifact: Send + Sync + Upcastable {
         Ok(())
     }
 
-    /// Create an `Instance` from this `Artifact`.
+    /// Crate an `Instance` from this `Artifact`.
     ///
     /// # Safety
     ///
@@ -91,7 +91,6 @@ pub trait Artifact: Send + Sync + Upcastable {
         tunables: &dyn Tunables,
         resolver: &dyn Resolver,
         host_state: Box<dyn Any>,
-        from: Option<&[&dyn Memory]>,
     ) -> Result<InstanceHandle, InstantiationError> {
         self.preinstantiate()?;
 
@@ -124,7 +123,6 @@ pub trait Artifact: Send + Sync + Upcastable {
                 &module,
                 self.memory_styles(),
                 &memory_definition_locations,
-                from,
             )
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();

@@ -113,24 +113,12 @@ impl Tunables for BaseTunables {
         ty: &MemoryType,
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
-        src_mem: Option<&dyn Memory>,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
-        if let Some(mem) = src_mem {
-            let mem: &LinearMemory = mem.as_any().downcast_ref().expect("Not a LinearMemory");
-
-            Ok(Arc::new(LinearMemory::from_source_memory(
-                &ty,
-                &style,
-                Some(vm_definition_location),
-                mem,
-            )?))
-        } else {
-            Ok(Arc::new(LinearMemory::from_definition(
-                &ty,
-                &style,
-                vm_definition_location,
-            )?))
-        }
+        Ok(Arc::new(LinearMemory::from_definition(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].

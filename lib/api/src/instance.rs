@@ -1,5 +1,5 @@
 use crate::exports::Exports;
-use crate::externals::{Extern, Memory};
+use crate::externals::Extern;
 use crate::module::Module;
 use crate::store::Store;
 use crate::{HostEnvInitError, LinkError, RuntimeError};
@@ -112,34 +112,8 @@ impl Instance {
     ///  * Link errors that happen when plugging the imports into the instance
     ///  * Runtime errors that happen when running the module `start` function.
     pub fn new(module: &Module, resolver: &dyn Resolver) -> Result<Self, InstantiationError> {
-        Self::new_inner(module, resolver, None)
-    }
-
-    /// Create a new instance by copying an existing one
-    pub fn new_from(
-        module: &Module,
-        resolver: &dyn Resolver,
-        src_memory: &[Memory],
-    ) -> Result<Self, InstantiationError> {
-        Self::new_inner(module, resolver, Some(src_memory))
-    }
-
-    fn new_inner(
-        module: &Module,
-        resolver: &dyn Resolver,
-        src_mem: Option<&[Memory]>,
-    ) -> Result<Self, InstantiationError> {
         let store = module.store();
-        let handle = if let Some(memory) = src_mem {
-            let mut mem_vec = vec![];
-            for mem in memory {
-                mem_vec.push(mem.get_inner());
-            }
-
-            module.instantiate(resolver, Some(mem_vec.as_slice()))
-        } else {
-            module.instantiate(resolver, None)
-        }?;
+        let handle = module.instantiate(resolver)?;
 
         let exports = module
             .exports()

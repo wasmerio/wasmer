@@ -218,7 +218,6 @@ impl FuncTrampoline {
 
         Ok(module)
     }
-
     pub fn dynamic_trampoline(
         &self,
         ty: &FunctionType,

@@ -979,10 +979,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
         Ok(())
     }
 
-    /// Arguments:
-    /// * `var_offset`: The location of the variable in memory
-    /// * `value_size`: The size of the data being pointed to in bytes
-    ///                 (this ensures that loads are never out of bounds)
     fn resolve_memory_ptr(
         &mut self,
         memory_index: MemoryIndex,

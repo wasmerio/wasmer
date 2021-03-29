@@ -74,7 +74,7 @@ impl VMOffsets {
     /// Return a new `VMOffsets` instance, for a given pointer size
     /// skipping the `ModuleInfo`.
     ///
-    /// Note: This should only be used when generating code for trampolines.
+    /// Note: This should only when generating code for trampolines.
     pub fn new_for_trampolines(pointer_size: u8) -> Self {
         Self {
             pointer_size,

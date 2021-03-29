@@ -43,7 +43,7 @@ pub enum FunctionDefinition {
     Host(HostFunctionDefinition),
 }
 
-/// A WebAssembly `Function` instance.
+/// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
 /// It effectively is a closure of the original function (defined in either
@@ -959,7 +959,7 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
         Self::func_wrapper as *const () as *const VMFunctionBody
     }
 
-    // This function wraps our function to make it compatible with the
+    // This function wraps our func, to make it compatible with the
     // reverse trampoline signature
     unsafe fn func_wrapper(
         // Note: we use the trick that the first param to this function is the `VMDynamicFunctionContext`
