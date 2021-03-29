@@ -1432,8 +1432,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let shuffled = builder.ins().shuffle(a, b, mask);
             state.push1(shuffled)
             // At this point the original types of a and b are lost; users of this value (i.e. this
-            // WASM-to-CLIF translator) may need to raw_bitcast for type-correctness. This is due
-            // to WASM using the less specific v128 type for certain operations and more specific
+            // Wasm-to-CLIF translator) may need to raw_bitcast for type-correctness. This is due
+            // to Wasm using the less specific v128 type for certain operations and more specific
             // types (e.g. i8x16) for others.
         }
         Operator::I8x16Swizzle => {

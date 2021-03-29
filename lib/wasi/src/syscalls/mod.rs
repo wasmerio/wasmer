@@ -1348,7 +1348,7 @@ pub fn path_create_directory(
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_CREATE_DIRECTORY) {
         return __WASI_EACCES;
     }
-    let path_string = get_input_str!(memory, path, path_len);
+    let path_string = unsafe { get_input_str!(memory, path, path_len) };
     debug!("=> fd: {}, path: {}", fd, &path_string);
 
     let path = std::path::PathBuf::from(path_string);
@@ -1451,7 +1451,7 @@ pub fn path_filestat_get(
     if !has_rights(root_dir.rights, __WASI_RIGHT_PATH_FILESTAT_GET) {
         return __WASI_EACCES;
     }
-    let path_string = get_input_str!(memory, path, path_len);
+    let path_string = unsafe { get_input_str!(memory, path, path_len) };
 
     debug!("=> base_fd: {}, path: {}", fd, &path_string);
 
@@ -1516,7 +1516,7 @@ pub fn path_filestat_set_times(
         return __WASI_EINVAL;
     }
 
-    let path_string = get_input_str!(memory, path, path_len);
+    let path_string = unsafe { get_input_str!(memory, path, path_len) };
     debug!("=> base_fd: {}, path: {}", fd, &path_string);
 
     let file_inode = wasi_try!(state.fs.get_inode_at_path(
@@ -1595,8 +1595,8 @@ pub fn path_link(
         debug!("  - will follow symlinks when opening path");
     }
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
-    let old_path_str = get_input_str!(memory, old_path, old_path_len);
-    let new_path_str = get_input_str!(memory, new_path, new_path_len);
+    let old_path_str = unsafe { get_input_str!(memory, old_path, old_path_len) };
+    let new_path_str = unsafe { get_input_str!(memory, new_path, new_path_len) };
     let source_fd = wasi_try!(state.fs.get_fd(old_fd));
     let target_fd = wasi_try!(state.fs.get_fd(new_fd));
     debug!(
@@ -1700,7 +1700,7 @@ pub fn path_open(
     if !has_rights(working_dir.rights, __WASI_RIGHT_PATH_OPEN) {
         return __WASI_EACCES;
     }
-    let path_string = get_input_str!(memory, path, path_len);
+    let path_string = unsafe { get_input_str!(memory, path, path_len) };
 
     debug!("=> fd: {}, path: {}", dirfd, &path_string);
 
@@ -1943,7 +1943,7 @@ pub fn path_readlink(
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_READLINK) {
         return __WASI_EACCES;
     }
-    let path_str = get_input_str!(memory, path, path_len);
+    let path_str = unsafe { get_input_str!(memory, path, path_len) };
     let inode = wasi_try!(state.fs.get_inode_at_path(dir_fd, path_str, false));
 
     if let Kind::Symlink { relative_path, .. } = &state.fs.inodes[inode].kind {
@@ -1983,7 +1983,7 @@ pub fn path_remove_directory(
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
 
     let base_dir = wasi_try!(state.fs.fd_map.get(&fd), __WASI_EBADF);
-    let path_str = get_input_str!(memory, path, path_len);
+    let path_str = unsafe { get_input_str!(memory, path, path_len) };
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));
     let (parent_inode, childs_name) =
@@ -2062,9 +2062,9 @@ pub fn path_rename(
         old_fd, new_fd
     );
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
-    let source_str = get_input_str!(memory, old_path, old_path_len);
+    let source_str = unsafe { get_input_str!(memory, old_path, old_path_len) };
     let source_path = std::path::Path::new(source_str);
-    let target_str = get_input_str!(memory, new_path, new_path_len);
+    let target_str = unsafe { get_input_str!(memory, new_path, new_path_len) };
     let target_path = std::path::Path::new(target_str);
     debug!("=> rename from {} to {}", source_str, target_str);
 
@@ -2169,8 +2169,8 @@ pub fn path_symlink(
 ) -> __wasi_errno_t {
     debug!("wasi::path_symlink");
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
-    let old_path_str = get_input_str!(memory, old_path, old_path_len);
-    let new_path_str = get_input_str!(memory, new_path, new_path_len);
+    let old_path_str = unsafe { get_input_str!(memory, old_path, old_path_len) };
+    let new_path_str = unsafe { get_input_str!(memory, new_path, new_path_len) };
     let base_fd = wasi_try!(state.fs.get_fd(fd));
     if !has_rights(base_fd.rights, __WASI_RIGHT_PATH_SYMLINK) {
         return __WASI_EACCES;
@@ -2251,7 +2251,7 @@ pub fn path_unlink_file(
     if !has_rights(base_dir.rights, __WASI_RIGHT_PATH_UNLINK_FILE) {
         return __WASI_EACCES;
     }
-    let path_str = get_input_str!(memory, path, path_len);
+    let path_str = unsafe { get_input_str!(memory, path, path_len) };
     debug!("Requested file: {}", path_str);
 
     let inode = wasi_try!(state.fs.get_inode_at_path(fd, path_str, false));

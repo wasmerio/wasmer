@@ -24,7 +24,7 @@ pub struct InternalRef(Rc<dyn InternalRefBase>);
 impl InternalRef {
     pub fn is_ref<T: 'static>(&self) -> bool {
         let r = self.0.as_any();
-        Any::is::<HostRef<T>>(r)
+        <dyn Any>::is::<HostRef<T>>(r)
     }
     pub fn get_ref<T: 'static>(&self) -> HostRef<T> {
         let r = self.0.as_any();

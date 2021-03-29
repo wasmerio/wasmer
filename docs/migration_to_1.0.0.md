@@ -20,7 +20,7 @@ to make migrating to the new API as simple as possible.
 
 ## Rationale for changes in 1.0.0
 
-Wasmer 0.x was great but as the WASM community and standards evolve we felt the need to make Wasmer also follow these 
+Wasmer 0.x was great but as the Wasm community and standards evolve we felt the need to make Wasmer also follow these 
 changes.
 
 Wasmer 1.x is what we think a necessary rewrite of a big part of the project to make it more future-proof. 
@@ -70,9 +70,9 @@ The figure above shows the core Wasmer crates and their dependencies with transi
 
 Wasmer 1.0.0 has two core architectural abstractions: engines and compilers.
 
-An engine is a system that processes WASM with a compiler and prepares it to be executed.
+An engine is a system that processes Wasm with a compiler and prepares it to be executed.
 
-A compiler is a system that translates WASM into a format that can be understood
+A compiler is a system that translates Wasm into a format that can be understood
 more directly by a real computer: machine code.
 
 For example, in the [examples] you'll see that we are using the JIT engine and the Cranelift compiler. The JIT engine 
@@ -340,11 +340,11 @@ you'll be able to delegate most of the work to Wasmer:
 ``` 
 
 [examples]: https://docs.wasmer.io/integrations/examples
-[wasmer]: https://crates.io/crates/wasmer/1.0.0-rc1
-[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0-rc1
-[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0-rc1
-[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0-rc1
-[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0-rc1
+[wasmer]: https://crates.io/crates/wasmer/1.0.0
+[wasmer-wasi]: https://crates.io/crates/wasmer-wasi/1.0.0
+[wasmer-emscripten]: https://crates.io/crates/wasmer-emscripten/1.0.0
+[wasmer-engine]: https://crates.io/crates/wasmer-engine/1.0.0
+[wasmer-compiler]: https://crates.io/crates/wasmer-compiler/1.0.0
 [wasmer.io]: https://wasmer.io
 [wasmer-nightly]: https://github.com/wasmerio/wasmer-nightly/
 [getting-started]: https://docs.wasmer.io/ecosystem/wasmer/getting-started

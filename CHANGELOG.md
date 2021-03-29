@@ -7,7 +7,24 @@
 
 ## **[Unreleased]**
 
-- [#1153](https://github.com/wasmerio/wasmer/pull/1969) Added D integration to the README
+### Added
+
+### Changed
+- [#1985](https://github.com/wasmerio/wasmer/pull/1985) Bump minimum supported Rust version to 1.48
+
+### Fixed
+
+## 1.0.0 - 2021-01-05
+
+### Added
+
+- [#1969](https://github.com/wasmerio/wasmer/pull/1969) Added D integration to the README
+
+### Changed
+- [#1979](https://github.com/wasmerio/wasmer/pull/1979) `WasmPtr::get_utf8_string` was renamed to `WasmPtr::get_utf8_str` and made `unsafe`.
+
+### Fixed
+- [#1979](https://github.com/wasmerio/wasmer/pull/1979) `WasmPtr::get_utf8_string` now returns a `String`, fixing a soundness issue in certain circumstances. The old functionality is available under a new `unsafe` function, `WasmPtr::get_utf8_str`.
 
 ## 1.0.0-rc1 - 2020-12-23
 
