@@ -133,7 +133,7 @@ impl LLVMCompiler {
                 },
                 |func_trampoline, (i, sig)| {
                     let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(*i));
-                    let module = func_trampoline.trampoline_to_llvm_module(sig, self.config(), &name)?;
+                    let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             )
@@ -164,7 +164,7 @@ impl LLVMCompiler {
                     let name =
                         symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(*i));
                     let module =
-                        func_trampoline.dynamic_trampoline_to_llvm_module(sig, self.config(), &name)?;
+                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
                     Ok(module.write_bitcode_to_memory().as_slice().to_vec())
                 },
             )

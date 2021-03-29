@@ -242,10 +242,6 @@ impl Memory {
     pub fn same(&self, other: &Self) -> bool {
         Arc::ptr_eq(&self.memory, &other.memory)
     }
-
-    pub(crate) fn get_inner(&self) -> &dyn wasmer_vm::Memory {
-        &*self.memory
-    }
 }
 
 impl<'a> Exportable<'a> for Memory {

@@ -35,7 +35,7 @@ impl FuncTrampoline {
         }
     }
 
-    pub(crate) fn trampoline_to_llvm_module(
+    pub(crate) fn trampoline_to_module(
         &self,
         ty: &FunctionType,
         config: &LLVM,
@@ -102,7 +102,7 @@ impl FuncTrampoline {
         config: &LLVM,
         name: &str,
     ) -> Result<FunctionBody, CompileError> {
-        let module = self.trampoline_to_llvm_module(ty, config, name)?;
+        let module = self.trampoline_to_module(ty, config, name)?;
         let function = CompiledKind::FunctionCallTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
@@ -166,7 +166,7 @@ impl FuncTrampoline {
         })
     }
 
-    pub(crate) fn dynamic_trampoline_to_llvm_module(
+    pub(crate) fn dynamic_trampoline_to_module(
         &self,
         ty: &FunctionType,
         config: &LLVM,
@@ -227,7 +227,7 @@ impl FuncTrampoline {
         let function = CompiledKind::DynamicFunctionTrampoline(ty.clone());
         let target_machine = &self.target_machine;
 
-        let module = self.dynamic_trampoline_to_llvm_module(ty, config, name)?;
+        let module = self.dynamic_trampoline_to_module(ty, config, name)?;
 
         let memory_buffer = target_machine
             .write_to_memory_buffer(&module, FileType::Object)
