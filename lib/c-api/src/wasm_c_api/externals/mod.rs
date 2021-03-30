@@ -44,11 +44,12 @@ impl Drop for wasm_extern_inner {
     fn drop(&mut self) {
         unsafe {
             let tag = self.function.tag;
+            dbg!(tag);
             match tag {
-                CApiExternTag::Function => mem::ManuallyDrop::drop(&mut self.function),
-                CApiExternTag::Global => mem::ManuallyDrop::drop(&mut self.global),
+                CApiExternTag::Function => mem::ManuallyDrop::drop(dbg!(&mut self.function)),
+                CApiExternTag::Global => mem::ManuallyDrop::drop(dbg!(&mut self.global)),
                 CApiExternTag::Table => mem::ManuallyDrop::drop(&mut self.table),
-                CApiExternTag::Memory => mem::ManuallyDrop::drop(&mut self.memory),
+                CApiExternTag::Memory => mem::ManuallyDrop::drop(dbg!(&mut self.memory)),
             }
         }
     }
