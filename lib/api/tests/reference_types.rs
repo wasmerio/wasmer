@@ -1,5 +1,3 @@
-#![cfg(feature = "experimental-reference-types-extern-ref")]
-
 use anyhow::Result;
 use std::collections::HashMap;
 use std::sync::atomic::{AtomicBool, Ordering};
@@ -55,6 +53,7 @@ fn func_ref_passed_and_returned() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
 fn extern_ref_passed_and_returned() -> Result<()> {
     let store = Store::default();
@@ -141,7 +140,9 @@ fn extern_ref_passed_and_returned() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
+// TODO(reftypes): reenable this test
 #[ignore]
 fn extern_ref_ref_counting_basic() -> Result<()> {
     let store = Store::default();
@@ -227,6 +228,7 @@ fn refs_in_globals() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
 fn extern_ref_ref_counting_table_basic() -> Result<()> {
     let store = Store::default();
@@ -267,7 +269,9 @@ fn extern_ref_ref_counting_table_basic() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
+// TODO(reftypes): reenable this test
 #[ignore]
 fn extern_ref_ref_counting_global_basic() -> Result<()> {
     let store = Store::default();
@@ -297,7 +301,9 @@ fn extern_ref_ref_counting_global_basic() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
+// TODO(reftypes): reenable this test
 #[ignore]
 fn extern_ref_ref_counting_traps() -> Result<()> {
     let store = Store::default();
@@ -322,6 +328,7 @@ fn extern_ref_ref_counting_traps() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
 fn extern_ref_ref_counting_table_instructions() -> Result<()> {
     let store = Store::default();

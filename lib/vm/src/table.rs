@@ -41,19 +41,19 @@ pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32, init_value: TableReference) -> Option<u32>;
+    fn grow(&self, delta: u32, init_value: TableElement) -> Option<u32>;
 
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<TableReference>;
+    fn get(&self, index: u32) -> Option<TableElement>;
 
     /// Set reference to the specified element.
     ///
     /// # Errors
     ///
     /// Returns an error if the index is out of bounds.
-    fn set(&self, index: u32, reference: TableReference) -> Result<(), Trap>;
+    fn set(&self, index: u32, reference: TableElement) -> Result<(), Trap>;
 
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     fn vmtable(&self) -> NonNull<VMTableDefinition>;
@@ -107,7 +107,7 @@ pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
 
 /// A reference stored in a table. Can be either an externref or a funcref.
 #[derive(Debug, Clone)]
-pub enum TableReference {
+pub enum TableElement {
     /// Opaque pointer to arbitrary host data.
     // Note: we use `ExternRef` instead of `VMExternRef` here to ensure that we don't
     // leak by not dec-refing on failure types.
@@ -116,38 +116,45 @@ pub enum TableReference {
     FuncRef(VMFuncRef),
 }
 
-impl From<TableReference> for TableElement {
-    fn from(other: TableReference) -> Self {
+impl From<TableElement> for RawTableElement {
+    fn from(other: TableElement) -> Self {
         match other {
-            TableReference::ExternRef(extern_ref) => Self {
+            TableElement::ExternRef(extern_ref) => Self {
                 extern_ref: extern_ref.into(),
             },
-            TableReference::FuncRef(func_ref) => Self { func_ref },
+            TableElement::FuncRef(func_ref) => Self { func_ref },
         }
     }
 }
 
-// TODO: review what repr(C) means on unions, make sure this just acts like a usize.
 #[repr(C)]
 #[derive(Clone, Copy)]
-pub union TableElement {
+pub union RawTableElement {
     pub(crate) extern_ref: VMExternRef,
     pub(crate) func_ref: VMFuncRef,
 }
 
-impl MemoryUsage for TableElement {
+#[cfg(test)]
+#[test]
+fn table_element_size_test() {
+    use std::mem::size_of;
+    assert_eq!(size_of::<RawTableElement>(), size_of::<VMExternRef>());
+    assert_eq!(size_of::<RawTableElement>(), size_of::<VMFuncRef>());
+}
+
+impl MemoryUsage for RawTableElement {
     fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
         std::mem::size_of_val(self)
     }
 }
 
-impl fmt::Debug for TableElement {
+impl fmt::Debug for RawTableElement {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("TableElement").finish()
+        f.debug_struct("RawTableElement").finish()
     }
 }
 
-impl Default for TableElement {
+impl Default for RawTableElement {
     fn default() -> Self {
         Self {
             func_ref: VMFuncRef::null(),
@@ -155,7 +162,7 @@ impl Default for TableElement {
     }
 }
 
-impl Default for TableReference {
+impl Default for TableElement {
     fn default() -> Self {
         Self::FuncRef(VMFuncRef::null())
     }
@@ -165,7 +172,7 @@ impl Default for TableReference {
 #[derive(Debug, MemoryUsage)]
 pub struct LinearTable {
     // TODO: we can remove the mutex by using atomic swaps and preallocating the max table size
-    vec: Mutex<Vec<TableElement>>,
+    vec: Mutex<Vec<RawTableElement>>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
@@ -241,7 +248,7 @@ impl LinearTable {
         }
         let table_minimum = usize::try_from(table.minimum)
             .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-        let mut vec = vec![TableElement::default(); table_minimum];
+        let mut vec = vec![RawTableElement::default(); table_minimum];
         let base = vec.as_mut_ptr();
         match style {
             TableStyle::CallerChecksSignature => Ok(Self {
@@ -309,7 +316,7 @@ impl Table for LinearTable {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32, init_value: TableReference) -> Option<u32> {
+    fn grow(&self, delta: u32, init_value: TableElement) -> Option<u32> {
         let mut vec_guard = self.vec.lock().unwrap();
         let vec = vec_guard.borrow_mut();
         let size = self.size();
@@ -324,16 +331,16 @@ impl Table for LinearTable {
 
         // Update the ref count
         let element = match init_value {
-            TableReference::ExternRef(extern_ref) => {
+            TableElement::ExternRef(extern_ref) => {
                 let extern_ref: VMExternRef = extern_ref.into();
                 // We reduce the amount we increment by because `into` prevents
                 // dropping `init_value` (which is a caller-inc'd ref).
                 (new_len as usize)
                     .checked_sub(size as usize + 1)
                     .map(|val| extern_ref.ref_inc_by(val));
-                TableElement { extern_ref }
+                RawTableElement { extern_ref }
             }
-            TableReference::FuncRef(func_ref) => TableElement { func_ref },
+            TableElement::FuncRef(func_ref) => RawTableElement { func_ref },
         };
 
         vec.resize(usize::try_from(new_len).unwrap(), element);
@@ -351,14 +358,14 @@ impl Table for LinearTable {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<TableReference> {
+    fn get(&self, index: u32) -> Option<TableElement> {
         let vec_guard = self.vec.lock().unwrap();
         let raw_data = vec_guard.borrow().get(index as usize).cloned()?;
         Some(match self.table.ty {
             ValType::ExternRef => {
-                TableReference::ExternRef(unsafe { raw_data.extern_ref.ref_clone() }.into())
+                TableElement::ExternRef(unsafe { raw_data.extern_ref.ref_clone() }.into())
             }
-            ValType::FuncRef => TableReference::FuncRef(unsafe { raw_data.func_ref }),
+            ValType::FuncRef => TableElement::FuncRef(unsafe { raw_data.func_ref }),
             _ => todo!("getting invalid type from table, handle this error"),
         })
     }
@@ -368,13 +375,13 @@ impl Table for LinearTable {
     /// # Errors
     ///
     /// Returns an error if the index is out of bounds.
-    fn set(&self, index: u32, reference: TableReference) -> Result<(), Trap> {
+    fn set(&self, index: u32, reference: TableElement) -> Result<(), Trap> {
         let mut vec_guard = self.vec.lock().unwrap();
         let vec = vec_guard.borrow_mut();
         match vec.get_mut(index as usize) {
             Some(slot) => {
                 match (self.table.ty, reference) {
-                    (ValType::ExternRef, TableReference::ExternRef(extern_ref)) => {
+                    (ValType::ExternRef, TableElement::ExternRef(extern_ref)) => {
                         let extern_ref = extern_ref.into();
                         unsafe {
                             let elem = &mut *slot;
@@ -382,7 +389,7 @@ impl Table for LinearTable {
                             elem.extern_ref = extern_ref
                         }
                     }
-                    (ValType::FuncRef, r @ TableReference::FuncRef(_)) => {
+                    (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
                         let element_data = r.into();
                         *slot = element_data;
                     }

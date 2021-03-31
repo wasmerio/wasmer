@@ -7,7 +7,7 @@ use crate::TableType;
 use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportTable};
-use wasmer_vm::{Table as RuntimeTable, TableReference, VMExportTable};
+use wasmer_vm::{Table as RuntimeTable, TableElement, VMExportTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -27,7 +27,7 @@ pub struct Table {
 fn set_table_item(
     table: &dyn RuntimeTable,
     item_index: u32,
-    item: TableReference,
+    item: TableElement,
 ) -> Result<(), RuntimeError> {
     table.set(item_index, item).map_err(|e| e.into())
 }

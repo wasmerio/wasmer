@@ -41,12 +41,9 @@ pub trait ValFuncRef {
 
     fn from_checked_anyfunc(item: VMFuncRef, store: &Store) -> Self;
 
-    fn into_table_reference(
-        &self,
-        store: &Store,
-    ) -> Result<wasmer_vm::TableReference, RuntimeError>;
+    fn into_table_reference(&self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError>;
 
-    fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self;
+    fn from_table_reference(item: wasmer_vm::TableElement, store: &Store) -> Self;
 }
 
 impl ValFuncRef for Val {
@@ -93,28 +90,25 @@ impl ValFuncRef for Val {
         Self::FuncRef(Some(f))
     }
 
-    fn into_table_reference(
-        &self,
-        store: &Store,
-    ) -> Result<wasmer_vm::TableReference, RuntimeError> {
+    fn into_table_reference(&self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
             // TODO: review this clone
             Self::ExternRef(extern_ref) => {
-                wasmer_vm::TableReference::ExternRef(extern_ref.clone().into())
+                wasmer_vm::TableElement::ExternRef(extern_ref.clone().into())
             }
-            Self::FuncRef(None) => wasmer_vm::TableReference::FuncRef(VMFuncRef::null()),
-            Self::FuncRef(Some(f)) => wasmer_vm::TableReference::FuncRef(f.checked_anyfunc()),
+            Self::FuncRef(None) => wasmer_vm::TableElement::FuncRef(VMFuncRef::null()),
+            Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(f.checked_anyfunc()),
             _ => return Err(RuntimeError::new("val is not reference")),
         })
     }
 
-    fn from_table_reference(item: wasmer_vm::TableReference, store: &Store) -> Self {
+    fn from_table_reference(item: wasmer_vm::TableElement, store: &Store) -> Self {
         match item {
-            wasmer_vm::TableReference::FuncRef(f) => Self::from_checked_anyfunc(f, store),
-            wasmer_vm::TableReference::ExternRef(extern_ref) => Self::ExternRef(extern_ref.into()),
+            wasmer_vm::TableElement::FuncRef(f) => Self::from_checked_anyfunc(f, store),
+            wasmer_vm::TableElement::ExternRef(extern_ref) => Self::ExternRef(extern_ref.into()),
         }
     }
 }

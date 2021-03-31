@@ -109,10 +109,10 @@ pub struct FuncEnvironment<'module_environment> {
     /// The external function signature for implementing wasm's `table.fill`.
     table_fill_sig: Option<ir::SigRef>,
 
-    /// The external function signature for implementing reference increment for `extern.ref`
+    /// The external function signature for implementing reference increment for `extern.ref`.
     externref_inc_sig: Option<ir::SigRef>,
 
-    /// The external function signature for implementing reference decrement for `extern.ref`
+    /// The external function signature for implementing reference decrement for `extern.ref`.
     externref_dec_sig: Option<ir::SigRef>,
     /// Offsets to struct fields accessed by JIT code.
     offsets: VMOffsets,
@@ -942,7 +942,7 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         ty: Type,
     ) -> WasmResult<ir::Value> {
         Ok(match ty {
-            Type::FuncRef => pos.ins().null(self.reference_type()), //iconst(self.pointer_type(), 0),
+            Type::FuncRef => pos.ins().null(self.reference_type()),
             Type::ExternRef => pos.ins().null(self.reference_type()),
             _ => {
                 return Err(WasmError::Unsupported(
@@ -1176,10 +1176,6 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             table_entry_addr,
             i32::from(self.offsets.vmcaller_checked_anyfunc_func_ptr()),
         );
-
-        // TODO: We can probably drop this check now. Needs review.
-        // Check whether `func_addr` is null.
-        pos.ins().trapz(func_addr, ir::TrapCode::IndirectCallToNull);
 
         // If necessary, check the signature.
         match self.table_styles[table_index] {

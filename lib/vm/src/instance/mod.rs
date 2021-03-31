@@ -18,7 +18,7 @@ use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
-use crate::table::{Table, TableReference};
+use crate::table::{Table, TableElement};
 use crate::trap::{catch_traps, init_traps, Trap, TrapCode};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
@@ -219,14 +219,6 @@ impl Instance {
         (self.vmctx_ptr() as *mut u8)
             .add(usize::try_from(offset).unwrap())
             .cast()
-    }
-
-    // TODO: remove this after review if changes don't re-require it
-    #[allow(dead_code)]
-    /// Return the indexed `VMSharedSignatureIndex`.
-    fn signature_id(&self, index: SignatureIndex) -> VMSharedSignatureIndex {
-        let index = usize::try_from(index.as_u32()).unwrap();
-        unsafe { *self.signature_ids_ptr().add(index) }
     }
 
     fn module(&self) -> &Arc<ModuleInfo> {
@@ -559,7 +551,7 @@ impl Instance {
         &self,
         table_index: LocalTableIndex,
         delta: u32,
-        init_value: TableReference,
+        init_value: TableElement,
     ) -> Option<u32> {
         let result = self
             .tables
@@ -580,7 +572,7 @@ impl Instance {
         &self,
         table_index: TableIndex,
         delta: u32,
-        init_value: TableReference,
+        init_value: TableElement,
     ) -> Option<u32> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
@@ -592,7 +584,7 @@ impl Instance {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-    ) -> Option<TableReference> {
+    ) -> Option<TableElement> {
         self.tables
             .get(table_index)
             .unwrap_or_else(|| panic!("no table for index {}", table_index.index()))
@@ -610,7 +602,7 @@ impl Instance {
         &self,
         table_index: TableIndex,
         index: u32,
-    ) -> Option<TableReference> {
+    ) -> Option<TableElement> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
         from.get(index)
@@ -621,7 +613,7 @@ impl Instance {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-        val: TableReference,
+        val: TableElement,
     ) -> Result<(), Trap> {
         self.tables
             .get(table_index)
@@ -639,7 +631,7 @@ impl Instance {
         &self,
         table_index: TableIndex,
         index: u32,
-        val: TableReference,
+        val: TableElement,
     ) -> Result<(), Trap> {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
@@ -691,7 +683,7 @@ impl Instance {
 
         for (dst, src) in (dst..dst + len).zip(src..src + len) {
             table
-                .set(dst, TableReference::FuncRef(elem[src as usize]))
+                .set(dst, TableElement::FuncRef(elem[src as usize]))
                 .expect("should never panic because we already did the bounds check above");
         }
 
@@ -707,7 +699,7 @@ impl Instance {
         &self,
         table_index: TableIndex,
         start_index: u32,
-        item: TableReference,
+        item: TableElement,
         len: u32,
     ) -> Result<(), Trap> {
         // https://webassembly.github.io/bulk-memory-operations/core/exec/instructions.html#exec-table-init
@@ -889,47 +881,6 @@ impl Instance {
 pub struct InstanceHandle {
     /// The [`InstanceRef`]. See its documentation to learn more.
     instance: InstanceRef,
-}
-
-/// TOOD: move this function somewhere else
-fn build_funcrefs(
-    module_info: &ModuleInfo,
-    imports: &Imports,
-    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
-    func_data_registry: &FuncDataRegistry,
-    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
-    vmctx_ptr: *mut VMContext,
-) -> BoxedSlice<FunctionIndex, VMFuncRef> {
-    let mut func_refs = PrimaryMap::with_capacity(module_info.functions.len());
-
-    // do imported functions
-    for (index, import) in imports.functions.iter() {
-        let sig_index = module_info.functions[index];
-        let type_index = vmshared_signatures[sig_index];
-        let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr: import.body,
-            type_index,
-            vmctx: import.environment,
-        };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
-    }
-
-    // do local functions
-    for (local_index, func_ptr) in finished_functions.iter() {
-        let index = module_info.func_index(local_index);
-        let sig_index = module_info.functions[index];
-        let type_index = vmshared_signatures[sig_index];
-        let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr: func_ptr.0,
-            type_index,
-            vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
-        };
-        let func_ref = func_data_registry.register(anyfunc);
-        func_refs.push(func_ref);
-    }
-
-    func_refs.into_boxed_slice()
 }
 
 impl InstanceHandle {
@@ -1263,7 +1214,7 @@ impl InstanceHandle {
         &self,
         table_index: LocalTableIndex,
         delta: u32,
-        init_value: TableReference,
+        init_value: TableElement,
     ) -> Option<u32> {
         self.instance()
             .as_ref()
@@ -1273,7 +1224,7 @@ impl InstanceHandle {
     /// Get table element reference.
     ///
     /// Returns `None` if index is out of bounds.
-    pub fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableReference> {
+    pub fn table_get(&self, table_index: LocalTableIndex, index: u32) -> Option<TableElement> {
         self.instance().as_ref().table_get(table_index, index)
     }
 
@@ -1284,7 +1235,7 @@ impl InstanceHandle {
         &self,
         table_index: LocalTableIndex,
         index: u32,
-        val: TableReference,
+        val: TableElement,
     ) -> Result<(), Trap> {
         self.instance().as_ref().table_set(table_index, index, val)
     }
@@ -1464,7 +1415,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
             table
                 .set(
                     u32::try_from(start + i).unwrap(),
-                    TableReference::FuncRef(anyfunc),
+                    TableElement::FuncRef(anyfunc),
                 )
                 .unwrap();
         }
@@ -1556,4 +1507,46 @@ fn initialize_globals(instance: &Instance) {
             }
         }
     }
+}
+
+/// Eagerly builds all the `VMFuncRef`s for imported and local functions so that all
+/// future funcref operations are just looking up this data.
+fn build_funcrefs(
+    module_info: &ModuleInfo,
+    imports: &Imports,
+    finished_functions: &BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    func_data_registry: &FuncDataRegistry,
+    vmshared_signatures: &BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    vmctx_ptr: *mut VMContext,
+) -> BoxedSlice<FunctionIndex, VMFuncRef> {
+    let mut func_refs = PrimaryMap::with_capacity(module_info.functions.len());
+
+    // do imported functions
+    for (index, import) in imports.functions.iter() {
+        let sig_index = module_info.functions[index];
+        let type_index = vmshared_signatures[sig_index];
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr: import.body,
+            type_index,
+            vmctx: import.environment,
+        };
+        let func_ref = func_data_registry.register(anyfunc);
+        func_refs.push(func_ref);
+    }
+
+    // do local functions
+    for (local_index, func_ptr) in finished_functions.iter() {
+        let index = module_info.func_index(local_index);
+        let sig_index = module_info.functions[index];
+        let type_index = vmshared_signatures[sig_index];
+        let anyfunc = VMCallerCheckedAnyfunc {
+            func_ptr: func_ptr.0,
+            type_index,
+            vmctx: VMFunctionEnvironment { vmctx: vmctx_ptr },
+        };
+        let func_ref = func_data_registry.register(anyfunc);
+        func_refs.push(func_ref);
+    }
+
+    func_refs.into_boxed_slice()
 }

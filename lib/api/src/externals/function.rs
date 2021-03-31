@@ -934,7 +934,9 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
                 ret.write_value_to(values_vec.add(i));
             }
             Ok(())
-        })); // We get an extern ref drop at the end of this block that we don't want
+        })); // We get extern ref drops at the end of this block that we don't need.
+             // By preventing extern ref incs in the code above we can save the work of
+             // incrementing and decrementing. However the logic as-is is correct.
 
         match result {
             Ok(Ok(())) => {}

@@ -270,6 +270,7 @@ impl FuncTranslationState {
     pub(crate) fn new() -> Self {
         Self {
             stack: Vec::new(),
+            // TODO(reftypes):
             //metadata_stack: Vec::new(),
             control_stack: Vec::new(),
             reachable: true,
@@ -311,12 +312,14 @@ impl FuncTranslationState {
     /// Push a value with extra info attached.
     pub(crate) fn push1_extra(&mut self, val: (Value, ValueExtraInfo)) {
         self.stack.push(val.0);
+        // TODO(reftypes):
         //self.metadata_stack.push(val.1);
     }
 
     /// Push a value with default extra info.
     pub(crate) fn push1(&mut self, val: Value) {
         self.stack.push(val);
+        // TODO(reftypes):
         //self.metadata_stack.push(ValueExtraInfo::default());
     }
 
@@ -324,6 +327,7 @@ impl FuncTranslationState {
     pub(crate) fn pushn(&mut self, vals: &[Value], _vals_metadata: &[ValueExtraInfo]) {
         assert_eq!(vals.len(), _vals_metadata.len());
         self.stack.extend_from_slice(vals);
+        // TODO(reftypes):
         //self.metadata_stack.extend_from_slice(vals_metadata);
     }
 
@@ -378,6 +382,7 @@ impl FuncTranslationState {
             n,
             self.stack.len()
         );
+        // TODO(reftypes):
         /*debug_assert!(
             n <= self.metadata_stack.len(),
             "attempted to access {} values but stack only has {} values",
@@ -399,6 +404,7 @@ impl FuncTranslationState {
     pub(crate) fn peekn(&self, n: usize) -> (&[Value], &[ValueExtraInfo]) {
         self.ensure_length_is_at_least(n);
         let vals = &self.stack[self.stack.len() - n..];
+        // TODO(reftypes):
         let vals_metadata = &[]; //&self.metadata_stack[self.metadata_stack.len() - n..];
         (vals, vals_metadata)
     }
@@ -407,9 +413,11 @@ impl FuncTranslationState {
     pub(crate) fn peekn_mut(&mut self, n: usize) -> (&mut [Value], &mut [ValueExtraInfo]) {
         self.ensure_length_is_at_least(n);
         let len = self.stack.len();
+        // TODO(reftypes):
         //let metadata_len = self.metadata_stack.len();
         //assert_eq!(len, metadata_len);
         let vals = &mut self.stack[len - n..];
+        // TODO(reftypes):
         let vals_metadata = &mut []; //&mut self.metadata_stack[metadata_len - n..];
         (vals, vals_metadata)
     }
