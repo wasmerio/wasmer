@@ -62,12 +62,6 @@ impl Cranelift {
         self
     }
 
-    /// Enable SIMD support.
-    pub fn enable_simd(&mut self, enable: bool) -> &mut Self {
-        self.enable_simd = enable;
-        self
-    }
-
     /// The optimization levels when optimizing the IR.
     pub fn opt_level(&mut self, opt_level: CraneliftOptLevel) -> &mut Self {
         self.opt_level = opt_level;
@@ -153,18 +147,15 @@ impl Cranelift {
             .set("enable_verifier", enable_verifier)
             .expect("should be valid flag");
 
-        let opt_level = if self.enable_simd {
-            "none"
-        } else {
-            match self.opt_level {
-                CraneliftOptLevel::None => "none",
-                CraneliftOptLevel::Speed => "speed",
-                CraneliftOptLevel::SpeedAndSize => "speed_and_size",
-            }
-        };
-
         flags
-            .set("opt_level", opt_level)
+            .set(
+                "opt_level",
+                match self.opt_level {
+                    CraneliftOptLevel::None => "none",
+                    CraneliftOptLevel::Speed => "speed",
+                    CraneliftOptLevel::SpeedAndSize => "speed_and_size",
+                },
+            )
             .expect("should be valid flag");
 
         let enable_simd = if self.enable_simd { "true" } else { "false" };
