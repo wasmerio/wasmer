@@ -70,14 +70,14 @@ pub struct Function {
     pub(crate) exported: ExportFunction,
 }
 
-#[ cfg(feature="async") ]
+#[cfg(feature = "async")]
 fn build_export_function_metadata<Env>(
     env: Env,
     import_init_function_ptr: for<'a> fn(
         &'a mut Env,
         &'a crate::Instance,
     ) -> Result<(), crate::HostEnvInitError>,
-    host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void)
+    host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
 ) -> (*mut std::ffi::c_void, ExportFunctionMetadata)
 where
     Env: Clone + Sized + 'static + Send + Sync,
@@ -96,7 +96,9 @@ where
         Box::into_raw(Box::new(env_ref.clone())) as _
     };
     let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr| {
-        unsafe { Box::from_raw(ptr.cast::<Env>()) };
+        unsafe {
+            Box::from_raw(ptr.cast::<Env>())
+        };
     };
     let env = Box::into_raw(Box::new(env)) as _;
 
@@ -116,7 +118,7 @@ where
     (env, metadata)
 }
 
-#[ cfg(not(feature="async")) ]
+#[cfg(not(feature = "async"))]
 fn build_export_function_metadata<Env>(
     env: Env,
     import_init_function_ptr: for<'a> fn(
@@ -139,7 +141,9 @@ where
         Box::into_raw(Box::new(env_ref.clone())) as _
     };
     let host_env_drop_fn = |ptr: *mut c_void| {
-        unsafe { Box::from_raw(ptr.cast::<Env>()) };
+        unsafe {
+            Box::from_raw(ptr.cast::<Env>())
+        };
     };
     let env = Box::into_raw(Box::new(env)) as _;
 
@@ -224,7 +228,7 @@ impl Function {
             };
         };
 
-        #[cfg(feature="async") ]
+        #[cfg(feature = "async")]
         let host_env_set_yielder_fn = |_, _| {
             //no-op
             println!("No-op");
@@ -244,7 +248,8 @@ impl Function {
                             host_env,
                             None,
                             host_env_clone_fn,
-                            #[cfg(feature="async")] host_env_set_yielder_fn,
+                            #[cfg(feature = "async")]
+                            host_env_set_yielder_fn,
                             host_env_drop_fn,
                         )
                     },
@@ -321,30 +326,32 @@ impl Function {
             });
 
         let import_init_function_ptr: for<'a> fn(&'a mut _, &'a _) -> Result<(), _> =
-            |env: &mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-             instance: &crate::Instance| {
-                Env::init_with_instance(&mut *env.ctx.env, instance)
-            };
+            |
+                env: &mut VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
+                instance: &crate::Instance,
+            | { Env::init_with_instance(&mut *env.ctx.env, instance) };
 
-        #[ cfg(feature="async") ]
-        let (host_env, metadata) =  {
+        #[cfg(feature = "async")]
+        let (host_env, metadata) = {
             let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
                 let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
                 env.set_yielder(yielder_ptr);
             };
 
-            build_export_function_metadata::<
-                VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-                    >(dynamic_ctx, import_init_function_ptr, host_env_set_yielder_fn)
+            build_export_function_metadata::<VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>>(
+                dynamic_ctx,
+                import_init_function_ptr,
+                host_env_set_yielder_fn,
+            )
         };
 
-        #[ cfg(not(feature="async")) ]
+        #[cfg(not(feature = "async"))]
         let (host_env, metadata) = build_export_function_metadata::<
-                VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-                    >(dynamic_ctx, import_init_function_ptr);
+            VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
+        >(dynamic_ctx, import_init_function_ptr);
 
         // We don't yet have the address with the Wasm ABI signature.
- 
+
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
@@ -458,18 +465,23 @@ impl Function {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
-        #[ cfg(feature="async") ]
+        #[cfg(feature = "async")]
         let (host_env, metadata) = {
             let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
                 let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
                 env.set_yielder(yielder_ptr);
             };
 
-            build_export_function_metadata::<Env>(env, Env::init_with_instance, host_env_set_yielder_fn)
+            build_export_function_metadata::<Env>(
+                env,
+                Env::init_with_instance,
+                host_env_set_yielder_fn,
+            )
         };
 
-        #[ cfg(not(feature="async")) ]
-        let (host_env, metadata) = build_export_function_metadata::<Env>(env, Env::init_with_instance);
+        #[cfg(not(feature = "async"))]
+        let (host_env, metadata) =
+            build_export_function_metadata::<Env>(env, Env::init_with_instance);
 
         let vmctx = VMFunctionEnvironment { host_env };
         let signature = function.ty();
@@ -834,8 +846,7 @@ impl Function {
             if expected != given {
                 return Err(RuntimeError::new(format!(
                     "given types (`{:?}`) for the function arguments don't match the actual types (`{:?}`)",
-                    given,
-                    expected,
+                    given, expected,
                 )));
             }
         }
@@ -848,8 +859,7 @@ impl Function {
                 // todo: error result types don't match
                 return Err(RuntimeError::new(format!(
                     "given types (`{:?}`) for the function results don't match the actual types (`{:?}`)",
-                    given,
-                    expected,
+                    given, expected,
                 )));
             }
         }
@@ -863,7 +873,9 @@ impl Function {
 
     #[track_caller]
     fn closures_unsupported_panic() -> ! {
-        unimplemented!("Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840")
+        unimplemented!(
+            "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
+        )
     }
 }
 

@@ -172,7 +172,13 @@ pub fn resolve_imports(
                         // TODO: Cranelift should have a good ABI for the ABI
                         if cfg!(all(target_os = "macos", target_arch = "aarch64")) {
                             let num_params = f.vm_function.signature.params().len();
-                            assert!(num_params < 9, "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}", num_params, module_name, field);
+                            assert!(
+                                num_params < 9,
+                                "Only native functions with less than 9 arguments are allowed in Apple Silicon (for now). Received {} in the import {}.{}",
+                                num_params,
+                                module_name,
+                                field
+                            );
                         }
 
                         f.vm_function.address
@@ -208,12 +214,14 @@ pub fn resolve_imports(
                 let clone = f.metadata.as_ref().map(|m| m.host_env_clone_fn);
                 let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
 
-                #[ cfg(feature="async") ]
+                #[cfg(feature = "async")]
                 let set_yielder = f.metadata.as_ref().map(|m| m.host_env_set_yielder_fn);
 
-                #[ cfg(feature="async") ]
+                #[cfg(feature = "async")]
                 let import_function_env =
-                  if let (Some(clone), Some(destructor), Some(set_yielder)) = (clone, destructor, set_yielder) {
+                    if let (Some(clone), Some(destructor), Some(set_yielder)) =
+                        (clone, destructor, set_yielder)
+                    {
                         ImportFunctionEnv::Env {
                             env,
                             clone,
@@ -221,23 +229,22 @@ pub fn resolve_imports(
                             initializer,
                             destructor,
                         }
-                  }
-                  else {
+                    } else {
                         ImportFunctionEnv::NoEnv
-                  };
+                    };
 
-                #[ cfg(not(feature="async")) ]
-                let import_function_env = 
-                  if let (Some(clone), Some(destructor)) = (clone, destructor) {
+                #[cfg(not(feature = "async"))]
+                let import_function_env =
+                    if let (Some(clone), Some(destructor)) = (clone, destructor) {
                         ImportFunctionEnv::Env {
                             env,
                             clone,
                             initializer,
                             destructor,
                         }
-                   } else {
+                    } else {
                         ImportFunctionEnv::NoEnv
-                   };
+                    };
 
                 host_function_env_initializers.push(import_function_env);
             }

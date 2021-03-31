@@ -13,8 +13,8 @@ use wasmer_types::{
     SignatureIndex, TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo,
-    TableStyle, VMSharedSignatureIndex, VMTrampoline,
+    FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo, TableStyle,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`
@@ -120,11 +120,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             InstanceAllocator::new(&*module);
 
         let finished_memories = tunables
-            .create_memories(
-                &module,
-                self.memory_styles(),
-                &memory_definition_locations,
-            )
+            .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
         let finished_tables = tunables

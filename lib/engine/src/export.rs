@@ -92,7 +92,7 @@ pub struct ExportFunctionMetadata {
     pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
 
     ///TODO
-    #[ cfg(feature="async") ]
+    #[cfg(feature = "async")]
     #[loupe(skip)]
     pub host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
 }
@@ -115,13 +115,17 @@ impl ExportFunctionMetadata {
         host_env: *mut std::ffi::c_void,
         import_init_function_ptr: Option<ImportInitializerFuncPtr>,
         host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
-        #[ cfg(feature="async") ] host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
+        #[cfg(feature = "async")] host_env_set_yielder_fn: fn(
+            *mut std::ffi::c_void,
+            *const std::ffi::c_void,
+        ),
         host_env_drop_fn: fn(*mut std::ffi::c_void),
     ) -> Self {
         Self {
             host_env,
             import_init_function_ptr,
-            #[ cfg(feature="async") ] host_env_set_yielder_fn,
+            #[cfg(feature = "async")]
+            host_env_set_yielder_fn,
             host_env_clone_fn,
             host_env_drop_fn,
         }

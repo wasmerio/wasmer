@@ -15,11 +15,11 @@ pub enum WasmerAttr {
         aliases: Vec<LitStr>,
         span: Span,
     },
-    #[ cfg(feature="async") ]
+    #[cfg(feature = "async")]
     Yielder {
         identifier: Option<LitStr>,
         span: Span,
-    }
+    },
 }
 
 #[derive(Debug)]
@@ -129,7 +129,7 @@ impl Parse for WasmerAttrInner {
                     span,
                 }
             }
-            #[ cfg(feature="async") ]
+            #[cfg(feature = "async")]
             "yielder" => {
                 let export_expr;
                 let name = if input.peek(token::Paren) {
