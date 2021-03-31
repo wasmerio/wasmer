@@ -6,6 +6,7 @@ use crate::instance::InstanceRef;
 use crate::memory::{Memory, MemoryStyle};
 use crate::table::{Table, TableStyle};
 use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMFunctionKind, VMTrampoline};
+use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_types::{FunctionType, MemoryType, TableType};
 
@@ -26,7 +27,7 @@ pub enum VMExport {
 }
 
 /// A function export value.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, MemoryUsage)]
 pub struct VMExportFunction {
     /// The address of the native-code function.
     pub address: *const VMFunctionBody,
@@ -46,6 +47,7 @@ pub struct VMExportFunction {
     ///
     /// May be `None` when the function is a host function (`FunctionType`
     /// == `Dynamic` or `vmctx` == `nullptr`).
+    #[loupe(skip)]
     pub call_trampoline: Option<VMTrampoline>,
 
     /// A “reference” to the instance through the

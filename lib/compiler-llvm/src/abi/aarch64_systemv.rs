@@ -10,6 +10,9 @@ use inkwell::{
 };
 use wasmer_compiler::CompileError;
 use wasmer_types::{FunctionType as FuncSig, Type};
+use wasmer_vm::VMOffsets;
+
+use std::convert::TryInto;
 
 /// Implementation of the [`Abi`] trait for the Aarch64 ABI on Linux.
 pub struct Aarch64SystemV {}
@@ -40,6 +43,7 @@ impl Abi for Aarch64SystemV {
         &self,
         context: &'ctx Context,
         intrinsics: &Intrinsics<'ctx>,
+        offsets: Option<&VMOffsets>,
         sig: &FuncSig,
     ) -> Result<(FunctionType<'ctx>, Vec<(Attribute, AttributeLoc)>), CompileError> {
         let user_param_types = sig.params().iter().map(|&ty| type_to_llvm(intrinsics, ty));
@@ -47,19 +51,49 @@ impl Abi for Aarch64SystemV {
         let param_types =
             std::iter::once(Ok(intrinsics.ctx_ptr_ty.as_basic_type_enum())).chain(user_param_types);
 
+        let vmctx_attributes = |i: u32| {
+            vec![
+                (
+                    context.create_enum_attribute(Attribute::get_named_enum_kind_id("nofree"), 0),
+                    AttributeLoc::Param(i),
+                ),
+                (
+                    if let Some(offsets) = offsets {
+                        context.create_enum_attribute(
+                            Attribute::get_named_enum_kind_id("dereferenceable"),
+                            offsets.size_of_vmctx().into(),
+                        )
+                    } else {
+                        context
+                            .create_enum_attribute(Attribute::get_named_enum_kind_id("nonnull"), 0)
+                    },
+                    AttributeLoc::Param(i),
+                ),
+                (
+                    context.create_enum_attribute(
+                        Attribute::get_named_enum_kind_id("align"),
+                        std::mem::align_of::<wasmer_vm::VMContext>()
+                            .try_into()
+                            .unwrap(),
+                    ),
+                    AttributeLoc::Param(i),
+                ),
+            ]
+        };
+
         Ok(match sig.results() {
             [] => (
                 intrinsics
                     .void_ty
                     .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                vec![],
+                vmctx_attributes(0),
             ),
             [_] => {
                 let single_value = sig.results()[0];
                 (
                     type_to_llvm(intrinsics, single_value)?
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes(0),
                 )
             }
             [Type::F32, Type::F32] => {
@@ -68,7 +102,7 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes(0),
                 )
             }
             [Type::F64, Type::F64] => {
@@ -77,7 +111,7 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f64_ty, f64_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes(0),
                 )
             }
             [Type::F32, Type::F32, Type::F32] => {
@@ -86,7 +120,7 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes(0),
                 )
             }
             [Type::F32, Type::F32, Type::F32, Type::F32] => {
@@ -95,7 +129,7 @@ impl Abi for Aarch64SystemV {
                     context
                         .struct_type(&[f32_ty, f32_ty, f32_ty, f32_ty], false)
                         .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                    vec![],
+                    vmctx_attributes(0),
                 )
             }
             _ => {
@@ -115,7 +149,7 @@ impl Abi for Aarch64SystemV {
                         intrinsics
                             .i64_ty
                             .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                        vec![],
+                        vmctx_attributes(0),
                     ),
                     [32, 64]
                     | [64, 32]
@@ -128,7 +162,7 @@ impl Abi for Aarch64SystemV {
                             .i64_ty
                             .array_type(2)
                             .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                        vec![],
+                        vmctx_attributes(0),
                     ),
                     _ => {
                         let basic_types: Vec<_> = sig
@@ -144,17 +178,20 @@ impl Abi for Aarch64SystemV {
                         let param_types =
                             std::iter::once(Ok(sret.as_basic_type_enum())).chain(param_types);
 
+                        let mut attributes = vec![(
+                            context.create_enum_attribute(
+                                Attribute::get_named_enum_kind_id("sret"),
+                                0,
+                            ),
+                            AttributeLoc::Param(0),
+                        )];
+                        attributes.append(&mut vmctx_attributes(1));
+
                         (
                             intrinsics
                                 .void_ty
                                 .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
-                            vec![(
-                                context.create_enum_attribute(
-                                    Attribute::get_named_enum_kind_id("sret"),
-                                    0,
-                                ),
-                                AttributeLoc::Param(0),
-                            )],
+                            attributes,
                         )
                     }
                 }

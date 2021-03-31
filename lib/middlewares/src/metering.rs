@@ -1,9 +1,11 @@
 //! `metering` is a middleware for tracking how many operators are executed in total
 //! and putting a limit on the total number of operators executed.
 
+use loupe::{MemoryUsage, MemoryUsageTracker};
 use std::convert::TryInto;
 use std::fmt;
-use std::sync::Mutex;
+use std::mem;
+use std::sync::{Arc, Mutex};
 use wasmer::wasmparser::{Operator, Type as WpType, TypeOrFuncType as WpTypeOrFuncType};
 use wasmer::{
     ExportIndex, FunctionMiddleware, GlobalInit, GlobalType, Instance, LocalFunctionIndex,
@@ -12,7 +14,7 @@ use wasmer::{
 use wasmer_types::GlobalIndex;
 use wasmer_vm::ModuleInfo;
 
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 struct MeteringGlobalIndexes(GlobalIndex, GlobalIndex);
 
 impl MeteringGlobalIndexes {
@@ -47,21 +49,21 @@ impl fmt::Debug for MeteringGlobalIndexes {
 /// An instance of `Metering` should not be shared among different modules, since it tracks
 /// module-specific information like the global index to store metering state. Attempts to use
 /// a `Metering` instance from multiple modules will result in a panic.
-pub struct Metering<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> {
+pub struct Metering<F: Fn(&Operator) -> u64 + Send + Sync> {
     /// Initial limit of points.
     initial_limit: u64,
 
     /// Function that maps each operator to a cost in "points".
-    cost_function: F,
+    cost_function: Arc<F>,
 
     /// The global indexes for metering points.
     global_indexes: Mutex<Option<MeteringGlobalIndexes>>,
 }
 
 /// The function-level metering middleware.
-pub struct FunctionMetering<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> {
+pub struct FunctionMetering<F: Fn(&Operator) -> u64 + Send + Sync> {
     /// Function that maps each operator to a cost in "points".
-    cost_function: F,
+    cost_function: Arc<F>,
 
     /// The global indexes for metering points.
     global_indexes: MeteringGlobalIndexes,
@@ -80,18 +82,18 @@ pub enum MeteringPoints {
     Exhausted,
 }
 
-impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> Metering<F> {
+impl<F: Fn(&Operator) -> u64 + Send + Sync> Metering<F> {
     /// Creates a `Metering` middleware.
     pub fn new(initial_limit: u64, cost_function: F) -> Self {
         Self {
             initial_limit,
-            cost_function,
+            cost_function: Arc::new(cost_function),
             global_indexes: Mutex::new(None),
         }
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Metering<F> {
+impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for Metering<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("Metering")
             .field("initial_limit", &self.initial_limit)
@@ -101,13 +103,11 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Meteri
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync + 'static> ModuleMiddleware
-    for Metering<F>
-{
+impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Metering<F> {
     /// Generates a `FunctionMiddleware` for a given function.
     fn generate_function_middleware(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
         Box::new(FunctionMetering {
-            cost_function: self.cost_function,
+            cost_function: self.cost_function.clone(),
             global_indexes: self.global_indexes.lock().unwrap().clone().unwrap(),
             accumulated_cost: 0,
         })
@@ -156,7 +156,14 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync + 'static> ModuleMiddl
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for FunctionMetering<F> {
+impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> MemoryUsage for Metering<F> {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        mem::size_of_val(self) + self.global_indexes.size_of_val(tracker)
+            - mem::size_of_val(&self.global_indexes)
+    }
+}
+
+impl<F: Fn(&Operator) -> u64 + Send + Sync> fmt::Debug for FunctionMetering<F> {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         f.debug_struct("FunctionMetering")
             .field("cost_function", &"<function>")
@@ -165,9 +172,7 @@ impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> fmt::Debug for Functi
     }
 }
 
-impl<F: Fn(&Operator) -> u64 + Copy + Clone + Send + Sync> FunctionMiddleware
-    for FunctionMetering<F>
-{
+impl<F: Fn(&Operator) -> u64 + Send + Sync> FunctionMiddleware for FunctionMetering<F> {
     fn feed<'a>(
         &mut self,
         operator: Operator<'a>,

@@ -50,7 +50,9 @@ impl FuncTrampoline {
         module.set_data_layout(&target_machine.get_target_data().get_data_layout());
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
-        let (callee_ty, callee_attrs) = self.abi.func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
+        let (callee_ty, callee_attrs) =
+            self.abi
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
         let trampoline_ty = intrinsics.void_ty.fn_type(
             &[
                 intrinsics.ctx_ptr_ty.as_basic_type_enum(), // vmctx ptr
@@ -182,7 +184,8 @@ impl FuncTrampoline {
         let intrinsics = Intrinsics::declare(&module, &self.ctx);
 
         let (trampoline_ty, trampoline_attrs) =
-            self.abi.func_type_to_llvm(&self.ctx, &intrinsics, ty)?;
+            self.abi
+                .func_type_to_llvm(&self.ctx, &intrinsics, None, ty)?;
         let trampoline_func = module.add_function(name, trampoline_ty, Some(Linkage::External));
         for (attr, attr_loc) in trampoline_attrs {
             trampoline_func.add_attribute(attr_loc, attr);

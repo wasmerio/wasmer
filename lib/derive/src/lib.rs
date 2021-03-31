@@ -61,7 +61,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
             ..
         }*/) => ,
         Enum(ref e) => impl_wasmer_env_for_enum(struct_name, &e.variants, &input.attrs),
-        _ => abort_call_site!("structopt only supports non-tuple structs and enums"),
+        _ => abort_call_site!("Clap only supports non-tuple structs and enums"),
     }*/
 }
 
@@ -77,6 +77,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
         Fields::Unnamed(fields) => fields.unnamed.iter().cloned().collect(),
     };
     for (field_num, f) in fields.into_iter().enumerate() {
+        let field_idx = syn::Index::from(field_num);
         let name = f.ident.clone();
         let top_level_ty: &Type = &f.ty;
         touched_fields.push(name.clone());
@@ -124,30 +125,78 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 helpers.push(helper_tokens);
             }
             match wasmer_attr {
-                WasmerAttr::Export{ identifier, span } => {
-                    let (var_name, item_name)  = if let Some(var_name) = name {
-                        let name_str = var_name.to_string();
+                WasmerAttr::Export {
+                    identifier,
+                    optional,
+                    aliases,
+                    span,
+                } => {
+                    let finish_tokens = if let Some(name) = name {
+                        let name_str = name.to_string();
                         let item_name =
-                            identifier.unwrap_or_else(|| LitStr::new(&name_str, var_name.span()));
-
-                        (var_name, item_name)
+                            identifier.unwrap_or_else(|| LitStr::new(&name_str, name.span()));
+                        let mut access_expr = quote_spanned! {
+                            f.span() =>
+                                instance.exports.get_with_generics::<#inner_type, _, _>(#item_name)
+                        };
+                        for alias in aliases {
+                            access_expr = quote_spanned! {
+                                f.span()=>
+                                    #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                            };
+                        }
+                        if optional {
+                            quote_spanned! {
+                                f.span()=>
+                                    match #access_expr {
+                                        Ok(#name) => { self.#name.initialize(#name); },
+                                        Err(_) => (),
+                                    };
+                            }
+                        } else {
+                            quote_spanned! {
+                                f.span()=>
+                                    let #name: #inner_type = #access_expr?;
+                                    self.#name.initialize(#name);
+                            }
+                        }
                     } else {
-                        if let Some(item_name) = identifier {
-                            let var_name =
-                                Ident::new(&format!("field_{}", field_num), item_name.span());
-
-                            (var_name, item_name)
+                        if let Some(identifier) = identifier {
+                            let mut access_expr = quote_spanned! {
+                                f.span() =>
+                                    instance.exports.get_with_generics::<#inner_type, _, _>(#identifier)
+                            };
+                            for alias in aliases {
+                                access_expr = quote_spanned! {
+                                    f.span()=>
+                                        #access_expr .or_else(|_| instance.exports.get_with_generics::<#inner_type, _, _>(#alias))
+                                };
+                            }
+                            let local_var =
+                                Ident::new(&format!("field_{}", field_num), identifier.span());
+                            if optional {
+                                quote_spanned! {
+                                    f.span()=>
+                                        match #access_expr {
+                                            Ok(#local_var) => {
+                                                self.#field_idx.initialize(#local_var);
+                                            },
+                                            Err(_) => (),
+                                        }
+                                }
+                            } else {
+                                quote_spanned! {
+                                    f.span()=>
+                                        let #local_var: #inner_type = #access_expr?;
+                                    self.#field_idx.initialize(#local_var);
+                                }
+                            }
                         } else {
                             abort!(
                                 span,
                                 "Expected `name` field on export attribute because field does not have a name. For example: `#[wasmer(export(name = \"wasm_ident\"))]`.",
                             );
                         }
-                    };
-
-                    let finish_tokens = quote_spanned! {f.span()=>
-                        let #var_name: #inner_type = instance.exports.get_with_generics(#item_name)?;
-                        self.#var_name.initialize(#var_name);
                     };
 
                     finish.push(finish_tokens);

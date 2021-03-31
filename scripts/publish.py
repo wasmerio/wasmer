@@ -21,7 +21,7 @@ except ImportError:
 
 
 # TODO: find this automatically
-target_version = "1.0.0"
+target_version = "1.0.2"
 
 # TODO: generate this by parsing toml files
 dep_graph = {
@@ -95,7 +95,7 @@ def is_crate_already_published(crate_name: str) -> bool:
         return False
 
     return target_version == found_string
-    
+
 def publish_crate(crate: str):
     starting_dir = os.getcwd()
     os.chdir("lib/{}".format(location[crate]))
@@ -109,6 +109,7 @@ def publish_crate(crate: str):
     os.chdir(starting_dir)
 
 def main():
+    os.environ['WASMER_PUBLISH_SCRIPT_IS_RUNNING'] = '1'
     parser = argparse.ArgumentParser(description='Publish the Wasmer crates to crates.io')
     parser.add_argument('--no-dry-run', default=False, action='store_true',
                         help='Run the script without actually publishing anything to crates.io')

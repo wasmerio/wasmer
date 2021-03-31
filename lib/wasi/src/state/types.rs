@@ -1027,7 +1027,8 @@ impl WasiFile for Pipe {
         self.buffer.len() as u64
     }
     fn set_len(&mut self, len: u64) -> Result<(), WasiFsError> {
-        Ok(self.buffer.resize(len as usize, 0))
+        self.buffer.resize(len as usize, 0);
+        Ok(())
     }
     fn unlink(&mut self) -> Result<(), WasiFsError> {
         Ok(())

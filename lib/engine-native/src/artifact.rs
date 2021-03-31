@@ -4,6 +4,7 @@
 use crate::engine::{NativeEngine, NativeEngineInner};
 use crate::serialize::ModuleMetadata;
 use libloading::{Library, Symbol as LibrarySymbol};
+use loupe::MemoryUsage;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -37,10 +38,12 @@ use wasmer_vm::{
 };
 
 /// A compiled wasm module, ready to be instantiated.
+#[derive(MemoryUsage)]
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
@@ -293,7 +296,7 @@ impl NativeArtifact {
             Triple::host().to_string(),
         );
 
-        let linker: &'static str = engine_inner.linker().into();
+        let linker = engine_inner.linker().executable();
         let output = Command::new(linker)
             .arg(&filepath)
             .arg("-o")
@@ -317,7 +320,7 @@ impl NativeArtifact {
         if is_cross_compiling {
             Self::from_parts_crosscompiled(metadata, shared_filepath)
         } else {
-            let lib = Library::new(&shared_filepath).map_err(to_compile_error)?;
+            let lib = unsafe { Library::new(&shared_filepath).map_err(to_compile_error)? };
             Self::from_parts(&mut engine_inner, metadata, shared_filepath, lib)
         }
     }

@@ -1,33 +1,33 @@
 use crate::store::{EngineType, StoreOptions};
 use crate::warning;
 use anyhow::{Context, Result};
+use clap::Clap;
 use std::path::PathBuf;
-use structopt::StructOpt;
 use wasmer::*;
 
-#[derive(Debug, StructOpt)]
+#[derive(Debug, Clap)]
 /// The options for the `wasmer compile` subcommand
 pub struct Compile {
     /// Input file
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Output file
-    #[structopt(name = "OUTPUT PATH", short = "o", parse(from_os_str))]
+    #[clap(name = "OUTPUT PATH", short = 'o', parse(from_os_str))]
     output: PathBuf,
 
     /// Output path for generated header file
-    #[structopt(name = "HEADER PATH", long = "header", parse(from_os_str))]
+    #[clap(name = "HEADER PATH", long = "header", parse(from_os_str))]
     header_path: Option<PathBuf>,
 
     /// Compilation Target triple
-    #[structopt(long = "target")]
+    #[clap(long = "target")]
     target_triple: Option<Triple>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 
-    #[structopt(short = "m", multiple = true)]
+    #[clap(short = 'm', multiple = true)]
     cpu_features: Vec<CpuFeature>,
 }
 
@@ -41,8 +41,8 @@ impl Compile {
     pub(crate) fn get_recommend_extension(
         engine_type: &EngineType,
         target_triple: &Triple,
-    ) -> &'static str {
-        match engine_type {
+    ) -> Result<&'static str> {
+        Ok(match engine_type {
             #[cfg(feature = "native")]
             EngineType::Native => {
                 wasmer_engine_native::NativeArtifact::get_default_extension(target_triple)
@@ -55,7 +55,7 @@ impl Compile {
             }
             #[cfg(not(all(feature = "native", feature = "jit", feature = "object-file")))]
             _ => bail!("selected engine type is not compiled in"),
-        }
+        })
     }
 
     fn inner_execute(&self) -> Result<()> {
@@ -81,7 +81,7 @@ impl Compile {
             .file_stem()
             .map(|osstr| osstr.to_string_lossy().to_string())
             .unwrap_or_default();
-        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple());
+        let recommended_extension = Self::get_recommend_extension(&engine_type, target.triple())?;
         match self.output.extension() {
             Some(ext) => {
                 if ext != recommended_extension {

@@ -11,7 +11,7 @@ use wasmer::*;
 #[cfg(feature = "cache")]
 use wasmer_cache::{Cache, FileSystemCache, Hash};
 
-use structopt::StructOpt;
+use clap::Clap;
 
 #[cfg(feature = "wasi")]
 mod wasi;
@@ -19,53 +19,53 @@ mod wasi;
 #[cfg(feature = "wasi")]
 use wasi::Wasi;
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, Clap, Clone)]
 /// The options for the `wasmer run` subcommand
 pub struct Run {
     /// Disable the cache
-    #[structopt(long = "disable-cache")]
+    #[clap(long = "disable-cache")]
     disable_cache: bool,
 
     /// File to run
-    #[structopt(name = "FILE", parse(from_os_str))]
+    #[clap(name = "FILE", parse(from_os_str))]
     path: PathBuf,
 
     /// Invoke a specified function
-    #[structopt(long = "invoke", short = "i")]
+    #[clap(long = "invoke", short = 'i')]
     invoke: Option<String>,
 
     /// The command name is a string that will override the first argument passed
     /// to the wasm program. This is used in wapm to provide nicer output in
     /// help commands and error messages of the running wasm program
-    #[structopt(long = "command-name", hidden = true)]
+    #[clap(long = "command-name", hidden = true)]
     command_name: Option<String>,
 
     /// A prehashed string, used to speed up start times by avoiding hashing the
     /// wasm module. If the specified hash is not found, Wasmer will hash the module
     /// as if no `cache-key` argument was passed.
-    #[structopt(long = "cache-key", hidden = true)]
+    #[clap(long = "cache-key", hidden = true)]
     cache_key: Option<String>,
 
-    #[structopt(flatten)]
+    #[clap(flatten)]
     store: StoreOptions,
 
     // TODO: refactor WASI structure to allow shared options with Emscripten
     #[cfg(feature = "wasi")]
-    #[structopt(flatten)]
+    #[clap(flatten)]
     wasi: Wasi,
 
     /// Enable non-standard experimental IO devices
     #[cfg(feature = "io-devices")]
-    #[structopt(long = "enable-io-devices")]
+    #[clap(long = "enable-io-devices")]
     enable_experimental_io_devices: bool,
 
     /// Enable debug output
     #[cfg(feature = "debug")]
-    #[structopt(long = "debug", short = "d")]
+    #[clap(long = "debug", short = 'd')]
     debug: bool,
 
     /// Application arguments
-    #[structopt(name = "--", multiple = true)]
+    #[clap(name = "--", multiple = true)]
     args: Vec<String>,
 }
 
@@ -119,8 +119,19 @@ impl Run {
                 let mut em_env = EmEnv::new(&emscripten_globals.data, Default::default());
                 let import_object =
                     generate_emscripten_env(module.store(), &mut emscripten_globals, &mut em_env);
-                let mut instance = Instance::new(&module, &import_object)
-                    .with_context(|| "Can't instantiate emscripten module")?;
+                let mut instance = match Instance::new(&module, &import_object) {
+                    Ok(instance) => instance,
+                    Err(e) => {
+                        let err: Result<(), _> = Err(e);
+                        #[cfg(feature = "wasi")]
+                        {
+                            if Wasi::has_wasi_imports(&module) {
+                                return err.with_context(|| "This module has both Emscripten and WASI imports. Wasmer does not currently support Emscripten modules using WASI imports.");
+                            }
+                        }
+                        return err.with_context(|| "Can't instantiate emscripten module");
+                    }
+                };
 
                 run_emscripten_instance(
                     &mut instance,

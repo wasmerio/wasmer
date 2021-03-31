@@ -8,11 +8,80 @@
 ## **[Unreleased]**
 
 ### Added
+- [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.
+- [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
+- [#2116](https://github.com/wasmerio/wasmer/pull/2116) Add a package for Windows that is not an installer, but all the `lib` and `include` files as for macOS and Linux.
+- [#2153](https://github.com/wasmerio/wasmer/pull/2153) Add a `wasmer_features_t` unstable C API to define features for the engine and the compiler in the Wasm C API.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) Use `ENABLE_{{compiler_name}}=(0|1)` to resp. force to disable or enable a compiler when running the `Makefile`, e.g. `ENABLE_LLVM=1 make build-wasmer`.
+- [#2123](https://github.com/wasmerio/wasmer/pull/2123) `libwasmer` comes with all available compilers per target instead of Cranelift only.
+- [#2118](https://github.com/wasmerio/wasmer/pull/2118) Add an unstable non-standard C API to query available engines and compilers.
+- [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2201](https://github.com/wasmerio/wasmer/pull/2201) Implement `loupe::MemoryUsage` for `wasmer::Instance`.
+- [#2200](https://github.com/wasmerio/wasmer/pull/2200) Implement `loupe::MemoryUsage` for `wasmer::Module`.
+- [#2199](https://github.com/wasmerio/wasmer/pull/2199) Implement `loupe::MemoryUsage` for `wasmer::Store`.
+- [#2140](https://github.com/wasmerio/wasmer/pull/2140) Reduce the number of dependencies in the `wasmer.dll` shared library by statically compiling CRT.
+- [#2113](https://github.com/wasmerio/wasmer/pull/2113) Bump minimum supported Rust version to 1.49
+- [#2144](https://github.com/wasmerio/wasmer/pull/2144) Bump cranelift version to 0.70
+- [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
+
+### Fixed
+- [#2210](https://github.com/wasmerio/wasmer/pull/2210) Fix a memory leak in the Wasm C API in the strings used to identify imports and exports coming from user code.
+- [#2108](https://github.com/wasmerio/wasmer/pull/2108) The Object Native Engine generates code that now compiles correctly with C++.
+- [#2125](https://github.com/wasmerio/wasmer/pull/2125) Fix RUSTSEC-2021-0023.
+- [#2155](https://github.com/wasmerio/wasmer/pull/2155) Fix the implementation of shift and rotate in the LLVM compiler.
+- [#2117](https://github.com/wasmerio/wasmer/pull/2117) Formalize API prefixes in the C API. Only unstable functions have been renamed.
+- [#2097](https://github.com/wasmerio/wasmer/pull/2097) Fix how string's length is computed in `wasm_cpu_features_add` in the C API.
+- [#2101](https://github.com/wasmerio/wasmer/pull/2101) cflags emitted by `wasmer config --pkg-config` are now correct.
+
+## 1.0.2 - 2021-02-04
+
+### Added
+- [#2053](https://github.com/wasmerio/wasmer/pull/2053) Implement the non-standard `wasi_get_unordered_imports` function in the C API.
+- [#2072](https://github.com/wasmerio/wasmer/pull/2072) Add `wasm_config_set_target`, along with `wasm_target_t`, `wasm_triple_t` and `wasm_cpu_features_t` in the unstable C API.
+- [#2059](https://github.com/wasmerio/wasmer/pull/2059) Ability to capture `stdout` and `stderr` with WASI in the C API.
+- [#2040](https://github.com/wasmerio/wasmer/pull/2040) Add `InstanceHandle::vmoffsets` to expose the offsets of the `vmctx` region.
+- [#2026](https://github.com/wasmerio/wasmer/pull/2026) Expose trap code of a `RuntimeError`, if it's a `Trap`.
+- [#2054](https://github.com/wasmerio/wasmer/pull/2054) Add `wasm_config_delete` to the Wasm C API.
+- [#2072](https://github.com/wasmerio/wasmer/pull/2072) Added cross-compilation to Wasm C API.
+
+### Changed
+- [#2085](https://github.com/wasmerio/wasmer/pull/2085) Update to latest inkwell and LLVM 11.
+- [#2037](https://github.com/wasmerio/wasmer/pull/2037) Improved parallelism of LLVM with the Native/Object engine
+- [#2012](https://github.com/wasmerio/wasmer/pull/2012) Refactor Singlepass init stack assembly (more performant now)
+- [#2036](https://github.com/wasmerio/wasmer/pull/2036) Optimize memory allocated for Function type definitions
+- [#2083](https://github.com/wasmerio/wasmer/pull/2083) Mark `wasi_env_set_instance` and `wasi_env_set_memory` as deprecated. You may simply remove the calls with no side-effect.
+- [#2056](https://github.com/wasmerio/wasmer/pull/2056) Change back to depend on the `enumset` crate instead of `wasmer_enumset`
+
+### Fixed
+- [#2066](https://github.com/wasmerio/wasmer/pull/2066) Include 'extern "C"' in our C headers when included by C++ code.
+- [#2090](https://github.com/wasmerio/wasmer/pull/2090) `wasi_env_t` needs to be freed with `wasi_env_delete` in the C API.
+- [#2084](https://github.com/wasmerio/wasmer/pull/2084) Avoid calling the function environment finalizer more than once when the environment has been cloned in the C API.
+- [#2069](https://github.com/wasmerio/wasmer/pull/2069) Use the new documentation for `include/README.md` in the Wasmer package.
+- [#2042](https://github.com/wasmerio/wasmer/pull/2042) Parse more exotic environment variables in `wasmer run`.
+- [#2041](https://github.com/wasmerio/wasmer/pull/2041) Documentation diagrams now have a solid white background rather than a transparent background.
+- [#2070](https://github.com/wasmerio/wasmer/pull/2070) Do not drain the entire captured stream at first read with `wasi_env_read_stdout` or `_stderr` in the C API.
+- [#2058](https://github.com/wasmerio/wasmer/pull/2058) Expose WASI versions to C correctly.
+- [#2044](https://github.com/wasmerio/wasmer/pull/2044) Do not build C headers on docs.rs.
+
+## 1.0.1 - 2021-01-12
+
+This release includes a breaking change in the API (changing the trait `enumset::EnumsetType` to `wasmer_enumset::EnumSetType` and changing `enumset::EnumSet` in signatures to `wasmer_enumset::EnumSet` to work around a breaking change introduced by `syn`) but is being released as a minor version because `1.0.0` is also in a broken state due to a breaking change introduced by `syn` which affects `enumset` and thus `wasmer`.
+
+This change is unlikely to affect any users of `wasmer`, but if it does please change uses of the `enumset` crate to the `wasmer_enumset` crate where possible.
+
+### Added
+- [#2010](https://github.com/wasmerio/wasmer/pull/2010) A new, experimental, minified build of `wasmer` called `wasmer-headless` will now be included with releases. `wasmer-headless` is the `wasmer` VM without any compilers attached, so it can only run precompiled Wasm modules.
+- [#2005](https://github.com/wasmerio/wasmer/pull/2005) Added the arguments `alias` and `optional` to `WasmerEnv` derive's `export` attribute.
+
+### Changed
+- [#2006](https://github.com/wasmerio/wasmer/pull/2006) Use `wasmer_enumset`, a fork of the `enumset` crate to work around a breaking change in `syn`
 - [#1985](https://github.com/wasmerio/wasmer/pull/1985) Bump minimum supported Rust version to 1.48
 
 ### Fixed
+- [#2007](https://github.com/wasmerio/wasmer/pull/2007) Fix packaging of wapm on Windows
+- [#2005](https://github.com/wasmerio/wasmer/pull/2005) Emscripten is now working again.
 
 ## 1.0.0 - 2021-01-05
 

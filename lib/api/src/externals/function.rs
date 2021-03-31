@@ -10,32 +10,35 @@ pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, Witho
 #[cfg(feature = "deprecated")]
 pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
+use loupe::MemoryUsage;
 use std::cmp::max;
+use std::ffi::c_void;
 use std::fmt;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
-    raise_user_trap, resume_panic, wasmer_call_trampoline, VMCallerCheckedAnyfunc,
-    VMDynamicFunctionContext, VMExportFunction, VMFunctionBody, VMFunctionEnvironment,
-    VMFunctionKind, VMTrampoline,
+    raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMExportFunction, VMFunctionBody,
+    VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
 /// A function defined in the Wasm module
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct WasmFunctionDefinition {
     // Address of the trampoline to do the call.
+    #[loupe(skip)]
     pub(crate) trampoline: VMTrampoline,
 }
 
 /// A function defined in the Host
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct HostFunctionDefinition {
     /// If the host function has a custom environment attached
     pub(crate) has_env: bool,
 }
 
 /// The inner helper
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub enum FunctionDefinition {
     /// A function defined in the Wasm side
     Wasm(WasmFunctionDefinition),
@@ -60,7 +63,7 @@ pub enum FunctionDefinition {
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
@@ -120,16 +123,14 @@ fn build_export_function_metadata<Env>(
         &'a mut Env,
         &'a crate::Instance,
     ) -> Result<(), crate::HostEnvInitError>,
-) -> (*mut std::ffi::c_void, ExportFunctionMetadata)
+) -> (*mut c_void, ExportFunctionMetadata)
 where
     Env: Clone + Sized + 'static + Send + Sync,
 {
     let import_init_function_ptr = Some(unsafe {
-        std::mem::transmute::<fn(_, _) -> Result<(), _>, fn(_, _) -> Result<(), _>>(
-            import_init_function_ptr,
-        )
+        std::mem::transmute::<_, ImportInitializerFuncPtr>(import_init_function_ptr)
     });
-    let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+    let host_env_clone_fn = |ptr: *mut c_void| -> *mut c_void {
         let env_ref: &Env = unsafe {
             ptr.cast::<Env>()
                 .as_ref()
@@ -137,7 +138,7 @@ where
         };
         Box::into_raw(Box::new(env_ref.clone())) as _
     };
-    let host_env_drop_fn: fn(*mut std::ffi::c_void) = |ptr| {
+    let host_env_drop_fn = |ptr: *mut c_void| {
         unsafe { Box::from_raw(ptr.cast::<Env>()) };
     };
     let env = Box::into_raw(Box::new(env)) as _;
@@ -208,7 +209,7 @@ impl Function {
         let address = std::ptr::null() as *const VMFunctionBody;
         let host_env = Box::into_raw(Box::new(dynamic_ctx)) as *mut _;
         let vmctx = VMFunctionEnvironment { host_env };
-        let host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void = |ptr| {
+        let host_env_clone_fn: fn(*mut c_void) -> *mut c_void = |ptr| {
             let duped_env: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = unsafe {
                 let ptr: *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = ptr as _;
                 let item: &VMDynamicFunctionContext<DynamicFunctionWithoutEnv> = &*ptr;
@@ -216,7 +217,8 @@ impl Function {
             };
             Box::into_raw(Box::new(duped_env)) as _
         };
-        let host_env_drop_fn = |ptr: *mut std::ffi::c_void| {
+
+        let host_env_drop_fn: fn(*mut c_void) = |ptr: *mut c_void| {
             unsafe {
                 Box::from_raw(ptr as *mut VMDynamicFunctionContext<DynamicFunctionWithoutEnv>)
             };

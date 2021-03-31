@@ -1,6 +1,7 @@
 use crate::{
     resolve_imports, InstantiationError, Resolver, RuntimeError, SerializeError, Tunables,
 };
+use loupe::MemoryUsage;
 use std::any::Any;
 use std::fs;
 use std::path::Path;
@@ -22,7 +23,7 @@ use wasmer_vm::{
 /// The `Artifact` contains the compiled data for a given
 /// module as well as extra information needed to run the
 /// module at runtime, such as [`ModuleInfo`] and [`Features`].
-pub trait Artifact: Send + Sync + Upcastable {
+pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
     /// Return a reference-counted pointer to the module
     fn module(&self) -> Arc<ModuleInfo>;
 

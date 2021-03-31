@@ -1,4 +1,13 @@
 [target.'cfg(target_os = "linux")']
 rustflags = [
-  "-C", "link-arg=-Wl,-E"
+    # Put the VM functions in the dynamic symbol table.
+    "-C", "link-arg=-Wl,-E",
+]
+
+[target.'cfg(target_os = "windows")']
+rustflags = [
+    # Enable `libwasmer` to be statically linked against the C Runtime
+    # Libraries (CRT) to reduce the number of dependencies inside the
+    # DLL.
+    "-C", "target-feature=+crt-static",
 ]

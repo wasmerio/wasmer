@@ -14,7 +14,7 @@ $(info * CFLAGS: $(CFLAGS))
 $(info * LDFLAGS: $(LDFLAGS))
 $(info * LDLIBS: $(LDLIBS))
 
-ALL = instance imports-exports exports-function exports-global memory
+ALL = instance imports-exports exports-function exports-global memory features
 
 .SILENT: instance instance.o
 instance: instance.o
@@ -30,6 +30,9 @@ exports-global: exports-global.o
 
 .SILENT: memory memory.o
 memory: memory.o
+
+.SILENT: features features.o
+features: features.o
 
 .PHONY: all
 all: $(ALL)

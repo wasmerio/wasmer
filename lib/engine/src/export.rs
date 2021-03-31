@@ -1,9 +1,9 @@
+use loupe::MemoryUsage;
+use std::sync::Arc;
 use wasmer_vm::{
     ImportInitializerFuncPtr, VMExport, VMExportFunction, VMExportGlobal, VMExportMemory,
     VMExportTable,
 };
-
-use std::sync::Arc;
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -24,10 +24,10 @@ pub enum Export {
 impl From<Export> for VMExport {
     fn from(other: Export) -> Self {
         match other {
-            Export::Function(ExportFunction { vm_function, .. }) => VMExport::Function(vm_function),
-            Export::Memory(ExportMemory { vm_memory }) => VMExport::Memory(vm_memory),
-            Export::Table(ExportTable { vm_table }) => VMExport::Table(vm_table),
-            Export::Global(ExportGlobal { vm_global }) => VMExport::Global(vm_global),
+            Export::Function(ExportFunction { vm_function, .. }) => Self::Function(vm_function),
+            Export::Memory(ExportMemory { vm_memory }) => Self::Memory(vm_memory),
+            Export::Table(ExportTable { vm_table }) => Self::Table(vm_table),
+            Export::Global(ExportGlobal { vm_global }) => Self::Global(vm_global),
         }
     }
 }
@@ -35,13 +35,13 @@ impl From<Export> for VMExport {
 impl From<VMExport> for Export {
     fn from(other: VMExport) -> Self {
         match other {
-            VMExport::Function(vm_function) => Export::Function(ExportFunction {
+            VMExport::Function(vm_function) => Self::Function(ExportFunction {
                 vm_function,
                 metadata: None,
             }),
-            VMExport::Memory(vm_memory) => Export::Memory(ExportMemory { vm_memory }),
-            VMExport::Table(vm_table) => Export::Table(ExportTable { vm_table }),
-            VMExport::Global(vm_global) => Export::Global(ExportGlobal { vm_global }),
+            VMExport::Memory(vm_memory) => Self::Memory(ExportMemory { vm_memory }),
+            VMExport::Table(vm_table) => Self::Table(ExportTable { vm_table }),
+            VMExport::Global(vm_global) => Self::Global(ExportGlobal { vm_global }),
         }
     }
 }
@@ -54,7 +54,7 @@ impl From<VMExport> for Export {
 ///
 /// This struct owns the original `host_env`, thus when it gets dropped
 /// it calls the `drop` function on it.
-#[derive(Debug, PartialEq)]
+#[derive(Debug, PartialEq, MemoryUsage)]
 pub struct ExportFunctionMetadata {
     /// This field is stored here to be accessible by `Drop`.
     ///
@@ -68,7 +68,7 @@ pub struct ExportFunctionMetadata {
     ///
     /// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of
     /// this pointer that is used by the VM when creating an `Instance`.
-    pub host_env: *mut std::ffi::c_void,
+    pub(crate) host_env: *mut std::ffi::c_void,
 
     /// Function pointer to `WasmerEnv::init_with_instance(&mut self, instance: &Instance)`.
     ///
@@ -76,18 +76,24 @@ pub struct ExportFunctionMetadata {
     /// we create the `api::Instance`.
     // This one is optional for now because dynamic host envs need the rest
     // of this without the init fn
+    #[loupe(skip)]
     pub(crate) import_init_function_ptr: Option<ImportInitializerFuncPtr>,
+
     /// A function analogous to `Clone::clone` that returns a leaked `Box`.
+    #[loupe(skip)]
     pub(crate) host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
+
     /// The destructor to free the host environment.
     ///
     /// # Safety
     /// - This function should only be called in when properly synchronized.
     /// For example, in the `Drop` implementation of this type.
+    #[loupe(skip)]
     pub(crate) host_env_drop_fn: unsafe fn(*mut std::ffi::c_void),
 
     ///TODO
     #[ cfg(feature="async") ]
+    #[loupe(skip)]
     pub host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
 }
 
@@ -139,7 +145,7 @@ impl Drop for ExportFunctionMetadata {
 
 /// A function export value with an extra function pointer to initialize
 /// host environments.
-#[derive(Debug, Clone, PartialEq)]
+#[derive(Debug, Clone, PartialEq, MemoryUsage)]
 pub struct ExportFunction {
     /// The VM function, containing most of the data.
     pub vm_function: VMExportFunction,

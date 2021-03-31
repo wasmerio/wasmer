@@ -22,7 +22,7 @@ fn run_mode(src: &'static str, mode: &'static str) {
     config.mode = mode.parse().expect("invalid mode");
     config.target_rustcflags = Some("-L ../../target/debug/deps".to_owned());
     if let Ok(name) = env::var("TESTNAME") {
-        config.filter = Some(name);
+        config.filters.push(name);
     }
     config.src_base = format!("tests/{}", src).into();
 

@@ -117,6 +117,7 @@ pub trait Emitter {
     fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location);
+    fn emit_rep_stosq(&mut self);
 
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR);
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR);
@@ -203,6 +204,8 @@ pub trait Emitter {
     fn emit_ret(&mut self);
     fn emit_call_label(&mut self, label: Self::Label);
     fn emit_call_location(&mut self, loc: Location);
+
+    fn emit_call_register(&mut self, reg: GPR);
 
     fn emit_bkpt(&mut self);
 
@@ -1176,6 +1179,9 @@ impl Emitter for Assembler {
         }
     }
 
+    fn emit_rep_stosq(&mut self) {
+        dynasm!(self ; rep stosq);
+    }
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
         dynasm!(self ; btc Rd(dst as u8), BYTE src as i8);
     }
@@ -1383,6 +1389,10 @@ impl Emitter for Assembler {
             Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
             _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
+    }
+
+    fn emit_call_register(&mut self, reg: GPR) {
+        dynasm!(self ; call Rq(reg as u8));
     }
 
     fn emit_bkpt(&mut self) {

@@ -3,6 +3,7 @@
 use crate::translator::{irlibcall_to_libcall, irreloc_to_relocationkind};
 use cranelift_codegen::binemit;
 use cranelift_codegen::ir::{self, ExternalName};
+use cranelift_entity::EntityRef as CraneliftEntityRef;
 use wasmer_compiler::{JumpTable, Relocation, RelocationTarget, TrapInformation};
 use wasmer_types::entity::EntityRef;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex};
@@ -20,15 +21,6 @@ pub(crate) struct RelocSink<'a> {
 }
 
 impl<'a> binemit::RelocSink for RelocSink<'a> {
-    fn reloc_block(
-        &mut self,
-        _offset: binemit::CodeOffset,
-        _reloc: binemit::Reloc,
-        _block_offset: binemit::CodeOffset,
-    ) {
-        // This should use the `offsets` field of `ir::Function`.
-        panic!("block headers not yet implemented");
-    }
     fn reloc_external(
         &mut self,
         offset: binemit::CodeOffset,

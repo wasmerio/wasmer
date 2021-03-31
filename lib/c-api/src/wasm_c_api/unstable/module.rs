@@ -1,13 +1,14 @@
-//! Non-standard Wasmer-specific extensions to the Wasm C API.
+//! Unstable non-standard Wasmer-specific extensions to the Wasm C API.
 
-use super::module::wasm_module_t;
-use super::types::wasm_name_t;
+use super::super::module::wasm_module_t;
+use super::super::types::wasm_name_t;
 use std::ptr;
 use std::str;
 use std::sync::Arc;
 
-/// Non-standard Wasmer-specific API to get the module's name,
-/// otherwise `out->size` is set to `0` and `out->data` to `NULL`.
+/// Unstable non-standard Wasmer-specific API to get the module's
+/// name, otherwise `out->size` is set to `0` and `out->data` to
+/// `NULL`.
 ///
 /// # Example
 ///
@@ -34,7 +35,7 @@ use std::sync::Arc;
 ///
 ///     // Read the module's name.
 ///     wasm_name_t name;
-///     wasm_module_name(module, &name);
+///     wasmer_module_name(module, &name);
 ///
 ///     // It works!
 ///     wasmer_assert_name(&name, "moduleName");
@@ -54,7 +55,7 @@ use std::sync::Arc;
 /// # }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_name(
+pub unsafe extern "C" fn wasmer_module_name(
     module: &wasm_module_t,
     // own
     out: &mut wasm_name_t,
@@ -72,9 +73,9 @@ pub unsafe extern "C" fn wasm_module_name(
     *out = name.as_bytes().to_vec().into();
 }
 
-/// Non-standard Wasmer-specific API to set the module's name. The
-/// function returns `true` if the name has been updated, `false`
-/// otherwise.
+/// Unstable non-standard Wasmer-specific API to set the module's
+/// name. The function returns `true` if the name has been updated,
+/// `false` otherwise.
 ///
 /// # Example
 ///
@@ -101,7 +102,7 @@ pub unsafe extern "C" fn wasm_module_name(
 ///     // Read the module's name. There is none for the moment.
 ///     {
 ///         wasm_name_t name;
-///         wasm_module_name(module, &name);
+///         wasmer_module_name(module, &name);
 ///
 ///         assert(name.size == 0);
 ///     }
@@ -110,13 +111,13 @@ pub unsafe extern "C" fn wasm_module_name(
 ///     {
 ///         wasm_name_t name;
 ///         wasmer_byte_vec_new_from_string(&name, "hello");
-///         wasm_module_set_name(module, &name);
+///         wasmer_module_set_name(module, &name);
 ///     }
 ///
 ///     // And now, let's see the new name.
 ///     {
 ///         wasm_name_t name;
-///         wasm_module_name(module, &name);
+///         wasmer_module_name(module, &name);
 ///
 ///         // It works!
 ///         wasmer_assert_name(&name, "hello");
@@ -138,7 +139,7 @@ pub unsafe extern "C" fn wasm_module_name(
 /// # }
 /// ```
 #[no_mangle]
-pub unsafe extern "C" fn wasm_module_set_name(
+pub unsafe extern "C" fn wasmer_module_set_name(
     module: &mut wasm_module_t,
     // own
     name: &wasm_name_t,

@@ -207,6 +207,15 @@ impl RuntimeError {
         }
     }
 
+    /// Returns trap code, if it's a Trap
+    pub fn to_trap(self) -> Option<TrapCode> {
+        if let RuntimeErrorSource::Trap(trap_code) = self.inner.source {
+            Some(trap_code)
+        } else {
+            None
+        }
+    }
+
     /// Returns true if the `RuntimeError` is the same as T
     pub fn is<T: Error + 'static>(&self) -> bool {
         match &self.inner.source {

@@ -7,6 +7,7 @@
 
 use crate::mmap::Mmap;
 use crate::vmcontext::VMMemoryDefinition;
+use loupe::MemoryUsage;
 use more_asserts::assert_ge;
 use serde::{Deserialize, Serialize};
 use std::borrow::BorrowMut;
@@ -61,7 +62,7 @@ pub enum MemoryError {
 }
 
 /// Implementation styles for WebAssembly linear memory.
-#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage)]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {
@@ -96,7 +97,7 @@ impl MemoryStyle {
 }
 
 /// Trait for implementing Wasm Memory used by Wasmer.
-pub trait Memory: fmt::Debug + Send + Sync {
+pub trait Memory: fmt::Debug + Send + Sync + MemoryUsage {
     /// Returns the memory type for this memory.
     fn ty(&self) -> &MemoryType;
 
@@ -116,7 +117,7 @@ pub trait Memory: fmt::Debug + Send + Sync {
 }
 
 /// A linear memory instance.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 pub struct LinearMemory {
     // The underlying allocation.
     mmap: Mutex<WasmMmap>,
@@ -144,7 +145,7 @@ pub struct LinearMemory {
 
 /// A type to help manage who is responsible for the backing memory of them
 /// `VMMemoryDefinition`.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 enum VMMemoryDefinitionOwnership {
     /// The `VMMemoryDefinition` is owned by the `Instance` and we should use
     /// its memory. This is how a local memory that's exported should be stored.
@@ -167,7 +168,7 @@ unsafe impl Send for LinearMemory {}
 /// This is correct because all internal mutability is protected by a mutex.
 unsafe impl Sync for LinearMemory {}
 
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 struct WasmMmap {
     // Our OS allocation of mmap'd memory.
     alloc: Mmap,
@@ -267,7 +268,7 @@ impl LinearMemory {
             needs_signal_handlers,
             vm_memory_definition: if let Some(mem_loc) = vm_memory_location {
                 {
-                    let mut ptr = mem_loc.clone();
+                    let mut ptr = mem_loc;
                     let md = ptr.as_mut();
                     md.base = base_ptr;
                     md.current_length = mem_length;
@@ -293,7 +294,7 @@ impl LinearMemory {
     ///   this function. You can get this by locking the `mmap` mutex.
     unsafe fn get_vm_memory_definition(&self) -> NonNull<VMMemoryDefinition> {
         match &self.vm_memory_definition {
-            VMMemoryDefinitionOwnership::VMOwned(ptr) => ptr.clone(),
+            VMMemoryDefinitionOwnership::VMOwned(ptr) => *ptr,
             VMMemoryDefinitionOwnership::HostOwned(boxed_ptr) => {
                 NonNull::new_unchecked(boxed_ptr.get())
             }

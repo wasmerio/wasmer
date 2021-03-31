@@ -1,6 +1,6 @@
 [package]
 name = "wasmer-workspace"
-version = "1.0.0"
+version = "1.0.2"
 description = "Wasmer workspace"
 authors = ["Wasmer Engineering Team <engineering@wasmer.io>"]
 repository = "https://github.com/wasmerio/wasmer"
@@ -10,21 +10,21 @@ publish = false
 autoexamples = false
 
 [dependencies]
-wasmer = { version = "1.0.0", path = "lib/api", default-features = false }
-wasmer-compiler = { version = "1.0.0", path = "lib/compiler" }
-wasmer-compiler-cranelift = { version = "1.0.0", path = "lib/compiler-cranelift", optional = true }
-wasmer-compiler-singlepass = { version = "1.0.0", path = "lib/compiler-singlepass", optional = true }
-wasmer-compiler-llvm = { version = "1.0.0", path = "lib/compiler-llvm", optional = true }
-wasmer-emscripten = { version = "1.0.0", path = "lib/emscripten", optional = true }
-wasmer-engine = { version = "1.0.0", path = "lib/engine" }
-wasmer-engine-jit = { version = "1.0.0", path = "lib/engine-jit", optional = true }
-wasmer-engine-native = { version = "1.0.0", path = "lib/engine-native", optional = true }
-wasmer-engine-object-file = { version = "1.0.0", path = "lib/engine-object-file", optional = true }
-wasmer-wasi = { version = "1.0.0", path = "lib/wasi", optional = true }
-wasmer-wast = { version = "1.0.0", path = "tests/lib/wast", optional = true }
-wasmer-cache = { version = "1.0.0", path = "lib/cache", optional = true }
-wasmer-types = { version = "1.0.0", path = "lib/wasmer-types" }
-wasmer-middlewares = { version = "1.0.0", path = "lib/middlewares", optional = true }
+wasmer = { version = "1.0.2", path = "lib/api", default-features = false }
+wasmer-compiler = { version = "1.0.2", path = "lib/compiler" }
+wasmer-compiler-cranelift = { version = "1.0.2", path = "lib/compiler-cranelift", optional = true }
+wasmer-compiler-singlepass = { version = "1.0.2", path = "lib/compiler-singlepass", optional = true }
+wasmer-compiler-llvm = { version = "1.0.2", path = "lib/compiler-llvm", optional = true }
+wasmer-emscripten = { version = "1.0.2", path = "lib/emscripten", optional = true }
+wasmer-engine = { version = "1.0.2", path = "lib/engine" }
+wasmer-engine-jit = { version = "1.0.2", path = "lib/engine-jit", optional = true }
+wasmer-engine-native = { version = "1.0.2", path = "lib/engine-native", optional = true }
+wasmer-engine-object-file = { version = "1.0.2", path = "lib/engine-object-file", optional = true }
+wasmer-wasi = { version = "1.0.2", path = "lib/wasi", optional = true }
+wasmer-wast = { version = "1.0.2", path = "tests/lib/wast", optional = true }
+wasmer-cache = { version = "1.0.2", path = "lib/cache", optional = true }
+wasmer-types = { version = "1.0.2", path = "lib/types" }
+wasmer-middlewares = { version = "1.0.2", path = "lib/middlewares", optional = true }
 cfg-if = "1.0"
 
 [workspace]
@@ -47,7 +47,7 @@ members = [
     "lib/vm",
     "lib/wasi",
     "lib/wasi-experimental-io-devices",
-    "lib/wasmer-types",
+    "lib/types",
     "tests/lib/wast",
     "tests/integration/cli",
 ]
@@ -69,6 +69,7 @@ criterion = "0.3"
 lazy_static = "1.4"
 wasmer-engine-dummy = { path = "tests/lib/engine-dummy" }
 tempfile = "3.1"
+loupe = "0.1"
 
 [features]
 # Don't add the compiler features in default, please add them on the Makefile
@@ -270,4 +271,9 @@ required-features = ["cranelift"]
 [[example]]
 name = "imports-exports"
 path = "examples/imports_exports.rs"
+required-features = ["cranelift"]
+
+[[example]]
+name = "features"
+path = "examples/features.rs"
 required-features = ["cranelift"]

@@ -42,6 +42,8 @@ impl From<ExportError> for HostEnvInitError {
 ///     memory: LazyInit<Memory>,
 ///     #[wasmer(export(name = "real_name"))]
 ///     func: LazyInit<NativeFunc<(i32, i32), i32>>,
+///     #[wasmer(export(optional = true, alias = "memory2", alias = "_memory2"))]
+///     optional_memory: LazyInit<Memory>,
 /// }
 ///
 /// ```
@@ -51,7 +53,16 @@ impl From<ExportError> for HostEnvInitError {
 /// `<field_name>_ref` and `<field_name>_ref_unchecked` for easy access to the
 /// data.
 ///
-/// This trait can also be implemented manually:
+/// The valid arguments to `export` are:
+/// - `name = "string"`: specify the name of this item in the Wasm module. If this is not specified, it will default to the name of the field.
+/// - `optional = true`: specify whether this export is optional. Defaults to
+/// `false`. Being optional means that if the export can't be found, the
+/// [`LazyInit`] will be left uninitialized.
+/// - `alias = "string"`: specify additional names to look for in the Wasm module.
+/// `alias` may be specified multiple times to search for multiple aliases.
+/// -------
+///
+/// This trait may also be implemented manually:
 /// ```
 /// # use wasmer::{WasmerEnv, LazyInit, Memory, Instance, HostEnvInitError};
 /// #[derive(Clone)]

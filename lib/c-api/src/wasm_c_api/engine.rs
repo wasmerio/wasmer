@@ -1,3 +1,13 @@
+pub use super::unstable::engine::{
+    wasm_config_set_features, wasm_config_set_target, wasmer_is_compiler_available,
+    wasmer_is_engine_available,
+};
+use super::unstable::features::wasmer_features_t;
+#[cfg(feature = "middlewares")]
+pub use super::unstable::middlewares::wasm_config_push_middleware;
+#[cfg(feature = "middlewares")]
+use super::unstable::middlewares::wasmer_middleware_t;
+use super::unstable::target_lexicon::wasmer_target_t;
 use crate::error::{update_last_error, CApiError};
 use cfg_if::cfg_if;
 use std::sync::Arc;
@@ -93,6 +103,10 @@ pub struct wasm_config_t {
     engine: wasmer_engine_t,
     #[cfg(feature = "compiler")]
     compiler: wasmer_compiler_t,
+    #[cfg(feature = "middlewares")]
+    pub(super) middlewares: Vec<wasmer_middleware_t>,
+    pub(super) features: Option<Box<wasmer_features_t>>,
+    pub(super) target: Option<Box<wasmer_target_t>>,
 }
 
 /// Create a new default Wasmer configuration.
@@ -131,13 +145,14 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
     Box::new(wasm_config_t::default())
 }
 
-/// Updates the configuration to specify a particular compiler to use.
+/// Delete a Wasmer config object.
 ///
-/// This is a Wasmer-specific function.
+/// This function does not need to be called if `wasm_engine_new_with_config` or
+/// another function that takes ownership of the `wasm_config_t` is called.
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
@@ -147,8 +162,48 @@ pub extern "C" fn wasm_config_new() -> Box<wasm_config_t> {
 ///     // Create the configuration.
 ///     wasm_config_t* config = wasm_config_new();
 ///
-///     // Use the Cranelift compiler.
-///     wasm_config_set_compiler(config, CRANELIFT);
+///     // Delete the configuration
+///     wasm_config_delete(config);
+///
+///     return 0;
+/// }
+/// #    })
+/// #    .success();
+/// # }
+/// ```
+/// cbindgen:ignore
+#[no_mangle]
+pub extern "C" fn wasm_config_delete(_config: Option<Box<wasm_config_t>>) {}
+
+/// Updates the configuration to specify a particular compiler to use.
+///
+/// This is a Wasmer-specific function.
+///
+/// # Example
+///
+/// ```rust
+/// # use inline_c::assert_c;
+/// # fn main() {
+/// #    (assert_c! {
+/// # #include "tests/wasmer_wasm.h"
+/// #
+/// int main() {
+///     // Create the configuration.
+///     wasm_config_t* config = wasm_config_new();
+///
+///     // Use the Cranelift compiler, if available.
+///     if (wasmer_is_compiler_available(CRANELIFT)) {
+///         wasm_config_set_compiler(config, CRANELIFT);
+///     }
+///     // Or maybe LLVM?
+///     else if (wasmer_is_compiler_available(LLVM)) {
+///         wasm_config_set_compiler(config, LLVM);
+///     }
+///     // Or maybe Singlepass?
+///     else if (wasmer_is_compiler_available(SINGLEPASS)) {
+///         wasm_config_set_compiler(config, SINGLEPASS);
+///     }
+///     // OK, let's run with no particular compiler.
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
@@ -180,7 +235,7 @@ pub extern "C" fn wasm_config_set_compiler(
 ///
 /// # Example
 ///
-/// ```rust,no_run
+/// ```rust
 /// # use inline_c::assert_c;
 /// # fn main() {
 /// #    (assert_c! {
@@ -190,8 +245,15 @@ pub extern "C" fn wasm_config_set_compiler(
 ///     // Create the configuration.
 ///     wasm_config_t* config = wasm_config_new();
 ///
-///     // Use the JIT engine.
-///     wasm_config_set_engine(config, JIT);
+///     // Use the JIT engine, if available.
+///     if (wasmer_is_engine_available(JIT)) {
+///         wasm_config_set_engine(config, JIT);
+///     }
+///     // Or maybe the Native engine?
+///     else if (wasmer_is_engine_available(NATIVE)) {
+///         wasm_config_set_engine(config, NATIVE);
+///     }
+///     // OK, let's do not specify any particular engine.
 ///
 ///     // Create the engine.
 ///     wasm_engine_t* engine = wasm_engine_new_with_config(config);
@@ -224,7 +286,7 @@ pub struct wasm_engine_t {
 
 // Compiler JIT
 #[cfg(feature = "compiler")]
-use wasmer_compiler::CompilerConfig;
+use wasmer::CompilerConfig;
 #[cfg(feature = "compiler")]
 fn get_default_compiler_config() -> Box<dyn CompilerConfig> {
     cfg_if! {
@@ -278,7 +340,7 @@ cfg_if! {
         /// cbindgen:ignore
         #[no_mangle]
         pub extern "C" fn wasm_engine_new() -> Box<wasm_engine_t> {
-            let mut compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
+            let compiler_config: Box<dyn CompilerConfig> = get_default_compiler_config();
             let engine: Arc<dyn Engine + Send + Sync> = Arc::new(Native::new(compiler_config).engine());
             Box::new(wasm_engine_t { inner: engine })
         }
@@ -366,7 +428,7 @@ pub unsafe extern "C" fn wasm_engine_delete(_engine: Option<Box<wasm_engine_t>>)
 /// cbindgen:ignore
 #[no_mangle]
 pub extern "C" fn wasm_engine_new_with_config(
-    config: Box<wasm_config_t>,
+    config: Option<Box<wasm_config_t>>,
 ) -> Option<Box<wasm_engine_t>> {
     #[allow(dead_code)]
     fn return_with_error<M>(msg: M) -> Option<Box<wasm_engine_t>>
@@ -378,7 +440,9 @@ pub extern "C" fn wasm_engine_new_with_config(
         });
 
         return None;
-    };
+    }
+
+    let config = config?;
 
     cfg_if! {
         if #[cfg(feature = "compiler")] {
@@ -413,11 +477,26 @@ pub extern "C" fn wasm_engine_new_with_config(
                 },
             };
 
+            #[cfg(feature = "middlewares")]
+            for middleware in config.middlewares {
+                compiler_config.push_middleware(middleware.inner);
+            }
+
             let inner: Arc<dyn Engine + Send + Sync> = match config.engine {
                 wasmer_engine_t::JIT => {
                     cfg_if! {
                         if #[cfg(feature = "jit")] {
-                            Arc::new(JIT::new(compiler_config).engine())
+                            let mut builder = JIT::new(compiler_config);
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `jit` feature.");
                         }
@@ -426,7 +505,17 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::NATIVE => {
                     cfg_if! {
                         if #[cfg(feature = "native")] {
-                            Arc::new(Native::new(compiler_config).engine())
+                            let mut builder = Native::new(compiler_config);
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `native` feature.");
                         }
@@ -437,7 +526,17 @@ pub extern "C" fn wasm_engine_new_with_config(
                         // There are currently no uses of the object-file engine + compiler from the C API.
                         // So we run in headless mode.
                         if #[cfg(feature = "object-file")] {
-                            Arc::new(ObjectFile::headless().engine())
+                            let mut builder = ObjectFile::headless();
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
                         }
@@ -450,7 +549,17 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::JIT => {
                     cfg_if! {
                         if #[cfg(feature = "jit")] {
-                            Arc::new(JIT::headless().engine())
+                            let mut builder = JIT::headless();
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `jit` feature.");
                         }
@@ -459,7 +568,17 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::NATIVE => {
                     cfg_if! {
                         if #[cfg(feature = "native")] {
-                            Arc::new(Native::headless().engine())
+                            let mut builder = Native::headless();
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `native` feature.");
                         }
@@ -468,7 +587,17 @@ pub extern "C" fn wasm_engine_new_with_config(
                 wasmer_engine_t::OBJECT_FILE => {
                     cfg_if! {
                         if #[cfg(feature = "object-file")] {
-                            Arc::new(ObjectFile::headless().engine())
+                            let mut builder = ObjectFile::headless();
+
+                            if let Some(target) = config.target {
+                                builder = builder.target(target.inner);
+                            }
+
+                            if let Some(features) = config.features {
+                                builder = builder.features(features.inner);
+                            }
+
+                            Arc::new(builder.engine())
                         } else {
                             return return_with_error("Wasmer has not been compiled with the `object-file` feature.");
                         }

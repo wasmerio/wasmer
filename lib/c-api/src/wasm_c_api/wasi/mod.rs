@@ -4,15 +4,15 @@
 
 mod capture_files;
 
+pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
     externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
 };
-// required due to really weird Rust resolution rules for macros
-// https://github.com/rust-lang/rust/issues/57966
 use crate::error::{update_last_error, CApiError};
+use std::cmp::min;
 use std::convert::TryFrom;
 use std::ffi::CStr;
 use std::os::raw::c_char;
@@ -23,13 +23,12 @@ use wasmer_wasi::{
     WasiStateBuilder, WasiVersion,
 };
 
-#[derive(Debug, Default)]
+#[derive(Debug)]
 #[allow(non_camel_case_types)]
 pub struct wasi_config_t {
     inherit_stdout: bool,
     inherit_stderr: bool,
     inherit_stdin: bool,
-    /// cbindgen:ignore
     state_builder: WasiStateBuilder,
 }
 
@@ -43,8 +42,10 @@ pub unsafe extern "C" fn wasi_config_new(
     let prog_name = c_try!(name_c_str.to_str());
 
     Some(Box::new(wasi_config_t {
+        inherit_stdout: true,
+        inherit_stderr: true,
+        inherit_stdin: true,
         state_builder: WasiState::new(prog_name),
-        ..wasi_config_t::default()
     }))
 }
 
@@ -133,13 +134,30 @@ pub unsafe extern "C" fn wasi_config_mapdir(
 }
 
 #[no_mangle]
+pub extern "C" fn wasi_config_capture_stdout(config: &mut wasi_config_t) {
+    config.inherit_stdout = false;
+}
+
+#[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdout(config: &mut wasi_config_t) {
     config.inherit_stdout = true;
 }
+
+#[no_mangle]
+pub extern "C" fn wasi_config_capture_stderr(config: &mut wasi_config_t) {
+    config.inherit_stderr = false;
+}
+
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stderr(config: &mut wasi_config_t) {
     config.inherit_stderr = true;
 }
+
+//#[no_mangle]
+//pub extern "C" fn wasi_config_capture_stdin(config: &mut wasi_config_t) {
+//    config.inherit_stdin = false;
+//}
+
 #[no_mangle]
 pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
     config.inherit_stdin = true;
@@ -148,58 +166,57 @@ pub extern "C" fn wasi_config_inherit_stdin(config: &mut wasi_config_t) {
 #[allow(non_camel_case_types)]
 pub struct wasi_env_t {
     /// cbindgen:ignore
-    inner: WasiEnv,
+    pub(super) inner: WasiEnv,
 }
 
-/// Takes ownership over the `wasi_config_t`.
+/// Create a new WASI environment.
+///
+/// It take ownership over the `wasi_config_t`.
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
-    if config.inherit_stdout {
+    if !config.inherit_stdout {
         config
             .state_builder
             .stdout(Box::new(capture_files::OutputCapturer::new()));
     }
-    if config.inherit_stderr {
+
+    if !config.inherit_stderr {
         config
             .state_builder
             .stderr(Box::new(capture_files::OutputCapturer::new()));
     }
+
     // TODO: impl capturer for stdin
+
     let wasi_state = c_try!(config.state_builder.build());
+
     Some(Box::new(wasi_env_t {
         inner: WasiEnv::new(wasi_state),
     }))
 }
 
+/// Delete a [`wasi_env_t`].
 #[no_mangle]
 pub extern "C" fn wasi_env_delete(_state: Option<Box<wasi_env_t>>) {}
 
 /// This function is deprecated. You may safely remove all calls to it and everything
 /// will continue to work.
-// Dead code: deprecate or remove
-#[allow(unused_variables)]
+///
+/// cbindgen:prefix=DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
 #[no_mangle]
-pub extern "C" fn wasi_env_set_instance(env: &mut wasi_env_t, instance: &wasm_instance_t) -> bool {
-    /*
-    let memory = if let Ok(memory) = instance.inner.exports.get_memory("memory") {
-        memory
-    } else {
-        return false;
-    };
-    env.inner.set_memory(memory.clone());
-    */
-
+pub extern "C" fn wasi_env_set_instance(
+    _env: &mut wasi_env_t,
+    _instance: &wasm_instance_t,
+) -> bool {
     true
 }
 
 /// This function is deprecated. You may safely remove all calls to it and everything
 /// will continue to work.
-// Dead code: deprecate or remove
-#[allow(unused_variables)]
+///
+/// cbindgen:prefix=DEPRECATED("This function is no longer necessary. You may safely remove all calls to it and everything will continue to work.")
 #[no_mangle]
-pub extern "C" fn wasi_env_set_memory(env: &mut wasi_env_t, memory: &wasm_memory_t) {
-    //env.inner.set_memory(memory.inner.clone());
-}
+pub extern "C" fn wasi_env_set_memory(_env: &mut wasi_env_t, _memory: &wasm_memory_t) {}
 
 #[no_mangle]
 pub unsafe extern "C" fn wasi_env_read_stdout(
@@ -253,33 +270,55 @@ pub unsafe extern "C" fn wasi_env_read_stderr(
 
 fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isize {
     if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
-        let mut num_bytes_written = 0;
-        for (address, value) in inner_buffer.iter_mut().zip(oc.buffer.drain(..)) {
+        let total_to_read = min(inner_buffer.len(), oc.buffer.len());
+
+        for (address, value) in inner_buffer
+            .iter_mut()
+            .zip(oc.buffer.drain(..total_to_read))
+        {
             *address = value;
-            num_bytes_written += 1;
         }
-        num_bytes_written
+
+        total_to_read as isize
     } else {
         -1
     }
 }
 
+/// The version of WASI. This is determined by the imports namespace
+/// string.
 #[derive(Debug, Clone, Copy, PartialEq, Eq)]
-#[repr(u32)]
+#[repr(C)]
 #[allow(non_camel_case_types)]
 pub enum wasi_version_t {
-    Latest = 0,
-    Snapshot0 = 1,
-    Snapshot1 = 2,
-    InvalidVersion = u32::max_value(),
+    /// An invalid version.
+    INVALID_VERSION = -1,
+
+    /// Latest version.
+    ///
+    /// It's a “floating” version, i.e. it's an alias to the latest
+    /// version (for the moment, `Snapshot1`). Using this version is a
+    /// way to ensure that modules will run only if they come with the
+    /// latest WASI version (in case of security issues for instance),
+    /// by just updating the runtime.
+    ///
+    /// Note that this version is never returned by an API. It is
+    /// provided only by the user.
+    LATEST = 0,
+
+    /// `wasi_unstable`.
+    SNAPSHOT0 = 1,
+
+    /// `wasi_snapshot_preview1`.
+    SNAPSHOT1 = 2,
 }
 
 impl From<WasiVersion> for wasi_version_t {
     fn from(other: WasiVersion) -> Self {
         match other {
-            WasiVersion::Snapshot0 => wasi_version_t::Snapshot0,
-            WasiVersion::Snapshot1 => wasi_version_t::Snapshot1,
-            WasiVersion::Latest => wasi_version_t::Latest,
+            WasiVersion::Snapshot0 => wasi_version_t::SNAPSHOT0,
+            WasiVersion::Snapshot1 => wasi_version_t::SNAPSHOT1,
+            WasiVersion::Latest => wasi_version_t::LATEST,
         }
     }
 }
@@ -289,10 +328,10 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 
     fn try_from(other: wasi_version_t) -> Result<Self, Self::Error> {
         Ok(match other {
-            wasi_version_t::Snapshot0 => WasiVersion::Snapshot0,
-            wasi_version_t::Snapshot1 => WasiVersion::Snapshot1,
-            wasi_version_t::Latest => WasiVersion::Latest,
-            wasi_version_t::InvalidVersion => return Err("Invalid WASI version cannot be used"),
+            wasi_version_t::INVALID_VERSION => return Err("Invalid WASI version cannot be used"),
+            wasi_version_t::SNAPSHOT0 => WasiVersion::Snapshot0,
+            wasi_version_t::SNAPSHOT1 => WasiVersion::Snapshot1,
+            wasi_version_t::LATEST => WasiVersion::Latest,
         })
     }
 }
@@ -301,27 +340,31 @@ impl TryFrom<wasi_version_t> for WasiVersion {
 pub unsafe extern "C" fn wasi_get_wasi_version(module: &wasm_module_t) -> wasi_version_t {
     get_wasi_version(&module.inner, false)
         .map(Into::into)
-        .unwrap_or(wasi_version_t::InvalidVersion)
+        .unwrap_or(wasi_version_t::INVALID_VERSION)
 }
 
-/// Takes ownership of `wasi_env_t`.
+/// Non-standard function to get the imports needed for the WASI
+/// implementation ordered as expected by the `wasm_module_t`.
 #[no_mangle]
 pub unsafe extern "C" fn wasi_get_imports(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> bool {
     wasi_get_imports_inner(store, module, wasi_env, imports).is_some()
 }
 
-/// Takes ownership of `wasi_env_t`.
-unsafe fn wasi_get_imports_inner(
-    store: &wasm_store_t,
-    module: &wasm_module_t,
-    wasi_env: &wasi_env_t,
+fn wasi_get_imports_inner(
+    store: Option<&wasm_store_t>,
+    module: Option<&wasm_module_t>,
+    wasi_env: Option<&wasi_env_t>,
     imports: &mut wasm_extern_vec_t,
 ) -> Option<()> {
+    let store = store?;
+    let module = module?;
+    let wasi_env = wasi_env?;
+
     let store = &store.inner;
 
     let version = c_try!(
@@ -362,15 +405,108 @@ unsafe fn wasi_get_imports_inner(
 pub unsafe extern "C" fn wasi_get_start_function(
     instance: &mut wasm_instance_t,
 ) -> Option<Box<wasm_func_t>> {
-    let f = c_try!(instance.inner.exports.get_function("_start"));
+    let start = c_try!(instance.inner.exports.get_function("_start"));
+
     Some(Box::new(wasm_func_t {
-        inner: f.clone(),
+        inner: start.clone(),
         instance: Some(instance.inner.clone()),
     }))
 }
 
-/// Delete a `wasm_extern_t` allocated by the API.
-///
-/// cbindgen:ignore
-#[no_mangle]
-pub unsafe extern "C" fn wasm_extern_delete(_item: Option<Box<wasm_extern_t>>) {}
+#[cfg(test)]
+mod tests {
+    use inline_c::assert_c;
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot0() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_unstable\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT0);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_snapshot1() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snapshot_preview1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == SNAPSHOT1);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+
+    #[test]
+    fn test_wasi_get_wasi_version_invalid() {
+        (assert_c! {
+            #include "tests/wasmer_wasm.h"
+
+            int main() {
+                wasm_engine_t* engine = wasm_engine_new();
+                wasm_store_t* store = wasm_store_new(engine);
+
+                wasm_byte_vec_t wat;
+                wasmer_byte_vec_new_from_string(&wat, "(module (import \"wasi_snpsht_prvw1\" \"args_get\" (func (param i32 i32) (result i32))))");
+                wasm_byte_vec_t wasm;
+                wat2wasm(&wat, &wasm);
+
+                wasm_module_t* module = wasm_module_new(store, &wasm);
+                assert(module);
+
+                assert(wasi_get_wasi_version(module) == INVALID_VERSION);
+
+                wasm_module_delete(module);
+                wasm_byte_vec_delete(&wasm);
+                wasm_byte_vec_delete(&wat);
+                wasm_store_delete(store);
+                wasm_engine_delete(engine);
+
+                return 0;
+            }
+        })
+        .success();
+    }
+}

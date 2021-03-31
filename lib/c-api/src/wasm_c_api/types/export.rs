@@ -1,10 +1,10 @@
-use super::{wasm_externtype_t, wasm_name_t};
+use super::{owned_wasm_name_t, wasm_externtype_t, wasm_name_t};
 use wasmer::ExportType;
 
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub struct wasm_exporttype_t {
-    name: Box<wasm_name_t>,
+    name: owned_wasm_name_t,
     extern_type: Box<wasm_externtype_t>,
 }
 
@@ -12,11 +12,12 @@ wasm_declare_boxed_vec!(exporttype);
 
 #[no_mangle]
 pub extern "C" fn wasm_exporttype_new(
-    name: Option<Box<wasm_name_t>>,
+    name: Option<&wasm_name_t>,
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_exporttype_t>> {
+    let name = unsafe { owned_wasm_name_t::new(name?) };
     Some(Box::new(wasm_exporttype_t {
-        name: name?,
+        name,
         extern_type: extern_type?,
     }))
 }
@@ -42,20 +43,8 @@ impl From<ExportType> for wasm_exporttype_t {
 
 impl From<&ExportType> for wasm_exporttype_t {
     fn from(other: &ExportType) -> Self {
-        let name = {
-            let mut heap_str: Box<str> = other.name().to_string().into_boxed_str();
-            let char_ptr = heap_str.as_mut_ptr();
-            let str_len = heap_str.bytes().len();
-            let name_inner = wasm_name_t {
-                size: str_len,
-                data: char_ptr,
-            };
-            Box::leak(heap_str);
-
-            Box::new(name_inner)
-        };
-
-        let extern_type = Box::new(other.ty().into());
+        let name: owned_wasm_name_t = other.name().to_string().into();
+        let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
         wasm_exporttype_t { name, extern_type }
     }

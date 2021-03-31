@@ -186,20 +186,14 @@ trait PopMany<T> {
 
 impl<T> PopMany<T> for Vec<T> {
     fn peek1(&self) -> Result<&T, CodegenError> {
-        match self.last() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "peek1() expects at least 1 element".into(),
-            }),
-        }
+        self.last().ok_or_else(|| CodegenError {
+            message: "peek1() expects at least 1 element".into(),
+        })
     }
     fn pop1(&mut self) -> Result<T, CodegenError> {
-        match self.pop() {
-            Some(x) => Ok(x),
-            None => Err(CodegenError {
-                message: "pop1() expects at least 1 element".into(),
-            }),
-        }
+        self.pop().ok_or_else(|| CodegenError {
+            message: "pop1() expects at least 1 element".into(),
+        })
     }
     fn pop2(&mut self) -> Result<(T, T), CodegenError> {
         if self.len() < 2 {
@@ -5674,13 +5668,7 @@ impl<'a> FuncGen<'a> {
                 );
                 self.emit_call_sysv(
                     |this| {
-                        let label = this.assembler.get_label();
-                        let after = this.assembler.get_label();
-                        this.assembler.emit_jmp(Condition::None, after);
-                        this.assembler.emit_label(label);
-                        this.assembler.emit_host_redirection(GPR::RAX);
-                        this.assembler.emit_label(after);
-                        this.assembler.emit_call_label(label);
+                        this.assembler.emit_call_register(GPR::RAX);
                     },
                     // [vmctx, memory_index]
                     iter::once(Location::Imm32(memory_index.index() as u32)),
@@ -5719,13 +5707,7 @@ impl<'a> FuncGen<'a> {
 
                 self.emit_call_sysv(
                     |this| {
-                        let label = this.assembler.get_label();
-                        let after = this.assembler.get_label();
-                        this.assembler.emit_jmp(Condition::None, after);
-                        this.assembler.emit_label(label);
-                        this.assembler.emit_host_redirection(GPR::RAX);
-                        this.assembler.emit_label(after);
-                        this.assembler.emit_call_label(label);
+                        this.assembler.emit_call_register(GPR::RAX);
                     },
                     // [vmctx, val, memory_index]
                     iter::once(param_pages)

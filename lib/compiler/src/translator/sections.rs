@@ -105,7 +105,9 @@ pub fn parse_import_section<'data>(
                     field_name.unwrap_or_default(),
                 )?;
             }
-            ImportSectionEntryType::Module(_sig) | ImportSectionEntryType::Instance(_sig) => {
+            ImportSectionEntryType::Module(_)
+            | ImportSectionEntryType::Instance(_)
+            | ImportSectionEntryType::Event(_) => {
                 unimplemented!("module linking not implemented yet")
             }
             ImportSectionEntryType::Memory(WPMemoryType::M32 {
@@ -207,7 +209,7 @@ pub fn parse_memory_section(
                 environ.declare_memory(MemoryType {
                     minimum: Pages(limits.initial),
                     maximum: limits.maximum.map(Pages),
-                    shared: shared,
+                    shared,
                 })?;
             }
             WPMemoryType::M64 { .. } => unimplemented!("64bit memory not implemented yet"),
@@ -292,7 +294,10 @@ pub fn parse_export_section<'data>(
             ExternalKind::Global => {
                 environ.declare_global_export(GlobalIndex::new(index), field)?
             }
-            ExternalKind::Type | ExternalKind::Module | ExternalKind::Instance => {
+            ExternalKind::Type
+            | ExternalKind::Module
+            | ExternalKind::Instance
+            | ExternalKind::Event => {
                 unimplemented!("module linking not implemented yet")
             }
         }
@@ -327,6 +332,7 @@ pub fn parse_element_section<'data>(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     environ.reserve_table_initializers(elements.get_count())?;
+    environ.reserve_passive_elements(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry?;

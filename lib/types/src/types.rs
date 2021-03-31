@@ -6,6 +6,7 @@ use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
 use crate::values::Value;
+use loupe::{MemoryUsage, MemoryUsageTracker};
 
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
@@ -15,7 +16,7 @@ use serde::{Deserialize, Serialize};
 // Value Types
 
 /// A list of all possible value types in WebAssembly.
-#[derive(Copy, Debug, Clone, Eq, PartialEq, Hash)]
+#[derive(Copy, Debug, Clone, Eq, PartialEq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Type {
     /// Signed 32 bit integer.
@@ -94,6 +95,12 @@ impl From<&[u8]> for V128 {
         let mut buffer = [0; 16];
         buffer.copy_from_slice(slice);
         Self(buffer)
+    }
+}
+
+impl MemoryUsage for V128 {
+    fn size_of_val(&self, tracker: &mut dyn MemoryUsageTracker) -> usize {
+        self.as_slice().size_of_val(tracker)
     }
 }
 
@@ -225,21 +232,21 @@ impl ExternType {
 /// in a Wasm module or exposed to Wasm by the host.
 ///
 /// WebAssembly functions can have 0 or more parameters and results.
-#[derive(Debug, Clone, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct FunctionType {
     /// The parameters of the function
-    params: Vec<Type>,
+    params: Box<[Type]>,
     /// The return values of the function
-    results: Vec<Type>,
+    results: Box<[Type]>,
 }
 
 impl FunctionType {
     /// Creates a new Function Type with the given parameter and return types.
     pub fn new<Params, Returns>(params: Params, returns: Returns) -> Self
     where
-        Params: Into<Vec<Type>>,
-        Returns: Into<Vec<Type>>,
+        Params: Into<Box<[Type]>>,
+        Returns: Into<Box<[Type]>>,
     {
         Self {
             params: params.into(),
@@ -310,7 +317,7 @@ impl From<&FunctionType> for FunctionType {
 }
 
 /// Indicator of whether a global is mutable or not
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum Mutability {
     /// The global is constant and its value does not change
@@ -346,7 +353,7 @@ impl From<Mutability> for bool {
 }
 
 /// WebAssembly global.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct GlobalType {
     /// The type of the value stored in the global.
@@ -389,7 +396,7 @@ impl fmt::Display for GlobalType {
 }
 
 /// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy)]
+#[derive(Debug, Clone, Copy, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum GlobalInit {
     /// An `i32.const`.
@@ -440,7 +447,7 @@ impl GlobalInit {
 /// Tables are contiguous chunks of a specific element, typically a `funcref` or
 /// an `externref`. The most common use for tables is a function table through
 /// which `call_indirect` can invoke other functions.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct TableType {
     /// The type of data stored in elements of the table.
@@ -479,7 +486,7 @@ impl fmt::Display for TableType {
 ///
 /// Memories are described in units of pages (64KB) and represent contiguous
 /// chunks of addressable memory.
-#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.

@@ -22,6 +22,7 @@ pub use self::yielder::Yielder;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
+use loupe::MemoryUsage;
 use std::fmt;
 use wasmer_engine::Export;
 
@@ -29,7 +30,7 @@ use wasmer_engine::Export;
 /// can be imported or exported.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub enum Extern {
     /// A external [`Function`].
     Function(Function),
@@ -42,7 +43,7 @@ pub enum Extern {
 }
 
 impl Extern {
-    /// Return the undelying type of the inner `Extern`.
+    /// Return the underlying type of the inner `Extern`.
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),

@@ -4,35 +4,43 @@ use std::path::PathBuf;
 use wasmer::{Instance, Module};
 use wasmer_wasi::{get_wasi_version, WasiError, WasiState, WasiVersion};
 
-use structopt::StructOpt;
+use clap::Clap;
 
-#[derive(Debug, StructOpt, Clone)]
+#[derive(Debug, Clap, Clone)]
 /// WASI Options
 pub struct Wasi {
     /// WASI pre-opened directory
-    #[structopt(long = "dir", name = "DIR", multiple = true, group = "wasi")]
+    #[clap(long = "dir", name = "DIR", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
     /// Map a host directory to a different location for the wasm module
-    #[structopt(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
+    #[clap(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
     mapped_dirs: Vec<(String, PathBuf)>,
 
     /// Pass custom environment variables
-    #[structopt(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
+    #[clap(long = "env", name = "KEY=VALUE", multiple = true, parse(try_from_str = parse_envvar))]
     env_vars: Vec<(String, String)>,
 
     /// Enable experimental IO devices
     #[cfg(feature = "experimental-io-devices")]
-    #[structopt(long = "enable-experimental-io-devices")]
+    #[clap(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 }
 
+#[allow(dead_code)]
 impl Wasi {
     /// Gets the WASI version (if any) for the provided module
     pub fn get_version(module: &Module) -> Option<WasiVersion> {
-        // Get the wasi version on strict mode, so no other imports are
+        // Get the wasi version in strict mode, so no other imports are
         // allowed.
         get_wasi_version(&module, true)
+    }
+
+    /// Checks if a given module has any WASI imports at all.
+    pub fn has_wasi_imports(module: &Module) -> bool {
+        // Get the wasi version in non-strict mode, so no other imports
+        // are allowed
+        get_wasi_version(&module, false).is_some()
     }
 
     /// Helper function for executing Wasi from the `Run` command.

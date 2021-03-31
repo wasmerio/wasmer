@@ -1,3 +1,4 @@
+use loupe::MemoryUsage;
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -5,7 +6,7 @@ use serde::{Deserialize, Serialize};
 /// Features usually have a corresponding [WebAssembly proposal].
 ///
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
-#[derive(Clone, Debug, Eq, PartialEq)]
+#[derive(Clone, Debug, Eq, PartialEq, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub struct Features {
     /// Threads proposal should be enabled
@@ -26,6 +27,8 @@ pub struct Features {
     pub multi_memory: bool,
     /// 64-bit Memory proposal should be enabled
     pub memory64: bool,
+    /// Wasm exceptions proposal should be enabled
+    pub exceptions: bool,
 }
 
 impl Features {
@@ -43,6 +46,7 @@ impl Features {
             module_linking: false,
             multi_memory: false,
             memory64: false,
+            exceptions: false,
         }
     }
 
@@ -249,6 +253,7 @@ mod test_features {
                 module_linking: false,
                 multi_memory: false,
                 memory64: false,
+                exceptions: false,
             }
         );
     }
