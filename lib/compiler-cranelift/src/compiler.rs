@@ -60,12 +60,14 @@ impl Compiler for CraneliftCompiler {
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
-        let isa = self.config().isa(target);
+        let config = self.config();
+        let flags = self.config().flags(compile_info.features.simd);
+        let isa = config.isa(target, flags);
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
         let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
+        config.middlewares.apply_on_module_info(&mut module);
         compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let signatures = module
@@ -126,7 +128,7 @@ impl Compiler for CraneliftCompiler {
                     &mut context.func,
                     &mut func_env,
                     *i,
-                    &self.config,
+                    &config,
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();

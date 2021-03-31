@@ -32,7 +32,6 @@ pub enum CraneliftOptLevel {
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
-    enable_simd: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The middleware chain.
@@ -48,7 +47,6 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
-            enable_simd: true,
             middlewares: vec![],
         }
     }
@@ -69,7 +67,7 @@ impl Cranelift {
     }
 
     /// Generates the ISA for the provided target
-    pub fn isa(&self, target: &Target) -> Box<dyn TargetIsa> {
+    pub fn isa(&self, target: &Target, flags: settings::Flags) -> Box<dyn TargetIsa> {
         let mut builder =
             lookup(target.triple().clone()).expect("construct Cranelift ISA for triple");
         // Cpu Features
@@ -120,11 +118,11 @@ impl Cranelift {
             builder.enable("has_lzcnt").expect("should be valid flag");
         }
 
-        builder.finish(self.flags())
+        builder.finish(flags)
     }
 
     /// Generates the flags for the compiler
-    pub fn flags(&self) -> settings::Flags {
+    pub fn flags(&self, enable_simd: bool) -> settings::Flags {
         let mut flags = settings::builder();
 
         // There are two possible traps for division, and this way
@@ -158,7 +156,7 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        let enable_simd = if self.enable_simd { "true" } else { "false" };
+        let enable_simd = if enable_simd { "true" } else { "false" };
         flags
             .set("enable_simd", enable_simd)
             .expect("should be valid flag");
