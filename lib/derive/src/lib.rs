@@ -67,8 +67,7 @@ fn impl_wasmer_env(input: &DeriveInput) -> TokenStream {
 
 fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
     let mut finish = vec![];
-    #[cfg(feature = "async")]
-    let mut yielder = vec![];
+    #[cfg(feature="async")] let mut yielder = vec![];
     let mut helpers = vec![];
     //let mut assign_tokens = vec![];
     let mut touched_fields = vec![];
@@ -202,8 +201,8 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
 
                     finish.push(finish_tokens);
                 }
-                #[cfg(feature = "async")]
-                WasmerAttr::Yielder { identifier, span } => {
+                #[ cfg(feature="async") ]
+                WasmerAttr::Yielder{ identifier, span } => {
                     let var_name = if let Some(var_name) = name {
                         var_name
                     } else {
@@ -230,7 +229,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
         }
     }
 
-    #[cfg(feature = "async")]
+    #[ cfg(feature="async") ]
     let trait_methods = quote! {
         fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*
@@ -241,7 +240,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
             #(#yielder)*
         }
     };
-    #[cfg(not(feature = "async"))]
+    #[ cfg(not(feature="async")) ]
     let trait_methods = quote! {
         fn init_with_instance(&mut self, instance: &::wasmer::Instance) -> Result<(), ::wasmer::HostEnvInitError> {
             #(#finish)*

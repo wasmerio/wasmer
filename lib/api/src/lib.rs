@@ -285,11 +285,10 @@ pub mod internals {
 
 pub use crate::env::{HostEnvInitError, LazyInit, WasmerEnv};
 pub use crate::exports::{ExportError, Exportable, Exports, ExportsIterator};
-#[cfg(feature = "async")]
-pub use crate::externals::Yielder;
 pub use crate::externals::{
     Extern, FromToNativeWasmType, Function, Global, HostFunction, Memory, Table, WasmTypeList,
 };
+#[cfg(feature="async")] pub use crate::externals::Yielder;
 pub use crate::import_object::{ImportObject, ImportObjectIterator, LikeNamespace};
 pub use crate::instance::{Instance, InstantiationError};
 pub use crate::module::Module;
