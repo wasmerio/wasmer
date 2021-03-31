@@ -35,7 +35,7 @@ impl FuncTrampoline {
         }
     }
 
-    pub(crate) fn trampoline_to_module(
+    pub fn trampoline_to_module(
         &self,
         ty: &FunctionType,
         config: &LLVM,
@@ -75,7 +75,7 @@ impl FuncTrampoline {
             .as_global_value()
             .set_dll_storage_class(DLLStorageClass::Export);
 
-        self.generate_function_call(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
+        self.generate_trampoline(trampoline_func, ty, &callee_attrs, &self.ctx, &intrinsics)?;
 
         if let Some(ref callbacks) = config.callbacks {
             callbacks.preopt_ir(&function, &module);
@@ -168,7 +168,7 @@ impl FuncTrampoline {
         })
     }
 
-    pub(crate) fn dynamic_trampoline_to_module(
+    pub fn dynamic_trampoline_to_module(
         &self,
         ty: &FunctionType,
         config: &LLVM,
@@ -292,7 +292,7 @@ impl FuncTrampoline {
         })
     }
 
-    fn generate_function_call<'ctx>(
+    fn generate_trampoline<'ctx>(
         &self,
         trampoline_func: FunctionValue,
         func_sig: &FunctionType,

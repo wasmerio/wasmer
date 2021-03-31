@@ -118,7 +118,6 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
 
         let (allocator, memory_definition_locations, table_definition_locations) =
             InstanceAllocator::new(&*module);
-
         let finished_memories = tunables
             .create_memories(&module, self.memory_styles(), &memory_definition_locations)
             .map_err(InstantiationError::Link)?
