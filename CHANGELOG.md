@@ -27,6 +27,7 @@
 - [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
 
 ### Fixed
+- [#2210](https://github.com/wasmerio/wasmer/pull/2210) Fix a memory leak in the Wasm C API in the strings used to identify imports and exports coming from user code.
 - [#2108](https://github.com/wasmerio/wasmer/pull/2108) The Object Native Engine generates code that now compiles correctly with C++.
 - [#2125](https://github.com/wasmerio/wasmer/pull/2125) Fix RUSTSEC-2021-0023.
 - [#2155](https://github.com/wasmerio/wasmer/pull/2155) Fix the implementation of shift and rotate in the LLVM compiler.

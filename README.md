@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) enables super lightweight containers based on [WebAssembly](https://webassembly.org/) that can run anywhere: from Desktop to the Cloud and IoT devices, and also embedded in [*any programming language*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This readme is also available in: [🇨🇳 中文-Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md).
+> This readme is also available in: [🇨🇳 中文-Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md).
 
 ## Features
 
@@ -108,7 +108,7 @@ qjs >
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` rust crate]: https://crates.io/crates/wasmer/
-[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
+[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api

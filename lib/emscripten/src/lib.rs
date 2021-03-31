@@ -324,10 +324,10 @@ pub fn emscripten_call_main(
 ) -> Result<(), RuntimeError> {
     let (function_name, main_func) = match instance.exports.get::<Function>("_main") {
         Ok(func) => Ok(("_main", func)),
-        Err(_e) => match instance.exports.get::<Function>("main") {
-            Ok(func) => Ok(("main", func)),
-            Err(e) => Err(e),
-        },
+        Err(_e) => instance
+            .exports
+            .get::<Function>("main")
+            .map(|func| ("main", func)),
     }
     .map_err(|e| RuntimeError::new(e.to_string()))?;
     let num_params = main_func.ty().params().len();
