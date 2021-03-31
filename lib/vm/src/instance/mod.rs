@@ -143,7 +143,7 @@ pub enum ImportFunctionEnv {
         destructor: unsafe fn(*mut ffi::c_void),
 
         ///TODO
-        #[ cfg(feature="async") ]
+        #[cfg(feature = "async")]
         set_yielder: fn(*mut ffi::c_void, *const ffi::c_void),
     },
 }
@@ -167,13 +167,15 @@ impl Clone for ImportFunctionEnv {
                 clone,
                 destructor,
                 initializer,
-                #[cfg(feature="async")] set_yielder,
+                #[cfg(feature = "async")]
+                set_yielder,
             } => {
                 let new_env = (*clone)(*env);
                 Self::Env {
                     env: new_env,
                     clone: *clone,
-                    #[cfg(feature="async")] set_yielder: *set_yielder,
+                    #[cfg(feature = "async")]
+                    set_yielder: *set_yielder,
                     destructor: *destructor,
                     initializer: *initializer,
                 }
@@ -989,12 +991,15 @@ impl InstanceHandle {
     }
 
     ///TODO
-    #[ cfg(feature="async") ]
+    #[cfg(feature = "async")]
     pub fn set_yielder(&self, yield_ptr: *const std::ffi::c_void) {
         let instance = self.instance.as_ref();
 
         for (_, exp) in instance.imported_function_envs.iter() {
-            if let ImportFunctionEnv::Env{env, set_yielder, ..} = exp {
+            if let ImportFunctionEnv::Env {
+                env, set_yielder, ..
+            } = exp
+            {
                 (set_yielder)(*env, yield_ptr);
             }
         }

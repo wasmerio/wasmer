@@ -157,39 +157,48 @@ impl Instance {
     }
 
     ///TODO
-    #[ cfg(feature="async") ]
-    pub async fn call_with_stack<Stack: switcheroo::stack::Stack + Unpin>(&self, func_name: &str, stack: Stack) -> Result<Box<[crate::Val]>, RuntimeError> {
+    #[cfg(feature = "async")]
+    pub async fn call_with_stack<Stack: switcheroo::stack::Stack + Unpin>(
+        &self,
+        func_name: &str,
+        stack: Stack,
+    ) -> Result<Box<[crate::Val]>, RuntimeError> {
         use crate::externals::function::FunctionDefinition;
         use crate::Val;
 
-        let mut task = async_wormhole::AsyncWormhole::new(stack, |yielder| -> Result<Box<[crate::Val]>, RuntimeError> {
-            let yielder_ptr: *mut std::ffi::c_void = unsafe {
-                std::mem::transmute(&yielder)
-            };
+        let mut task = async_wormhole::AsyncWormhole::new(
+            stack,
+            |yielder| -> Result<Box<[crate::Val]>, RuntimeError> {
+                let yielder_ptr: *mut std::ffi::c_void = unsafe { std::mem::transmute(&yielder) };
 
-            let func = self.exports.get_function(func_name).expect("No such function");
-            {
-                let hdl = self.handle.lock().unwrap();
-                hdl.set_yielder(yielder_ptr);
-            }
-
-            let params = &[];
-
-            let mut results = vec![Val::null(); func.result_arity()];
-
-            match &func.definition {
-                FunctionDefinition::Wasm(wasm) => {
-                    let res = func.call_wasm(&wasm, params, &mut results);
-
-                    if let Err(e) = res {
-                        return Err(e);
-                    }
+                let func = self
+                    .exports
+                    .get_function(func_name)
+                    .expect("No such function");
+                {
+                    let hdl = self.handle.lock().unwrap();
+                    hdl.set_yielder(yielder_ptr);
                 }
-                _ => unimplemented!("The function definition isn't supported for the moment"),
-            }
 
-            Ok(results.into_boxed_slice())
-        }).expect("Failed to create async function call");
+                let params = &[];
+
+                let mut results = vec![Val::null(); func.result_arity()];
+
+                match &func.definition {
+                    FunctionDefinition::Wasm(wasm) => {
+                        let res = func.call_wasm(&wasm, params, &mut results);
+
+                        if let Err(e) = res {
+                            return Err(e);
+                        }
+                    }
+                    _ => unimplemented!("The function definition isn't supported for the moment"),
+                }
+
+                Ok(results.into_boxed_slice())
+            },
+        )
+        .expect("Failed to create async function call");
 
         task.set_pre_post_poll(|| {});
 

@@ -70,14 +70,14 @@ pub struct Function {
     pub(crate) exported: ExportFunction,
 }
 
-#[ cfg(feature="async") ]
+#[cfg(feature = "async")]
 fn build_export_function_metadata<Env>(
     env: Env,
     import_init_function_ptr: for<'a> fn(
         &'a mut Env,
         &'a crate::Instance,
     ) -> Result<(), crate::HostEnvInitError>,
-    host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void)
+    host_env_set_yielder_fn: fn(*mut std::ffi::c_void, *const std::ffi::c_void),
 ) -> (*mut std::ffi::c_void, ExportFunctionMetadata)
 where
     Env: Clone + Sized + 'static + Send + Sync,
@@ -116,7 +116,7 @@ where
     (env, metadata)
 }
 
-#[ cfg(not(feature="async")) ]
+#[cfg(not(feature = "async"))]
 fn build_export_function_metadata<Env>(
     env: Env,
     import_init_function_ptr: for<'a> fn(
@@ -224,12 +224,11 @@ impl Function {
             };
         };
 
-        #[cfg(feature="async") ]
+        #[cfg(feature = "async")]
         let host_env_set_yielder_fn = |_, _| {
             //no-op
             println!("No-op");
         };
-
 
         Self {
             store: store.clone(),
@@ -244,7 +243,8 @@ impl Function {
                             host_env,
                             None,
                             host_env_clone_fn,
-                            #[cfg(feature="async")] host_env_set_yielder_fn,
+                            #[cfg(feature = "async")]
+                            host_env_set_yielder_fn,
                             host_env_drop_fn,
                         )
                     },
@@ -326,25 +326,27 @@ impl Function {
                 Env::init_with_instance(&mut *env.ctx.env, instance)
             };
 
-        #[ cfg(feature="async") ]
-        let (host_env, metadata) =  {
+        #[cfg(feature = "async")]
+        let (host_env, metadata) = {
             let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
                 let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
                 env.set_yielder(yielder_ptr);
             };
 
-            build_export_function_metadata::<
-                VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-                    >(dynamic_ctx, import_init_function_ptr, host_env_set_yielder_fn)
+            build_export_function_metadata::<VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>>(
+                dynamic_ctx,
+                import_init_function_ptr,
+                host_env_set_yielder_fn,
+            )
         };
 
-        #[ cfg(not(feature="async")) ]
+        #[cfg(not(feature = "async"))]
         let (host_env, metadata) = build_export_function_metadata::<
-                VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
-                    >(dynamic_ctx, import_init_function_ptr);
+            VMDynamicFunctionContext<DynamicFunctionWithEnv<Env>>,
+        >(dynamic_ctx, import_init_function_ptr);
 
         // We don't yet have the address with the Wasm ABI signature.
- 
+
         // We don't yet have the address with the Wasm ABI signature.
         // The engine linker will replace the address with one pointing to a
         // generated dynamic trampoline.
@@ -458,18 +460,23 @@ impl Function {
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address();
 
-        #[ cfg(feature="async") ]
+        #[cfg(feature = "async")]
         let (host_env, metadata) = {
             let host_env_set_yielder_fn = |env_ptr, yielder_ptr| {
                 let env: &mut Env = unsafe { std::mem::transmute(env_ptr) };
                 env.set_yielder(yielder_ptr);
             };
 
-            build_export_function_metadata::<Env>(env, Env::init_with_instance, host_env_set_yielder_fn)
+            build_export_function_metadata::<Env>(
+                env,
+                Env::init_with_instance,
+                host_env_set_yielder_fn,
+            )
         };
 
-        #[ cfg(not(feature="async")) ]
-        let (host_env, metadata) = build_export_function_metadata::<Env>(env, Env::init_with_instance);
+        #[cfg(not(feature = "async"))]
+        let (host_env, metadata) =
+            build_export_function_metadata::<Env>(env, Env::init_with_instance);
 
         let vmctx = VMFunctionEnvironment { host_env };
         let signature = function.ty();

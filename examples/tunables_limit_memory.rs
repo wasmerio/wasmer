@@ -102,7 +102,7 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
         ty: &MemoryType,
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
-        src_memory: Option<&dyn vm::Memory>
+        src_memory: Option<&dyn vm::Memory>,
     ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
         let adjusted = self.adjust_memory(ty);
         self.validate_memory(&adjusted)?;
