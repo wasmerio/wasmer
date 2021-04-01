@@ -32,7 +32,6 @@ pub enum CraneliftOptLevel {
 pub struct Cranelift {
     enable_nan_canonicalization: bool,
     enable_verifier: bool,
-    enable_simd: bool,
     enable_pic: bool,
     opt_level: CraneliftOptLevel,
     /// The middleware chain.
@@ -48,7 +47,6 @@ impl Cranelift {
             enable_verifier: false,
             opt_level: CraneliftOptLevel::Speed,
             enable_pic: false,
-            enable_simd: true,
             middlewares: vec![],
         }
     }
@@ -158,9 +156,8 @@ impl Cranelift {
             )
             .expect("should be valid flag");
 
-        let enable_simd = if self.enable_simd { "true" } else { "false" };
         flags
-            .set("enable_simd", enable_simd)
+            .set("enable_simd", "true")
             .expect("should be valid flag");
 
         let enable_nan_canonicalization = if self.enable_nan_canonicalization {
