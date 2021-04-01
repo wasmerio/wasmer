@@ -394,82 +394,87 @@ endif
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
 
-build-docs-capi:
-	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
+capi-setup:
+ifeq ($(IS_WINDOWS), 1)
+  RUSTFLAGS += "-C target-feature=+crt-static"
+endif
 
-build-capi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-docs-capi: capi-setup
+	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
+	RUSTFLAGS=${RUSTFLAGS} cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
+
+build-capi: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
 
-build-capi-singlepass:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-jit: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-native: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-object-file: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-system-libffi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-system-libffi: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
 
-build-capi-cranelift-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-jit: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-native: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-object-file: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-jit: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-native: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-object-file: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,object-file,llvm,wasi,middlewares $(capi_default_features)
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-jit: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,wasi
 
-build-capi-headless-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-native: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features native,wasi
 
-build-capi-headless-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-object-file: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features object-file,wasi
 
-build-capi-headless-all:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-all: capi-setup
+	RUSTFLAGS=${RUSTFLAGS} cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,native,object-file,wasi
 
 ###########
