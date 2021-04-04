@@ -1,24 +1,24 @@
 <div align="center">
   <a href="https://wasmer.io" target="_blank" rel="noopener noreferrer">
-    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Logo Wasmer">
+    <img width="300" src="https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/logo.png" alt="Wasmerロゴ">
   </a>
   
   <p>
     <a href="https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild">
-      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="État des tests">
+      <img src="https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square" alt="ビルドステータス">
     </a>
     <a href="https://github.com/wasmerio/wasmer/blob/master/LICENSE">
-      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="Licence">
+      <img src="https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square" alt="ライセンス">
     </a>
     <a href="https://slack.wasmer.io">
-      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Salon Slack">
+      <img src="https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square" alt="Slackチャンネル">
     </a> 
   </p>
 
   <h3>
-    <a href="https://wasmer.io/">Web</a>
+    <a href="https://wasmer.io/">Website</a>
     <span> • </span>
-    <a href="https://docs.wasmer.io">Documentation</a>
+    <a href="https://docs.wasmer.io">Docs</a>
     <span> • </span>
     <a href="https://slack.wasmer.io/">Chat</a>
   </h3>
@@ -27,30 +27,40 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) permet l'utilisation de conteneurs super légers basés sur [WebAssembly](https://webassembly.org/) qui peuvent fonctionner n'importe où : du bureau au cloud en passant par les appareils IoT, et également intégrés dans [*une multitude de langages de programmation*](https://github.com/wasmerio/wasmer#language-integrations).
+[Wasmer](https://wasmer.io/) は、[WebAssembly](https://webassembly.org/) をベースとした非常に軽量なコンテナを実現します。デスクトップからクラウドや IoT デバイス上まで、どんな環境でも実行でき、さらに[*任意のプログラミング言語*](https://github.com/wasmerio/wasmer#language-integrations)に埋め込むこともできます。
 
-> This readme is also available in: [🇬🇧 English-Anglaise](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Espagnol](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇨🇳 中文-Chinoise](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md)
+> この readme は、次の言語でも利用可能です。[🇨🇳 中文-Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇬🇧 英語-English](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md)
 
-## Fonctionnalités
+## 機能
 
-* **Rapide et sûr**. Wasmer exécute WebAssembly à une vitesse *quasi native* dans un environnement entièrement contrôlé (bac à sable, _sandbox_).
+* **高速かつ安全**。WebAssembly を完全なサンドボックス環境内で*ネイティブに近い*スピードで実行します。
 
-* **Modulaire**. Wasmer prend en charge différents frameworks de compilation pour répondre au mieux à vos besoins (LLVM, Cranelift ...).
+* **プラガブル**。異なるコンパイルフレームワーク (LLVM、Cranelift など...) をサポートしているため、ニーズに合った最適なフレームワークを選択できます。
 
-* **Universel**. Vous pouvez exécuter Wasmer sur n'importe quelle *plate-forme* (macOS, Linux et Windows) et *processeur*.
+* **ユニバーサル**。どんなプラットフォーム上 (macOS、Linux、Windows) でも、どんな*チップセット*上でも実行できます。
 
-* **Conforme aux normes**. Wasmer passe [la suite de tests officielle de WebAssembly](https://github.com/WebAssembly/testsuite) prenant en charge [WASI](https://github.com/WebAssembly/WASI) et [Emscripten](https://emscripten.org/)
+* **標準に準拠**。ランタイムは[公式の WebAssembly テストスイート](https://github.com/WebAssembly/testsuite)に通っており、[WASI](https://github.com/WebAssembly/WASI) と [Emscripten](https://emscripten.org/) をサポートします。
 
-## Quickstart
+---
 
-Wasmer est livré sans aucune dépendance. Vous pouvez l'installer à l'aide des programmes d'installation ci-dessous :
+* **高速かつ安全**。Wasmer は WebAssembly を完全なサンドボックス環境内で*ネイティブに近い*スピードで実行します。
+
+* **プラガブル**。Wasmer は異なるコンパイルフレームワーク (LLVM、Cranelift など...) をサポートしているため、ニーズに合った最適なフレームワークを選択できます。
+
+* **ユニバーサル**。Wasmer はどんなプラットフォーム上 (macOS、Linux、Windows) でも、どんな*チップセット*上でも実行できます。
+
+* **標準に準拠**。ランタイムは[公式の WebAssembly テストスイート](https://github.com/WebAssembly/testsuite)に通っており、[WASI](https://github.com/WebAssembly/WASI) と [Emscripten](https://emscripten.org/) をサポートします。
+
+## クリックスタート
+
+Wasmer は依存関係なしで動作します。以下のコマンドでインストーラーを使用してインストールできます。
 
 ```sh
 curl https://get.wasmer.io -sSfL | sh
 ```
 
 <details>
-  <summary>Avec PowerShell (Windows)</summary>
+  <summary>PowerShell の場合 (Windows)</summary>
   <p>
 
 ```powershell
@@ -60,14 +70,14 @@ iwr https://win.wasmer.io -useb | iex
 </p>
 </details>
 
-> Voir [wasmer-install](https://github.com/wasmerio/wasmer-install) pour plus d'options d'installation: Homebrew, Scoop, Cargo...
+> Homebrew、Scoop、Cargo など、他のインストール方法については、[wasmer-install](https://github.com/wasmerio/wasmer-install) を参照してください。
 
 
-#### Exécution d'un fichier WebAssembly
+#### WebAssembly ファイルの実行
 
-Après avoir installé Wasmer, vous devriez être prêt à exécuter votre premier fichier WebAssemby ! 🎉
+Wasmer をインストールしたら、初めての WebAssembly ファイルの実行準備が完了です！ 🎉
 
-Vous pouvez commencer par exécuter QuickJS : [qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)
+QuickJS ([qjs.wasm](https://registry-cdn.wapm.io/contents/_/quickjs/0.0.3/build/qjs.wasm)) を実行することで、すぐに始められます。
 
 ```bash
 $ wasmer qjs.wasm
@@ -75,17 +85,17 @@ QuickJS - Type "\h" for help
 qjs >
 ```
 
-#### Voici ce que vous pouvez faire ensuite
+#### 次にできること
 
-- [Utilisez Wasmer depuis votre application Rust](https://docs.wasmer.io/integrations/rust)
-- [Publier un paquet Wasm sur WAPM](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
-- [En savoir plus sur Wasmer](https://medium.com/wasmer/)
+- [Rust アプリケーションから Wasmer を使用する](https://docs.wasmer.io/integrations/rust)
+- [WAPM で Wasm パッケージを公開する](https://docs.wasmer.io/ecosystem/wapm/publishing-your-package)
+- [Wasmer についてさらに学ぶ](https://medium.com/wasmer/)
 
-## Intégrations
+## 他の言語とのインテグレーション
 
-📦  Wasmer peut être utilisé comme une bibliothèque **intégrée dans différents langages**, vous pouvez donc utiliser WebAssembly _n'import où_.
+📦 Wasmer ランタイムは**他の言語に組み込んで**使用できるため、WebAssembly は_どんな場所でも_利用できます。
 
-| &nbsp; | Langage de programmation | Package | Docs |
+| &nbsp; | Language | Package | Docs |
 |-|-|-|-|
 | ![Rust logo] | [**Rust**][Rust integration] | [`wasmer` Rust crate] | [Docs][rust docs]
 | ![C logo] | [**C/C++**][C integration] | [`wasmer.h` headers] | [Docs][c docs] |
@@ -98,11 +108,11 @@ qjs >
 | ![Ruby logo] | [**Ruby**][Ruby integration] | [`wasmer` Ruby Gem] | [Docs][ruby docs] |
 | ![Java logo] | [**Java**][Java integration] | [`wasmer/wasmer-jni` Bintray package] | [Docs][java docs] |
 | ![Elixir logo] | [**Elixir**][Elixir integration] | [`wasmex` hex package] | [Docs][elixir docs] |
-| ![R logo] | [**R**][R integration] | *no published package* | [Docs][r docs] |
-| ![Postgres logo] | [**Postgres**][Postgres integration] | *no published package* | [Docs][postgres docs] |
-|  | [**Swift**][Swift integration] | *no published package* | |
+| ![R logo] | [**R**][R integration] | *公開パッケージなし* | [Docs][r docs] |
+| ![Postgres logo] | [**Postgres**][Postgres integration] | *公開パッケージなし* | [Docs][postgres docs] |
+|  | [**Swift**][Swift integration] | *公開パッケージなし* | |
 
-[👋  Il manque un langage ?](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
+[👋 言語が見当たらない？](https://github.com/wasmerio/wasmer/issues/new?assignees=&labels=%F0%9F%8E%89+enhancement&template=---feature-request.md&title=)
 
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
@@ -169,21 +179,21 @@ qjs >
 
 [swift integration]: https://github.com/AlwaysRightInstitute/SwiftyWasmer
 
-## Contribuer
+## コントリビューション
 
-**Nous accueillons toutes formes de contributions, en particulier de la part des nouveaux membres de notre communauté**. 💜
+**どんな形での貢献も歓迎です。コミュニティの新しいメンバーからの貢献は特に歓迎します。** 💜
 
-Vous pouvez vérifier comment compiler Wasmer dans [notre documentation](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)!
+Wasmer ランタイムのビルド方法は、[素晴らしいドキュメント](https://docs.wasmer.io/ecosystem/wasmer/building-from-source)で確認できます！
 
-### Test
+### テスト
 
-Vous voulez des tests ? La [documentation de Wasmer](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing) vous montrera comment les exécuter.
+テストを実行したいですか？ [Wasmer docs で方法を説明](https://docs.wasmer.io/ecosystem/wasmer/building-from-source/testing)しています。
 
-## Communauté
+## コミュニティ
 
-Wasmer a une incroyable communauté de développeurs et de contributeurs. Bienvenue et rejoignez-nous ! 👋
+Wasmer には、開発者とコントリビューターの素晴らしいコミュニティがあります。ようこそ！ あなたも是非参加してください！ 👋
 
-### Canaux de communications
+### チャンネル
 
 - [Slack](https://slack.wasmer.io/)
 - [Twitter](https://twitter.com/wasmerio)
