@@ -41,16 +41,6 @@
 
 * **標準に準拠**。ランタイムは[公式の WebAssembly テストスイート](https://github.com/WebAssembly/testsuite)に通っており、[WASI](https://github.com/WebAssembly/WASI) と [Emscripten](https://emscripten.org/) をサポートします。
 
----
-
-* **高速かつ安全**。Wasmer は WebAssembly を完全なサンドボックス環境内で*ネイティブに近い*スピードで実行します。
-
-* **プラガブル**。Wasmer は異なるコンパイルフレームワーク (LLVM、Cranelift など...) をサポートしているため、ニーズに合った最適なフレームワークを選択できます。
-
-* **ユニバーサル**。Wasmer はどんなプラットフォーム上 (macOS、Linux、Windows) でも、どんな*チップセット*上でも実行できます。
-
-* **標準に準拠**。ランタイムは[公式の WebAssembly テストスイート](https://github.com/WebAssembly/testsuite)に通っており、[WASI](https://github.com/WebAssembly/WASI) と [Emscripten](https://emscripten.org/) をサポートします。
-
 ## クリックスタート
 
 Wasmer は依存関係なしで動作します。以下のコマンドでインストーラーを使用してインストールできます。
