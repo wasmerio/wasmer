@@ -189,10 +189,7 @@ fn wasi_get_unordered_imports_inner(
             Box::new(wasmer_named_extern_t {
                 module,
                 name,
-                r#extern: Box::new(wasm_extern_t {
-                    instance: None,
-                    inner: extern_inner,
-                }),
+                r#extern: Box::new(extern_inner.into()),
             })
         })
         .collect::<Vec<_>>()

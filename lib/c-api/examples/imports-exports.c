@@ -124,10 +124,6 @@ int main(int argc, const char* argv[]) {
 
     printf("Got the exported memory: %p\n", memory);
 
-    wasm_func_delete(func);
-    wasm_global_delete(global);
-    wasm_table_delete(table);
-    wasm_memory_delete(memory);
     wasm_module_delete(module);
     wasm_extern_vec_delete(&exports);
     wasm_instance_delete(instance);

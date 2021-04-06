@@ -1,12 +1,24 @@
 use super::super::store::wasm_store_t;
 use super::super::types::wasm_memorytype_t;
+use super::CApiExternTag;
 use std::mem;
 use wasmer::{Memory, Pages};
 
 #[allow(non_camel_case_types)]
+#[repr(C)]
+#[derive(Clone, Debug)]
 pub struct wasm_memory_t {
-    // maybe needs to hold onto instance
-    pub(crate) inner: Memory,
+    pub(crate) tag: CApiExternTag,
+    pub(crate) inner: Box<Memory>,
+}
+
+impl wasm_memory_t {
+    pub(crate) fn new(memory: Memory) -> Self {
+        Self {
+            tag: CApiExternTag::Memory,
+            inner: Box::new(memory),
+        }
+    }
 }
 
 #[no_mangle]
@@ -20,7 +32,7 @@ pub unsafe extern "C" fn wasm_memory_new(
     let memory_type = memory_type.inner().memory_type.clone();
     let memory = c_try!(Memory::new(&store.inner, memory_type));
 
-    Some(Box::new(wasm_memory_t { inner: memory }))
+    Some(Box::new(wasm_memory_t::new(memory)))
 }
 
 #[no_mangle]
@@ -30,9 +42,7 @@ pub unsafe extern "C" fn wasm_memory_delete(_memory: Option<Box<wasm_memory_t>>)
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memory_copy(memory: &wasm_memory_t) -> Box<wasm_memory_t> {
     // do shallow copy
-    Box::new(wasm_memory_t {
-        inner: memory.inner.clone(),
-    })
+    Box::new(wasm_memory_t::new((&*memory.inner).clone()))
 }
 
 #[no_mangle]
