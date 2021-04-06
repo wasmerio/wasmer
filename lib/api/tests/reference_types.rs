@@ -53,6 +53,75 @@ fn func_ref_passed_and_returned() -> Result<()> {
     Ok(())
 }
 
+#[test]
+fn func_ref_passed_and_called() -> Result<()> {
+    let store = Store::default();
+    let wat = r#"(module
+    (func $func_ref_call (import "env" "func_ref_call") (param funcref) (result i32))
+    (type $ret_i32_ty (func (result i32)))
+    (table $table (export "table") 2 2 funcref)
+
+    (func $product (param $x i32) (param $y i32) (result i32)
+          (i32.mul (local.get $x) (local.get $y)))
+    ;; TODO: figure out exactly why this statement is needed
+    (elem declare func $product)
+    (func (export "call_set_value") (param $fr funcref) (result i32)
+          (table.set $table (i32.const 0) (local.get $fr))
+          (call_indirect $table (type $ret_i32_ty) (i32.const 0)))
+    (func (export "call_func") (param $fr funcref) (result i32)
+          (call $func_ref_call (local.get $fr)))
+    (func (export "call_host_func_with_wasm_func") (result i32)
+          (call $func_ref_call (ref.func $product)))
+)"#;
+    let module = Module::new(&store, wat)?;
+
+    fn func_ref_call(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
+        // TODO: look into `Box<[Value]>` being returned breakage
+        let f = values[0].unwrap_funcref().as_ref().unwrap();
+        let f: NativeFunc<(i32, i32), i32> = f.native()?;
+        Ok(vec![Value::I32(f.call(7, 9)?)])
+    }
+
+    let imports = imports! {
+        "env" => {
+            "func_ref_call" => Function::new(
+                &store,
+                FunctionType::new([Type::FuncRef], [Type::I32]),
+                func_ref_call
+            ),
+            // TODO(reftypes): this should work
+            /*
+            "func_ref_call_native" => Function::new_native(&store, |f: Function| -> Result<i32, RuntimeError> {
+                let f: NativeFunc::<(i32, i32), i32> = f.native()?;
+                f.call(7, 9)
+            })
+            */
+        },
+    };
+
+    let instance = Instance::new(&module, &imports)?;
+    {
+        fn sum(a: i32, b: i32) -> i32 {
+            a + b
+        }
+        let sum_func = Function::new_native(&store, sum);
+
+        let call_func: &Function = instance.exports.get_function("call_func")?;
+        let result = call_func.call(&[Value::FuncRef(Some(sum_func))])?;
+        assert_eq!(result[0].unwrap_i32(), 16);
+    }
+
+    {
+        let f: NativeFunc<(), i32> = instance
+            .exports
+            .get_native_function("call_host_func_with_wasm_func")?;
+        let result = f.call()?;
+        assert_eq!(result, 63);
+    }
+
+    Ok(())
+}
+
 #[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
 fn extern_ref_passed_and_returned() -> Result<()> {
@@ -163,6 +232,7 @@ fn extern_ref_ref_counting_basic() -> Result<()> {
     Ok(())
 }
 
+#[cfg(feature = "experimental-reference-types-extern-ref")]
 #[test]
 fn refs_in_globals() -> Result<()> {
     let store = Store::default();
