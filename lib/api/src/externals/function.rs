@@ -10,6 +10,7 @@ pub use inner::{FromToNativeWasmType, HostFunction, WasmTypeList, WithEnv, Witho
 #[cfg(feature = "deprecated")]
 pub use inner::{UnsafeMutableEnv, WithUnsafeMutableEnv};
 
+use loupe::MemoryUsage;
 use std::cmp::max;
 use std::ffi::c_void;
 use std::fmt;
@@ -22,21 +23,22 @@ use wasmer_vm::{
 };
 
 /// A function defined in the Wasm module
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct WasmFunctionDefinition {
     // Address of the trampoline to do the call.
+    #[loupe(skip)]
     pub(crate) trampoline: VMTrampoline,
 }
 
 /// A function defined in the Host
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct HostFunctionDefinition {
     /// If the host function has a custom environment attached
     pub(crate) has_env: bool,
 }
 
 /// The inner helper
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub enum FunctionDefinition {
     /// A function defined in the Wasm side
     Wasm(WasmFunctionDefinition),
@@ -61,7 +63,7 @@ pub enum FunctionDefinition {
 ///   with native functions. Attempting to create a native `Function` with one will
 ///   result in a panic.
 ///   [Closures as host functions tracking issue](https://github.com/wasmerio/wasmer/issues/1840)
-#[derive(Clone, PartialEq)]
+#[derive(Clone, PartialEq, MemoryUsage)]
 pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,

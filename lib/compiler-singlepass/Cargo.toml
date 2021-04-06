@@ -14,7 +14,7 @@ edition = "2018"
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
-wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false, features = ["std"] }
+wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
 rayon = "1.5"
 hashbrown = { version = "0.9", optional = true }
 serde = { version = "1.0", features = ["derive"] }

@@ -1,7 +1,6 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 
 use wasmer::*;
-use wasmer_engine_jit::JIT;
 
 static BASIC_WAT: &str = r#"(module
     (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
@@ -147,7 +146,7 @@ pub fn run_basic_dynamic_function(store: &Store, compiler_name: &str, c: &mut Cr
     );
 }
 
-fn run_static_benchmarks(c: &mut Criterion) {
+fn run_static_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
         let store = Store::new(&JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());
@@ -167,7 +166,7 @@ fn run_static_benchmarks(c: &mut Criterion) {
     }
 }
 
-fn run_dynamic_benchmarks(c: &mut Criterion) {
+fn run_dynamic_benchmarks(_c: &mut Criterion) {
     #[cfg(feature = "llvm")]
     {
         let store = Store::new(&JIT::new(wasmer_compiler_llvm::LLVM::new()).engine());

@@ -20,11 +20,11 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use JIT Engine.
-    #[clap(long, conflicts_with_all = &["native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["native", "object-file"])]
     jit: bool,
 
     /// Use Native Engine.
-    #[clap(long, conflicts_with_all = &["jit", "object_file"])]
+    #[clap(long, conflicts_with_all = &["jit", "object-file"])]
     native: bool,
 
     /// Use ObjectFile Engine.

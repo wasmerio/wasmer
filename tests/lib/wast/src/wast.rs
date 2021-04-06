@@ -94,10 +94,7 @@ impl Wast {
             wast::WastExecute::Module(mut module) => {
                 let binary = module.encode()?;
                 let result = self.instantiate(&binary);
-                match result {
-                    Ok(_) => Ok(Vec::new()),
-                    Err(e) => Err(e),
-                }
+                result.map(|_| Vec::new())
             }
             wast::WastExecute::Get { module, global } => self.get(module.map(|s| s.name()), global),
         }

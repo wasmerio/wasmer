@@ -57,10 +57,7 @@ impl SymbolRegistry for ShortNames {
             return None;
         }
         let (ty, idx) = name.split_at(1);
-        let idx = match idx.parse::<u32>() {
-            Ok(v) => v,
-            Err(_) => return None,
-        };
+        let idx = idx.parse::<u32>().ok()?;
         match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
