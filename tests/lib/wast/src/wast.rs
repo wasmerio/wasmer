@@ -1,7 +1,7 @@
 use crate::error::{DirectiveError, DirectiveErrors};
 use crate::spectest::spectest_importobject;
 use anyhow::{anyhow, bail, Result};
-use std::collections::{HashMap, HashSet};
+use std::collections::{BTreeMap, HashMap, HashSet};
 use std::path::Path;
 use std::str;
 use wasmer::*;
@@ -23,6 +23,9 @@ pub struct Wast {
     match_trap_messages: HashMap<String, String>,
     /// If the current module was an allowed failure, we allow test to fail
     current_is_allowed_failure: bool,
+    /// Extern-ref manager: used for testing extern refs: they're referred to by
+    /// number in WAST, so we map here.
+    extern_refs: BTreeMap<u32, ExternRef>,
     /// The wasm Store
     store: Store,
     /// A flag indicating if Wast tests should stop as soon as one test fails.
@@ -43,6 +46,7 @@ impl Wast {
             match_trap_messages: HashMap::new(),
             current_is_allowed_failure: false,
             instances: HashMap::new(),
+            extern_refs: BTreeMap::new(),
             fail_fast: true,
             disable_assert_trap_exhaustion: false,
         }
@@ -104,7 +108,7 @@ impl Wast {
         let values = exec
             .args
             .iter()
-            .map(Self::runtime_value)
+            .map(|a| self.runtime_value(a))
             .collect::<Result<Vec<_>>>()?;
         self.invoke(exec.module.map(|i| i.name()), exec.name, &values)
     }
@@ -116,7 +120,7 @@ impl Wast {
     ) -> Result<()> {
         let values = result?;
         for (v, e) in values.iter().zip(results) {
-            if val_matches(v, e)? {
+            if self.val_matches(v, e)? {
                 continue;
             }
             if let Val::V128(bits) = v {
@@ -386,7 +390,7 @@ impl Wast {
     }
 
     /// Translate from a `script::Value` to a `Val`.
-    fn runtime_value(v: &wast::Expression<'_>) -> Result<Val> {
+    fn runtime_value(&mut self, v: &wast::Expression<'_>) -> Result<Val> {
         use wast::Instruction::*;
 
         if v.instrs.len() != 1 {
@@ -398,6 +402,15 @@ impl Wast {
             F32Const(x) => Val::F32(f32::from_bits(x.bits)),
             F64Const(x) => Val::F64(f64::from_bits(x.bits)),
             V128Const(x) => Val::V128(u128::from_le_bytes(x.to_le_bytes())),
+            RefNull(wast::HeapType::Func) => Val::FuncRef(None),
+            RefNull(wast::HeapType::Extern) => Val::null(),
+            RefExtern(number) => {
+                let extern_ref = self
+                    .extern_refs
+                    .entry(*number)
+                    .or_insert_with(|| ExternRef::new(*number));
+                Val::ExternRef(extern_ref.clone())
+            }
             other => bail!("couldn't convert {:?} to a runtime value", other),
         })
     }
@@ -434,6 +447,47 @@ impl Wast {
                 .map(|alternative| actual.contains(alternative))
                 .unwrap_or(false)
     }
+
+    fn val_matches(&self, actual: &Val, expected: &wast::AssertExpression) -> Result<bool> {
+        Ok(match (actual, expected) {
+            (Val::I32(a), wast::AssertExpression::I32(b)) => a == b,
+            (Val::I64(a), wast::AssertExpression::I64(b)) => a == b,
+            // Note that these float comparisons are comparing bits, not float
+            // values, so we're testing for bit-for-bit equivalence
+            (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
+            (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
+            (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
+            (Val::FuncRef(None), wast::AssertExpression::RefNull(Some(wast::HeapType::Func))) => {
+                true
+            }
+            (Val::FuncRef(Some(_)), wast::AssertExpression::RefNull(_)) => false,
+            (Val::FuncRef(None), wast::AssertExpression::RefFunc(None)) => true,
+            (Val::FuncRef(None), wast::AssertExpression::RefFunc(Some(_))) => false,
+            (
+                Val::ExternRef(extern_ref),
+                wast::AssertExpression::RefNull(Some(wast::HeapType::Extern)),
+            ) if extern_ref.is_null() => true,
+            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(_))
+                if extern_ref.is_null() =>
+            {
+                false
+            }
+
+            (Val::ExternRef(_), wast::AssertExpression::RefNull(_)) => false,
+            (Val::ExternRef(extern_ref), wast::AssertExpression::RefExtern(num)) => {
+                if let Some(stored_extern_ref) = self.extern_refs.get(num) {
+                    extern_ref == stored_extern_ref
+                } else {
+                    false
+                }
+            }
+            _ => bail!(
+                "don't know how to compare {:?} and {:?} yet",
+                actual,
+                expected
+            ),
+        })
+    }
 }
 
 fn extract_lane_as_i8(bytes: u128, lane: usize) -> i8 {
@@ -450,23 +504,6 @@ fn extract_lane_as_i32(bytes: u128, lane: usize) -> i32 {
 
 fn extract_lane_as_i64(bytes: u128, lane: usize) -> i64 {
     (bytes >> (lane * 64)) as i64
-}
-
-fn val_matches(actual: &Val, expected: &wast::AssertExpression) -> Result<bool> {
-    Ok(match (actual, expected) {
-        (Val::I32(a), wast::AssertExpression::I32(b)) => a == b,
-        (Val::I64(a), wast::AssertExpression::I64(b)) => a == b,
-        // Note that these float comparisons are comparing bits, not float
-        // values, so we're testing for bit-for-bit equivalence
-        (Val::F32(a), wast::AssertExpression::F32(b)) => f32_matches(*a, b),
-        (Val::F64(a), wast::AssertExpression::F64(b)) => f64_matches(*a, b),
-        (Val::V128(a), wast::AssertExpression::V128(b)) => v128_matches(*a, b),
-        _ => bail!(
-            "don't know how to compare {:?} and {:?} yet",
-            actual,
-            expected
-        ),
-    })
 }
 
 fn f32_matches(actual: f32, expected: &wast::NanPattern<wast::Float32>) -> bool {

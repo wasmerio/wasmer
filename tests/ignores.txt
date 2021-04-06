@@ -34,7 +34,6 @@ cranelift::spec::simd::simd_i8x16_sat_arith on aarch64
 cranelift::spec::simd::simd_lane on aarch64
 cranelift::spec::skip_stack_guard_page on aarch64
 
-
 # SIMD changes
 # due to breaking changes in the SIMD proposal, we have to disable these spec tests
 # note we've not pulled in the updated spec tests yet, so expect more breakage

@@ -54,16 +54,66 @@ where
 {
     // TODO: use perfect hash function?
     let mut libcalls = HashMap::new();
-    libcalls.insert("wasmer_raise_trap".to_string(), LibCall::RaiseTrap);
-    libcalls.insert("truncf".to_string(), LibCall::TruncF32);
-    libcalls.insert("trunc".to_string(), LibCall::TruncF64);
     libcalls.insert("ceilf".to_string(), LibCall::CeilF32);
     libcalls.insert("ceil".to_string(), LibCall::CeilF64);
     libcalls.insert("floorf".to_string(), LibCall::FloorF32);
     libcalls.insert("floor".to_string(), LibCall::FloorF64);
     libcalls.insert("nearbyintf".to_string(), LibCall::NearestF32);
     libcalls.insert("nearbyint".to_string(), LibCall::NearestF64);
-    libcalls.insert("wasmer_probestack".to_string(), LibCall::Probestack);
+    libcalls.insert("truncf".to_string(), LibCall::TruncF32);
+    libcalls.insert("trunc".to_string(), LibCall::TruncF64);
+    libcalls.insert("wasmer_vm_f32_ceil".to_string(), LibCall::CeilF32);
+    libcalls.insert("wasmer_vm_f64_ceil".to_string(), LibCall::CeilF64);
+    libcalls.insert("wasmer_vm_f32_floor".to_string(), LibCall::FloorF32);
+    libcalls.insert("wasmer_vm_f64_floor".to_string(), LibCall::FloorF64);
+    libcalls.insert("wasmer_vm_f32_nearest".to_string(), LibCall::NearestF32);
+    libcalls.insert("wasmer_vm_f64_nearest".to_string(), LibCall::NearestF64);
+    libcalls.insert("wasmer_vm_f32_trunc".to_string(), LibCall::TruncF32);
+    libcalls.insert("wasmer_vm_f64_trunc".to_string(), LibCall::TruncF64);
+    libcalls.insert("wasmer_vm_memory32_size".to_string(), LibCall::Memory32Size);
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_size".to_string(),
+        LibCall::ImportedMemory32Size,
+    );
+    libcalls.insert("wasmer_vm_table_copy".to_string(), LibCall::TableCopy);
+    libcalls.insert("wasmer_vm_table_init".to_string(), LibCall::TableInit);
+    libcalls.insert("wasmer_vm_table_fill".to_string(), LibCall::TableFill);
+    libcalls.insert("wasmer_vm_table_size".to_string(), LibCall::TableSize);
+    libcalls.insert(
+        "wasmer_vm_imported_table_size".to_string(),
+        LibCall::ImportedTableSize,
+    );
+    libcalls.insert("wasmer_vm_table_get".to_string(), LibCall::TableGet);
+    libcalls.insert(
+        "wasmer_vm_imported_table_get".to_string(),
+        LibCall::ImportedTableGet,
+    );
+    libcalls.insert("wasmer_vm_table_set".to_string(), LibCall::TableSet);
+    libcalls.insert(
+        "wasmer_vm_imported_table_set".to_string(),
+        LibCall::ImportedTableSet,
+    );
+    libcalls.insert("wasmer_vm_table_grow".to_string(), LibCall::TableGrow);
+    libcalls.insert(
+        "wasmer_vm_imported_table_grow".to_string(),
+        LibCall::ImportedTableGrow,
+    );
+    libcalls.insert("wasmer_vm_func_ref".to_string(), LibCall::FuncRef);
+    libcalls.insert("wasmer_vm_elem_drop".to_string(), LibCall::ElemDrop);
+    libcalls.insert("wasmer_vm_memory32_copy".to_string(), LibCall::Memory32Copy);
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_copy".to_string(),
+        LibCall::ImportedMemory32Copy,
+    );
+    libcalls.insert("wasmer_vm_memory32_fill".to_string(), LibCall::Memory32Fill);
+    libcalls.insert(
+        "wasmer_vm_imported_memory32_fill".to_string(),
+        LibCall::ImportedMemory32Fill,
+    );
+    libcalls.insert("wasmer_vm_memory32_init".to_string(), LibCall::Memory32Init);
+    libcalls.insert("wasmer_vm_data_drop".to_string(), LibCall::DataDrop);
+    libcalls.insert("wasmer_vm_raise_trap".to_string(), LibCall::RaiseTrap);
+    libcalls.insert("wasmer_vm_probestack".to_string(), LibCall::Probestack);
 
     let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
     let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {

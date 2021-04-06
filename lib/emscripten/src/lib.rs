@@ -19,9 +19,9 @@ use std::f64;
 use std::path::PathBuf;
 use std::sync::{Arc, Mutex};
 use wasmer::{
-    imports, namespace, Exports, ExternRef, Function, FunctionType, Global, ImportObject, Instance,
-    LazyInit, Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType,
-    Val, ValType, WasmerEnv,
+    imports, namespace, Exports, Function, FunctionType, Global, ImportObject, Instance, LazyInit,
+    Memory, MemoryType, Module, NativeFunc, Pages, RuntimeError, Store, Table, TableType, Val,
+    ValType, WasmerEnv,
 };
 
 #[cfg(unix)]
@@ -478,7 +478,7 @@ impl EmscriptenGlobals {
             maximum: table_max,
         };
         // TODO: review init value
-        let table = Table::new(store, table_type, Val::ExternRef(ExternRef::null())).unwrap();
+        let table = Table::new(store, table_type, Val::null()).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;

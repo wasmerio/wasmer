@@ -33,8 +33,8 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
@@ -46,6 +46,7 @@ pub struct NativeArtifact {
     #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
+    func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -355,6 +356,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
+            func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
         })
     }
@@ -458,6 +460,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
+            func_data_registry: engine_inner.func_data().clone(),
             signatures: signatures.into_boxed_slice(),
         })
     }
@@ -604,6 +607,10 @@ impl Artifact for NativeArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn func_data_registry(&self) -> &FuncDataRegistry {
+        &self.func_data_registry
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {

@@ -54,7 +54,7 @@ wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 middlewares = ["wasmer-middlewares"]
-deprecated = ["libffi"]
+deprecated = ["libffi", "wasmer/experimental-reference-types-extern-ref"]
 jit = [
     "wasmer-engine-jit",
     "engine",
