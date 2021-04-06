@@ -120,7 +120,6 @@ impl Wast {
     ) -> Result<()> {
         let values = result?;
         for (v, e) in values.iter().zip(results) {
-            // TODO: we're not matching here but maybe we should
             if self.val_matches(v, e)? {
                 continue;
             }

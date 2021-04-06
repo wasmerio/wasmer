@@ -167,8 +167,8 @@ impl VMExternRefInner {
         }
     }
 
+    /// Increments the reference count.
     /// Returns the old value.
-    /// TODO: document this
     fn increment_ref_count(&self, val: usize) -> usize {
         // Using a relaxed ordering is alright here, as knowledge of
         // the original reference prevents other threads from
@@ -288,8 +288,7 @@ impl From<VMExternRef> for ExternRef {
 impl From<ExternRef> for VMExternRef {
     fn from(other: ExternRef) -> Self {
         let out = other.inner;
-        // TODO: clean this up
-        // hack, don't decrement the count
+        // We want to make this transformation without decrementing the count.
         std::mem::forget(other);
         out
     }

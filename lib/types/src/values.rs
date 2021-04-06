@@ -61,16 +61,21 @@ macro_rules! accessors {
     )*)
 }
 
-/// TODO: figure out the name of this trait
-pub trait ValueEnumType: std::fmt::Debug + 'static {
+/// Trait for reading and writing Wasm values into binary for use on the layer
+/// between the API and the VM internals, specifically with `wasmer_types::Value`.
+pub trait WasmValueType: std::fmt::Debug + 'static {
     /// Write the value
     unsafe fn write_value_to(&self, p: *mut i128);
 
     /// read the value
+    // TODO(reftypes): passing the store as `dyn Any` is a hack to work around the
+    // structure of our crates. We need to talk about the store in the rest of the
+    // VM (for example where this method is used) but cannot do so. Fixing this
+    // may be non-trivial.
     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
 }
 
-impl ValueEnumType for () {
+impl WasmValueType for () {
     unsafe fn write_value_to(&self, _p: *mut i128) {}
 
     unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
@@ -80,7 +85,7 @@ impl ValueEnumType for () {
 
 impl<T> Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     /// Returns a null `externref` value.
     pub fn null() -> Self {
@@ -115,7 +120,7 @@ where
             Self::V128(b) => ptr::write(p as *mut u128, *b),
             Self::FuncRef(Some(b)) => T::write_value_to(b, p),
             Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
-            // TODO: review clone here
+            // TODO(reftypes): review clone here
             Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
         }
     }
@@ -134,13 +139,11 @@ where
             Type::F64 => Self::F64(ptr::read(p as *const f64)),
             Type::V128 => Self::V128(ptr::read(p as *const u128)),
             Type::FuncRef => {
-                // a bit hairy, maybe clean this up? issue is that `Option` doesn't live on
-                // the funcref itself, but in Value.
+                // We do the null check ourselves
                 if (*(p as *const usize)) == 0 {
                     Self::FuncRef(None)
                 } else {
                     Self::FuncRef(Some(T::read_value_from(store, p)))
-                    //todo!("Non-null funcrefs cannot be accessed with `Value::read_value_from`");
                 }
             }
             Type::ExternRef => {
@@ -164,7 +167,7 @@ where
 
 impl<T> fmt::Debug for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
@@ -182,7 +185,7 @@ where
 
 impl<T> ToString for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn to_string(&self) -> String {
         match self {
@@ -199,7 +202,7 @@ where
 
 impl<T> From<i32> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: i32) -> Self {
         Self::I32(val)
@@ -208,7 +211,7 @@ where
 
 impl<T> From<u32> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: u32) -> Self {
         // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
@@ -218,7 +221,7 @@ where
 
 impl<T> From<i64> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: i64) -> Self {
         Self::I64(val)
@@ -227,7 +230,7 @@ where
 
 impl<T> From<u64> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: u64) -> Self {
         // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
@@ -237,7 +240,7 @@ where
 
 impl<T> From<f32> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: f32) -> Self {
         Self::F32(val)
@@ -246,7 +249,7 @@ where
 
 impl<T> From<f64> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: f64) -> Self {
         Self::F64(val)
@@ -255,7 +258,7 @@ where
 
 impl<T> From<ExternRef> for Value<T>
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     fn from(val: ExternRef) -> Self {
         Self::ExternRef(val)
@@ -275,7 +278,7 @@ const NOT_F64: &str = "Value is not of Wasm type f64";
 
 impl<T> TryFrom<Value<T>> for i32
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 
@@ -286,7 +289,7 @@ where
 
 impl<T> TryFrom<Value<T>> for u32
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 
@@ -297,7 +300,7 @@ where
 
 impl<T> TryFrom<Value<T>> for i64
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 
@@ -308,7 +311,7 @@ where
 
 impl<T> TryFrom<Value<T>> for u64
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 
@@ -319,7 +322,7 @@ where
 
 impl<T> TryFrom<Value<T>> for f32
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 
@@ -330,7 +333,7 @@ where
 
 impl<T> TryFrom<Value<T>> for f64
 where
-    T: ValueEnumType,
+    T: WasmValueType,
 {
     type Error = &'static str;
 

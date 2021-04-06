@@ -95,7 +95,7 @@ impl ValFuncRef for Val {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
-            // TODO: review this clone
+            // TODO(reftypes): review this clone
             Self::ExternRef(extern_ref) => {
                 wasmer_vm::TableElement::ExternRef(extern_ref.clone().into())
             }

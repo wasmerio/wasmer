@@ -81,7 +81,7 @@ pub use crate::native::{NativeWasmType, ValueType};
 pub use crate::units::{
     Bytes, PageCountOutOfRange, Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
-pub use crate::values::{Value, ValueEnumType};
+pub use crate::values::{Value, WasmValueType};
 pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,

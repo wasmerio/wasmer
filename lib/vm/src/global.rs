@@ -4,7 +4,7 @@ use std::cell::UnsafeCell;
 use std::ptr::NonNull;
 use std::sync::Mutex;
 use thiserror::Error;
-use wasmer_types::{GlobalType, Mutability, Type, Value, ValueEnumType};
+use wasmer_types::{GlobalType, Mutability, Type, Value, WasmValueType};
 
 #[derive(Debug, MemoryUsage)]
 /// A Global instance
@@ -65,7 +65,10 @@ impl Global {
     }
 
     /// Get a value from the global.
-    pub fn get<T: ValueEnumType>(&self, store: &dyn std::any::Any) -> Value<T> {
+    // TODO(reftypes): the `&dyn Any` here for `Store` is a work-around for the fact
+    // that `Store` is defined in `API` when we need it earlier. Ideally this should
+    // be removed.
+    pub fn get<T: WasmValueType>(&self, store: &dyn std::any::Any) -> Value<T> {
         let _global_guard = self.lock.lock().unwrap();
         unsafe {
             let definition = &*self.vm_global_definition.get();
@@ -93,7 +96,7 @@ impl Global {
     ///
     /// # Safety
     /// The caller should check that the `val` comes from the same store as this global.
-    pub unsafe fn set<T: ValueEnumType>(&self, val: Value<T>) -> Result<(), GlobalError> {
+    pub unsafe fn set<T: WasmValueType>(&self, val: Value<T>) -> Result<(), GlobalError> {
         let _global_guard = self.lock.lock().unwrap();
         if self.ty().mutability != Mutability::Var {
             return Err(GlobalError::ImmutableGlobalCannotBeSet);
@@ -113,7 +116,7 @@ impl Global {
     /// The caller should check that the `val` comes from the same store as this global.
     /// The caller should also ensure that this global is synchronized. Otherwise, use
     /// `set` instead.
-    pub unsafe fn set_unchecked<T: ValueEnumType>(&self, val: Value<T>) -> Result<(), GlobalError> {
+    pub unsafe fn set_unchecked<T: WasmValueType>(&self, val: Value<T>) -> Result<(), GlobalError> {
         // ideally we'd use atomics for the global value rather than needing to lock it
         let definition = &mut *self.vm_global_definition.get();
         match val {

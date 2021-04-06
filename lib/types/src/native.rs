@@ -4,7 +4,7 @@
 use crate::extern_ref::VMExternRef;
 use crate::lib::std::fmt;
 use crate::types::Type;
-use crate::values::{Value, ValueEnumType};
+use crate::values::{Value, WasmValueType};
 
 /// `NativeWasmType` represents a Wasm type that has a direct
 /// representation on the host (hence the “native” term).
@@ -38,7 +38,7 @@ pub trait NativeWasmType: Sized {
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`.
-    fn to_value<T: ValueEnumType>(self) -> Value<T> {
+    fn to_value<T: WasmValueType>(self) -> Value<T> {
         let binary = self.to_binary();
         // we need a store, we're just hoping we don't actually use it via funcref
         // TODO(reftypes): we need an actual solution here
@@ -197,7 +197,7 @@ impl NativeWasmType for VMExternRef {
 
     #[inline]
     fn from_binary(bits: i128) -> Self {
-        // TODO: ensure that the safety invariants are actually upheld here
+        // TODO(reftypes): ensure that the safety invariants are actually upheld here
         unsafe { Self::from_binary(bits) }
     }
 }

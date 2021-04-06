@@ -41,9 +41,6 @@ pub enum GlobalVariable {
     Custom,
 }
 
-// TODO: encode type info about the global var either there or somewhere else!
-//       so we can check if it needs to inc/dec for externref
-
 #[allow(dead_code)]
 /// How to return from functions.
 #[derive(Copy, Clone, PartialEq, Eq, Debug)]

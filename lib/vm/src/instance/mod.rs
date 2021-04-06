@@ -534,9 +534,7 @@ impl Instance {
     /// Returns the number of elements in a given imported table.
     ///
     /// # Safety
-    /// TODO: review safety of this. (safety message copied from memory.size)
-    /// This and `imported_table_grow` are currently unsafe because they
-    /// dereference the table import's pointers.
+    /// `table_index` must be a valid, imported table index.
     pub(crate) unsafe fn imported_table_size(&self, table_index: TableIndex) -> u32 {
         let import = self.imported_table(table_index);
         let from = import.from.as_ref();
@@ -565,9 +563,7 @@ impl Instance {
     /// Grow table by the specified amount of elements.
     ///
     /// # Safety
-    /// TODO: review safety of this. (safety message copied from memory.size)
-    /// This and `imported_table_grow` are currently unsafe because they
-    /// dereference the table import's pointers.
+    /// `table_index` must be a valid, imported table index.
     pub(crate) unsafe fn imported_table_grow(
         &self,
         table_index: TableIndex,
@@ -592,12 +588,9 @@ impl Instance {
     }
 
     /// Returns the element at the given index.
-    /// TODO: document this
     ///
     /// # Safety
-    /// TODO: review safety of this. (safety message copied from memory.size)
-    /// This and `imported_table_grow` are currently unsafe because they
-    /// dereference the table import's pointers.
+    /// `table_index` must be a valid, imported table index.
     pub(crate) unsafe fn imported_table_get(
         &self,
         table_index: TableIndex,
@@ -621,12 +614,10 @@ impl Instance {
             .set(index, val)
     }
 
-    /// TODO: document this
+    /// Set table element by index for an imported table.
     ///
     /// # Safety
-    /// TODO: review safety of this. (safety message copied from memory.size)
-    /// This and `imported_table_grow` are currently unsafe because they
-    /// dereference the table import's pointers.
+    /// `table_index` must be a valid, imported table index.
     pub(crate) unsafe fn imported_table_set(
         &self,
         table_index: TableIndex,
@@ -639,11 +630,11 @@ impl Instance {
     }
 
     pub(crate) fn func_ref(&self, function_index: FunctionIndex) -> Option<VMFuncRef> {
-        Some(self.get_caller_checked_anyfunc(function_index))
+        Some(self.get_vm_funcref(function_index))
     }
 
-    /// Get a `VMCallerCheckedAnyfunc` for the given `FunctionIndex`.
-    fn get_caller_checked_anyfunc(&self, index: FunctionIndex) -> VMFuncRef {
+    /// Get a `VMFuncRef` for the given `FunctionIndex`.
+    fn get_vm_funcref(&self, index: FunctionIndex) -> VMFuncRef {
         if index == FunctionIndex::reserved_value() {
             return VMFuncRef::null();
         }
@@ -929,7 +920,6 @@ impl InstanceHandle {
 
         let handle = {
             let offsets = allocator.offsets().clone();
-            // TODO: come up with a better name
             // use dummy value to create an instance so we can get the vmctx pointer
             let funcrefs = PrimaryMap::new().into_boxed_slice();
             // Create the `Instance`. The unique, the One.
@@ -952,7 +942,7 @@ impl InstanceHandle {
 
             let mut instance_ref = allocator.write_instance(instance);
 
-            // TODO: clean up this code
+            // Set the funcrefs after we've built the instance
             {
                 let instance = instance_ref.as_mut();
                 let vmctx_ptr = instance.vmctx_ptr();
@@ -1411,7 +1401,7 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
-            let anyfunc = instance.get_caller_checked_anyfunc(*func_idx);
+            let anyfunc = instance.get_vm_funcref(*func_idx);
             table
                 .set(
                     u32::try_from(start + i).unwrap(),
@@ -1445,7 +1435,7 @@ fn initialize_passive_elements(instance: &Instance) {
                     *idx,
                     segments
                         .iter()
-                        .map(|s| instance.get_caller_checked_anyfunc(*s))
+                        .map(|s| instance.get_vm_funcref(*s))
                         .collect(),
                 )
             }),

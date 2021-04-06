@@ -70,7 +70,7 @@ pub struct Function {
     pub(crate) exported: ExportFunction,
 }
 
-impl wasmer_types::ValueEnumType for Function {
+impl wasmer_types::WasmValueType for Function {
     /// Write the value.
     unsafe fn write_value_to(&self, p: *mut i128) {
         let func_ref =

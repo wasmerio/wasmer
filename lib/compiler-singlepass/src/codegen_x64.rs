@@ -8268,8 +8268,6 @@ impl<'a> FuncGen<'a> {
 
                 let ret = self.machine.acquire_locations(
                     &mut self.assembler,
-                    // TODO: we have to check the type of the table here to know if it's
-                    // funcref or ExternRef
                     &[(
                         WpType::FuncRef,
                         MachineValue::WasmStack(self.value_stack.len()),
