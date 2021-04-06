@@ -41,7 +41,7 @@ pub trait NativeWasmType: Sized {
     fn to_value<T: ValueEnumType>(self) -> Value<T> {
         let binary = self.to_binary();
         // we need a store, we're just hoping we don't actually use it via funcref
-        // TODO: we need an actual solution here
+        // TODO(reftypes): we need an actual solution here
         let hack = 3;
 
         unsafe { Value::read_value_from(&hack, &binary, Self::WASM_TYPE) }

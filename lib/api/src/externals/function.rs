@@ -71,22 +71,25 @@ pub struct Function {
 }
 
 impl wasmer_types::ValueEnumType for Function {
-    /// Write the value
+    /// Write the value.
     unsafe fn write_value_to(&self, p: *mut i128) {
         let func_ref =
             Val::into_checked_anyfunc(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
         std::ptr::write(p as *mut VMFuncRef, func_ref);
     }
 
-    /// read the value
-    // quick hack, make it take `dyn Any`
+    /// Read the value.
+    // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
+    // ideally be removed
     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
         let func_ref = std::ptr::read(p as *const VMFuncRef);
-        let store = store.downcast_ref::<Store>().unwrap();
+        let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
         match Val::from_checked_anyfunc(func_ref, store) {
             Val::FuncRef(Some(fr)) => fr,
-            Val::FuncRef(None) => todo!("Null funcref found in read_value_from!"),
-            other => todo!("invalid value in `read_value_from`: {:?}", other),
+            // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
+            // They should never be triggered, so we just panic.
+            Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
+            other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
         }
     }
 }
@@ -175,6 +178,7 @@ impl Function {
         let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> =
             VMDynamicFunctionContext::from_context(DynamicFunctionWithoutEnv {
                 func: Arc::new(func),
+                store: store.clone(),
                 function_type: ty.clone(),
             });
         // We don't yet have the address with the Wasm ABI signature.
@@ -282,6 +286,7 @@ impl Function {
             VMDynamicFunctionContext::from_context(DynamicFunctionWithEnv {
                 env: Box::new(env),
                 func: Arc::new(func),
+                store: store.clone(),
                 function_type: ty.clone(),
             });
 
@@ -567,7 +572,6 @@ impl Function {
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                // This fails when we read return types because of wasmer-types vs wasmer (func and extern ref)
                 results[index] = Val::read_value_from(&self.store, ptr, value_type);
             }
         }
@@ -833,6 +837,7 @@ impl fmt::Debug for Function {
 pub(crate) trait VMDynamicFunction: Send + Sync {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
     fn function_type(&self) -> &FunctionType;
+    fn store(&self) -> &Store;
 }
 
 #[derive(Clone)]
@@ -840,6 +845,7 @@ pub(crate) struct DynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync>,
     function_type: FunctionType,
+    store: Store,
 }
 
 impl VMDynamicFunction for DynamicFunctionWithoutEnv {
@@ -848,6 +854,9 @@ impl VMDynamicFunction for DynamicFunctionWithoutEnv {
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
+    }
+    fn store(&self) -> &Store {
+        &self.store
     }
 }
 
@@ -858,6 +867,7 @@ where
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync>,
+    store: Store,
     env: Box<Env>,
 }
 
@@ -866,6 +876,7 @@ impl<Env: Sized + Clone + 'static + Send + Sync> Clone for DynamicFunctionWithEn
         Self {
             env: self.env.clone(),
             function_type: self.function_type.clone(),
+            store: self.store.clone(),
             func: self.func.clone(),
         }
     }
@@ -880,6 +891,9 @@ where
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
+    }
+    fn store(&self) -> &Store {
+        &self.store
     }
 }
 
@@ -913,10 +927,9 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let func_ty = self.ctx.function_type();
             let mut args = Vec::with_capacity(func_ty.params().len());
-            // TODO: we need a store here, where do we get it?
-            let hack = 3;
+            let store = self.ctx.store();
             for (i, ty) in func_ty.params().iter().enumerate() {
-                args.push(Val::read_value_from(&hack, values_vec.add(i), *ty));
+                args.push(Val::read_value_from(store, values_vec.add(i), *ty));
             }
             let returns = self.ctx.call(&args)?;
 
