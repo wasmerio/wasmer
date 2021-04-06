@@ -2749,6 +2749,102 @@
 <span id="2746">2746</span>
 <span id="2747">2747</span>
 <span id="2748">2748</span>
+<span id="2749">2749</span>
+<span id="2750">2750</span>
+<span id="2751">2751</span>
+<span id="2752">2752</span>
+<span id="2753">2753</span>
+<span id="2754">2754</span>
+<span id="2755">2755</span>
+<span id="2756">2756</span>
+<span id="2757">2757</span>
+<span id="2758">2758</span>
+<span id="2759">2759</span>
+<span id="2760">2760</span>
+<span id="2761">2761</span>
+<span id="2762">2762</span>
+<span id="2763">2763</span>
+<span id="2764">2764</span>
+<span id="2765">2765</span>
+<span id="2766">2766</span>
+<span id="2767">2767</span>
+<span id="2768">2768</span>
+<span id="2769">2769</span>
+<span id="2770">2770</span>
+<span id="2771">2771</span>
+<span id="2772">2772</span>
+<span id="2773">2773</span>
+<span id="2774">2774</span>
+<span id="2775">2775</span>
+<span id="2776">2776</span>
+<span id="2777">2777</span>
+<span id="2778">2778</span>
+<span id="2779">2779</span>
+<span id="2780">2780</span>
+<span id="2781">2781</span>
+<span id="2782">2782</span>
+<span id="2783">2783</span>
+<span id="2784">2784</span>
+<span id="2785">2785</span>
+<span id="2786">2786</span>
+<span id="2787">2787</span>
+<span id="2788">2788</span>
+<span id="2789">2789</span>
+<span id="2790">2790</span>
+<span id="2791">2791</span>
+<span id="2792">2792</span>
+<span id="2793">2793</span>
+<span id="2794">2794</span>
+<span id="2795">2795</span>
+<span id="2796">2796</span>
+<span id="2797">2797</span>
+<span id="2798">2798</span>
+<span id="2799">2799</span>
+<span id="2800">2800</span>
+<span id="2801">2801</span>
+<span id="2802">2802</span>
+<span id="2803">2803</span>
+<span id="2804">2804</span>
+<span id="2805">2805</span>
+<span id="2806">2806</span>
+<span id="2807">2807</span>
+<span id="2808">2808</span>
+<span id="2809">2809</span>
+<span id="2810">2810</span>
+<span id="2811">2811</span>
+<span id="2812">2812</span>
+<span id="2813">2813</span>
+<span id="2814">2814</span>
+<span id="2815">2815</span>
+<span id="2816">2816</span>
+<span id="2817">2817</span>
+<span id="2818">2818</span>
+<span id="2819">2819</span>
+<span id="2820">2820</span>
+<span id="2821">2821</span>
+<span id="2822">2822</span>
+<span id="2823">2823</span>
+<span id="2824">2824</span>
+<span id="2825">2825</span>
+<span id="2826">2826</span>
+<span id="2827">2827</span>
+<span id="2828">2828</span>
+<span id="2829">2829</span>
+<span id="2830">2830</span>
+<span id="2831">2831</span>
+<span id="2832">2832</span>
+<span id="2833">2833</span>
+<span id="2834">2834</span>
+<span id="2835">2835</span>
+<span id="2836">2836</span>
+<span id="2837">2837</span>
+<span id="2838">2838</span>
+<span id="2839">2839</span>
+<span id="2840">2840</span>
+<span id="2841">2841</span>
+<span id="2842">2842</span>
+<span id="2843">2843</span>
+<span id="2844">2844</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -2779,7 +2875,7 @@
 <span class="doccomment">//! argument.</span>
 
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">func_environ</span>::{<span class="ident">FuncEnvironment</span>, <span class="ident">GlobalVariable</span>, <span class="ident">ReturnMode</span>};
-<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">func_state</span>::{<span class="ident">ControlStackFrame</span>, <span class="ident">ElseData</span>, <span class="ident">FuncTranslationState</span>};
+<span class="kw">use</span> <span class="kw">super</span>::<span class="ident">func_state</span>::{<span class="ident">ControlStackFrame</span>, <span class="ident">ElseData</span>, <span class="ident">FuncTranslationState</span>, <span class="ident">ValueExtraInfo</span>};
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">translation_utils</span>::{<span class="ident">block_with_params</span>, <span class="ident">f32_translation</span>, <span class="ident">f64_translation</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">hash_map</span>, <span class="ident">HashMap</span>};
 <span class="kw">use</span> <span class="ident">core</span>::<span class="ident">cmp</span>;
@@ -2796,10 +2892,12 @@
 <span class="kw">use</span> <span class="ident">smallvec</span>::<span class="ident">SmallVec</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">vec</span>::<span class="ident">Vec</span>;
 
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasmparser</span>::{<span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasmparser</span>::{<span class="ident">MemoryImmediate</span>, <span class="ident">Operator</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WPType</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">WasmResult</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasm_unsupported</span>, <span class="ident">ModuleTranslationState</span>};
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>,
+};
 
 <span class="comment">// Clippy warns about &quot;align: _&quot; but its important to document that the align field is ignored</span>
 <span class="attribute">#[<span class="ident">cfg_attr</span>(
@@ -2828,13 +2926,31 @@
          ***********************************************************************************/</span>
         <span class="ident">Operator</span>::<span class="ident">LocalGet</span> { <span class="ident">local_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable</span>::<span class="ident">with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">val</span>);
+            <span class="kw">let</span> <span class="ident">local_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_local_type</span>(<span class="kw-2">*</span><span class="ident">local_index</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="ident">ref_counted</span> <span class="op">=</span> <span class="ident">local_type</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span>;
+            <span class="ident">state</span>.<span class="ident">push1_extra</span>((
+                <span class="ident">val</span>,
+                <span class="ident">ValueExtraInfo</span> {
+                    <span class="ident">ref_counted</span>,
+                    ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                },
+            ));
             <span class="kw">let</span> <span class="ident">label</span> <span class="op">=</span> <span class="ident">ValueLabel</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>);
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
+
+            <span class="kw">if</span> <span class="ident">ref_counted</span> {
+                <span class="ident">environ</span>.<span class="ident">translate_externref_inc</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">val</span>)<span class="question-mark">?</span>;
+            }
         }
         <span class="ident">Operator</span>::<span class="ident">LocalSet</span> { <span class="ident">local_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">val</span>, <span class="ident">_metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
 
+            <span class="kw">let</span> <span class="ident">local_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_local_type</span>(<span class="kw-2">*</span><span class="ident">local_index</span>).<span class="ident">unwrap</span>();
+            <span class="kw">if</span> <span class="ident">local_type</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span> {
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">_metadata</span>.<span class="ident">ref_counted</span>);
+                <span class="kw">let</span> <span class="ident">existing_val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable</span>::<span class="ident">with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
+                <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">existing_val</span>)<span class="question-mark">?</span>;
+            }
             <span class="comment">// Ensure SIMD values are cast to their default Cranelift type, I8x16.</span>
             <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">val</span>);
             <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">is_vector</span>() {
@@ -2846,8 +2962,16 @@
             <span class="ident">builder</span>.<span class="ident">set_val_label</span>(<span class="ident">val</span>, <span class="ident">label</span>);
         }
         <span class="ident">Operator</span>::<span class="ident">LocalTee</span> { <span class="ident">local_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peek1</span>();
+            <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">val</span>, <span class="ident">_metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peek1</span>();
 
+            <span class="comment">// ref count if we need to</span>
+            <span class="kw">let</span> <span class="ident">local_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_local_type</span>(<span class="kw-2">*</span><span class="ident">local_index</span>).<span class="ident">unwrap</span>();
+            <span class="kw">if</span> <span class="ident">local_type</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span> {
+                <span class="macro">debug_assert</span><span class="macro">!</span>(<span class="ident">_metadata</span>.<span class="ident">ref_counted</span>);
+                <span class="kw">let</span> <span class="ident">existing_val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">use_var</span>(<span class="ident">Variable</span>::<span class="ident">with_u32</span>(<span class="kw-2">*</span><span class="ident">local_index</span>));
+                <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">existing_val</span>)<span class="question-mark">?</span>;
+                <span class="ident">environ</span>.<span class="ident">translate_externref_inc</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">val</span>)<span class="question-mark">?</span>;
+            }
             <span class="comment">// Ensure SIMD values are cast to their default Cranelift type, I8x16.</span>
             <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">val</span>);
             <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">is_vector</span>() {
@@ -2862,41 +2986,59 @@
          *  `get_global` and `set_global` are handled by the environment.
          ***********************************************************************************/</span>
         <span class="ident">Operator</span>::<span class="ident">GlobalGet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">get_global</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">global_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span> {
-                <span class="ident">GlobalVariable</span>::<span class="ident">Const</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">val</span>,
+            <span class="kw">let</span> <span class="ident">global_index</span> <span class="op">=</span> <span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">global_index</span>);
+            <span class="kw">let</span> <span class="ident">stack_elem</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">get_global</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">global_index</span>.<span class="ident">as_u32</span>(), <span class="ident">environ</span>)<span class="question-mark">?</span> {
+                <span class="ident">GlobalVariable</span>::<span class="ident">Const</span>(<span class="ident">val</span>) <span class="op">=</span><span class="op">&gt;</span> (<span class="ident">val</span>, <span class="ident">ValueExtraInfo</span>::<span class="ident">default</span>()),
                 <span class="ident">GlobalVariable</span>::<span class="ident">Memory</span> { <span class="ident">gv</span>, <span class="ident">offset</span>, <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">let</span> <span class="ident">global_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_global_type</span>(<span class="ident">global_index</span>).<span class="ident">unwrap</span>();
                     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">global_value</span>(<span class="ident">environ</span>.<span class="ident">pointer_type</span>(), <span class="ident">gv</span>);
                     <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">MemFlags</span>::<span class="ident">trusted</span>();
-                    <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">load</span>(<span class="ident">ty</span>, <span class="ident">flags</span>, <span class="ident">addr</span>, <span class="ident">offset</span>)
+                    <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">load</span>(<span class="ident">ty</span>, <span class="ident">flags</span>, <span class="ident">addr</span>, <span class="ident">offset</span>);
+                    <span class="kw">let</span> <span class="ident">ref_counted</span> <span class="op">=</span> <span class="ident">global_type</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span>;
+                    <span class="kw">if</span> <span class="ident">ref_counted</span> {
+                        <span class="ident">environ</span>.<span class="ident">translate_externref_inc</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">value</span>)<span class="question-mark">?</span>;
+                    }
+
+                    (
+                        <span class="ident">value</span>,
+                        <span class="ident">ValueExtraInfo</span> {
+                            <span class="ident">ref_counted</span>,
+                            ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                        },
+                    )
                 }
-                <span class="ident">GlobalVariable</span>::<span class="ident">Custom</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">environ</span>.<span class="ident">translate_custom_global_get</span>(
-                    <span class="ident">builder</span>.<span class="ident">cursor</span>(),
-                    <span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">global_index</span>),
-                )<span class="question-mark">?</span>,
+                <span class="ident">GlobalVariable</span>::<span class="ident">Custom</span> <span class="op">=</span><span class="op">&gt;</span> (
+                    <span class="ident">environ</span>.<span class="ident">translate_custom_global_get</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">global_index</span>)<span class="question-mark">?</span>,
+                    <span class="ident">ValueExtraInfo</span>::<span class="ident">default</span>(),
+                ),
             };
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">val</span>);
+            <span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">stack_elem</span>);
         }
         <span class="ident">Operator</span>::<span class="ident">GlobalSet</span> { <span class="ident">global_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">get_global</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">global_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span> {
-                <span class="ident">GlobalVariable</span>::<span class="ident">Const</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;global #{} is a constant&quot;</span>, <span class="kw-2">*</span><span class="ident">global_index</span>),
+            <span class="kw">let</span> <span class="ident">global_index</span> <span class="op">=</span> <span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">global_index</span>);
+            <span class="kw">match</span> <span class="ident">state</span>.<span class="ident">get_global</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">global_index</span>.<span class="ident">as_u32</span>(), <span class="ident">environ</span>)<span class="question-mark">?</span> {
+                <span class="ident">GlobalVariable</span>::<span class="ident">Const</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;global #{} is a constant&quot;</span>, <span class="ident">global_index</span>.<span class="ident">as_u32</span>())
+                }
                 <span class="ident">GlobalVariable</span>::<span class="ident">Memory</span> { <span class="ident">gv</span>, <span class="ident">offset</span>, <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">let</span> <span class="ident">global_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_global_type</span>(<span class="ident">global_index</span>).<span class="ident">unwrap</span>();
                     <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">global_value</span>(<span class="ident">environ</span>.<span class="ident">pointer_type</span>(), <span class="ident">gv</span>);
                     <span class="kw">let</span> <span class="ident">flags</span> <span class="op">=</span> <span class="ident">ir</span>::<span class="ident">MemFlags</span>::<span class="ident">trusted</span>();
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+                    <span class="kw">let</span> (<span class="kw-2">mut</span> <span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
                     <span class="comment">// Ensure SIMD values are cast to their default Cranelift type, I8x16.</span>
                     <span class="kw">if</span> <span class="ident">ty</span>.<span class="ident">is_vector</span>() {
                         <span class="ident">val</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">val</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
                     }
                     <span class="macro">debug_assert_eq</span><span class="macro">!</span>(<span class="ident">ty</span>, <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">val</span>));
+                    <span class="kw">if</span> <span class="ident">global_type</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span> {
+                        <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">load</span>(<span class="ident">ty</span>, <span class="ident">flags</span>, <span class="ident">addr</span>, <span class="ident">offset</span>);
+                        <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">value</span>)<span class="question-mark">?</span>;
+                    }
                     <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">store</span>(<span class="ident">flags</span>, <span class="ident">val</span>, <span class="ident">addr</span>, <span class="ident">offset</span>);
                 }
                 <span class="ident">GlobalVariable</span>::<span class="ident">Custom</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-                    <span class="ident">environ</span>.<span class="ident">translate_custom_global_set</span>(
-                        <span class="ident">builder</span>.<span class="ident">cursor</span>(),
-                        <span class="ident">GlobalIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">global_index</span>),
-                        <span class="ident">val</span>,
-                    )<span class="question-mark">?</span>;
+                    <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+                    <span class="ident">environ</span>.<span class="ident">translate_custom_global_set</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">global_index</span>, <span class="ident">val</span>)<span class="question-mark">?</span>;
                 }
             }
         }
@@ -2904,18 +3046,36 @@
          *  `drop`, `nop`, `unreachable` and `select`.
          ***********************************************************************************/</span>
         <span class="ident">Operator</span>::<span class="ident">Drop</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="ident">metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">if</span> <span class="ident">metadata</span>.<span class="ident">ref_counted</span> {
+                <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">val</span>)<span class="question-mark">?</span>;
+            }
         }
         <span class="ident">Operator</span>::<span class="ident">Select</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>, <span class="ident">cond</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
+            <span class="comment">// we can ignore metadata because extern ref must use TypedSelect</span>
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>), (<span class="ident">cond</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
-        <span class="ident">Operator</span>::<span class="ident">TypedSelect</span> { <span class="ident">ty</span>: <span class="kw">_</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="comment">// We ignore the explicit type parameter as it is only needed for</span>
-            <span class="comment">// validation, which we require to have been performed before</span>
-            <span class="comment">// translation.</span>
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>, <span class="ident">cond</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
-            <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg1</span>, <span class="ident">arg2</span>));
+        <span class="ident">Operator</span>::<span class="ident">TypedSelect</span> { <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>), (<span class="ident">cond</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
+            <span class="kw">let</span> <span class="ident">ref_counted</span> <span class="op">=</span> <span class="kw-2">*</span><span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WPType</span>::<span class="ident">ExternRef</span>;
+            <span class="kw">if</span> <span class="ident">ref_counted</span> {
+                <span class="kw">let</span> <span class="ident">selected_ref</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg1</span>, <span class="ident">arg2</span>);
+                <span class="kw">let</span> <span class="ident">not_selected_ref</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg2</span>, <span class="ident">arg1</span>);
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>((
+                    <span class="ident">selected_ref</span>,
+                    <span class="ident">ValueExtraInfo</span> {
+                        <span class="ident">ref_counted</span>,
+                        ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                    },
+                ));
+                <span class="ident">environ</span>.<span class="ident">translate_externref_dec</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">not_selected_ref</span>)<span class="question-mark">?</span>;
+            } <span class="kw">else</span> {
+                <span class="ident">state</span>.<span class="ident">push1_extra</span>((
+                    <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">select</span>(<span class="ident">cond</span>, <span class="ident">arg1</span>, <span class="ident">arg2</span>),
+                    <span class="ident">ValueExtraInfo</span>::<span class="ident">default</span>(),
+                ));
+            }
         }
         <span class="ident">Operator</span>::<span class="ident">Nop</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="comment">// We do nothing</span>
@@ -2958,7 +3118,7 @@
             <span class="ident">environ</span>.<span class="ident">translate_loop_header</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>())<span class="question-mark">?</span>;
         }
         <span class="ident">Operator</span>::<span class="ident">If</span> { <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
 
             <span class="kw">let</span> (<span class="ident">params</span>, <span class="ident">results</span>) <span class="op">=</span> <span class="ident">module_translation_state</span>.<span class="ident">blocktype_params_results</span>(<span class="kw-2">*</span><span class="ident">ty</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> (<span class="ident">destination</span>, <span class="ident">else_data</span>) <span class="op">=</span> <span class="kw">if</span> <span class="ident">params</span> <span class="op">=</span><span class="op">=</span> <span class="ident">results</span> {
@@ -2983,7 +3143,7 @@
             };
 
             <span class="kw">let</span> <span class="ident">next_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
-            <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">next_block</span>, <span class="kw-2">&amp;</span>[]);
+            <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">next_block</span>, (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]));
             <span class="ident">builder</span>.<span class="ident">seal_block</span>(<span class="ident">next_block</span>); <span class="comment">// Only predecessor is the current block.</span>
             <span class="ident">builder</span>.<span class="ident">switch_to_block</span>(<span class="ident">next_block</span>);
 
@@ -3071,7 +3231,7 @@
 
             <span class="kw">if</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_unreachable</span>() <span class="op">|</span><span class="op">|</span> <span class="op">!</span><span class="ident">builder</span>.<span class="ident">is_pristine</span>() {
                 <span class="kw">let</span> <span class="ident">return_count</span> <span class="op">=</span> <span class="ident">frame</span>.<span class="ident">num_return_values</span>();
-                <span class="kw">let</span> <span class="ident">return_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">return_count</span>);
+                <span class="kw">let</span> <span class="ident">return_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">return_count</span>);
                 <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">frame</span>.<span class="ident">following_code</span>(), <span class="ident">return_args</span>);
                 <span class="comment">// You might expect that if we just finished an `if` block that</span>
                 <span class="comment">// didn&#39;t have a corresponding `else` block, then we would clean</span>
@@ -3128,7 +3288,7 @@
                 };
                 (<span class="ident">return_count</span>, <span class="ident">frame</span>.<span class="ident">br_destination</span>())
             };
-            <span class="kw">let</span> <span class="ident">destination_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">return_count</span>);
+            <span class="kw">let</span> <span class="ident">destination_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">return_count</span>);
             <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">br_destination</span>, <span class="ident">destination_args</span>);
             <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">return_count</span>);
             <span class="ident">state</span>.<span class="ident">reachable</span> <span class="op">=</span> <span class="bool-val">false</span>;
@@ -3152,7 +3312,7 @@
                     <span class="ident">min_depth_frame</span>.<span class="ident">num_return_values</span>()
                 }
             };
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span> <span class="op">=</span> <span class="ident">JumpTableData</span>::<span class="ident">with_capacity</span>(<span class="ident">depths</span>.<span class="ident">len</span>());
             <span class="kw">if</span> <span class="ident">jump_args_count</span> <span class="op">=</span><span class="op">=</span> <span class="number">0</span> {
                 <span class="comment">// No jump arguments</span>
@@ -3209,7 +3369,7 @@
                         <span class="ident">frame</span>.<span class="ident">set_branched_to_exit</span>();
                         <span class="ident">frame</span>.<span class="ident">br_destination</span>()
                     };
-                    <span class="kw">let</span> <span class="ident">destination_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">return_count</span>);
+                    <span class="kw">let</span> <span class="ident">destination_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">return_count</span>);
                     <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">real_dest_block</span>, <span class="ident">destination_args</span>);
                 }
                 <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">return_count</span>);
@@ -3224,16 +3384,19 @@
                 (<span class="ident">return_count</span>, <span class="ident">frame</span>.<span class="ident">br_destination</span>())
             };
             {
-                <span class="kw">let</span> <span class="ident">return_args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">return_count</span>);
+                <span class="kw">let</span> (<span class="ident">return_args</span>, <span class="ident">return_args_metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">return_count</span>);
+                <span class="comment">// TODO(reftypes): maybe ref count here?</span>
                 <span class="kw">let</span> <span class="ident">return_types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>.<span class="ident">returns</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
                     <span class="ident">environ</span>.<span class="ident">is_wasm_return</span>(<span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">signature</span>, <span class="ident">i</span>)
                 });
                 <span class="ident">bitcast_arguments</span>(<span class="ident">return_args</span>, <span class="kw-2">&amp;</span><span class="ident">return_types</span>, <span class="ident">builder</span>);
                 <span class="kw">match</span> <span class="ident">environ</span>.<span class="ident">return_mode</span>() {
                     <span class="ident">ReturnMode</span>::<span class="ident">NormalReturns</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">return_</span>(<span class="ident">return_args</span>),
-                    <span class="ident">ReturnMode</span>::<span class="ident">FallthroughReturn</span> <span class="op">=</span><span class="op">&gt;</span> {
-                        <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">br_destination</span>, <span class="ident">return_args</span>)
-                    }
+                    <span class="ident">ReturnMode</span>::<span class="ident">FallthroughReturn</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">canonicalise_then_jump</span>(
+                        <span class="ident">builder</span>,
+                        <span class="ident">br_destination</span>,
+                        (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">return_args</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">return_args_metadata</span>),
+                    ),
                 };
             }
             <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">return_count</span>);
@@ -3247,21 +3410,18 @@
         <span class="ident">Operator</span>::<span class="ident">Call</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> (<span class="ident">fref</span>, <span class="ident">num_args</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_direct_func</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">function_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
 
+            <span class="kw">let</span> (<span class="ident">args</span>, <span class="ident">_args_metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">num_args</span>);
+
             <span class="comment">// Bitcast any vector arguments to their default type, I8X16, before calling.</span>
             <span class="kw">let</span> <span class="ident">callee_signature</span> <span class="op">=</span>
                 <span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">signatures</span>[<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">ext_funcs</span>[<span class="ident">fref</span>].<span class="ident">signature</span>];
-            <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">num_args</span>);
             <span class="kw">let</span> <span class="ident">types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>.<span class="ident">params</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
                 <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>, <span class="ident">i</span>)
             });
             <span class="ident">bitcast_arguments</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">types</span>, <span class="ident">builder</span>);
+            <span class="kw">let</span> <span class="ident">func_index</span> <span class="op">=</span> <span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">function_index</span>);
 
-            <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate_call</span>(
-                <span class="ident">builder</span>.<span class="ident">cursor</span>(),
-                <span class="ident">FunctionIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">function_index</span>),
-                <span class="ident">fref</span>,
-                <span class="ident">args</span>,
-            )<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate_call</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">func_index</span>, <span class="ident">fref</span>, <span class="ident">args</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">inst_results</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">inst_results</span>(<span class="ident">call</span>);
             <span class="macro">debug_assert_eq</span><span class="macro">!</span>(
                 <span class="ident">inst_results</span>.<span class="ident">len</span>(),
@@ -3270,32 +3430,47 @@
                     .<span class="ident">len</span>(),
                 <span class="string">&quot;translate_call results should match the call signature&quot;</span>
             );
+            <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_function_type</span>(<span class="ident">func_index</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results_metadata</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">func_type</span>.<span class="ident">results</span>().<span class="ident">len</span>());
+            <span class="kw">for</span> <span class="ident">result</span> <span class="kw">in</span> <span class="ident">func_type</span>.<span class="ident">results</span>() {
+                <span class="ident">results_metadata</span>.<span class="ident">push</span>(<span class="kw">if</span> <span class="kw-2">*</span><span class="ident">result</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span> {
+                    <span class="ident">ValueExtraInfo</span> {
+                        <span class="ident">ref_counted</span>: <span class="bool-val">true</span>,
+                        ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                    }
+                } <span class="kw">else</span> {
+                    <span class="ident">Default</span>::<span class="ident">default</span>()
+                });
+            }
             <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">num_args</span>);
-            <span class="ident">state</span>.<span class="ident">pushn</span>(<span class="ident">inst_results</span>);
+            <span class="ident">state</span>.<span class="ident">pushn</span>(<span class="ident">inst_results</span>, <span class="kw-2">&amp;</span><span class="ident">results_metadata</span>);
         }
         <span class="ident">Operator</span>::<span class="ident">CallIndirect</span> { <span class="ident">index</span>, <span class="ident">table_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="comment">// `index` is the index of the function&#39;s signature and `table_index` is the index of</span>
             <span class="comment">// the table to search the function in.</span>
             <span class="kw">let</span> (<span class="ident">sigref</span>, <span class="ident">num_args</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_indirect_sig</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">table_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">callee</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">callee</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
 
             <span class="comment">// Bitcast any vector arguments to their default type, I8X16, before calling.</span>
             <span class="kw">let</span> <span class="ident">callee_signature</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">signatures</span>[<span class="ident">sigref</span>];
-            <span class="kw">let</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">num_args</span>);
+            <span class="kw">let</span> (<span class="ident">args</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn_mut</span>(<span class="ident">num_args</span>);
             <span class="kw">let</span> <span class="ident">types</span> <span class="op">=</span> <span class="ident">wasm_param_types</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>.<span class="ident">params</span>, <span class="op">|</span><span class="ident">i</span><span class="op">|</span> {
                 <span class="ident">environ</span>.<span class="ident">is_wasm_parameter</span>(<span class="kw-2">&amp;</span><span class="ident">callee_signature</span>, <span class="ident">i</span>)
             });
             <span class="ident">bitcast_arguments</span>(<span class="ident">args</span>, <span class="kw-2">&amp;</span><span class="ident">types</span>, <span class="ident">builder</span>);
 
+            <span class="kw">let</span> (<span class="ident">args</span>, <span class="ident">_args_metadata</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">num_args</span>);
+            <span class="kw">let</span> <span class="ident">sig_idx</span> <span class="op">=</span> <span class="ident">SignatureIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">index</span>);
+
             <span class="kw">let</span> <span class="ident">call</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate_call_indirect</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">table_index</span>),
                 <span class="ident">table</span>,
-                <span class="ident">SignatureIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">index</span>),
+                <span class="ident">sig_idx</span>,
                 <span class="ident">sigref</span>,
                 <span class="ident">callee</span>,
-                <span class="ident">state</span>.<span class="ident">peekn</span>(<span class="ident">num_args</span>),
+                <span class="ident">args</span>,
             )<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">inst_results</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">inst_results</span>(<span class="ident">call</span>);
             <span class="macro">debug_assert_eq</span><span class="macro">!</span>(
@@ -3303,8 +3478,20 @@
                 <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">signatures</span>[<span class="ident">sigref</span>].<span class="ident">returns</span>.<span class="ident">len</span>(),
                 <span class="string">&quot;translate_call_indirect results should match the call signature&quot;</span>
             );
+            <span class="kw">let</span> <span class="ident">func_type</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">get_function_sig</span>(<span class="ident">sig_idx</span>).<span class="ident">unwrap</span>();
+            <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">results_metadata</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">func_type</span>.<span class="ident">results</span>().<span class="ident">len</span>());
+            <span class="kw">for</span> <span class="ident">result</span> <span class="kw">in</span> <span class="ident">func_type</span>.<span class="ident">results</span>() {
+                <span class="ident">results_metadata</span>.<span class="ident">push</span>(<span class="kw">if</span> <span class="kw-2">*</span><span class="ident">result</span> <span class="op">=</span><span class="op">=</span> <span class="ident">WasmerType</span>::<span class="ident">ExternRef</span> {
+                    <span class="ident">ValueExtraInfo</span> {
+                        <span class="ident">ref_counted</span>: <span class="bool-val">true</span>,
+                        ..<span class="ident">Default</span>::<span class="ident">default</span>()
+                    }
+                } <span class="kw">else</span> {
+                    <span class="ident">Default</span>::<span class="ident">default</span>()
+                });
+            }
             <span class="ident">state</span>.<span class="ident">popn</span>(<span class="ident">num_args</span>);
-            <span class="ident">state</span>.<span class="ident">pushn</span>(<span class="ident">inst_results</span>);
+            <span class="ident">state</span>.<span class="ident">pushn</span>(<span class="ident">inst_results</span>, <span class="kw-2">&amp;</span><span class="ident">results_metadata</span>);
         }
         <span class="comment">/******************************* Memory management ***********************************
          * Memory management is handled by environment. It is usually translated into calls to
@@ -3315,7 +3502,7 @@
             <span class="comment">// argument to be a memory index.</span>
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">mem</span>);
             <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">mem</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">environ</span>.<span class="ident">translate_memory_grow</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">heap_index</span>, <span class="ident">heap</span>, <span class="ident">val</span>)<span class="question-mark">?</span>)
         }
         <span class="ident">Operator</span>::<span class="ident">MemorySize</span> { <span class="ident">mem</span>, <span class="ident">mem_byte</span>: <span class="kw">_</span> } <span class="op">=</span><span class="op">&gt;</span> {
@@ -3435,246 +3622,246 @@
         }
         <span class="comment">/******************************* Unary Operators *************************************/</span>
         <span class="ident">Operator</span>::<span class="ident">I32Clz</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Clz</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">clz</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Ctz</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Ctz</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ctz</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Popcnt</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Popcnt</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">popcnt</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64ExtendI32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64ExtendI32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uextend</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32WrapI64</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Sqrt</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Sqrt</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sqrt</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Ceil</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Ceil</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ceil</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Floor</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Floor</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">floor</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Trunc</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Trunc</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">trunc</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Nearest</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Nearest</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">nearest</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Abs</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Abs</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fabs</span>(<span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Neg</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Neg</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fneg</span>(<span class="ident">arg</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F64ConvertI64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64ConvertI32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_from_uint</span>(<span class="ident">F64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F64ConvertI64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64ConvertI32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_from_sint</span>(<span class="ident">F64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32ConvertI64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F32ConvertI32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_from_sint</span>(<span class="ident">F32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32ConvertI64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F32ConvertI32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_from_uint</span>(<span class="ident">F32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F64PromoteF32</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fpromote</span>(<span class="ident">F64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32DemoteF64</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fdemote</span>(<span class="ident">F32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64TruncF64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64TruncF32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_sint</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32TruncF64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32TruncF32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_sint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64TruncF64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64TruncF32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_uint</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32TruncF64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32TruncF32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_uint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64TruncSatF64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64TruncSatF32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_sint_sat</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32TruncSatF64S</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32TruncSatF32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_sint_sat</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64TruncSatF64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64TruncSatF32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_uint_sat</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32TruncSatF64U</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32TruncSatF32U</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcvt_to_uint_sat</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32ReinterpretI32</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F64ReinterpretI64</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">F64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32ReinterpretF32</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64ReinterpretF64</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bitcast</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Extend8S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I8</span>, <span class="ident">val</span>));
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Extend16S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I16</span>, <span class="ident">val</span>));
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64Extend8S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I8</span>, <span class="ident">val</span>));
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64Extend16S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I16</span>, <span class="ident">val</span>));
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I64Extend32S</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sextend</span>(<span class="ident">I64</span>, <span class="ident">val</span>));
         }
         <span class="comment">/****************************** Binary Operators ************************************/</span>
         <span class="ident">Operator</span>::<span class="ident">I32Add</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Add</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">iadd</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32And</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64And</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">band</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Or</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Or</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bor</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Xor</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Xor</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bxor</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Shl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Shl</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ishl</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32ShrS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64ShrS</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sshr</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32ShrU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64ShrU</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ushr</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Rotl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Rotl</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">rotl</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Rotr</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Rotr</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">rotr</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Add</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Add</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fadd</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Sub</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Sub</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">isub</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Sub</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Sub</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fsub</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32Mul</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Mul</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">imul</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Mul</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Mul</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fmul</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Div</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Div</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fdiv</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32DivS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64DivS</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sdiv</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32DivU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64DivU</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">udiv</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32RemS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64RemS</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">srem</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I32RemU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64RemU</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">urem</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Min</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Min</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fmin</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Max</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Max</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fmax</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">F32Copysign</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64Copysign</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">arg1</span>, <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">arg1</span>, <span class="kw">_</span>), (<span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcopysign</span>(<span class="ident">arg1</span>, <span class="ident">arg2</span>));
         }
         <span class="comment">/**************************** Comparison Operators **********************************/</span>
@@ -3703,7 +3890,7 @@
             <span class="ident">translate_icmp</span>(<span class="ident">IntCC</span>::<span class="ident">UnsignedGreaterThanOrEqual</span>, <span class="ident">builder</span>, <span class="ident">state</span>)
         }
         <span class="ident">Operator</span>::<span class="ident">I32Eqz</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64Eqz</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">arg</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">arg</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">icmp_imm</span>(<span class="ident">IntCC</span>::<span class="ident">Equal</span>, <span class="ident">arg</span>, <span class="number">0</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
         }
@@ -3721,7 +3908,7 @@
         }
         <span class="ident">Operator</span>::<span class="ident">RefNull</span> { <span class="ident">ty</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">environ</span>.<span class="ident">translate_ref_null</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="kw-2">*</span><span class="ident">ty</span>)<span class="question-mark">?</span>),
         <span class="ident">Operator</span>::<span class="ident">RefIsNull</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">value</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">environ</span>.<span class="ident">translate_ref_is_null</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">value</span>)<span class="question-mark">?</span>);
         }
         <span class="ident">Operator</span>::<span class="ident">RefFunc</span> { <span class="ident">function_index</span> } <span class="op">=</span><span class="op">&gt;</span> {
@@ -3739,9 +3926,9 @@
             };
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
             <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">memarg</span>.<span class="ident">memory</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">timeout</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 64 (fixed)</span>
-            <span class="kw">let</span> <span class="ident">expected</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 or 64 (per the `Ixx` in `IxxAtomicWait`)</span>
-            <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
+            <span class="kw">let</span> (<span class="ident">timeout</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 64 (fixed)</span>
+            <span class="kw">let</span> (<span class="ident">expected</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 or 64 (per the `Ixx` in `IxxAtomicWait`)</span>
+            <span class="kw">let</span> (<span class="ident">addr</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
             <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">expected</span>) <span class="op">=</span><span class="op">=</span> <span class="ident">implied_ty</span>);
             <span class="comment">// `fn translate_atomic_wait` can inspect the type of `expected` to figure out what</span>
             <span class="comment">// code it needs to generate, if it wants.</span>
@@ -3758,8 +3945,8 @@
         <span class="ident">Operator</span>::<span class="ident">MemoryAtomicNotify</span> { <span class="ident">memarg</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="ident">memarg</span>.<span class="ident">memory</span>);
             <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">memarg</span>.<span class="ident">memory</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
-            <span class="kw">let</span> <span class="ident">addr</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
+            <span class="kw">let</span> (<span class="ident">count</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
+            <span class="kw">let</span> (<span class="ident">addr</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>(); <span class="comment">// 32 (fixed)</span>
             <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span>
                 <span class="ident">environ</span>.<span class="ident">translate_atomic_notify</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">heap_index</span>, <span class="ident">heap</span>, <span class="ident">addr</span>, <span class="ident">count</span>)<span class="question-mark">?</span>;
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
@@ -3970,9 +4157,9 @@
             <span class="kw">let</span> <span class="ident">dst_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">dst</span>);
             <span class="kw">let</span> <span class="ident">src_heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">src</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">dst_heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">dst</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">src_pos</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dst_pos</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">src_pos</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dst_pos</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_memory_copy</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">src_index</span>,
@@ -3987,17 +4174,17 @@
         <span class="ident">Operator</span>::<span class="ident">MemoryFill</span> { <span class="ident">mem</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">mem</span>);
             <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">mem</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dest</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_memory_fill</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">heap_index</span>, <span class="ident">heap</span>, <span class="ident">dest</span>, <span class="ident">val</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
         }
         <span class="ident">Operator</span>::<span class="ident">MemoryInit</span> { <span class="ident">segment</span>, <span class="ident">mem</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">heap_index</span> <span class="op">=</span> <span class="ident">MemoryIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">mem</span>);
             <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">mem</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">src</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dest</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_memory_init</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">heap_index</span>,
@@ -4022,8 +4209,8 @@
         <span class="ident">Operator</span>::<span class="ident">TableGrow</span> { <span class="ident">table</span>: <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">index</span>);
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">delta</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">init_value</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">delta</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">init_value</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">environ</span>.<span class="ident">translate_table_grow</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">table_index</span>,
@@ -4035,14 +4222,16 @@
         <span class="ident">Operator</span>::<span class="ident">TableGet</span> { <span class="ident">table</span>: <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">index</span>);
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">index</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">environ</span>.<span class="ident">translate_table_get</span>(<span class="ident">builder</span>, <span class="ident">table_index</span>, <span class="ident">table</span>, <span class="ident">index</span>)<span class="question-mark">?</span>);
         }
         <span class="ident">Operator</span>::<span class="ident">TableSet</span> { <span class="ident">table</span>: <span class="ident">index</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">index</span>);
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">value</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">index</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="comment">// We don&#39;t touch the ref count here because we&#39;re passing it to the host</span>
+            <span class="comment">// then dropping it from the stack. Thus 1 + -1 = 0.</span>
+            <span class="kw">let</span> (<span class="ident">value</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">index</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_table_set</span>(<span class="ident">builder</span>, <span class="ident">table_index</span>, <span class="ident">table</span>, <span class="ident">value</span>, <span class="ident">index</span>)<span class="question-mark">?</span>;
         }
         <span class="ident">Operator</span>::<span class="ident">TableCopy</span> {
@@ -4051,9 +4240,9 @@
         } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">dst_table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">dst_table_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
             <span class="kw">let</span> <span class="ident">src_table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">src_table_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">src</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dest</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_table_copy</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">dst_table_index</span>),
@@ -4067,9 +4256,9 @@
         }
         <span class="ident">Operator</span>::<span class="ident">TableFill</span> { <span class="ident">table</span> } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">table_index</span> <span class="op">=</span> <span class="ident">TableIndex</span>::<span class="ident">from_u32</span>(<span class="kw-2">*</span><span class="ident">table</span>);
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dest</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_table_fill</span>(<span class="ident">builder</span>.<span class="ident">cursor</span>(), <span class="ident">table_index</span>, <span class="ident">dest</span>, <span class="ident">val</span>, <span class="ident">len</span>)<span class="question-mark">?</span>;
         }
         <span class="ident">Operator</span>::<span class="ident">TableInit</span> {
@@ -4077,9 +4266,9 @@
             <span class="ident">table</span>: <span class="ident">table_index</span>,
         } <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_or_create_table</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="kw-2">*</span><span class="ident">table_index</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">src</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
-            <span class="kw">let</span> <span class="ident">dest</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">len</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">src</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">dest</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">environ</span>.<span class="ident">translate_table_init</span>(
                 <span class="ident">builder</span>.<span class="ident">cursor</span>(),
                 <span class="kw-2">*</span><span class="ident">segment</span>,
@@ -4102,7 +4291,9 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">value</span>)
         }
         <span class="ident">Operator</span>::<span class="ident">I8x16Splat</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Splat</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">reduced</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">type_of</span>(<span class="ident">op</span>).<span class="ident">lane_type</span>(), <span class="ident">state</span>.<span class="ident">pop1</span>());
+            <span class="kw">let</span> <span class="ident">reduced</span> <span class="op">=</span> <span class="ident">builder</span>
+                .<span class="ident">ins</span>()
+                .<span class="ident">ireduce</span>(<span class="ident">type_of</span>(<span class="ident">op</span>).<span class="ident">lane_type</span>(), <span class="ident">state</span>.<span class="ident">pop1</span>().<span class="number">0</span>);
             <span class="kw">let</span> <span class="ident">splatted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">splat</span>(<span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">reduced</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">splatted</span>)
         }
@@ -4110,7 +4301,7 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Splat</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F32x4Splat</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64x2Splat</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">splatted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">splat</span>(<span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">state</span>.<span class="ident">pop1</span>());
+            <span class="kw">let</span> <span class="ident">splatted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">splat</span>(<span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">state</span>.<span class="ident">pop1</span>().<span class="number">0</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">splatted</span>)
         }
         <span class="ident">Operator</span>::<span class="ident">V128Load8Splat</span> { <span class="ident">memarg</span> }
@@ -4127,7 +4318,7 @@
                 <span class="ident">state</span>,
                 <span class="ident">environ</span>,
             )<span class="question-mark">?</span>;
-            <span class="kw">let</span> <span class="ident">splatted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">splat</span>(<span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">state</span>.<span class="ident">pop1</span>());
+            <span class="kw">let</span> <span class="ident">splatted</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">splat</span>(<span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">state</span>.<span class="ident">pop1</span>().<span class="number">0</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">splatted</span>)
 
             <span class="comment">// let opcode = ir::Opcode::LoadSplat;</span>
@@ -4163,7 +4354,7 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">extractlane</span>(<span class="ident">vector</span>, <span class="ident">lane</span>.<span class="ident">clone</span>()))
         }
         <span class="ident">Operator</span>::<span class="ident">I8x16ReplaceLane</span> { <span class="ident">lane</span> } <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ReplaceLane</span> { <span class="ident">lane</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">vector</span>, <span class="ident">replacement</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">vector</span>, <span class="kw">_</span>), (<span class="ident">replacement</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="ident">type_of</span>(<span class="ident">op</span>);
             <span class="kw">let</span> <span class="ident">reduced</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ireduce</span>(<span class="ident">ty</span>.<span class="ident">lane_type</span>(), <span class="ident">replacement</span>);
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">vector</span>, <span class="ident">ty</span>, <span class="ident">builder</span>);
@@ -4173,7 +4364,7 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ReplaceLane</span> { <span class="ident">lane</span> }
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F32x4ReplaceLane</span> { <span class="ident">lane</span> }
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">F64x2ReplaceLane</span> { <span class="ident">lane</span> } <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">vector</span>, <span class="ident">replacement</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">vector</span>, <span class="kw">_</span>), (<span class="ident">replacement</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="kw">let</span> <span class="ident">vector</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">vector</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">insertlane</span>(<span class="ident">vector</span>, <span class="ident">replacement</span>, <span class="kw-2">*</span><span class="ident">lane</span>))
         }
@@ -4265,11 +4456,11 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">band_not</span>(<span class="ident">a</span>, <span class="ident">b</span>))
         }
         <span class="ident">Operator</span>::<span class="ident">V128Not</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+            <span class="kw">let</span> (<span class="ident">a</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bnot</span>(<span class="ident">a</span>));
         }
         <span class="ident">Operator</span>::<span class="ident">I8x16Shl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8Shl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4Shl</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Shl</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bitwidth</span> <span class="op">=</span> <span class="ident">i64</span>::<span class="ident">from</span>(<span class="ident">type_of</span>(<span class="ident">op</span>).<span class="ident">lane_bits</span>());
             <span class="comment">// The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width</span>
@@ -4278,7 +4469,7 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ishl</span>(<span class="ident">bitcast_a</span>, <span class="ident">b_mod_bitwidth</span>))
         }
         <span class="ident">Operator</span>::<span class="ident">I8x16ShrU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ShrU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ShrU</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ShrU</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bitwidth</span> <span class="op">=</span> <span class="ident">i64</span>::<span class="ident">from</span>(<span class="ident">type_of</span>(<span class="ident">op</span>).<span class="ident">lane_bits</span>());
             <span class="comment">// The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width</span>
@@ -4287,7 +4478,7 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">ushr</span>(<span class="ident">bitcast_a</span>, <span class="ident">b_mod_bitwidth</span>))
         }
         <span class="ident">Operator</span>::<span class="ident">I8x16ShrS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ShrS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ShrS</span> <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ShrS</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+            <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
             <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">type_of</span>(<span class="ident">op</span>), <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bitwidth</span> <span class="op">=</span> <span class="ident">i64</span>::<span class="ident">from</span>(<span class="ident">type_of</span>(<span class="ident">op</span>).<span class="ident">lane_bits</span>());
             <span class="comment">// The spec expects to shift with `b mod lanewidth`; so, e.g., for 16 bit lane-width</span>
@@ -4296,7 +4487,7 @@
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">sshr</span>(<span class="ident">bitcast_a</span>, <span class="ident">b_mod_bitwidth</span>))
         }
         <span class="ident">Operator</span>::<span class="ident">V128Bitselect</span> <span class="op">=</span><span class="op">&gt;</span> {
-            <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>, <span class="ident">c</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
+            <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>), (<span class="ident">c</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
             <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bitcast_b</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">b</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="kw">let</span> <span class="ident">bitcast_c</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">c</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
@@ -4782,7 +4973,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">MemFlags</span>, <span class="ident">Value</span>, <span class="ident">Offset32</span>)<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">addr32</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+    <span class="kw">let</span> (<span class="ident">addr32</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
 
     <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">memarg</span>.<span class="ident">memory</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
     <span class="kw">let</span> (<span class="ident">base</span>, <span class="ident">offset</span>) <span class="op">=</span> <span class="ident">get_heap_addr</span>(
@@ -4831,7 +5022,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">addr32</span>, <span class="ident">val</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">addr32</span>, <span class="kw">_</span>), (<span class="ident">val</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">val_ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">val</span>);
 
     <span class="kw">let</span> <span class="ident">heap</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">get_heap</span>(<span class="ident">builder</span>.<span class="ident">func</span>, <span class="ident">memarg</span>.<span class="ident">memory</span>, <span class="ident">environ</span>)<span class="question-mark">?</span>;
@@ -4862,7 +5053,7 @@
 }
 
 <span class="kw">fn</span> <span class="ident">translate_icmp</span>(<span class="ident">cc</span>: <span class="ident">IntCC</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>) {
-    <span class="kw">let</span> (<span class="ident">arg0</span>, <span class="ident">arg1</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">arg0</span>, <span class="kw">_</span>), (<span class="ident">arg1</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">icmp</span>(<span class="ident">cc</span>, <span class="ident">arg0</span>, <span class="ident">arg1</span>);
     <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
 }
@@ -4919,7 +5110,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">linear_mem_addr</span>, <span class="kw-2">mut</span> <span class="ident">arg2</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">linear_mem_addr</span>, <span class="kw">_</span>), (<span class="kw-2">mut</span> <span class="ident">arg2</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">arg2_ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">arg2</span>);
 
     <span class="comment">// The operation is performed at type `access_ty`, and the old value is zero-extended</span>
@@ -4967,7 +5158,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">linear_mem_addr</span>, <span class="kw-2">mut</span> <span class="ident">expected</span>, <span class="kw-2">mut</span> <span class="ident">replacement</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
+    <span class="kw">let</span> ((<span class="ident">linear_mem_addr</span>, <span class="kw">_</span>), (<span class="kw-2">mut</span> <span class="ident">expected</span>, <span class="kw">_</span>), (<span class="kw-2">mut</span> <span class="ident">replacement</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop3</span>();
     <span class="kw">let</span> <span class="ident">expected_ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">expected</span>);
     <span class="kw">let</span> <span class="ident">replacement_ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">replacement</span>);
 
@@ -5020,7 +5211,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> <span class="ident">linear_mem_addr</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+    <span class="kw">let</span> (<span class="ident">linear_mem_addr</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
 
     <span class="comment">// The load is performed at type `access_ty`, and the loaded value is zero extended</span>
     <span class="comment">// to `widened_ty`.</span>
@@ -5061,7 +5252,7 @@
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
     <span class="ident">environ</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FE</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-    <span class="kw">let</span> (<span class="ident">linear_mem_addr</span>, <span class="kw-2">mut</span> <span class="ident">data</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">linear_mem_addr</span>, <span class="kw">_</span>), (<span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">data_ty</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">func</span>.<span class="ident">dfg</span>.<span class="ident">value_type</span>(<span class="ident">data</span>);
 
     <span class="comment">// The operation is performed at type `access_ty`, and the data to be stored may first</span>
@@ -5102,14 +5293,14 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
 ) {
-    <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     <span class="kw">let</span> <span class="ident">bitcast_b</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">b</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">icmp</span>(<span class="ident">cc</span>, <span class="ident">bitcast_a</span>, <span class="ident">bitcast_b</span>))
 }
 
 <span class="kw">fn</span> <span class="ident">translate_fcmp</span>(<span class="ident">cc</span>: <span class="ident">FloatCC</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>, <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>) {
-    <span class="kw">let</span> (<span class="ident">arg0</span>, <span class="ident">arg1</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">arg0</span>, <span class="kw">_</span>), (<span class="ident">arg1</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcmp</span>(<span class="ident">cc</span>, <span class="ident">arg0</span>, <span class="ident">arg1</span>);
     <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">I32</span>, <span class="ident">val</span>));
 }
@@ -5120,7 +5311,7 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
 ) {
-    <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     <span class="kw">let</span> <span class="ident">bitcast_b</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">b</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">fcmp</span>(<span class="ident">cc</span>, <span class="ident">bitcast_a</span>, <span class="ident">bitcast_b</span>))
@@ -5131,12 +5322,13 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
 ) {
-    <span class="kw">let</span> <span class="ident">val</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
+    <span class="kw">let</span> (<span class="ident">val</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop1</span>();
     <span class="kw">let</span> (<span class="ident">br_destination</span>, <span class="ident">inputs</span>) <span class="op">=</span> <span class="ident">translate_br_if_args</span>(<span class="ident">relative_depth</span>, <span class="ident">state</span>);
+    <span class="kw">let</span> <span class="ident">inputs</span> <span class="op">=</span> (<span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">inputs</span>.<span class="number">0</span>, <span class="kw-2">&amp;</span><span class="kw-2">*</span><span class="ident">inputs</span>.<span class="number">1</span>);
     <span class="ident">canonicalise_then_brnz</span>(<span class="ident">builder</span>, <span class="ident">val</span>, <span class="ident">br_destination</span>, <span class="ident">inputs</span>);
 
     <span class="kw">let</span> <span class="ident">next_block</span> <span class="op">=</span> <span class="ident">builder</span>.<span class="ident">create_block</span>();
-    <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">next_block</span>, <span class="kw-2">&amp;</span>[]);
+    <span class="ident">canonicalise_then_jump</span>(<span class="ident">builder</span>, <span class="ident">next_block</span>, (<span class="kw-2">&amp;</span>[], <span class="kw-2">&amp;</span>[]));
     <span class="ident">builder</span>.<span class="ident">seal_block</span>(<span class="ident">next_block</span>); <span class="comment">// The only predecessor is the current block.</span>
     <span class="ident">builder</span>.<span class="ident">switch_to_block</span>(<span class="ident">next_block</span>);
 }
@@ -5144,7 +5336,7 @@
 <span class="kw">fn</span> <span class="ident">translate_br_if_args</span>(
     <span class="ident">relative_depth</span>: <span class="ident">u32</span>,
     <span class="ident">state</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FuncTranslationState</span>,
-) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ir</span>::<span class="ident">Block</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">ir</span>::<span class="ident">Value</span>]) {
+) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">ir</span>::<span class="ident">Block</span>, (<span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">ir</span>::<span class="ident">Value</span>], <span class="kw-2">&amp;</span><span class="kw-2">mut</span> [<span class="ident">ValueExtraInfo</span>])) {
     <span class="kw">let</span> <span class="ident">i</span> <span class="op">=</span> <span class="ident">state</span>.<span class="ident">control_stack</span>.<span class="ident">len</span>() <span class="op">-</span> <span class="number">1</span> <span class="op">-</span> (<span class="ident">relative_depth</span> <span class="kw">as</span> <span class="ident">usize</span>);
     <span class="kw">let</span> (<span class="ident">return_count</span>, <span class="ident">br_destination</span>) <span class="op">=</span> {
         <span class="kw">let</span> <span class="ident">frame</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">state</span>.<span class="ident">control_stack</span>[<span class="ident">i</span>];
@@ -5405,10 +5597,10 @@
 <span class="kw">fn</span> <span class="ident">canonicalise_then_jump</span>(
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">destination</span>: <span class="ident">ir</span>::<span class="ident">Block</span>,
-    <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>],
+    <span class="ident">params</span>: (<span class="kw-2">&amp;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>], <span class="kw-2">&amp;</span>[<span class="ident">ValueExtraInfo</span>]),
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Inst</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span> <span class="op">=</span> <span class="ident">SmallVec</span>::<span class="op">&lt;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>; <span class="number">16</span>]<span class="op">&gt;</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>);
+    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>.<span class="number">0</span>);
     <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">jump</span>(<span class="ident">destination</span>, <span class="ident">canonicalised</span>)
 }
 
@@ -5417,10 +5609,10 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">cond</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     <span class="ident">destination</span>: <span class="ident">ir</span>::<span class="ident">Block</span>,
-    <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
+    <span class="ident">params</span>: (<span class="kw-2">&amp;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>], <span class="kw-2">&amp;</span>[<span class="ident">ValueExtraInfo</span>]),
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Inst</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span> <span class="op">=</span> <span class="ident">SmallVec</span>::<span class="op">&lt;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>; <span class="number">16</span>]<span class="op">&gt;</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>);
+    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>.<span class="number">0</span>);
     <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">brz</span>(<span class="ident">cond</span>, <span class="ident">destination</span>, <span class="ident">canonicalised</span>)
 }
 
@@ -5429,10 +5621,10 @@
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
     <span class="ident">cond</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     <span class="ident">destination</span>: <span class="ident">ir</span>::<span class="ident">Block</span>,
-    <span class="ident">params</span>: <span class="kw-2">&amp;</span>[<span class="ident">Value</span>],
+    <span class="ident">params</span>: (<span class="kw-2">&amp;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>], <span class="kw-2">&amp;</span>[<span class="ident">ValueExtraInfo</span>]),
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">ir</span>::<span class="ident">Inst</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span> <span class="op">=</span> <span class="ident">SmallVec</span>::<span class="op">&lt;</span>[<span class="ident">ir</span>::<span class="ident">Value</span>; <span class="number">16</span>]<span class="op">&gt;</span>::<span class="ident">new</span>();
-    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>);
+    <span class="kw">let</span> <span class="ident">canonicalised</span> <span class="op">=</span> <span class="ident">canonicalise_v128_values</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">tmp_canonicalised</span>, <span class="ident">builder</span>, <span class="ident">params</span>.<span class="number">0</span>);
     <span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">brnz</span>(<span class="ident">cond</span>, <span class="ident">destination</span>, <span class="ident">canonicalised</span>)
 }
 
@@ -5444,7 +5636,7 @@
     <span class="ident">needed_type</span>: <span class="ident">Type</span>,
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span> {
-    <span class="ident">optionally_bitcast_vector</span>(<span class="ident">state</span>.<span class="ident">pop1</span>(), <span class="ident">needed_type</span>, <span class="ident">builder</span>)
+    <span class="ident">optionally_bitcast_vector</span>(<span class="ident">state</span>.<span class="ident">pop1</span>().<span class="number">0</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>)
 }
 
 <span class="doccomment">/// A helper for popping and bitcasting two values; since SIMD values can lose their type by</span>
@@ -5455,7 +5647,7 @@
     <span class="ident">needed_type</span>: <span class="ident">Type</span>,
     <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> (<span class="ident">Value</span>, <span class="ident">Value</span>) {
-    <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
+    <span class="kw">let</span> ((<span class="ident">a</span>, <span class="kw">_</span>), (<span class="ident">b</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="ident">state</span>.<span class="ident">pop2</span>();
     <span class="kw">let</span> <span class="ident">bitcast_a</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">a</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     <span class="kw">let</span> <span class="ident">bitcast_b</span> <span class="op">=</span> <span class="ident">optionally_bitcast_vector</span>(<span class="ident">b</span>, <span class="ident">needed_type</span>, <span class="ident">builder</span>);
     (<span class="ident">bitcast_a</span>, <span class="ident">bitcast_b</span>)

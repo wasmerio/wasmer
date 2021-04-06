@@ -471,6 +471,47 @@
 <span id="468">468</span>
 <span id="469">469</span>
 <span id="470">470</span>
+<span id="471">471</span>
+<span id="472">472</span>
+<span id="473">473</span>
+<span id="474">474</span>
+<span id="475">475</span>
+<span id="476">476</span>
+<span id="477">477</span>
+<span id="478">478</span>
+<span id="479">479</span>
+<span id="480">480</span>
+<span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
+<span id="494">494</span>
+<span id="495">495</span>
+<span id="496">496</span>
+<span id="497">497</span>
+<span id="498">498</span>
+<span id="499">499</span>
+<span id="500">500</span>
+<span id="501">501</span>
+<span id="502">502</span>
+<span id="503">503</span>
+<span id="504">504</span>
+<span id="505">505</span>
+<span id="506">506</span>
+<span id="507">507</span>
+<span id="508">508</span>
+<span id="509">509</span>
+<span id="510">510</span>
+<span id="511">511</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -488,7 +529,10 @@
 <span class="kw">use</span> <span class="ident">cranelift_frontend</span>::<span class="ident">FunctionBuilder</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">wasmparser</span>::{<span class="ident">Operator</span>, <span class="ident">Type</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">WasmResult</span>;
-<span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>};
+<span class="kw">use</span> <span class="ident">wasmer_types</span>::{
+    <span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">SignatureIndex</span>,
+    <span class="ident">TableIndex</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">WasmerType</span>,
+};
 
 <span class="doccomment">/// The value of a WebAssembly global variable.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">Copy</span>)]</span>
@@ -807,6 +851,20 @@
         <span class="ident">len</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 
+    <span class="doccomment">/// Translates an externref ref count increment.</span>
+    <span class="kw">fn</span> <span class="ident">translate_externref_inc</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">pos</span>: <span class="ident">cranelift_codegen</span>::<span class="ident">cursor</span>::<span class="ident">FuncCursor</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">externref</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Translates an externref ref count decrement.</span>
+    <span class="kw">fn</span> <span class="ident">translate_externref_dec</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+        <span class="ident">pos</span>: <span class="ident">cranelift_codegen</span>::<span class="ident">cursor</span>::<span class="ident">FuncCursor</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span>,
+        <span class="ident">externref</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
+
     <span class="doccomment">/// Translate a `table.init` WebAssembly instruction.</span>
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>)]</span>
     <span class="kw">fn</span> <span class="ident">translate_table_init</span>(
@@ -852,7 +910,7 @@
         <span class="ident">value</span>: <span class="ident">ir</span>::<span class="ident">Value</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">ir</span>::<span class="ident">Value</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">is_null</span> <span class="op">=</span> <span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">is_null</span>(<span class="ident">value</span>);
-        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I32</span>, <span class="ident">is_null</span>))
+        <span class="prelude-val">Ok</span>(<span class="ident">pos</span>.<span class="ident">ins</span>().<span class="ident">bint</span>(<span class="ident">ir</span>::<span class="ident">types</span>::<span class="ident">I64</span>, <span class="ident">is_null</span>))
     }
 
     <span class="doccomment">/// Translate a `ref.func` WebAssembly instruction.</span>
@@ -941,6 +999,30 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(())
     }
+
+    <span class="doccomment">/// Get the type of the global at the given index.</span>
+    <span class="kw">fn</span> <span class="ident">get_global_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">global_index</span>: <span class="ident">GlobalIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmerType</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Push a local declaration on to the stack to track the type of locals.</span>
+    <span class="kw">fn</span> <span class="ident">push_local_decl_on_stack</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">ty</span>: <span class="ident">WasmerType</span>);
+
+    <span class="doccomment">/// Push locals for a the params of a function on to the stack.</span>
+    <span class="kw">fn</span> <span class="ident">push_params_on_stack</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">function_index</span>: <span class="ident">LocalFunctionIndex</span>);
+
+    <span class="doccomment">/// Get the type of the local at the given index.</span>
+    <span class="kw">fn</span> <span class="ident">get_local_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">local_index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasmerType</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Get the types of all the current locals.</span>
+    <span class="kw">fn</span> <span class="ident">get_local_types</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">WasmerType</span>];
+
+    <span class="doccomment">/// Get the type of the local at the given index.</span>
+    <span class="kw">fn</span> <span class="ident">get_function_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">function_index</span>: <span class="ident">FunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Get the type of a function with the given signature index.</span>
+    <span class="kw">fn</span> <span class="ident">get_function_sig</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">sig_index</span>: <span class="ident">SignatureIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">FunctionType</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Drops all locals that need to be dropped. Useful for returning from functions.</span>
+    <span class="kw">fn</span> <span class="ident">translate_drop_locals</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">builder</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">FunctionBuilder</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>()<span class="op">&gt;</span>;
 }
 </pre></div>
 </section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../../";window.currentCrate = "wasmer_compiler_cranelift";</script><script src="../../../main.js"></script><script src="../../../source-script.js"></script><script src="../../../source-files.js"></script><script defer src="../../../search-index.js"></script></body></html>

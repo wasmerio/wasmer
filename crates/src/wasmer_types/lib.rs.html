@@ -149,18 +149,19 @@
     }
 }
 
+<span class="kw">mod</span> <span class="ident">extern_ref</span>;
 <span class="kw">mod</span> <span class="ident">features</span>;
 <span class="kw">mod</span> <span class="ident">indexes</span>;
 <span class="kw">mod</span> <span class="ident">initializers</span>;
 <span class="kw">mod</span> <span class="ident">memory_view</span>;
 <span class="kw">mod</span> <span class="ident">native</span>;
-<span class="kw">mod</span> <span class="ident">r#ref</span>;
 <span class="kw">mod</span> <span class="ident">types</span>;
 <span class="kw">mod</span> <span class="ident">units</span>;
 <span class="kw">mod</span> <span class="ident">values</span>;
 
 <span class="doccomment">/// The entity module, with common helpers for Rust structures</span>
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">entity</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">extern_ref</span>::{<span class="ident">ExternRef</span>, <span class="ident">VMExternRef</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">features</span>::<span class="ident">Features</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">indexes</span>::{
     <span class="ident">CustomSectionIndex</span>, <span class="ident">DataIndex</span>, <span class="ident">ElemIndex</span>, <span class="ident">ExportIndex</span>, <span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>, <span class="ident">ImportIndex</span>,
@@ -172,11 +173,10 @@
 };
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">memory_view</span>::{<span class="ident">Atomically</span>, <span class="ident">MemoryView</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">native</span>::{<span class="ident">NativeWasmType</span>, <span class="ident">ValueType</span>};
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">r#ref</span>::{<span class="ident">ExternRef</span>, <span class="ident">HostInfo</span>, <span class="ident">HostRef</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">units</span>::{
     <span class="ident">Bytes</span>, <span class="ident">PageCountOutOfRange</span>, <span class="ident">Pages</span>, <span class="ident">WASM_MAX_PAGES</span>, <span class="ident">WASM_MIN_PAGES</span>, <span class="ident">WASM_PAGE_SIZE</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">values</span>::<span class="ident">Value</span>;
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">types</span>::{
     <span class="ident">ExportType</span>, <span class="ident">ExternType</span>, <span class="ident">FunctionType</span>, <span class="ident">GlobalInit</span>, <span class="ident">GlobalType</span>, <span class="ident">ImportType</span>, <span class="ident">MemoryType</span>,
     <span class="ident">Mutability</span>, <span class="ident">TableType</span>, <span class="ident">Type</span>, <span class="ident">V128</span>,

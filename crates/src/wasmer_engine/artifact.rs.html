@@ -212,6 +212,10 @@
 <span id="209">209</span>
 <span id="210">210</span>
 <span id="211">211</span>
+<span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::{
     <span class="ident">resolve_imports</span>, <span class="ident">InstantiationError</span>, <span class="ident">Resolver</span>, <span class="ident">RuntimeError</span>, <span class="ident">SerializeError</span>, <span class="ident">Tunables</span>,
@@ -228,8 +232,8 @@
     <span class="ident">SignatureIndex</span>, <span class="ident">TableIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FunctionBodyPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>,
-    <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
+    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">InstanceAllocator</span>, <span class="ident">InstanceHandle</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>,
+    <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
 };
 
 <span class="doccomment">/// An `Artifact` is the product that the `Engine`</span>
@@ -281,6 +285,9 @@
 
     <span class="doccomment">/// Returns the associated VM signatures for this `Artifact`.</span>
     <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>;
+
+    <span class="doccomment">/// Get the func data registry</span>
+    <span class="kw">fn</span> <span class="ident">func_data_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span>;
 
     <span class="doccomment">/// Serializes an artifact into bytes</span>
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span>;
@@ -358,6 +365,7 @@
             <span class="ident">finished_globals</span>,
             <span class="ident">imports</span>,
             <span class="self">self</span>.<span class="ident">signatures</span>().<span class="ident">clone</span>(),
+            <span class="self">self</span>.<span class="ident">func_data_registry</span>(),
             <span class="ident">host_state</span>,
             <span class="ident">import_function_envs</span>,
         )

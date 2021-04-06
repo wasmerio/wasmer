@@ -213,6 +213,9 @@
 <span id="210">210</span>
 <span id="211">211</span>
 <span id="212">212</span>
+<span id="213">213</span>
+<span id="214">214</span>
+<span id="215">215</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">compiler</span>::<span class="ident">CraneliftCompiler</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">isa</span>::{<span class="ident">lookup</span>, <span class="ident">TargetIsa</span>};
@@ -367,6 +370,9 @@
         };
         <span class="ident">flags</span>
             .<span class="ident">set</span>(<span class="string">&quot;enable_verifier&quot;</span>, <span class="ident">enable_verifier</span>)
+            .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
+        <span class="ident">flags</span>
+            .<span class="ident">set</span>(<span class="string">&quot;enable_safepoints&quot;</span>, <span class="string">&quot;true&quot;</span>)
             .<span class="ident">expect</span>(<span class="string">&quot;should be valid flag&quot;</span>);
 
         <span class="kw">let</span> <span class="ident">opt_level</span> <span class="op">=</span> <span class="kw">if</span> <span class="self">self</span>.<span class="ident">enable_simd</span> {

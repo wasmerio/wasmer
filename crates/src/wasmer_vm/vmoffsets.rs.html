@@ -702,6 +702,24 @@
 <span id="699">699</span>
 <span id="700">700</span>
 <span id="701">701</span>
+<span id="702">702</span>
+<span id="703">703</span>
+<span id="704">704</span>
+<span id="705">705</span>
+<span id="706">706</span>
+<span id="707">707</span>
+<span id="708">708</span>
+<span id="709">709</span>
+<span id="710">710</span>
+<span id="711">711</span>
+<span id="712">712</span>
+<span id="713">713</span>
+<span id="714">714</span>
+<span id="715">715</span>
+<span id="716">716</span>
+<span id="717">717</span>
+<span id="718">718</span>
+<span id="719">719</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -1037,6 +1055,24 @@
     <span class="doccomment">/// [`VMCallerCheckedAnyfunc`]: crate::vmcontext::VMCallerCheckedAnyfunc</span>
     <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vmcaller_checked_anyfunc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
         <span class="number">3</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    }
+}
+
+<span class="doccomment">/// Offsets for [`VMFuncRef`].</span>
+<span class="doccomment">///</span>
+<span class="doccomment">/// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef</span>
+<span class="kw">impl</span> <span class="ident">VMOffsets</span> {
+    <span class="doccomment">/// The offset to the pointer to the anyfunc inside the ref.</span>
+    <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">erasing_op</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">vm_funcref_anyfunc_ptr</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
+        <span class="number">0</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
+    }
+
+    <span class="doccomment">/// Return the size of [`VMFuncRef`].</span>
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef</span>
+    <span class="kw">pub</span> <span class="kw">const</span> <span class="kw">fn</span> <span class="ident">size_of_vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u8</span> {
+        <span class="number">1</span> <span class="op">*</span> <span class="self">self</span>.<span class="ident">pointer_size</span>
     }
 }
 

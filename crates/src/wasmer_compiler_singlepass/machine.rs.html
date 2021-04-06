@@ -556,6 +556,7 @@
 <span id="553">553</span>
 <span id="554">554</span>
 <span id="555">555</span>
+<span id="556">556</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">common_decl</span>::<span class="kw-2">*</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">emitter_x64</span>::<span class="kw-2">*</span>;
@@ -715,7 +716,8 @@
             <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="ident">ty</span> {
                 <span class="ident">WpType</span>::<span class="ident">F32</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_xmm</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">XMM</span>),
                 <span class="ident">WpType</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">GPR</span>),
-                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(),
+                <span class="ident">WpType</span>::<span class="ident">FuncRef</span> <span class="op">|</span> <span class="ident">WpType</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="self">self</span>.<span class="ident">pick_gpr</span>().<span class="ident">map</span>(<span class="ident">Location</span>::<span class="ident">GPR</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;can&#39;t acquire location for type {:?}&quot;</span>, <span class="ident">ty</span>),
             };
 
             <span class="kw">let</span> <span class="ident">loc</span> <span class="op">=</span> <span class="kw">if</span> <span class="kw">let</span> <span class="prelude-val">Some</span>(<span class="ident">x</span>) <span class="op">=</span> <span class="ident">loc</span> {

@@ -1077,9 +1077,9 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::{<span class="ident">Arc</span>, <span class="ident">Mutex</span>};
 <span class="kw">use</span> <span class="ident">wasmer</span>::{
-    <span class="ident">imports</span>, <span class="ident">namespace</span>, <span class="ident">Exports</span>, <span class="ident">ExternRef</span>, <span class="ident">Function</span>, <span class="ident">FunctionType</span>, <span class="ident">Global</span>, <span class="ident">ImportObject</span>, <span class="ident">Instance</span>,
-    <span class="ident">LazyInit</span>, <span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">NativeFunc</span>, <span class="ident">Pages</span>, <span class="ident">RuntimeError</span>, <span class="ident">Store</span>, <span class="ident">Table</span>, <span class="ident">TableType</span>,
-    <span class="ident">Val</span>, <span class="ident">ValType</span>, <span class="ident">WasmerEnv</span>,
+    <span class="ident">imports</span>, <span class="ident">namespace</span>, <span class="ident">Exports</span>, <span class="ident">Function</span>, <span class="ident">FunctionType</span>, <span class="ident">Global</span>, <span class="ident">ImportObject</span>, <span class="ident">Instance</span>, <span class="ident">LazyInit</span>,
+    <span class="ident">Memory</span>, <span class="ident">MemoryType</span>, <span class="ident">Module</span>, <span class="ident">NativeFunc</span>, <span class="ident">Pages</span>, <span class="ident">RuntimeError</span>, <span class="ident">Store</span>, <span class="ident">Table</span>, <span class="ident">TableType</span>, <span class="ident">Val</span>,
+    <span class="ident">ValType</span>, <span class="ident">WasmerEnv</span>,
 };
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
@@ -1536,7 +1536,7 @@
             <span class="ident">maximum</span>: <span class="ident">table_max</span>,
         };
         <span class="comment">// TODO: review init value</span>
-        <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Table</span>::<span class="ident">new</span>(<span class="ident">store</span>, <span class="ident">table_type</span>, <span class="ident">Val</span>::<span class="ident">ExternRef</span>(<span class="ident">ExternRef</span>::<span class="ident">null</span>())).<span class="ident">unwrap</span>();
+        <span class="kw">let</span> <span class="ident">table</span> <span class="op">=</span> <span class="ident">Table</span>::<span class="ident">new</span>(<span class="ident">store</span>, <span class="ident">table_type</span>, <span class="ident">Val</span>::<span class="ident">null</span>()).<span class="ident">unwrap</span>();
 
         <span class="kw">let</span> <span class="ident">data</span> <span class="op">=</span> {
             <span class="kw">let</span> <span class="ident">static_bump</span> <span class="op">=</span> <span class="ident">STATIC_BUMP</span>;

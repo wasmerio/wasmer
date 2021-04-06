@@ -197,6 +197,8 @@
 <span id="194">194</span>
 <span id="195">195</span>
 <span id="196">196</span>
+<span id="197">197</span>
+<span id="198">198</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -286,7 +288,9 @@
             <span class="self">Self</span>::<span class="ident">HeapSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;memory out of bounds: data segment does not fit&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;out of bounds memory access&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapMisaligned</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;misaligned heap&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;table out of bounds: elements segment does not fit&quot;</span>,
+            <span class="self">Self</span>::<span class="ident">TableSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="string">&quot;out of bounds table access: elements segment does not fit&quot;</span>
+            }
             <span class="self">Self</span>::<span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;undefined element: out of bounds table access&quot;</span>,
             <span class="self">Self</span>::<span class="ident">OutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;out of bounds&quot;</span>,
             <span class="self">Self</span>::<span class="ident">IndirectCallToNull</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;uninitialized element&quot;</span>,

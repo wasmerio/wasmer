@@ -597,30 +597,6 @@
 <span id="596">596</span>
 <span id="597">597</span>
 <span id="598">598</span>
-<span id="599">599</span>
-<span id="600">600</span>
-<span id="601">601</span>
-<span id="602">602</span>
-<span id="603">603</span>
-<span id="604">604</span>
-<span id="605">605</span>
-<span id="606">606</span>
-<span id="607">607</span>
-<span id="608">608</span>
-<span id="609">609</span>
-<span id="610">610</span>
-<span id="611">611</span>
-<span id="612">612</span>
-<span id="613">613</span>
-<span id="614">614</span>
-<span id="615">615</span>
-<span id="616">616</span>
-<span id="617">617</span>
-<span id="618">618</span>
-<span id="619">619</span>
-<span id="620">620</span>
-<span id="621">621</span>
-<span id="622">622</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">abi</span>::<span class="ident">Abi</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">translator</span>::<span class="ident">intrinsics</span>::{<span class="ident">type_to_llvm</span>, <span class="ident">Intrinsics</span>};
@@ -716,8 +692,7 @@
                 <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
                 <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>,
                 <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">128</span>,
-                <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;externref in the llvm backend&quot;</span>),
-                <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;funcref in the llvm backend&quot;</span>),
+                <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>, <span class="comment">/* pointer */</span>
             })
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
@@ -940,26 +915,7 @@
                     );
                     <span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">value</span>, <span class="ident">intrinsics</span>.<span class="ident">f32_ty</span>, <span class="string">&quot;&quot;</span>)
                 }
-                <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert</span><span class="macro">!</span>(
-                        <span class="ident">value</span>.<span class="ident">get_type</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">as_basic_type_enum</span>()
-                            <span class="op">|</span><span class="op">|</span> <span class="ident">value</span>.<span class="ident">get_type</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">f64_ty</span>.<span class="ident">as_basic_type_enum</span>()
-                    );
-                    <span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">value</span>, <span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>, <span class="string">&quot;&quot;</span>)
-                }
-                <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert</span><span class="macro">!</span>(
-                        <span class="ident">value</span>.<span class="ident">get_type</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>.<span class="ident">as_basic_type_enum</span>()
-                            <span class="op">|</span><span class="op">|</span> <span class="ident">value</span>.<span class="ident">get_type</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">f64_ty</span>.<span class="ident">as_basic_type_enum</span>()
-                    );
-                    <span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">value</span>, <span class="ident">intrinsics</span>.<span class="ident">f64_ty</span>, <span class="string">&quot;&quot;</span>)
-                }
-                <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> {
-                    <span class="macro">assert</span><span class="macro">!</span>(<span class="ident">value</span>.<span class="ident">get_type</span>() <span class="op">=</span><span class="op">=</span> <span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>.<span class="ident">as_basic_type_enum</span>());
-                    <span class="ident">value</span>
-                }
-                <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;externref in the llvm backend&quot;</span>),
-                <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;funcref in the llvm backend&quot;</span>),
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;should only be called to repack 32-bit values&quot;</span>),
             }
         };
 
@@ -989,8 +945,7 @@
                         <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
                         <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>,
                         <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">128</span>,
-                        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;externref in the llvm backend&quot;</span>),
-                        <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;funcref in the llvm backend&quot;</span>),
+                        <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>, <span class="comment">/* pointer */</span>
                     })
                     .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
@@ -1099,15 +1054,12 @@
             .<span class="ident">results</span>()
             .<span class="ident">iter</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">ty</span><span class="op">|</span> <span class="kw">match</span> <span class="ident">ty</span> {
-                <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="number">32</span>),
-                <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="number">64</span>),
-                <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="number">128</span>),
-                <span class="ident">ty</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
-                    <span class="string">&quot;is_sret: unimplemented wasmer_types type {:?}&quot;</span>,
-                    <span class="ident">ty</span>
-                ))),
+                <span class="ident">Type</span>::<span class="ident">I32</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">32</span>,
+                <span class="ident">Type</span>::<span class="ident">I64</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">F64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>,
+                <span class="ident">Type</span>::<span class="ident">V128</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">128</span>,
+                <span class="ident">Type</span>::<span class="ident">ExternRef</span> <span class="op">|</span> <span class="ident">Type</span>::<span class="ident">FuncRef</span> <span class="op">=</span><span class="op">&gt;</span> <span class="number">64</span>, <span class="comment">/* pointer */</span>
             })
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()<span class="question-mark">?</span>;
+            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span><span class="op">&gt;</span>();
 
         <span class="prelude-val">Ok</span>(<span class="op">!</span><span class="macro">matches</span><span class="macro">!</span>(
             <span class="ident">func_sig_returns_bitwidths</span>.<span class="ident">as_slice</span>(),

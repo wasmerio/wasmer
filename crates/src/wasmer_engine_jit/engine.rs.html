@@ -303,6 +303,22 @@
 <span id="300">300</span>
 <span id="301">301</span>
 <span id="302">302</span>
+<span id="303">303</span>
+<span id="304">304</span>
+<span id="305">305</span>
+<span id="306">306</span>
+<span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! JIT compilation.</span>
 
@@ -319,8 +335,8 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">Features</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">FunctionType</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">SignatureIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FunctionBodyPtr</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SectionBodyPtr</span>, <span class="ident">SignatureRegistry</span>, <span class="ident">VMFunctionBody</span>,
-    <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
+    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">ModuleInfo</span>, <span class="ident">SectionBodyPtr</span>, <span class="ident">SignatureRegistry</span>,
+    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMFunctionBody</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
 };
 
 <span class="doccomment">/// A WebAssembly `JIT` Engine.</span>
@@ -341,6 +357,7 @@
                 <span class="ident">compiler</span>: <span class="prelude-val">Some</span>(<span class="ident">compiler</span>),
                 <span class="ident">code_memory</span>: <span class="macro">vec</span><span class="macro">!</span>[],
                 <span class="ident">signatures</span>: <span class="ident">SignatureRegistry</span>::<span class="ident">new</span>(),
+                <span class="ident">func_data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">FuncDataRegistry</span>::<span class="ident">new</span>()),
                 <span class="ident">features</span>,
             })),
             <span class="ident">target</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">target</span>),
@@ -368,6 +385,7 @@
                 <span class="ident">compiler</span>: <span class="prelude-val">None</span>,
                 <span class="ident">code_memory</span>: <span class="macro">vec</span><span class="macro">!</span>[],
                 <span class="ident">signatures</span>: <span class="ident">SignatureRegistry</span>::<span class="ident">new</span>(),
+                <span class="ident">func_data</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">FuncDataRegistry</span>::<span class="ident">new</span>()),
                 <span class="ident">features</span>: <span class="ident">Features</span>::<span class="ident">default</span>(),
             })),
             <span class="ident">target</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">Target</span>::<span class="ident">default</span>()),
@@ -394,6 +412,11 @@
     <span class="kw">fn</span> <span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">func_type</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMSharedSignatureIndex</span> {
         <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>();
         <span class="ident">compiler</span>.<span class="ident">signatures</span>().<span class="ident">register</span>(<span class="ident">func_type</span>)
+    }
+
+    <span class="kw">fn</span> <span class="ident">register_function_metadata</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">func_data</span>: <span class="ident">VMCallerCheckedAnyfunc</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMFuncRef</span> {
+        <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">inner</span>();
+        <span class="ident">compiler</span>.<span class="ident">func_data</span>().<span class="ident">register</span>(<span class="ident">func_data</span>)
     }
 
     <span class="doccomment">/// Lookup a signature</span>
@@ -458,6 +481,10 @@
     <span class="doccomment">/// The signature registry is used mainly to operate with trampolines</span>
     <span class="doccomment">/// performantly.</span>
     <span class="ident">signatures</span>: <span class="ident">SignatureRegistry</span>,
+    <span class="doccomment">/// The backing storage of `VMFuncRef`s. This centralized store ensures that 2</span>
+    <span class="doccomment">/// functions with the same `VMCallerCheckedAnyfunc` will have the same `VMFuncRef`.</span>
+    <span class="doccomment">/// It also guarantees that the `VMFuncRef`s stay valid until the engine is dropped.</span>
+    <span class="ident">func_data</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">FuncDataRegistry</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">JITEngineInner</span> {
@@ -604,6 +631,11 @@
     <span class="doccomment">/// Shared signature registry.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">signatures</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">SignatureRegistry</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">signatures</span>
+    }
+
+    <span class="doccomment">/// Shared func metadata registry.</span>
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">func_data</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">FuncDataRegistry</span><span class="op">&gt;</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">func_data</span>
     }
 }
 </pre></div>

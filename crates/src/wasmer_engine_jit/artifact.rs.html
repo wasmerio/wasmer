@@ -330,6 +330,13 @@
 <span id="327">327</span>
 <span id="328">328</span>
 <span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `JITArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
@@ -356,7 +363,8 @@
     <span class="ident">TableIndex</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>, <span class="ident">VMTrampoline</span>,
+    <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>,
+    <span class="ident">VMTrampoline</span>,
 };
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
@@ -368,6 +376,7 @@
     <span class="ident">finished_function_call_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMTrampoline</span><span class="op">&gt;</span>,
     <span class="ident">finished_dynamic_function_trampolines</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">FunctionIndex</span>, <span class="ident">FunctionBodyPtr</span><span class="op">&gt;</span>,
     <span class="ident">signatures</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">SignatureIndex</span>, <span class="ident">VMSharedSignatureIndex</span><span class="op">&gt;</span>,
+    <span class="ident">func_data_registry</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">FuncDataRegistry</span><span class="op">&gt;</span>,
     <span class="ident">frame_info_registration</span>: <span class="ident">Mutex</span><span class="op">&lt;</span><span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     <span class="ident">finished_function_lengths</span>: <span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">usize</span><span class="op">&gt;</span>,
 }
@@ -559,6 +568,7 @@
         <span class="kw">let</span> <span class="ident">finished_dynamic_function_trampolines</span> <span class="op">=</span>
             <span class="ident">finished_dynamic_function_trampolines</span>.<span class="ident">into_boxed_slice</span>();
         <span class="kw">let</span> <span class="ident">signatures</span> <span class="op">=</span> <span class="ident">signatures</span>.<span class="ident">into_boxed_slice</span>();
+        <span class="kw">let</span> <span class="ident">func_data_registry</span> <span class="op">=</span> <span class="ident">inner_jit</span>.<span class="ident">func_data</span>().<span class="ident">clone</span>();
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">serializable</span>,
@@ -568,6 +578,7 @@
             <span class="ident">signatures</span>,
             <span class="ident">frame_info_registration</span>: <span class="ident">Mutex</span>::<span class="ident">new</span>(<span class="prelude-val">None</span>),
             <span class="ident">finished_function_lengths</span>,
+            <span class="ident">func_data_registry</span>,
         })
     }
 
@@ -647,6 +658,9 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">signatures</span>
     }
 
+    <span class="kw">fn</span> <span class="ident">func_data_registry</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">FuncDataRegistry</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">func_data_registry</span>
+    }
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
         <span class="comment">// let mut s = flexbuffers::FlexbufferSerializer::new();</span>
         <span class="comment">// self.serializable.serialize(&amp;mut s).map_err(|e| SerializeError::Generic(format!(&quot;{:?}&quot;, e)));</span>

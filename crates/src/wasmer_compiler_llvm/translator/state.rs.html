@@ -420,6 +420,22 @@
 <span id="419">419</span>
 <span id="420">420</span>
 <span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
+<span id="426">426</span>
+<span id="427">427</span>
+<span id="428">428</span>
+<span id="429">429</span>
+<span id="430">430</span>
+<span id="431">431</span>
+<span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
+<span id="435">435</span>
+<span id="436">436</span>
+<span id="437">437</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">inkwell</span>::{
     <span class="ident">basic_block</span>::<span class="ident">BasicBlock</span>,
@@ -736,6 +752,22 @@
         <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>))
+    }
+
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop3</span>(
+        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>,
+    ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>
+        (
+            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+            <span class="ident">BasicValueEnum</span><span class="op">&lt;</span><span class="lifetime">&#39;ctx</span><span class="op">&gt;</span>,
+        ),
+        <span class="ident">CompileError</span>,
+    <span class="op">&gt;</span> {
+        <span class="kw">let</span> <span class="ident">v3</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">v2</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">v1</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop1</span>()<span class="question-mark">?</span>;
+        <span class="prelude-val">Ok</span>((<span class="ident">v1</span>, <span class="ident">v2</span>, <span class="ident">v3</span>))
     }
 
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pop3_extra</span>(

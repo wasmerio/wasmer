@@ -364,7 +364,7 @@
     <span class="doccomment">/// assert_eq!(g.get(), Value::I32(1));</span>
     <span class="doccomment">/// ```</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Val</span> {
-        <span class="self">self</span>.<span class="ident">global</span>.<span class="ident">get</span>()
+        <span class="self">self</span>.<span class="ident">global</span>.<span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>)
     }
 
     <span class="doccomment">/// Sets a custom value [`Val`] to the runtime Global.</span>

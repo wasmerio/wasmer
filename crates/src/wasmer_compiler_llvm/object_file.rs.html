@@ -306,6 +306,56 @@
 <span id="305">305</span>
 <span id="306">306</span>
 <span id="307">307</span>
+<span id="308">308</span>
+<span id="309">309</span>
+<span id="310">310</span>
+<span id="311">311</span>
+<span id="312">312</span>
+<span id="313">313</span>
+<span id="314">314</span>
+<span id="315">315</span>
+<span id="316">316</span>
+<span id="317">317</span>
+<span id="318">318</span>
+<span id="319">319</span>
+<span id="320">320</span>
+<span id="321">321</span>
+<span id="322">322</span>
+<span id="323">323</span>
+<span id="324">324</span>
+<span id="325">325</span>
+<span id="326">326</span>
+<span id="327">327</span>
+<span id="328">328</span>
+<span id="329">329</span>
+<span id="330">330</span>
+<span id="331">331</span>
+<span id="332">332</span>
+<span id="333">333</span>
+<span id="334">334</span>
+<span id="335">335</span>
+<span id="336">336</span>
+<span id="337">337</span>
+<span id="338">338</span>
+<span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::{<span class="ident">HashMap</span>, <span class="ident">HashSet</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">convert</span>::<span class="ident">TryFrom</span>;
@@ -363,16 +413,66 @@
 {
     <span class="comment">// TODO: use perfect hash function?</span>
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">libcalls</span> <span class="op">=</span> <span class="ident">HashMap</span>::<span class="ident">new</span>();
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">RaiseTrap</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;truncf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceilf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floorf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyintf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>);
     <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;nearbyint&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>);
-    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_probestack&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Probestack</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;truncf&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_ceil&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">CeilF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_floor&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FloorF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_nearest&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">NearestF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f32_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF32</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_f64_trunc&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TruncF64</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Size</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_size&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Size</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableCopy</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableInit</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableFill</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_size&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableSize</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_table_size&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedTableSize</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_get&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableGet</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_table_get&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedTableGet</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_set&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableSet</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_table_set&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedTableSet</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_table_grow&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">TableGrow</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_table_grow&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedTableGrow</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_func_ref&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">FuncRef</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_elem_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">ElemDrop</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_copy&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Copy</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_copy&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Copy</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_fill&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Fill</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(
+        <span class="string">&quot;wasmer_vm_imported_memory32_fill&quot;</span>.<span class="ident">to_string</span>(),
+        <span class="ident">LibCall</span>::<span class="ident">ImportedMemory32Fill</span>,
+    );
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_memory32_init&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Memory32Init</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_data_drop&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">DataDrop</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_raise_trap&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">RaiseTrap</span>);
+    <span class="ident">libcalls</span>.<span class="ident">insert</span>(<span class="string">&quot;wasmer_vm_probestack&quot;</span>.<span class="ident">to_string</span>(), <span class="ident">LibCall</span>::<span class="ident">Probestack</span>);
 
     <span class="kw">let</span> <span class="ident">elf</span> <span class="op">=</span> <span class="ident">goblin</span>::<span class="ident">elf</span>::<span class="ident">Elf</span>::<span class="ident">parse</span>(<span class="kw-2">&amp;</span><span class="ident">contents</span>).<span class="ident">map_err</span>(<span class="ident">map_goblin_err</span>)<span class="question-mark">?</span>;
     <span class="kw">let</span> <span class="ident">get_section_name</span> <span class="op">=</span> <span class="op">|</span><span class="ident">section</span>: <span class="kw-2">&amp;</span><span class="ident">goblin</span>::<span class="ident">elf</span>::<span class="ident">section_header</span>::<span class="ident">SectionHeader</span><span class="op">|</span> {

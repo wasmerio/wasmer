@@ -642,6 +642,9 @@
 <span id="639">639</span>
 <span id="640">640</span>
 <span id="641">641</span>
+<span id="642">642</span>
+<span id="643">643</span>
+<span id="644">644</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">indexes</span>::{<span class="ident">FunctionIndex</span>, <span class="ident">GlobalIndex</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lib</span>::<span class="ident">std</span>::<span class="ident">borrow</span>::<span class="ident">ToOwned</span>;
@@ -650,7 +653,7 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lib</span>::<span class="ident">std</span>::<span class="ident">string</span>::{<span class="ident">String</span>, <span class="ident">ToString</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">lib</span>::<span class="ident">std</span>::<span class="ident">vec</span>::<span class="ident">Vec</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">units</span>::<span class="ident">Pages</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">values</span>::<span class="ident">Value</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">values</span>::{<span class="ident">Value</span>, <span class="ident">WasmValueType</span>};
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -1056,6 +1059,9 @@
     <span class="ident">V128Const</span>(<span class="ident">V128</span>),
     <span class="doccomment">/// A `global.get` of another global.</span>
     <span class="ident">GetGlobal</span>(<span class="ident">GlobalIndex</span>),
+    <span class="comment">// TODO(reftypes): `ref.null func` and `ref.null extern` seem to be 2 different</span>
+    <span class="comment">// things: we need to handle both. Perhaps this handled in context by the</span>
+    <span class="comment">// global knowing its own type?</span>
     <span class="doccomment">/// A `ref.null`.</span>
     <span class="ident">RefNullConst</span>,
     <span class="doccomment">/// A `ref.func &lt;index&gt;`.</span>
@@ -1064,7 +1070,7 @@
 
 <span class="kw">impl</span> <span class="ident">GlobalInit</span> {
     <span class="doccomment">/// Get the `GlobalInit` from a given `Value`</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">from_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="ident">value</span>: <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">value</span> {
             <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I32Const</span>(<span class="ident">i</span>),
             <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">I64Const</span>(<span class="ident">i</span>),
@@ -1074,7 +1080,7 @@
         }
     }
     <span class="doccomment">/// Get the `Value` from the Global init value</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">to_value</span><span class="op">&lt;</span><span class="ident">T</span>: <span class="ident">WasmValueType</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Value</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">I32Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">I32</span>(<span class="kw-2">*</span><span class="ident">i</span>),
             <span class="self">Self</span>::<span class="ident">I64Const</span>(<span class="ident">i</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">Value</span>::<span class="ident">I64</span>(<span class="kw-2">*</span><span class="ident">i</span>),

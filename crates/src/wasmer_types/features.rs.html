@@ -334,9 +334,6 @@
 <span id="331">331</span>
 <span id="332">332</span>
 <span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-serde&quot;</span>)]</span>
@@ -376,7 +373,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">new</span>() <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">threads</span>: <span class="bool-val">false</span>,
-            <span class="ident">reference_types</span>: <span class="bool-val">false</span>,
+            <span class="comment">// Reference types should be on by default</span>
+            <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
             <span class="ident">simd</span>: <span class="bool-val">false</span>,
             <span class="comment">// Bulk Memory should be on by default</span>
             <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
@@ -410,16 +408,14 @@
     <span class="doccomment">/// Configures whether the WebAssembly reference types proposal will be</span>
     <span class="doccomment">/// enabled.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly reference types proposal][proposal] is not currently</span>
-    <span class="doccomment">/// fully standardized and is undergoing development. Support for this</span>
-    <span class="doccomment">/// feature can be enabled through this method for appropriate WebAssembly</span>
-    <span class="doccomment">/// modules.</span>
+    <span class="doccomment">/// The [WebAssembly reference types proposal][proposal] is now</span>
+    <span class="doccomment">/// fully standardized and enabled by default.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This feature gates items such as the `externref` type and multiple tables</span>
     <span class="doccomment">/// being in a module. Note that enabling the reference types feature will</span>
     <span class="doccomment">/// also enable the bulk memory feature.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
+    <span class="doccomment">/// This is `true` by default.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// [proposal]: https://github.com/webassembly/reference-types</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">reference_types</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
@@ -453,15 +449,13 @@
     <span class="doccomment">/// Configures whether the WebAssembly bulk memory operations proposal will</span>
     <span class="doccomment">/// be enabled.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// The [WebAssembly bulk memory operations proposal][proposal] is not</span>
-    <span class="doccomment">/// currently fully standardized and is undergoing development.</span>
-    <span class="doccomment">/// Support for this feature can be enabled through this method for</span>
-    <span class="doccomment">/// appropriate WebAssembly modules.</span>
+    <span class="doccomment">/// The [WebAssembly bulk memory operations proposal][proposal] is now</span>
+    <span class="doccomment">/// fully standardized and enabled by default.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This feature gates items such as the `memory.copy` instruction, passive</span>
     <span class="doccomment">/// data/table segments, etc, being in a module.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// This is `false` by default.</span>
+    <span class="doccomment">/// This is `true` by default.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// [proposal]: https://github.com/webassembly/bulk-memory-operations</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bulk_memory</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">enable</span>: <span class="ident">bool</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">Self</span> {
@@ -585,7 +579,7 @@
             <span class="ident">default</span>,
             <span class="ident">Features</span> {
                 <span class="ident">threads</span>: <span class="bool-val">false</span>,
-                <span class="ident">reference_types</span>: <span class="bool-val">false</span>,
+                <span class="ident">reference_types</span>: <span class="bool-val">true</span>,
                 <span class="ident">simd</span>: <span class="bool-val">false</span>,
                 <span class="ident">bulk_memory</span>: <span class="bool-val">true</span>,
                 <span class="ident">multi_value</span>: <span class="bool-val">true</span>,

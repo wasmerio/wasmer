@@ -1716,11 +1716,64 @@
 <span id="1715">1715</span>
 <span id="1716">1716</span>
 <span id="1717">1717</span>
+<span id="1718">1718</span>
+<span id="1719">1719</span>
+<span id="1720">1720</span>
+<span id="1721">1721</span>
+<span id="1722">1722</span>
+<span id="1723">1723</span>
+<span id="1724">1724</span>
+<span id="1725">1725</span>
+<span id="1726">1726</span>
+<span id="1727">1727</span>
+<span id="1728">1728</span>
+<span id="1729">1729</span>
+<span id="1730">1730</span>
+<span id="1731">1731</span>
+<span id="1732">1732</span>
+<span id="1733">1733</span>
+<span id="1734">1734</span>
+<span id="1735">1735</span>
+<span id="1736">1736</span>
+<span id="1737">1737</span>
+<span id="1738">1738</span>
+<span id="1739">1739</span>
+<span id="1740">1740</span>
+<span id="1741">1741</span>
+<span id="1742">1742</span>
+<span id="1743">1743</span>
+<span id="1744">1744</span>
+<span id="1745">1745</span>
+<span id="1746">1746</span>
+<span id="1747">1747</span>
+<span id="1748">1748</span>
+<span id="1749">1749</span>
+<span id="1750">1750</span>
+<span id="1751">1751</span>
+<span id="1752">1752</span>
+<span id="1753">1753</span>
+<span id="1754">1754</span>
+<span id="1755">1755</span>
+<span id="1756">1756</span>
+<span id="1757">1757</span>
+<span id="1758">1758</span>
+<span id="1759">1759</span>
+<span id="1760">1760</span>
+<span id="1761">1761</span>
+<span id="1762">1762</span>
+<span id="1763">1763</span>
+<span id="1764">1764</span>
+<span id="1765">1765</span>
+<span id="1766">1766</span>
+<span id="1767">1767</span>
+<span id="1768">1768</span>
+<span id="1769">1769</span>
+<span id="1770">1770</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::<span class="ident">Extern</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::<span class="ident">Store</span>;
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::<span class="ident">Val</span>;
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">Val</span>, <span class="ident">ValFuncRef</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">FunctionType</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">NativeFunc</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">RuntimeError</span>;
@@ -1737,7 +1790,7 @@
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Export</span>, <span class="ident">ExportFunction</span>, <span class="ident">ExportFunctionMetadata</span>};
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
     <span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">wasmer_call_trampoline</span>, <span class="ident">ImportInitializerFuncPtr</span>,
-    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMExportFunction</span>, <span class="ident">VMFunctionBody</span>,
+    <span class="ident">VMCallerCheckedAnyfunc</span>, <span class="ident">VMDynamicFunctionContext</span>, <span class="ident">VMExportFunction</span>, <span class="ident">VMFuncRef</span>, <span class="ident">VMFunctionBody</span>,
     <span class="ident">VMFunctionEnvironment</span>, <span class="ident">VMFunctionKind</span>, <span class="ident">VMTrampoline</span>,
 };
 
@@ -1787,6 +1840,30 @@
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">definition</span>: <span class="ident">FunctionDefinition</span>,
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">exported</span>: <span class="ident">ExportFunction</span>,
+}
+
+<span class="kw">impl</span> <span class="ident">wasmer_types</span>::<span class="ident">WasmValueType</span> <span class="kw">for</span> <span class="ident">Function</span> {
+    <span class="doccomment">/// Write the value.</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">write_value_to</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">p</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">i128</span>) {
+        <span class="kw">let</span> <span class="ident">func_ref</span> <span class="op">=</span>
+            <span class="ident">Val</span>::<span class="ident">into_vm_funcref</span>(<span class="kw-2">&amp;</span><span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">Some</span>(<span class="self">self</span>.<span class="ident">clone</span>())), <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>).<span class="ident">unwrap</span>();
+        <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">write</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">VMFuncRef</span>, <span class="ident">func_ref</span>);
+    }
+
+    <span class="doccomment">/// Read the value.</span>
+    <span class="comment">// TODO(reftypes): this entire function should be cleaned up, `dyn Any` should</span>
+    <span class="comment">// ideally be removed</span>
+    <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">read_value_from</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">std</span>::<span class="ident">any</span>::<span class="ident">Any</span>, <span class="ident">p</span>: <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">i128</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+        <span class="kw">let</span> <span class="ident">func_ref</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">ptr</span>::<span class="ident">read</span>(<span class="ident">p</span> <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">VMFuncRef</span>);
+        <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="ident">store</span>.<span class="ident">downcast_ref</span>::<span class="op">&lt;</span><span class="ident">Store</span><span class="op">&gt;</span>().<span class="ident">expect</span>(<span class="string">&quot;Store expected in `Function::read_value_from`. If you see this error message it likely means you&#39;re using a function ref in a place we don&#39;t yet support it -- sorry about the inconvenience.&quot;</span>);
+        <span class="kw">match</span> <span class="ident">Val</span>::<span class="ident">from_vm_funcref</span>(<span class="ident">func_ref</span>, <span class="ident">store</span>) {
+            <span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">Some</span>(<span class="ident">fr</span>)) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">fr</span>,
+            <span class="comment">// these bottom two cases indicate bugs in `wasmer-types` or elsewhere.</span>
+            <span class="comment">// They should never be triggered, so we just panic.</span>
+            <span class="ident">Val</span>::<span class="ident">FuncRef</span>(<span class="prelude-val">None</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Null funcref found in `Function::read_value_from`!&quot;</span>),
+            <span class="ident">other</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(<span class="string">&quot;Invalid value in `Function::read_value_from`: {:?}&quot;</span>, <span class="ident">other</span>),
+        }
+    }
 }
 
 <span class="kw">fn</span> <span class="ident">build_export_function_metadata</span><span class="op">&lt;</span><span class="ident">Env</span><span class="op">&gt;</span>(
@@ -1873,6 +1950,7 @@
         <span class="kw">let</span> <span class="ident">dynamic_ctx</span>: <span class="ident">VMDynamicFunctionContext</span><span class="op">&lt;</span><span class="ident">DynamicFunctionWithoutEnv</span><span class="op">&gt;</span> <span class="op">=</span>
             <span class="ident">VMDynamicFunctionContext</span>::<span class="ident">from_context</span>(<span class="ident">DynamicFunctionWithoutEnv</span> {
                 <span class="ident">func</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">func</span>),
+                <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
                 <span class="ident">function_type</span>: <span class="ident">ty</span>.<span class="ident">clone</span>(),
             });
         <span class="comment">// We don&#39;t yet have the address with the Wasm ABI signature.</span>
@@ -1980,6 +2058,7 @@
             <span class="ident">VMDynamicFunctionContext</span>::<span class="ident">from_context</span>(<span class="ident">DynamicFunctionWithEnv</span> {
                 <span class="ident">env</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">env</span>),
                 <span class="ident">func</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">func</span>),
+                <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
                 <span class="ident">function_type</span>: <span class="ident">ty</span>.<span class="ident">clone</span>(),
             });
 
@@ -2265,7 +2344,7 @@
         <span class="kw">for</span> (<span class="ident">index</span>, <span class="kw-2">&amp;</span><span class="ident">value_type</span>) <span class="kw">in</span> <span class="ident">signature</span>.<span class="ident">results</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
             <span class="kw">unsafe</span> {
                 <span class="kw">let</span> <span class="ident">ptr</span> <span class="op">=</span> <span class="ident">values_vec</span>.<span class="ident">as_ptr</span>().<span class="ident">add</span>(<span class="ident">index</span>);
-                <span class="ident">results</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Val</span>::<span class="ident">read_value_from</span>(<span class="ident">ptr</span>, <span class="ident">value_type</span>);
+                <span class="ident">results</span>[<span class="ident">index</span>] <span class="op">=</span> <span class="ident">Val</span>::<span class="ident">read_value_from</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>, <span class="ident">ptr</span>, <span class="ident">value_type</span>);
             }
         }
 
@@ -2348,6 +2427,7 @@
             <span class="ident">FunctionDefinition</span>::<span class="ident">Wasm</span>(<span class="ident">wasm</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="self">self</span>.<span class="ident">call_wasm</span>(<span class="kw-2">&amp;</span><span class="ident">wasm</span>, <span class="ident">params</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">results</span>)<span class="question-mark">?</span>;
             }
+            <span class="comment">// TODO: we can trivially hit this, look into it</span>
             <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;The function definition isn&#39;t supported for the moment&quot;</span>),
         }
 
@@ -2372,16 +2452,14 @@
         }
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">checked_anyfunc</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMCallerCheckedAnyfunc</span> {
-        <span class="kw">let</span> <span class="ident">vmsignature</span> <span class="op">=</span> <span class="self">self</span>
-            .<span class="ident">store</span>
-            .<span class="ident">engine</span>()
-            .<span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">signature</span>);
-        <span class="ident">VMCallerCheckedAnyfunc</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">vm_funcref</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">VMFuncRef</span> {
+        <span class="kw">let</span> <span class="ident">engine</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">engine</span>();
+        <span class="kw">let</span> <span class="ident">vmsignature</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">register_signature</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">signature</span>);
+        <span class="ident">engine</span>.<span class="ident">register_function_metadata</span>(<span class="ident">VMCallerCheckedAnyfunc</span> {
             <span class="ident">func_ptr</span>: <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">address</span>,
             <span class="ident">type_index</span>: <span class="ident">vmsignature</span>,
             <span class="ident">vmctx</span>: <span class="self">self</span>.<span class="ident">exported</span>.<span class="ident">vm_function</span>.<span class="ident">vmctx</span>,
-        }
+        })
     }
 
     <span class="doccomment">/// Transform this WebAssembly function into a function with the</span>
@@ -2531,6 +2609,7 @@
 <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">trait</span> <span class="ident">VMDynamicFunction</span>: <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> {
     <span class="kw">fn</span> <span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">args</span>: <span class="kw-2">&amp;</span>[<span class="ident">Val</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span>;
     <span class="kw">fn</span> <span class="ident">function_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">FunctionType</span>;
+    <span class="kw">fn</span> <span class="ident">store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Store</span>;
 }
 
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>)]</span>
@@ -2538,6 +2617,7 @@
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">type_complexity</span>)]</span>
     <span class="ident">func</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span>[<span class="ident">Val</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>,
     <span class="ident">function_type</span>: <span class="ident">FunctionType</span>,
+    <span class="ident">store</span>: <span class="ident">Store</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">VMDynamicFunction</span> <span class="kw">for</span> <span class="ident">DynamicFunctionWithoutEnv</span> {
@@ -2546,6 +2626,9 @@
     }
     <span class="kw">fn</span> <span class="ident">function_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">FunctionType</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">function_type</span>
+    }
+    <span class="kw">fn</span> <span class="ident">store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Store</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>
     }
 }
 
@@ -2556,6 +2639,7 @@
     <span class="ident">function_type</span>: <span class="ident">FunctionType</span>,
     <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">clippy</span>::<span class="ident">type_complexity</span>)]</span>
     <span class="ident">func</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">Fn</span>(<span class="kw-2">&amp;</span><span class="ident">Env</span>, <span class="kw-2">&amp;</span>[<span class="ident">Val</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> <span class="op">+</span> <span class="lifetime">&#39;static</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span><span class="op">&gt;</span>,
+    <span class="ident">store</span>: <span class="ident">Store</span>,
     <span class="ident">env</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">Env</span><span class="op">&gt;</span>,
 }
 
@@ -2564,6 +2648,7 @@
         <span class="self">Self</span> {
             <span class="ident">env</span>: <span class="self">self</span>.<span class="ident">env</span>.<span class="ident">clone</span>(),
             <span class="ident">function_type</span>: <span class="self">self</span>.<span class="ident">function_type</span>.<span class="ident">clone</span>(),
+            <span class="ident">store</span>: <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">clone</span>(),
             <span class="ident">func</span>: <span class="self">self</span>.<span class="ident">func</span>.<span class="ident">clone</span>(),
         }
     }
@@ -2578,6 +2663,9 @@
     }
     <span class="kw">fn</span> <span class="ident">function_type</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">FunctionType</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">function_type</span>
+    }
+    <span class="kw">fn</span> <span class="ident">store</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">Store</span> {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>
     }
 }
 
@@ -2611,8 +2699,9 @@
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">panic</span>::<span class="ident">catch_unwind</span>(<span class="ident">AssertUnwindSafe</span>(<span class="op">|</span><span class="op">|</span> {
             <span class="kw">let</span> <span class="ident">func_ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">function_type</span>();
             <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">args</span> <span class="op">=</span> <span class="ident">Vec</span>::<span class="ident">with_capacity</span>(<span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">len</span>());
+            <span class="kw">let</span> <span class="ident">store</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">store</span>();
             <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">ty</span>) <span class="kw">in</span> <span class="ident">func_ty</span>.<span class="ident">params</span>().<span class="ident">iter</span>().<span class="ident">enumerate</span>() {
-                <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">Val</span>::<span class="ident">read_value_from</span>(<span class="ident">values_vec</span>.<span class="ident">add</span>(<span class="ident">i</span>), <span class="kw-2">*</span><span class="ident">ty</span>));
+                <span class="ident">args</span>.<span class="ident">push</span>(<span class="ident">Val</span>::<span class="ident">read_value_from</span>(<span class="ident">store</span>, <span class="ident">values_vec</span>.<span class="ident">add</span>(<span class="ident">i</span>), <span class="kw-2">*</span><span class="ident">ty</span>));
             }
             <span class="kw">let</span> <span class="ident">returns</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">ctx</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span><span class="ident">args</span>)<span class="question-mark">?</span>;
 
@@ -2630,7 +2719,9 @@
                 <span class="ident">ret</span>.<span class="ident">write_value_to</span>(<span class="ident">values_vec</span>.<span class="ident">add</span>(<span class="ident">i</span>));
             }
             <span class="prelude-val">Ok</span>(())
-        }));
+        })); <span class="comment">// We get extern ref drops at the end of this block that we don&#39;t need.</span>
+             <span class="comment">// By preventing extern ref incs in the code above we can save the work of</span>
+             <span class="comment">// incrementing and decrementing. However the logic as-is is correct.</span>
 
         <span class="kw">match</span> <span class="ident">result</span> {
             <span class="prelude-val">Ok</span>(<span class="prelude-val">Ok</span>(())) <span class="op">=</span><span class="op">&gt;</span> {}
@@ -2648,6 +2739,9 @@
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">marker</span>::<span class="ident">PhantomData</span>;
     <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">panic</span>::{<span class="self">self</span>, <span class="ident">AssertUnwindSafe</span>};
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-reference-types-extern-ref&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">VMExternRef</span>};
     <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">FunctionType</span>, <span class="ident">NativeWasmType</span>, <span class="ident">Type</span>};
     <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">resume_panic</span>, <span class="ident">VMFunctionBody</span>};
 
@@ -2658,7 +2752,7 @@
     <span class="doccomment">/// `FromNativeWasmType` and `ToNativeWasmType` but it creates a</span>
     <span class="doccomment">/// non-negligible complexity in the `WasmTypeList`</span>
     <span class="doccomment">/// implementation.</span>
-    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">FromToNativeWasmType</span>: <span class="ident">Copy</span>
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">trait</span> <span class="ident">FromToNativeWasmType</span>
     <span class="kw">where</span>
         <span class="self">Self</span>: <span class="ident">Sized</span>,
     {
@@ -2739,6 +2833,18 @@
         <span class="ident">f32</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f32</span>,
         <span class="ident">f64</span> <span class="op">=</span><span class="op">&gt;</span> <span class="ident">f64</span>
     );
+
+    <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-reference-types-extern-ref&quot;</span>)]</span>
+    <span class="kw">unsafe</span> <span class="kw">impl</span> <span class="ident">FromToNativeWasmType</span> <span class="kw">for</span> <span class="ident">ExternRef</span> {
+        <span class="kw">type</span> <span class="ident">Native</span> <span class="op">=</span> <span class="ident">VMExternRef</span>;
+
+        <span class="kw">fn</span> <span class="ident">to_native</span>(<span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Native</span> {
+            <span class="self">self</span>.<span class="ident">into</span>()
+        }
+        <span class="kw">fn</span> <span class="ident">from_native</span>(<span class="ident">n</span>: <span class="self">Self</span>::<span class="ident">Native</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+            <span class="ident">n</span>.<span class="ident">into</span>()
+        }
+    }
 
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
     <span class="kw">mod</span> <span class="ident">test_from_to_native_wasm_type</span> {
