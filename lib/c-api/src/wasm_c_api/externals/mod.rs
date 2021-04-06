@@ -32,24 +32,41 @@ mod extern_tests {
 
     #[test]
     fn externs_are_the_same_size() {
-        use std::mem::size_of;
+        use std::mem::{align_of, size_of};
         assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_func_t>());
         assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_memory_t>());
         assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_global_t>());
         assert_eq!(size_of::<wasm_extern_t>(), size_of::<wasm_table_t>());
+
+        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_func_t>());
+        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_memory_t>());
+        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_global_t>());
+        assert_eq!(align_of::<wasm_extern_t>(), align_of::<wasm_table_t>());
+    }
+
+    #[test]
+    fn tags_are_the_same_offset_away() {
+        use field_offset::offset_of;
+
+        let func_tag_offset = offset_of!(wasm_func_t => tag).get_byte_offset();
+        let memory_tag_offset = offset_of!(wasm_memory_t => tag).get_byte_offset();
+        let global_tag_offset = offset_of!(wasm_global_t => tag).get_byte_offset();
+        let table_tag_offset = offset_of!(wasm_table_t => tag).get_byte_offset();
+
+        assert_eq!(func_tag_offset, memory_tag_offset);
+        assert_eq!(global_tag_offset, table_tag_offset);
+        assert_eq!(func_tag_offset, global_tag_offset);
     }
 }
 
 impl Drop for wasm_extern_inner {
     fn drop(&mut self) {
         unsafe {
-            let tag = self.function.tag;
-            dbg!(tag);
-            match tag {
-                CApiExternTag::Function => mem::ManuallyDrop::drop(dbg!(&mut self.function)),
-                CApiExternTag::Global => mem::ManuallyDrop::drop(dbg!(&mut self.global)),
+            match self.function.tag {
+                CApiExternTag::Function => mem::ManuallyDrop::drop(&mut self.function),
+                CApiExternTag::Global => mem::ManuallyDrop::drop(&mut self.global),
                 CApiExternTag::Table => mem::ManuallyDrop::drop(&mut self.table),
-                CApiExternTag::Memory => mem::ManuallyDrop::drop(dbg!(&mut self.memory)),
+                CApiExternTag::Memory => mem::ManuallyDrop::drop(&mut self.memory),
             }
         }
     }
@@ -165,86 +182,68 @@ pub unsafe extern "C" fn wasm_extern_copy(r#extern: &wasm_extern_t) -> Box<wasm_
 pub unsafe extern "C" fn wasm_extern_delete(_extern: Option<Box<wasm_extern_t>>) {}
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_func_as_extern(func: Option<&wasm_func_t>) -> Option<&wasm_extern_t> {
-    std::mem::transmute::<Option<&wasm_func_t>, Option<&wasm_extern_t>>(func)
+pub extern "C" fn wasm_func_as_extern(func: Option<&wasm_func_t>) -> Option<&wasm_extern_t> {
+    unsafe { mem::transmute::<Option<&wasm_func_t>, Option<&wasm_extern_t>>(func) }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_global_as_extern(
-    global: Option<&wasm_global_t>,
-) -> Option<&wasm_extern_t> {
-    std::mem::transmute::<Option<&wasm_global_t>, Option<&wasm_extern_t>>(global)
+pub extern "C" fn wasm_global_as_extern(global: Option<&wasm_global_t>) -> Option<&wasm_extern_t> {
+    unsafe { mem::transmute::<Option<&wasm_global_t>, Option<&wasm_extern_t>>(global) }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_memory_as_extern(
-    memory: Option<&wasm_memory_t>,
-) -> Option<&wasm_extern_t> {
-    std::mem::transmute::<Option<&wasm_memory_t>, Option<&wasm_extern_t>>(memory)
+pub extern "C" fn wasm_memory_as_extern(memory: Option<&wasm_memory_t>) -> Option<&wasm_extern_t> {
+    unsafe { mem::transmute::<Option<&wasm_memory_t>, Option<&wasm_extern_t>>(memory) }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_table_as_extern(
-    table: Option<&wasm_table_t>,
-) -> Option<&wasm_extern_t> {
-    std::mem::transmute::<Option<&wasm_table_t>, Option<&wasm_extern_t>>(table)
+pub extern "C" fn wasm_table_as_extern(table: Option<&wasm_table_t>) -> Option<&wasm_extern_t> {
+    unsafe { mem::transmute::<Option<&wasm_table_t>, Option<&wasm_extern_t>>(table) }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_func(
-    r#extern: Option<&wasm_extern_t>,
-) -> Option<&wasm_func_t> {
+pub extern "C" fn wasm_extern_as_func(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_func_t> {
     let r#extern = r#extern?;
 
     if r#extern.get_tag() == CApiExternTag::Function {
-        Some(std::mem::transmute::<&wasm_extern_t, &wasm_func_t>(
-            r#extern,
-        ))
+        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_func_t>(r#extern) })
     } else {
         None
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_global(
+pub extern "C" fn wasm_extern_as_global(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_global_t> {
     let r#extern = r#extern?;
 
     if r#extern.get_tag() == CApiExternTag::Global {
-        Some(std::mem::transmute::<&wasm_extern_t, &wasm_global_t>(
-            r#extern,
-        ))
+        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_global_t>(r#extern) })
     } else {
         None
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_memory(
+pub extern "C" fn wasm_extern_as_memory(
     r#extern: Option<&wasm_extern_t>,
 ) -> Option<&wasm_memory_t> {
     let r#extern = r#extern?;
 
     if r#extern.get_tag() == CApiExternTag::Memory {
-        Some(std::mem::transmute::<&wasm_extern_t, &wasm_memory_t>(
-            r#extern,
-        ))
+        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_memory_t>(r#extern) })
     } else {
         None
     }
 }
 
 #[no_mangle]
-pub unsafe extern "C" fn wasm_extern_as_table(
-    r#extern: Option<&wasm_extern_t>,
-) -> Option<&wasm_table_t> {
+pub extern "C" fn wasm_extern_as_table(r#extern: Option<&wasm_extern_t>) -> Option<&wasm_table_t> {
     let r#extern = r#extern?;
 
     if r#extern.get_tag() == CApiExternTag::Table {
-        Some(std::mem::transmute::<&wasm_extern_t, &wasm_table_t>(
-            r#extern,
-        ))
+        Some(unsafe { mem::transmute::<&wasm_extern_t, &wasm_table_t>(r#extern) })
     } else {
         None
     }

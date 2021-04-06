@@ -771,6 +771,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-offset"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf539fba70056b50f40a22e0da30639518a12ee18c35807858a63b158cb6dde7"
+dependencies = [
+ "memoffset",
+ "rustc_version 0.3.3",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2332,6 +2342,7 @@ dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
  "enumset",
+ "field-offset",
  "inline-c",
  "lazy_static",
  "libc",
