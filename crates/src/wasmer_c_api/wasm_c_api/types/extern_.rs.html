@@ -371,12 +371,12 @@
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_type</span>(<span class="ident">r#extern</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Box</span><span class="op">&lt;</span><span class="ident">wasm_externtype_t</span><span class="op">&gt;</span> {
-    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_externtype_t</span>::<span class="ident">new</span>(<span class="ident">r#extern</span>.<span class="ident">inner</span>.<span class="ident">ty</span>()))
+    <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_externtype_t</span>::<span class="ident">new</span>(<span class="ident">r#extern</span>.<span class="ident">ty</span>()))
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>
 <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">extern</span> <span class="string">&quot;C&quot;</span> <span class="kw">fn</span> <span class="ident">wasm_extern_kind</span>(<span class="ident">r#extern</span>: <span class="kw-2">&amp;</span><span class="ident">wasm_extern_t</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">wasm_externkind_t</span> {
-    <span class="ident">wasm_externkind_enum</span>::<span class="ident">from</span>(<span class="ident">r#extern</span>.<span class="ident">inner</span>.<span class="ident">ty</span>()) <span class="kw">as</span> <span class="ident">wasm_externkind_t</span>
+    <span class="ident">wasm_externkind_enum</span>::<span class="ident">from</span>(<span class="ident">r#extern</span>.<span class="ident">ty</span>()) <span class="kw">as</span> <span class="ident">wasm_externkind_t</span>
 }
 
 <span class="attribute">#[<span class="ident">no_mangle</span>]</span>

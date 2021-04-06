@@ -198,9 +198,6 @@
 <span id="197">197</span>
 <span id="198">198</span>
 <span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Unstable non-standard Wasmer-specific API that contains more WASI</span>
 <span class="doccomment">//! API.</span>
@@ -393,10 +390,7 @@
             <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasmer_named_extern_t</span> {
                 <span class="ident">module</span>,
                 <span class="ident">name</span>,
-                <span class="ident">r#extern</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">wasm_extern_t</span> {
-                    <span class="ident">instance</span>: <span class="prelude-val">None</span>,
-                    <span class="ident">inner</span>: <span class="ident">extern_inner</span>,
-                }),
+                <span class="ident">r#extern</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">extern_inner</span>.<span class="ident">into</span>()),
             })
         })
         .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
