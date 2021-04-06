@@ -53,9 +53,8 @@ pub unsafe extern "C" fn wasm_instance_new(
         .into_slice()
         .map(|imports| imports.iter())
         .unwrap_or_else(|| [].iter())
-        .map(|imp| &imp.inner)
+        .map(|imp| Extern::from((&**imp).clone()))
         .take(module_import_count)
-        .cloned()
         .collect();
 
     let instance = match Instance::new(wasm_module, &resolver) {
@@ -192,10 +191,7 @@ pub unsafe extern "C" fn wasm_instance_exports(
                 None
             };
 
-            Box::into_raw(Box::new(wasm_extern_t {
-                instance: Some(Arc::clone(instance)),
-                inner: r#extern.clone(),
-            }))
+            Box::into_raw(Box::new(r#extern.clone().into()))
         })
         .collect::<Vec<*mut wasm_extern_t>>();
     extern_vec.shrink_to_fit();
