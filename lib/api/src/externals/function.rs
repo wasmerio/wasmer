@@ -74,7 +74,7 @@ impl wasmer_types::ValueEnumType for Function {
     /// Write the value.
     unsafe fn write_value_to(&self, p: *mut i128) {
         let func_ref =
-            Val::into_checked_anyfunc(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
+            Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
         std::ptr::write(p as *mut VMFuncRef, func_ref);
     }
 
@@ -84,7 +84,7 @@ impl wasmer_types::ValueEnumType for Function {
     unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
         let func_ref = std::ptr::read(p as *const VMFuncRef);
         let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
-        match Val::from_checked_anyfunc(func_ref, store) {
+        match Val::from_vm_funcref(func_ref, store) {
             Val::FuncRef(Some(fr)) => fr,
             // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
             // They should never be triggered, so we just panic.
@@ -680,7 +680,7 @@ impl Function {
         }
     }
 
-    pub(crate) fn checked_anyfunc(&self) -> VMFuncRef {
+    pub(crate) fn vm_funcref(&self) -> VMFuncRef {
         let engine = self.store.engine();
         let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
         engine.register_function_metadata(VMCallerCheckedAnyfunc {

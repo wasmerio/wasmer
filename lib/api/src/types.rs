@@ -37,9 +37,9 @@ impl From<Function> for Val {
 /// It provides useful functions for converting back and forth
 /// from [`Val`] into `FuncRef`.
 pub trait ValFuncRef {
-    fn into_checked_anyfunc(&self, store: &Store) -> Result<VMFuncRef, RuntimeError>;
+    fn into_vm_funcref(&self, store: &Store) -> Result<VMFuncRef, RuntimeError>;
 
-    fn from_checked_anyfunc(item: VMFuncRef, store: &Store) -> Self;
+    fn from_vm_funcref(item: VMFuncRef, store: &Store) -> Self;
 
     fn into_table_reference(&self, store: &Store) -> Result<wasmer_vm::TableElement, RuntimeError>;
 
@@ -47,18 +47,18 @@ pub trait ValFuncRef {
 }
 
 impl ValFuncRef for Val {
-    fn into_checked_anyfunc(&self, store: &Store) -> Result<VMFuncRef, RuntimeError> {
+    fn into_vm_funcref(&self, store: &Store) -> Result<VMFuncRef, RuntimeError> {
         if !self.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         Ok(match self {
             Self::FuncRef(None) => VMFuncRef::null(),
-            Self::FuncRef(Some(f)) => f.checked_anyfunc(),
+            Self::FuncRef(Some(f)) => f.vm_funcref(),
             _ => return Err(RuntimeError::new("val is not func ref")),
         })
     }
 
-    fn from_checked_anyfunc(func_ref: VMFuncRef, store: &Store) -> Self {
+    fn from_vm_funcref(func_ref: VMFuncRef, store: &Store) -> Self {
         if func_ref.is_null() {
             return Self::FuncRef(None);
         }
@@ -100,14 +100,14 @@ impl ValFuncRef for Val {
                 wasmer_vm::TableElement::ExternRef(extern_ref.clone().into())
             }
             Self::FuncRef(None) => wasmer_vm::TableElement::FuncRef(VMFuncRef::null()),
-            Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(f.checked_anyfunc()),
+            Self::FuncRef(Some(f)) => wasmer_vm::TableElement::FuncRef(f.vm_funcref()),
             _ => return Err(RuntimeError::new("val is not reference")),
         })
     }
 
     fn from_table_reference(item: wasmer_vm::TableElement, store: &Store) -> Self {
         match item {
-            wasmer_vm::TableElement::FuncRef(f) => Self::from_checked_anyfunc(f, store),
+            wasmer_vm::TableElement::FuncRef(f) => Self::from_vm_funcref(f, store),
             wasmer_vm::TableElement::ExternRef(extern_ref) => Self::ExternRef(extern_ref.into()),
         }
     }
