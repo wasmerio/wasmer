@@ -27,7 +27,7 @@
 
 <br />
 
-[Wasmer](https://wasmer.io/) は、[WebAssembly](https://webassembly.org/) をベースとした非常に軽量なコンテナを実現します。デスクトップからクラウドや IoT デバイス上まで、どんな環境でも実行でき、さらに[*任意のプログラミング言語*](https://github.com/wasmerio/wasmer#language-integrations)に埋め込むこともできます。
+[Wasmer](https://wasmer.io/) は、[WebAssembly](https://webassembly.org/) をベースとした非常に軽量なコンテナを実現します。デスクトップからクラウドや IoT デバイス上まで、どんな環境でも実行でき、さらに[*任意のプログラミング言語*](#他の言語とのインテグレーション)に埋め込むこともできます。
 
 > この readme は、次の言語でも利用可能です。[🇨🇳 中文-Chinese](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇬🇧 英語-English](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇪🇸 Español-Spanish](https://github.com/wasmerio/wasmer/blob/master/docs/es/README.md) • [🇫🇷 Français-French](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md)
 
@@ -41,7 +41,7 @@
 
 * **標準に準拠**。ランタイムは[公式の WebAssembly テストスイート](https://github.com/WebAssembly/testsuite)に通っており、[WASI](https://github.com/WebAssembly/WASI) と [Emscripten](https://emscripten.org/) をサポートします。
 
-## クリックスタート
+## クイックスタート
 
 Wasmer は依存関係なしで動作します。以下のコマンドでインストーラーを使用してインストールできます。
 
