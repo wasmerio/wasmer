@@ -92,10 +92,7 @@ impl EmEnv {
     }
 
     pub fn set_memory(&mut self, memory: Memory) {
-        let ptr = Arc::as_ptr(&self.memory) as *mut _;
-        unsafe {
-            *ptr = Some(memory);
-        }
+        Arc::make_mut(&mut self.memory).replace(memory);
     }
 
     /// Get a reference to the memory
