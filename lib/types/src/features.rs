@@ -168,10 +168,10 @@ impl Features {
         self
     }
 
-    /// Configures whether the WebAssembly tail-call proposal will
+    /// Configures whether the WebAssembly module linking proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly tail-call proposal][proposal] is not
+    /// The [WebAssembly module linking proposal][proposal] is not
     /// currently fully standardized and is undergoing development.
     /// Support for this feature can be enabled through this method for
     /// appropriate WebAssembly modules.
