@@ -1,2 +1,5 @@
 wasmer:
   language: rust
+  deps:
+    - run: apt update
+    - run: apt install zlib-dev libffi-dev
