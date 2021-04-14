@@ -125,6 +125,13 @@ impl Config {
                 self.add_middlewares(&mut compiler);
                 Box::new(compiler)
             }
+            #[cfg(feature = "test-singlepass-2")]
+            Compiler::Singlepass2 => {
+                let mut compiler = wasmer_compiler_singlepass_2::Singlepass::new();
+                compiler.canonicalize_nans(canonicalize_nans);
+                compiler.enable_verifier();
+                compiler
+            }
             #[allow(unreachable_patterns)]
             compiler => {
                 panic!(

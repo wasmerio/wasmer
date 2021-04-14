@@ -3,6 +3,12 @@
 version = 3
 
 [[package]]
+name = "abort_on_panic"
+version = "2.0.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "955f37ac58af2416bac687c8ab66a4ccba282229bd7422a28d2281a5e66a6116"
+
+[[package]]
 name = "addr2line"
 version = "0.16.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2716,6 +2722,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-compiler-singlepass-2"
+version = "0.0.1"
+dependencies = [
+ "byteorder",
+ "dynasm",
+ "dynasmrt",
+ "hashbrown 0.9.1",
+ "lazy_static",
+ "more-asserts",
+ "rayon",
+ "serde",
+ "smallvec",
+ "target-lexicon",
+ "wasmer-compiler",
+ "wasmer-types",
+ "wasmer-vm",
+]
+
+[[package]]
 name = "wasmer-derive"
 version = "2.0.0"
 dependencies = [
@@ -2987,6 +3012,7 @@ dependencies = [
  "wasmer-compiler-cranelift",
  "wasmer-compiler-llvm",
  "wasmer-compiler-singlepass",
+ "wasmer-compiler-singlepass-2",
  "wasmer-emscripten",
  "wasmer-engine",
  "wasmer-engine-dummy",

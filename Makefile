@@ -526,6 +526,9 @@ test-compilers-compat: $(foreach compiler,$(compilers),test-$(compiler))
 test-singlepass-dylib:
 	cargo test --release --tests $(compiler_features) -- singlepass::dylib
 
+test-singlepass-2-native:
+	cargo test --release $(compiler_features) --features "test-singlepass-2 test-native"
+
 test-singlepass-universal:
 	cargo test --release --tests $(compiler_features) -- singlepass::universal
 
@@ -542,6 +545,8 @@ test-llvm-universal:
 	cargo test --release --tests $(compiler_features) -- llvm::universal
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
+
+test-singlepass-2: $(foreach singlepass_engine,$(filter singlepass-2-%,$(compilers_engines)),test-$(singlepass_engine))
 
 test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(compilers_engines)),test-$(cranelift_engine))
 
