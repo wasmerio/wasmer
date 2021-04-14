@@ -29,6 +29,11 @@ pub fn get_compiler(canonicalize_nans: bool) -> impl CompilerConfig {
             compiler.canonicalize_nans(canonicalize_nans);
             compiler.enable_verifier();
             compiler
+        } else if #[cfg(feature = "test-singlepass-2")] {
+            let mut compiler = wasmer_compiler_singlepass_2::Singlepass::new();
+            compiler.canonicalize_nans(canonicalize_nans);
+            compiler.enable_verifier();
+            compiler
         } else {
             compile_error!("No compiler chosen for the tests")
         }

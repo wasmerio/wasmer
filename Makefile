@@ -247,6 +247,9 @@ test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examp
 test-singlepass-native:
 	cargo test --release $(compiler_features) --features "test-singlepass test-native"
 
+test-singlepass-2-native:
+	cargo test --release $(compiler_features) --features "test-singlepass-2 test-native"
+
 test-singlepass-jit:
 	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
 
@@ -263,6 +266,8 @@ test-llvm-jit:
 	cargo test --release $(compiler_features) --features "test-llvm test-jit"
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(test_compilers_engines)),test-$(singlepass_engine))
+
+test-singlepass-2: $(foreach singlepass_engine,$(filter singlepass-2-%,$(test_compilers_engines)),test-$(singlepass_engine))
 
 test-cranelift: $(foreach cranelift_engine,$(filter cranelift-%,$(test_compilers_engines)),test-$(cranelift_engine))
 
