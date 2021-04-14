@@ -1,9 +1,10 @@
 wasmer:
   language: rust
   features:
+    - jit
+    - native
     - cranelift
     - singlepass
   deps:
     - run: apt update
     - run: apt install -y zlib1g-dev libffi-dev
-    - run: make test
