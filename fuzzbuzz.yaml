@@ -6,3 +6,4 @@ wasmer:
   deps:
     - run: apt update
     - run: apt install -y zlib1g-dev libffi-dev
+    - run: make test
