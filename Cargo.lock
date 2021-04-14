@@ -2741,6 +2741,25 @@ dependencies = [
 ]
 
 [[package]]
+name = "wasmer-compiler-singlepass-2"
+version = "0.0.1"
+dependencies = [
+ "byteorder",
+ "dynasm",
+ "dynasmrt",
+ "hashbrown 0.9.1",
+ "lazy_static",
+ "more-asserts",
+ "rayon",
+ "serde",
+ "smallvec",
+ "target-lexicon",
+ "wasmer-compiler",
+ "wasmer-types",
+ "wasmer-vm",
+]
+
+[[package]]
 name = "wasmer-derive"
 version = "2.0.0"
 dependencies = [
