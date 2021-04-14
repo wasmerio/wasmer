@@ -475,8 +475,7 @@ impl EmscriptenGlobals {
             minimum: table_min,
             maximum: table_max,
         };
-        // TODO: review init value
-        let table = Table::new(store, table_type, Val::null()).unwrap();
+        let table = Table::new(store, table_type, Val::FuncRef(None)).unwrap();
 
         let data = {
             let static_bump = STATIC_BUMP;
