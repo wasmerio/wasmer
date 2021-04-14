@@ -1,0 +1,38 @@
+[package]
+name = "wasmer-compiler-singlepass-2"
+version = "0.0.1"
+description = "Singlepass compiler for Wasmer WebAssembly runtime"
+categories = ["wasm"]
+keywords = ["wasm", "webassembly", "compiler", "singlepass"]
+authors = ["Wasmer Engineering Team <engineering@wasmer.io>", "James Blacklock <jamesblacklock@protonmail.com>"]
+repository = "https://github.com/wasmerio/wasmer"
+documentation = "https://docs.rs/wasmer-compiler-singlepass/"
+license = "MIT"
+readme = "README.md"
+edition = "2018"
+
+[dependencies]
+wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
+wasmer-vm = { path = "../vm", version = "1.0.2" }
+wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false, features = ["std"] }
+rayon = "1.5"
+hashbrown = { version = "0.9", optional = true }
+serde = { version = "1.0", features = ["derive"] }
+more-asserts = "0.2"
+dynasm = "1.0"
+dynasmrt = "1.0"
+lazy_static = "1.4"
+byteorder = "1.3"
+smallvec = "1.6"
+
+[dev-dependencies]
+target-lexicon = { version = "0.11", default-features = false }
+
+[badges]
+maintenance = { status = "actively-developed" }
+
+[features]
+default = ["std", "enable-serde"]
+enable-serde = ["wasmer-compiler/enable-serde", "wasmer-types/enable-serde"]
+std = ["wasmer-compiler/std", "wasmer-types/std"]
+core = ["hashbrown"]
