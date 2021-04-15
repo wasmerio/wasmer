@@ -2,7 +2,6 @@ wasmer:
   language: rust
   features:
     - jit
-    - native
     - cranelift
     - singlepass
   deps:
