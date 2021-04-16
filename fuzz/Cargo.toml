@@ -61,8 +61,3 @@ required-features = ["jit", "cranelift"]
 name = "native_cranelift"
 path = "fuzz_targets/native_cranelift.rs"
 required-features = ["native", "cranelift"]
-
-[[bin]]
-name = "validate"
-path = "fuzz_targets/validate.rs"
-required-features = ["jit", "cranelift"]
