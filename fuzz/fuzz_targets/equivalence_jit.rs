@@ -31,6 +31,21 @@ impl Config for ExportedFunctionConfig {
     }
 }
 
+#[derive(Arbitrary)]
+struct WasmSmithModule(ConfiguredModule<ExportedFunctionConfig>);
+impl Default for WasmSmithModule {
+    fn default() -> Self {
+        let mut inner = ConfiguredModule::<ExportedFunctionConfig>::default();
+        inner.ensure_termination(100000);
+        Self(inner)
+    }
+}
+impl std::fmt::Debug for WasmSmithModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
+    }
+}
+
 #[cfg(feature = "singlepass")]
 fn maybe_instantiate_singlepass(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
     let compiler = Singlepass::default();
@@ -73,66 +88,89 @@ fn maybe_instantiate_llvm(wasm_bytes: &[u8]) -> Result<Option<Instance>> {
 }
 
 #[derive(Debug)]
-enum InstanceResult {
+enum FunctionResult {
     Error(String),
     Values(Vec<Val>),
 }
 
-impl PartialEq for InstanceResult {
+#[derive(Debug, PartialEq, Eq)]
+enum InstanceResult {
+    Error(String),
+    Functions(Vec<FunctionResult>),
+}
+
+impl PartialEq for FunctionResult {
     fn eq(&self, other: &Self) -> bool {
+        /*
         match self {
-            InstanceResult::Error(self_message) => {
-                if let InstanceResult::Error(other_message) = other {
+            FunctionResult::Error(self_message) => {
+                if let FunctionResult::Error(other_message) = other {
                     return self_message == other_message;
                 }
             }
-            InstanceResult::Values(self_values) => {
-                if let InstanceResult::Values(other_values) = other {
+            FunctionResult::Values(self_values) => {
+                if let FunctionResult::Values(other_values) = other {
                     return self_values == other_values;
                 }
             }
         }
         false
+         */
+        match (self, other) {
+            (FunctionResult::Values(self_values), FunctionResult::Values(other_values)) => {
+                self_values.len() == other_values.len()
+                    && self_values
+                        .iter()
+                        .zip(other_values.iter())
+                        .all(|(x, y)| match (x, y) {
+                            (Val::F32(x), Val::F32(y)) => x.to_bits() == y.to_bits(),
+                            (Val::F64(x), Val::F64(y)) => x.to_bits() == y.to_bits(),
+                            _ => x == y,
+                        })
+            }
+            _ => true,
+        }
     }
 }
 
-impl Eq for InstanceResult {}
+impl Eq for FunctionResult {}
 
-fn evaluate_instance(instance: Result<Instance>) -> Vec<InstanceResult> {
-    let mut results = vec![];
-
-    if let Err(err) = instance {
-        let mut error_message = format!("{}", err);
+fn evaluate_instance(instance: Result<Instance>) -> InstanceResult {
+    if let Err(_err) = instance {
+        /*let mut error_message = format!("{}", err);
         // Remove the stack trace.
         if error_message.starts_with("RuntimeError: unreachable\n") {
             error_message = "RuntimeError: unreachable\n".into();
         }
-        results.push(InstanceResult::Error(error_message));
+        InstanceResult::Error(error_message)*/
+        InstanceResult::Error("".into())
     } else {
         let instance = instance.unwrap();
+        let mut results = vec![];
         for it in instance.exports.iter().functions() {
             let (_, f) = it;
             // TODO: support functions which take params.
             if f.ty().params().is_empty() {
                 let result = f.call(&[]);
                 let result = if let Ok(values) = result {
-                    InstanceResult::Values(values.into())
+                    FunctionResult::Values(values.into())
                 } else {
+                    /*
                     let err = result.unwrap_err();
                     let error_message = err.message();
-                    InstanceResult::Error(error_message)
+                    FunctionResult::Error(error_message)
+                     */
+                    FunctionResult::Error("".into())
                 };
                 results.push(result);
             }
         }
+        InstanceResult::Functions(results)
     }
-    results
 }
 
-fuzz_target!(|module: ConfiguredModule<ExportedFunctionConfig>| {
-    let mut module = module;
-    module.ensure_termination(100000);
-    let wasm_bytes = module.to_bytes();
+fuzz_target!(|module: WasmSmithModule| {
+    let wasm_bytes = module.0.to_bytes();
 
     #[cfg(feature = "singlepass")]
     let singlepass = maybe_instantiate_singlepass(&wasm_bytes)
