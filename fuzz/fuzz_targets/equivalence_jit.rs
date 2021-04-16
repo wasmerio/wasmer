@@ -31,13 +31,12 @@ impl Config for ExportedFunctionConfig {
     }
 }
 
-#[derive(Arbitrary)]
 struct WasmSmithModule(ConfiguredModule<ExportedFunctionConfig>);
-impl Default for WasmSmithModule {
-    fn default() -> Self {
-        let mut inner = ConfiguredModule::<ExportedFunctionConfig>::default();
-        inner.ensure_termination(100000);
-        Self(inner)
+impl<'a> arbitrary::Arbitrary<'a> for WasmSmithModule {
+    fn arbitrary(u: &mut arbitrary::Unstructured<'a>) -> arbitrary::Result<Self> {
+        let mut module = ConfiguredModule::<ExportedFunctionConfig>::arbitrary(u)?;
+        module.ensure_termination(100000);
+        Ok(WasmSmithModule(module))
     }
 }
 impl std::fmt::Debug for WasmSmithModule {
