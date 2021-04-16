@@ -31,6 +31,15 @@ impl std::fmt::Debug for WasmSmithModule {
 fuzz_target!(|module: WasmSmithModule| {
     let serialized = {
         let wasm_bytes = module.0.to_bytes();
+
+        if let Ok(path) = std::env::var("DUMP_TESTCASE") {
+            use std::fs::File;
+            use std::io::Write;
+            let mut file = File::create(path).unwrap();
+            file.write_all(&wasm_bytes).unwrap();
+            return;
+        }
+
         let compiler = Cranelift::default();
         let store = Store::new(&Native::new(compiler).engine());
         let module = Module::new(&store, &wasm_bytes).unwrap();

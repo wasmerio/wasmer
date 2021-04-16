@@ -30,6 +30,15 @@ impl std::fmt::Debug for WasmSmithModule {
 
 fuzz_target!(|module: WasmSmithModule| {
     let wasm_bytes = module.0.to_bytes();
+
+    if let Ok(path) = std::env::var("DUMP_TESTCASE") {
+        use std::fs::File;
+        use std::io::Write;
+        let mut file = File::create(path).unwrap();
+        file.write_all(&wasm_bytes).unwrap();
+        return;
+    }
+
     let mut compiler = LLVM::default();
     compiler.canonicalize_nans(true);
     compiler.enable_verifier();
