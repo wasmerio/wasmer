@@ -733,6 +733,8 @@
 <span id="732">732</span>
 <span id="733">733</span>
 <span id="734">734</span>
+<span id="735">735</span>
+<span id="736">736</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">unix</span>)]</span>
 <span class="kw">mod</span> <span class="ident">unix</span>;
@@ -1092,8 +1094,9 @@
     <span class="kw">let</span> <span class="ident">path</span> <span class="op">=</span> <span class="ident">get_current_directory</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">path_string</span> <span class="op">=</span> <span class="ident">path</span>.<span class="ident">unwrap</span>().<span class="ident">display</span>().<span class="ident">to_string</span>();
     <span class="kw">let</span> <span class="ident">len</span> <span class="op">=</span> <span class="ident">path_string</span>.<span class="ident">len</span>();
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">buf_writer</span> <span class="op">=</span> <span class="ident">buf_offset</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>), <span class="number">0</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">buf_writer</span> <span class="op">=</span> <span class="ident">buf_offset</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>, <span class="number">0</span>, <span class="ident">len</span> <span class="kw">as</span> <span class="ident">u32</span> <span class="op">+</span> <span class="number">1</span>).<span class="ident">unwrap</span>();
     <span class="kw">for</span> (<span class="ident">i</span>, <span class="ident">byte</span>) <span class="kw">in</span> <span class="ident">path_string</span>.<span class="ident">bytes</span>().<span class="ident">enumerate</span>() {
         <span class="ident">buf_writer</span>[<span class="ident">i</span>].<span class="ident">set</span>(<span class="ident">byte</span> <span class="kw">as</span> <span class="kw">_</span>);
     }
@@ -1147,8 +1150,9 @@
     <span class="kw">let</span> <span class="ident">whence</span>: <span class="ident">i32</span> <span class="op">=</span> <span class="ident">varargs</span>.<span class="ident">get</span>(<span class="ident">ctx</span>);
     <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">offset_low</span>;
     <span class="kw">let</span> <span class="ident">ret</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">lseek</span>(<span class="ident">fd</span>, <span class="ident">offset</span> <span class="kw">as</span> <span class="kw">_</span>, <span class="ident">whence</span>) <span class="kw">as</span> <span class="ident">i64</span> };
+    <span class="kw">let</span> <span class="ident">memory</span> <span class="op">=</span> <span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>);
 
-    <span class="kw">let</span> <span class="ident">result_ptr</span> <span class="op">=</span> <span class="ident">result_ptr_value</span>.<span class="ident">deref</span>(<span class="ident">ctx</span>.<span class="ident">memory</span>(<span class="number">0</span>)).<span class="ident">unwrap</span>();
+    <span class="kw">let</span> <span class="ident">result_ptr</span> <span class="op">=</span> <span class="ident">result_ptr_value</span>.<span class="ident">deref</span>(<span class="kw-2">&amp;</span><span class="ident">memory</span>).<span class="ident">unwrap</span>();
     <span class="ident">result_ptr</span>.<span class="ident">set</span>(<span class="ident">ret</span>);
 
     <span class="macro">debug</span><span class="macro">!</span>(
