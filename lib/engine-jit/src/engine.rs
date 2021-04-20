@@ -13,8 +13,8 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::Features;
 use wasmer_types::{FunctionIndex, FunctionType, LocalFunctionIndex, SignatureIndex};
 use wasmer_vm::{
-    FunctionBodyPtr, ModuleInfo, SectionBodyPtr, SignatureRegistry, VMFunctionBody,
-    VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, ModuleInfo, SectionBodyPtr, SignatureRegistry,
+    VMCallerCheckedAnyfunc, VMFuncRef, VMFunctionBody, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A WebAssembly `JIT` Engine.
@@ -35,6 +35,7 @@ impl JITEngine {
                 compiler: Some(compiler),
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
+                func_data: Arc::new(FuncDataRegistry::new()),
                 features,
             })),
             target: Arc::new(target),
@@ -62,6 +63,7 @@ impl JITEngine {
                 compiler: None,
                 code_memory: vec![],
                 signatures: SignatureRegistry::new(),
+                func_data: Arc::new(FuncDataRegistry::new()),
                 features: Features::default(),
             })),
             target: Arc::new(Target::default()),
@@ -88,6 +90,11 @@ impl Engine for JITEngine {
     fn register_signature(&self, func_type: &FunctionType) -> VMSharedSignatureIndex {
         let compiler = self.inner();
         compiler.signatures().register(func_type)
+    }
+
+    fn register_function_metadata(&self, func_data: VMCallerCheckedAnyfunc) -> VMFuncRef {
+        let compiler = self.inner();
+        compiler.func_data().register(func_data)
     }
 
     /// Lookup a signature
@@ -152,6 +159,10 @@ pub struct JITEngineInner {
     /// The signature registry is used mainly to operate with trampolines
     /// performantly.
     signatures: SignatureRegistry,
+    /// The backing storage of `VMFuncRef`s. This centralized store ensures that 2
+    /// functions with the same `VMCallerCheckedAnyfunc` will have the same `VMFuncRef`.
+    /// It also guarantees that the `VMFuncRef`s stay valid until the engine is dropped.
+    func_data: Arc<FuncDataRegistry>,
 }
 
 impl JITEngineInner {
@@ -298,5 +309,10 @@ impl JITEngineInner {
     /// Shared signature registry.
     pub fn signatures(&self) -> &SignatureRegistry {
         &self.signatures
+    }
+
+    /// Shared func metadata registry.
+    pub(crate) fn func_data(&self) -> &Arc<FuncDataRegistry> {
+        &self.func_data
     }
 }
