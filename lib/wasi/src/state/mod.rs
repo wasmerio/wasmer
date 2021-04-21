@@ -784,7 +784,7 @@ impl WasiFs {
                             let file_type = metadata.file_type();
                             // we want to insert newly opened dirs and files, but not transient symlinks
                             // TODO: explain why (think about this deeply when well rested)
-                            let mut should_insert = false;
+                            let should_insert;
 
                             let kind = if file_type.is_dir() {
                                 should_insert = true;
@@ -803,6 +803,7 @@ impl WasiFs {
                                     fd: None,
                                 }
                             } else if file_type.is_symlink() {
+                                should_insert = false;
                                 let link_value = file.read_link().ok().ok_or(__WASI_EIO)?;
                                 debug!("attempting to decompose path {:?}", link_value);
 
@@ -957,18 +958,15 @@ impl WasiFs {
         Ok(cur_inode)
     }
 
-    /// Splits a path into the first preopened directory that is a parent of it,
-    /// if such a preopened directory exists, and the rest of the path.
-    ///
-    /// NOTE: this behavior seems to be not the same as what libpreopen is
-    /// doing in WASI.
-    ///
-    /// TODO: evaluate users of this function and explain why this behavior is
-    /// not the same as libpreopen or update its behavior to be the same.
+    /// Splits a path into the preopened directory that has the largest prefix of
+    /// the given path, if such a preopened directory exists, and the rest of the path.
     fn path_into_pre_open_and_relative_path(
         &self,
         path: &Path,
     ) -> Result<(__wasi_fd_t, PathBuf), __wasi_errno_t> {
+        let mut max_prefix_len = 0;
+        let mut max_stripped_path = None;
+        let mut max_po_fd = None;
         // for each preopened directory
         for po_fd in &self.preopen_fds {
             let po_inode = self.fd_map[po_fd].inode;
@@ -978,46 +976,21 @@ impl WasiFs {
                 _ => unreachable!("Preopened FD that's not a directory or the root"),
             };
             // stem path based on it
-            if let Ok(rest) = path.strip_prefix(po_path) {
-                // if any path meets this criteria
-                // (verify that all remaining components are not symlinks except for maybe last? (or do the more complex logic of resolving intermediary symlinks))
-                // return preopened dir and the rest of the path
-
-                return Ok((*po_fd, rest.to_owned()));
-            }
-        }
-        Err(__WASI_EINVAL) // this may not make sense
-    }
-
-    // if this is still dead code and the year is 2020 or later, please delete this function
-    #[allow(dead_code)]
-    pub(crate) fn path_relative_to_fd(
-        &self,
-        fd: __wasi_fd_t,
-        inode: Inode,
-    ) -> Result<PathBuf, __wasi_errno_t> {
-        let mut stack = vec![];
-        let base_fd = self.get_fd(fd)?;
-        let base_inode = base_fd.inode;
-        let mut cur_inode = inode;
-
-        while cur_inode != base_inode {
-            stack.push(self.inodes[cur_inode].name.clone());
-            match &self.inodes[cur_inode].kind {
-                Kind::Dir { parent, .. } => {
-                    if let Some(p) = parent {
-                        cur_inode = *p;
-                    }
+            if let Ok(stripped_path) = path.strip_prefix(po_path) {
+                // find the max
+                let new_prefix_len = po_path.as_os_str().len();
+                if new_prefix_len >= max_prefix_len {
+                    max_prefix_len = new_prefix_len;
+                    max_stripped_path = Some(stripped_path);
+                    max_po_fd = Some(*po_fd);
                 }
-                _ => return Err(__WASI_EINVAL),
             }
         }
-
-        let mut out = PathBuf::new();
-        for p in stack.iter().rev() {
-            out.push(p);
+        if max_prefix_len == 0 {
+            Err(__WASI_EINVAL) // this may not make sense depending on where it's called
+        } else {
+            Ok((max_po_fd.unwrap(), max_stripped_path.unwrap().to_owned()))
         }
-        Ok(out)
     }
 
     /// finds the number of directories between the fd and the inode if they're connected
