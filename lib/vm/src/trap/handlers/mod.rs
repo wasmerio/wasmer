@@ -61,11 +61,11 @@ static mut IS_WASM_PC: fn(usize) -> bool = |_| true;
 /// program counter is the pc of an actual wasm trap or not. This is then used
 /// to disambiguate faults that happen due to wasm and faults that happen due to
 /// bugs in Rust or elsewhere.
-// pub fn init_traps(is_wasm_pc: fn(usize) -> bool) -> Result<(), Trap> {
-pub fn init_traps() -> Result<(), Trap> {
+pub fn init_traps(is_wasm_pc: fn(usize) -> bool) -> Result<(), Trap> {
+// pub fn init_traps() -> Result<(), Trap> {
     static INIT: Once = Once::new();
     INIT.call_once(|| unsafe {
-        // IS_WASM_PC = is_wasm_pc;
+        IS_WASM_PC = is_wasm_pc;
         sys::platform_init();
     });
     sys::lazy_per_thread_init()

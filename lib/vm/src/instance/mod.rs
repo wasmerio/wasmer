@@ -18,7 +18,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::Table;
-use crate::trap::{catch_traps, init_traps, Trap, TrapCode, TrapInfo};
+use crate::trap::{catch_traps, Trap, TrapCode, TrapInfo};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
@@ -908,9 +908,6 @@ impl InstanceHandle {
             instance.builtin_functions_ptr() as *mut VMBuiltinFunctionsArray,
             VMBuiltinFunctionsArray::initialized(),
         );
-
-        // Ensure that our signal handlers are ready for action.
-        init_traps();
 
         // Perform infallible initialization in this constructor, while fallible
         // initialization is deferred to the `initialize` method.

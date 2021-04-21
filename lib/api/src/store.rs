@@ -5,8 +5,8 @@ use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables};
-use wasmer_vm::{SignalHandler, TrapInfo};
+use wasmer_engine::{Engine, Tunables, is_wasm_pc};
+use wasmer_vm::{SignalHandler, TrapInfo, init_traps};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -30,10 +30,7 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        Self {
-            engine: engine.cloned(),
-            tunables: Arc::new(BaseTunables::for_target(engine.target())),
-        }
+        Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
@@ -41,6 +38,7 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
+        init_traps(is_wasm_pc).expect("Failed to initialize trap handling");
         Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
