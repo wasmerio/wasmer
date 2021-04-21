@@ -27,7 +27,11 @@ use wasmer_types::{
     TableIndex, TableInitializer, TableType,
 };
 
-#[derive(Debug, Clone, MemoryUsage, RkyvSerialize, RkyvDeserialize, Archive)]
+#[derive(Debug, Clone, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ModuleId {
     id: usize,
 }
