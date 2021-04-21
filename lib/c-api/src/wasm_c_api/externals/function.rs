@@ -2,17 +2,27 @@ use super::super::store::wasm_store_t;
 use super::super::trap::wasm_trap_t;
 use super::super::types::{wasm_functype_t, wasm_valkind_enum};
 use super::super::value::{wasm_val_inner, wasm_val_t, wasm_val_vec_t};
+use super::CApiExternTag;
 use std::convert::TryInto;
 use std::ffi::c_void;
 use std::sync::Arc;
-use wasmer::{Function, Instance, RuntimeError, Val};
+use wasmer::{Function, RuntimeError, Val};
 
-#[derive(Debug)]
+#[derive(Debug, Clone)]
 #[allow(non_camel_case_types)]
+#[repr(C)]
 pub struct wasm_func_t {
-    pub(crate) inner: Function,
-    // this is how we ensure the instance stays alive
-    pub(crate) instance: Option<Arc<Instance>>,
+    pub(crate) tag: CApiExternTag,
+    pub(crate) inner: Box<Function>,
+}
+
+impl wasm_func_t {
+    pub(crate) fn new(function: Function) -> Self {
+        Self {
+            tag: CApiExternTag::Function,
+            inner: Box::new(function),
+        }
+    }
 }
 
 #[allow(non_camel_case_types)]
@@ -80,10 +90,7 @@ pub unsafe extern "C" fn wasm_func_new(
     };
     let function = Function::new(&store.inner, func_sig, inner_callback);
 
-    Some(Box::new(wasm_func_t {
-        instance: None,
-        inner: function,
-    }))
+    Some(Box::new(wasm_func_t::new(function)))
 }
 
 #[no_mangle]
@@ -171,10 +178,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
         trampoline,
     );
 
-    Some(Box::new(wasm_func_t {
-        instance: None,
-        inner: function,
-    }))
+    Some(Box::new(wasm_func_t::new(function)))
 }
 
 #[no_mangle]

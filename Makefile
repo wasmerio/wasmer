@@ -366,9 +366,9 @@ build-wasmer-debug:
 # incremental = false
 # codegen-units = 1
 # rpath = false
-build-wasmer-headless-minimal: RUSTFLAGS += "-C panic=abort" 
+build-wasmer-headless-minimal: RUSTFLAGS += -C panic=abort
 build-wasmer-headless-minimal:
-	RUSTFLAGS=${RUSTFLAGS} xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
+	RUSTFLAGS="${RUSTFLAGS}" xargo build --target $(HOST_TARGET) --release --manifest-path=lib/cli/Cargo.toml --no-default-features --features headless-minimal --bin wasmer-headless
 ifeq ($(IS_DARWIN), 1)
 	strip -u target/$(HOST_TARGET)/release/wasmer-headless
 else
@@ -379,7 +379,7 @@ else
 endif
 endif
 
-WAPM_VERSION = master # v0.5.0
+WAPM_VERSION = v0.5.1
 get-wapm:
 	[ -d "wapm-cli" ] || git clone --branch $(WAPM_VERSION) https://github.com/wasmerio/wapm-cli.git
 
@@ -394,82 +394,87 @@ endif
 build-docs:
 	cargo doc --release $(compiler_features) --document-private-items --no-deps --workspace
 
-build-docs-capi:
-	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
-	cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
+capi-setup:
+ifeq ($(IS_WINDOWS), 1)
+  RUSTFLAGS += -C target-feature=+crt-static
+endif
 
-build-capi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-docs-capi: capi-setup
+	cd lib/c-api/doc/deprecated/ && doxygen doxyfile
+	RUSTFLAGS="${RUSTFLAGS}" cargo doc --manifest-path lib/c-api/Cargo.toml --no-deps --features wat,jit,object-file,native,cranelift,wasi $(capi_default_features)
+
+build-capi: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,wasi,middlewares $(capi_default_features) $(capi_compiler_features)
 
-build-capi-singlepass:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-jit: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-native: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-singlepass-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-singlepass-object-file: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,object-file,singlepass,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-system-libffi:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-system-libffi: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,cranelift,wasi,middlewares,system-libffi $(capi_default_features)
 
-build-capi-cranelift-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-jit: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-native: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-cranelift-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-cranelift-object-file: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,object-file,cranelift,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,native,object-file,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-jit: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,jit,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-native: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,native,llvm,wasi,middlewares $(capi_default_features)
 
-build-capi-llvm-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-llvm-object-file: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features deprecated,wat,object-file,llvm,wasi,middlewares $(capi_default_features)
 
 # Headless (we include the minimal to be able to run)
 
-build-capi-headless-jit:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-jit: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,wasi
 
-build-capi-headless-native:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-native: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features native,wasi
 
-build-capi-headless-object-file:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-object-file: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features object-file,wasi
 
-build-capi-headless-all:
-	cargo build --manifest-path lib/c-api/Cargo.toml --release \
+build-capi-headless-all: capi-setup
+	RUSTFLAGS="${RUSTFLAGS}" cargo build --manifest-path lib/c-api/Cargo.toml --release \
 		--no-default-features --features jit,native,object-file,wasi
 
 ###########
@@ -724,23 +729,23 @@ install-wasmer-headless-minimal:
 update-testsuite:
 	git subtree pull --prefix tests/wast/spec https://github.com/WebAssembly/testsuite.git master --squash
 
-lint-packages: RUSTFLAGS += "-D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects" # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
+lint-packages: RUSTFLAGS += -D dead-code -D nonstandard-style -D unused-imports -D unused-mut -D unused-variables -D unused-unsafe -D unreachable-patterns -D bad-style -D improper-ctypes -D unused-allocation -D unused-comparisons -D while-true -D unconditional-recursion -D bare-trait-objects # TODO: add `-D missing-docs` # TODO: add `-D function_item_references` (not available on Rust 1.47, try when upgrading)
 lint-packages:
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-c-api
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-vm
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-types
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-wasi
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-object
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine-native
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine-jit
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-cranelift
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-compiler-singlepass
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-cache
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy -p wasmer-engine
-	RUSTFLAGS=${RUSTFLAGS} cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-c-api
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-vm
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-types
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-wasi
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-object
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine-native
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine-jit
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler-cranelift
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-compiler-singlepass
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path lib/cli/Cargo.toml $(compiler_features)
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-cache
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy -p wasmer-engine
+	RUSTFLAGS="${RUSTFLAGS}" cargo clippy --manifest-path fuzz/Cargo.toml $(compiler_features)
 
 lint-formatting:
 	cargo fmt --all -- --check

@@ -4,11 +4,13 @@
 //! This file declares `VMContext` and several related structs which contain
 //! fields that compiled wasm code accesses directly.
 
+use crate::func_data_registry::VMFuncRef;
 use crate::global::Global;
 use crate::instance::Instance;
 use crate::memory::Memory;
 use crate::table::Table;
 use crate::trap::{Trap, TrapCode};
+use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker, POINTER_BYTE_SIZE};
 use std::any::Any;
 use std::convert::TryFrom;
@@ -22,7 +24,7 @@ use std::u32;
 ///
 /// It may either be a pointer to the [`VMContext`] if it's a Wasm function
 /// or a pointer to arbitrary data controlled by the host if it's a host function.
-#[derive(Copy, Clone)]
+#[derive(Copy, Clone, Eq)]
 pub union VMFunctionEnvironment {
     /// Wasm functions take a pointer to [`VMContext`].
     pub vmctx: *mut VMContext,
@@ -48,6 +50,14 @@ impl std::fmt::Debug for VMFunctionEnvironment {
 impl std::cmp::PartialEq for VMFunctionEnvironment {
     fn eq(&self, rhs: &Self) -> bool {
         unsafe { self.host_env as usize == rhs.host_env as usize }
+    }
+}
+
+impl std::hash::Hash for VMFunctionEnvironment {
+    fn hash<H: std::hash::Hasher>(&self, state: &mut H) {
+        unsafe {
+            self.vmctx.hash(state);
+        }
     }
 }
 
@@ -516,6 +526,8 @@ pub union VMGlobalDefinitionStorage {
     as_u64: u64,
     as_f64: f64,
     as_u128: u128,
+    as_funcref: VMFuncRef,
+    as_externref: VMExternRef,
     bytes: [u8; 16],
 }
 
@@ -547,7 +559,7 @@ pub struct VMGlobalDefinition {
 #[cfg(test)]
 mod test_vmglobal_definition {
     use super::VMGlobalDefinition;
-    use crate::{ModuleInfo, VMOffsets};
+    use crate::{ModuleInfo, VMFuncRef, VMOffsets};
     use more_asserts::assert_ge;
     use std::mem::{align_of, size_of};
 
@@ -557,6 +569,7 @@ mod test_vmglobal_definition {
         assert_ge!(align_of::<VMGlobalDefinition>(), align_of::<i64>());
         assert_ge!(align_of::<VMGlobalDefinition>(), align_of::<f32>());
         assert_ge!(align_of::<VMGlobalDefinition>(), align_of::<f64>());
+        assert_ge!(align_of::<VMGlobalDefinition>(), align_of::<VMFuncRef>());
         assert_ge!(align_of::<VMGlobalDefinition>(), align_of::<[u8; 16]>());
     }
 
@@ -700,6 +713,44 @@ impl VMGlobalDefinition {
         &mut self.storage.as_f64
     }
 
+    /// Return a reference to the value as a `VMFuncRef`.
+    ///
+    /// If this is not a `VMFuncRef` typed global it is unspecified what value is returned.
+    pub fn to_funcref(&self) -> VMFuncRef {
+        unsafe { self.storage.as_funcref }
+    }
+
+    /// Return a mutable reference to the value as a `VMFuncRef`.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has `VMFuncRef` type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_funcref_mut(&mut self) -> &mut VMFuncRef {
+        &mut self.storage.as_funcref
+    }
+
+    /// Return a mutable reference to the value as an `VMExternRef`.
+    ///
+    /// # Safety
+    ///
+    /// It is the callers responsibility to make sure the global has I32 type.
+    /// Until the returned borrow is dropped, reads and writes of this global
+    /// must be done exclusively through this borrow. That includes reads and
+    /// writes of globals inside wasm functions.
+    pub unsafe fn as_externref_mut(&mut self) -> &mut VMExternRef {
+        &mut self.storage.as_externref
+    }
+
+    /// Return a reference to the value as an `VMExternRef`.
+    ///
+    /// If this is not an I64 typed global it is unspecified what value is returned.
+    pub fn to_externref(&self) -> VMExternRef {
+        unsafe { self.storage.as_externref }
+    }
+
     /// Return a reference to the value as an u128.
     ///
     /// If this is not an V128 typed global it is unspecified what value is returned.
@@ -784,7 +835,7 @@ impl Default for VMSharedSignatureIndex {
 /// The VM caller-checked "anyfunc" record, for caller-side signature checking.
 /// It consists of the actual function pointer and a signature id to be checked
 /// by the caller.
-#[derive(Debug, Clone, MemoryUsage)]
+#[derive(Debug, Clone, Copy, Hash, PartialEq, Eq, MemoryUsage)]
 #[repr(C)]
 pub struct VMCallerCheckedAnyfunc {
     /// Function body.
@@ -873,7 +924,7 @@ impl VMBuiltinFunctionIndex {
         Self(6)
     }
     /// Returns an index for wasm's `memory.copy` for locally defined memories.
-    pub const fn get_local_memory_copy_index() -> Self {
+    pub const fn get_memory_copy_index() -> Self {
         Self(7)
     }
     /// Returns an index for wasm's `memory.copy` for imported memories.
@@ -900,9 +951,57 @@ impl VMBuiltinFunctionIndex {
     pub const fn get_raise_trap_index() -> Self {
         Self(13)
     }
+    /// Returns an index for wasm's `table.size` instruction for local tables.
+    pub const fn get_table_size_index() -> Self {
+        Self(14)
+    }
+    /// Returns an index for wasm's `table.size` instruction for imported tables.
+    pub const fn get_imported_table_size_index() -> Self {
+        Self(15)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for local tables.
+    pub const fn get_table_grow_index() -> Self {
+        Self(16)
+    }
+    /// Returns an index for wasm's `table.grow` instruction for imported tables.
+    pub const fn get_imported_table_grow_index() -> Self {
+        Self(17)
+    }
+    /// Returns an index for wasm's `table.get` instruction for local tables.
+    pub const fn get_table_get_index() -> Self {
+        Self(18)
+    }
+    /// Returns an index for wasm's `table.get` instruction for imported tables.
+    pub const fn get_imported_table_get_index() -> Self {
+        Self(19)
+    }
+    /// Returns an index for wasm's `table.set` instruction for local tables.
+    pub const fn get_table_set_index() -> Self {
+        Self(20)
+    }
+    /// Returns an index for wasm's `table.set` instruction for imported tables.
+    pub const fn get_imported_table_set_index() -> Self {
+        Self(21)
+    }
+    /// Returns an index for wasm's `func.ref` instruction.
+    pub const fn get_func_ref_index() -> Self {
+        Self(22)
+    }
+    /// Returns an index for wasm's `table.fill` instruction for local tables.
+    pub const fn get_table_fill_index() -> Self {
+        Self(23)
+    }
+    /// Returns an index for a function to increment the externref count.
+    pub const fn get_externref_inc_index() -> Self {
+        Self(24)
+    }
+    /// Returns an index for a function to decrement the externref count.
+    pub const fn get_externref_dec_index() -> Self {
+        Self(25)
+    }
     /// Returns the total number of builtin functions.
     pub const fn builtin_functions_total_number() -> u32 {
-        14
+        26
     }
 
     /// Return the index as an u32 number.
@@ -929,37 +1028,61 @@ impl VMBuiltinFunctionsArray {
         let mut ptrs = [0; Self::len()];
 
         ptrs[VMBuiltinFunctionIndex::get_memory32_grow_index().index() as usize] =
-            wasmer_memory32_grow as usize;
+            wasmer_vm_memory32_grow as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory32_grow_index().index() as usize] =
-            wasmer_imported_memory32_grow as usize;
+            wasmer_vm_imported_memory32_grow as usize;
 
         ptrs[VMBuiltinFunctionIndex::get_memory32_size_index().index() as usize] =
-            wasmer_memory32_size as usize;
+            wasmer_vm_memory32_size as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory32_size_index().index() as usize] =
-            wasmer_imported_memory32_size as usize;
+            wasmer_vm_imported_memory32_size as usize;
 
         ptrs[VMBuiltinFunctionIndex::get_table_copy_index().index() as usize] =
-            wasmer_table_copy as usize;
+            wasmer_vm_table_copy as usize;
 
         ptrs[VMBuiltinFunctionIndex::get_table_init_index().index() as usize] =
-            wasmer_table_init as usize;
+            wasmer_vm_table_init as usize;
         ptrs[VMBuiltinFunctionIndex::get_elem_drop_index().index() as usize] =
-            wasmer_elem_drop as usize;
+            wasmer_vm_elem_drop as usize;
 
-        ptrs[VMBuiltinFunctionIndex::get_local_memory_copy_index().index() as usize] =
-            wasmer_local_memory_copy as usize;
+        ptrs[VMBuiltinFunctionIndex::get_memory_copy_index().index() as usize] =
+            wasmer_vm_memory32_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_copy_index().index() as usize] =
-            wasmer_imported_memory_copy as usize;
+            wasmer_vm_imported_memory32_copy as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_fill_index().index() as usize] =
-            wasmer_memory_fill as usize;
+            wasmer_vm_memory32_fill as usize;
         ptrs[VMBuiltinFunctionIndex::get_imported_memory_fill_index().index() as usize] =
-            wasmer_imported_memory_fill as usize;
+            wasmer_vm_imported_memory32_fill as usize;
         ptrs[VMBuiltinFunctionIndex::get_memory_init_index().index() as usize] =
-            wasmer_memory_init as usize;
+            wasmer_vm_memory32_init as usize;
         ptrs[VMBuiltinFunctionIndex::get_data_drop_index().index() as usize] =
-            wasmer_data_drop as usize;
+            wasmer_vm_data_drop as usize;
         ptrs[VMBuiltinFunctionIndex::get_raise_trap_index().index() as usize] =
-            wasmer_raise_trap as usize;
+            wasmer_vm_raise_trap as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_size_index().index() as usize] =
+            wasmer_vm_table_size as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_size_index().index() as usize] =
+            wasmer_vm_imported_table_size as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_grow_index().index() as usize] =
+            wasmer_vm_table_grow as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_grow_index().index() as usize] =
+            wasmer_vm_imported_table_grow as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_get_index().index() as usize] =
+            wasmer_vm_table_get as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_get_index().index() as usize] =
+            wasmer_vm_imported_table_get as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_set_index().index() as usize] =
+            wasmer_vm_table_set as usize;
+        ptrs[VMBuiltinFunctionIndex::get_imported_table_set_index().index() as usize] =
+            wasmer_vm_imported_table_set as usize;
+        ptrs[VMBuiltinFunctionIndex::get_func_ref_index().index() as usize] =
+            wasmer_vm_func_ref as usize;
+        ptrs[VMBuiltinFunctionIndex::get_table_fill_index().index() as usize] =
+            wasmer_vm_table_fill as usize;
+        ptrs[VMBuiltinFunctionIndex::get_externref_inc_index().index() as usize] =
+            wasmer_vm_externref_inc as usize;
+        ptrs[VMBuiltinFunctionIndex::get_externref_dec_index().index() as usize] =
+            wasmer_vm_externref_dec as usize;
 
         debug_assert!(ptrs.iter().cloned().all(|p| p != 0));
 

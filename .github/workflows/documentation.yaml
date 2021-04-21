@@ -18,7 +18,7 @@ jobs:
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: 1.49
+          toolchain: "1.50"
           override: true
       - name: Install LLVM
         shell: bash

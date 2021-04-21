@@ -90,8 +90,6 @@ int main(int argc, const char *argv[]) {
     return 1;
   }
 
-  wasm_func_delete(host_func);
-
   // Extract export.
   printf("Extracting export...\n");
   own wasm_extern_vec_t exports;

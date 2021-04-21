@@ -5,7 +5,7 @@ use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
-use crate::values::Value;
+use crate::values::{Value, WasmValueType};
 use loupe::{MemoryUsage, MemoryUsageTracker};
 
 #[cfg(feature = "enable-serde")]
@@ -411,6 +411,9 @@ pub enum GlobalInit {
     V128Const(V128),
     /// A `global.get` of another global.
     GetGlobal(GlobalIndex),
+    // TODO(reftypes): `ref.null func` and `ref.null extern` seem to be 2 different
+    // things: we need to handle both. Perhaps this handled in context by the
+    // global knowing its own type?
     /// A `ref.null`.
     RefNullConst,
     /// A `ref.func <index>`.
@@ -419,7 +422,7 @@ pub enum GlobalInit {
 
 impl GlobalInit {
     /// Get the `GlobalInit` from a given `Value`
-    pub fn from_value<T>(value: Value<T>) -> Self {
+    pub fn from_value<T: WasmValueType>(value: Value<T>) -> Self {
         match value {
             Value::I32(i) => Self::I32Const(i),
             Value::I64(i) => Self::I64Const(i),
@@ -429,7 +432,7 @@ impl GlobalInit {
         }
     }
     /// Get the `Value` from the Global init value
-    pub fn to_value<T>(&self) -> Value<T> {
+    pub fn to_value<T: WasmValueType>(&self) -> Value<T> {
         match self {
             Self::I32Const(i) => Value::I32(*i),
             Self::I64Const(i) => Value::I64(*i),

@@ -39,10 +39,8 @@ pub fn type_to_llvm_ptr<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ptr_ty),
         Type::F64 => Ok(intrinsics.f64_ptr_ty),
         Type::V128 => Ok(intrinsics.i128_ptr_ty),
-        ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasmer_types type {:?}",
-            ty
-        ))),
+        Type::FuncRef => Ok(intrinsics.funcref_ty.ptr_type(AddressSpace::Generic)),
+        Type::ExternRef => Ok(intrinsics.externref_ty.ptr_type(AddressSpace::Generic)),
     }
 }
 
@@ -56,10 +54,8 @@ pub fn type_to_llvm<'ctx>(
         Type::F32 => Ok(intrinsics.f32_ty.as_basic_type_enum()),
         Type::F64 => Ok(intrinsics.f64_ty.as_basic_type_enum()),
         Type::V128 => Ok(intrinsics.i128_ty.as_basic_type_enum()),
-        ty => Err(CompileError::Codegen(format!(
-            "type_to_llvm: unimplemented wasmer_types type {:?}",
-            ty
-        ))),
+        Type::FuncRef => Ok(intrinsics.funcref_ty.as_basic_type_enum()),
+        Type::ExternRef => Ok(intrinsics.externref_ty.as_basic_type_enum()),
     }
 }
 
@@ -147,6 +143,10 @@ pub struct Intrinsics<'ctx> {
 
     pub anyfunc_ty: StructType<'ctx>,
 
+    pub funcref_ty: PointerType<'ctx>,
+    pub externref_ty: PointerType<'ctx>,
+    pub anyref_ty: PointerType<'ctx>,
+
     pub i1_zero: IntValue<'ctx>,
     pub i8_zero: IntValue<'ctx>,
     pub i32_zero: IntValue<'ctx>,
@@ -167,11 +167,25 @@ pub struct Intrinsics<'ctx> {
     pub trap_unaligned_atomic: BasicValueEnum<'ctx>,
     pub trap_table_access_oob: BasicValueEnum<'ctx>,
 
-    // VM intrinsics.
-    pub throw_trap: FunctionValue<'ctx>,
-
     pub experimental_stackmap: FunctionValue<'ctx>,
 
+    // VM libcalls.
+    pub table_copy: FunctionValue<'ctx>,
+    pub table_init: FunctionValue<'ctx>,
+    pub table_fill: FunctionValue<'ctx>,
+    pub table_size: FunctionValue<'ctx>,
+    pub imported_table_size: FunctionValue<'ctx>,
+    pub table_get: FunctionValue<'ctx>,
+    pub imported_table_get: FunctionValue<'ctx>,
+    pub table_set: FunctionValue<'ctx>,
+    pub imported_table_set: FunctionValue<'ctx>,
+    pub table_grow: FunctionValue<'ctx>,
+    pub imported_table_grow: FunctionValue<'ctx>,
+    pub func_ref: FunctionValue<'ctx>,
+    pub elem_drop: FunctionValue<'ctx>,
+    pub throw_trap: FunctionValue<'ctx>,
+
+    // VM builtins.
     pub vmfunction_import_ptr_ty: PointerType<'ctx>,
     pub vmfunction_import_body_element: u32,
     pub vmfunction_import_vmctx_element: u32,
@@ -185,6 +199,7 @@ pub struct Intrinsics<'ctx> {
     pub memory32_size_ptr_ty: PointerType<'ctx>,
     pub imported_memory32_size_ptr_ty: PointerType<'ctx>,
 
+    // Pointer to the VM.
     pub ctx_ptr_ty: PointerType<'ctx>,
 }
 
@@ -251,6 +266,9 @@ impl<'ctx> Intrinsics<'ctx> {
             ],
             false,
         );
+        let funcref_ty = anyfunc_ty.ptr_type(AddressSpace::Generic);
+        let externref_ty = funcref_ty;
+        let anyref_ty = i8_ptr_ty;
 
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
@@ -369,7 +387,7 @@ impl<'ctx> Intrinsics<'ctx> {
             ),
             readonly: context
                 .create_enum_attribute(Attribute::get_named_enum_kind_id("readonly"), 0),
-            stack_probe: context.create_string_attribute("probe-stack", "wasmer_probestack"),
+            stack_probe: context.create_string_attribute("probe-stack", "wasmer_vm_probestack"),
 
             void_ty,
             i1_ty,
@@ -398,6 +416,10 @@ impl<'ctx> Intrinsics<'ctx> {
             f64_ptr_ty,
 
             anyfunc_ty,
+
+            funcref_ty,
+            externref_ty,
+            anyref_ty,
 
             i1_zero,
             i8_zero,
@@ -437,12 +459,6 @@ impl<'ctx> Intrinsics<'ctx> {
                 .const_int(TrapCode::TableAccessOutOfBounds as _, false)
                 .as_basic_value_enum(),
 
-            // VM intrinsics.
-            throw_trap: module.add_function(
-                "wasmer_raise_trap",
-                void_ty.fn_type(&[i32_ty_basic], false),
-                None,
-            ),
             experimental_stackmap: module.add_function(
                 "llvm.experimental.stackmap",
                 void_ty.fn_type(
@@ -452,6 +468,145 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     true,
                 ),
+                None,
+            ),
+
+            // VM libcalls.
+            table_copy: module.add_function(
+                "wasmer_vm_table_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_init: module.add_function(
+                "wasmer_vm_table_init",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_fill: module.add_function(
+                "wasmer_vm_table_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        anyref_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_size: module.add_function(
+                "wasmer_vm_table_size",
+                i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
+            imported_table_size: module.add_function(
+                "wasmer_vm_imported_table_size",
+                i32_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
+            table_get: module.add_function(
+                "wasmer_vm_table_get",
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_get: module.add_function(
+                "wasmer_vm_imported_table_get",
+                anyref_ty.fn_type(
+                    &[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic, i32_ty_basic],
+                    false,
+                ),
+                None,
+            ),
+            table_set: module.add_function(
+                "wasmer_vm_table_set",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        anyref_ty.as_basic_type_enum(),
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_set: module.add_function(
+                "wasmer_vm_imported_table_set",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        anyref_ty.as_basic_type_enum(),
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            table_grow: module.add_function(
+                "wasmer_vm_table_grow",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_table_grow: module.add_function(
+                "wasmer_vm_imported_table_grow",
+                i32_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        anyref_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            func_ref: module.add_function(
+                "wasmer_vm_func_ref",
+                funcref_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
+            elem_drop: module.add_function(
+                "wasmer_vm_elem_drop",
+                void_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
+                None,
+            ),
+            throw_trap: module.add_function(
+                "wasmer_vm_raise_trap",
+                void_ty.fn_type(&[i32_ty_basic], false),
                 None,
             ),
 
@@ -490,13 +645,14 @@ impl<'ctx> Intrinsics<'ctx> {
             ctx_ptr_ty,
         };
 
-        // TODO: mark vmctx args as nofree, align 16, dereferenceable(?)
-
         let noreturn =
             context.create_enum_attribute(Attribute::get_named_enum_kind_id("noreturn"), 0);
         intrinsics
             .throw_trap
             .add_attribute(AttributeLoc::Function, noreturn);
+        intrinsics
+            .func_ref
+            .add_attribute(AttributeLoc::Function, intrinsics.readonly);
 
         intrinsics
     }

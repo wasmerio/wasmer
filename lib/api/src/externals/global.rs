@@ -126,7 +126,7 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
     pub fn get(&self) -> Val {
-        self.global.get()
+        self.global.get(&self.store)
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
