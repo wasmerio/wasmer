@@ -1,7 +1,7 @@
 use criterion::{black_box, criterion_group, criterion_main, Criterion};
 use rand::distributions::Alphanumeric;
 use rand::{thread_rng, Rng};
-use tempdir::TempDir;
+use tempfile::TempDir;
 use wasmer::{Module, Store};
 use wasmer_cache::Cache;
 use wasmer_cache::{FileSystemCache, Hash};
@@ -14,7 +14,7 @@ fn random_key() -> Hash {
 }
 
 pub fn store_cache_jit(c: &mut Criterion) {
-    let tmp_dir = TempDir::new("wasmer-cache-bench").unwrap();
+    let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
@@ -33,7 +33,7 @@ pub fn store_cache_jit(c: &mut Criterion) {
 }
 
 pub fn load_cache_jit(c: &mut Criterion) {
-    let tmp_dir = TempDir::new("wasmer-cache-bench").unwrap();
+    let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
@@ -51,7 +51,7 @@ pub fn load_cache_jit(c: &mut Criterion) {
 }
 
 pub fn store_cache_native(c: &mut Criterion) {
-    let tmp_dir = TempDir::new("wasmer-cache-bench").unwrap();
+    let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&Native::new(compiler).engine());
@@ -70,7 +70,7 @@ pub fn store_cache_native(c: &mut Criterion) {
 }
 
 pub fn load_cache_native(c: &mut Criterion) {
-    let tmp_dir = TempDir::new("wasmer-cache-bench").unwrap();
+    let tmp_dir = TempDir::new().unwrap();
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&Native::new(compiler).engine());
