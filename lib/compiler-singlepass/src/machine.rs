@@ -156,7 +156,8 @@ impl Machine {
             let loc = match *ty {
                 WpType::F32 | WpType::F64 => self.pick_xmm().map(Location::XMM),
                 WpType::I32 | WpType::I64 => self.pick_gpr().map(Location::GPR),
-                _ => unreachable!(),
+                WpType::FuncRef | WpType::ExternRef => self.pick_gpr().map(Location::GPR),
+                _ => unreachable!("can't acquire location for type {:?}", ty),
             };
 
             let loc = if let Some(x) = loc {

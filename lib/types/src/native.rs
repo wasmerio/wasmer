@@ -1,9 +1,10 @@
 //! This module permits to create native functions
 //! easily in Rust, thanks to its advanced typing system.
 
+use crate::extern_ref::VMExternRef;
 use crate::lib::std::fmt;
 use crate::types::Type;
-use crate::values::Value;
+use crate::values::{Value, WasmValueType};
 
 /// `NativeWasmType` represents a Wasm type that has a direct
 /// representation on the host (hence the “native” term).
@@ -37,10 +38,13 @@ pub trait NativeWasmType: Sized {
     fn to_binary(self) -> i128;
 
     /// Convert self to a `Value`.
-    fn to_value<T>(self) -> Value<T> {
+    fn to_value<T: WasmValueType>(self) -> Value<T> {
         let binary = self.to_binary();
+        // we need a store, we're just hoping we don't actually use it via funcref
+        // TODO(reftypes): we need an actual solution here
+        let hack = 3;
 
-        unsafe { Value::read_value_from(&binary, Self::WASM_TYPE) }
+        unsafe { Value::read_value_from(&hack, &binary, Self::WASM_TYPE) }
     }
 
     /// Convert to self from i128 binary representation.
@@ -169,6 +173,32 @@ impl NativeWasmType for u128 {
     #[inline]
     fn from_binary(bits: i128) -> Self {
         bits as _
+    }
+}
+
+impl NativeWasmType for VMExternRef {
+    const WASM_TYPE: Type = Type::ExternRef;
+    type Abi = Self;
+
+    #[inline]
+    fn from_abi(abi: Self::Abi) -> Self {
+        abi
+    }
+
+    #[inline]
+    fn into_abi(self) -> Self::Abi {
+        self
+    }
+
+    #[inline]
+    fn to_binary(self) -> i128 {
+        self.to_binary()
+    }
+
+    #[inline]
+    fn from_binary(bits: i128) -> Self {
+        // TODO(reftypes): ensure that the safety invariants are actually upheld here
+        unsafe { Self::from_binary(bits) }
     }
 }
 

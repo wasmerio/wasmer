@@ -26,7 +26,7 @@ wasmer-engine-native = { version = "1.0.2", path = "../engine-native", optional 
 wasmer-engine-object-file = { version = "1.0.2", path = "../engine-object-file", optional = true }
 wasmer-middlewares = { version = "1.0.2", path = "../middlewares", optional = true }
 wasmer-wasi = { version = "1.0.2", path = "../wasi", optional = true }
-wasmer-types = { version = "1.0.2", path = "../wasmer-types" }
+wasmer-types = { version = "1.0.2", path = "../types" }
 enumset = "1.0"
 cfg-if = "1.0"
 lazy_static = "1.4"
@@ -38,6 +38,7 @@ typetag = { version = "0.1", optional = true }
 paste = "1.0"
 
 [dev-dependencies]
+field-offset = "0.3.3"
 inline-c = "0.1.5"
 
 [features]
@@ -53,7 +54,7 @@ wat = ["wasmer/wat"]
 wasi = ["wasmer-wasi", "typetag", "serde"]
 engine = []
 middlewares = ["wasmer-middlewares"]
-deprecated = ["libffi"]
+deprecated = ["libffi", "wasmer/experimental-reference-types-extern-ref"]
 jit = [
     "wasmer-engine-jit",
     "engine",

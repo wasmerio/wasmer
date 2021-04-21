@@ -3,6 +3,7 @@
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
 use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
+use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
@@ -26,17 +27,21 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
+    VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
+#[derive(MemoryUsage)]
 pub struct ObjectFileArtifact {
     metadata: ModuleMetadata,
     module_bytes: Vec<u8>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    func_data_registry: Arc<FuncDataRegistry>,
     /// Length of the serialized metadata
     metadata_length: usize,
     symbol_registry: ModuleMetadataSymbolRegistry,
@@ -275,6 +280,7 @@ impl ObjectFileArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
+            func_data_registry: engine_inner.func_data().clone(),
             metadata_length,
             symbol_registry,
         })
@@ -314,11 +320,22 @@ impl ObjectFileArtifact {
 
         let engine_inner = engine.inner();
         let signature_registry = engine_inner.signatures();
+        let func_data_registry = engine_inner.func_data().clone();
         let mut sig_map: BTreeMap<SignatureIndex, VMSharedSignatureIndex> = BTreeMap::new();
 
+        let num_imported_functions = metadata.compile_info.module.num_imported_functions;
+        // set up the imported functions first...
+        for i in 0..num_imported_functions {
+            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
+            let func_type = &metadata.compile_info.module.signatures[sig_idx];
+            let vm_shared_idx = signature_registry.register(&func_type);
+            sig_map.insert(sig_idx, vm_shared_idx);
+        }
         // read finished functions in order now...
         for i in 0..num_finished_functions {
-            let sig_idx = metadata.compile_info.module.functions[FunctionIndex::new(i)];
+            let local_func_idx = LocalFunctionIndex::new(i);
+            let func_idx = metadata.compile_info.module.func_index(local_func_idx);
+            let sig_idx = metadata.compile_info.module.functions[func_idx];
             let func_type = &metadata.compile_info.module.signatures[sig_idx];
             let vm_shared_idx = signature_registry.register(&func_type);
             sig_map.insert(sig_idx, vm_shared_idx);
@@ -383,6 +400,7 @@ impl ObjectFileArtifact {
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
             signatures: signatures.into_boxed_slice(),
+            func_data_registry,
             metadata_length: 0,
             symbol_registry,
         })
@@ -446,6 +464,10 @@ impl Artifact for ObjectFileArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn func_data_registry(&self) -> &FuncDataRegistry {
+        &self.func_data_registry
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {

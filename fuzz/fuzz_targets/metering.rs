@@ -3,8 +3,8 @@
 use libfuzzer_sys::{arbitrary, arbitrary::Arbitrary, fuzz_target};
 use std::sync::Arc;
 use wasm_smith::{Config, ConfiguredModule};
-use wasmer::{imports, CompilerConfig, Instance, Module, Store};
 use wasmer::wasmparser::Operator;
+use wasmer::{imports, CompilerConfig, Instance, Module, Store};
 use wasmer_compiler_cranelift::Cranelift;
 use wasmer_engine_jit::JIT;
 use wasmer_middlewares::Metering;

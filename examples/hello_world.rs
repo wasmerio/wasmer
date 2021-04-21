@@ -45,6 +45,7 @@ fn main() -> anyhow::Result<()> {
     // (`Cranelift`) and pass it to an engine (`JIT`). We then pass the engine to
     // the store and are now ready to compile and run WebAssembly!
     let store = Store::new(&JIT::new(Cranelift::default()).engine());
+
     // We then use our store and Wasm bytes to compile a `Module`.
     // A `Module` is a compiled WebAssembly module that isn't ready to execute yet.
     let module = Module::new(&store, wasm_bytes)?;
@@ -71,6 +72,7 @@ fn main() -> anyhow::Result<()> {
     // An `Instance` is a compiled WebAssembly module that has been set up
     // and is ready to execute.
     let instance = Instance::new(&module, &import_object)?;
+
     // We get the `NativeFunc` with no parameters and no results from the instance.
     //
     // Recall that the Wasm module exported a function named "run", this is getting

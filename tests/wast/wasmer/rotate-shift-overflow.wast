@@ -3,168 +3,332 @@
 ;; assert_return line hides the bug.
 
 (module
-  ;; shl
-  (func (export "shl1") (result i32)
+  ;; shl i32
+  (func (export "shl1_i32") (result i32)
     i32.const 235
     i32.const 0
     i32.shl
   )
-  (func (export "shl2") (result i32)
+  (func (export "shl2_i32") (result i32)
     i32.const 235
     i32.const 32
     i32.shl
   )
-  (func (export "shl3") (result i32)
+  (func (export "shl3_i32") (result i32)
     i32.const 235
     i32.const 100
     i32.shl
   )
-  (func (export "shl4") (result i32)
+  (func (export "shl4_i32") (result i32)
     i32.const 235
     i32.const -32
     i32.shl
   )
-  (func (export "shl5") (result i32)
+  (func (export "shl5_i32") (result i32)
     i32.const 235
     i32.const -100
     i32.shl
+  )
+  ;; shl i64
+  (func (export "shl1_i64") (result i64)
+    i64.const 235
+    i64.const 0
+    i64.shl
+  )
+  (func (export "shl2_i64") (result i64)
+    i64.const 235
+    i64.const 64
+    i64.shl
+  )
+  (func (export "shl3_i64") (result i64)
+    i64.const 235
+    i64.const 100
+    i64.shl
+  )
+  (func (export "shl4_i64") (result i64)
+    i64.const 235
+    i64.const -64
+    i64.shl
+  )
+  (func (export "shl5_i64") (result i64)
+    i64.const 235
+    i64.const -100
+    i64.shl
   )
 
-  ;; shr_u
-  (func (export "shr_u1") (result i32)
+  ;; shr_u i32
+  (func (export "shr_u1_i32") (result i32)
     i32.const 235
     i32.const 0
     i32.shr_u
   )
-  (func (export "shr_u2") (result i32)
+  (func (export "shr_u2_i32") (result i32)
     i32.const 235
     i32.const 32
     i32.shr_u
   )
-  (func (export "shr_u3") (result i32)
+  (func (export "shr_u3_i32") (result i32)
     i32.const 235
     i32.const 100
     i32.shr_u
   )
-  (func (export "shr_u4") (result i32)
+  (func (export "shr_u4_i32") (result i32)
     i32.const 235
     i32.const -32
     i32.shr_u
   )
-  (func (export "shr_u5") (result i32)
+  (func (export "shr_u5_i32") (result i32)
     i32.const 235
     i32.const -100
     i32.shr_u
   )
 
-  ;; shr_s
-  (func (export "shr_s1") (result i32)
+  ;; shr_u i64
+  (func (export "shr_u1_i64") (result i64)
+    i64.const 235
+    i64.const 0
+    i64.shr_u
+  )
+  (func (export "shr_u2_i64") (result i64)
+    i64.const 235
+    i64.const 64
+    i64.shr_u
+  )
+  (func (export "shr_u3_i64") (result i64)
+    i64.const 235
+    i64.const 100
+    i64.shr_u
+  )
+  (func (export "shr_u4_i64") (result i64)
+    i64.const 235
+    i64.const -64
+    i64.shr_u
+  )
+  (func (export "shr_u5_i64") (result i64)
+    i64.const 235
+    i64.const -100
+    i64.shr_u
+  )
+
+  ;; shr_s i32
+  (func (export "shr_s1_i32") (result i32)
     i32.const 235
     i32.const 0
     i32.shr_s
   )
-  (func (export "shr_s2") (result i32)
+  (func (export "shr_s2_i32") (result i32)
     i32.const 235
     i32.const 32
     i32.shr_s
   )
-  (func (export "shr_s3") (result i32)
+  (func (export "shr_s3_i32") (result i32)
     i32.const 235
     i32.const 100
     i32.shr_s
   )
-  (func (export "shr_s4") (result i32)
+  (func (export "shr_s4_i32") (result i32)
     i32.const 235
     i32.const -32
     i32.shr_s
   )
-  (func (export "shr_s5") (result i32)
+  (func (export "shr_s5_i32") (result i32)
     i32.const 235
     i32.const -100
     i32.shr_s
   )
 
-  ;; rotl
-  (func (export "rotl1") (result i32)
+  ;; shr_s i64
+  (func (export "shr_s1_i64") (result i64)
+    i64.const 235
+    i64.const 0
+    i64.shr_s
+  )
+  (func (export "shr_s2_i64") (result i64)
+    i64.const 235
+    i64.const 64
+    i64.shr_s
+  )
+  (func (export "shr_s3_i64") (result i64)
+    i64.const 235
+    i64.const 100
+    i64.shr_s
+  )
+  (func (export "shr_s4_i64") (result i64)
+    i64.const 235
+    i64.const -64
+    i64.shr_s
+  )
+  (func (export "shr_s5_i64") (result i64)
+    i64.const 235
+    i64.const -100
+    i64.shr_s
+  )
+
+  ;; rotl i32
+  (func (export "rotl1_i32") (result i32)
     i32.const 235
     i32.const 0
     i32.rotl
   )
-  (func (export "rotl2") (result i32)
+  (func (export "rotl2_i32") (result i32)
     i32.const 235
     i32.const 32
     i32.rotl
   )
-  (func (export "rotl3") (result i32)
+  (func (export "rotl3_i32") (result i32)
     i32.const 235
     i32.const 100
     i32.rotl
   )
-  (func (export "rotl4") (result i32)
+  (func (export "rotl4_i32") (result i32)
     i32.const 235
     i32.const -32
     i32.rotl
   )
-  (func (export "rotl5") (result i32)
+  (func (export "rotl5_i32") (result i32)
     i32.const 235
     i32.const -100
     i32.rotl
   )
 
-  ;; rotr
-  (func (export "rotr1") (result i32)
+  ;; rotl i64
+  (func (export "rotl1_i64") (result i64)
+    i64.const 235
+    i64.const 0
+    i64.rotl
+  )
+  (func (export "rotl2_i64") (result i64)
+    i64.const 235
+    i64.const 64
+    i64.rotl
+  )
+  (func (export "rotl3_i64") (result i64)
+    i64.const 235
+    i64.const 100
+    i64.rotl
+  )
+  (func (export "rotl4_i64") (result i64)
+    i64.const 235
+    i64.const -64
+    i64.rotl
+  )
+  (func (export "rotl5_i64") (result i64)
+    i64.const 235
+    i64.const -100
+    i64.rotl
+  )
+
+  ;; rotr i32
+  (func (export "rotr1_i32") (result i32)
     i32.const 235
     i32.const 0
     i32.rotr
   )
-  (func (export "rotr2") (result i32)
+  (func (export "rotr2_i32") (result i32)
     i32.const 235
     i32.const 32
     i32.rotr
   )
-  (func (export "rotr3") (result i32)
+  (func (export "rotr3_i32") (result i32)
     i32.const 235
     i32.const 100
     i32.rotr
   )
-  (func (export "rotr4") (result i32)
+  (func (export "rotr4_i32") (result i32)
     i32.const 235
     i32.const -32
     i32.rotr
   )
-  (func (export "rotr5") (result i32)
+  (func (export "rotr5_i32") (result i32)
     i32.const 235
     i32.const -100
     i32.rotr
+  )
+
+  ;; rotr i64
+  (func (export "rotr1_i64") (result i64)
+    i64.const 235
+    i64.const 0
+    i64.rotr
+  )
+  (func (export "rotr2_i64") (result i64)
+    i64.const 235
+    i64.const 64
+    i64.rotr
+  )
+  (func (export "rotr3_i64") (result i64)
+    i64.const 235
+    i64.const 100
+    i64.rotr
+  )
+  (func (export "rotr4_i64") (result i64)
+    i64.const 235
+    i64.const -64
+    i64.rotr
+  )
+  (func (export "rotr5_i64") (result i64)
+    i64.const 235
+    i64.const -100
+    i64.rotr
   )
 )
 
-(assert_return (invoke "shl1") (i32.const 235))
-(assert_return (invoke "shl2") (i32.const 235))
-(assert_return (invoke "shl3") (i32.const 3760))
-(assert_return (invoke "shl4") (i32.const 235))
-(assert_return (invoke "shl5") (i32.const -1342177280))
+(assert_return (invoke "shl1_i32") (i32.const 235))
+(assert_return (invoke "shl2_i32") (i32.const 235))
+(assert_return (invoke "shl3_i32") (i32.const 3760))
+(assert_return (invoke "shl4_i32") (i32.const 235))
+(assert_return (invoke "shl5_i32") (i32.const -1342177280))
 
-(assert_return (invoke "shr_u1") (i32.const 235))
-(assert_return (invoke "shr_u2") (i32.const 235))
-(assert_return (invoke "shr_u3") (i32.const 14))
-(assert_return (invoke "shr_u4") (i32.const 235))
-(assert_return (invoke "shr_u5") (i32.const 0))
+(assert_return (invoke "shl1_i64") (i64.const 235))
+(assert_return (invoke "shl2_i64") (i64.const 235))
+(assert_return (invoke "shl3_i64") (i64.const 16149077032960))
+(assert_return (invoke "shl4_i64") (i64.const 235))
+(assert_return (invoke "shl5_i64") (i64.const 63082332160))
 
-(assert_return (invoke "shr_s1") (i32.const 235))
-(assert_return (invoke "shr_s2") (i32.const 235))
-(assert_return (invoke "shr_s3") (i32.const 14))
-(assert_return (invoke "shr_s4") (i32.const 235))
-(assert_return (invoke "shr_s5") (i32.const 0))
+(assert_return (invoke "shr_u1_i32") (i32.const 235))
+(assert_return (invoke "shr_u2_i32") (i32.const 235))
+(assert_return (invoke "shr_u3_i32") (i32.const 14))
+(assert_return (invoke "shr_u4_i32") (i32.const 235))
+(assert_return (invoke "shr_u5_i32") (i32.const 0))
 
-(assert_return (invoke "rotl1") (i32.const 235))
-(assert_return (invoke "rotl2") (i32.const 235))
-(assert_return (invoke "rotl3") (i32.const 3760))
-(assert_return (invoke "rotl4") (i32.const 235))
-(assert_return (invoke "rotl5") (i32.const -1342177266))
+(assert_return (invoke "shr_u1_i64") (i64.const 235))
+(assert_return (invoke "shr_u2_i64") (i64.const 235))
+(assert_return (invoke "shr_u3_i64") (i64.const 0))
+(assert_return (invoke "shr_u4_i64") (i64.const 235))
+(assert_return (invoke "shr_u5_i64") (i64.const 0))
 
-(assert_return (invoke "rotr1") (i32.const 235))
-(assert_return (invoke "rotr2") (i32.const 235))
-(assert_return (invoke "rotr3") (i32.const -1342177266))
-(assert_return (invoke "rotr4") (i32.const 235))
-(assert_return (invoke "rotr5") (i32.const 3760))
+(assert_return (invoke "shr_s1_i32") (i32.const 235))
+(assert_return (invoke "shr_s2_i32") (i32.const 235))
+(assert_return (invoke "shr_s3_i32") (i32.const 14))
+(assert_return (invoke "shr_s4_i32") (i32.const 235))
+(assert_return (invoke "shr_s5_i32") (i32.const 0))
+
+(assert_return (invoke "shr_s1_i64") (i64.const 235))
+(assert_return (invoke "shr_s2_i64") (i64.const 235))
+(assert_return (invoke "shr_s3_i64") (i64.const 0))
+(assert_return (invoke "shr_s4_i64") (i64.const 235))
+(assert_return (invoke "shr_s5_i64") (i64.const 0))
+
+(assert_return (invoke "rotl1_i32") (i32.const 235))
+(assert_return (invoke "rotl2_i32") (i32.const 235))
+(assert_return (invoke "rotl3_i32") (i32.const 3760))
+(assert_return (invoke "rotl4_i32") (i32.const 235))
+(assert_return (invoke "rotl5_i32") (i32.const -1342177266))
+
+(assert_return (invoke "rotl1_i64") (i64.const 235))
+(assert_return (invoke "rotl2_i64") (i64.const 235))
+(assert_return (invoke "rotl3_i64") (i64.const 16149077032960))
+(assert_return (invoke "rotl4_i64") (i64.const 235))
+(assert_return (invoke "rotl5_i64") (i64.const 63082332160))
+
+(assert_return (invoke "rotr1_i32") (i32.const 235))
+(assert_return (invoke "rotr2_i32") (i32.const 235))
+(assert_return (invoke "rotr3_i32") (i32.const -1342177266))
+(assert_return (invoke "rotr4_i32") (i32.const 235))
+(assert_return (invoke "rotr5_i32") (i32.const 3760))
+
+(assert_return (invoke "rotr1_i64") (i64.const 235))
+(assert_return (invoke "rotr2_i64") (i64.const 235))
+(assert_return (invoke "rotr3_i64") (i64.const 63082332160))
+(assert_return (invoke "rotr4_i64") (i64.const 235))
+(assert_return (invoke "rotr5_i64") (i64.const 16149077032960))

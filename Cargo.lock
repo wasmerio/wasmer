@@ -887,6 +887,16 @@ dependencies = [
 ]
 
 [[package]]
+name = "field-offset"
+version = "0.3.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "cf539fba70056b50f40a22e0da30639518a12ee18c35807858a63b158cb6dde7"
+dependencies = [
+ "memoffset 0.6.1",
+ "rustc_version 0.3.3",
+]
+
+[[package]]
 name = "filetime"
 version = "0.2.14"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -1419,6 +1429,27 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "51b9bbe6c47d51fc3e1a9b945965946b4c44142ab8792c50835a980d362c2710"
 dependencies = [
  "cfg-if 1.0.0",
+]
+
+[[package]]
+name = "loupe"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d79b0cc3aa7552a59274f642a0a6e7419b7f5438aba06a0a82825918ba69f0e6"
+dependencies = [
+ "indexmap",
+ "loupe-derive",
+ "rustversion",
+]
+
+[[package]]
+name = "loupe-derive"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "0a545b22ceeec36de91c46206afd384c17946bd62b95b76e927a2adb77fbdcc0"
+dependencies = [
+ "quote",
+ "syn",
 ]
 
 [[package]]
@@ -2763,6 +2794,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
  "libc",
+ "loupe",
  "more-asserts",
  "target-lexicon",
  "tempfile",
@@ -2788,6 +2820,7 @@ dependencies = [
  "cbindgen",
  "cfg-if 1.0.0",
  "enumset",
+ "field-offset",
  "inline-c",
  "lazy_static",
  "libc",
@@ -2858,6 +2891,7 @@ version = "1.0.2"
 dependencies = [
  "enumset",
  "hashbrown",
+ "loupe",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -2873,10 +2907,12 @@ name = "wasmer-compiler-cranelift"
 version = "1.0.2"
 dependencies = [
  "cranelift-codegen",
+ "cranelift-entity",
  "cranelift-frontend",
  "gimli",
  "hashbrown",
  "lazy_static",
+ "loupe",
  "more-asserts",
  "rayon",
  "serde",
@@ -2899,6 +2935,7 @@ dependencies = [
  "itertools 0.10.0",
  "lazy_static",
  "libc",
+ "loupe",
  "rayon",
  "regex",
  "rustc_version 0.2.3",
@@ -2919,6 +2956,7 @@ dependencies = [
  "dynasmrt",
  "hashbrown",
  "lazy_static",
+ "loupe",
  "more-asserts",
  "rayon",
  "serde",
@@ -2961,6 +2999,7 @@ dependencies = [
  "backtrace",
  "bincode",
  "lazy_static",
+ "loupe",
  "memmap2",
  "more-asserts",
  "rustc-demangle",
@@ -2978,6 +3017,7 @@ name = "wasmer-engine-dummy"
 version = "1.0.2"
 dependencies = [
  "bincode",
+ "loupe",
  "serde",
  "serde_bytes",
  "wasmer-compiler",
@@ -2992,6 +3032,7 @@ version = "1.0.2"
 dependencies = [
  "bincode",
  "cfg-if 0.1.10",
+ "loupe",
  "region",
  "serde",
  "serde_bytes",
@@ -3010,6 +3051,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "loupe",
  "serde",
  "tempfile",
  "tracing",
@@ -3029,6 +3071,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
+ "loupe",
  "serde",
  "tempfile",
  "tracing",
@@ -3051,6 +3094,7 @@ dependencies = [
 name = "wasmer-middlewares"
 version = "1.0.2"
 dependencies = [
+ "loupe",
  "wasmer",
  "wasmer-types",
  "wasmer-vm",
@@ -3070,7 +3114,7 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
- "cranelift-entity",
+ "loupe",
  "serde",
  "thiserror",
 ]
@@ -3084,6 +3128,7 @@ dependencies = [
  "cfg-if 0.1.10",
  "indexmap",
  "libc",
+ "loupe",
  "memoffset 0.6.1",
  "more-asserts",
  "region",
@@ -3153,6 +3198,7 @@ dependencies = [
  "criterion",
  "glob",
  "lazy_static",
+ "loupe",
  "rustc_version 0.3.3",
  "tempfile",
  "test-generator",

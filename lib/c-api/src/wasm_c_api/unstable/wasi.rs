@@ -2,7 +2,10 @@
 //! API.
 
 use super::super::{
-    externals::wasm_extern_t, module::wasm_module_t, store::wasm_store_t, types::wasm_name_t,
+    externals::wasm_extern_t,
+    module::wasm_module_t,
+    store::wasm_store_t,
+    types::{owned_wasm_name_t, wasm_name_t},
     wasi::wasi_env_t,
 };
 use crate::error::CApiError;
@@ -19,8 +22,8 @@ use wasmer_wasi::{generate_import_object_from_env, get_wasi_version};
 #[allow(non_camel_case_types)]
 #[derive(Clone)]
 pub struct wasmer_named_extern_t {
-    module: Box<wasm_name_t>,
-    name: Box<wasm_name_t>,
+    module: owned_wasm_name_t,
+    name: owned_wasm_name_t,
     r#extern: Box<wasm_extern_t>,
 }
 
@@ -179,17 +182,14 @@ fn wasi_get_unordered_imports_inner(
     *imports = import_object
         .into_iter()
         .map(|((module, name), export)| {
-            let module = Box::new(module.into());
-            let name = Box::new(name.into());
+            let module = module.into();
+            let name = name.into();
             let extern_inner = Extern::from_vm_export(store, export);
 
             Box::new(wasmer_named_extern_t {
                 module,
                 name,
-                r#extern: Box::new(wasm_extern_t {
-                    instance: None,
-                    inner: extern_inner,
-                }),
+                r#extern: Box::new(extern_inner.into()),
             })
         })
         .collect::<Vec<_>>()

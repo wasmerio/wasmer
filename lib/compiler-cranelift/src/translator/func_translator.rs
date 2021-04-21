@@ -19,8 +19,8 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    wasm_unsupported, MiddlewareBinaryReader, ModuleMiddlewareChain, ModuleTranslationState,
-    WasmResult,
+    wasm_unsupported, wptype_to_type, MiddlewareBinaryReader, ModuleMiddlewareChain,
+    ModuleTranslationState, WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
 
@@ -77,6 +77,7 @@ impl FuncTranslator {
                 .middlewares
                 .generate_function_middleware_chain(local_function_index),
         );
+        environ.push_params_on_stack(local_function_index);
         self.translate_from_reader(module_translation_state, reader, func, environ)
     }
 
@@ -211,12 +212,14 @@ fn declare_locals<FE: FuncEnvironment + ?Sized>(
         ty => return Err(wasm_unsupported!("unsupported local type {:?}", ty)),
     };
 
+    let wasmer_ty = wptype_to_type(wasm_type).unwrap();
     let ty = builder.func.dfg.value_type(zeroval);
     for _ in 0..count {
         let local = Variable::new(*next_local);
         builder.declare_var(local, ty);
         builder.def_var(local, zeroval);
         builder.set_val_label(zeroval, ValueLabel::new(*next_local));
+        environ.push_local_decl_on_stack(wasmer_ty);
         *next_local += 1;
     }
     Ok(())
@@ -245,6 +248,8 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
         environ.after_translate_operator(&op, builder, state)?;
     }
 
+    // When returning we drop all values in locals and on the stack.
+
     // The final `End` operator left us in the exit block where we need to manually add a return
     // instruction.
     //
@@ -253,6 +258,23 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     if state.reachable {
         debug_assert!(builder.is_pristine());
         if !builder.is_unreachable() {
+            environ.translate_drop_locals(builder)?;
+
+            let _num_elems_to_drop = state.stack.len() - builder.func.signature.returns.len();
+            // drop elements on the stack that we're not returning
+            /*for val in state
+                .stack
+                .iter()
+                .zip(state.metadata_stack.iter())
+                .take(num_elems_to_drop)
+                .filter(|(_, metadata)| metadata.ref_counted)
+                .map(|(val, _)| val)
+            {
+                environ.translate_externref_dec(builder.cursor(), *val)?;
+            }*/
+
+            // TODO: look into what `state.reachable` check above does as well as `!builder.is_unreachable`, do we need that too for ref counting?
+
             match environ.return_mode() {
                 ReturnMode::NormalReturns => {
                     let return_types = wasm_param_types(&builder.func.signature.returns, |i| {
@@ -269,6 +291,7 @@ fn parse_function_body<FE: FuncEnvironment + ?Sized>(
     // Discard any remaining values on the stack. Either we just returned them,
     // or the end of the function is unreachable.
     state.stack.clear();
+    //state.metadata_stack.clear();
 
     debug_assert!(reader.eof());
 

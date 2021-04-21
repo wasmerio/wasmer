@@ -1,8 +1,8 @@
+use crate::extern_ref::ExternRef;
 use crate::lib::std::convert::TryFrom;
 use crate::lib::std::fmt;
 use crate::lib::std::ptr;
 use crate::lib::std::string::{String, ToString};
-use crate::r#ref::ExternRef;
 use crate::types::Type;
 
 /// Possible runtime values that a WebAssembly module can either consume or
@@ -31,7 +31,7 @@ pub enum Value<T> {
     ExternRef(ExternRef),
 
     /// A first-class reference to a WebAssembly function.
-    FuncRef(T),
+    FuncRef(Option<T>),
 
     /// A 128-bit number
     V128(u128),
@@ -61,7 +61,32 @@ macro_rules! accessors {
     )*)
 }
 
-impl<T> Value<T> {
+/// Trait for reading and writing Wasm values into binary for use on the layer
+/// between the API and the VM internals, specifically with `wasmer_types::Value`.
+pub trait WasmValueType: std::fmt::Debug + 'static {
+    /// Write the value
+    unsafe fn write_value_to(&self, p: *mut i128);
+
+    /// read the value
+    // TODO(reftypes): passing the store as `dyn Any` is a hack to work around the
+    // structure of our crates. We need to talk about the store in the rest of the
+    // VM (for example where this method is used) but cannot do so. Fixing this
+    // may be non-trivial.
+    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self;
+}
+
+impl WasmValueType for () {
+    unsafe fn write_value_to(&self, _p: *mut i128) {}
+
+    unsafe fn read_value_from(_store: &dyn std::any::Any, _p: *const i128) -> Self {
+        ()
+    }
+}
+
+impl<T> Value<T>
+where
+    T: WasmValueType,
+{
     /// Returns a null `externref` value.
     pub fn null() -> Self {
         Self::ExternRef(ExternRef::null())
@@ -93,7 +118,10 @@ impl<T> Value<T> {
             Self::F32(u) => ptr::write(p as *mut f32, *u),
             Self::F64(u) => ptr::write(p as *mut f64, *u),
             Self::V128(b) => ptr::write(p as *mut u128, *b),
-            _ => unimplemented!("Value::write_value_to"),
+            Self::FuncRef(Some(b)) => T::write_value_to(b, p),
+            Self::FuncRef(None) => ptr::write(p as *mut usize, 0),
+            // TODO(reftypes): review clone here
+            Self::ExternRef(extern_ref) => ptr::write(p as *mut ExternRef, extern_ref.clone()),
         }
     }
 
@@ -103,14 +131,25 @@ impl<T> Value<T> {
     /// `p` must be:
     /// - Properly aligned to the specified `ty`'s Rust equivalent
     /// - Non-null and pointing to valid memory
-    pub unsafe fn read_value_from(p: *const i128, ty: Type) -> Self {
+    pub unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128, ty: Type) -> Self {
         match ty {
             Type::I32 => Self::I32(ptr::read(p as *const i32)),
             Type::I64 => Self::I64(ptr::read(p as *const i64)),
             Type::F32 => Self::F32(ptr::read(p as *const f32)),
             Type::F64 => Self::F64(ptr::read(p as *const f64)),
             Type::V128 => Self::V128(ptr::read(p as *const u128)),
-            _ => unimplemented!("Value::read_value_from"),
+            Type::FuncRef => {
+                // We do the null check ourselves
+                if (*(p as *const usize)) == 0 {
+                    Self::FuncRef(None)
+                } else {
+                    Self::FuncRef(Some(T::read_value_from(store, p)))
+                }
+            }
+            Type::ExternRef => {
+                let extern_ref = (&*(p as *const ExternRef)).clone();
+                Self::ExternRef(extern_ref)
+            }
         }
     }
 
@@ -120,33 +159,16 @@ impl<T> Value<T> {
         (I64(i64) i64 unwrap_i64 *e)
         (F32(f32) f32 unwrap_f32 *e)
         (F64(f64) f64 unwrap_f64 *e)
-        (FuncRef(&T) funcref unwrap_funcref e)
+        (ExternRef(ExternRef) externref unwrap_externref e.clone())
+        (FuncRef(&Option<T>) funcref unwrap_funcref e)
         (V128(u128) v128 unwrap_v128 *e)
-    }
-
-    /// Attempt to access the underlying value of this `Value`, returning
-    /// `None` if it is not the correct type.
-    ///
-    /// This will return `Some` for both the `ExternRef` and `FuncRef` types.
-    pub fn externref(&self) -> Option<ExternRef> {
-        match self {
-            Self::ExternRef(e) => Some(e.clone()),
-            _ => None,
-        }
-    }
-
-    /// Returns the underlying value of this `Value`, panicking if it's the
-    /// wrong type.
-    ///
-    /// # Panics
-    ///
-    /// Panics if `self` is not of the right type.
-    pub fn unwrap_externref(&self) -> ExternRef {
-        self.externref().expect("expected externref")
     }
 }
 
-impl<T> fmt::Debug for Value<T> {
+impl<T> fmt::Debug for Value<T>
+where
+    T: WasmValueType,
+{
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
         match self {
             Self::I32(v) => write!(f, "I32({:?})", v),
@@ -154,13 +176,17 @@ impl<T> fmt::Debug for Value<T> {
             Self::F32(v) => write!(f, "F32({:?})", v),
             Self::F64(v) => write!(f, "F64({:?})", v),
             Self::ExternRef(v) => write!(f, "ExternRef({:?})", v),
-            Self::FuncRef(_) => write!(f, "FuncRef"),
+            Self::FuncRef(None) => write!(f, "Null FuncRef"),
+            Self::FuncRef(Some(v)) => write!(f, "FuncRef({:?})", v),
             Self::V128(v) => write!(f, "V128({:?})", v),
         }
     }
 }
 
-impl<T> ToString for Value<T> {
+impl<T> ToString for Value<T>
+where
+    T: WasmValueType,
+{
     fn to_string(&self) -> String {
         match self {
             Self::I32(v) => v.to_string(),
@@ -174,45 +200,66 @@ impl<T> ToString for Value<T> {
     }
 }
 
-impl<T> From<i32> for Value<T> {
+impl<T> From<i32> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: i32) -> Self {
         Self::I32(val)
     }
 }
 
-impl<T> From<u32> for Value<T> {
+impl<T> From<u32> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: u32) -> Self {
         // In Wasm integers are sign-agnostic, so i32 is basically a 4 byte storage we can use for signed or unsigned 32-bit integers.
         Self::I32(val as i32)
     }
 }
 
-impl<T> From<i64> for Value<T> {
+impl<T> From<i64> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: i64) -> Self {
         Self::I64(val)
     }
 }
 
-impl<T> From<u64> for Value<T> {
+impl<T> From<u64> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: u64) -> Self {
         // In Wasm integers are sign-agnostic, so i64 is basically an 8 byte storage we can use for signed or unsigned 64-bit integers.
         Self::I64(val as i64)
     }
 }
 
-impl<T> From<f32> for Value<T> {
+impl<T> From<f32> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: f32) -> Self {
         Self::F32(val)
     }
 }
 
-impl<T> From<f64> for Value<T> {
+impl<T> From<f64> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: f64) -> Self {
         Self::F64(val)
     }
 }
 
-impl<T> From<ExternRef> for Value<T> {
+impl<T> From<ExternRef> for Value<T>
+where
+    T: WasmValueType,
+{
     fn from(val: ExternRef) -> Self {
         Self::ExternRef(val)
     }
@@ -229,7 +276,10 @@ const NOT_I64: &str = "Value is not of Wasm type i64";
 const NOT_F32: &str = "Value is not of Wasm type f32";
 const NOT_F64: &str = "Value is not of Wasm type f64";
 
-impl<T> TryFrom<Value<T>> for i32 {
+impl<T> TryFrom<Value<T>> for i32
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -237,7 +287,10 @@ impl<T> TryFrom<Value<T>> for i32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for u32 {
+impl<T> TryFrom<Value<T>> for u32
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -245,7 +298,10 @@ impl<T> TryFrom<Value<T>> for u32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for i64 {
+impl<T> TryFrom<Value<T>> for i64
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -253,7 +309,10 @@ impl<T> TryFrom<Value<T>> for i64 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for u64 {
+impl<T> TryFrom<Value<T>> for u64
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -261,7 +320,10 @@ impl<T> TryFrom<Value<T>> for u64 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for f32 {
+impl<T> TryFrom<Value<T>> for f32
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
@@ -269,7 +331,10 @@ impl<T> TryFrom<Value<T>> for f32 {
     }
 }
 
-impl<T> TryFrom<Value<T>> for f64 {
+impl<T> TryFrom<Value<T>> for f64
+where
+    T: WasmValueType,
+{
     type Error = &'static str;
 
     fn try_from(value: Value<T>) -> Result<Self, Self::Error> {
