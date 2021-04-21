@@ -416,6 +416,14 @@
 <span id="413">413</span>
 <span id="414">414</span>
 <span id="415">415</span>
+<span id="416">416</span>
+<span id="417">417</span>
+<span id="418">418</span>
+<span id="419">419</span>
+<span id="420">420</span>
+<span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -429,6 +437,8 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">vmcontext</span>::<span class="ident">VMTableDefinition</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">VMExternRef</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::{<span class="ident">MemoryUsage</span>, <span class="ident">MemoryUsageTracker</span>};
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">rkyv</span>::{<span class="ident">Archive</span>, <span class="ident">Deserialize</span> <span class="kw">as</span> <span class="ident">RkyvDeserialize</span>, <span class="ident">Serialize</span> <span class="kw">as</span> <span class="ident">RkyvSerialize</span>};
 <span class="kw">use</span> <span class="ident">serde</span>::{<span class="ident">Deserialize</span>, <span class="ident">Serialize</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">borrow</span>::{<span class="ident">Borrow</span>, <span class="ident">BorrowMut</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cell</span>::<span class="ident">UnsafeCell</span>;
@@ -439,7 +449,11 @@
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{<span class="ident">ExternRef</span>, <span class="ident">TableType</span>, <span class="ident">Type</span> <span class="kw">as</span> <span class="ident">ValType</span>};
 
 <span class="doccomment">/// Implementation styles for WebAssembly tables.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">Hash</span>, <span class="ident">PartialEq</span>, <span class="ident">Eq</span>, <span class="ident">Serialize</span>, <span class="ident">Deserialize</span>, <span class="ident">MemoryUsage</span>)]</span>
+<span class="attribute">#[<span class="ident">cfg_attr</span>(
+    <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>,
+    <span class="ident">derive</span>(<span class="ident">RkyvSerialize</span>, <span class="ident">RkyvDeserialize</span>, <span class="ident">Archive</span>)
+)]</span>
 <span class="kw">pub</span> <span class="kw">enum</span> <span class="ident">TableStyle</span> {
     <span class="doccomment">/// Signatures are stored in the table and checked in the caller.</span>
     <span class="ident">CallerChecksSignature</span>,
@@ -814,10 +828,12 @@
                     }
                     <span class="comment">// This path should never be hit by the generated code due to Wasm</span>
                     <span class="comment">// validation.</span>
-                    (<span class="ident">ty</span>, <span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
-                        <span class="string">&quot;Attempted to set a table of type {} with the value {:?}&quot;</span>,
-                        <span class="ident">ty</span>, <span class="ident">v</span>
-                    ),
+                    (<span class="ident">ty</span>, <span class="ident">v</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                        <span class="macro">panic</span><span class="macro">!</span>(
+                            <span class="string">&quot;Attempted to set a table of type {} with the value {:?}&quot;</span>,
+                            <span class="ident">ty</span>, <span class="ident">v</span>
+                        )
+                    }
                 };
 
                 <span class="prelude-val">Ok</span>(())

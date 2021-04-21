@@ -1410,6 +1410,10 @@
 <span id="1407">1407</span>
 <span id="1408">1408</span>
 <span id="1409">1409</span>
+<span id="1410">1410</span>
+<span id="1411">1411</span>
+<span id="1412">1412</span>
+<span id="1413">1413</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">x64_decl</span>::{<span class="ident">GPR</span>, <span class="ident">XMM</span>};
 <span class="kw">use</span> <span class="ident">dynasm</span>::<span class="ident">dynasm</span>;
@@ -2463,10 +2467,12 @@
             (<span class="ident">Size</span>::<span class="ident">S16</span>, <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">dynasm</span><span class="macro">!</span>(<span class="self">self</span> ; <span class="ident">movzx</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">WORD</span> [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit MOVZX {:?} {:?} {:?} {:?}&quot;</span>,
-                <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>
-            ),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">panic</span><span class="macro">!</span>(
+                    <span class="string">&quot;singlepass can&#39;t emit MOVZX {:?} {:?} {:?} {:?}&quot;</span>,
+                    <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>
+                )
+            }
         }
     }
     <span class="kw">fn</span> <span class="ident">emit_movsx</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">sz_src</span>: <span class="ident">Size</span>, <span class="ident">src</span>: <span class="ident">Location</span>, <span class="ident">sz_dst</span>: <span class="ident">Size</span>, <span class="ident">dst</span>: <span class="ident">Location</span>) {
@@ -2501,10 +2507,12 @@
             (<span class="ident">Size</span>::<span class="ident">S32</span>, <span class="ident">Location</span>::<span class="ident">Memory</span>(<span class="ident">src</span>, <span class="ident">disp</span>), <span class="ident">Size</span>::<span class="ident">S64</span>, <span class="ident">Location</span>::<span class="ident">GPR</span>(<span class="ident">dst</span>)) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="macro">dynasm</span><span class="macro">!</span>(<span class="self">self</span> ; <span class="ident">movsx</span> <span class="ident">Rq</span>(<span class="ident">dst</span> <span class="kw">as</span> <span class="ident">u8</span>), <span class="ident">DWORD</span> [<span class="ident">Rq</span>(<span class="ident">src</span> <span class="kw">as</span> <span class="ident">u8</span>) <span class="op">+</span> <span class="ident">disp</span>]);
             }
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">panic</span><span class="macro">!</span>(
-                <span class="string">&quot;singlepass can&#39;t emit MOVSX {:?} {:?} {:?} {:?}&quot;</span>,
-                <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>
-            ),
+            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">panic</span><span class="macro">!</span>(
+                    <span class="string">&quot;singlepass can&#39;t emit MOVSX {:?} {:?} {:?} {:?}&quot;</span>,
+                    <span class="ident">sz_src</span>, <span class="ident">src</span>, <span class="ident">sz_dst</span>, <span class="ident">dst</span>
+                )
+            }
         }
     }
 

@@ -915,14 +915,14 @@
         <span class="macro">assert_c_type</span><span class="macro">!</span>(
             <span class="ident">CType</span>::<span class="ident">Function</span> {
                 <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">U8</span>, <span class="ident">CType</span>::<span class="ident">ISize</span>],
-                <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
+                <span class="ident">return_value</span>: <span class="prelude-val">None</span>
             },
             <span class="string">&quot;void (*)(unsigned char, size_t)&quot;</span>
         );
         <span class="macro">assert_c_type</span><span class="macro">!</span>(
             <span class="ident">CType</span>::<span class="ident">Function</span> {
                 <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">ISize</span>)),
+                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">ISize</span>))
             },
             <span class="string">&quot;size_t (*)()&quot;</span>
         );
@@ -931,7 +931,7 @@
                 <span class="ident">is_const</span>: <span class="bool-val">true</span>,
                 <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">PointerTo</span> {
                     <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">U32</span>),
+                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">U32</span>)
                 })
             },
             <span class="string">&quot;const unsigned int**&quot;</span>
@@ -971,7 +971,7 @@
         <span class="macro">assert_c_type</span><span class="macro">!</span>(
             <span class="ident">CType</span>::<span class="ident">Function</span> {
                 <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[<span class="ident">CType</span>::<span class="ident">U8</span>, <span class="ident">CType</span>::<span class="ident">ISize</span>],
-                <span class="ident">return_value</span>: <span class="prelude-val">None</span>,
+                <span class="ident">return_value</span>: <span class="prelude-val">None</span>
             },
             <span class="string">&quot;my_func&quot;</span>,
             <span class="string">&quot;void my_func(unsigned char, size_t)&quot;</span>
@@ -979,7 +979,7 @@
         <span class="macro">assert_c_type</span><span class="macro">!</span>(
             <span class="ident">CType</span>::<span class="ident">Function</span> {
                 <span class="ident">arguments</span>: <span class="macro">vec</span><span class="macro">!</span>[],
-                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">ISize</span>)),
+                <span class="ident">return_value</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">ISize</span>))
             },
             <span class="string">&quot;my_func&quot;</span>,
             <span class="string">&quot;size_t my_func()&quot;</span>
@@ -989,7 +989,7 @@
                 <span class="ident">is_const</span>: <span class="bool-val">true</span>,
                 <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">PointerTo</span> {
                     <span class="ident">is_const</span>: <span class="bool-val">false</span>,
-                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">U32</span>),
+                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">U32</span>)
                 })
             },
             <span class="string">&quot;data&quot;</span>,
@@ -1011,7 +1011,7 @@
 
         <span class="macro">assert_c_expr</span><span class="macro">!</span>(
             <span class="ident">CStatement</span>::<span class="ident">LiteralConstant</span> {
-                <span class="ident">value</span>: <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>.<span class="ident">to_string</span>(),
+                <span class="ident">value</span>: <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>.<span class="ident">to_string</span>()
             },
             <span class="string">&quot;\&quot;Hello, world!\&quot;&quot;</span>
         );
@@ -1048,7 +1048,7 @@
                 <span class="ident">is_extern</span>: <span class="bool-val">false</span>,
                 <span class="ident">is_const</span>: <span class="bool-val">true</span>,
                 <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">I32</span>),
+                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">I32</span>)
                 },
                 <span class="ident">definition</span>: <span class="prelude-val">Some</span>(<span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CStatement</span>::<span class="ident">LiteralArray</span> {
                     <span class="ident">items</span>: <span class="macro">vec</span><span class="macro">!</span>[
@@ -1072,7 +1072,7 @@
                 <span class="ident">is_extern</span>: <span class="bool-val">true</span>,
                 <span class="ident">is_const</span>: <span class="bool-val">true</span>,
                 <span class="ident">ctype</span>: <span class="ident">CType</span>::<span class="ident">Array</span> {
-                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">I32</span>),
+                    <span class="ident">inner</span>: <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">CType</span>::<span class="ident">I32</span>)
                 },
                 <span class="ident">definition</span>: <span class="prelude-val">None</span>,
             },

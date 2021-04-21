@@ -2589,6 +2589,8 @@
 <span id="2588">2588</span>
 <span id="2589">2589</span>
 <span id="2590">2590</span>
+<span id="2591">2591</span>
+<span id="2592">2592</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">allow</span>(<span class="ident">unused</span>, <span class="ident">clippy</span>::<span class="ident">too_many_arguments</span>, <span class="ident">clippy</span>::<span class="ident">cognitive_complexity</span>)]</span>
 
@@ -3438,11 +3440,13 @@
                     <span class="kw">return</span> <span class="ident">__WASI_EISDIR</span>;
                 }
                 <span class="ident">Kind</span>::<span class="ident">Symlink</span> { .. } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unimplemented</span><span class="macro">!</span>(<span class="string">&quot;Symlinks in wasi::fd_pwrite&quot;</span>),
-                <span class="ident">Kind</span>::<span class="ident">Buffer</span> { <span class="ident">buffer</span> } <span class="op">=</span><span class="op">&gt;</span> <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(
-                    <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buffer</span>[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..],
-                    <span class="ident">memory</span>,
-                    <span class="ident">iovs_arr_cell</span>
-                )),
+                <span class="ident">Kind</span>::<span class="ident">Buffer</span> { <span class="ident">buffer</span> } <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">wasi_try</span><span class="macro">!</span>(<span class="ident">write_bytes</span>(
+                        <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">buffer</span>[(<span class="ident">offset</span> <span class="kw">as</span> <span class="ident">usize</span>)..],
+                        <span class="ident">memory</span>,
+                        <span class="ident">iovs_arr_cell</span>
+                    ))
+                }
             }
         }
     };

@@ -489,6 +489,8 @@
 <span id="488">488</span>
 <span id="489">489</span>
 <span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Common module with common used structures across different</span>
 <span class="doccomment">//! commands.</span>
@@ -785,10 +787,12 @@
                 <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">config</span>)
             }
             <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">not</span>(<span class="ident">all</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;singlepass&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;cranelift&quot;</span>, <span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;llvm&quot;</span>,)))]</span>
-            <span class="ident">compiler</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">bail</span><span class="macro">!</span>(
-                <span class="string">&quot;The `{}` compiler is not included in this binary.&quot;</span>,
-                <span class="ident">compiler</span>.<span class="ident">to_string</span>()
-            ),
+            <span class="ident">compiler</span> <span class="op">=</span><span class="op">&gt;</span> {
+                <span class="macro">bail</span><span class="macro">!</span>(
+                    <span class="string">&quot;The `{}` compiler is not included in this binary.&quot;</span>,
+                    <span class="ident">compiler</span>.<span class="ident">to_string</span>()
+                )
+            }
         };
 
         <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">unreachable_code</span>)]</span>

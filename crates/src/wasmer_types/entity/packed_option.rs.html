@@ -175,6 +175,7 @@
 <span id="172">172</span>
 <span id="173">173</span>
 <span id="174">174</span>
+<span id="175">175</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -346,7 +347,8 @@
     <span class="kw">fn</span> <span class="ident">copies</span>() {
         <span class="kw">let</span> <span class="ident">x</span> <span class="op">=</span> <span class="ident">Ent</span>(<span class="number">2</span>);
         <span class="kw">let</span> <span class="ident">some</span>: <span class="ident">PackedOption</span><span class="op">&lt;</span><span class="ident">Ent</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into</span>();
-        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">some</span>.<span class="ident">expand</span>(), <span class="ident">x</span>.<span class="ident">into</span>());
+        <span class="kw">let</span> <span class="ident">some2</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Ent</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">x</span>.<span class="ident">into</span>();
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">some</span>.<span class="ident">expand</span>(), <span class="ident">some2</span>);
         <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">some</span>, <span class="ident">x</span>.<span class="ident">into</span>());
     }
 }
