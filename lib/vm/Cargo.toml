@@ -21,6 +21,7 @@ more-asserts = "0.2"
 cfg-if = "0.1"
 backtrace = "0.3"
 serde = { version = "1.0", features = ["derive", "rc"] }
+rkyv = { version = "0.4.3", optional = true}
 loupe = { version = "0.1", features = ["enable-indexmap"] }
 
 [target.'cfg(target_os = "windows")'.dependencies]
@@ -31,3 +32,7 @@ cc = "1.0"
 
 [badges]
 maintenance = { status = "actively-developed" }
+
+[features]
+default = []
+enable-rkyv = ["rkyv"]

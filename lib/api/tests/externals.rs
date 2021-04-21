@@ -9,7 +9,7 @@ fn global_new() -> Result<()> {
         *global.ty(),
         GlobalType {
             ty: Type::I32,
-            mutability: Mutability::Const,
+            mutability: Mutability::Const
         }
     );
 
@@ -18,7 +18,7 @@ fn global_new() -> Result<()> {
         *global_mut.ty(),
         GlobalType {
             ty: Type::I32,
-            mutability: Mutability::Var,
+            mutability: Mutability::Var
         }
     );
 
@@ -165,7 +165,7 @@ fn memory_grow() -> Result<()> {
         result,
         Err(MemoryError::CouldNotGrow {
             current: 12.into(),
-            attempted_delta: 10.into(),
+            attempted_delta: 10.into()
         })
     );
 
