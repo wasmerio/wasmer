@@ -7,11 +7,11 @@
 
 use crate::func_data_registry::VMFuncRef;
 use crate::trap::{Trap, TrapCode};
-#[cfg(feature = "enable-rkyv")]
-use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use crate::vmcontext::VMTableDefinition;
 use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker};
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;

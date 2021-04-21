@@ -74,7 +74,12 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 /// # Ok(())
 /// # }
 /// ```
-pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8], align: u64) -> Result<(), ObjectError> {
+pub fn emit_data(
+    obj: &mut Object,
+    name: &[u8],
+    data: &[u8],
+    align: u64,
+) -> Result<(), ObjectError> {
     let symbol_id = obj.add_symbol(ObjSymbol {
         name: name.to_vec(),
         value: 0,

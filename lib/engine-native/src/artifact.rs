@@ -2,7 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::{NativeEngine, NativeEngineInner};
-use crate::serialize::{ModuleMetadata, ArchivedModuleMetadata};
+use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
 use libloading::{Library, Symbol as LibrarySymbol};
 use loupe::MemoryUsage;
 use std::error::Error;
@@ -227,8 +227,13 @@ impl NativeArtifact {
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, std::mem::align_of::<ArchivedModuleMetadata>() as u64)
-                    .map_err(to_compile_error)?;
+                emit_data(
+                    &mut obj,
+                    WASMER_METADATA_SYMBOL,
+                    &metadata_binary,
+                    std::mem::align_of::<ArchivedModuleMetadata>() as u64,
+                )
+                .map_err(to_compile_error)?;
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
