@@ -979,6 +979,8 @@ impl WasiFs {
             if let Ok(stripped_path) = path.strip_prefix(po_path) {
                 // find the max
                 let new_prefix_len = po_path.as_os_str().len();
+                // we use >= to favor later preopens because we iterate in order
+                // whereas WASI libc iterates in reverse to get this behavior.
                 if new_prefix_len >= max_prefix_len {
                     max_prefix_len = new_prefix_len;
                     max_stripped_path = Some(stripped_path);
