@@ -147,7 +147,10 @@ pub unsafe extern "C" fn wasmer_triple_new(
     triple: Option<&wasm_name_t>,
 ) -> Option<Box<wasmer_triple_t>> {
     let triple = triple?;
-    let triple = c_try!(str::from_utf8(slice::from_raw_parts(triple.data, triple.size)));
+    let triple = c_try!(str::from_utf8(slice::from_raw_parts(
+        triple.data,
+        triple.size
+    )));
 
     Some(Box::new(wasmer_triple_t {
         inner: c_try!(Triple::from_str(triple).map_err(|e| CApiError { msg: e.to_string() })),
@@ -180,7 +183,9 @@ pub unsafe extern "C" fn wasmer_triple_new(
 /// See also [`wasmer_triple_new`].
 #[no_mangle]
 pub extern "C" fn wasmer_triple_new_from_host() -> Box<wasmer_triple_t> {
-    Box::new(wasmer_triple_t { inner: Triple::host() })
+    Box::new(wasmer_triple_t {
+        inner: Triple::host(),
+    })
 }
 
 /// Delete a [`wasmer_triple_t`].
@@ -260,7 +265,9 @@ pub struct wasmer_cpu_features_t {
 /// See [`wasmer_cpu_features_t`].
 #[no_mangle]
 pub extern "C" fn wasmer_cpu_features_new() -> Box<wasmer_cpu_features_t> {
-    Box::new(wasmer_cpu_features_t { inner: CpuFeature::set() })
+    Box::new(wasmer_cpu_features_t {
+        inner: CpuFeature::set(),
+    })
 }
 
 /// Delete a [`wasmer_cpu_features_t`].

@@ -15,7 +15,10 @@ impl WasmGlobalType {
     pub(crate) fn new(global_type: GlobalType) -> Self {
         let content = Box::new(global_type.ty.into());
 
-        Self { global_type, content }
+        Self {
+            global_type,
+            content,
+        }
     }
 }
 
@@ -28,7 +31,9 @@ pub struct wasm_globaltype_t {
 
 impl wasm_globaltype_t {
     pub(crate) fn new(global_type: GlobalType) -> Self {
-        Self { extern_type: wasm_externtype_t::new(ExternType::Global(global_type)) }
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Global(global_type)),
+        }
     }
 
     pub(crate) fn inner(&self) -> &WasmGlobalType {
@@ -50,8 +55,10 @@ pub unsafe extern "C" fn wasm_globaltype_new(
 ) -> Option<Box<wasm_globaltype_t>> {
     let valtype = valtype?;
     let mutability: wasm_mutability_enum = mutability.try_into().ok()?;
-    let global_type =
-        Box::new(wasm_globaltype_t::new(GlobalType::new((*valtype).into(), mutability.into())));
+    let global_type = Box::new(wasm_globaltype_t::new(GlobalType::new(
+        (*valtype).into(),
+        mutability.into(),
+    )));
 
     wasm_valtype_delete(Some(valtype));
 

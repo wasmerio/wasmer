@@ -18,7 +18,8 @@ pub struct Validate {
 impl Validate {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute().context(format!("failed to validate `{}`", self.path.display()))
+        self.inner_execute()
+            .context(format!("failed to validate `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
         let (store, _engine_type, _compiler_type) = self.store.get_store()?;

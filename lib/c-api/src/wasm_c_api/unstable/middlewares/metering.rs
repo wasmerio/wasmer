@@ -215,7 +215,10 @@ pub extern "C" fn wasmer_metering_get_remaining_points(instance: &wasm_instance_
 /// See module's documentation.
 #[no_mangle]
 pub extern "C" fn wasmer_metering_points_are_exhausted(instance: &wasm_instance_t) -> bool {
-    matches!(get_remaining_points(&instance.inner), MeteringPoints::Exhausted,)
+    matches!(
+        get_remaining_points(&instance.inner),
+        MeteringPoints::Exhausted,
+    )
 }
 
 /// Set a new amount of points for the given metering middleware.
@@ -310,5 +313,7 @@ pub extern "C" fn wasmer_metering_as_middleware(
 ) -> Option<Box<wasmer_middleware_t>> {
     let metering = metering?;
 
-    Some(Box::new(wasmer_middleware_t { inner: metering.inner }))
+    Some(Box::new(wasmer_middleware_t {
+        inner: metering.inner,
+    }))
 }

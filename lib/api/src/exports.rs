@@ -75,7 +75,9 @@ impl Exports {
 
     /// Creates a new `Exports` with capacity `n`.
     pub fn with_capacity(n: usize) -> Self {
-        Self { map: Arc::new(IndexMap::with_capacity(n)) }
+        Self {
+            map: Arc::new(IndexMap::with_capacity(n)),
+        }
     }
 
     /// Return the number of exports in the `Exports` map.
@@ -94,7 +96,9 @@ impl Exports {
         S: Into<String>,
         E: Into<Extern>,
     {
-        Arc::get_mut(&mut self.map).unwrap().insert(name.into(), value.into());
+        Arc::get_mut(&mut self.map)
+            .unwrap()
+            .insert(name.into(), value.into());
     }
 
     /// Get an export given a `name`.
@@ -144,7 +148,9 @@ impl Exports {
         Args: WasmTypeList,
         Rets: WasmTypeList,
     {
-        self.get_function(name)?.native().map_err(|_| ExportError::IncompatibleType)
+        self.get_function(name)?
+            .native()
+            .map_err(|_| ExportError::IncompatibleType)
     }
 
     /// Hack to get this working with nativefunc too
@@ -175,7 +181,9 @@ impl Exports {
 
     /// Get an iterator over the exports.
     pub fn iter(&self) -> ExportsIterator<impl Iterator<Item = (&String, &Extern)>> {
-        ExportsIterator { iter: self.map.iter() }
+        ExportsIterator {
+            iter: self.map.iter(),
+        }
     }
 }
 
@@ -252,7 +260,9 @@ where
 
 impl FromIterator<(String, Extern)> for Exports {
     fn from_iter<I: IntoIterator<Item = (String, Extern)>>(iter: I) -> Self {
-        Self { map: Arc::new(IndexMap::from_iter(iter)) }
+        Self {
+            map: Arc::new(IndexMap::from_iter(iter)),
+        }
     }
 }
 
@@ -262,7 +272,10 @@ impl LikeNamespace for Exports {
     }
 
     fn get_namespace_exports(&self) -> Vec<(String, Export)> {
-        self.map.iter().map(|(k, v)| (k.clone(), v.to_export())).collect()
+        self.map
+            .iter()
+            .map(|(k, v)| (k.clone(), v.to_export()))
+            .collect()
     }
 }
 

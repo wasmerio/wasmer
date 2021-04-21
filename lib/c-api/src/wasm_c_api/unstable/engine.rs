@@ -133,7 +133,10 @@ mod tests {
 
     #[test]
     fn test_wasmer_is_headless() {
-        set_var("COMPILER", if cfg!(feature = "compiler") { "0" } else { "1" });
+        set_var(
+            "COMPILER",
+            if cfg!(feature = "compiler") { "0" } else { "1" },
+        );
 
         (assert_c! {
             #include "tests/wasmer_wasm.h"
@@ -152,9 +155,23 @@ mod tests {
 
     #[test]
     fn test_wasmer_is_compiler_available() {
-        set_var("CRANELIFT", if cfg!(feature = "cranelift") { "1" } else { "0" });
+        set_var(
+            "CRANELIFT",
+            if cfg!(feature = "cranelift") {
+                "1"
+            } else {
+                "0"
+            },
+        );
         set_var("LLVM", if cfg!(feature = "llvm") { "1" } else { "0" });
-        set_var("SINGLEPASS", if cfg!(feature = "singlepass") { "1" } else { "0" });
+        set_var(
+            "SINGLEPASS",
+            if cfg!(feature = "singlepass") {
+                "1"
+            } else {
+                "0"
+            },
+        );
 
         (assert_c! {
             #include "tests/wasmer_wasm.h"
@@ -179,7 +196,14 @@ mod tests {
     fn test_wasmer_is_engine_available() {
         set_var("JIT", if cfg!(feature = "jit") { "1" } else { "0" });
         set_var("NATIVE", if cfg!(feature = "native") { "1" } else { "0" });
-        set_var("OBJECT_FILE", if cfg!(feature = "object-file") { "1" } else { "0" });
+        set_var(
+            "OBJECT_FILE",
+            if cfg!(feature = "object-file") {
+                "1"
+            } else {
+                "0"
+            },
+        );
 
         (assert_c! {
             #include "tests/wasmer_wasm.h"

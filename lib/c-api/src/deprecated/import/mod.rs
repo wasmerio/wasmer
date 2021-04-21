@@ -343,7 +343,9 @@ pub unsafe extern "C" fn wasmer_import_object_iter_at_end(
     let mut import_object_iter = if let Some(import_object_iter) = import_object_iter {
         import_object_iter.cast::<WasmerImportObjectIterator>()
     } else {
-        update_last_error(CApiError { msg: "import_object_iter must not be null".to_owned() });
+        update_last_error(CApiError {
+            msg: "import_object_iter must not be null".to_owned(),
+        });
         return true;
     };
     let iter = import_object_iter.as_mut();
@@ -357,7 +359,11 @@ pub unsafe extern "C" fn wasmer_import_object_iter_destroy(
     import_object_iter: Option<NonNull<wasmer_import_object_iter_t>>,
 ) {
     if let Some(import_object_iter) = import_object_iter {
-        let _ = Box::from_raw(import_object_iter.cast::<WasmerImportObjectIterator>().as_ptr());
+        let _ = Box::from_raw(
+            import_object_iter
+                .cast::<WasmerImportObjectIterator>()
+                .as_ptr(),
+        );
     }
 }
 
@@ -420,8 +426,10 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
     let mut import_data: HashMap<String, Exports> = HashMap::new();
     let imports: &[wasmer_import_t] = slice::from_raw_parts(imports, imports_len as usize);
     for import in imports {
-        let module_name =
-            slice::from_raw_parts(import.module_name.bytes, import.module_name.bytes_len as usize);
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
         let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
             s
         } else {
@@ -430,8 +438,10 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
             });
             return wasmer_result_t::WASMER_ERROR;
         };
-        let import_name =
-            slice::from_raw_parts(import.import_name.bytes, import.import_name.bytes_len as usize);
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
         let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
             s
         } else {
@@ -451,7 +461,9 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
                 // TODO: investigate consistent usage of `FunctionWrapper` in this context
                 let func_wrapper = import.value.func as *mut FunctionWrapper;
                 let func_export = (*func_wrapper).func.as_ptr();
-                import_object.instance_pointers_to_update.push((*func_wrapper).legacy_env.clone());
+                import_object
+                    .instance_pointers_to_update
+                    .push((*func_wrapper).legacy_env.clone());
                 Extern::Function((&*func_export).clone())
             }
             wasmer_import_export_kind::WASM_GLOBAL => {
@@ -464,7 +476,9 @@ pub unsafe extern "C" fn wasmer_import_object_extend(
             }
         };
 
-        let export_entry = import_data.entry(module_name.to_string()).or_insert_with(Exports::new);
+        let export_entry = import_data
+            .entry(module_name.to_string())
+            .or_insert_with(Exports::new);
         export_entry.insert(import_name.to_string(), export);
     }
 
@@ -632,7 +646,9 @@ unsafe impl Sync for LegacyEnv {}
 
 impl LegacyEnv {
     pub(crate) fn ctx_ptr(&self) -> *mut CAPIInstance {
-        self.instance_ptr.map(|p| p.as_ptr()).unwrap_or(ptr::null_mut())
+        self.instance_ptr
+            .map(|p| p.as_ptr())
+            .unwrap_or(ptr::null_mut())
     }
 }
 
@@ -750,7 +766,9 @@ pub unsafe extern "C" fn wasmer_trap(
     error_message: *const c_char,
 ) -> wasmer_result_t {
     if error_message.is_null() {
-        update_last_error(CApiError { msg: "error_message is null in wasmer_trap".to_string() });
+        update_last_error(CApiError {
+            msg: "error_message is null in wasmer_trap".to_string(),
+        });
 
         return wasmer_result_t::WASMER_ERROR;
     }

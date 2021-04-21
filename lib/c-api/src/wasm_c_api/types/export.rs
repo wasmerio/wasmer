@@ -16,7 +16,10 @@ pub extern "C" fn wasm_exporttype_new(
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_exporttype_t>> {
     let name = unsafe { owned_wasm_name_t::new(name?) };
-    Some(Box::new(wasm_exporttype_t { name, extern_type: extern_type? }))
+    Some(Box::new(wasm_exporttype_t {
+        name,
+        extern_type: extern_type?,
+    }))
 }
 
 #[no_mangle]

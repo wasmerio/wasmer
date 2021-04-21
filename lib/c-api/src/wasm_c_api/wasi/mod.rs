@@ -175,18 +175,24 @@ pub struct wasi_env_t {
 #[no_mangle]
 pub extern "C" fn wasi_env_new(mut config: Box<wasi_config_t>) -> Option<Box<wasi_env_t>> {
     if !config.inherit_stdout {
-        config.state_builder.stdout(Box::new(capture_files::OutputCapturer::new()));
+        config
+            .state_builder
+            .stdout(Box::new(capture_files::OutputCapturer::new()));
     }
 
     if !config.inherit_stderr {
-        config.state_builder.stderr(Box::new(capture_files::OutputCapturer::new()));
+        config
+            .state_builder
+            .stderr(Box::new(capture_files::OutputCapturer::new()));
     }
 
     // TODO: impl capturer for stdin
 
     let wasi_state = c_try!(config.state_builder.build());
 
-    Some(Box::new(wasi_env_t { inner: WasiEnv::new(wasi_state) }))
+    Some(Box::new(wasi_env_t {
+        inner: WasiEnv::new(wasi_state),
+    }))
 }
 
 /// Delete a [`wasi_env_t`].
@@ -266,7 +272,10 @@ fn read_inner(wasi_file: &mut Box<dyn WasiFile>, inner_buffer: &mut [u8]) -> isi
     if let Some(oc) = wasi_file.downcast_mut::<capture_files::OutputCapturer>() {
         let total_to_read = min(inner_buffer.len(), oc.buffer.len());
 
-        for (address, value) in inner_buffer.iter_mut().zip(oc.buffer.drain(..total_to_read)) {
+        for (address, value) in inner_buffer
+            .iter_mut()
+            .zip(oc.buffer.drain(..total_to_read))
+        {
             *address = value;
         }
 
@@ -358,9 +367,11 @@ fn wasi_get_imports_inner(
 
     let store = &store.inner;
 
-    let version = c_try!(get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
-        msg: "could not detect a WASI version on the given module".to_string(),
-    }));
+    let version = c_try!(
+        get_wasi_version(&module.inner, false).ok_or_else(|| CApiError {
+            msg: "could not detect a WASI version on the given module".to_string(),
+        })
+    );
 
     let import_object = generate_import_object_from_env(store, wasi_env.inner.clone(), version);
 

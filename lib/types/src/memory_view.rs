@@ -58,14 +58,22 @@ where
 {
     /// Creates a new MemoryView given a `pointer` and `length`.
     pub unsafe fn new(ptr: *mut T, length: u32) -> Self {
-        Self { ptr, length: length as usize, _phantom: PhantomData }
+        Self {
+            ptr,
+            length: length as usize,
+            _phantom: PhantomData,
+        }
     }
 }
 
 impl<'a, T: Atomic> MemoryView<'a, T> {
     /// Get atomic access to a memory view.
     pub fn atomically(&self) -> MemoryView<'a, T::Output, Atomically> {
-        MemoryView { ptr: self.ptr as *mut T::Output, length: self.length, _phantom: PhantomData }
+        MemoryView {
+            ptr: self.ptr as *mut T::Output,
+            length: self.length,
+            _phantom: PhantomData,
+        }
     }
 }
 

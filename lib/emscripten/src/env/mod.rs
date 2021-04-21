@@ -25,7 +25,11 @@ use crate::EmEnv;
 use wasmer::ValueType;
 
 pub fn call_malloc(ctx: &EmEnv, size: u32) -> u32 {
-    get_emscripten_data(ctx).malloc_ref().unwrap().call(size).unwrap()
+    get_emscripten_data(ctx)
+        .malloc_ref()
+        .unwrap()
+        .call(size)
+        .unwrap()
 }
 
 #[warn(dead_code)]
@@ -42,7 +46,11 @@ pub fn call_memalign(ctx: &EmEnv, alignment: u32, size: u32) -> u32 {
 }
 
 pub fn call_memset(ctx: &EmEnv, pointer: u32, value: u32, size: u32) -> u32 {
-    get_emscripten_data(ctx).memset_ref().unwrap().call(pointer, value, size).unwrap()
+    get_emscripten_data(ctx)
+        .memset_ref()
+        .unwrap()
+        .call(pointer, value, size)
+        .unwrap()
 }
 
 pub(crate) fn get_emscripten_data(ctx: &EmEnv) -> MutexGuard<EmscriptenData> {
@@ -121,7 +129,10 @@ pub fn ___assert_fail(_ctx: &EmEnv, _a: c_int, _b: c_int, _c: c_int, _d: c_int) 
 }
 
 pub fn _pathconf(ctx: &EmEnv, path_addr: c_int, name: c_int) -> c_int {
-    debug!("emscripten::_pathconf {} {} - UNIMPLEMENTED", path_addr, name);
+    debug!(
+        "emscripten::_pathconf {} {} - UNIMPLEMENTED",
+        path_addr, name
+    );
     let _path = emscripten_memory_pointer!(ctx.memory(0), path_addr) as *const c_char;
     match name {
         0 => 32000,

@@ -51,7 +51,9 @@ impl Compiler for SinglepassCompiler {
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
         if target.triple().operating_system == OperatingSystem::Windows {
-            return Err(CompileError::UnsupportedTarget(OperatingSystem::Windows.to_string()));
+            return Err(CompileError::UnsupportedTarget(
+                OperatingSystem::Windows.to_string(),
+            ));
         }
         if let Architecture::X86_32(arch) = target.triple().architecture {
             return Err(CompileError::UnsupportedTarget(arch.to_string()));
@@ -81,8 +83,10 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
             .par_iter()
             .map(|(i, input)| {
-                let middleware_chain =
-                    self.config.middlewares.generate_function_middleware_chain(*i);
+                let middleware_chain = self
+                    .config
+                    .middlewares
+                    .generate_function_middleware_chain(*i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);

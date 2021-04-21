@@ -92,8 +92,10 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
     for import in imports {
-        let module_name =
-            slice::from_raw_parts(import.module_name.bytes, import.module_name.bytes_len as usize);
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
         let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
             s
         } else {
@@ -102,8 +104,10 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
             });
             return wasmer_result_t::WASMER_ERROR;
         };
-        let import_name =
-            slice::from_raw_parts(import.import_name.bytes, import.import_name.bytes_len as usize);
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
         let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
             s
         } else {
@@ -149,7 +153,11 @@ pub unsafe extern "C" fn wasmer_module_instantiate(
         }
     };
 
-    let c_api_instance = CAPIInstance { instance: new_instance, imported_memories, ctx_data: None };
+    let c_api_instance = CAPIInstance {
+        instance: new_instance,
+        imported_memories,
+        ctx_data: None,
+    };
 
     *instance = Box::into_raw(Box::new(c_api_instance)) as *mut wasmer_instance_t;
     wasmer_result_t::WASMER_OK
@@ -216,7 +224,9 @@ pub unsafe extern "C" fn wasmer_module_serialize(
             wasmer_result_t::WASMER_OK
         }
         Err(_) => {
-            update_last_error(CApiError { msg: "Failed to serialize the module".to_string() });
+            update_last_error(CApiError {
+                msg: "Failed to serialize the module".to_string(),
+            });
             wasmer_result_t::WASMER_ERROR
         }
     }
@@ -258,8 +268,10 @@ pub unsafe extern "C" fn wasmer_serialized_module_from_bytes(
         return wasmer_result_t::WASMER_ERROR;
     }
 
-    let serialized_module_bytes: &[u8] =
-        slice::from_raw_parts(serialized_module_bytes, serialized_module_bytes_length as usize);
+    let serialized_module_bytes: &[u8] = slice::from_raw_parts(
+        serialized_module_bytes,
+        serialized_module_bytes_length as usize,
+    );
 
     *serialized_module = Box::into_raw(Box::new(serialized_module_bytes)) as _;
     wasmer_result_t::WASMER_OK
@@ -281,7 +293,9 @@ pub unsafe extern "C" fn wasmer_module_deserialize(
     let serialized_module: &[u8] = if let Some(sm) = serialized_module {
         &*(sm as *const wasmer_serialized_module_t as *const &[u8])
     } else {
-        update_last_error(CApiError { msg: "`serialized_module` pointer is null".to_string() });
+        update_last_error(CApiError {
+            msg: "`serialized_module` pointer is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     };
 

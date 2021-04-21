@@ -435,7 +435,9 @@ pub extern "C" fn wasm_engine_new_with_config(
     where
         M: ToString,
     {
-        update_last_error(CApiError { msg: msg.to_string() });
+        update_last_error(CApiError {
+            msg: msg.to_string(),
+        });
 
         return None;
     }

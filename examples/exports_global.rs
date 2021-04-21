@@ -88,7 +88,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // We will use an exported function for the `one` global
     // and the Global API for `some`.
-    let get_one = instance.exports.get_function("get_one")?.native::<(), f32>()?;
+    let get_one = instance
+        .exports
+        .get_function("get_one")?
+        .native::<(), f32>()?;
 
     let one_value = get_one.call()?;
     let some_value = some.get();
@@ -117,7 +120,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //   2. Using the Global API directly.
     //
     // We will use both for the `some` global.
-    let set_some = instance.exports.get_function("set_some")?.native::<f32, ()>()?;
+    let set_some = instance
+        .exports
+        .get_function("set_some")?
+        .native::<f32, ()>()?;
     set_some.call(21.0)?;
     let some_result = some.get();
     println!("`some` value after `set_some`: {:?}", some_result);

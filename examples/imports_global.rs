@@ -65,8 +65,14 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     //
     // The Wasm module only imports some globals. We'll have to interact
     // with them either using the Global API or exported functions.
-    let get_some = instance.exports.get_function("get_some")?.native::<(), f32>()?;
-    let get_other = instance.exports.get_function("get_other")?.native::<(), f32>()?;
+    let get_some = instance
+        .exports
+        .get_function("get_some")?
+        .native::<(), f32>()?;
+    let get_other = instance
+        .exports
+        .get_function("get_other")?
+        .native::<(), f32>()?;
 
     let some_result = get_some.call()?;
     let other_result = get_other.call()?;
@@ -96,7 +102,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     println!("Altering global values through exported functions...");
     // Changes made to global through exported functions will
     // be reflected on the host side.
-    let set_other = instance.exports.get_function("set_other")?.native::<f32, ()>()?;
+    let set_other = instance
+        .exports
+        .get_function("set_other")?
+        .native::<f32, ()>()?;
     set_other.call(42.0)?;
 
     println!("other value (via Global API): {:?}", other.get());

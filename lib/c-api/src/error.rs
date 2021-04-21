@@ -144,7 +144,11 @@ pub unsafe extern "C" fn wasmer_last_error_message(
 
     let buffer = slice::from_raw_parts_mut(buffer.cast::<u8>().as_ptr(), length);
 
-    ptr::copy_nonoverlapping(error_message.as_ptr(), buffer.as_mut_ptr(), error_message.len());
+    ptr::copy_nonoverlapping(
+        error_message.as_ptr(),
+        buffer.as_mut_ptr(),
+        error_message.len(),
+    );
 
     // Add a trailing null so people using the string as a `char *` don't
     // accidentally read into garbage.

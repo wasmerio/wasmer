@@ -100,8 +100,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Here we go.
     //
     // The Wasm module exports a function called `increment_counter_loop`. Let's get it.
-    let increment_counter_loop =
-        instance.exports.get_function("increment_counter_loop")?.native::<i32, i32>()?;
+    let increment_counter_loop = instance
+        .exports
+        .get_function("increment_counter_loop")?
+        .native::<i32, i32>()?;
 
     let counter_value: i32 = *shared_counter.lock().unwrap();
     println!("Initial ounter value: {:?}", counter_value);

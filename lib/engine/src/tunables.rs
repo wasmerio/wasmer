@@ -100,7 +100,10 @@ pub trait Tunables: MemoryUsage {
             let ty = &module.tables[ti];
             let style = &table_styles[ti];
             let tdl = table_definition_locations[index];
-            tables.push(self.create_vm_table(ty, style, tdl).map_err(LinkError::Resource)?);
+            tables.push(
+                self.create_vm_table(ty, style, tdl)
+                    .map_err(LinkError::Resource)?,
+            );
         }
         Ok(tables)
     }
@@ -115,7 +118,10 @@ pub trait Tunables: MemoryUsage {
         let mut vmctx_globals = PrimaryMap::with_capacity(module.globals.len() - num_imports);
 
         for &global_type in module.globals.values().skip(num_imports) {
-            vmctx_globals.push(self.create_global(global_type).map_err(LinkError::Resource)?);
+            vmctx_globals.push(
+                self.create_global(global_type)
+                    .map_err(LinkError::Resource)?,
+            );
         }
 
         Ok(vmctx_globals)

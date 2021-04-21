@@ -63,19 +63,35 @@ fn imports() -> Result<()> {
     // Now we test the iterators
     assert_eq!(
         module.imports().functions().collect::<Vec<_>>(),
-        vec![ImportType::new("host", "func", FunctionType::new(vec![], vec![])),]
+        vec![ImportType::new(
+            "host",
+            "func",
+            FunctionType::new(vec![], vec![])
+        ),]
     );
     assert_eq!(
         module.imports().memories().collect::<Vec<_>>(),
-        vec![ImportType::new("host", "memory", MemoryType::new(Pages(1), None, false)),]
+        vec![ImportType::new(
+            "host",
+            "memory",
+            MemoryType::new(Pages(1), None, false)
+        ),]
     );
     assert_eq!(
         module.imports().tables().collect::<Vec<_>>(),
-        vec![ImportType::new("host", "table", TableType::new(Type::FuncRef, 1, None)),]
+        vec![ImportType::new(
+            "host",
+            "table",
+            TableType::new(Type::FuncRef, 1, None)
+        ),]
     );
     assert_eq!(
         module.imports().globals().collect::<Vec<_>>(),
-        vec![ImportType::new("host", "global", GlobalType::new(Type::I32, Mutability::Const)),]
+        vec![ImportType::new(
+            "host",
+            "global",
+            GlobalType::new(Type::I32, Mutability::Const)
+        ),]
     );
     Ok(())
 }
@@ -93,9 +109,18 @@ fn exports() -> Result<()> {
     assert_eq!(
         module.exports().collect::<Vec<_>>(),
         vec![
-            ExportType::new("func", ExternType::Function(FunctionType::new(vec![], vec![]))),
-            ExportType::new("memory", ExternType::Memory(MemoryType::new(Pages(1), None, false))),
-            ExportType::new("table", ExternType::Table(TableType::new(Type::FuncRef, 1, None))),
+            ExportType::new(
+                "func",
+                ExternType::Function(FunctionType::new(vec![], vec![]))
+            ),
+            ExportType::new(
+                "memory",
+                ExternType::Memory(MemoryType::new(Pages(1), None, false))
+            ),
+            ExportType::new(
+                "table",
+                ExternType::Table(TableType::new(Type::FuncRef, 1, None))
+            ),
             ExportType::new(
                 "global",
                 ExternType::Global(GlobalType::new(Type::I32, Mutability::Const))
@@ -110,15 +135,24 @@ fn exports() -> Result<()> {
     );
     assert_eq!(
         module.exports().memories().collect::<Vec<_>>(),
-        vec![ExportType::new("memory", MemoryType::new(Pages(1), None, false)),]
+        vec![ExportType::new(
+            "memory",
+            MemoryType::new(Pages(1), None, false)
+        ),]
     );
     assert_eq!(
         module.exports().tables().collect::<Vec<_>>(),
-        vec![ExportType::new("table", TableType::new(Type::FuncRef, 1, None)),]
+        vec![ExportType::new(
+            "table",
+            TableType::new(Type::FuncRef, 1, None)
+        ),]
     );
     assert_eq!(
         module.exports().globals().collect::<Vec<_>>(),
-        vec![ExportType::new("global", GlobalType::new(Type::I32, Mutability::Const)),]
+        vec![ExportType::new(
+            "global",
+            GlobalType::new(Type::I32, Mutability::Const)
+        ),]
     );
     Ok(())
 }

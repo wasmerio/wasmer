@@ -75,7 +75,11 @@ impl VMExternRef {
         // bug on systems that can address `usize` sized memory blocks or smaller because
         // the reference itself is at least `usize` in size and all virtual memory would be
         // taken by references to the data leaving no room for the data itself.
-        if old_size.checked_add(growth_amount).map(|v| v > Self::MAX_REFCOUNT).unwrap_or(true) {
+        if old_size
+            .checked_add(growth_amount)
+            .map(|v| v > Self::MAX_REFCOUNT)
+            .unwrap_or(true)
+        {
             panic!("Too many references to `ExternRef`");
         }
     }
@@ -157,7 +161,10 @@ impl VMExternRefInner {
     where
         T: Any + Send + Sync + Sized + 'static,
     {
-        Self { strong: atomic::AtomicUsize::new(1), data: Box::new(value) }
+        Self {
+            strong: atomic::AtomicUsize::new(1),
+            data: Box::new(value),
+        }
     }
 
     /// Increments the reference count.
@@ -220,7 +227,9 @@ pub struct ExternRef {
 
 impl Clone for ExternRef {
     fn clone(&self) -> Self {
-        Self { inner: self.inner.ref_clone() }
+        Self {
+            inner: self.inner.ref_clone(),
+        }
     }
 }
 
@@ -238,7 +247,9 @@ impl ExternRef {
 
     /// New null extern ref
     pub fn null() -> Self {
-        Self { inner: VMExternRef::null() }
+        Self {
+            inner: VMExternRef::null(),
+        }
     }
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]
@@ -247,7 +258,9 @@ impl ExternRef {
     where
         T: Any + Send + Sync + 'static + Sized,
     {
-        Self { inner: VMExternRef::new(value) }
+        Self {
+            inner: VMExternRef::new(value),
+        }
     }
 
     #[cfg(feature = "experimental-reference-types-extern-ref")]

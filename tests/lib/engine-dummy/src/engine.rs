@@ -93,7 +93,9 @@ impl Engine for DummyEngine {
             deterministic_only: false,
         };
         validator.wasm_features(wasm_features);
-        validator.validate_all(binary).map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        validator
+            .validate_all(binary)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
         Ok(())
     }
 

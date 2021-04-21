@@ -80,7 +80,11 @@ impl RuntimeError {
                 }
             }
             // A trap caused by an error on the generated machine code for a Wasm function
-            Trap::Wasm { pc, signal_trap, backtrace } => {
+            Trap::Wasm {
+                pc,
+                signal_trap,
+                backtrace,
+            } => {
                 let info = if info.should_process_frame(pc).unwrap_or(false) {
                     drop(info);
                     let mut info = FRAME_INFO.write().unwrap();
@@ -92,13 +96,16 @@ impl RuntimeError {
                 };
                 let code = info
                     .lookup_trap_info(pc)
-                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| info.trap_code);
+                    .map_or(signal_trap.unwrap_or(TrapCode::StackOverflow), |info| {
+                        info.trap_code
+                    });
                 Self::new_with_trace(info, Some(pc), RuntimeErrorSource::Trap(code), backtrace)
             }
             // A trap triggered manually from the Wasmer runtime
-            Trap::Runtime { trap_code, backtrace } => {
-                Self::new_with_trace(info, None, RuntimeErrorSource::Trap(trap_code), backtrace)
-            }
+            Trap::Runtime {
+                trap_code,
+                backtrace,
+            } => Self::new_with_trace(info, None, RuntimeErrorSource::Trap(trap_code), backtrace),
         }
     }
 
@@ -139,7 +146,10 @@ impl RuntimeError {
 
         // If any of the frames is not processed, we adquire the lock to
         // modify the GlobalFrameInfo module.
-        let info = if frames.iter().any(|pc| info.should_process_frame(*pc).unwrap_or(false)) {
+        let info = if frames
+            .iter()
+            .any(|pc| info.should_process_frame(*pc).unwrap_or(false))
+        {
             // We drop the read lock, to get a write one.
             // Note: this is not guaranteed because it's a RwLock:
             // the following code may cause deadlocks.
@@ -157,10 +167,18 @@ impl RuntimeError {
         };
 
         // Let's construct the trace
-        let wasm_trace =
-            frames.into_iter().filter_map(|pc| info.lookup_frame_info(pc)).collect::<Vec<_>>();
+        let wasm_trace = frames
+            .into_iter()
+            .filter_map(|pc| info.lookup_frame_info(pc))
+            .collect::<Vec<_>>();
 
-        Self { inner: Arc::new(RuntimeErrorInner { source, wasm_trace, native_trace }) }
+        Self {
+            inner: Arc::new(RuntimeErrorInner {
+                source,
+                wasm_trace,
+                native_trace,
+            }),
+        }
     }
 
     /// Returns a reference the `message` stored in `Trap`.
@@ -178,12 +196,13 @@ impl RuntimeError {
     pub fn downcast<T: Error + 'static>(self) -> Result<T, Self> {
         match Arc::try_unwrap(self.inner) {
             // We only try to downcast user errors
-            Ok(RuntimeErrorInner { source: RuntimeErrorSource::User(err), .. })
-                if err.is::<T>() =>
-            {
-                Ok(*err.downcast::<T>().unwrap())
-            }
-            Ok(inner) => Err(Self { inner: Arc::new(inner) }),
+            Ok(RuntimeErrorInner {
+                source: RuntimeErrorSource::User(err),
+                ..
+            }) if err.is::<T>() => Ok(*err.downcast::<T>().unwrap()),
+            Ok(inner) => Err(Self {
+                inner: Arc::new(inner),
+            }),
             Err(inner) => Err(Self { inner }),
         }
     }
@@ -235,7 +254,13 @@ impl fmt::Display for RuntimeError {
                 },
                 None => write!(f, "<unnamed>")?,
             }
-            write!(f, " ({}[{}]:0x{:x})", name, func_index, frame.module_offset())?;
+            write!(
+                f,
+                " ({}[{}]:0x{:x})",
+                name,
+                func_index,
+                frame.module_offset()
+            )?;
         }
         Ok(())
     }

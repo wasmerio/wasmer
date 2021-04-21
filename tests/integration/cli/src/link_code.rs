@@ -43,10 +43,18 @@ impl LinkCode {
         let command = command
             .current_dir(&self.current_dir)
             .arg(&self.optimization_flag)
-            .args(self.object_paths.iter().map(|path| path.canonicalize().unwrap()))
+            .args(
+                self.object_paths
+                    .iter()
+                    .map(|path| path.canonicalize().unwrap()),
+            )
             .arg(&self.libwasmer_path.canonicalize()?);
         #[cfg(windows)]
-        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32").arg("-lbcrypt");
+        let command = command
+            .arg("-luserenv")
+            .arg("-lWs2_32")
+            .arg("-ladvapi32")
+            .arg("-lbcrypt");
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
         let output = command.arg("-o").arg(&self.output_path).output()?;

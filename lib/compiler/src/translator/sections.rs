@@ -42,7 +42,10 @@ pub fn wptype_to_type(ty: wasmparser::Type) -> WasmResult<Type> {
         wasmparser::Type::V128 => Ok(Type::V128),
         wasmparser::Type::ExternRef => Ok(Type::ExternRef),
         wasmparser::Type::FuncRef => Ok(Type::FuncRef),
-        ty => Err(wasm_unsupported!("wptype_to_type: wasmparser type {:?}", ty)),
+        ty => Err(wasm_unsupported!(
+            "wptype_to_type: wasmparser type {:?}",
+            ty
+        )),
     }
 }
 
@@ -107,7 +110,10 @@ pub fn parse_import_section<'data>(
             | ImportSectionEntryType::Event(_) => {
                 unimplemented!("module linking not implemented yet")
             }
-            ImportSectionEntryType::Memory(WPMemoryType::M32 { limits: ref memlimits, shared }) => {
+            ImportSectionEntryType::Memory(WPMemoryType::M32 {
+                limits: ref memlimits,
+                shared,
+            }) => {
                 environ.declare_memory_import(
                     MemoryType {
                         minimum: Pages(memlimits.initial),
@@ -221,7 +227,13 @@ pub fn parse_global_section(
     environ.reserve_globals(globals.get_count())?;
 
     for entry in globals {
-        let wasmparser::Global { ty: WPGlobalType { content_type, mutable }, init_expr } = entry?;
+        let wasmparser::Global {
+            ty: WPGlobalType {
+                content_type,
+                mutable,
+            },
+            init_expr,
+        } = entry?;
         let mut init_expr_reader = init_expr.get_binary_reader();
         let initializer = match init_expr_reader.read_operator()? {
             Operator::I32Const { value } => GlobalInit::I32Const(value),
@@ -237,11 +249,16 @@ pub fn parse_global_section(
                 GlobalInit::GetGlobal(GlobalIndex::from_u32(global_index))
             }
             ref s => {
-                return Err(wasm_unsupported!("unsupported init expr in global section: {:?}", s));
+                return Err(wasm_unsupported!(
+                    "unsupported init expr in global section: {:?}",
+                    s
+                ));
             }
         };
-        let global =
-            GlobalType { ty: wptype_to_type(content_type).unwrap(), mutability: mutable.into() };
+        let global = GlobalType {
+            ty: wptype_to_type(content_type).unwrap(),
+            mutability: mutable.into(),
+        };
         environ.declare_global(global, initializer)?;
     }
 
@@ -256,7 +273,11 @@ pub fn parse_export_section<'data>(
     environ.reserve_exports(exports.get_count())?;
 
     for entry in exports {
-        let Export { field, ref kind, index } = entry?;
+        let Export {
+            field,
+            ref kind,
+            index,
+        } = entry?;
 
         // The input has already been validated, so we should be able to
         // assume valid UTF-8 and use `from_utf8_unchecked` if performance
@@ -315,11 +336,17 @@ pub fn parse_element_section<'data>(
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry?;
         if ty != wasmparser::Type::FuncRef {
-            return Err(wasm_unsupported!("unsupported table element type: {:?}", ty));
+            return Err(wasm_unsupported!(
+                "unsupported table element type: {:?}",
+                ty
+            ));
         }
         let segments = read_elems(&items)?;
         match kind {
-            ElementKind::Active { table_index, init_expr } => {
+            ElementKind::Active {
+                table_index,
+                init_expr,
+            } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
                 let (base, offset) = match init_expr_reader.read_operator()? {
                     Operator::I32Const { value } => (None, value as u32 as usize),
@@ -360,7 +387,10 @@ pub fn parse_data_section<'data>(
     for (index, entry) in data.into_iter().enumerate() {
         let Data { kind, data } = entry?;
         match kind {
-            DataKind::Active { memory_index, init_expr } => {
+            DataKind::Active {
+                memory_index,
+                init_expr,
+            } => {
                 let mut init_expr_reader = init_expr.get_binary_reader();
                 let (base, offset) = match init_expr_reader.read_operator()? {
                     Operator::I32Const { value } => (None, value as u32 as usize),
@@ -399,8 +429,10 @@ pub fn parse_name_section<'data>(
     while let Ok(subsection) = names.read() {
         match subsection {
             wasmparser::Name::Function(function_subsection) => {
-                if let Some(function_names) =
-                    function_subsection.get_map().ok().and_then(parse_function_name_subsection)
+                if let Some(function_names) = function_subsection
+                    .get_map()
+                    .ok()
+                    .and_then(parse_function_name_subsection)
                 {
                     for (index, name) in function_names {
                         environ.declare_function_name(index, name)?;
@@ -429,7 +461,10 @@ fn parse_function_name_subsection(
             return None;
         }
 
-        if function_names.insert(FunctionIndex::from_u32(index), name).is_some() {
+        if function_names
+            .insert(FunctionIndex::from_u32(index), name)
+            .is_some()
+        {
             // If the function index has been previously seen, then we
             // break out of the loop and early return `None`, because these
             // should be unique.

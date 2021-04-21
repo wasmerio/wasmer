@@ -73,7 +73,10 @@ impl CompilerOptions {
         } else if self.singlepass {
             Ok(CompilerType::Singlepass)
         } else if let Some(backend) = self.backend.clone() {
-            warning!("the `--backend={0}` flag is deprecated, please use `--{0}` instead", backend);
+            warning!(
+                "the `--backend={0}` flag is deprecated, please use `--{0}` instead",
+                backend
+            );
             CompilerType::from_str(&backend)
         } else {
             // Auto mode, we choose the best compiler for that platform
@@ -155,7 +158,10 @@ impl CompilerOptions {
                     .engine(),
             ),
             #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
-            engine => bail!("The `{}` engine is not included in this binary.", engine.to_string()),
+            engine => bail!(
+                "The `{}` engine is not included in this binary.",
+                engine.to_string()
+            ),
         };
 
         Ok(engine)
@@ -288,7 +294,10 @@ impl CompilerOptions {
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
             compiler => {
-                bail!("The `{}` compiler is not included in this binary.", compiler.to_string())
+                bail!(
+                    "The `{}` compiler is not included in this binary.",
+                    compiler.to_string()
+                )
             }
         };
 
@@ -394,7 +403,9 @@ impl StoreOptions {
         compiler_config: Box<dyn CompilerConfig>,
     ) -> Result<(Box<dyn Engine + Send + Sync>, EngineType)> {
         let engine_type = self.get_engine()?;
-        let engine = self.compiler.get_engine_by_type(target, compiler_config, engine_type)?;
+        let engine = self
+            .compiler
+            .get_engine_by_type(target, compiler_config, engine_type)?;
 
         Ok((engine, engine_type))
     }
@@ -439,7 +450,10 @@ impl StoreOptions {
                 Arc::new(wasmer_engine_object_file::ObjectFile::headless().engine())
             }
             #[cfg(not(all(feature = "jit", feature = "native", feature = "object-file")))]
-            engine => bail!("The `{}` engine is not included in this binary.", engine.to_string()),
+            engine => bail!(
+                "The `{}` engine is not included in this binary.",
+                engine.to_string()
+            ),
         };
         Ok((engine, engine_type))
     }

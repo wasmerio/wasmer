@@ -15,12 +15,20 @@ impl JIT {
     where
         T: Into<Box<dyn CompilerConfig>>,
     {
-        Self { compiler_config: Some(compiler_config.into()), target: None, features: None }
+        Self {
+            compiler_config: Some(compiler_config.into()),
+            target: None,
+            features: None,
+        }
     }
 
     /// Create a new headless JIT
     pub fn headless() -> Self {
-        Self { compiler_config: None, target: None, features: None }
+        Self {
+            compiler_config: None,
+            target: None,
+            features: None,
+        }
     }
 
     /// Set the target

@@ -18,7 +18,9 @@ struct Add2Mul {
 
 impl ModuleMiddleware for Add2MulGen {
     fn generate_function_middleware(&self, _: LocalFunctionIndex) -> Box<dyn FunctionMiddleware> {
-        Box::new(Add2Mul { value_off: self.value_off })
+        Box::new(Add2Mul {
+            value_off: self.value_off,
+        })
     }
 }
 
@@ -32,7 +34,9 @@ impl FunctionMiddleware for Add2Mul {
             Operator::I32Add => {
                 state.push_operator(Operator::I32Mul);
                 if self.value_off != 0 {
-                    state.push_operator(Operator::I32Const { value: self.value_off });
+                    state.push_operator(Operator::I32Const {
+                        value: self.value_off,
+                    });
                     state.push_operator(Operator::I32Add);
                 }
             }

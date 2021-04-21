@@ -70,7 +70,10 @@ pub fn build_ignores_from_textfile(path: PathBuf) -> anyhow::Result<Ignores> {
         // on that platform
         let (line, target) = if line.contains(" on ") {
             let l: Vec<&str> = line.split(" on ").collect();
-            (l.get(0).unwrap().to_string(), Some(l.get(1).unwrap().to_string()))
+            (
+                l.get(0).unwrap().to_string(),
+                Some(l.get(1).unwrap().to_string()),
+            )
         } else {
             (line, None)
         };
@@ -128,7 +131,11 @@ pub fn test_directory(
 
     dir_entries.sort();
 
-    for Test { name: testname, body } in dir_entries.iter() {
+    for Test {
+        name: testname,
+        body,
+    } in dir_entries.iter()
+    {
         out.path.push(testname.to_string());
         write_test(out, &testname, &body).unwrap();
         out.path.pop().unwrap();

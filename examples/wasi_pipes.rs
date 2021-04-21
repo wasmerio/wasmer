@@ -17,8 +17,10 @@ use wasmer_engine_jit::JIT;
 use wasmer_wasi::{Pipe, WasiState};
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let wasm_path =
-        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/wasi-wast/wasi/unstable/pipe_reverse.wasm");
+    let wasm_path = concat!(
+        env!("CARGO_MANIFEST_DIR"),
+        "/tests/wasi-wast/wasi/unstable/pipe_reverse.wasm"
+    );
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 
@@ -36,8 +38,10 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // First, we create the `WasiEnv` with the stdio pipes
     let input = Pipe::new();
     let output = Pipe::new();
-    let mut wasi_env =
-        WasiState::new("hello").stdin(Box::new(input)).stdout(Box::new(output)).finalize()?;
+    let mut wasi_env = WasiState::new("hello")
+        .stdin(Box::new(input))
+        .stdout(Box::new(output))
+        .finalize()?;
 
     println!("Instantiating module with WASI imports...");
     // Then, we get the import object related to our WASI

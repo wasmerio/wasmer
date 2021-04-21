@@ -19,7 +19,10 @@ pub fn platform_clock_res_get(
     };
 
     let (output, timespec_out) = unsafe {
-        let mut timespec_out: timespec = timespec { tv_sec: 0, tv_nsec: 0 };
+        let mut timespec_out: timespec = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
         (clock_getres(unix_clock_id, &mut timespec_out), timespec_out)
     };
 
@@ -44,8 +47,14 @@ pub fn platform_clock_time_get(
     };
 
     let (output, timespec_out) = unsafe {
-        let mut timespec_out: timespec = timespec { tv_sec: 0, tv_nsec: 0 };
-        (clock_gettime(unix_clock_id, &mut timespec_out), timespec_out)
+        let mut timespec_out: timespec = timespec {
+            tv_sec: 0,
+            tv_nsec: 0,
+        };
+        (
+            clock_gettime(unix_clock_id, &mut timespec_out),
+            timespec_out,
+        )
     };
 
     let t_out = (timespec_out.tv_sec * 1_000_000_000).wrapping_add(timespec_out.tv_nsec);

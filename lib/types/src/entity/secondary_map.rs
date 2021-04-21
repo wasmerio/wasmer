@@ -50,7 +50,11 @@ where
     where
         V: Default,
     {
-        Self { elems: Vec::new(), default: Default::default(), unused: PhantomData }
+        Self {
+            elems: Vec::new(),
+            default: Default::default(),
+            unused: PhantomData,
+        }
     }
 
     /// Create a new, empty map with the specified capacity.
@@ -71,7 +75,11 @@ where
     ///
     /// This constructor does not require V to implement Default.
     pub fn with_default(default: V) -> Self {
-        Self { elems: Vec::new(), default, unused: PhantomData }
+        Self {
+            elems: Vec::new(),
+            default,
+            unused: PhantomData,
+        }
     }
 
     /// Returns the number of elements the map can hold without reallocating.
@@ -267,7 +275,9 @@ where
             }
         }
 
-        deserializer.deserialize_seq(SecondaryMapVisitor { unused: PhantomData {} })
+        deserializer.deserialize_seq(SecondaryMapVisitor {
+            unused: PhantomData {},
+        })
     }
 }
 

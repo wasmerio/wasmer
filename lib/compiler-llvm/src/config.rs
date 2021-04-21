@@ -176,8 +176,10 @@ impl LLVM {
         // The CPU features formatted as LLVM strings
         // We can safely map to gcc-like features as the CPUFeatures
         // are compliant with the same string representations as gcc.
-        let llvm_cpu_features =
-            cpu_features.iter().map(|feature| format!("+{}", feature.to_string())).join(",");
+        let llvm_cpu_features = cpu_features
+            .iter()
+            .map(|feature| format!("+{}", feature.to_string()))
+            .join(",");
 
         let target_triple = self.target_triple(&target);
         let llvm_target = InkwellTarget::from_triple(&target_triple).unwrap();

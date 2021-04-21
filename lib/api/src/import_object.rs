@@ -137,7 +137,9 @@ impl IntoIterator for ImportObject {
     type Item = ((String, String), Export);
 
     fn into_iter(self) -> Self::IntoIter {
-        ImportObjectIterator { elements: self.get_objects() }
+        ImportObjectIterator {
+            elements: self.get_objects(),
+        }
     }
 }
 
@@ -168,7 +170,10 @@ impl fmt::Debug for ImportObject {
         }
 
         f.debug_struct("ImportObject")
-            .field("map", &SecretMap::new(self.map.lock().unwrap().borrow().len()))
+            .field(
+                "map",
+                &SecretMap::new(self.map.lock().unwrap().borrow().len()),
+            )
             .finish()
     }
 }

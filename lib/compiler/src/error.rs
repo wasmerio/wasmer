@@ -62,7 +62,10 @@ pub struct MiddlewareError {
 impl MiddlewareError {
     /// Create a new `MiddlewareError`
     pub fn new<A: Into<String>, B: Into<String>>(name: A, message: B) -> Self {
-        Self { name: name.into(), message: message.into() }
+        Self {
+            name: name.into(),
+            message: message.into(),
+        }
     }
 }
 

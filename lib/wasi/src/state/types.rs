@@ -439,17 +439,23 @@ impl<'de> Deserialize<'de> for HostFile {
             where
                 V: de::SeqAccess<'de>,
             {
-                let host_path =
-                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(0, &self))?;
-                let flags =
-                    seq.next_element()?.ok_or_else(|| de::Error::invalid_length(1, &self))?;
+                let host_path = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(0, &self))?;
+                let flags = seq
+                    .next_element()?
+                    .ok_or_else(|| de::Error::invalid_length(1, &self))?;
                 let inner = std::fs::OpenOptions::new()
                     .read(flags & HostFile::READ != 0)
                     .write(flags & HostFile::WRITE != 0)
                     .append(flags & HostFile::APPEND != 0)
                     .open(&host_path)
                     .map_err(|_| de::Error::custom("Could not open file on this system"))?;
-                Ok(HostFile { inner, host_path, flags })
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
             }
 
             fn visit_map<V>(self, mut map: V) -> Result<Self::Value, V::Error>
@@ -482,7 +488,11 @@ impl<'de> Deserialize<'de> for HostFile {
                     .append(flags & HostFile::APPEND != 0)
                     .open(&host_path)
                     .map_err(|_| de::Error::custom("Could not open file on this system"))?;
-                Ok(HostFile { inner, host_path, flags })
+                Ok(HostFile {
+                    inner,
+                    host_path,
+                    flags,
+                })
             }
         }
 
@@ -508,7 +518,11 @@ impl HostFile {
         if append {
             flags |= Self::APPEND;
         }
-        Self { inner: file, host_path, flags }
+        Self {
+            inner: file,
+            host_path,
+            flags,
+        }
     }
 
     pub fn metadata(&self) -> fs::Metadata {
@@ -683,16 +697,28 @@ fn host_file_bytes_available(_raw_fd: i32) -> Result<usize, WasiFsError> {
 pub struct Stdout;
 impl Read for Stdout {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stdout",
+        ))
     }
 }
 impl Seek for Stdout {
@@ -764,16 +790,28 @@ impl WasiFile for Stdout {
 pub struct Stderr;
 impl Read for Stderr {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stderr"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stderr"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stderr"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from stderr"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from stderr",
+        ))
     }
 }
 impl Seek for Stderr {
@@ -864,16 +902,28 @@ impl Seek for Stdin {
 }
 impl Write for Stdin {
     fn write(&mut self, _buf: &[u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not write to stdin"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
     }
     fn flush(&mut self) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not write to stdin"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
     }
     fn write_all(&mut self, _buf: &[u8]) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not write to stdin"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
     }
     fn write_fmt(&mut self, _fmt: ::std::fmt::Arguments) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not write to stdin"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not write to stdin",
+        ))
     }
 }
 
@@ -955,7 +1005,10 @@ impl Write for Pipe {
 
 impl Seek for Pipe {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek in a pipe"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek in a pipe",
+        ))
     }
 }
 

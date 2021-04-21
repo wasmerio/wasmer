@@ -2,7 +2,12 @@
     html_logo_url = "https://github.com/wasmerio.png?size=200",
     html_favicon_url = "https://wasmer.io/static/icons/favicon.ico"
 )]
-#![deny(missing_docs, trivial_numeric_casts, unused_extern_crates, broken_intra_doc_links)]
+#![deny(
+    missing_docs,
+    trivial_numeric_casts,
+    unused_extern_crates,
+    broken_intra_doc_links
+)]
 #![warn(unused_import_braces)]
 #![cfg_attr(
     feature = "cargo-clippy",

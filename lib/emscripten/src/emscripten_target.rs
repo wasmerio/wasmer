@@ -209,7 +209,16 @@ pub fn invoke_viii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32) {
 }
 pub fn invoke_viiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) {
     debug!("emscripten::invoke_viiii");
-    invoke_no_return!(ctx, dyn_call_viiii, dyn_call_viiii_ref, index, a1, a2, a3, a4);
+    invoke_no_return!(
+        ctx,
+        dyn_call_viiii,
+        dyn_call_viiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
+    );
 }
 pub fn invoke_dii(ctx: &EmEnv, index: i32, a1: i32, a2: i32) -> f64 {
     debug!("emscripten::invoke_dii");
@@ -217,15 +226,43 @@ pub fn invoke_dii(ctx: &EmEnv, index: i32, a1: i32, a2: i32) -> f64 {
 }
 pub fn invoke_diiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> f64 {
     debug!("emscripten::invoke_diiii");
-    invoke!(ctx, dyn_call_diiii, dyn_call_diiii_ref, index, a1, a2, a3, a4)
+    invoke!(
+        ctx,
+        dyn_call_diiii,
+        dyn_call_diiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
+    )
 }
 pub fn invoke_iiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32) -> i32 {
     debug!("emscripten::invoke_iiiii");
-    invoke!(ctx, dyn_call_iiiii, dyn_call_iiiii_ref, index, a1, a2, a3, a4)
+    invoke!(
+        ctx,
+        dyn_call_iiiii,
+        dyn_call_iiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4
+    )
 }
 pub fn invoke_iiiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) -> i32 {
     debug!("emscripten::invoke_iiiiii");
-    invoke!(ctx, dyn_call_iiiiii, dyn_call_iiiiii_ref, index, a1, a2, a3, a4, a5)
+    invoke!(
+        ctx,
+        dyn_call_iiiiii,
+        dyn_call_iiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_iiiiiii(
     ctx: &EmEnv,
@@ -238,7 +275,18 @@ pub fn invoke_iiiiiii(
     a6: i32,
 ) -> i32 {
     debug!("emscripten::invoke_iiiiiii");
-    invoke!(ctx, dyn_call_iiiiiii, dyn_call_iiiiiii_ref, index, a1, a2, a3, a4, a5, a6)
+    invoke!(
+        ctx,
+        dyn_call_iiiiiii,
+        dyn_call_iiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
+    )
 }
 pub fn invoke_iiiiiiii(
     ctx: &EmEnv,
@@ -252,7 +300,19 @@ pub fn invoke_iiiiiiii(
     a7: i32,
 ) -> i32 {
     debug!("emscripten::invoke_iiiiiiii");
-    invoke!(ctx, dyn_call_iiiiiiii, dyn_call_iiiiiiii_ref, index, a1, a2, a3, a4, a5, a6, a7)
+    invoke!(
+        ctx,
+        dyn_call_iiiiiiii,
+        dyn_call_iiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7
+    )
 }
 pub fn invoke_iiiiiiiii(
     ctx: &EmEnv,
@@ -267,7 +327,20 @@ pub fn invoke_iiiiiiiii(
     a8: i32,
 ) -> i32 {
     debug!("emscripten::invoke_iiiiiiiii");
-    invoke!(ctx, dyn_call_iiiiiiiii, dyn_call_iiiiiiiii_ref, index, a1, a2, a3, a4, a5, a6, a7, a8)
+    invoke!(
+        ctx,
+        dyn_call_iiiiiiiii,
+        dyn_call_iiiiiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6,
+        a7,
+        a8
+    )
 }
 pub fn invoke_iiiiiiiiii(
     ctx: &EmEnv,
@@ -337,7 +410,17 @@ pub fn invoke_vd(ctx: &EmEnv, index: i32, a1: f64) {
 }
 pub fn invoke_viiiii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_viiiii");
-    invoke_no_return!(ctx, dyn_call_viiiii, dyn_call_viiiii_ref, index, a1, a2, a3, a4, a5)
+    invoke_no_return!(
+        ctx,
+        dyn_call_viiiii,
+        dyn_call_viiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_viiiiii(
     ctx: &EmEnv,
@@ -350,7 +433,18 @@ pub fn invoke_viiiiii(
     a6: i32,
 ) {
     debug!("emscripten::invoke_viiiiii");
-    invoke_no_return!(ctx, dyn_call_viiiiii, dyn_call_viiiiii_ref, index, a1, a2, a3, a4, a5, a6)
+    invoke_no_return!(
+        ctx,
+        dyn_call_viiiiii,
+        dyn_call_viiiiii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
+    )
 }
 pub fn invoke_viiiiiii(
     ctx: &EmEnv,
@@ -495,7 +589,18 @@ pub fn invoke_iiijj(
     a6: i32,
 ) -> i32 {
     debug!("emscripten::invoke_iiijj");
-    invoke!(ctx, dyn_call_iiijj, dyn_call_iiijj_ref, index, a1, a2, a3, a4, a5, a6)
+    invoke!(
+        ctx,
+        dyn_call_iiijj,
+        dyn_call_iiijj_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5,
+        a6
+    )
 }
 pub fn invoke_j(ctx: &EmEnv, index: i32) -> i32 {
     debug!("emscripten::invoke_j");
@@ -561,7 +666,9 @@ pub fn invoke_viiijiiii(
 ) {
     debug!("emscripten::invoke_viiijiiii");
     if let Some(dyn_call_viiijiiii) = get_emscripten_data(ctx).dyn_call_viiijiiii_ref() {
-        dyn_call_viiijiiii.call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9).unwrap();
+        dyn_call_viiijiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9)
+            .unwrap();
     } else {
         panic!("dyn_call_viiijiiii is set to None");
     }
@@ -583,7 +690,9 @@ pub fn invoke_viiijiiiiii(
 ) {
     debug!("emscripten::invoke_viiijiiiiii");
     if let Some(dyn_call_viiijiiiiii) = get_emscripten_data(ctx).dyn_call_viiijiiiiii_ref() {
-        dyn_call_viiijiiiiii.call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11).unwrap();
+        dyn_call_viiijiiiiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7, a8, a9, a10, a11)
+            .unwrap();
     } else {
         panic!("dyn_call_viiijiiiiii is set to None");
     }
@@ -617,7 +726,9 @@ pub fn invoke_viijiii(
 ) {
     debug!("emscripten::invoke_viijiii");
     if let Some(dyn_call_viijiii) = get_emscripten_data(ctx).dyn_call_viijiii_ref() {
-        dyn_call_viijiii.call(index, a1, a2, a3, a4, a5, a6, a7).unwrap();
+        dyn_call_viijiii
+            .call(index, a1, a2, a3, a4, a5, a6, a7)
+            .unwrap();
     } else {
         panic!("dyn_call_viijiii is set to None");
     }
@@ -640,7 +751,17 @@ pub fn invoke_vj(ctx: &EmEnv, index: i32, a1: i32, a2: i32) {
 }
 pub fn invoke_vjji(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32, a4: i32, a5: i32) {
     debug!("emscripten::invoke_vjji");
-    invoke_no_return!(ctx, dyn_call_vjji, dyn_call_vjji_ref, index, a1, a2, a3, a4, a5)
+    invoke_no_return!(
+        ctx,
+        dyn_call_vjji,
+        dyn_call_vjji_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    )
 }
 pub fn invoke_vij(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: i32) {
     debug!("emscripten::invoke_vij");
@@ -693,7 +814,17 @@ pub fn invoke_viid(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: f64) {
 }
 pub fn invoke_viidii(ctx: &EmEnv, index: i32, a1: i32, a2: i32, a3: f64, a4: i32, a5: i32) {
     debug!("emscripten::invoke_viidii");
-    invoke_no_return!(ctx, dyn_call_viidii, dyn_call_viidii_ref, index, a1, a2, a3, a4, a5);
+    invoke_no_return!(
+        ctx,
+        dyn_call_viidii,
+        dyn_call_viidii_ref,
+        index,
+        a1,
+        a2,
+        a3,
+        a4,
+        a5
+    );
 }
 pub fn invoke_viidddddddd(
     ctx: &EmEnv,

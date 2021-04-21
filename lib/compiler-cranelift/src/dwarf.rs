@@ -20,7 +20,10 @@ impl WriterRelocate {
             // We autodetect it, based on the host
             None => RunTimeEndian::default(),
         };
-        WriterRelocate { relocs: Vec::new(), writer: EndianVec::new(endianness) }
+        WriterRelocate {
+            relocs: Vec::new(),
+            writer: EndianVec::new(endianness),
+        }
     }
 
     pub fn into_section(mut self) -> CustomSection {
@@ -69,7 +72,12 @@ impl Writer for WriterRelocate {
                         _ => unimplemented!("dwarf relocation size not yet supported: {}", size),
                     };
                     let addend = 0;
-                    self.relocs.push(Relocation { kind, reloc_target, offset, addend });
+                    self.relocs.push(Relocation {
+                        kind,
+                        reloc_target,
+                        offset,
+                        addend,
+                    });
                     self.write_udata(addend as u64, size)
                 } else {
                     unreachable!("Symbol {} in DWARF not recognized", symbol);

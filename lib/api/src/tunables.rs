@@ -84,7 +84,9 @@ impl Tunables for BaseTunables {
                 offset_guard_size: self.static_memory_offset_guard_size,
             }
         } else {
-            MemoryStyle::Dynamic { offset_guard_size: self.dynamic_memory_offset_guard_size }
+            MemoryStyle::Dynamic {
+                offset_guard_size: self.dynamic_memory_offset_guard_size,
+            }
         }
     }
 
@@ -113,7 +115,11 @@ impl Tunables for BaseTunables {
         style: &MemoryStyle,
         vm_definition_location: NonNull<VMMemoryDefinition>,
     ) -> Result<Arc<dyn Memory>, MemoryError> {
-        Ok(Arc::new(LinearMemory::from_definition(&ty, &style, vm_definition_location)?))
+        Ok(Arc::new(LinearMemory::from_definition(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -136,7 +142,11 @@ impl Tunables for BaseTunables {
         style: &TableStyle,
         vm_definition_location: NonNull<VMTableDefinition>,
     ) -> Result<Arc<dyn Table>, String> {
-        Ok(Arc::new(LinearTable::from_definition(&ty, &style, vm_definition_location)?))
+        Ok(Arc::new(LinearTable::from_definition(
+            &ty,
+            &style,
+            vm_definition_location,
+        )?))
     }
 }
 
@@ -172,7 +182,10 @@ mod tests {
         let requested = MemoryType::new(3, Some(16), true);
         let style = tunables.memory_style(&requested);
         match style {
-            MemoryStyle::Static { bound, offset_guard_size } => {
+            MemoryStyle::Static {
+                bound,
+                offset_guard_size,
+            } => {
                 assert_eq!(bound, Pages(2048));
                 assert_eq!(offset_guard_size, 128);
             }

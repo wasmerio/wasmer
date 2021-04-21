@@ -31,7 +31,9 @@ const BASE_TEST_DIR: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../wasi-was
 
 fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<String> {
     let stdout_boxed = wasi_state.fs.stdout()?.as_ref().unwrap();
-    let stdout = (&**stdout_boxed).downcast_ref::<OutputCapturerer>().unwrap();
+    let stdout = (&**stdout_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
     let stdout_str = std::str::from_utf8(&stdout.output)?;
     #[cfg(target_os = "windows")]
     // normalize line endings
@@ -43,7 +45,9 @@ fn get_stdout_output(wasi_state: &WasiState) -> anyhow::Result<String> {
 
 fn get_stderr_output(wasi_state: &WasiState) -> anyhow::Result<String> {
     let stderr_boxed = wasi_state.fs.stderr()?.as_ref().unwrap();
-    let stderr = (&**stderr_boxed).downcast_ref::<OutputCapturerer>().unwrap();
+    let stderr = (&**stderr_boxed)
+        .downcast_ref::<OutputCapturerer>()
+        .unwrap();
     let stderr_str = std::str::from_utf8(&stderr.output)?;
 
     #[cfg(target_os = "windows")]
@@ -391,7 +395,9 @@ struct Stdin<'a> {
 impl<'a> Parse<'a> for Stdin<'a> {
     fn parse(parser: Parser<'a>) -> parser::Result<Self> {
         parser.parse::<wasi_kw::stdin>()?;
-        Ok(Self { stream: parser.parse()? })
+        Ok(Self {
+            stream: parser.parse()?,
+        })
     }
 }
 
@@ -403,7 +409,9 @@ struct AssertStdout<'a> {
 impl<'a> Parse<'a> for AssertStdout<'a> {
     fn parse(parser: Parser<'a>) -> parser::Result<Self> {
         parser.parse::<wasi_kw::assert_stdout>()?;
-        Ok(Self { expected: parser.parse()? })
+        Ok(Self {
+            expected: parser.parse()?,
+        })
     }
 }
 
@@ -415,7 +423,9 @@ struct AssertStderr<'a> {
 impl<'a> Parse<'a> for AssertStderr<'a> {
     fn parse(parser: Parser<'a>) -> parser::Result<Self> {
         parser.parse::<wasi_kw::assert_stderr>()?;
-        Ok(Self { expected: parser.parse()? })
+        Ok(Self {
+            expected: parser.parse()?,
+        })
     }
 }
 
@@ -440,11 +450,20 @@ mod test {
         let result = wast::parser::parse::<WasiTest>(&pb).unwrap();
 
         assert_eq!(result.args, vec!["hello", "world", "--help"]);
-        assert_eq!(result.envs, vec![("HELLO", "WORLD"), ("RUST_BACKTRACE", "1")]);
+        assert_eq!(
+            result.envs,
+            vec![("HELLO", "WORLD"), ("RUST_BACKTRACE", "1")]
+        );
         assert_eq!(result.dirs, vec![".", "src/io"]);
         assert_eq!(result.assert_return.unwrap().return_value, 0);
-        assert_eq!(result.assert_stdout.unwrap().expected, "This is a \"string\" inside a string!");
-        assert_eq!(result.stdin.unwrap().stream, "This is another \"string\" inside a string!");
+        assert_eq!(
+            result.assert_stdout.unwrap().expected,
+            "This is a \"string\" inside a string!"
+        );
+        assert_eq!(
+            result.stdin.unwrap().stream,
+            "This is another \"string\" inside a string!"
+        );
         assert_eq!(result.assert_stderr.unwrap().expected, "");
     }
 }
@@ -462,21 +481,36 @@ impl OutputCapturerer {
 
 impl Read for OutputCapturerer {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from logging wrapper"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from logging wrapper"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from logging wrapper"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from logging wrapper"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from logging wrapper",
+        ))
     }
 }
 impl Seek for OutputCapturerer {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek logging wrapper"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek logging wrapper",
+        ))
     }
 }
 impl Write for OutputCapturerer {

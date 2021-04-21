@@ -13,7 +13,9 @@ pub struct OutputCapturer {
 
 impl OutputCapturer {
     pub fn new() -> Self {
-        Self { buffer: VecDeque::new() }
+        Self {
+            buffer: VecDeque::new(),
+        }
     }
 }
 
@@ -46,21 +48,36 @@ impl WasiFile for OutputCapturer {
 // fail when reading or Seeking
 impl Read for OutputCapturer {
     fn read(&mut self, _buf: &mut [u8]) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from capturing stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from capturing stdout",
+        ))
     }
     fn read_to_end(&mut self, _buf: &mut Vec<u8>) -> std::io::Result<usize> {
-        Err(std::io::Error::new(std::io::ErrorKind::Other, "can not read from capturing stdout"))
+        Err(std::io::Error::new(
+            std::io::ErrorKind::Other,
+            "can not read from capturing stdout",
+        ))
     }
     fn read_to_string(&mut self, _buf: &mut String) -> io::Result<usize> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from capturing stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from capturing stdout",
+        ))
     }
     fn read_exact(&mut self, _buf: &mut [u8]) -> io::Result<()> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not read from capturing stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not read from capturing stdout",
+        ))
     }
 }
 impl Seek for OutputCapturer {
     fn seek(&mut self, _pos: io::SeekFrom) -> io::Result<u64> {
-        Err(io::Error::new(io::ErrorKind::Other, "can not seek capturing stdout"))
+        Err(io::Error::new(
+            io::ErrorKind::Other,
+            "can not seek capturing stdout",
+        ))
     }
 }
 impl Write for OutputCapturer {

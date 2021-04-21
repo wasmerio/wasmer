@@ -25,7 +25,12 @@ use aarch64_systemv::Aarch64SystemV;
 use x86_64_systemv::X86_64SystemV;
 
 pub fn get_abi(target_machine: &TargetMachine) -> Box<dyn Abi> {
-    if target_machine.get_triple().as_str().to_string_lossy().starts_with("aarch64") {
+    if target_machine
+        .get_triple()
+        .as_str()
+        .to_string_lossy()
+        .starts_with("aarch64")
+    {
         Box::new(Aarch64SystemV {})
     } else {
         Box::new(X86_64SystemV {})

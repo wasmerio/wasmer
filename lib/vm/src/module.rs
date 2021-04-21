@@ -28,7 +28,10 @@ use wasmer_types::{
 };
 
 #[derive(Debug, Clone, MemoryUsage)]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ModuleId {
     id: usize,
 }
@@ -42,7 +45,9 @@ impl ModuleId {
 impl Default for ModuleId {
     fn default() -> Self {
         static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-        Self { id: NEXT_ID.fetch_add(1, SeqCst) }
+        Self {
+            id: NEXT_ID.fetch_add(1, SeqCst),
+        }
     }
 }
 
@@ -342,44 +347,55 @@ impl ModuleInfo {
             };
             ExportType::new(name, extern_type)
         });
-        ExportsIterator { iter, size: self.exports.len() }
+        ExportsIterator {
+            iter,
+            size: self.exports.len(),
+        }
     }
 
     /// Get the export types of the module
     pub fn imports<'a>(&'a self) -> ImportsIterator<impl Iterator<Item = ImportType> + 'a> {
-        let iter = self.imports.iter().map(move |((module, field, _), import_index)| {
-            let extern_type = match import_index {
-                ImportIndex::Function(i) => {
-                    let signature = self.functions.get(*i).unwrap();
-                    let func_type = self.signatures.get(*signature).unwrap();
-                    ExternType::Function(func_type.clone())
-                }
-                ImportIndex::Table(i) => {
-                    let table_type = self.tables.get(*i).unwrap();
-                    ExternType::Table(*table_type)
-                }
-                ImportIndex::Memory(i) => {
-                    let memory_type = self.memories.get(*i).unwrap();
-                    ExternType::Memory(*memory_type)
-                }
-                ImportIndex::Global(i) => {
-                    let global_type = self.globals.get(*i).unwrap();
-                    ExternType::Global(*global_type)
-                }
-            };
-            ImportType::new(module, field, extern_type)
-        });
-        ImportsIterator { iter, size: self.imports.len() }
+        let iter = self
+            .imports
+            .iter()
+            .map(move |((module, field, _), import_index)| {
+                let extern_type = match import_index {
+                    ImportIndex::Function(i) => {
+                        let signature = self.functions.get(*i).unwrap();
+                        let func_type = self.signatures.get(*signature).unwrap();
+                        ExternType::Function(func_type.clone())
+                    }
+                    ImportIndex::Table(i) => {
+                        let table_type = self.tables.get(*i).unwrap();
+                        ExternType::Table(*table_type)
+                    }
+                    ImportIndex::Memory(i) => {
+                        let memory_type = self.memories.get(*i).unwrap();
+                        ExternType::Memory(*memory_type)
+                    }
+                    ImportIndex::Global(i) => {
+                        let global_type = self.globals.get(*i).unwrap();
+                        ExternType::Global(*global_type)
+                    }
+                };
+                ImportType::new(module, field, extern_type)
+            });
+        ImportsIterator {
+            iter,
+            size: self.imports.len(),
+        }
     }
 
     /// Get the custom sections of the module given a `name`.
     pub fn custom_sections<'a>(&'a self, name: &'a str) -> impl Iterator<Item = Arc<[u8]>> + 'a {
-        self.custom_sections.iter().filter_map(move |(section_name, section_index)| {
-            if name != section_name {
-                return None;
-            }
-            Some(self.custom_sections_data[*section_index].clone())
-        })
+        self.custom_sections
+            .iter()
+            .filter_map(move |(section_name, section_index)| {
+                if name != section_name {
+                    return None;
+                }
+                Some(self.custom_sections_data[*section_index].clone())
+            })
     }
 
     /// Convert a `LocalFunctionIndex` into a `FunctionIndex`.
@@ -390,7 +406,9 @@ impl ModuleInfo {
     /// Convert a `FunctionIndex` into a `LocalFunctionIndex`. Returns None if the
     /// index is an imported function.
     pub fn local_func_index(&self, func: FunctionIndex) -> Option<LocalFunctionIndex> {
-        func.index().checked_sub(self.num_imported_functions).map(LocalFunctionIndex::new)
+        func.index()
+            .checked_sub(self.num_imported_functions)
+            .map(LocalFunctionIndex::new)
     }
 
     /// Test whether the given function index is for an imported function.
@@ -406,7 +424,10 @@ impl ModuleInfo {
     /// Convert a `TableIndex` into a `LocalTableIndex`. Returns None if the
     /// index is an imported table.
     pub fn local_table_index(&self, table: TableIndex) -> Option<LocalTableIndex> {
-        table.index().checked_sub(self.num_imported_tables).map(LocalTableIndex::new)
+        table
+            .index()
+            .checked_sub(self.num_imported_tables)
+            .map(LocalTableIndex::new)
     }
 
     /// Test whether the given table index is for an imported table.
@@ -422,7 +443,10 @@ impl ModuleInfo {
     /// Convert a `MemoryIndex` into a `LocalMemoryIndex`. Returns None if the
     /// index is an imported memory.
     pub fn local_memory_index(&self, memory: MemoryIndex) -> Option<LocalMemoryIndex> {
-        memory.index().checked_sub(self.num_imported_memories).map(LocalMemoryIndex::new)
+        memory
+            .index()
+            .checked_sub(self.num_imported_memories)
+            .map(LocalMemoryIndex::new)
     }
 
     /// Test whether the given memory index is for an imported memory.
@@ -438,7 +462,10 @@ impl ModuleInfo {
     /// Convert a `GlobalIndex` into a `LocalGlobalIndex`. Returns None if the
     /// index is an imported global.
     pub fn local_global_index(&self, global: GlobalIndex) -> Option<LocalGlobalIndex> {
-        global.index().checked_sub(self.num_imported_globals).map(LocalGlobalIndex::new)
+        global
+            .index()
+            .checked_sub(self.num_imported_globals)
+            .map(LocalGlobalIndex::new)
     }
 
     /// Test whether the given global index is for an imported global.
@@ -542,9 +569,11 @@ impl<I: Iterator<Item = ImportType> + Sized> ImportsIterator<I> {
     /// Get only the functions
     pub fn functions(self) -> impl Iterator<Item = ImportType<FunctionType>> + Sized {
         self.iter.filter_map(|extern_| match extern_.ty() {
-            ExternType::Function(ty) => {
-                Some(ImportType::new(extern_.module(), extern_.name(), ty.clone()))
-            }
+            ExternType::Function(ty) => Some(ImportType::new(
+                extern_.module(),
+                extern_.name(),
+                ty.clone(),
+            )),
             _ => None,
         })
     }

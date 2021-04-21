@@ -49,7 +49,9 @@ pub fn _putenv(ctx: &EmEnv, name: c_int) -> c_int {
     debug!("emscripten::_putenv");
     let memory = ctx.memory(0);
     let name_addr = emscripten_memory_pointer!(&memory, name) as *const c_char;
-    debug!("=> name({:?})", unsafe { std::ffi::CStr::from_ptr(name_addr) });
+    debug!("=> name({:?})", unsafe {
+        std::ffi::CStr::from_ptr(name_addr)
+    });
     unsafe { putenv(name_addr) }
 }
 

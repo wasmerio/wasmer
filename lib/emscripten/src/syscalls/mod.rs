@@ -98,10 +98,17 @@ pub fn ___syscall12(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall12 (chdir) {}", _which);
     let path_ptr = varargs.get_str(ctx);
     let real_path_owned = get_cstr_path(ctx, path_ptr as *const _);
-    let real_path =
-        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { path_ptr };
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        path_ptr
+    };
     let ret = unsafe { chdir(real_path) };
-    debug!("=> path: {:?}, ret: {}", unsafe { std::ffi::CStr::from_ptr(real_path) }, ret);
+    debug!(
+        "=> path: {:?}, ret: {}",
+        unsafe { std::ffi::CStr::from_ptr(real_path) },
+        ret
+    );
     ret
 }
 
@@ -162,11 +169,17 @@ pub fn ___syscall38(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> i32 {
     let old_path = varargs.get_str(ctx);
     let new_path = varargs.get_str(ctx);
     let real_old_path_owned = get_cstr_path(ctx, old_path as *const _);
-    let real_old_path =
-        if let Some(ref rp) = real_old_path_owned { rp.as_c_str().as_ptr() } else { old_path };
+    let real_old_path = if let Some(ref rp) = real_old_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        old_path
+    };
     let real_new_path_owned = get_cstr_path(ctx, new_path as *const _);
-    let real_new_path =
-        if let Some(ref rp) = real_new_path_owned { rp.as_c_str().as_ptr() } else { new_path };
+    let real_new_path = if let Some(ref rp) = real_new_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        new_path
+    };
     let result = unsafe { rename(real_old_path, real_new_path) };
     debug!(
         "=> old_path: {}, new_path: {}, result: {}",
@@ -182,8 +195,11 @@ pub fn ___syscall40(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall40 (rmdir)");
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path =
-        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
     unsafe { rmdir(real_path) }
 }
 
@@ -495,7 +511,10 @@ pub fn ___syscall146(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
 
 pub fn ___syscall191(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let _resource: i32 = varargs.get(ctx);
-    debug!("emscripten::___syscall191 - mostly stub, resource: {}", _resource);
+    debug!(
+        "emscripten::___syscall191 - mostly stub, resource: {}",
+        _resource
+    );
     let rlim_emptr: i32 = varargs.get(ctx);
     let rlim_ptr = emscripten_memory_pointer!(ctx.memory(0), rlim_emptr) as *mut u8;
     let rlim = unsafe { slice::from_raw_parts_mut(rlim_ptr, 16) };
@@ -519,8 +538,11 @@ pub fn ___syscall195(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     let buf: u32 = varargs.get(ctx);
 
     let real_path_owned = get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path =
-        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
+    let real_path = if let Some(ref rp) = real_path_owned {
+        rp.as_c_str().as_ptr()
+    } else {
+        pathname_addr
+    };
 
     unsafe {
         let mut _stat: stat = std::mem::zeroed();

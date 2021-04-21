@@ -125,8 +125,11 @@ impl Instance {
             })
             .collect::<Exports>();
 
-        let instance =
-            Self { handle: Arc::new(Mutex::new(handle)), module: module.clone(), exports };
+        let instance = Self {
+            handle: Arc::new(Mutex::new(handle)),
+            module: module.clone(),
+            exports,
+        };
 
         // # Safety
         // `initialize_host_envs` should be called after instantiation but before
@@ -165,6 +168,8 @@ impl Instance {
 
 impl fmt::Debug for Instance {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        f.debug_struct("Instance").field("exports", &self.exports).finish()
+        f.debug_struct("Instance")
+            .field("exports", &self.exports)
+            .finish()
     }
 }

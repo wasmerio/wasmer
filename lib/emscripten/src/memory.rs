@@ -7,7 +7,10 @@ use wasmer::{Pages, WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE};
 
 /// emscripten: _emscripten_memcpy_big
 pub fn _emscripten_memcpy_big(ctx: &EmEnv, dest: u32, src: u32, len: u32) -> u32 {
-    debug!("emscripten::_emscripten_memcpy_big {}, {}, {}", dest, src, len);
+    debug!(
+        "emscripten::_emscripten_memcpy_big {}, {}, {}",
+        dest, src, len
+    );
     let dest_addr = emscripten_memory_pointer!(ctx.memory(0), dest) as *mut c_void;
     let src_addr = emscripten_memory_pointer!(ctx.memory(0), src) as *mut c_void;
     unsafe {
@@ -41,8 +44,10 @@ pub fn _emscripten_resize_heap(ctx: &EmEnv, requested_size: u32) -> u32 {
     let current_memory = current_memory_pages.bytes().0 as u32;
 
     // implementation from emscripten
-    let mut new_size =
-        usize::max(current_memory as usize, WASM_MIN_PAGES as usize * WASM_PAGE_SIZE);
+    let mut new_size = usize::max(
+        current_memory as usize,
+        WASM_MIN_PAGES as usize * WASM_PAGE_SIZE,
+    );
     while new_size < requested_size as usize {
         if new_size <= 0x2000_0000 {
             new_size = align_up(new_size * 2, WASM_PAGE_SIZE);
@@ -111,7 +116,10 @@ pub fn enlarge_memory(_ctx: &EmEnv) -> u32 {
 
 /// emscripten: abortOnCannotGrowMemory
 pub fn abort_on_cannot_grow_memory(ctx: &EmEnv, _requested_size: u32) -> u32 {
-    debug!("emscripten::abort_on_cannot_grow_memory {}", _requested_size);
+    debug!(
+        "emscripten::abort_on_cannot_grow_memory {}",
+        _requested_size
+    );
     abort_with_message(ctx, "Cannot enlarge memory arrays!");
     0
 }

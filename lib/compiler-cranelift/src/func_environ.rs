@@ -223,7 +223,10 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         &mut self,
         func: &mut Function,
     ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
-        (self.get_externref_inc_sig(func), VMBuiltinFunctionIndex::get_externref_inc_index())
+        (
+            self.get_externref_inc_sig(func),
+            VMBuiltinFunctionIndex::get_externref_inc_index(),
+        )
     }
 
     fn get_externref_dec_sig(&mut self, func: &mut Function) -> ir::SigRef {
@@ -242,7 +245,10 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
         &mut self,
         func: &mut Function,
     ) -> (ir::SigRef, VMBuiltinFunctionIndex) {
-        (self.get_externref_dec_sig(func), VMBuiltinFunctionIndex::get_externref_dec_index())
+        (
+            self.get_externref_dec_sig(func),
+            VMBuiltinFunctionIndex::get_externref_dec_index(),
+        )
     }
 
     fn get_func_ref_sig(&mut self, func: &mut Function) -> ir::SigRef {
@@ -567,7 +573,11 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
         let sig = self.get_table_init_sig(func);
         let table_index = table_index.as_u32() as usize;
-        (sig, table_index, VMBuiltinFunctionIndex::get_table_init_index())
+        (
+            sig,
+            table_index,
+            VMBuiltinFunctionIndex::get_table_init_index(),
+        )
     }
 
     fn get_elem_drop_sig(&mut self, func: &mut Function) -> ir::SigRef {
@@ -620,9 +630,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
         let sig = self.get_memory_copy_sig(func);
         if let Some(local_memory_index) = self.module.local_memory_index(memory_index) {
-            (sig, local_memory_index.index(), VMBuiltinFunctionIndex::get_memory_copy_index())
+            (
+                sig,
+                local_memory_index.index(),
+                VMBuiltinFunctionIndex::get_memory_copy_index(),
+            )
         } else {
-            (sig, memory_index.index(), VMBuiltinFunctionIndex::get_imported_memory_copy_index())
+            (
+                sig,
+                memory_index.index(),
+                VMBuiltinFunctionIndex::get_imported_memory_copy_index(),
+            )
         }
     }
 
@@ -655,9 +673,17 @@ impl<'module_environment> FuncEnvironment<'module_environment> {
     ) -> (ir::SigRef, usize, VMBuiltinFunctionIndex) {
         let sig = self.get_memory_fill_sig(func);
         if let Some(local_memory_index) = self.module.local_memory_index(memory_index) {
-            (sig, local_memory_index.index(), VMBuiltinFunctionIndex::get_memory_fill_index())
+            (
+                sig,
+                local_memory_index.index(),
+                VMBuiltinFunctionIndex::get_memory_fill_index(),
+            )
         } else {
-            (sig, memory_index.index(), VMBuiltinFunctionIndex::get_imported_memory_fill_index())
+            (
+                sig,
+                memory_index.index(),
+                VMBuiltinFunctionIndex::get_imported_memory_fill_index(),
+            )
         }
     }
 
@@ -759,7 +785,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 let base_offset =
                     i32::try_from(self.offsets.vmctx_vmtable_definition_base(def_index)).unwrap();
                 let current_elements_offset = i32::try_from(
-                    self.offsets.vmctx_vmtable_definition_current_elements(def_index),
+                    self.offsets
+                        .vmctx_vmtable_definition_current_elements(def_index),
                 )
                 .unwrap();
                 (vmctx, base_offset, current_elements_offset)
@@ -815,8 +842,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, index_arg, func_idx) = self.get_table_grow_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst =
-            pos.ins().call_indirect(func_sig, func_addr, &[vmctx, init_value, delta, table_index]);
+        let call_inst = pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, init_value, delta, table_index],
+        );
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -833,7 +863,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             self.get_table_get_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, table_index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos.ins().call_indirect(func_sig, func_addr, &[vmctx, table_index, index]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index, index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -851,7 +883,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             self.get_table_set_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, table_index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index, index, value]);
         Ok(())
     }
 
@@ -868,7 +901,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
         let table_index_arg = pos.ins().iconst(I32, table_index_arg as i64);
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, table_index_arg, dst, val, len]);
+        pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, table_index_arg, dst, val, len],
+        );
 
         Ok(())
     }
@@ -925,7 +962,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             ty if ty.is_ref() => pos.ins().is_null(value),
             // `funcref`
             ty if ty == self.pointer_type() => {
-                pos.ins().icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0)
+                pos.ins()
+                    .icmp_imm(cranelift_codegen::ir::condcodes::IntCC::Equal, value, 0)
             }
             _ => unreachable!(),
         };
@@ -951,7 +989,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
         let func_index_arg = pos.ins().iconst(I32, func_index_arg as i64);
-        let call_inst = pos.ins().call_indirect(func_sig, func_addr, &[vmctx, func_index_arg]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, func_index_arg]);
 
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
@@ -981,9 +1021,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
             if let Some(def_index) = self.module.local_memory_index(index) {
                 let base_offset =
                     i32::try_from(self.offsets.vmctx_vmmemory_definition_base(def_index)).unwrap();
-                let current_length_offset =
-                    i32::try_from(self.offsets.vmctx_vmmemory_definition_current_length(def_index))
-                        .unwrap();
+                let current_length_offset = i32::try_from(
+                    self.offsets
+                        .vmctx_vmmemory_definition_current_length(def_index),
+                )
+                .unwrap();
                 (vmctx, base_offset, current_length_offset)
             } else {
                 let from_offset = self.offsets.vmctx_vmmemory_import_definition(index);
@@ -1012,13 +1054,20 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
                 });
                 (
                     Uimm64::new(offset_guard_size),
-                    ir::HeapStyle::Dynamic { bound_gv: heap_bound },
+                    ir::HeapStyle::Dynamic {
+                        bound_gv: heap_bound,
+                    },
                     false,
                 )
             }
-            MemoryStyle::Static { bound, offset_guard_size } => (
+            MemoryStyle::Static {
+                bound,
+                offset_guard_size,
+            } => (
                 Uimm64::new(offset_guard_size),
-                ir::HeapStyle::Static { bound: Uimm64::new(bound.bytes().0 as u64) },
+                ir::HeapStyle::Static {
+                    bound: Uimm64::new(bound.bytes().0 as u64),
+                },
                 true,
             ),
         };
@@ -1118,7 +1167,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         );
 
         // check if the funcref is null
-        pos.ins().trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
+        pos.ins()
+            .trapz(table_entry_addr, ir::TrapCode::IndirectCallToNull);
 
         let func_addr = pos.ins().load(
             pointer_type,
@@ -1233,7 +1283,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, index_arg, func_idx) = self.get_memory_grow_func(&mut pos.func, index);
         let memory_index = pos.ins().iconst(I32, index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos.ins().call_indirect(func_sig, func_addr, &[vmctx, val, memory_index]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, val, memory_index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -1246,7 +1298,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, index_arg, func_idx) = self.get_memory_size_func(&mut pos.func, index);
         let memory_index = pos.ins().iconst(I32, index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos.ins().call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, memory_index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -1267,7 +1321,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, src_index_arg, dst, src, len]);
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, src_index_arg, dst, src, len]);
 
         Ok(())
     }
@@ -1288,7 +1343,11 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, memory_index_arg, dst, val, len]);
+        pos.ins().call_indirect(
+            func_sig,
+            func_addr,
+            &[vmctx, memory_index_arg, dst, val, len],
+        );
 
         Ok(())
     }
@@ -1323,7 +1382,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, func_idx) = self.get_data_drop_func(&mut pos.func);
         let seg_index_arg = pos.ins().iconst(I32, seg_index as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, seg_index_arg]);
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, seg_index_arg]);
         Ok(())
     }
 
@@ -1336,7 +1396,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         let (func_sig, index_arg, func_idx) = self.get_table_size_func(&mut pos.func, table_index);
         let table_index = pos.ins().iconst(I32, index_arg as i64);
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
-        let call_inst = pos.ins().call_indirect(func_sig, func_addr, &[vmctx, table_index]);
+        let call_inst = pos
+            .ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, table_index]);
         Ok(*pos.func.dfg.inst_results(call_inst).first().unwrap())
     }
 
@@ -1362,7 +1424,14 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         pos.ins().call_indirect(
             func_sig,
             func_addr,
-            &[vmctx, dst_table_index_arg, src_table_index_arg, dst, src, len],
+            &[
+                vmctx,
+                dst_table_index_arg,
+                src_table_index_arg,
+                dst,
+                src,
+                len,
+            ],
         );
 
         Ok(())
@@ -1402,7 +1471,8 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
 
         let (vmctx, func_addr) = self.translate_load_builtin_function_address(&mut pos, func_idx);
 
-        pos.ins().call_indirect(func_sig, func_addr, &[vmctx, elem_index_arg]);
+        pos.ins()
+            .call_indirect(func_sig, func_addr, &[vmctx, elem_index_arg]);
 
         Ok(())
     }
@@ -1416,7 +1486,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         _expected: ir::Value,
         _timeout: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported("wasm atomics (fn translate_atomic_wait)".to_string()))
+        Err(WasmError::Unsupported(
+            "wasm atomics (fn translate_atomic_wait)".to_string(),
+        ))
     }
 
     fn translate_atomic_notify(
@@ -1427,7 +1499,9 @@ impl<'module_environment> BaseFuncEnvironment for FuncEnvironment<'module_enviro
         _addr: ir::Value,
         _count: ir::Value,
     ) -> WasmResult<ir::Value> {
-        Err(WasmError::Unsupported("wasm atomics (fn translate_atomic_notify)".to_string()))
+        Err(WasmError::Unsupported(
+            "wasm atomics (fn translate_atomic_notify)".to_string(),
+        ))
     }
 
     fn get_global_type(&self, global_index: GlobalIndex) -> Option<WasmerType> {

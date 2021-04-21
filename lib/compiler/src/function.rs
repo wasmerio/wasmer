@@ -242,7 +242,9 @@ impl<'a> IntoIterator for &'a Compilation {
     type Item = <Self::IntoIter as Iterator>::Item;
 
     fn into_iter(self) -> Self::IntoIter {
-        Iter { iterator: self.functions.iter() }
+        Iter {
+            iterator: self.functions.iter(),
+        }
     }
 }
 

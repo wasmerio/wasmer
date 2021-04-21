@@ -59,13 +59,19 @@ pub enum CType {
 impl CType {
     /// Convenience function to get a mutable void pointer type.
     pub fn void_ptr() -> Self {
-        CType::PointerTo { is_const: false, inner: Box::new(CType::Void) }
+        CType::PointerTo {
+            is_const: false,
+            inner: Box::new(CType::Void),
+        }
     }
 
     /// Convenience function to get a const void pointer type.
     #[allow(dead_code)]
     pub fn const_void_ptr() -> Self {
-        CType::PointerTo { is_const: true, inner: Box::new(CType::Void) }
+        CType::PointerTo {
+            is_const: true,
+            inner: Box::new(CType::Void),
+        }
     }
 
     /// Generate the C source code for a type into the given `String`.
@@ -111,10 +117,15 @@ impl CType {
             Self::ISize => {
                 w.push_str("size_t");
             }
-            Self::Function { arguments, return_value } => {
+            Self::Function {
+                arguments,
+                return_value,
+            } => {
                 // function with no, name, assume it's a function pointer
-                let ret: CType =
-                    return_value.as_ref().map(|i: &Box<CType>| (&**i).clone()).unwrap_or_default();
+                let ret: CType = return_value
+                    .as_ref()
+                    .map(|i: &Box<CType>| (&**i).clone())
+                    .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
                 w.push_str("(*)");
@@ -160,9 +171,14 @@ impl CType {
                 w.push(' ');
                 w.push_str(name);
             }
-            Self::Function { arguments, return_value } => {
-                let ret: CType =
-                    return_value.as_ref().map(|i: &Box<CType>| (&**i).clone()).unwrap_or_default();
+            Self::Function {
+                arguments,
+                return_value,
+            } => {
+                let ret: CType = return_value
+                    .as_ref()
+                    .map(|i: &Box<CType>| (&**i).clone())
+                    .unwrap_or_default();
                 ret.generate_c(w);
                 w.push(' ');
                 w.push_str(&name);
@@ -248,7 +264,13 @@ impl CStatement {
     /// Generate C source code for the given CStatement.
     fn generate_c(&self, w: &mut String) {
         match &self {
-            Self::Declaration { name, is_extern, is_const, ctype, definition } => {
+            Self::Declaration {
+                name,
+                is_extern,
+                is_const,
+                ctype,
+                definition,
+            } => {
                 if *is_const {
                     w.push_str("const ");
                 }
@@ -279,14 +301,20 @@ impl CStatement {
             Self::LiteralConstant { value } => {
                 w.push_str(&value);
             }
-            Self::Cast { target_type, expression } => {
+            Self::Cast {
+                target_type,
+                expression,
+            } => {
                 w.push('(');
                 target_type.generate_c(w);
                 w.push(')');
                 w.push(' ');
                 expression.generate_c(w);
             }
-            Self::TypeDef { source_type, new_name } => {
+            Self::TypeDef {
+                source_type,
+                new_name,
+            } => {
                 w.push_str("typedef ");
                 // leaky abstraction / hack, doesn't fully solve the problem
                 if let CType::Function { .. } = source_type {
@@ -343,17 +371,26 @@ mod test {
         assert_c_type!(CType::ISize, "size_t");
         assert_c_type!(CType::TypeDef("my_type".to_string()), "my_type");
         assert_c_type!(
-            CType::Function { arguments: vec![CType::U8, CType::ISize], return_value: None },
+            CType::Function {
+                arguments: vec![CType::U8, CType::ISize],
+                return_value: None
+            },
             "void (*)(unsigned char, size_t)"
         );
         assert_c_type!(
-            CType::Function { arguments: vec![], return_value: Some(Box::new(CType::ISize)) },
+            CType::Function {
+                arguments: vec![],
+                return_value: Some(Box::new(CType::ISize))
+            },
             "size_t (*)()"
         );
         assert_c_type!(
             CType::PointerTo {
                 is_const: true,
-                inner: Box::new(CType::PointerTo { is_const: false, inner: Box::new(CType::U32) })
+                inner: Box::new(CType::PointerTo {
+                    is_const: false,
+                    inner: Box::new(CType::U32)
+                })
             },
             "const unsigned int**"
         );
@@ -384,21 +421,34 @@ mod test {
         assert_c_type!(CType::I32, "data", "int data");
         assert_c_type!(CType::I64, "data", "long long data");
         assert_c_type!(CType::ISize, "data", "size_t data");
-        assert_c_type!(CType::TypeDef("my_type".to_string()), "data", "my_type data");
         assert_c_type!(
-            CType::Function { arguments: vec![CType::U8, CType::ISize], return_value: None },
+            CType::TypeDef("my_type".to_string()),
+            "data",
+            "my_type data"
+        );
+        assert_c_type!(
+            CType::Function {
+                arguments: vec![CType::U8, CType::ISize],
+                return_value: None
+            },
             "my_func",
             "void my_func(unsigned char, size_t)"
         );
         assert_c_type!(
-            CType::Function { arguments: vec![], return_value: Some(Box::new(CType::ISize)) },
+            CType::Function {
+                arguments: vec![],
+                return_value: Some(Box::new(CType::ISize))
+            },
             "my_func",
             "size_t my_func()"
         );
         assert_c_type!(
             CType::PointerTo {
                 is_const: true,
-                inner: Box::new(CType::PointerTo { is_const: false, inner: Box::new(CType::U32) })
+                inner: Box::new(CType::PointerTo {
+                    is_const: false,
+                    inner: Box::new(CType::U32)
+                })
             },
             "data",
             "const unsigned int** data"
@@ -418,7 +468,9 @@ mod test {
         }
 
         assert_c_expr!(
-            CStatement::LiteralConstant { value: "\"Hello, world!\"".to_string() },
+            CStatement::LiteralConstant {
+                value: "\"Hello, world!\"".to_string()
+            },
             "\"Hello, world!\""
         );
         assert_c_expr!(
@@ -434,9 +486,15 @@ mod test {
         assert_c_expr!(
             CStatement::LiteralArray {
                 items: vec![
-                    CStatement::LiteralConstant { value: "1".to_string() },
-                    CStatement::LiteralConstant { value: "2".to_string() },
-                    CStatement::LiteralConstant { value: "3".to_string() },
+                    CStatement::LiteralConstant {
+                        value: "1".to_string()
+                    },
+                    CStatement::LiteralConstant {
+                        value: "2".to_string()
+                    },
+                    CStatement::LiteralConstant {
+                        value: "3".to_string()
+                    },
                 ]
             },
             "{\n\t1,\n\t2,\n\t3,\n}"
@@ -447,12 +505,20 @@ mod test {
                 name: "my_array".to_string(),
                 is_extern: false,
                 is_const: true,
-                ctype: CType::Array { inner: Box::new(CType::I32) },
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32)
+                },
                 definition: Some(Box::new(CStatement::LiteralArray {
                     items: vec![
-                        CStatement::LiteralConstant { value: "1".to_string() },
-                        CStatement::LiteralConstant { value: "2".to_string() },
-                        CStatement::LiteralConstant { value: "3".to_string() },
+                        CStatement::LiteralConstant {
+                            value: "1".to_string()
+                        },
+                        CStatement::LiteralConstant {
+                            value: "2".to_string()
+                        },
+                        CStatement::LiteralConstant {
+                            value: "3".to_string()
+                        },
                     ]
                 }))
             },
@@ -463,7 +529,9 @@ mod test {
                 name: "my_array".to_string(),
                 is_extern: true,
                 is_const: true,
-                ctype: CType::Array { inner: Box::new(CType::I32) },
+                ctype: CType::Array {
+                    inner: Box::new(CType::I32)
+                },
                 definition: None,
             },
             "const extern int my_array[];\n"

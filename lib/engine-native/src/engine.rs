@@ -170,7 +170,9 @@ impl Engine for NativeEngine {
         &self,
         file_ref: &Path,
     ) -> Result<Arc<dyn Artifact>, DeserializeError> {
-        Ok(Arc::new(NativeArtifact::deserialize_from_file(&self, &file_ref)?))
+        Ok(Arc::new(NativeArtifact::deserialize_from_file(
+            &self, &file_ref,
+        )?))
     }
 
     fn id(&self) -> &EngineId {
@@ -270,7 +272,10 @@ impl NativeEngineInner {
         if self.compiler.is_none() {
             return Err(CompileError::Codegen("The `NativeEngine` is operating in headless mode, so it can only execute already compiled Modules.".to_string()));
         }
-        Ok(&**self.compiler.as_ref().expect("Can't get compiler reference"))
+        Ok(&**self
+            .compiler
+            .as_ref()
+            .expect("Can't get compiler reference"))
     }
 
     #[cfg(feature = "compiler")]

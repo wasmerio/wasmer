@@ -11,10 +11,16 @@ impl WasmMemoryType {
     pub(crate) fn new(memory_type: MemoryType) -> Self {
         let limits = Box::new(wasm_limits_t {
             min: memory_type.minimum.0 as _,
-            max: memory_type.maximum.map(|max| max.0 as _).unwrap_or(LIMITS_MAX_SENTINEL),
+            max: memory_type
+                .maximum
+                .map(|max| max.0 as _)
+                .unwrap_or(LIMITS_MAX_SENTINEL),
         });
 
-        Self { memory_type, limits }
+        Self {
+            memory_type,
+            limits,
+        }
     }
 }
 
@@ -27,7 +33,9 @@ pub struct wasm_memorytype_t {
 
 impl wasm_memorytype_t {
     pub(crate) fn new(memory_type: MemoryType) -> Self {
-        Self { extern_type: wasm_externtype_t::new(ExternType::Memory(memory_type)) }
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Memory(memory_type)),
+        }
     }
 
     pub(crate) fn inner(&self) -> &WasmMemoryType {
@@ -45,10 +53,15 @@ wasm_declare_boxed_vec!(memorytype);
 #[no_mangle]
 pub unsafe extern "C" fn wasm_memorytype_new(limits: &wasm_limits_t) -> Box<wasm_memorytype_t> {
     let min_pages = Pages(limits.min as _);
-    let max_pages =
-        if limits.max == LIMITS_MAX_SENTINEL { None } else { Some(Pages(limits.max as _)) };
+    let max_pages = if limits.max == LIMITS_MAX_SENTINEL {
+        None
+    } else {
+        Some(Pages(limits.max as _))
+    };
 
-    Box::new(wasm_memorytype_t::new(MemoryType::new(min_pages, max_pages, false)))
+    Box::new(wasm_memorytype_t::new(MemoryType::new(
+        min_pages, max_pages, false,
+    )))
 }
 
 #[no_mangle]

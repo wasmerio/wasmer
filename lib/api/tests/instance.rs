@@ -30,7 +30,10 @@ fn exports_work_after_multiple_instances_have_been_freed() -> Result<()> {
     drop(instance3);
 
     // All instances have been dropped, but `sum` continues to work!
-    assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)])?.into_vec(), vec![Value::I32(3)],);
+    assert_eq!(
+        sum.call(&[Value::I32(1), Value::I32(2)])?.into_vec(),
+        vec![Value::I32(3)],
+    );
 
     Ok(())
 }

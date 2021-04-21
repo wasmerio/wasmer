@@ -50,7 +50,9 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Let's instantiate the Wasm module.
     let instance = Instance::new(&module, &import_object)?;
 
-    let load = instance.exports.get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
+    let load = instance
+        .exports
+        .get_native_function::<(), (WasmPtr<u8, Array>, i32)>("load")?;
 
     // Here we go.
     //

@@ -452,7 +452,11 @@ impl Trap {
     /// Wasm traps are Traps that are triggered by the chip when running generated
     /// code for a Wasm function.
     pub fn new_from_wasm(pc: usize, backtrace: Backtrace, signal_trap: Option<TrapCode>) -> Self {
-        Self::Wasm { pc, backtrace, signal_trap }
+        Self::Wasm {
+            pc,
+            backtrace,
+            signal_trap,
+        }
     }
 
     /// Construct a new runtime `Trap` with the given trap code.
@@ -461,7 +465,10 @@ impl Trap {
     /// Internally saves a backtrace when constructed.
     pub fn new_from_runtime(trap_code: TrapCode) -> Self {
         let backtrace = Backtrace::new_unresolved();
-        Self::Runtime { trap_code, backtrace }
+        Self::Runtime {
+            trap_code,
+            backtrace,
+        }
     }
 
     /// Construct a new Out of Memory (OOM) `Trap`.
@@ -515,7 +522,11 @@ where
     setup_unix_sigaltstack()?;
 
     return CallThreadState::new(vmctx).with(|cx| {
-        RegisterSetjmp(cx.jmp_buf.as_ptr(), call_closure::<F>, &mut closure as *mut F as *mut u8)
+        RegisterSetjmp(
+            cx.jmp_buf.as_ptr(),
+            call_closure::<F>,
+            &mut closure as *mut F as *mut u8,
+        )
     });
 
     extern "C" fn call_closure<F>(payload: *mut u8)
@@ -565,7 +576,11 @@ enum UnwindReason {
     Panic(Box<dyn Any + Send>),
     UserTrap(Box<dyn Error + Send + Sync>),
     LibTrap(Trap),
-    RuntimeTrap { backtrace: Backtrace, pc: usize, signal_trap: Option<TrapCode> },
+    RuntimeTrap {
+        backtrace: Backtrace,
+        pc: usize,
+        signal_trap: Option<TrapCode>,
+    },
 }
 
 impl CallThreadState {
@@ -594,7 +609,11 @@ impl CallThreadState {
                     Err(Trap::new_from_user(data))
                 }
                 UnwindReason::LibTrap(trap) => Err(trap),
-                UnwindReason::RuntimeTrap { backtrace, pc, signal_trap } => {
+                UnwindReason::RuntimeTrap {
+                    backtrace,
+                    pc,
+                    signal_trap,
+                } => {
                     debug_assert_eq!(ret, 0);
                     Err(Trap::new_from_wasm(pc, backtrace, signal_trap))
                 }
@@ -695,7 +714,11 @@ impl CallThreadState {
         }
         let backtrace = Backtrace::new_unresolved();
         self.reset_guard_page.set(reset_guard_page);
-        self.unwind.replace(UnwindReason::RuntimeTrap { backtrace, signal_trap, pc: pc as usize });
+        self.unwind.replace(UnwindReason::RuntimeTrap {
+            backtrace,
+            signal_trap,
+            pc: pc as usize,
+        });
         self.handling_trap.set(false);
         self.jmp_buf.get()
     }
@@ -772,7 +795,10 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
 
     enum Tls {
         None,
-        Allocated { mmap_ptr: *mut libc::c_void, mmap_size: usize },
+        Allocated {
+            mmap_ptr: *mut libc::c_void,
+            mmap_size: usize,
+        },
         BigEnough,
     }
 
@@ -814,20 +840,34 @@ fn setup_unix_sigaltstack() -> Result<(), Trap> {
         // Prepare the stack with readable/writable memory and then register it
         // with `sigaltstack`.
         let stack_ptr = (ptr as usize + guard_size) as *mut libc::c_void;
-        let r = libc::mprotect(stack_ptr, MIN_STACK_SIZE, libc::PROT_READ | libc::PROT_WRITE);
+        let r = libc::mprotect(
+            stack_ptr,
+            MIN_STACK_SIZE,
+            libc::PROT_READ | libc::PROT_WRITE,
+        );
         assert_eq!(r, 0, "mprotect to configure memory for sigaltstack failed");
-        let new_stack = libc::stack_t { ss_sp: stack_ptr, ss_flags: 0, ss_size: MIN_STACK_SIZE };
+        let new_stack = libc::stack_t {
+            ss_sp: stack_ptr,
+            ss_flags: 0,
+            ss_size: MIN_STACK_SIZE,
+        };
         let r = libc::sigaltstack(&new_stack, ptr::null_mut());
         assert_eq!(r, 0, "registering new sigaltstack failed");
 
-        *slot = Tls::Allocated { mmap_ptr: ptr, mmap_size: alloc_size };
+        *slot = Tls::Allocated {
+            mmap_ptr: ptr,
+            mmap_size: alloc_size,
+        };
         Ok(())
     });
 
     impl Drop for Tls {
         fn drop(&mut self) {
             let (ptr, size) = match self {
-                Self::Allocated { mmap_ptr, mmap_size } => (*mmap_ptr, *mmap_size),
+                Self::Allocated {
+                    mmap_ptr,
+                    mmap_size,
+                } => (*mmap_ptr, *mmap_size),
                 _ => return,
             };
             unsafe {

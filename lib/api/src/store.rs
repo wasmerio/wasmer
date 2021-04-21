@@ -39,7 +39,10 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        Self { engine: engine.cloned(), tunables: Arc::new(tunables) }
+        Self {
+            engine: engine.cloned(),
+            tunables: Arc::new(tunables),
+        }
     }
 
     /// Returns the [`Tunables`].
@@ -106,7 +109,10 @@ impl Default for Store {
         let config = get_config();
         let engine = get_engine(config);
         let tunables = BaseTunables::for_target(engine.target());
-        Store { engine: Arc::new(engine), tunables: Arc::new(tunables) }
+        Store {
+            engine: Arc::new(engine),
+            tunables: Arc::new(tunables),
+        }
     }
 }
 

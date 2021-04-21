@@ -83,7 +83,10 @@ impl<T: ReservedValue> Default for PackedOption<T> {
 impl<T: ReservedValue> From<T> for PackedOption<T> {
     /// Convert `t` into a packed `Some(x)`.
     fn from(t: T) -> Self {
-        debug_assert!(!t.is_reserved_value(), "Can't make a PackedOption from the reserved value.");
+        debug_assert!(
+            !t.is_reserved_value(),
+            "Can't make a PackedOption from the reserved value."
+        );
         Self(t)
     }
 }

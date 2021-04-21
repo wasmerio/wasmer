@@ -172,7 +172,10 @@ pub struct Target {
 impl Target {
     /// Creates a new target given a triple
     pub fn new(triple: Triple, cpu_features: EnumSet<CpuFeature>) -> Self {
-        Self { triple, cpu_features }
+        Self {
+            triple,
+            cpu_features,
+        }
     }
 
     /// The triple associated for the target.
@@ -189,6 +192,9 @@ impl Target {
 /// The default for the Target will use the HOST as the triple
 impl Default for Target {
     fn default() -> Self {
-        Self { triple: Triple::host(), cpu_features: CpuFeature::for_host() }
+        Self {
+            triple: Triple::host(),
+            cpu_features: CpuFeature::for_host(),
+        }
     }
 }

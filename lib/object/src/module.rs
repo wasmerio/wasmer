@@ -27,22 +27,35 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
         BinaryFormat::Macho => object::BinaryFormat::MachO,
         BinaryFormat::Coff => object::BinaryFormat::Coff,
         binary_format => {
-            return Err(ObjectError::UnsupportedBinaryFormat(format!("{}", binary_format)));
+            return Err(ObjectError::UnsupportedBinaryFormat(format!(
+                "{}",
+                binary_format
+            )));
         }
     };
     let obj_architecture = match triple.architecture {
         Architecture::X86_64 => object::Architecture::X86_64,
         Architecture::Aarch64(_) => object::Architecture::Aarch64,
         architecture => {
-            return Err(ObjectError::UnsupportedArchitecture(format!("{}", architecture)));
+            return Err(ObjectError::UnsupportedArchitecture(format!(
+                "{}",
+                architecture
+            )));
         }
     };
-    let obj_endianness = match triple.endianness().map_err(|_| ObjectError::UnknownEndianness)? {
+    let obj_endianness = match triple
+        .endianness()
+        .map_err(|_| ObjectError::UnknownEndianness)?
+    {
         Endianness::Little => object::Endianness::Little,
         Endianness::Big => object::Endianness::Big,
     };
 
-    Ok(Object::new(obj_binary_format, obj_architecture, obj_endianness))
+    Ok(Object::new(
+        obj_binary_format,
+        obj_architecture,
+        obj_endianness,
+    ))
 }
 
 /// Write data into an existing object.
@@ -196,14 +209,22 @@ pub fn emit_compilation(
 
     // Add relocations (function and sections)
     let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
-        Architecture::X86_64 => (32, RelocationKind::PltRelative, RelocationEncoding::X86Branch),
+        Architecture::X86_64 => (
+            32,
+            RelocationKind::PltRelative,
+            RelocationEncoding::X86Branch,
+        ),
         // Object doesn't fully support it yet
         // Architecture::Aarch64(_) => (
         //     32,
         //     RelocationKind::PltRelative,
         //     RelocationEncoding::Generic,
         // ),
-        architecture => return Err(ObjectError::UnsupportedArchitecture(architecture.to_string())),
+        architecture => {
+            return Err(ObjectError::UnsupportedArchitecture(
+                architecture.to_string(),
+            ))
+        }
     };
     let mut all_relocations = Vec::new();
 

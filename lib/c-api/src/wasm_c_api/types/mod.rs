@@ -50,7 +50,10 @@ impl owned_wasm_name_t {
     /// You must ensure that the data pointed to by `wasm_name_t` is valid and
     /// that it is not owned by anyone else.
     pub unsafe fn new(name: &wasm_name_t) -> Self {
-        Self(wasm_name_t { size: name.size, data: name.data })
+        Self(wasm_name_t {
+            size: name.size,
+            data: name.data,
+        })
     }
 }
 

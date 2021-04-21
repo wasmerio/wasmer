@@ -116,7 +116,9 @@ impl Relocation {
             RelocationKind::Abs8 => {
                 let reloc_address = start + self.offset as usize;
                 let reloc_addend = self.addend as isize;
-                let reloc_abs = target_func_address.checked_add(reloc_addend as u64).unwrap();
+                let reloc_abs = target_func_address
+                    .checked_add(reloc_addend as u64)
+                    .unwrap();
                 (reloc_address, reloc_abs)
             }
             RelocationKind::X86PCRel4 => {

@@ -23,7 +23,8 @@ pub struct Wast {
 impl Wast {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute().context(format!("failed to test the wast `{}`", self.path.display()))
+        self.inner_execute()
+            .context(format!("failed to test the wast `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
         let (store, _engine_name, _compiler_name) = self.store.get_store()?;

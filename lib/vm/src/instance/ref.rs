@@ -67,7 +67,11 @@ impl InstanceRef {
     /// [`InstanceAllocator`] for an example of how to correctly use
     /// this API.
     pub(super) unsafe fn new(instance: NonNull<Instance>, instance_layout: Layout) -> Self {
-        Self { strong: Arc::new(atomic::AtomicUsize::new(1)), instance_layout, instance }
+        Self {
+            strong: Arc::new(atomic::AtomicUsize::new(1)),
+            instance_layout,
+            instance,
+        }
     }
 
     /// A soft limit on the amount of references that may be made to an `InstanceRef`.

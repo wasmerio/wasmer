@@ -16,7 +16,10 @@ pub struct wasm_global_t {
 
 impl wasm_global_t {
     pub(crate) fn new(global: Global) -> Self {
-        Self { tag: CApiExternTag::Global, inner: Box::new(global) }
+        Self {
+            tag: CApiExternTag::Global,
+            inner: Box::new(global),
+        }
     }
 }
 

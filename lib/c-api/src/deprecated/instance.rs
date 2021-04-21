@@ -124,25 +124,34 @@ pub unsafe extern "C" fn wasmer_instantiate(
     let wasm_bytes = if let Some(wasm_bytes_inner) = wasm_bytes {
         wasm_bytes_inner
     } else {
-        update_last_error(CApiError { msg: "wasm bytes ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "wasm bytes ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     };
 
     if imports_len > 0 && imports.is_null() {
-        update_last_error(CApiError { msg: "imports ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "imports ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
 
     let mut imported_memories = vec![];
     let mut instance_pointers_to_update = vec![];
-    let imports: &[wasmer_import_t] =
-        if imports_len == 0 { &[] } else { slice::from_raw_parts(imports, imports_len as usize) };
+    let imports: &[wasmer_import_t] = if imports_len == 0 {
+        &[]
+    } else {
+        slice::from_raw_parts(imports, imports_len as usize)
+    };
 
     let mut import_object = ImportObject::new();
     let mut namespaces = HashMap::new();
     for import in imports {
-        let module_name =
-            slice::from_raw_parts(import.module_name.bytes, import.module_name.bytes_len as usize);
+        let module_name = slice::from_raw_parts(
+            import.module_name.bytes,
+            import.module_name.bytes_len as usize,
+        );
         let module_name = if let Ok(s) = std::str::from_utf8(module_name) {
             s
         } else {
@@ -151,8 +160,10 @@ pub unsafe extern "C" fn wasmer_instantiate(
             });
             return wasmer_result_t::WASMER_ERROR;
         };
-        let import_name =
-            slice::from_raw_parts(import.import_name.bytes, import.import_name.bytes_len as usize);
+        let import_name = slice::from_raw_parts(
+            import.import_name.bytes,
+            import.import_name.bytes_len as usize,
+        );
         let import_name = if let Ok(s) = std::str::from_utf8(import_name) {
             s
         } else {
@@ -212,7 +223,11 @@ pub unsafe extern "C" fn wasmer_instantiate(
             return wasmer_result_t::WASMER_ERROR;
         }
     };
-    let c_api_instance = CAPIInstance { instance: new_instance, imported_memories, ctx_data: None };
+    let c_api_instance = CAPIInstance {
+        instance: new_instance,
+        imported_memories,
+        ctx_data: None,
+    };
     let c_api_instance_pointer = Box::into_raw(Box::new(c_api_instance));
     for to_update in instance_pointers_to_update {
         let mut to_update_guard = to_update.lock().unwrap();
@@ -307,19 +322,25 @@ pub unsafe extern "C" fn wasmer_instance_call(
     results_len: u32,
 ) -> wasmer_result_t {
     if instance.is_null() {
-        update_last_error(CApiError { msg: "instance ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "instance ptr is null".to_string(),
+        });
 
         return wasmer_result_t::WASMER_ERROR;
     }
 
     if name.is_null() {
-        update_last_error(CApiError { msg: "name ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "name ptr is null".to_string(),
+        });
 
         return wasmer_result_t::WASMER_ERROR;
     }
 
     if params_len > 0 && params.is_null() {
-        update_last_error(CApiError { msg: "params ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "params ptr is null".to_string(),
+        });
 
         return wasmer_result_t::WASMER_ERROR;
     }
@@ -448,7 +469,10 @@ pub unsafe extern "C" fn wasmer_instance_exports(
         .instance
         .module()
         .exports()
-        .map(|export_type| NamedExport { export_type, instance })
+        .map(|export_type| NamedExport {
+            export_type,
+            instance,
+        })
         .collect();
 
     let named_exports: Box<NamedExports> = Box::new(NamedExports(exports_vec));
@@ -554,13 +578,19 @@ pub unsafe extern "C" fn wasmer_instance_context_memory(
         {
             name
         } else {
-            update_last_error(CApiError { msg: "Could not find an exported memory".to_string() });
+            update_last_error(CApiError {
+                msg: "Could not find an exported memory".to_string(),
+            });
             return None;
         };
-        let memory = instance.instance.exports.get_memory(exported_memory_name).expect(&format!(
-            "Module exports memory named `{}` but it's inaccessible",
-            &exported_memory_name
-        ));
+        let memory = instance
+            .instance
+            .exports
+            .get_memory(exported_memory_name)
+            .expect(&format!(
+                "Module exports memory named `{}` but it's inaccessible",
+                &exported_memory_name
+            ));
         Some(&*(Box::into_raw(Box::new(memory.clone())) as *const wasmer_memory_t))
     }
 }

@@ -35,7 +35,10 @@ impl Mmap {
         // contains code to create a non-null dangling pointer value when
         // constructed empty, so we reuse that here.
         let empty = Vec::<u8>::new();
-        Self { ptr: empty.as_ptr() as usize, len: 0 }
+        Self {
+            ptr: empty.as_ptr() as usize,
+            len: 0,
+        }
     }
 
     /// Create a new `Mmap` pointing to at least `size` bytes of page-aligned accessible memory.
@@ -80,7 +83,10 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            Self { ptr: ptr as usize, len: mapping_size }
+            Self {
+                ptr: ptr as usize,
+                len: mapping_size,
+            }
         } else {
             // Reserve the mapping size.
             let ptr = unsafe {
@@ -97,7 +103,10 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            let mut result = Self { ptr: ptr as usize, len: mapping_size };
+            let mut result = Self {
+                ptr: ptr as usize,
+                len: mapping_size,
+            };
 
             if accessible_size != 0 {
                 // Commit the accessible size.
@@ -144,7 +153,10 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            Self { ptr: ptr as usize, len: mapping_size }
+            Self {
+                ptr: ptr as usize,
+                len: mapping_size,
+            }
         } else {
             // Reserve the mapping size.
             let ptr =
@@ -153,7 +165,10 @@ impl Mmap {
                 return Err(io::Error::last_os_error().to_string());
             }
 
-            let mut result = Self { ptr: ptr as usize, len: mapping_size };
+            let mut result = Self {
+                ptr: ptr as usize,
+                len: mapping_size,
+            };
 
             if accessible_size != 0 {
                 // Commit the accessible size.
@@ -197,8 +212,15 @@ impl Mmap {
 
         // Commit the accessible size.
         let ptr = self.ptr as *const u8;
-        if unsafe { VirtualAlloc(ptr.add(start) as *mut c_void, len, MEM_COMMIT, PAGE_READWRITE) }
-            .is_null()
+        if unsafe {
+            VirtualAlloc(
+                ptr.add(start) as *mut c_void,
+                len,
+                MEM_COMMIT,
+                PAGE_READWRITE,
+            )
+        }
+        .is_null()
         {
             return Err(io::Error::last_os_error().to_string());
         }

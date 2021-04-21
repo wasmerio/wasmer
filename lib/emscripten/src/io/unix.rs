@@ -47,7 +47,10 @@ pub fn getpwuid(ctx: &EmEnv, uid: i32) -> i32 {
         let passwd_struct_offset = call_malloc(ctx, mem::size_of::<GuestPasswd>() as _);
         let passwd_struct_ptr =
             emscripten_memory_pointer!(ctx.memory(0), passwd_struct_offset) as *mut GuestPasswd;
-        assert_eq!(passwd_struct_ptr as usize % std::mem::align_of::<GuestPasswd>(), 0);
+        assert_eq!(
+            passwd_struct_ptr as usize % std::mem::align_of::<GuestPasswd>(),
+            0
+        );
         (*passwd_struct_ptr).pw_name = copy_cstr_into_wasm(ctx, passwd.pw_name);
         (*passwd_struct_ptr).pw_passwd = copy_cstr_into_wasm(ctx, passwd.pw_passwd);
         (*passwd_struct_ptr).pw_gecos = copy_cstr_into_wasm(ctx, passwd.pw_gecos);

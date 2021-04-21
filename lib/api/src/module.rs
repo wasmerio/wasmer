@@ -101,7 +101,10 @@ impl Module {
     pub fn new(store: &Store, bytes: impl AsRef<[u8]>) -> Result<Self, CompileError> {
         #[cfg(feature = "wat")]
         let bytes = wat::parse_bytes(bytes.as_ref()).map_err(|e| {
-            CompileError::Wasm(WasmError::Generic(format!("Error when converting wat: {}", e)))
+            CompileError::Wasm(WasmError::Generic(format!(
+                "Error when converting wat: {}",
+                e
+            )))
         })?;
 
         Self::from_binary(store, bytes.as_ref())
@@ -250,7 +253,10 @@ impl Module {
     }
 
     fn from_artifact(store: &Store, artifact: Arc<dyn Artifact>) -> Self {
-        Self { store: store.clone(), artifact }
+        Self {
+            store: store.clone(),
+            artifact,
+        }
     }
 
     pub(crate) fn instantiate(
@@ -259,7 +265,8 @@ impl Module {
     ) -> Result<InstanceHandle, InstantiationError> {
         unsafe {
             let instance_handle =
-                self.artifact.instantiate(self.store.tunables(), resolver, Box::new(()))?;
+                self.artifact
+                    .instantiate(self.store.tunables(), resolver, Box::new(()))?;
 
             // After the instance handle is created, we need to initialize
             // the data, call the start function and so. However, if any
@@ -418,6 +425,8 @@ impl Module {
 
 impl fmt::Debug for Module {
     fn fmt(&self, f: &mut fmt::Formatter<'_>) -> fmt::Result {
-        f.debug_struct("Module").field("name", &self.name()).finish()
+        f.debug_struct("Module")
+            .field("name", &self.name())
+            .finish()
     }
 }

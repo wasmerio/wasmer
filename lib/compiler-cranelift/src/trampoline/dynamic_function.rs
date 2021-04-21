@@ -32,7 +32,10 @@ pub fn make_trampoline_dynamic_function(
     let signature = signature_to_cranelift_ir(func_type, frontend_config);
     let mut stub_sig = ir::Signature::new(frontend_config.default_call_conv);
     // Add the caller `vmctx` parameter.
-    stub_sig.params.push(ir::AbiParam::special(pointer_type, ir::ArgumentPurpose::VMContext));
+    stub_sig.params.push(ir::AbiParam::special(
+        pointer_type,
+        ir::ArgumentPurpose::VMContext,
+    ));
 
     // Add the `values_vec` parameter.
     stub_sig.params.push(ir::AbiParam::new(pointer_type));
@@ -45,9 +48,10 @@ pub fn make_trampoline_dynamic_function(
     let mut context = Context::new();
     context.func = Function::with_name_signature(ExternalName::user(0, 0), signature.clone());
 
-    let ss = context
-        .func
-        .create_stack_slot(StackSlotData::new(StackSlotKind::ExplicitSlot, values_vec_len));
+    let ss = context.func.create_stack_slot(StackSlotData::new(
+        StackSlotKind::ExplicitSlot,
+        values_vec_len,
+    ));
 
     {
         let mut builder = FunctionBuilder::new(&mut context.func, fn_builder_ctx);
@@ -62,7 +66,12 @@ pub fn make_trampoline_dynamic_function(
         // We only get the non-vmctx arguments
         for i in 1..signature.params.len() {
             let val = builder.func.dfg.block_params(block0)[i];
-            builder.ins().store(mflags, val, values_vec_ptr_val, ((i - 1) * value_size) as i32);
+            builder.ins().store(
+                mflags,
+                val,
+                values_vec_ptr_val,
+                ((i - 1) * value_size) as i32,
+            );
         }
 
         let block_params = builder.func.dfg.block_params(block0);
@@ -79,7 +88,9 @@ pub fn make_trampoline_dynamic_function(
             offsets.vmdynamicfunction_import_context_address() as i32,
         );
 
-        builder.ins().call_indirect(new_sig, callee_value, &callee_args);
+        builder
+            .ins()
+            .call_indirect(new_sig, callee_value, &callee_args);
 
         let mflags = MemFlags::trusted();
         let mut results = Vec::new();
@@ -101,10 +112,19 @@ pub fn make_trampoline_dynamic_function(
     let mut trap_sink = binemit::NullTrapSink {};
     let mut stackmap_sink = binemit::NullStackMapSink {};
     context
-        .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink, &mut stackmap_sink)
+        .compile_and_emit(
+            isa,
+            &mut code_buf,
+            &mut reloc_sink,
+            &mut trap_sink,
+            &mut stackmap_sink,
+        )
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();
 
-    Ok(FunctionBody { body: code_buf, unwind_info })
+    Ok(FunctionBody {
+        body: code_buf,
+        unwind_info,
+    })
 }

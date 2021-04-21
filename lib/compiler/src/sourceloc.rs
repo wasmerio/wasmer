@@ -16,7 +16,11 @@ use serde::{Deserialize, Serialize};
 ///
 /// The default source location uses the all-ones bit pattern `!0`. It is used for instructions
 /// that can't be given a real source location.
-#[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize), serde(transparent))]
+#[cfg_attr(
+    feature = "enable-serde",
+    derive(Serialize, Deserialize),
+    serde(transparent)
+)]
 #[repr(transparent)]
 #[derive(Debug, Clone, Copy, PartialEq, Eq, MemoryUsage)]
 pub struct SourceLoc(u32);

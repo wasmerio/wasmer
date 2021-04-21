@@ -83,7 +83,9 @@ pub trait Compiler: Send + MemoryUsage {
             deterministic_only: false,
         };
         validator.wasm_features(wasm_features);
-        validator.validate_all(data).map_err(|e| CompileError::Validate(format!("{}", e)))?;
+        validator
+            .validate_all(data)
+            .map_err(|e| CompileError::Validate(format!("{}", e)))?;
         Ok(())
     }
 

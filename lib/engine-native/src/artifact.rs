@@ -258,7 +258,10 @@ impl NativeArtifact {
                 .suffix(&suffix)
                 .tempfile()
                 .map_err(to_compile_error)?;
-            shared_file.into_temp_path().keep().map_err(to_compile_error)?
+            shared_file
+                .into_temp_path()
+                .keep()
+                .map_err(to_compile_error)?
         };
 
         let is_cross_compiling = engine_inner.is_cross_compiling();
@@ -380,10 +383,12 @@ impl NativeArtifact {
             unsafe {
                 // We use a fake function signature `fn()` because we just
                 // want to get the function address.
-                let func: LibrarySymbol<unsafe extern "C" fn()> =
-                    lib.get(function_name.as_bytes()).map_err(to_compile_error)?;
-                finished_functions
-                    .push(FunctionBodyPtr(func.into_raw().into_raw() as *const VMFunctionBody));
+                let func: LibrarySymbol<unsafe extern "C" fn()> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
+                finished_functions.push(FunctionBodyPtr(
+                    func.into_raw().into_raw() as *const VMFunctionBody
+                ));
             }
         }
 
@@ -395,8 +400,9 @@ impl NativeArtifact {
                 .get_symbol_registry()
                 .symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
             unsafe {
-                let trampoline: LibrarySymbol<VMTrampoline> =
-                    lib.get(function_name.as_bytes()).map_err(to_compile_error)?;
+                let trampoline: LibrarySymbol<VMTrampoline> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
                 let raw = *trampoline.into_raw();
                 finished_function_call_trampolines.push(raw);
             }
@@ -416,8 +422,9 @@ impl NativeArtifact {
                 .get_symbol_registry()
                 .symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
             unsafe {
-                let trampoline: LibrarySymbol<unsafe extern "C" fn()> =
-                    lib.get(function_name.as_bytes()).map_err(to_compile_error)?;
+                let trampoline: LibrarySymbol<unsafe extern "C" fn()> = lib
+                    .get(function_name.as_bytes())
+                    .map_err(to_compile_error)?;
                 finished_dynamic_function_trampolines.push(FunctionBodyPtr(
                     trampoline.into_raw().into_raw() as *const VMFunctionBody,
                 ));
@@ -467,7 +474,9 @@ impl NativeArtifact {
     /// Compile a data buffer into a `NativeArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(_engine: &NativeEngine, _data: &[u8]) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen("Compilation is not enabled in the engine".to_string()))
+        Err(CompileError::Codegen(
+            "Compilation is not enabled in the engine".to_string(),
+        ))
     }
 
     /// Deserialize a `NativeArtifact` from bytes.

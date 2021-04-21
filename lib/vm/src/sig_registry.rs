@@ -35,7 +35,9 @@ struct Inner {
 impl SignatureRegistry {
     /// Create a new `SignatureRegistry`.
     pub fn new() -> Self {
-        Self { inner: Default::default() }
+        Self {
+            inner: Default::default(),
+        }
     }
 
     /// Register a signature and return its unique index.
@@ -65,6 +67,11 @@ impl SignatureRegistry {
     /// Note that for this operation to be semantically correct the `idx` must
     /// have previously come from a call to `register` of this same object.
     pub fn lookup(&self, idx: VMSharedSignatureIndex) -> Option<FunctionType> {
-        self.inner.read().unwrap().index2signature.get(&idx).cloned()
+        self.inner
+            .read()
+            .unwrap()
+            .index2signature
+            .get(&idx)
+            .cloned()
     }
 }

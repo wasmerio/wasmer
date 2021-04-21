@@ -49,7 +49,13 @@ pub fn get_emscripten_memory_size(module: &Module) -> Result<(Pages, Option<Page
 /// Last export: Dynamic Base
 /// Second-to-Last export: Dynamic top pointer
 pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, String> {
-    let max_idx = match module.info().global_initializers.iter().map(|(k, _)| k).max() {
+    let max_idx = match module
+        .info()
+        .global_initializers
+        .iter()
+        .map(|(k, _)| k)
+        .max()
+    {
         Some(x) => x,
         None => return Ok(None),
     };
@@ -70,13 +76,18 @@ pub fn get_emscripten_metadata(module: &Module) -> Result<Option<(u32, u32)>, St
         &module.info().global_initializers[max_idx],
         &module.info().global_initializers[snd_max_idx],
     ) {
-        let dynamic_base = (*dynamic_base as u32)
-            .checked_sub(32)
-            .ok_or(format!("emscripten unexpected dynamic_base {}", *dynamic_base as u32))?;
-        let dynamictop_ptr = (*dynamictop_ptr as u32)
-            .checked_sub(32)
-            .ok_or(format!("emscripten unexpected dynamictop_ptr {}", *dynamictop_ptr as u32))?;
-        Ok(Some((align_memory(dynamic_base), align_memory(dynamictop_ptr))))
+        let dynamic_base = (*dynamic_base as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamic_base {}",
+            *dynamic_base as u32
+        ))?;
+        let dynamictop_ptr = (*dynamictop_ptr as u32).checked_sub(32).ok_or(format!(
+            "emscripten unexpected dynamictop_ptr {}",
+            *dynamictop_ptr as u32
+        ))?;
+        Ok(Some((
+            align_memory(dynamic_base),
+            align_memory(dynamictop_ptr),
+        )))
     } else {
         Ok(None)
     }
@@ -146,7 +157,10 @@ pub unsafe fn copy_terminated_array_of_cstrs(_ctx: &EmEnv, cstrs: *mut *mut c_ch
         }
         counter
     };
-    debug!("emscripten::copy_terminated_array_of_cstrs::total_num: {}", _total_num);
+    debug!(
+        "emscripten::copy_terminated_array_of_cstrs::total_num: {}",
+        _total_num
+    );
     0
 }
 
@@ -228,9 +242,15 @@ pub fn get_cstr_path(ctx: &EmEnv, path: *const i8) -> Option<std::ffi::CString> 
     let mut cumulative_path = PathBuf::new();
     for c in components.into_iter() {
         cumulative_path.push(c);
-        if let Some(val) = data.mapped_dirs.get(&cumulative_path.to_string_lossy().to_string()) {
-            let rest_of_path =
-                if !prefix_added { path.strip_prefix(cumulative_path).ok()? } else { &path };
+        if let Some(val) = data
+            .mapped_dirs
+            .get(&cumulative_path.to_string_lossy().to_string())
+        {
+            let rest_of_path = if !prefix_added {
+                path.strip_prefix(cumulative_path).ok()?
+            } else {
+                &path
+            };
             let rebased_path = val.join(rest_of_path);
             return std::ffi::CString::new(rebased_path.to_string_lossy().as_bytes()).ok();
         }
@@ -246,8 +266,9 @@ pub fn get_current_directory(ctx: &EmEnv) -> Option<PathBuf> {
     }
     std::env::current_dir()
         .map(|cwd| {
-            if let Some(val) =
-                get_emscripten_data(ctx).mapped_dirs.get(&cwd.to_string_lossy().to_string())
+            if let Some(val) = get_emscripten_data(ctx)
+                .mapped_dirs
+                .get(&cwd.to_string_lossy().to_string())
             {
                 val.clone()
             } else {

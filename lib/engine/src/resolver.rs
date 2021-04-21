@@ -180,8 +180,10 @@ pub fn resolve_imports(
                 };
 
                 // Clone the host env for this `Instance`.
-                let env = if let Some(ExportFunctionMetadata { host_env_clone_fn: clone, .. }) =
-                    f.metadata.as_deref()
+                let env = if let Some(ExportFunctionMetadata {
+                    host_env_clone_fn: clone,
+                    ..
+                }) = f.metadata.as_deref()
                 {
                     // TODO: maybe start adding asserts in all these
                     // unsafe blocks to prevent future changes from
@@ -207,7 +209,12 @@ pub fn resolve_imports(
                 let destructor = f.metadata.as_ref().map(|m| m.host_env_drop_fn);
                 let import_function_env =
                     if let (Some(clone), Some(destructor)) = (clone, destructor) {
-                        ImportFunctionEnv::Env { env, clone, initializer, destructor }
+                        ImportFunctionEnv::Env {
+                            env,
+                            clone,
+                            initializer,
+                            destructor,
+                        }
                     } else {
                         ImportFunctionEnv::NoEnv
                     };
@@ -229,7 +236,10 @@ pub fn resolve_imports(
                         let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
-                            MemoryStyle::Static { bound: import_bound, .. },
+                            MemoryStyle::Static {
+                                bound: import_bound,
+                                ..
+                            },
                         ) = (export_memory_style.clone(), &import_memory_style)
                         {
                             assert_ge!(bound, *import_bound);
@@ -341,7 +351,9 @@ where
     B: NamedResolver,
 {
     fn resolve_by_name(&self, module: &str, field: &str) -> Option<Export> {
-        self.a.resolve_by_name(module, field).or_else(|| self.b.resolve_by_name(module, field))
+        self.a
+            .resolve_by_name(module, field)
+            .or_else(|| self.b.resolve_by_name(module, field))
     }
 }
 
@@ -351,6 +363,9 @@ where
     B: NamedResolver + Clone,
 {
     fn clone(&self) -> Self {
-        Self { a: self.a.clone(), b: self.b.clone() }
+        Self {
+            a: self.a.clone(),
+            b: self.b.clone(),
+        }
     }
 }

@@ -49,7 +49,10 @@ impl Memory {
         let style = tunables.memory_style(&ty);
         let memory = tunables.create_host_memory(&ty, &style)?;
 
-        Ok(Self { store: store.clone(), memory })
+        Ok(Self {
+            store: store.clone(),
+            memory,
+        })
     }
 
     /// Returns the [`MemoryType`] of the `Memory`.
@@ -219,7 +222,10 @@ impl Memory {
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportMemory) -> Self {
-        Self { store: store.clone(), memory: wasmer_export.vm_memory.from }
+        Self {
+            store: store.clone(),
+            memory: wasmer_export.vm_memory.from,
+        }
     }
 
     /// Returns whether or not these two memories refer to the same data.
@@ -241,8 +247,13 @@ impl Memory {
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
-        ExportMemory { vm_memory: VMExportMemory { from: self.memory.clone(), instance_ref: None } }
-            .into()
+        ExportMemory {
+            vm_memory: VMExportMemory {
+                from: self.memory.clone(),
+                instance_ref: None,
+            },
+        }
+        .into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

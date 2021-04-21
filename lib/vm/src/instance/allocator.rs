@@ -69,7 +69,11 @@ impl InstanceAllocator {
     /// [`InstanceHandle::new`]: super::InstanceHandle::new
     pub fn new(
         module: &ModuleInfo,
-    ) -> (Self, Vec<NonNull<VMMemoryDefinition>>, Vec<NonNull<VMTableDefinition>>) {
+    ) -> (
+        Self,
+        Vec<NonNull<VMMemoryDefinition>>,
+        Vec<NonNull<VMTableDefinition>>,
+    ) {
         let offsets = VMOffsets::new(mem::size_of::<usize>() as u8, module);
         let instance_layout = Self::instance_layout(&offsets);
 
@@ -82,7 +86,12 @@ impl InstanceAllocator {
             alloc::handle_alloc_error(instance_layout);
         };
 
-        let allocator = Self { instance_ptr, instance_layout, offsets, consumed: false };
+        let allocator = Self {
+            instance_ptr,
+            instance_layout,
+            offsets,
+            consumed: false,
+        };
 
         // # Safety
         // Both of these calls are safe because we allocate the pointer
@@ -130,7 +139,9 @@ impl InstanceAllocator {
         let base_ptr = ptr.add(mem::size_of::<Instance>());
 
         for i in 0..num_memories {
-            let mem_offset = self.offsets.vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
+            let mem_offset = self
+                .offsets
+                .vmctx_vmmemory_definition(LocalMemoryIndex::new(i));
             let mem_offset = usize::try_from(mem_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(mem_offset));
@@ -162,7 +173,9 @@ impl InstanceAllocator {
         let base_ptr = ptr.add(std::mem::size_of::<Instance>());
 
         for i in 0..num_tables {
-            let table_offset = self.offsets.vmctx_vmtable_definition(LocalTableIndex::new(i));
+            let table_offset = self
+                .offsets
+                .vmctx_vmtable_definition(LocalTableIndex::new(i));
             let table_offset = usize::try_from(table_offset).unwrap();
 
             let new_ptr = NonNull::new_unchecked(base_ptr.add(table_offset));

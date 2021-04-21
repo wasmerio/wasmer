@@ -60,7 +60,11 @@ pub unsafe extern "C" fn wasmer_memory_new(
     memory: *mut *mut wasmer_memory_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
-    let max = if limits.max.has_some { Some(Pages(limits.max.some)) } else { None };
+    let max = if limits.max.has_some {
+        Some(Pages(limits.max.some))
+    } else {
+        None
+    };
     let store = get_global_store();
     let desc = MemoryType::new(Pages(limits.min), max, false);
     match Memory::new(store, desc) {
@@ -69,7 +73,9 @@ pub unsafe extern "C" fn wasmer_memory_new(
             wasmer_result_t::WASMER_OK
         }
         Err(err) => {
-            update_last_error(CApiError { msg: err.to_string() });
+            update_last_error(CApiError {
+                msg: err.to_string(),
+            });
             wasmer_result_t::WASMER_ERROR
         }
     }
@@ -95,7 +101,9 @@ pub unsafe extern "C" fn wasmer_memory_new(
 #[no_mangle]
 pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -> wasmer_result_t {
     if memory.is_null() {
-        update_last_error(CApiError { msg: "`memory` is NULL.".to_string() });
+        update_last_error(CApiError {
+            msg: "`memory` is NULL.".to_string(),
+        });
 
         return wasmer_result_t::WASMER_ERROR;
     }
@@ -106,7 +114,9 @@ pub extern "C" fn wasmer_memory_grow(memory: *mut wasmer_memory_t, delta: u32) -
     match grow_result {
         Ok(_) => wasmer_result_t::WASMER_OK,
         Err(err) => {
-            update_last_error(CApiError { msg: err.to_string() });
+            update_last_error(CApiError {
+                msg: err.to_string(),
+            });
             wasmer_result_t::WASMER_ERROR
         }
     }

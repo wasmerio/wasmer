@@ -96,7 +96,9 @@ struct Inner {
 impl FuncDataRegistry {
     /// Create a new `FuncDataRegistry`.
     pub fn new() -> Self {
-        Self { inner: Default::default() }
+        Self {
+            inner: Default::default(),
+        }
     }
 
     /// Register a signature and return its unique index.

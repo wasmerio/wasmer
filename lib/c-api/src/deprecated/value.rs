@@ -74,18 +74,22 @@ impl From<wasmer_value_t> for Val {
         unsafe {
             #[allow(unreachable_patterns, non_snake_case)]
             match v {
-                wasmer_value_t { tag: wasmer_value_tag::WASM_I32, value: wasmer_value { I32 } } => {
-                    Val::I32(I32)
-                }
-                wasmer_value_t { tag: wasmer_value_tag::WASM_I64, value: wasmer_value { I64 } } => {
-                    Val::I64(I64)
-                }
-                wasmer_value_t { tag: wasmer_value_tag::WASM_F32, value: wasmer_value { F32 } } => {
-                    Val::F32(F32)
-                }
-                wasmer_value_t { tag: wasmer_value_tag::WASM_F64, value: wasmer_value { F64 } } => {
-                    Val::F64(F64)
-                }
+                wasmer_value_t {
+                    tag: wasmer_value_tag::WASM_I32,
+                    value: wasmer_value { I32 },
+                } => Val::I32(I32),
+                wasmer_value_t {
+                    tag: wasmer_value_tag::WASM_I64,
+                    value: wasmer_value { I64 },
+                } => Val::I64(I64),
+                wasmer_value_t {
+                    tag: wasmer_value_tag::WASM_F32,
+                    value: wasmer_value { F32 },
+                } => Val::F32(F32),
+                wasmer_value_t {
+                    tag: wasmer_value_tag::WASM_F64,
+                    value: wasmer_value { F64 },
+                } => Val::F64(F64),
                 _ => unreachable!("unknown Wasm type"),
             }
         }
@@ -95,18 +99,22 @@ impl From<wasmer_value_t> for Val {
 impl From<Val> for wasmer_value_t {
     fn from(val: Val) -> Self {
         match val {
-            Val::I32(x) => {
-                wasmer_value_t { tag: wasmer_value_tag::WASM_I32, value: wasmer_value { I32: x } }
-            }
-            Val::I64(x) => {
-                wasmer_value_t { tag: wasmer_value_tag::WASM_I64, value: wasmer_value { I64: x } }
-            }
-            Val::F32(x) => {
-                wasmer_value_t { tag: wasmer_value_tag::WASM_F32, value: wasmer_value { F32: x } }
-            }
-            Val::F64(x) => {
-                wasmer_value_t { tag: wasmer_value_tag::WASM_F64, value: wasmer_value { F64: x } }
-            }
+            Val::I32(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_I32,
+                value: wasmer_value { I32: x },
+            },
+            Val::I64(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_I64,
+                value: wasmer_value { I64: x },
+            },
+            Val::F32(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_F32,
+                value: wasmer_value { F32: x },
+            },
+            Val::F64(x) => wasmer_value_t {
+                tag: wasmer_value_tag::WASM_F64,
+                value: wasmer_value { F64: x },
+            },
             Val::V128(_) => unimplemented!("V128 not supported in C API"),
             Val::ExternRef(_) => unimplemented!("ExternRef not supported in C API"),
             Val::FuncRef(_) => unimplemented!("FuncRef not supported in C API"),

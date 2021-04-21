@@ -20,7 +20,10 @@ use serde::{Deserialize, Serialize};
 /// A list of all possible value types in WebAssembly.
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum Type {
     /// Signed 32 bit integer.
     I32,
@@ -42,7 +45,10 @@ impl Type {
     /// Returns true if `Type` matches any of the numeric types. (e.g. `I32`,
     /// `I64`, `F32`, `F64`, `V128`).
     pub fn is_num(self) -> bool {
-        matches!(self, Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128)
+        matches!(
+            self,
+            Self::I32 | Self::I64 | Self::F32 | Self::F64 | Self::V128
+        )
     }
 
     /// Returns true if `Type` matches either of the reference types.
@@ -59,7 +65,10 @@ impl fmt::Display for Type {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 /// The WebAssembly V128 type
 pub struct V128(pub(crate) [u8; 16]);
 
@@ -126,8 +135,14 @@ pub enum ExternType {
 }
 
 fn is_global_compatible(exported: GlobalType, imported: GlobalType) -> bool {
-    let GlobalType { ty: exported_ty, mutability: exported_mutability } = exported;
-    let GlobalType { ty: imported_ty, mutability: imported_mutability } = imported;
+    let GlobalType {
+        ty: exported_ty,
+        mutability: exported_mutability,
+    } = exported;
+    let GlobalType {
+        ty: imported_ty,
+        mutability: imported_mutability,
+    } = imported;
 
     exported_ty == imported_ty && imported_mutability == exported_mutability
 }
@@ -140,10 +155,16 @@ fn is_table_element_type_compatible(exported_type: Type, imported_type: Type) ->
 }
 
 fn is_table_compatible(exported: &TableType, imported: &TableType) -> bool {
-    let TableType { ty: exported_ty, minimum: exported_minimum, maximum: exported_maximum } =
-        exported;
-    let TableType { ty: imported_ty, minimum: imported_minimum, maximum: imported_maximum } =
-        imported;
+    let TableType {
+        ty: exported_ty,
+        minimum: exported_minimum,
+        maximum: exported_maximum,
+    } = exported;
+    let TableType {
+        ty: imported_ty,
+        minimum: imported_minimum,
+        maximum: imported_maximum,
+    } = imported;
 
     is_table_element_type_compatible(*exported_ty, *imported_ty)
         && imported_minimum <= exported_minimum
@@ -223,7 +244,10 @@ impl ExternType {
 /// WebAssembly functions can have 0 or more parameters and results.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct FunctionType {
     /// The parameters of the function
     params: Box<[Type]>,
@@ -238,7 +262,10 @@ impl FunctionType {
         Params: Into<Box<[Type]>>,
         Returns: Into<Box<[Type]>>,
     {
-        Self { params: params.into(), results: returns.into() }
+        Self {
+            params: params.into(),
+            results: returns.into(),
+        }
     }
 
     /// Parameter types.
@@ -254,9 +281,18 @@ impl FunctionType {
 
 impl fmt::Display for FunctionType {
     fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
-        let params = self.params.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", ");
-        let results =
-            self.results.iter().map(|p| format!("{:?}", p)).collect::<Vec<_>>().join(", ");
+        let params = self
+            .params
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join(", ");
+        let results = self
+            .results
+            .iter()
+            .map(|p| format!("{:?}", p))
+            .collect::<Vec<_>>()
+            .join(", ");
         write!(f, "[{}] -> [{}]", params, results)
     }
 }
@@ -297,7 +333,10 @@ impl From<&FunctionType> for FunctionType {
 /// Indicator of whether a global is mutable or not
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum Mutability {
     /// The global is constant and its value does not change
     Const,
@@ -334,7 +373,10 @@ impl From<Mutability> for bool {
 /// WebAssembly global.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct GlobalType {
     /// The type of the value stored in the global.
     pub ty: Type,
@@ -378,7 +420,10 @@ impl fmt::Display for GlobalType {
 /// Globals are initialized via the `const` operators or by referring to another import.
 #[derive(Debug, Clone, Copy, MemoryUsage, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum GlobalInit {
     /// An `i32.const`.
     I32Const(i32),
@@ -435,7 +480,10 @@ impl GlobalInit {
 /// which `call_indirect` can invoke other functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct TableType {
     /// The type of data stored in elements of the table.
     pub ty: Type,
@@ -449,7 +497,11 @@ impl TableType {
     /// Creates a new table descriptor which will contain the specified
     /// `element` and have the `limits` applied to its length.
     pub fn new(ty: Type, minimum: u32, maximum: Option<u32>) -> Self {
-        Self { ty, minimum, maximum }
+        Self {
+            ty,
+            minimum,
+            maximum,
+        }
     }
 }
 
@@ -471,7 +523,10 @@ impl fmt::Display for TableType {
 /// chunks of addressable memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.
     pub minimum: Pages,
@@ -488,7 +543,11 @@ impl MemoryType {
     where
         IntoPages: Into<Pages>,
     {
-        Self { minimum: minimum.into(), maximum: maximum.map(Into::into), shared }
+        Self {
+            minimum: minimum.into(),
+            maximum: maximum.map(Into::into),
+            shared,
+        }
     }
 }
 
@@ -523,7 +582,11 @@ impl<T> ImportType<T> {
     /// Creates a new import descriptor which comes from `module` and `name` and
     /// is of type `ty`.
     pub fn new(module: &str, name: &str, ty: T) -> Self {
-        Self { module: module.to_owned(), name: name.to_owned(), ty }
+        Self {
+            module: module.to_owned(),
+            name: name.to_owned(),
+            ty,
+        }
     }
 
     /// Returns the module name that this import is expected to come from.
@@ -565,7 +628,10 @@ impl<T> ExportType<T> {
     /// Creates a new export which is exported with the given `name` and has the
     /// given `ty`.
     pub fn new(name: &str, ty: T) -> Self {
-        Self { name: name.to_string(), ty }
+        Self {
+            name: name.to_string(),
+            ty,
+        }
     }
 
     /// Returns the name by which this export is known by.

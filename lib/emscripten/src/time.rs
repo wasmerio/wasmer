@@ -60,7 +60,10 @@ pub fn _gettimeofday(ctx: &EmEnv, tp: c_int, tz: c_int) -> c_int {
         tv_usec: i32,
     }
 
-    assert!(tz == 0, "the timezone argument of `_gettimeofday` must be null");
+    assert!(
+        tz == 0,
+        "the timezone argument of `_gettimeofday` must be null"
+    );
     unsafe {
         let now = SystemTime::now();
         let since_epoch = now.duration_since(SystemTime::UNIX_EPOCH).unwrap();
@@ -95,7 +98,10 @@ pub fn _clock_gettime(ctx: &EmEnv, clk_id: clockid_t, tp: c_int) -> c_int {
 
         CLOCK_MONOTONIC | CLOCK_MONOTONIC_COARSE => {
             let precise_ns = time::precise_time_ns();
-            time::Timespec::new((precise_ns / 1000000000) as i64, (precise_ns % 1000000000) as i32)
+            time::Timespec::new(
+                (precise_ns / 1000000000) as i64,
+                (precise_ns % 1000000000) as i32,
+            )
         }
         _ => panic!("Clock with id \"{}\" is not supported.", clk_id),
     };
@@ -174,8 +180,9 @@ unsafe fn fmt_time(ctx: &EmEnv, time: u32) -> *const c_char {
     let date = &*(emscripten_memory_pointer!(ctx.memory(0), time) as *mut guest_tm);
 
     let days = vec!["Sun", "Mon", "Tue", "Wed", "Thu", "Fri", "Sat"];
-    let months =
-        vec!["Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec"];
+    let months = vec![
+        "Jan", "Feb", "Mar", "Apr", "May", "Jun", "Jul", "Aug", "Sep", "Oct", "Nov", "Dec",
+    ];
     let year = 1900 + date.tm_year;
 
     let time_str = format!(
@@ -372,13 +379,19 @@ pub fn _timegm(ctx: &EmEnv, time_ptr: u32) -> i32 {
 
 #[cfg(target_os = "windows")]
 pub fn _timegm(_ctx: &EmEnv, _time_ptr: c_int) -> i32 {
-    debug!("emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}", _time_ptr);
+    debug!(
+        "emscripten::_timegm - UNIMPLEMENTED IN WINDOWS {}",
+        _time_ptr
+    );
     -1
 }
 
 /// emscripten: _strftime
 pub fn _strftime(ctx: &EmEnv, s_ptr: c_int, maxsize: u32, format_ptr: c_int, tm_ptr: c_int) -> i32 {
-    debug!("emscripten::_strftime {} {} {} {}", s_ptr, maxsize, format_ptr, tm_ptr);
+    debug!(
+        "emscripten::_strftime {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
 
     #[allow(clippy::cast_ptr_alignment)]
     let s = emscripten_memory_pointer!(ctx.memory(0), s_ptr) as *mut c_char;
@@ -436,7 +449,10 @@ pub fn _strftime_l(
     tm_ptr: c_int,
     _last: c_int,
 ) -> i32 {
-    debug!("emscripten::_strftime_l {} {} {} {}", s_ptr, maxsize, format_ptr, tm_ptr);
+    debug!(
+        "emscripten::_strftime_l {} {} {} {}",
+        s_ptr, maxsize, format_ptr, tm_ptr
+    );
 
     _strftime(ctx, s_ptr, maxsize, format_ptr, tm_ptr)
 }

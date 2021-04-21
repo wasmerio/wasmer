@@ -48,7 +48,10 @@ where
 {
     fn deserialize(&self, deserializer: &mut D) -> Result<PrimaryMap<K, V>, D::Error> {
         let elems: Vec<_> = self.0.deserialize(deserializer)?;
-        Ok(PrimaryMap { elems, unused: PhantomData })
+        Ok(PrimaryMap {
+            elems,
+            unused: PhantomData,
+        })
     }
 }
 
@@ -61,7 +64,10 @@ pub struct ArchivableIndexMap<K: Hash + Eq + Archive, V: Archive> {
 
 impl<K: Hash + Eq + Archive + Clone, V: Archive> From<IndexMap<K, V>> for ArchivableIndexMap<K, V> {
     fn from(it: IndexMap<K, V>) -> ArchivableIndexMap<K, V> {
-        let mut r = ArchivableIndexMap { indices: HashMap::new(), entries: Vec::new() };
+        let mut r = ArchivableIndexMap {
+            indices: HashMap::new(),
+            entries: Vec::new(),
+        };
         let mut i: u64 = 0;
         for (k, v) in it.into_iter() {
             r.indices.insert(k.clone(), i);

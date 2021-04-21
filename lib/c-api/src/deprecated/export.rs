@@ -142,8 +142,9 @@ pub unsafe extern "C" fn wasmer_export_descriptors(
 ) {
     let module = &*(module as *const Module);
 
-    let named_export_descriptors: Box<NamedExportDescriptors> =
-        Box::new(NamedExportDescriptors(module.exports().into_iter().map(|e| e.into()).collect()));
+    let named_export_descriptors: Box<NamedExportDescriptors> = Box::new(NamedExportDescriptors(
+        module.exports().into_iter().map(|e| e.into()).collect(),
+    ));
     *export_descriptors =
         Box::into_raw(named_export_descriptors) as *mut wasmer_export_descriptors_t;
 }
@@ -402,8 +403,10 @@ pub unsafe extern "C" fn wasmer_export_to_memory(
     let named_export = &*(export as *const NamedExport);
     let instance = named_export.instance.as_ref();
 
-    if let Ok(exported_memory) =
-        instance.instance.exports.get::<Memory>(&named_export.export_type.name())
+    if let Ok(exported_memory) = instance
+        .instance
+        .exports
+        .get::<Memory>(&named_export.export_type.name())
     {
         let mem = Box::new(exported_memory.clone());
         *memory = Box::into_raw(mem) as *mut wasmer_memory_t;
@@ -446,12 +449,16 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     results_len: c_uint,
 ) -> wasmer_result_t {
     if func.is_null() {
-        update_last_error(CApiError { msg: "func ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "func ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
 
     if params_len > 0 && params.is_null() {
-        update_last_error(CApiError { msg: "params ptr is null".to_string() });
+        update_last_error(CApiError {
+            msg: "params ptr is null".to_string(),
+        });
         return wasmer_result_t::WASMER_ERROR;
     }
 
@@ -472,7 +479,11 @@ pub unsafe extern "C" fn wasmer_export_func_call(
     let results: &mut [wasmer_value_t] = slice::from_raw_parts_mut(results, results_len as usize);
 
     let instance = named_export.instance.as_ref();
-    let f: &Function = match instance.instance.exports.get(&named_export.export_type.name()) {
+    let f: &Function = match instance
+        .instance
+        .exports
+        .get(&named_export.export_type.name())
+    {
         Ok(f) => f,
         Err(err) => {
             update_last_error(err);
@@ -519,7 +530,10 @@ pub unsafe extern "C" fn wasmer_export_func_call(
 
 impl From<ExportType> for NamedExportDescriptor {
     fn from(et: ExportType) -> Self {
-        NamedExportDescriptor { name: et.name().to_string(), kind: et.into() }
+        NamedExportDescriptor {
+            name: et.name().to_string(),
+            kind: et.into(),
+        }
     }
 }
 

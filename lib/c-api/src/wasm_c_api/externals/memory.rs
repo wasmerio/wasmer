@@ -14,7 +14,10 @@ pub struct wasm_memory_t {
 
 impl wasm_memory_t {
     pub(crate) fn new(memory: Memory) -> Self {
-        Self { tag: CApiExternTag::Memory, inner: Box::new(memory) }
+        Self {
+            tag: CApiExternTag::Memory,
+            inner: Box::new(memory),
+        }
     }
 }
 

@@ -77,7 +77,11 @@ impl FrameBufferState {
             "Wasmer Experimental FrameBuffer",
             x,
             y,
-            WindowOptions { resize: true, scale: Scale::FitScreen, ..WindowOptions::default() },
+            WindowOptions {
+                resize: true,
+                scale: Scale::FitScreen,
+                ..WindowOptions::default()
+            },
         )
         .unwrap()
     }
@@ -161,7 +165,11 @@ impl FrameBufferState {
     pub fn draw(&mut self) {
         self.window
             .update_with_buffer(
-                if self.front_buffer { &self.data_1[..] } else { &self.data_2[..] },
+                if self.front_buffer {
+                    &self.data_1[..]
+                } else {
+                    &self.data_2[..]
+                },
                 self.x_size.try_into().unwrap(),
                 self.y_size.try_into().unwrap(),
             )
@@ -421,16 +429,32 @@ impl WasiFile for FrameBuffer {
 }
 
 pub fn initialize(fs: &mut WasiFs) -> Result<(), String> {
-    let frame_buffer_file =
-        Box::new(FrameBuffer { fb_type: FrameBufferFileType::Buffer, cursor: 0 });
-    let resolution_file =
-        Box::new(FrameBuffer { fb_type: FrameBufferFileType::Resolution, cursor: 0 });
-    let draw_file = Box::new(FrameBuffer { fb_type: FrameBufferFileType::Draw, cursor: 0 });
-    let input_file = Box::new(FrameBuffer { fb_type: FrameBufferFileType::Input, cursor: 0 });
+    let frame_buffer_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Buffer,
+        cursor: 0,
+    });
+    let resolution_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Resolution,
+        cursor: 0,
+    });
+    let draw_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Draw,
+        cursor: 0,
+    });
+    let input_file = Box::new(FrameBuffer {
+        fb_type: FrameBufferFileType::Input,
+        cursor: 0,
+    });
 
     let base_dir_fd = unsafe {
-        fs.open_dir_all(VIRTUAL_ROOT_FD, "_wasmer/dev/fb0".to_string(), ALL_RIGHTS, ALL_RIGHTS, 0)
-            .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
+        fs.open_dir_all(
+            VIRTUAL_ROOT_FD,
+            "_wasmer/dev/fb0".to_string(),
+            ALL_RIGHTS,
+            ALL_RIGHTS,
+            0,
+        )
+        .map_err(|e| format!("fb: Failed to create dev folder {:?}", e))?
     };
 
     let _fd = fs

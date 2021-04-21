@@ -95,16 +95,28 @@ pub enum ControlStackFrame {
 impl ControlStackFrame {
     pub fn num_return_values(&self) -> usize {
         match *self {
-            Self::If { num_return_values, .. }
-            | Self::Block { num_return_values, .. }
-            | Self::Loop { num_return_values, .. } => num_return_values,
+            Self::If {
+                num_return_values, ..
+            }
+            | Self::Block {
+                num_return_values, ..
+            }
+            | Self::Loop {
+                num_return_values, ..
+            } => num_return_values,
         }
     }
     pub fn num_param_values(&self) -> usize {
         match *self {
-            Self::If { num_param_values, .. }
-            | Self::Block { num_param_values, .. }
-            | Self::Loop { num_param_values, .. } => num_param_values,
+            Self::If {
+                num_param_values, ..
+            }
+            | Self::Block {
+                num_param_values, ..
+            }
+            | Self::Loop {
+                num_param_values, ..
+            } => num_param_values,
         }
     }
     pub fn following_code(&self) -> Block {
@@ -124,9 +136,18 @@ impl ControlStackFrame {
     /// `truncate_value_stack_to_original_size()` to restore value-stack state.
     fn original_stack_size(&self) -> usize {
         match *self {
-            Self::If { original_stack_size, .. }
-            | Self::Block { original_stack_size, .. }
-            | Self::Loop { original_stack_size, .. } => original_stack_size,
+            Self::If {
+                original_stack_size,
+                ..
+            }
+            | Self::Block {
+                original_stack_size,
+                ..
+            }
+            | Self::Loop {
+                original_stack_size,
+                ..
+            } => original_stack_size,
         }
     }
     pub fn is_loop(&self) -> bool {
@@ -138,17 +159,28 @@ impl ControlStackFrame {
 
     pub fn exit_is_branched_to(&self) -> bool {
         match *self {
-            Self::If { exit_is_branched_to, .. } | Self::Block { exit_is_branched_to, .. } => {
-                exit_is_branched_to
+            Self::If {
+                exit_is_branched_to,
+                ..
             }
+            | Self::Block {
+                exit_is_branched_to,
+                ..
+            } => exit_is_branched_to,
             Self::Loop { .. } => false,
         }
     }
 
     pub fn set_branched_to_exit(&mut self) {
         match *self {
-            Self::If { ref mut exit_is_branched_to, .. }
-            | Self::Block { ref mut exit_is_branched_to, .. } => *exit_is_branched_to = true,
+            Self::If {
+                ref mut exit_is_branched_to,
+                ..
+            }
+            | Self::Block {
+                ref mut exit_is_branched_to,
+                ..
+            } => *exit_is_branched_to = true,
             Self::Loop { .. } => {}
         }
     }
@@ -169,7 +201,9 @@ impl ControlStackFrame {
         // block can see the same number of parameters as the consequent block. As a matter of
         // fact, we need to substract an extra number of parameter values for if blocks.
         let num_duplicated_params = match self {
-            &ControlStackFrame::If { num_param_values, .. } => {
+            &ControlStackFrame::If {
+                num_param_values, ..
+            } => {
                 debug_assert!(num_param_values <= self.original_stack_size());
                 num_param_values
             }
@@ -268,7 +302,10 @@ impl FuncTranslationState {
         self.push_block(
             exit_block,
             0,
-            sig.returns.iter().filter(|arg| arg.purpose == ir::ArgumentPurpose::Normal).count(),
+            sig.returns
+                .iter()
+                .filter(|arg| arg.purpose == ir::ArgumentPurpose::Normal)
+                .count(),
         );
     }
 
@@ -296,14 +333,20 @@ impl FuncTranslationState {
 
     /// Pop one value.
     pub(crate) fn pop1(&mut self) -> (Value, ValueExtraInfo) {
-        let val = self.stack.pop().expect("attempted to pop a value from an empty stack");
+        let val = self
+            .stack
+            .pop()
+            .expect("attempted to pop a value from an empty stack");
         let val_metadata = Default::default();
         (val, val_metadata)
     }
 
     /// Peek at the top of the stack without popping it.
     pub(crate) fn peek1(&self) -> (Value, ValueExtraInfo) {
-        let val = *self.stack.last().expect("attempted to peek at a value on an empty stack");
+        let val = *self
+            .stack
+            .last()
+            .expect("attempted to peek at a value on an empty stack");
         let val_metadata = Default::default();
         (val, val_metadata)
     }
@@ -318,7 +361,11 @@ impl FuncTranslationState {
     /// Pop three values. Return them in the order they were pushed.
     pub(crate) fn pop3(
         &mut self,
-    ) -> ((Value, ValueExtraInfo), (Value, ValueExtraInfo), (Value, ValueExtraInfo)) {
+    ) -> (
+        (Value, ValueExtraInfo),
+        (Value, ValueExtraInfo),
+        (Value, ValueExtraInfo),
+    ) {
         let v3 = self.pop1();
         let v2 = self.pop1();
         let v1 = self.pop1();
@@ -530,7 +577,10 @@ impl FuncTranslationState {
             Vacant(entry) => {
                 let fref = environ.make_direct_func(func, index)?;
                 let sig = func.dfg.ext_funcs[fref].signature;
-                Ok(*entry.insert((fref, num_wasm_parameters(environ, &func.dfg.signatures[sig]))))
+                Ok(*entry.insert((
+                    fref,
+                    num_wasm_parameters(environ, &func.dfg.signatures[sig]),
+                )))
             }
         }
     }
@@ -540,5 +590,7 @@ fn num_wasm_parameters<FE: FuncEnvironment + ?Sized>(
     environ: &FE,
     signature: &ir::Signature,
 ) -> usize {
-    (0..signature.params.len()).filter(|index| environ.is_wasm_parameter(signature, *index)).count()
+    (0..signature.params.len())
+        .filter(|index| environ.is_wasm_parameter(signature, *index))
+        .count()
 }

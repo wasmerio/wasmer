@@ -55,7 +55,9 @@ pub struct wasmer_features_t {
 /// See the module's documentation.
 #[no_mangle]
 pub extern "C" fn wasmer_features_new() -> Box<wasmer_features_t> {
-    Box::new(wasmer_features_t { inner: Features::new() })
+    Box::new(wasmer_features_t {
+        inner: Features::new(),
+    })
 }
 
 /// Delete a [`wasmer_features_t`].

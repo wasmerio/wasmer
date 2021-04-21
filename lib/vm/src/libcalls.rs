@@ -153,7 +153,10 @@ pub unsafe extern "C" fn wasmer_vm_memory32_grow(
     let instance = (&*vmctx).instance();
     let memory_index = LocalMemoryIndex::from_u32(memory_index);
 
-    instance.memory_grow(memory_index, delta).map(|pages| pages.0).unwrap_or(u32::max_value())
+    instance
+        .memory_grow(memory_index, delta)
+        .map(|pages| pages.0)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of memory.grow for imported 32-bit memories.
@@ -374,7 +377,10 @@ pub unsafe extern "C" fn wasmer_vm_table_set(
 ) {
     let instance = (&*vmctx).instance();
     let table_index = TableIndex::from_u32(table_index);
-    let table_index = instance.module_ref().local_table_index(table_index).unwrap();
+    let table_index = instance
+        .module_ref()
+        .local_table_index(table_index)
+        .unwrap();
 
     let elem = match instance.get_local_table(table_index).ty().ty {
         Type::ExternRef => TableElement::ExternRef(value.extern_ref.into()),
@@ -438,7 +444,9 @@ pub unsafe extern "C" fn wasmer_vm_table_grow(
         _ => panic!("Unrecognized table type: does not contain references"),
     };
 
-    instance.table_grow(table_index, delta, init_value).unwrap_or(u32::max_value())
+    instance
+        .table_grow(table_index, delta, init_value)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of `table.grow` for imported tables.
@@ -461,7 +469,9 @@ pub unsafe extern "C" fn wasmer_vm_imported_table_grow(
         _ => panic!("Unrecognized table type: does not contain references"),
     };
 
-    instance.imported_table_grow(table_index, delta, init_value).unwrap_or(u32::max_value())
+    instance
+        .imported_table_grow(table_index, delta, init_value)
+        .unwrap_or(u32::max_value())
 }
 
 /// Implementation of `func.ref`.

@@ -30,8 +30,11 @@ fn main() -> anyhow::Result<()> {
 
     // Spectests test generation
     {
-        let mut spectests =
-            Testsuite { buffer: String::new(), path: vec![], ignores: ignores.clone() };
+        let mut spectests = Testsuite {
+            buffer: String::new(),
+            path: vec![],
+            ignores: ignores.clone(),
+        };
 
         with_features(&mut spectests, &compilers, |mut spectests| {
             with_test_module(&mut spectests, "spec", |spectests| {
@@ -64,7 +67,11 @@ fn main() -> anyhow::Result<()> {
 
     // Wasitest test generation
     {
-        let mut wasitests = Testsuite { buffer: String::new(), path: vec![], ignores };
+        let mut wasitests = Testsuite {
+            buffer: String::new(),
+            path: vec![],
+            ignores,
+        };
         let wasi_versions = ["unstable", "snapshot1"];
         with_features(&mut wasitests, &compilers, |mut wasitests| {
             with_test_module(&mut wasitests, "wasitests", |wasitests| {

@@ -18,9 +18,11 @@ pub fn store_cache_jit(c: &mut Criterion) {
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
-    let module =
-        Module::new(&store, std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap())
-            .unwrap();
+    let module = Module::new(
+        &store,
+        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+    )
+    .unwrap();
 
     c.bench_function("store jit module in filesystem cache", |b| {
         b.iter(|| {
@@ -35,9 +37,11 @@ pub fn load_cache_jit(c: &mut Criterion) {
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&JIT::new(compiler).engine());
-    let module =
-        Module::new(&store, std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap())
-            .unwrap();
+    let module = Module::new(
+        &store,
+        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+    )
+    .unwrap();
     let key = Hash::new([0u8; 32]);
     fs_cache.store(key, &module).unwrap();
 
@@ -51,9 +55,11 @@ pub fn store_cache_native(c: &mut Criterion) {
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&Native::new(compiler).engine());
-    let module =
-        Module::new(&store, std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap())
-            .unwrap();
+    let module = Module::new(
+        &store,
+        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+    )
+    .unwrap();
 
     c.bench_function("store native module in filesystem cache", |b| {
         b.iter(|| {
@@ -68,9 +74,11 @@ pub fn load_cache_native(c: &mut Criterion) {
     let mut fs_cache = FileSystemCache::new(tmp_dir.path()).unwrap();
     let compiler = Singlepass::default();
     let store = Store::new(&Native::new(compiler).engine());
-    let module =
-        Module::new(&store, std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap())
-            .unwrap();
+    let module = Module::new(
+        &store,
+        std::fs::read("../../lib/c-api/tests/assets/qjs.wasm").unwrap(),
+    )
+    .unwrap();
     let key = Hash::new([0u8; 32]);
     fs_cache.store(key, &module).unwrap();
 

@@ -17,7 +17,9 @@ pub struct OrderedResolver {
 
 impl Resolver for OrderedResolver {
     fn resolve(&self, index: u32, _module: &str, _name: &str) -> Option<Export> {
-        self.externs.get(index as usize).map(|extern_| extern_.to_export())
+        self.externs
+            .get(index as usize)
+            .map(|extern_| extern_.to_export())
     }
 }
 

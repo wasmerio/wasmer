@@ -40,13 +40,21 @@ pub struct Config {
 impl Config {
     /// Runs logic for the `config` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute().context("failed to retrieve the wasmer config".to_string())
+        self.inner_execute()
+            .context("failed to retrieve the wasmer config".to_string())
     }
     fn inner_execute(&self) -> Result<()> {
         let key = "WASMER_DIR";
         let wasmer_dir = env::var(key)
-            .or_else(|e| option_env!("WASMER_INSTALL_PREFIX").map(str::to_string).ok_or(e))
-            .context(format!("failed to retrieve the {} environment variables", key))?;
+            .or_else(|e| {
+                option_env!("WASMER_INSTALL_PREFIX")
+                    .map(str::to_string)
+                    .ok_or(e)
+            })
+            .context(format!(
+                "failed to retrieve the {} environment variables",
+                key
+            ))?;
 
         let prefix = PathBuf::from(wasmer_dir);
 

@@ -50,7 +50,9 @@ pub struct wasm_valtype_t {
 
 impl Default for wasm_valtype_t {
     fn default() -> Self {
-        Self { valkind: wasm_valkind_enum::WASM_I32 }
+        Self {
+            valkind: wasm_valkind_enum::WASM_I32,
+        }
     }
 }
 
@@ -70,7 +72,9 @@ impl From<&wasm_valtype_t> for ValType {
 
 impl From<ValType> for wasm_valtype_t {
     fn from(other: ValType) -> Self {
-        Self { valkind: other.into() }
+        Self {
+            valkind: other.into(),
+        }
     }
 }
 
@@ -87,5 +91,7 @@ pub unsafe extern "C" fn wasm_valtype_delete(_valtype: Option<Box<wasm_valtype_t
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_valtype_kind(valtype: Option<&wasm_valtype_t>) -> wasm_valkind_t {
-    valtype.expect("`wasm_valtype_kind: argument is a null pointer").valkind as wasm_valkind_t
+    valtype
+        .expect("`wasm_valtype_kind: argument is a null pointer")
+        .valkind as wasm_valkind_t
 }

@@ -105,7 +105,8 @@ impl<T: Tunables> Tunables for LimitingTunables<T> {
     ) -> Result<Arc<dyn vm::Memory>, MemoryError> {
         let adjusted = self.adjust_memory(ty);
         self.validate_memory(&adjusted)?;
-        self.base.create_vm_memory(&adjusted, style, vm_definition_location)
+        self.base
+            .create_vm_memory(&adjusted, style, vm_definition_location)
     }
 
     /// Create a table owned by the host given a [`TableType`] and a [`TableStyle`].
@@ -163,8 +164,12 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     let instance = Instance::new(&module, &import_object)?;
 
     // Check what happened
-    let mut memories: Vec<Memory> =
-        instance.exports.iter().memories().map(|pair| pair.1.clone()).collect();
+    let mut memories: Vec<Memory> = instance
+        .exports
+        .iter()
+        .memories()
+        .map(|pair| pair.1.clone())
+        .collect();
     assert_eq!(memories.len(), 1);
 
     let first_memory = memories.pop().unwrap();

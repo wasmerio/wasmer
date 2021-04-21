@@ -289,7 +289,9 @@ impl ObjectFileArtifact {
     /// Compile a data buffer into a `ObjectFileArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(_engine: &ObjectFileEngine, _data: &[u8]) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen("Compilation is not enabled in the engine".to_string()))
+        Err(CompileError::Codegen(
+            "Compilation is not enabled in the engine".to_string(),
+        ))
     }
 
     /// Deserialize a `ObjectFileArtifact` from bytes.

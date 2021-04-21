@@ -72,7 +72,9 @@ impl Abi for Aarch64SystemV {
                 (
                     context.create_enum_attribute(
                         Attribute::get_named_enum_kind_id("align"),
-                        std::mem::align_of::<wasmer_vm::VMContext>().try_into().unwrap(),
+                        std::mem::align_of::<wasmer_vm::VMContext>()
+                            .try_into()
+                            .unwrap(),
                     ),
                     AttributeLoc::Param(i),
                 ),
@@ -81,7 +83,9 @@ impl Abi for Aarch64SystemV {
 
         Ok(match sig.results() {
             [] => (
-                intrinsics.void_ty.fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics
+                    .void_ty
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vmctx_attributes(0),
             ),
             [_] => {
@@ -221,7 +225,9 @@ impl Abi for Aarch64SystemV {
         let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
 
         if let Some(sret) = sret {
-            std::iter::once(sret.as_basic_value_enum()).chain(values).collect()
+            std::iter::once(sret.as_basic_value_enum())
+                .chain(values)
+                .collect()
         } else {
             values.collect()
         }
@@ -302,9 +308,14 @@ impl Abi for Aarch64SystemV {
                         .collect::<Vec<_>>();
                 }
                 let array_value = basic_value.into_array_value();
-                let low = builder.build_extract_value(array_value, 0, "").unwrap().into_int_value();
-                let high =
-                    builder.build_extract_value(array_value, 1, "").unwrap().into_int_value();
+                let low = builder
+                    .build_extract_value(array_value, 0, "")
+                    .unwrap()
+                    .into_int_value();
+                let high = builder
+                    .build_extract_value(array_value, 1, "")
+                    .unwrap()
+                    .into_int_value();
                 let func_sig_returns_bitwidths = func_sig
                     .results()
                     .iter()
@@ -462,7 +473,9 @@ impl Abi for Aarch64SystemV {
             if v.is_float_value() {
                 let v = v.into_float_value();
                 if v.get_type() == intrinsics.f32_ty {
-                    let v = builder.build_bitcast(v, intrinsics.i32_ty, "").into_int_value();
+                    let v = builder
+                        .build_bitcast(v, intrinsics.i32_ty, "")
+                        .into_int_value();
                     let v = builder.build_int_z_extend(v, intrinsics.i64_ty, "");
                     v.as_basic_value_enum()
                 } else {
@@ -509,7 +522,10 @@ impl Abi for Aarch64SystemV {
                     && v2.is_float_value()
                     && v1.into_float_value().get_type() == v2.into_float_value().get_type() =>
             {
-                build_struct(func_type.get_return_type().unwrap().into_struct_type(), &[v1, v2])
+                build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, v2],
+                )
             }
             [v1, v2] if is_32(v1) && is_32(v2) => {
                 let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");
@@ -525,7 +541,10 @@ impl Abi for Aarch64SystemV {
                     && v2.is_float_value()
                     && v3.is_float_value() =>
             {
-                build_struct(func_type.get_return_type().unwrap().into_struct_type(), &[v1, v2, v3])
+                build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, v2, v3],
+                )
             }
             [v1, v2, v3] if is_32(v1) && is_32(v2) => {
                 let v1 = builder.build_bitcast(v1, intrinsics.i32_ty, "");

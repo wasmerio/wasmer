@@ -76,7 +76,9 @@ impl Abi for X86_64SystemV {
                 (
                     context.create_enum_attribute(
                         Attribute::get_named_enum_kind_id("align"),
-                        std::mem::align_of::<wasmer_vm::VMContext>().try_into().unwrap(),
+                        std::mem::align_of::<wasmer_vm::VMContext>()
+                            .try_into()
+                            .unwrap(),
                     ),
                     AttributeLoc::Param(i),
                 ),
@@ -96,7 +98,9 @@ impl Abi for X86_64SystemV {
 
         Ok(match sig_returns_bitwidths.as_slice() {
             [] => (
-                intrinsics.void_ty.fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics
+                    .void_ty
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vmctx_attributes(0),
             ),
             [_] => {
@@ -129,7 +133,9 @@ impl Abi for X86_64SystemV {
                 vmctx_attributes(0),
             ),
             [32, 32] => (
-                intrinsics.i64_ty.fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                intrinsics
+                    .i64_ty
+                    .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                 vmctx_attributes(0),
             ),
             [32, 32, _] if sig.results()[0] == Type::F32 && sig.results()[1] == Type::F32 => (
@@ -207,7 +213,9 @@ impl Abi for X86_64SystemV {
                     .map(|&ty| type_to_llvm(intrinsics, ty))
                     .collect::<Result<_, _>>()?;
 
-                let sret = context.struct_type(&basic_types, false).ptr_type(AddressSpace::Generic);
+                let sret = context
+                    .struct_type(&basic_types, false)
+                    .ptr_type(AddressSpace::Generic);
 
                 let param_types = std::iter::once(Ok(sret.as_basic_type_enum())).chain(param_types);
 
@@ -218,7 +226,9 @@ impl Abi for X86_64SystemV {
                 attributes.append(&mut vmctx_attributes(1));
 
                 (
-                    intrinsics.void_ty.fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
+                    intrinsics
+                        .void_ty
+                        .fn_type(&param_types.collect::<Result<Vec<_>, _>>()?, false),
                     attributes,
                 )
             }
@@ -252,7 +262,9 @@ impl Abi for X86_64SystemV {
         let values = std::iter::once(ctx_ptr.as_basic_value_enum()).chain(values.iter().copied());
 
         if let Some(sret) = sret {
-            std::iter::once(sret.as_basic_value_enum()).chain(values).collect()
+            std::iter::once(sret.as_basic_value_enum())
+                .chain(values)
+                .collect()
         } else {
             values.collect()
         }
@@ -529,7 +541,10 @@ impl Abi for X86_64SystemV {
             }
             [v1, v2] => {
                 assert!(!(is_32(v1) && is_32(v2)));
-                build_struct(func_type.get_return_type().unwrap().into_struct_type(), &[v1, v2])
+                build_struct(
+                    func_type.get_return_type().unwrap().into_struct_type(),
+                    &[v1, v2],
+                )
             }
             [v1, v2, v3] if is_f32(v1) && is_f32(v2) => build_struct(
                 func_type.get_return_type().unwrap().into_struct_type(),

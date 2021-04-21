@@ -132,7 +132,9 @@ impl JITArtifact {
     /// Compile a data buffer into a `JITArtifact`, which may then be instantiated.
     #[cfg(not(feature = "compiler"))]
     pub fn new(_jit: &JITEngine, _data: &[u8]) -> Result<Self, CompileError> {
-        Err(CompileError::Codegen("Compilation is not enabled in the engine".to_string()))
+        Err(CompileError::Codegen(
+            "Compilation is not enabled in the engine".to_string(),
+        ))
     }
 
     /// Deserialize a JITArtifact
@@ -195,8 +197,10 @@ impl JITArtifact {
 
         let eh_frame = match &serializable.compilation.debug {
             Some(debug) => {
-                let eh_frame_section_size =
-                    serializable.compilation.custom_sections[debug.eh_frame].bytes.len();
+                let eh_frame_section_size = serializable.compilation.custom_sections
+                    [debug.eh_frame]
+                    .bytes
+                    .len();
                 let eh_frame_section_pointer = custom_sections[debug.eh_frame];
                 Some(unsafe {
                     std::slice::from_raw_parts(*eh_frame_section_pointer, eh_frame_section_size)

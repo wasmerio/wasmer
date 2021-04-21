@@ -140,7 +140,10 @@ pub struct LazyInit<T: Sized> {
 impl<T> LazyInit<T> {
     /// Creates an unitialized value.
     pub fn new() -> Self {
-        Self { data: std::mem::MaybeUninit::uninit(), initialized: false }
+        Self {
+            data: std::mem::MaybeUninit::uninit(),
+            initialized: false,
+        }
     }
 
     /// # Safety
@@ -173,16 +176,24 @@ impl<T> LazyInit<T> {
 
 impl<T: std::fmt::Debug> std::fmt::Debug for LazyInit<T> {
     fn fmt(&self, f: &mut std::fmt::Formatter) -> std::fmt::Result {
-        f.debug_struct("LazyInit").field("data", &self.get_ref()).finish()
+        f.debug_struct("LazyInit")
+            .field("data", &self.get_ref())
+            .finish()
     }
 }
 
 impl<T: Clone> Clone for LazyInit<T> {
     fn clone(&self) -> Self {
         if let Some(inner) = self.get_ref() {
-            Self { data: std::mem::MaybeUninit::new(inner.clone()), initialized: true }
+            Self {
+                data: std::mem::MaybeUninit::new(inner.clone()),
+                initialized: true,
+            }
         } else {
-            Self { data: std::mem::MaybeUninit::uninit(), initialized: false }
+            Self {
+                data: std::mem::MaybeUninit::uninit(),
+                initialized: false,
+            }
         }
     }
 }

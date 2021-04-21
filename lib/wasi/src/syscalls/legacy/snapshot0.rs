@@ -139,8 +139,9 @@ pub fn poll_oneoff(
     let in_new_type_ptr: WasmPtr<types::__wasi_subscription_t, Array> =
         unsafe { std::mem::transmute(in_) };
 
-    for (in_sub_new, orig) in
-        wasi_try!(in_new_type_ptr.deref(memory, 0, nsubscriptions)).iter().zip(in_origs.iter())
+    for (in_sub_new, orig) in wasi_try!(in_new_type_ptr.deref(memory, 0, nsubscriptions))
+        .iter()
+        .zip(in_origs.iter())
     {
         in_sub_new.set(types::__wasi_subscription_t {
             userdata: orig.userdata,
@@ -155,7 +156,9 @@ pub fn poll_oneoff(
                     },
                 }
             } else {
-                types::__wasi_subscription_u { fd_readwrite: unsafe { orig.u.fd_readwrite } }
+                types::__wasi_subscription_u {
+                    fd_readwrite: unsafe { orig.u.fd_readwrite },
+                }
             },
         });
     }
@@ -166,8 +169,9 @@ pub fn poll_oneoff(
     // replace the old values of in, in case the calling code reuses the memory
     let memory = env.memory();
 
-    for (in_sub, orig) in
-        wasi_try!(in_.deref(memory, 0, nsubscriptions)).iter().zip(in_origs.into_iter())
+    for (in_sub, orig) in wasi_try!(in_.deref(memory, 0, nsubscriptions))
+        .iter()
+        .zip(in_origs.into_iter())
     {
         in_sub.set(orig);
     }

@@ -23,7 +23,11 @@ impl WasmTableType {
         });
         let content = Box::new(table_type.ty.into());
 
-        Self { table_type, limits, content }
+        Self {
+            table_type,
+            limits,
+            content,
+        }
     }
 }
 
@@ -36,7 +40,9 @@ pub struct wasm_tabletype_t {
 
 impl wasm_tabletype_t {
     pub(crate) fn new(table_type: TableType) -> Self {
-        Self { extern_type: wasm_externtype_t::new(ExternType::Table(table_type)) }
+        Self {
+            extern_type: wasm_externtype_t::new(ExternType::Table(table_type)),
+        }
     }
 
     pub(crate) fn inner(&self) -> &WasmTableType {
@@ -55,7 +61,11 @@ pub unsafe extern "C" fn wasm_tabletype_new(
     limits: &wasm_limits_t,
 ) -> Option<Box<wasm_tabletype_t>> {
     let valtype = valtype?;
-    let max_elements = if limits.max == LIMITS_MAX_SENTINEL { None } else { Some(limits.max as _) };
+    let max_elements = if limits.max == LIMITS_MAX_SENTINEL {
+        None
+    } else {
+        Some(limits.max as _)
+    };
     let table_type = Box::new(wasm_tabletype_t::new(TableType::new(
         (*valtype).into(),
         limits.min as _,
