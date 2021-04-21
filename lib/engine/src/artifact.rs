@@ -14,7 +14,7 @@ use wasmer_types::{
 };
 use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, InstanceAllocator, InstanceHandle, MemoryStyle, ModuleInfo,
-    TrapInfo, TableStyle, VMSharedSignatureIndex, VMTrampoline,
+    TableStyle, TrapInfo, VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// An `Artifact` is the product that the `Engine`

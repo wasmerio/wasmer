@@ -272,6 +272,8 @@ impl Wast {
         let mut errors = Vec::with_capacity(ast.directives.len());
         for directive in ast.directives {
             let sp = directive.span();
+            let (line, col) = sp.linecol_in(wast);
+            println!("* Running directive in {}:{}", line, col);
             if let Err(e) = self.run_directive(directive) {
                 let message = format!("{}", e);
                 // If depends on an instance that doesn't exist
@@ -283,7 +285,6 @@ impl Wast {
                 if self.current.is_none() && self.current_is_allowed_failure {
                     continue;
                 }
-                let (line, col) = sp.linecol_in(wast);
                 errors.push(DirectiveError {
                     line: line + 1,
                     col,

@@ -1,0 +1,948 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
+//! WebAssembly trap handling, which is built on top of the lower-level
+//! signalhandling mechanisms.
+
+// TODO: DELETE ME!
+
+use super::code::TrapCode;
+use crate::vmcontext::{VMFunctionBody, VMFunctionEnvironment, VMTrampoline};
+use backtrace::Backtrace;
+use std::any::Any;
+use std::cell::Cell;
+use std::error::Error;
+use std::ffi::c_void;
+use std::io;
+use std::mem;
+use std::ptr;
+use std::sync::Once;
+pub use crate::instance::SignalHandler;
+
+// The following functions are implemented in `handlers.c`.
+extern "C" {
+    fn register_setjmp(
+        jmp_buf: *mut *const c_void,
+        callback: extern "C" fn(*mut c_void),
+        payload: *mut c_void,
+    ) -> i32;
+    fn unwind(jmp_buf: *const c_void) -> !;
+}
+
+/// A package of functionality needed by `catch_traps` to figure out what to do
+/// when handling a trap.
+///
+/// Note that this is an `unsafe` trait at least because it's being run in the
+/// context of a synchronous signal handler, so it needs to be careful to not
+/// access too much state in answering these queries.
+pub unsafe trait TrapInfo {
+    /// Converts this object into an `Any` to dynamically check its type.
+    fn as_any(&self) -> &dyn Any;
+
+    /// Uses `call` to call a custom signal handler, if one is specified.
+    ///
+    /// Returns `true` if `call` returns true, otherwise returns `false`.
+    fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool;
+}
+
+
+cfg_if::cfg_if! {
+    if #[cfg(unix)] {
+        use std::mem::MaybeUninit;
+
+        static mut PREV_SIGSEGV: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+        static mut PREV_SIGBUS: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+        static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+        static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
+
+        unsafe fn platform_init() {
+            let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
+                let mut handler: libc::sigaction = mem::zeroed();
+                // The flags here are relatively careful, and they are...
+                //
+                // SA_SIGINFO gives us access to information like the program
+                // counter from where the fault happened.
+                //
+                // SA_ONSTACK allows us to handle signals on an alternate stack,
+                // so that the handler can run in response to running out of
+                // stack space on the main stack. Rust installs an alternate
+                // stack with sigaltstack, so we rely on that.
+                //
+                // SA_NODEFER allows us to reenter the signal handler if we
+                // crash while handling the signal, and fall through to the
+                // Breakpad handler by testing handlingSegFault.
+                handler.sa_flags = libc::SA_SIGINFO | libc::SA_NODEFER | libc::SA_ONSTACK;
+                handler.sa_sigaction = trap_handler as usize;
+                libc::sigemptyset(&mut handler.sa_mask);
+                if libc::sigaction(signal, &handler, slot.as_mut_ptr()) != 0 {
+                    panic!(
+                        "unable to install signal handler: {}",
+                        io::Error::last_os_error(),
+                    );
+                }
+            };
+
+            // Allow handling OOB with signals on all architectures
+            register(&mut PREV_SIGSEGV, libc::SIGSEGV);
+
+            // Handle `unreachable` instructions which execute `ud2` right now
+            register(&mut PREV_SIGILL, libc::SIGILL);
+
+            // x86 uses SIGFPE to report division by zero
+            if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
+                register(&mut PREV_SIGFPE, libc::SIGFPE);
+            }
+
+            // On ARM, handle Unaligned Accesses.
+            // On Darwin, guard page accesses are raised as SIGBUS.
+            if cfg!(target_arch = "arm") || cfg!(target_os = "macos") {
+                register(&mut PREV_SIGBUS, libc::SIGBUS);
+            }
+        }
+
+        #[cfg(target_os = "macos")]
+        unsafe fn thread_stack() -> (usize, usize) {
+            let this_thread = libc::pthread_self();
+            let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
+            let stacksize = libc::pthread_get_stacksize_np(this_thread);
+            (stackaddr as usize - stacksize, stacksize)
+        }
+
+        #[cfg(not(target_os = "macos"))]
+        unsafe fn thread_stack() -> (usize, usize) {
+            let this_thread = libc::pthread_self();
+            let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+            #[cfg(not(target_os = "freebsd"))]
+            libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+            #[cfg(target_os = "freebsd")]
+            libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
+            let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+            let mut stacksize: libc::size_t = 0;
+            libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+            (stackaddr as usize, stacksize)
+        }
+
+        unsafe extern "C" fn trap_handler(
+            signum: libc::c_int,
+            siginfo: *mut libc::siginfo_t,
+            context: *mut libc::c_void,
+        ) {
+            let previous = match signum {
+                libc::SIGSEGV => &PREV_SIGSEGV,
+                libc::SIGBUS => &PREV_SIGBUS,
+                libc::SIGFPE => &PREV_SIGFPE,
+                libc::SIGILL => &PREV_SIGILL,
+                _ => panic!("unknown signal: {}", signum),
+            };
+            // We try to get the Code trap associated to this signal
+            let maybe_signal_trap = match signum {
+                libc::SIGSEGV | libc::SIGBUS => {
+                    let addr = (*siginfo).si_addr() as usize;
+                    let (stackaddr, stacksize) = thread_stack();
+                    // The stack and its guard page covers the
+                    // range [stackaddr - guard pages .. stackaddr + stacksize).
+                    // We assume the guard page is 1 page, and pages are 4KiB (or 16KiB in Apple Silicon)
+                    if stackaddr - region::page::size() <= addr && addr < stackaddr + stacksize {
+                        Some(TrapCode::StackOverflow)
+                    } else {
+                        Some(TrapCode::HeapAccessOutOfBounds)
+                    }
+                }
+                _ => None,
+            };
+            let handled = tls::with(|info| {
+                // If no wasm code is executing, we don't handle this as a wasm
+                // trap.
+                let info = match info {
+                    Some(info) => info,
+                    None => return false,
+                };
+
+                // If we hit an exception while handling a previous
+                // trap, that's quite bad, so bail out and let the
+                // system handle this recursive segfault.
+                //
+                // Otherwise flag ourselves as handling a trap, do the
+                // trap handling, and reset our trap handling
+                // flag. Then we figure out what to do based on the
+                // result of the trap handling.
+                let jmp_buf = info.handle_trap(
+                    get_pc(context),
+                    false,
+                    maybe_signal_trap,
+                    |handler| handler(signum, siginfo, context),
+                );
+
+                // Figure out what to do based on the result of this
+                // handling of the trap. Note that our sentinel value
+                // of 1 means that the exception was handled by a
+                // custom exception handler, so we keep executing.
+                if jmp_buf.is_null() {
+                    false
+                } else if jmp_buf as usize == 1 {
+                    true
+                }
+
+                // On macOS this is a bit special. If we were to
+                // `siglongjmp` out of the signal handler that notably
+                // does *not* reset the sigaltstack state of our
+                // signal handler. This seems to trick the kernel into
+                // thinking that the sigaltstack is still in use upon
+                // delivery of the next signal, meaning that the
+                // sigaltstack is not ever used again if we
+                // immediately call `unwind` here.
+                //
+                // Note that if we use `longjmp` instead of
+                // `siglongjmp` then the problem is fixed. The problem
+                // with that, however, is that `setjmp` is much slower
+                // than `sigsetjmp` due to the preservation of the
+                // proceses signal mask. The reason `longjmp` appears
+                // to work is that it seems to call a function
+                // (according to published macOS sources) called
+                // `_sigunaltstack` which updates the kernel to say
+                // the sigaltstack is no longer in use. We ideally
+                // want to call that here but it's unlikely there's a
+                // stable way for us to call that.
+                //
+                // Given all that, on macOS only, we do the next best
+                // thing. We return from the signal handler after
+                // updating the register context. This will cause
+                // control to return to our `unwind_shim` function
+                // defined here which will perform the `unwind`
+                // (`siglongjmp`) for us. The reason this works is
+                // that by returning from the signal handler we'll
+                // trigger all the normal machinery for "the signal
+                // handler is done running" which will clear the
+                // sigaltstack flag and allow reusing it for the next
+                // signal. Then upon resuming in our custom code we
+                // blow away the stack anyway with a `longjmp`.
+                else if cfg!(target_os = "macos") {
+                    unsafe extern "C" fn unwind_shim(jmp_buf: *const c_void) {
+                        unwind(jmp_buf)
+                    }
+                    set_pc(context, unwind_shim as usize, jmp_buf as usize);
+
+                    true
+                } else {
+                    unwind(jmp_buf)
+                }
+            });
+
+            if handled {
+                return;
+            }
+
+            // This signal is not for any compiled wasm code we expect, so we
+            // need to forward the signal to the next handler. If there is no
+            // next handler (SIG_IGN or SIG_DFL), then it's time to crash. To do
+            // this, we set the signal back to its original disposition and
+            // return. This will cause the faulting op to be re-executed which
+            // will crash in the normal way. If there is a next handler, call
+            // it. It will either crash synchronously, fix up the instruction
+            // so that execution can continue and return, or trigger a crash by
+            // returning the signal to it's original disposition and returning.
+            let previous = &*previous.as_ptr();
+            if previous.sa_flags & libc::SA_SIGINFO != 0 {
+                mem::transmute::<
+                    usize,
+                    extern "C" fn(libc::c_int, *mut libc::siginfo_t, *mut libc::c_void),
+                >(previous.sa_sigaction)(signum, siginfo, context)
+            } else if previous.sa_sigaction == libc::SIG_DFL ||
+                previous.sa_sigaction == libc::SIG_IGN
+            {
+                libc::sigaction(signum, previous, ptr::null_mut());
+            } else {
+                mem::transmute::<usize, extern "C" fn(libc::c_int)>(
+                    previous.sa_sigaction
+                )(signum)
+            }
+        }
+
+        unsafe fn get_pc(cx: *mut c_void) -> *const u8 {
+            cfg_if::cfg_if! {
+                if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.gregs[libc::REG_RIP as usize] as *const u8
+                } else if #[cfg(all(target_os = "linux", target_arch = "x86"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.gregs[libc::REG_EIP as usize] as *const u8
+                } else if #[cfg(all(target_os = "linux", target_arch = "aarch64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.pc as *const u8
+                } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__rip as *const u8
+                } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__pc as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
+                    let cx = &*(cx as *const libc::ucontext_t);
+                    cx.uc_mcontext.mc_rip as *const u8
+                } else if #[cfg(all(target_os = "freebsd", target_arch = "aarch64"))] {
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct gpregs {
+                        pub gp_x: [libc::register_t; 30],
+                        pub gp_lr: libc::register_t,
+                        pub gp_sp: libc::register_t,
+                        pub gp_elr: libc::register_t,
+                        pub gp_spsr: u32,
+                        pub gp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct fpregs {
+                        pub fp_q: [u128; 32],
+                        pub fp_sr: u32,
+                        pub fp_cr: u32,
+                        pub fp_flags: libc::c_int,
+                        pub fp_pad: libc::c_int,
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct mcontext_t {
+                        pub mc_gpregs: gpregs,
+                        pub mc_fpregs: fpregs,
+                        pub mc_flags: libc::c_int,
+                        pub mc_pad: libc::c_int,
+                        pub mc_spare: [u64; 8],
+                    };
+                    #[repr(align(16))]
+                    #[allow(non_camel_case_types)]
+                    pub struct ucontext_t {
+                        pub uc_sigmask: libc::sigset_t,
+                        pub uc_mcontext: mcontext_t,
+                        pub uc_link: *mut ucontext_t,
+                        pub uc_stack: libc::stack_t,
+                        pub uc_flags: libc::c_int,
+                        __spare__: [libc::c_int; 4],
+                    }
+
+                    let cx = &*(cx as *const ucontext_t);
+                    cx.uc_mcontext.mc_gpregs.gp_elr as *const u8
+                } else {
+                    compile_error!("unsupported platform");
+                }
+            }
+        }
+
+        #[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+        unsafe fn set_pc(cx: *mut c_void, pc: usize, arg1: usize) {
+            cfg_if::cfg_if! {
+                if #[cfg(not(target_os = "macos"))] {
+                    unreachable!(); // not used on these platforms
+                } else if #[cfg(target_arch = "x86_64")] {
+                    let cx = &mut *(cx as *mut libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__rip = pc as u64;
+                    (*cx.uc_mcontext).__ss.__rdi = arg1 as u64;
+                    // We're simulating a "pseudo-call" so we need to ensure
+                    // stack alignment is properly respected, notably that on a
+                    // `call` instruction the stack is 8/16-byte aligned, then
+                    // the function adjusts itself to be 16-byte aligned.
+                    //
+                    // Most of the time the stack pointer is 16-byte aligned at
+                    // the time of the trap but for more robust-ness with JIT
+                    // code where it may ud2 in a prologue check before the
+                    // stack is aligned we double-check here.
+                    if (*cx.uc_mcontext).__ss.__rsp % 16 == 0 {
+                        (*cx.uc_mcontext).__ss.__rsp -= 8;
+                    }
+                } else if #[cfg(target_arch = "aarch64")] {
+                    let cx = &mut *(cx as *mut libc::ucontext_t);
+                    (*cx.uc_mcontext).__ss.__pc = pc as u64;
+                    (*cx.uc_mcontext).__ss.__x[0] = arg1 as u64;
+                } else {
+                    compile_error!("unsupported macos target architecture");
+                }
+            }
+        }
+    } else if #[cfg(target_os = "windows")] {
+        use winapi::um::errhandlingapi::*;
+        use winapi::um::winnt::*;
+        use winapi::um::minwinbase::*;
+        use winapi::vc::excpt::*;
+
+        unsafe fn platform_init() {
+            // our trap handler needs to go first, so that we can recover from
+            // wasm faults and continue execution, so pass `1` as a true value
+            // here.
+            if AddVectoredExceptionHandler(1, Some(exception_handler)).is_null() {
+                panic!("failed to add exception handler: {}", io::Error::last_os_error());
+            }
+        }
+
+        unsafe extern "system" fn exception_handler(
+            exception_info: PEXCEPTION_POINTERS
+        ) -> LONG {
+            // Check the kind of exception, since we only handle a subset within
+            // wasm code. If anything else happens we want to defer to whatever
+            // the rest of the system wants to do for this exception.
+            let record = &*(*exception_info).ExceptionRecord;
+
+            if record.ExceptionCode != EXCEPTION_ACCESS_VIOLATION &&
+                record.ExceptionCode != EXCEPTION_ILLEGAL_INSTRUCTION &&
+                record.ExceptionCode != EXCEPTION_STACK_OVERFLOW &&
+                record.ExceptionCode != EXCEPTION_INT_DIVIDE_BY_ZERO &&
+                record.ExceptionCode != EXCEPTION_INT_OVERFLOW
+            {
+                return EXCEPTION_CONTINUE_SEARCH;
+            }
+
+            // FIXME: this is what the previous C++ did to make sure that TLS
+            // works by the time we execute this trap handling code. This isn't
+            // exactly super easy to call from Rust though and it's not clear we
+            // necessarily need to do so. Leaving this here in case we need this
+            // in the future, but for now we can probably wait until we see a
+            // strange fault before figuring out how to reimplement this in
+            // Rust.
+            //
+            // if (!NtCurrentTeb()->Reserved1[sThreadLocalArrayPointerIndex]) {
+            //     return EXCEPTION_CONTINUE_SEARCH;
+            // }
+
+            // This is basically the same as the unix version above, only with a
+            // few parameters tweaked here and there.
+            tls::with(|info| {
+                let info = match info {
+                    Some(info) => info,
+                    None => return EXCEPTION_CONTINUE_SEARCH,
+                };
+                let jmp_buf = info.handle_trap(
+                    (*(*exception_info).ContextRecord).Rip as *const u8,
+                    record.ExceptionCode == EXCEPTION_STACK_OVERFLOW,
+                    // TODO: fix the signal trap associated to memory access in Windows
+                    None,
+                    |handler| handler(exception_info),
+                );
+                if jmp_buf.is_null() {
+                    EXCEPTION_CONTINUE_SEARCH
+                } else if jmp_buf as usize == 1 {
+                    EXCEPTION_CONTINUE_EXECUTION
+                } else {
+                    unwind(jmp_buf)
+                }
+            })
+        }
+    }
+}
+
+/// Globally-set callback to determine whether a program counter is actually a
+/// wasm trap.
+///
+/// This is initialized during `init_traps` below. The definition lives within
+/// `wasmer` currently.
+static mut IS_WASM_PC: fn(usize) -> bool = |_| true;
+
+/// This function is required to be called before any WebAssembly is entered.
+/// This will configure global state such as signal handlers to prepare the
+/// process to receive wasm traps.
+///
+/// This function must not only be called globally once before entering
+/// WebAssembly but it must also be called once-per-thread that enters
+/// WebAssembly. Currently in wasmer's integration this function is called on
+/// creation of a `Store`.
+///
+/// The `is_wasm_pc` argument is used when a trap happens to determine if a
+/// program counter is the pc of an actual wasm trap or not. This is then used
+/// to disambiguate faults that happen due to wasm and faults that happen due to
+/// bugs in Rust or elsewhere.
+pub fn init_traps(is_wasm_pc: fn(usize) -> bool) -> Result<(), Trap> {
+    static INIT: Once = Once::new();
+    INIT.call_once(|| unsafe {
+        IS_WASM_PC = is_wasm_pc;
+        platform_init();
+    });
+    Ok(())
+}
+
+
+/// Raises a user-defined trap immediately.
+///
+/// This function performs as-if a wasm trap was just executed, only the trap
+/// has a dynamic payload associated with it which is user-provided. This trap
+/// payload is then returned from `wasmer_call` and `wasmer_call_trampoline`
+/// below.
+///
+/// # Safety
+///
+/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+/// `wasmer_call_trampoline` must have been previously called.
+pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
+    tls::with(|info| info.unwrap().unwind_with(UnwindReason::UserTrap(data)))
+}
+
+/// Raises a trap from inside library code immediately.
+///
+/// This function performs as-if a wasm trap was just executed. This trap
+/// payload is then returned from `wasmer_call` and `wasmer_call_trampoline`
+/// below.
+///
+/// # Safety
+///
+/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+/// `wasmer_call_trampoline` must have been previously called.
+pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
+    tls::with(|info| info.unwrap().unwind_with(UnwindReason::LibTrap(trap)))
+}
+
+/// Carries a Rust panic across wasm code and resumes the panic on the other
+/// side.
+///
+/// # Safety
+///
+/// Only safe to call when wasm code is on the stack, aka `wasmer_call` or
+/// `wasmer_call_trampoline` must have been previously called.
+pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
+    tls::with(|info| info.unwrap().unwind_with(UnwindReason::Panic(payload)))
+}
+
+#[cfg(target_os = "windows")]
+fn reset_guard_page() {
+    extern "C" {
+        fn _resetstkoflw() -> winapi::ctypes::c_int;
+    }
+
+    // We need to restore guard page under stack to handle future stack overflows properly.
+    // https://docs.microsoft.com/en-us/cpp/c-runtime-library/reference/resetstkoflw?view=vs-2019
+    if unsafe { _resetstkoflw() } == 0 {
+        panic!("failed to restore stack guard page");
+    }
+}
+
+#[cfg(not(target_os = "windows"))]
+fn reset_guard_page() {}
+
+/// Stores trace message with backtrace.
+#[derive(Debug)]
+pub enum Trap {
+    /// A user-raised trap through `raise_user_trap`.
+    User(Box<dyn Error + Send + Sync>),
+
+    /// A trap raised from machine code generated from Wasm
+    Wasm {
+        /// The program counter in generated code where this trap happened.
+        pc: usize,
+        /// Native stack backtrace at the time the trap occurred
+        backtrace: Backtrace,
+        /// Optional trapcode associated to the signal that caused the trap
+        signal_trap: Option<TrapCode>,
+    },
+
+    /// A trap raised manually from the Wasmer VM
+    Lib {
+        /// Code of the trap.
+        trap_code: TrapCode,
+        /// Native stack backtrace at the time the trap occurred
+        backtrace: Backtrace,
+    },
+
+    /// A trap indicating that the runtime was unable to allocate sufficient memory.
+    ///
+    /// Note: this trap is undeterministic, since it depends on the host system.
+    OOM {
+        /// Native stack backtrace at the time the OOM occurred
+        backtrace: Backtrace,
+    },
+}
+
+impl Trap {
+    /// Construct a new VM `Trap` with the given the program counter, backtrace and an optional
+    /// trap code associated with the signal received from the kernel.
+    /// Wasm traps are Traps that are triggered by the chip when running generated
+    /// code for a Wasm function.
+    pub fn wasm(pc: usize, backtrace: Backtrace, signal_trap: Option<TrapCode>) -> Self {
+        Self::Wasm {
+            pc,
+            backtrace,
+            signal_trap,
+        }
+    }
+
+    /// Construct a new runtime `Trap` with the given trap code.
+    /// Runtime traps are Traps that are triggered manually from the VM.
+    ///
+    /// Internally saves a backtrace when constructed.
+    pub fn lib(trap_code: TrapCode) -> Self {
+        let backtrace = Backtrace::new_unresolved();
+        Self::Lib {
+            trap_code,
+            backtrace,
+        }
+    }
+
+    /// Construct a new Out of Memory (OOM) `Trap`.
+    ///
+    /// Internally saves a backtrace when constructed.
+    pub fn user(error: Box<dyn Error + Send + Sync>) -> Self {
+        Self::User(error)
+    }
+}
+
+/// Call the wasm function pointed to by `callee`.
+///
+/// * `vmctx` - the callee vmctx argument
+/// * `caller_vmctx` - the caller vmctx argument
+/// * `trampoline` - the jit-generated trampoline whose ABI takes 4 values, the
+///   callee vmctx, the caller vmctx, the `callee` argument below, and then the
+///   `values_vec` argument.
+/// * `callee` - the third argument to the `trampoline` function
+/// * `values_vec` - points to a buffer which holds the incoming arguments, and to
+///   which the outgoing return values will be written.
+///
+/// # Safety
+///
+/// Wildly unsafe because it calls raw function pointers and reads/writes raw
+/// function pointers.
+pub unsafe fn wasmer_call_trampoline(
+    trap_info: &impl TrapInfo,
+    vmctx: VMFunctionEnvironment,
+    trampoline: VMTrampoline,
+    callee: *const VMFunctionBody,
+    values_vec: *mut u8,
+) -> Result<(), Trap> {
+    catch_traps(trap_info, || {
+        mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
+            trampoline,
+        )(vmctx, callee, values_vec)
+    })
+}
+
+/// Catches any wasm traps that happen within the execution of `closure`,
+/// returning them as a `Result`.
+///
+/// # Safety
+///
+/// Highly unsafe since `closure` won't have any destructors run.
+pub unsafe fn catch_traps<F>(trap_info: &dyn TrapInfo, mut closure: F) -> Result<(), Trap>
+where
+    F: FnMut(),
+{
+    // Ensure that we have our sigaltstack installed.
+    #[cfg(unix)]
+    setup_unix_sigaltstack()?;
+
+    return CallThreadState::new(trap_info).with(|cx| {
+        register_setjmp(
+            cx.jmp_buf.as_ptr(),
+            call_closure::<F>,
+            &mut closure as *mut F as *mut c_void,
+        )
+    });
+
+    extern "C" fn call_closure<F>(payload: *mut c_void)
+    where
+        F: FnMut(),
+    {
+        unsafe { (*(payload as *mut F))() }
+    }
+}
+
+/// Catches any wasm traps that happen within the execution of `closure`,
+/// returning them as a `Result`, with the closure contents.
+///
+/// The main difference from this method and `catch_traps`, is that is able
+/// to return the results from the closure.
+///
+/// # Safety
+///
+/// Check [`catch_traps`].
+pub unsafe fn catch_traps_with_result<F, R>(
+    trap_info: &dyn TrapInfo,
+    mut closure: F,
+) -> Result<R, Trap>
+where
+    F: FnMut() -> R,
+{
+    let mut global_results = mem::MaybeUninit::<R>::uninit();
+    catch_traps(trap_info, || {
+        global_results.as_mut_ptr().write(closure());
+    })?;
+    Ok(global_results.assume_init())
+}
+
+/// Temporary state stored on the stack which is registered in the `tls` module
+/// below for calls into wasm.
+pub struct CallThreadState<'a> {
+    unwind: Cell<UnwindReason>,
+    jmp_buf: Cell<*const c_void>,
+    reset_guard_page: Cell<bool>,
+    trap_info: &'a (dyn TrapInfo + 'a),
+    handling_trap: Cell<bool>,
+}
+
+
+enum UnwindReason {
+    None,
+    Panic(Box<dyn Any + Send>),
+    UserTrap(Box<dyn Error + Send + Sync>),
+    LibTrap(Trap),
+    RuntimeTrap {
+        backtrace: Backtrace,
+        pc: usize,
+        signal_trap: Option<TrapCode>,
+    },
+}
+
+impl<'a> CallThreadState<'a> {
+    #[inline]
+    fn new(trap_info: &'a (dyn TrapInfo + 'a)) -> CallThreadState<'a> {
+        Self {
+            unwind: Cell::new(UnwindReason::None),
+            trap_info,
+            jmp_buf: Cell::new(ptr::null()),
+            reset_guard_page: Cell::new(false),
+            handling_trap: Cell::new(false),
+        }
+    }
+
+    fn with(mut self, closure: impl FnOnce(&Self) -> i32) -> Result<(), Trap> {
+        tls::with(|prev| {
+            let ret = tls::set(&self, || closure(&self));
+            match self.unwind.replace(UnwindReason::None) {
+                UnwindReason::None => {
+                    debug_assert_eq!(ret, 1);
+                    Ok(())
+                }
+                UnwindReason::UserTrap(data) => {
+                    debug_assert_eq!(ret, 0);
+                    Err(Trap::user(data))
+                }
+                UnwindReason::LibTrap(trap) => Err(trap),
+                UnwindReason::RuntimeTrap {
+                    backtrace,
+                    pc,
+                    signal_trap,
+                } => {
+                    debug_assert_eq!(ret, 0);
+                    Err(Trap::wasm(pc, backtrace, signal_trap))
+                }
+                UnwindReason::Panic(panic) => {
+                    debug_assert_eq!(ret, 0);
+                    std::panic::resume_unwind(panic)
+                }
+            }
+        })
+    }
+
+    fn unwind_with(&self, reason: UnwindReason) -> ! {
+        self.unwind.replace(reason);
+        unsafe {
+            unwind(self.jmp_buf.get());
+        }
+    }
+
+    /// Trap handler using our thread-local state.
+    ///
+    /// * `pc` - the program counter the trap happened at
+    /// * `reset_guard_page` - whether or not to reset the guard page,
+    ///   currently Windows specific
+    /// * `call_handler` - a closure used to invoke the platform-specific
+    ///   signal handler for each instance, if available.
+    ///
+    /// Attempts to handle the trap if it's a wasm trap. Returns a few
+    /// different things:
+    ///
+    /// * null - the trap didn't look like a wasm trap and should continue as a
+    ///   trap
+    /// * 1 as a pointer - the trap was handled by a custom trap handler on an
+    ///   instance, and the trap handler should quickly return.
+    /// * a different pointer - a jmp_buf buffer to longjmp to, meaning that
+    ///   the wasm trap was succesfully handled.
+    fn handle_trap(
+        &self,
+        pc: *const u8,
+        reset_guard_page: bool,
+        signal_trap: Option<TrapCode>,
+        call_handler: impl Fn(&SignalHandler) -> bool,
+    ) -> *const c_void {
+        // If we hit a fault while handling a previous trap, that's quite bad,
+        // so bail out and let the system handle this recursive segfault.
+        //
+        // Otherwise flag ourselves as handling a trap, do the trap handling,
+        // and reset our trap handling flag.
+        if self.handling_trap.replace(true) {
+            return ptr::null();
+        }
+
+        // TODO: stack overflow can happen at any random time (i.e. in malloc()
+        // in memory.grow) and it's really hard to determine if the cause was
+        // stack overflow and if it happened in WebAssembly module.
+        //
+        // So, let's assume that any untrusted code called from WebAssembly
+        // doesn't trap. Then, if we have called some WebAssembly code, it
+        // means the trap is stack overflow.
+        if self.jmp_buf.get().is_null() {
+            self.handling_trap.set(false);
+            return ptr::null();
+        }
+        let backtrace = Backtrace::new_unresolved();
+        self.reset_guard_page.set(reset_guard_page);
+        self.unwind.replace(UnwindReason::RuntimeTrap {
+            backtrace,
+            signal_trap,
+            pc: pc as usize,
+        });
+        self.handling_trap.set(false);
+        self.jmp_buf.get()
+    }
+}
+
+impl<'a> Drop for CallThreadState<'a> {
+    fn drop(&mut self) {
+        if self.reset_guard_page.get() {
+            reset_guard_page();
+        }
+    }
+}
+
+
+// A private inner module for managing the TLS state that we require across
+// calls in wasm. The WebAssembly code is called from C++ and then a trap may
+// happen which requires us to read some contextual state to figure out what to
+// do with the trap. This `tls` module is used to persist that information from
+// the caller to the trap site.
+mod tls {
+    use super::CallThreadState;
+    use std::cell::Cell;
+    use std::ptr;
+
+    thread_local!(static PTR: Cell<*const CallThreadState<'static>> = Cell::new(ptr::null()));
+
+    /// Configures thread local state such that for the duration of the
+    /// execution of `closure` any call to `with` will yield `ptr`, unless this
+    /// is recursively called again.
+    pub fn set<R>(ptr: &CallThreadState<'_>, closure: impl FnOnce() -> R) -> R {
+        struct Reset<'a, T: Copy>(&'a Cell<T>, T);
+
+        impl<T: Copy> Drop for Reset<'_, T> {
+            fn drop(&mut self) {
+                self.0.set(self.1);
+            }
+        }
+
+        let ptr = unsafe {
+            std::mem::transmute::<*const CallThreadState<'_>, *const CallThreadState<'static>>(ptr)
+        };
+
+        PTR.with(|p| {
+            let _r = Reset(p, p.replace(ptr));
+            closure()
+        })
+    }
+
+    /// Returns the last pointer configured with `set` above. Panics if `set`
+    /// has not been previously called.
+    pub fn with<R>(closure: impl FnOnce(Option<&CallThreadState>) -> R) -> R {
+        PTR.with(|ptr| {
+            let p = ptr.get();
+            unsafe { closure(if p.is_null() { None } else { Some(&*p) }) }
+        })
+    }
+}
+
+/// A module for registering a custom alternate signal stack (sigaltstack).
+///
+/// Rust's libstd installs an alternate stack with size `SIGSTKSZ`, which is not
+/// always large enough for our signal handling code. Override it by creating
+/// and registering our own alternate stack that is large enough and has a guard
+/// page.
+#[cfg(unix)]
+fn setup_unix_sigaltstack() -> Result<(), Trap> {
+    use std::cell::RefCell;
+    use std::ptr::null_mut;
+
+    thread_local! {
+        /// Thread-local state is lazy-initialized on the first time it's used,
+        /// and dropped when the thread exits.
+        static TLS: RefCell<Tls> = RefCell::new(Tls::None);
+    }
+
+    /// The size of the sigaltstack (not including the guard, which will be
+    /// added). Make this large enough to run our signal handlers.
+    const MIN_STACK_SIZE: usize = 16 * 4096;
+
+    enum Tls {
+        None,
+        Allocated {
+            mmap_ptr: *mut libc::c_void,
+            mmap_size: usize,
+        },
+        BigEnough,
+    }
+
+    return TLS.with(|slot| unsafe {
+        let mut slot = slot.borrow_mut();
+        match *slot {
+            Tls::None => {}
+            // already checked
+            _ => return Ok(()),
+        }
+        // Check to see if the existing sigaltstack, if it exists, is big
+        // enough. If so we don't need to allocate our own.
+        let mut old_stack = mem::zeroed();
+        let r = libc::sigaltstack(ptr::null(), &mut old_stack);
+        assert_eq!(r, 0, "learning about sigaltstack failed");
+        if old_stack.ss_flags & libc::SS_DISABLE == 0 && old_stack.ss_size >= MIN_STACK_SIZE {
+            *slot = Tls::BigEnough;
+            return Ok(());
+        }
+
+        // ... but failing that we need to allocate our own, so do all that
+        // here.
+        let page_size: usize = region::page::size();
+        let guard_size = page_size;
+        let alloc_size = guard_size + MIN_STACK_SIZE;
+
+        let ptr = libc::mmap(
+            null_mut(),
+            alloc_size,
+            libc::PROT_NONE,
+            libc::MAP_PRIVATE | libc::MAP_ANON,
+            -1,
+            0,
+        );
+        if ptr == libc::MAP_FAILED {
+            return Err(Trap::lib(TrapCode::VMOutOfMemory));
+        }
+
+        // Prepare the stack with readable/writable memory and then register it
+        // with `sigaltstack`.
+        let stack_ptr = (ptr as usize + guard_size) as *mut libc::c_void;
+        let r = libc::mprotect(
+            stack_ptr,
+            MIN_STACK_SIZE,
+            libc::PROT_READ | libc::PROT_WRITE,
+        );
+        assert_eq!(r, 0, "mprotect to configure memory for sigaltstack failed");
+        let new_stack = libc::stack_t {
+            ss_sp: stack_ptr,
+            ss_flags: 0,
+            ss_size: MIN_STACK_SIZE,
+        };
+        let r = libc::sigaltstack(&new_stack, ptr::null_mut());
+        assert_eq!(r, 0, "registering new sigaltstack failed");
+
+        *slot = Tls::Allocated {
+            mmap_ptr: ptr,
+            mmap_size: alloc_size,
+        };
+        Ok(())
+    });
+
+    impl Drop for Tls {
+        fn drop(&mut self) {
+            let (ptr, size) = match self {
+                Self::Allocated {
+                    mmap_ptr,
+                    mmap_size,
+                } => (*mmap_ptr, *mmap_size),
+                _ => return,
+            };
+            unsafe {
+                // Deallocate the stack memory.
+                let r = libc::munmap(ptr, size);
+                debug_assert_eq!(r, 0, "munmap failed during thread shutdown");
+            }
+        }
+    }
+}

@@ -1272,6 +1272,7 @@ impl InstanceHandle {
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
+        /// The SignalHandler for Unix
         pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
 
         impl InstanceHandle {

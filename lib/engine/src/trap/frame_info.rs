@@ -46,9 +46,11 @@ pub struct GlobalFrameInfo {
 /// Returns whether the `pc`, according to globally registered information,
 /// is a wasm trap or not.
 pub fn is_wasm_pc(pc: usize) -> bool {
+    println!("is wasm pc {}", pc);
     let frame_info = FRAME_INFO.read().unwrap();
     let module_info = frame_info.module_info(pc);
     let is_wasm_pc = module_info.is_some();
+    println!(" => {:?}", is_wasm_pc);
     is_wasm_pc
 }
 

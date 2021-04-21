@@ -27,10 +27,11 @@ extern "C" {
 }
 
 cfg_if::cfg_if! {
-    if #[cfg(target_os = "macos")] {
-        mod macos;
-        use macos as sys;
-    } else if #[cfg(unix)] {
+    // if #[cfg(target_os = "macos")] {
+    //     mod macos;
+    //     use macos as sys;
+    // } else
+    if #[cfg(unix)] {
         mod unix;
         use unix as sys;
     } else if #[cfg(target_os = "windows")] {
@@ -62,7 +63,7 @@ static mut IS_WASM_PC: fn(usize) -> bool = |_| true;
 /// to disambiguate faults that happen due to wasm and faults that happen due to
 /// bugs in Rust or elsewhere.
 pub fn init_traps(is_wasm_pc: fn(usize) -> bool) -> Result<(), Trap> {
-// pub fn init_traps() -> Result<(), Trap> {
+    // pub fn init_traps() -> Result<(), Trap> {
     static INIT: Once = Once::new();
     INIT.call_once(|| unsafe {
         IS_WASM_PC = is_wasm_pc;
@@ -165,7 +166,9 @@ impl Trap {
     ///
     /// Internally saves a backtrace when constructed.
     pub fn lib(trap_code: TrapCode) -> Self {
+        println!("TRAP::lib 0");
         let backtrace = Backtrace::new_unresolved();
+        println!("TRAP::lib 1");
         Trap::Lib {
             trap_code,
             backtrace,
@@ -176,7 +179,9 @@ impl Trap {
     ///
     /// Internally saves a backtrace when constructed.
     pub fn oom() -> Self {
+        println!("TRAP::oom 0");
         let backtrace = Backtrace::new_unresolved();
+        println!("TRAP::oom 1");
         Trap::OOM { backtrace }
     }
 }
@@ -201,6 +206,7 @@ where
     where
         F: FnMut(),
     {
+        println!("CALL CLOSURE");
         unsafe { (*(payload as *mut F))() }
     }
 }
@@ -251,9 +257,11 @@ pub unsafe fn wasmer_call_trampoline(
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
     catch_traps(trap_info, || {
+        println!("CALLING TRAMPOLINE");
         mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
-        )(vmctx, callee, values_vec)
+        )(vmctx, callee, values_vec);
+        println!("TRAMPOLINE CALLED");
     })
 }
 
@@ -316,6 +324,7 @@ impl<'a> CallThreadState<'a> {
 
     fn with(self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
         let ret = tls::set(&self, || closure(&self));
+        println!("with: ret:{}", ret);
         if ret != 0 {
             return Ok(());
         }
@@ -331,7 +340,61 @@ impl<'a> CallThreadState<'a> {
         }
     }
 
+    /// Trap handler using our thread-local state.
+    ///
+    /// * `pc` - the program counter the trap happened at
+    /// * `call_handler` - a closure used to invoke the platform-specific
+    ///   signal handler for each instance, if available.
+    ///
+    /// Attempts to handle the trap if it's a wasm trap. Returns a few
+    /// different things:
+    ///
+    /// * null - the trap didn't look like a wasm trap and should continue as a
+    ///   trap
+    /// * 1 as a pointer - the trap was handled by a custom trap handler on an
+    ///   instance, and the trap handler should quickly return.
+    /// * a different pointer - a jmp_buf buffer to longjmp to, meaning that
+    ///   the wasm trap was succesfully handled.
+    #[cfg_attr(target_os = "macos", allow(dead_code))] // macOS is more raw and doesn't use this
+    fn jmp_buf_if_trap(
+        &self,
+        pc: *const u8,
+        call_handler: impl Fn(&SignalHandler) -> bool,
+    ) -> *const u8 {
+        // If we hit a fault while handling a previous trap, that's quite bad,
+        // so bail out and let the system handle this recursive segfault.
+        //
+        // Otherwise flag ourselves as handling a trap, do the trap handling,
+        // and reset our trap handling flag.
+        if self.handling_trap.replace(true) {
+            return ptr::null();
+        }
+        let _reset = ResetCell(&self.handling_trap, false);
+
+        // If we haven't even started to handle traps yet, bail out.
+        if self.jmp_buf.get().is_null() {
+            return ptr::null();
+        }
+
+        // First up see if any instance registered has a custom trap handler,
+        // in which case run them all. If anything handles the trap then we
+        // return that the trap was handled.
+        if self.trap_info.custom_signal_handler(&call_handler) {
+            return 1 as *const _;
+        }
+
+        // If this fault wasn't in wasm code, then it's not our problem
+        if unsafe { !IS_WASM_PC(pc as usize) } {
+            return ptr::null();
+        }
+
+        // If all that passed then this is indeed a wasm trap, so return the
+        // `jmp_buf` passed to `Unwind` to resume.
+        self.jmp_buf.get()
+    }
+
     fn unwind_with(&self, reason: UnwindReason) -> ! {
+        println!("Unwind with");
         unsafe {
             (*self.unwind.get()).as_mut_ptr().write(reason);
             unwind(self.jmp_buf.get());
@@ -339,7 +402,9 @@ impl<'a> CallThreadState<'a> {
     }
 
     fn capture_backtrace(&self, pc: *const u8) {
+        println!("TRAP::capture_backtrace 0");
         let backtrace = Backtrace::new_unresolved();
+        println!("TRAP::capture_backtrace 1");
         unsafe {
             (*self.unwind.get())
                 .as_mut_ptr()
@@ -348,6 +413,7 @@ impl<'a> CallThreadState<'a> {
                     pc: pc as usize,
                 });
         }
+        println!("end capturing");
     }
 }
 

@@ -53,7 +53,8 @@ pub unsafe fn platform_init() {
     }
 
     // On ARM, handle Unaligned Accesses.
-    if cfg!(target_arch = "arm") || cfg!(target_os = "freebsd") {
+    // On Unix (Darwin, FreeBSD), guard page accesses are raised as SIGBUS.
+    if cfg!(target_arch = "arm") || cfg!(target_os = "freebsd") || cfg!(target_os = "macos") {
         register(&mut PREV_SIGBUS, libc::SIGBUS);
     }
 }
@@ -63,6 +64,7 @@ unsafe extern "C" fn trap_handler(
     siginfo: *mut libc::siginfo_t,
     context: *mut libc::c_void,
 ) {
+    println!("traphandler called");
     let previous = match signum {
         libc::SIGSEGV => &PREV_SIGSEGV,
         libc::SIGBUS => &PREV_SIGBUS,
@@ -138,6 +140,12 @@ unsafe fn get_pc(cx: *mut libc::c_void) -> *const u8 {
         } else if #[cfg(all(any(target_os = "linux", target_os = "android"), target_arch = "aarch64"))] {
             let cx = &*(cx as *const libc::ucontext_t);
             cx.uc_mcontext.pc as *const u8
+        } else if #[cfg(all(target_os = "macos", target_arch = "x86_64"))] {
+            let cx = &*(cx as *const libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__rip as *const u8
+        } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
+            let cx = &*(cx as *const libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__pc as *const u8
         } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
             let cx = &*(cx as *const libc::ucontext_t);
             cx.uc_mcontext.mc_rip as *const u8

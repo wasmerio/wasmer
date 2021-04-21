@@ -5,8 +5,8 @@ use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables, is_wasm_pc};
-use wasmer_vm::{SignalHandler, TrapInfo, init_traps};
+use wasmer_engine::{is_wasm_pc, Engine, Tunables};
+use wasmer_vm::{init_traps, SignalHandler, TrapInfo};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation

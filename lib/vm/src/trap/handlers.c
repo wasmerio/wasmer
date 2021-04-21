@@ -2,6 +2,7 @@
 // Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
 
 #include <setjmp.h>
+       #include <stdio.h>
 
 // Note that `sigsetjmp` and `siglongjmp` are used here where possible
 // to explicitly pass a 0 argument to `sigsetjmp` that we don't need
@@ -29,13 +30,18 @@ int register_setjmp(
     return 0;
   }
 
+  printf("Setmp 0\n");
+
   *buf_storage = &buf;
   body(payload);
+  printf("Setmp 1\n");
 
   return 1;
 }
 
 void unwind(void *jump_buf) {
+  printf("DOING UNWIND\n");
   platform_jmp_buf *buf = (platform_jmp_buf*) jump_buf;
+  printf("DOING LONGJMP\n");
   platform_longjmp(*buf, 1);
 }
