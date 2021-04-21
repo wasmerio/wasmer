@@ -79,9 +79,7 @@ impl<T: Deref<Target = dyn ModuleMiddleware>> ModuleMiddlewareChain for [T] {
         &self,
         local_function_index: LocalFunctionIndex,
     ) -> Vec<Box<dyn FunctionMiddleware>> {
-        self.iter()
-            .map(|x| x.generate_function_middleware(local_function_index))
-            .collect()
+        self.iter().map(|x| x.generate_function_middleware(local_function_index)).collect()
     }
 
     /// Applies the chain on a `ModuleInfo` struct.
@@ -116,10 +114,7 @@ impl<'a> MiddlewareBinaryReader<'a> {
     pub fn new_with_offset(data: &'a [u8], original_offset: usize) -> Self {
         let inner = BinaryReader::new_with_offset(data, original_offset);
         Self {
-            state: MiddlewareReaderState {
-                inner,
-                pending_operations: VecDeque::new(),
-            },
+            state: MiddlewareReaderState { inner, pending_operations: VecDeque::new() },
             chain: vec![],
         }
     }

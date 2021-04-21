@@ -13,10 +13,7 @@ pub struct wasm_table_t {
 
 impl wasm_table_t {
     pub(crate) fn new(table: Table) -> Self {
-        Self {
-            tag: CApiExternTag::Table,
-            inner: Box::new(table),
-        }
+        Self { tag: CApiExternTag::Table, inner: Box::new(table) }
     }
 }
 

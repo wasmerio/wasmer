@@ -46,16 +46,12 @@ impl ModuleMetadata {
         &'a mut self,
     ) -> (&'a mut CompileModuleInfo, ModuleMetadataSymbolRegistry<'a>) {
         let compile_info = &mut self.compile_info;
-        let symbol_registry = ModuleMetadataSymbolRegistry {
-            prefix: &self.prefix,
-        };
+        let symbol_registry = ModuleMetadataSymbolRegistry { prefix: &self.prefix };
         (compile_info, symbol_registry)
     }
 
     pub fn get_symbol_registry<'a>(&'a self) -> ModuleMetadataSymbolRegistry<'a> {
-        ModuleMetadataSymbolRegistry {
-            prefix: &self.prefix,
-        }
+        ModuleMetadataSymbolRegistry { prefix: &self.prefix }
     }
 
     pub fn serialize(&mut self) -> Result<Vec<u8>, CompileError> {
@@ -110,16 +106,12 @@ impl<'a> SymbolRegistry for ModuleMetadataSymbolRegistry<'a> {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())
             }
             Symbol::Section(index) => format!("wasmer_section_{}_{}", self.prefix, index.index()),
-            Symbol::FunctionCallTrampoline(index) => format!(
-                "wasmer_trampoline_function_call_{}_{}",
-                self.prefix,
-                index.index()
-            ),
-            Symbol::DynamicFunctionTrampoline(index) => format!(
-                "wasmer_trampoline_dynamic_function_{}_{}",
-                self.prefix,
-                index.index()
-            ),
+            Symbol::FunctionCallTrampoline(index) => {
+                format!("wasmer_trampoline_function_call_{}_{}", self.prefix, index.index())
+            }
+            Symbol::DynamicFunctionTrampoline(index) => {
+                format!("wasmer_trampoline_dynamic_function_{}_{}", self.prefix, index.index())
+            }
         }
     }
 
@@ -130,10 +122,7 @@ impl<'a> SymbolRegistry for ModuleMetadataSymbolRegistry<'a> {
                 .ok()
                 .map(|index| Symbol::LocalFunction(LocalFunctionIndex::from_u32(index)))
         } else if let Some(index) = name.strip_prefix(&format!("wasmer_section_{}_", self.prefix)) {
-            index
-                .parse::<u32>()
-                .ok()
-                .map(|index| Symbol::Section(SectionIndex::from_u32(index)))
+            index.parse::<u32>().ok().map(|index| Symbol::Section(SectionIndex::from_u32(index)))
         } else if let Some(index) =
             name.strip_prefix(&format!("wasmer_trampoline_function_call_{}_", self.prefix))
         {
@@ -141,10 +130,9 @@ impl<'a> SymbolRegistry for ModuleMetadataSymbolRegistry<'a> {
                 .parse::<u32>()
                 .ok()
                 .map(|index| Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(index)))
-        } else if let Some(index) = name.strip_prefix(&format!(
-            "wasmer_trampoline_dynamic_function_{}_",
-            self.prefix
-        )) {
+        } else if let Some(index) =
+            name.strip_prefix(&format!("wasmer_trampoline_dynamic_function_{}_", self.prefix))
+        {
             index
                 .parse::<u32>()
                 .ok()

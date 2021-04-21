@@ -59,10 +59,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // produce an error.
     //
     // Let's get it.
-    let div_by_zero = instance
-        .exports
-        .get_function("div_by_zero")?
-        .native::<(), i32>()?;
+    let div_by_zero = instance.exports.get_function("div_by_zero")?.native::<(), i32>()?;
 
     println!("Calling `div_by_zero` function...");
     // Let's call the `div_by_zero` exported function.

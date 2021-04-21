@@ -89,11 +89,9 @@ pub fn translate_module<'data>(
                 unimplemented!("module linking not implemented yet")
             }
 
-            Payload::CustomSection {
-                name: "name",
-                data,
-                data_offset,
-            } => parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?,
+            Payload::CustomSection { name: "name", data, data_offset } => {
+                parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?
+            }
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,
 

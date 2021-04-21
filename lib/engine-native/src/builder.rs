@@ -18,20 +18,12 @@ impl Native {
         let mut compiler_config = compiler_config.into();
         compiler_config.enable_pic();
 
-        Self {
-            compiler_config: Some(compiler_config),
-            target: None,
-            features: None,
-        }
+        Self { compiler_config: Some(compiler_config), target: None, features: None }
     }
 
     /// Create a new headless Native
     pub fn headless() -> Self {
-        Self {
-            compiler_config: None,
-            target: None,
-            features: None,
-        }
+        Self { compiler_config: None, target: None, features: None }
     }
 
     /// Set the target

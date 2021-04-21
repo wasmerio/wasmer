@@ -67,9 +67,7 @@ impl<'ctx> ControlFrame<'ctx> {
     pub fn loop_body_phis(&self) -> &[PhiValue<'ctx>] {
         match self {
             ControlFrame::Block { .. } | ControlFrame::IfElse { .. } => &[],
-            ControlFrame::Loop {
-                ref loop_body_phis, ..
-            } => loop_body_phis.as_slice(),
+            ControlFrame::Loop { ref loop_body_phis, .. } => loop_body_phis.as_slice(),
         }
     }
 
@@ -211,11 +209,7 @@ pub struct State<'ctx> {
 
 impl<'ctx> State<'ctx> {
     pub fn new() -> Self {
-        Self {
-            stack: vec![],
-            control_stack: vec![],
-            reachable: true,
-        }
+        Self { stack: vec![], control_stack: vec![], reachable: true }
     }
 
     pub fn has_control_frames(&self) -> bool {
@@ -224,18 +218,9 @@ impl<'ctx> State<'ctx> {
 
     pub fn reset_stack(&mut self, frame: &ControlFrame<'ctx>) {
         let stack_size_snapshot = match frame {
-            ControlFrame::Block {
-                stack_size_snapshot,
-                ..
-            }
-            | ControlFrame::Loop {
-                stack_size_snapshot,
-                ..
-            }
-            | ControlFrame::IfElse {
-                stack_size_snapshot,
-                ..
-            } => *stack_size_snapshot,
+            ControlFrame::Block { stack_size_snapshot, .. }
+            | ControlFrame::Loop { stack_size_snapshot, .. }
+            | ControlFrame::IfElse { stack_size_snapshot, .. } => *stack_size_snapshot,
         };
         self.stack.truncate(stack_size_snapshot);
     }
@@ -247,11 +232,8 @@ impl<'ctx> State<'ctx> {
     }
 
     pub fn frame_at_depth(&self, depth: u32) -> Result<&ControlFrame<'ctx>, CompileError> {
-        let index = self
-            .control_stack
-            .len()
-            .checked_sub(1 + (depth as usize))
-            .ok_or_else(|| {
+        let index =
+            self.control_stack.len().checked_sub(1 + (depth as usize)).ok_or_else(|| {
                 CompileError::Codegen("frame_at_depth: invalid control stack depth".to_string())
             })?;
         Ok(&self.control_stack[index])
@@ -261,11 +243,8 @@ impl<'ctx> State<'ctx> {
         &mut self,
         depth: u32,
     ) -> Result<&mut ControlFrame<'ctx>, CompileError> {
-        let index = self
-            .control_stack
-            .len()
-            .checked_sub(1 + (depth as usize))
-            .ok_or_else(|| {
+        let index =
+            self.control_stack.len().checked_sub(1 + (depth as usize)).ok_or_else(|| {
                 CompileError::Codegen("frame_at_depth_mut: invalid control stack depth".to_string())
             })?;
         Ok(&mut self.control_stack[index])
@@ -303,13 +282,8 @@ impl<'ctx> State<'ctx> {
 
     pub fn pop2_extra(
         &mut self,
-    ) -> Result<
-        (
-            (BasicValueEnum<'ctx>, ExtraInfo),
-            (BasicValueEnum<'ctx>, ExtraInfo),
-        ),
-        CompileError,
-    > {
+    ) -> Result<((BasicValueEnum<'ctx>, ExtraInfo), (BasicValueEnum<'ctx>, ExtraInfo)), CompileError>
+    {
         let v2 = self.pop1_extra()?;
         let v1 = self.pop1_extra()?;
         Ok((v1, v2))
@@ -317,14 +291,8 @@ impl<'ctx> State<'ctx> {
 
     pub fn pop3(
         &mut self,
-    ) -> Result<
-        (
-            BasicValueEnum<'ctx>,
-            BasicValueEnum<'ctx>,
-            BasicValueEnum<'ctx>,
-        ),
-        CompileError,
-    > {
+    ) -> Result<(BasicValueEnum<'ctx>, BasicValueEnum<'ctx>, BasicValueEnum<'ctx>), CompileError>
+    {
         let v3 = self.pop1()?;
         let v2 = self.pop1()?;
         let v1 = self.pop1()?;

@@ -18,17 +18,9 @@ pub extern "C" fn wasm_importtype_new(
     name: Option<&wasm_name_t>,
     extern_type: Option<Box<wasm_externtype_t>>,
 ) -> Option<Box<wasm_importtype_t>> {
-    let (module, name) = unsafe {
-        (
-            owned_wasm_name_t::new(module?),
-            owned_wasm_name_t::new(name?),
-        )
-    };
-    Some(Box::new(wasm_importtype_t {
-        name,
-        module,
-        extern_type: extern_type?,
-    }))
+    let (module, name) =
+        unsafe { (owned_wasm_name_t::new(module?), owned_wasm_name_t::new(name?)) };
+    Some(Box::new(wasm_importtype_t { name, module, extern_type: extern_type? }))
 }
 
 #[no_mangle]
@@ -61,10 +53,6 @@ impl From<&ImportType> for wasm_importtype_t {
         let name: owned_wasm_name_t = other.name().to_string().into();
         let extern_type: Box<wasm_externtype_t> = Box::new(other.ty().into());
 
-        wasm_importtype_t {
-            module,
-            name,
-            extern_type,
-        }
+        wasm_importtype_t { module, name, extern_type }
     }
 }

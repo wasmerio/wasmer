@@ -178,16 +178,10 @@ impl Compiler for CraneliftCompiler {
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
 
                 Ok(CompiledFunction {
-                    body: FunctionBody {
-                        body: code_buf,
-                        unwind_info,
-                    },
+                    body: FunctionBody { body: code_buf, unwind_info },
                     jt_offsets: func_jt_offsets,
                     relocations: reloc_sink.func_relocs,
-                    frame_info: CompiledFunctionFrameInfo {
-                        address_map,
-                        traps: trap_sink.traps,
-                    },
+                    frame_info: CompiledFunctionFrameInfo { address_map, traps: trap_sink.traps },
                 })
             })
             .collect::<Result<Vec<_>, CompileError>>()?
@@ -199,11 +193,7 @@ impl Compiler for CraneliftCompiler {
             let mut custom_sections = PrimaryMap::new();
             let dwarf = if let Some((dwarf_frametable, _cie_id)) = dwarf_frametable {
                 let mut eh_frame = EhFrame(WriterRelocate::new(target.triple().endianness().ok()));
-                dwarf_frametable
-                    .lock()
-                    .unwrap()
-                    .write_eh_frame(&mut eh_frame)
-                    .unwrap();
+                dwarf_frametable.lock().unwrap().write_eh_frame(&mut eh_frame).unwrap();
 
                 let eh_frame_section = eh_frame.0.into_section();
                 custom_sections.push(eh_frame_section);

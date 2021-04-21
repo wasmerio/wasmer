@@ -5,10 +5,8 @@ use std::time;
 
 /// Subroutine to instantiate the loggers
 pub fn set_up_logging() -> Result<(), String> {
-    let colors_line = ColoredLevelConfig::new()
-        .error(Color::Red)
-        .warn(Color::Yellow)
-        .trace(Color::BrightBlack);
+    let colors_line =
+        ColoredLevelConfig::new().error(Color::Red).warn(Color::Yellow).trace(Color::BrightBlack);
     let should_color = wasmer_should_print_color();
 
     let colors_level = colors_line.info(Color::Green);

@@ -15,10 +15,7 @@ use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 /// or the `MemoryStyle` and `TableStyle`).
 #[derive(Debug, MemoryUsage, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct CompileModuleInfo {
     /// The features used for compiling the module
     pub features: Features,

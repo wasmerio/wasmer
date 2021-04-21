@@ -102,10 +102,7 @@ impl Global {
             return Err(GlobalError::ImmutableGlobalCannotBeSet);
         }
         if val.ty() != self.ty().ty {
-            return Err(GlobalError::IncorrectType {
-                expected: self.ty.ty,
-                found: val.ty(),
-            });
+            return Err(GlobalError::IncorrectType { expected: self.ty.ty, found: val.ty() });
         }
         self.set_unchecked(val)
     }

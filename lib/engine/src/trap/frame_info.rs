@@ -118,12 +118,8 @@ impl GlobalFrameInfo {
         // machine instruction that corresponds to `pc`, which then allows us to
         // map that to a wasm original source location.
         let rel_pos = pc - func.start;
-        let instr_map = &module
-            .processed_function_frame_info(func.local_index)
-            .address_map;
-        let pos = match instr_map
-            .instructions
-            .binary_search_by_key(&rel_pos, |map| map.code_offset)
+        let instr_map = &module.processed_function_frame_info(func.local_index).address_map;
+        let pos = match instr_map.instructions.binary_search_by_key(&rel_pos, |map| map.code_offset)
         {
             // Exact hit!
             Ok(pos) => Some(pos),
@@ -248,22 +244,12 @@ pub fn register(
     let mut min = usize::max_value();
     let mut max = 0;
     let mut functions = BTreeMap::new();
-    for (
-        i,
-        FunctionExtent {
-            ptr: start,
-            length: len,
-        },
-    ) in finished_functions.iter()
-    {
+    for (i, FunctionExtent { ptr: start, length: len }) in finished_functions.iter() {
         let start = **start as usize;
         let end = start + len;
         min = cmp::min(min, start);
         max = cmp::max(max, end);
-        let func = FunctionInfo {
-            start,
-            local_index: i,
-        };
+        let func = FunctionInfo { start, local_index: i };
         assert!(functions.insert(end, func).is_none());
     }
     if functions.is_empty() {
@@ -281,15 +267,8 @@ pub fn register(
     }
 
     // ... then insert our range and assert nothing was there previously
-    let prev = info.ranges.insert(
-        max,
-        ModuleInfoFrameInfo {
-            start: min,
-            functions,
-            module,
-            frame_infos,
-        },
-    );
+    let prev =
+        info.ranges.insert(max, ModuleInfoFrameInfo { start: min, functions, module, frame_infos });
     assert!(prev.is_none());
     Some(GlobalFrameInfoRegistration { key: max })
 }

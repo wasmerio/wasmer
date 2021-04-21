@@ -129,10 +129,8 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
             .create_tables(&module, self.table_styles(), &table_definition_locations)
             .map_err(InstantiationError::Link)?
             .into_boxed_slice();
-        let finished_globals = tunables
-            .create_globals(&module)
-            .map_err(InstantiationError::Link)?
-            .into_boxed_slice();
+        let finished_globals =
+            tunables.create_globals(&module).map_err(InstantiationError::Link)?.into_boxed_slice();
 
         self.register_frame_info();
 
@@ -166,10 +164,7 @@ pub trait Artifact: Send + Sync + Upcastable + MemoryUsage {
         let data_initializers = self
             .data_initializers()
             .iter()
-            .map(|init| DataInitializer {
-                location: init.location.clone(),
-                data: &*init.data,
-            })
+            .map(|init| DataInitializer { location: init.location.clone(), data: &*init.data })
             .collect::<Vec<_>>();
         handle
             .finish_instantiation(&data_initializers)

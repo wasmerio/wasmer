@@ -45,11 +45,8 @@ impl CreateExe {
             .target_triple
             .as_ref()
             .map(|target_triple| {
-                let mut features = self
-                    .cpu_features
-                    .clone()
-                    .into_iter()
-                    .fold(CpuFeature::set(), |a, b| a | b);
+                let mut features =
+                    self.cpu_features.clone().into_iter().fold(CpuFeature::set(), |a, b| a | b);
                 // Cranelift requires SSE2, so we have this "hack" for now to facilitate
                 // usage
                 features |= CpuFeature::SSE2;
@@ -57,9 +54,8 @@ impl CreateExe {
             })
             .unwrap_or_default();
         let engine_type = EngineType::ObjectFile;
-        let (store, compiler_type) = self
-            .compiler
-            .get_store_for_target_and_engine(target.clone(), engine_type)?;
+        let (store, compiler_type) =
+            self.compiler.get_store_for_target_and_engine(target.clone(), engine_type)?;
 
         println!("Engine: {}", engine_type.to_string());
         println!("Compiler: {}", compiler_type.to_string());
@@ -97,10 +93,7 @@ impl CreateExe {
         generate_header(header_file_src.as_bytes())?;
         self.compile_c(wasm_object_path, output_path)?;
 
-        eprintln!(
-            "✔ Native executable compiled successfully to `{}`.",
-            self.output.display(),
-        );
+        eprintln!("✔ Native executable compiled successfully to `{}`.", self.output.display(),);
 
         Ok(())
     }
@@ -156,11 +149,7 @@ fn generate_header(header_file_src: &[u8]) -> anyhow::Result<()> {
 fn get_wasmer_dir() -> anyhow::Result<PathBuf> {
     Ok(PathBuf::from(
         env::var("WASMER_DIR")
-            .or_else(|e| {
-                option_env!("WASMER_INSTALL_PREFIX")
-                    .map(str::to_string)
-                    .ok_or(e)
-            })
+            .or_else(|e| option_env!("WASMER_INSTALL_PREFIX").map(str::to_string).ok_or(e))
             .context("Trying to read env var `WASMER_DIR`")?,
     ))
 }
@@ -268,17 +257,8 @@ impl LinkCode {
         let mut command = Command::new(&self.linker_path);
         let command = command
             .arg(&self.optimization_flag)
-            .args(
-                self.object_paths
-                    .iter()
-                    .map(|path| path.canonicalize().unwrap()),
-            )
-            .arg(
-                &self
-                    .libwasmer_path
-                    .canonicalize()
-                    .context("Failed to find libwasmer")?,
-            );
+            .args(self.object_paths.iter().map(|path| path.canonicalize().unwrap()))
+            .arg(&self.libwasmer_path.canonicalize().context("Failed to find libwasmer")?);
         let command = if let Some(target) = &self.target {
             command.arg("-target").arg(format!("{}", target))
         } else {
@@ -287,18 +267,12 @@ impl LinkCode {
         // Add libraries required per platform.
         // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
         #[cfg(windows)]
-        let command = command
-            .arg("-luserenv")
-            .arg("-lWs2_32")
-            .arg("-ladvapi32")
-            .arg("-lbcrypt");
+        let command = command.arg("-luserenv").arg("-lWs2_32").arg("-ladvapi32").arg("-lbcrypt");
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
-        let link_aganist_extra_libs = self
-            .additional_libraries
-            .iter()
-            .map(|lib| format!("-l{}", lib));
+        let link_aganist_extra_libs =
+            self.additional_libraries.iter().map(|lib| format!("-l{}", lib));
         let command = command.args(link_aganist_extra_libs);
         let output = command.arg("-o").arg(&self.output_path).output()?;
 

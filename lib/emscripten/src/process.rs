@@ -169,10 +169,7 @@ pub fn _waitpid(_ctx: &EmEnv, _one: i32, _two: i32, _three: i32) -> i32 {
 pub fn abort_stack_overflow(ctx: &EmEnv, _what: c_int) {
     debug!("emscripten::abort_stack_overflow");
     // TODO: Message incomplete. Need to finish em runtime data first
-    abort_with_message(
-        ctx,
-        "Stack overflow! Attempted to allocate some bytes on the stack",
-    );
+    abort_with_message(ctx, "Stack overflow! Attempted to allocate some bytes on the stack");
 }
 
 pub fn _llvm_trap(ctx: &EmEnv) {

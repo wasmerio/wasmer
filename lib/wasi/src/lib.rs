@@ -61,19 +61,12 @@ pub struct WasiEnv {
 
 impl WasiEnv {
     pub fn new(state: WasiState) -> Self {
-        Self {
-            state: Arc::new(Mutex::new(state)),
-            memory: LazyInit::new(),
-        }
+        Self { state: Arc::new(Mutex::new(state)), memory: LazyInit::new() }
     }
 
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
-        Ok(generate_import_object_from_env(
-            module.store(),
-            self.clone(),
-            wasi_version,
-        ))
+        Ok(generate_import_object_from_env(module.store(), self.clone(), wasi_version))
     }
 
     /// Get the WASI state
@@ -94,8 +87,7 @@ impl WasiEnv {
 
     /// Get a reference to the memory
     pub fn memory(&self) -> &Memory {
-        self.memory_ref()
-            .expect("Memory should be set on `WasiEnv` first")
+        self.memory_ref().expect("Memory should be set on `WasiEnv` first")
     }
 
     pub(crate) fn get_memory_and_wasi_state(

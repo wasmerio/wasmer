@@ -172,18 +172,15 @@ impl std::fmt::Debug for __wasi_event_u {
 
 #[derive(Debug, Copy, Clone)]
 pub enum EventEnum {
-    FdReadWrite {
-        nbytes: __wasi_filesize_t,
-        flags: __wasi_eventrwflags_t,
-    },
+    FdReadWrite { nbytes: __wasi_filesize_t, flags: __wasi_eventrwflags_t },
 }
 
 impl EventEnum {
     pub fn untagged(self) -> __wasi_event_u {
         match self {
-            EventEnum::FdReadWrite { nbytes, flags } => __wasi_event_u {
-                fd_readwrite: __wasi_event_fd_readwrite_t { nbytes, flags },
-            },
+            EventEnum::FdReadWrite { nbytes, flags } => {
+                __wasi_event_u { fd_readwrite: __wasi_event_fd_readwrite_t { nbytes, flags } }
+            }
         }
     }
 }
@@ -282,9 +279,9 @@ pub enum PrestatEnum {
 impl PrestatEnum {
     pub fn untagged(self) -> __wasi_prestat_u {
         match self {
-            PrestatEnum::Dir { pr_name_len } => __wasi_prestat_u {
-                dir: __wasi_prestat_u_dir_t { pr_name_len },
-            },
+            PrestatEnum::Dir { pr_name_len } => {
+                __wasi_prestat_u { dir: __wasi_prestat_u_dir_t { pr_name_len } }
+            }
         }
     }
 }
@@ -293,9 +290,9 @@ impl __wasi_prestat_t {
     #[allow(clippy::trivially_copy_pass_by_ref)]
     pub fn tagged(&self) -> Option<PrestatEnum> {
         match self.pr_type {
-            __WASI_PREOPENTYPE_DIR => Some(PrestatEnum::Dir {
-                pr_name_len: unsafe { self.u.dir.pr_name_len },
-            }),
+            __WASI_PREOPENTYPE_DIR => {
+                Some(PrestatEnum::Dir { pr_name_len: unsafe { self.u.dir.pr_name_len } })
+            }
             _ => None,
         }
     }
@@ -359,11 +356,7 @@ impl std::fmt::Debug for __wasi_filestat_t {
             .field("st_ino", &self.st_ino)
             .field(
                 "st_filetype",
-                &format!(
-                    "{} ({})",
-                    wasi_filetype_to_name(self.st_filetype),
-                    self.st_filetype,
-                ),
+                &format!("{} ({})", wasi_filetype_to_name(self.st_filetype), self.st_filetype,),
             )
             .field("st_nlink", &self.st_nlink)
             .field("st_size", &self.st_size)
@@ -634,22 +627,16 @@ impl std::convert::TryFrom<WasiSubscription> for __wasi_subscription_t {
     fn try_from(ws: WasiSubscription) -> Result<Self, Self::Error> {
         let (type_, u) = match ws.event_type {
             EventType::Clock(c) => (__WASI_EVENTTYPE_CLOCK, __wasi_subscription_u { clock: c }),
-            EventType::Read(rw) => (
-                __WASI_EVENTTYPE_FD_READ,
-                __wasi_subscription_u { fd_readwrite: rw },
-            ),
-            EventType::Write(rw) => (
-                __WASI_EVENTTYPE_FD_WRITE,
-                __wasi_subscription_u { fd_readwrite: rw },
-            ),
+            EventType::Read(rw) => {
+                (__WASI_EVENTTYPE_FD_READ, __wasi_subscription_u { fd_readwrite: rw })
+            }
+            EventType::Write(rw) => {
+                (__WASI_EVENTTYPE_FD_WRITE, __wasi_subscription_u { fd_readwrite: rw })
+            }
             _ => return Err(__WASI_EINVAL),
         };
 
-        Ok(Self {
-            userdata: ws.user_data,
-            type_,
-            u,
-        })
+        Ok(Self { userdata: ws.user_data, type_, u })
     }
 }
 
@@ -684,9 +671,7 @@ impl __wasi_subscription_t {
         match self.type_ {
             __WASI_EVENTTYPE_CLOCK => Some(SubscriptionEnum::Clock(unsafe { self.u.clock })),
             __WASI_EVENTTYPE_FD_READ | __WASI_EVENTTYPE_FD_WRITE => {
-                Some(SubscriptionEnum::FdReadWrite(unsafe {
-                    self.u.fd_readwrite
-                }))
+                Some(SubscriptionEnum::FdReadWrite(unsafe { self.u.fd_readwrite }))
             }
             _ => None,
         }

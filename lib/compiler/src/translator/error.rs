@@ -10,10 +10,7 @@ macro_rules! wasm_unsupported {
 
 impl From<BinaryReaderError> for WasmError {
     fn from(original: BinaryReaderError) -> Self {
-        Self::InvalidWebAssembly {
-            message: original.message().into(),
-            offset: original.offset(),
-        }
+        Self::InvalidWebAssembly { message: original.message().into(), offset: original.offset() }
     }
 }
 

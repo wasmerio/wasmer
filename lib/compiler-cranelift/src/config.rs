@@ -113,14 +113,10 @@ impl Cranelift {
             builder.enable("has_avx2").expect("should be valid flag");
         }
         if cpu_features.contains(CpuFeature::AVX512DQ) {
-            builder
-                .enable("has_avx512dq")
-                .expect("should be valid flag");
+            builder.enable("has_avx512dq").expect("should be valid flag");
         }
         if cpu_features.contains(CpuFeature::AVX512VL) {
-            builder
-                .enable("has_avx512vl")
-                .expect("should be valid flag");
+            builder.enable("has_avx512vl").expect("should be valid flag");
         }
         if cpu_features.contains(CpuFeature::LZCNT) {
             builder.enable("has_lzcnt").expect("should be valid flag");
@@ -135,26 +131,16 @@ impl Cranelift {
 
         // There are two possible traps for division, and this way
         // we get the proper one if code traps.
-        flags
-            .enable("avoid_div_traps")
-            .expect("should be valid flag");
+        flags.enable("avoid_div_traps").expect("should be valid flag");
 
         if self.enable_pic {
             flags.enable("is_pic").expect("should be a valid flag");
         }
 
         // Invert cranelift's default-on verification to instead default off.
-        let enable_verifier = if self.enable_verifier {
-            "true"
-        } else {
-            "false"
-        };
-        flags
-            .set("enable_verifier", enable_verifier)
-            .expect("should be valid flag");
-        flags
-            .set("enable_safepoints", "true")
-            .expect("should be valid flag");
+        let enable_verifier = if self.enable_verifier { "true" } else { "false" };
+        flags.set("enable_verifier", enable_verifier).expect("should be valid flag");
+        flags.set("enable_safepoints", "true").expect("should be valid flag");
 
         let opt_level = if self.enable_simd {
             "none"
@@ -166,20 +152,13 @@ impl Cranelift {
             }
         };
 
-        flags
-            .set("opt_level", opt_level)
-            .expect("should be valid flag");
+        flags.set("opt_level", opt_level).expect("should be valid flag");
 
         let enable_simd = if self.enable_simd { "true" } else { "false" };
-        flags
-            .set("enable_simd", enable_simd)
-            .expect("should be valid flag");
+        flags.set("enable_simd", enable_simd).expect("should be valid flag");
 
-        let enable_nan_canonicalization = if self.enable_nan_canonicalization {
-            "true"
-        } else {
-            "false"
-        };
+        let enable_nan_canonicalization =
+            if self.enable_nan_canonicalization { "true" } else { "false" };
         flags
             .set("enable_nan_canonicalization", enable_nan_canonicalization)
             .expect("should be valid flag");

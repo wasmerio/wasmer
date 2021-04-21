@@ -74,14 +74,7 @@ fn main() -> anyhow::Result<()> {
     let guest_table = instance.exports.get_table("__indirect_function_table")?;
     // And demonstrate that it has the properties that we set in the Wasm.
     assert_eq!(guest_table.size(), 3);
-    assert_eq!(
-        guest_table.ty(),
-        &TableType {
-            ty: Type::FuncRef,
-            minimum: 3,
-            maximum: Some(6),
-        }
-    );
+    assert_eq!(guest_table.ty(), &TableType { ty: Type::FuncRef, minimum: 3, maximum: Some(6) });
 
     // == Setting elements in a table ==
 
@@ -108,14 +101,7 @@ fn main() -> anyhow::Result<()> {
     assert_eq!(previous_size, 3);
 
     assert_eq!(guest_table.size(), 6);
-    assert_eq!(
-        guest_table.ty(),
-        &TableType {
-            ty: Type::FuncRef,
-            minimum: 3,
-            maximum: Some(6),
-        }
-    );
+    assert_eq!(guest_table.ty(), &TableType { ty: Type::FuncRef, minimum: 3, maximum: Some(6) });
     // Now demonstrate that the function we grew the table with is actually in the table.
     for table_index in 3..6 {
         if let Value::FuncRef(Some(f)) = guest_table.get(table_index as _).unwrap() {

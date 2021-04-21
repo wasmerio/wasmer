@@ -55,10 +55,7 @@ impl FileSystemCache {
                 // This path points to a file.
                 Err(io::Error::new(
                     io::ErrorKind::PermissionDenied,
-                    format!(
-                        "the supplied path already points to a file: {}",
-                        path.display()
-                    ),
+                    format!("the supplied path already points to a file: {}", path.display()),
                 ))
             }
         } else {

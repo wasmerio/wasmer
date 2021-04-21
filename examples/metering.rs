@@ -87,10 +87,7 @@ fn main() -> anyhow::Result<()> {
     //
     // Our module exports a single `add_one`  function. We want to
     // measure the cost of executing this function.
-    let add_one = instance
-        .exports
-        .get_function("add_one")?
-        .native::<i32, i32>()?;
+    let add_one = instance.exports.get_function("add_one")?.native::<i32, i32>()?;
 
     println!("Calling `add_one` function once...");
     add_one.call(1)?;
@@ -102,15 +99,9 @@ fn main() -> anyhow::Result<()> {
     // * `i32.const` is a `Operator::I32Const` which costs 1 point;
     // * `i32.add` is a `Operator::I32Add` which costs 2 points.
     let remaining_points_after_first_call = get_remaining_points(&instance);
-    assert_eq!(
-        remaining_points_after_first_call,
-        MeteringPoints::Remaining(6)
-    );
+    assert_eq!(remaining_points_after_first_call, MeteringPoints::Remaining(6));
 
-    println!(
-        "Remaining points after the first call: {:?}",
-        remaining_points_after_first_call
-    );
+    println!("Remaining points after the first call: {:?}", remaining_points_after_first_call);
 
     println!("Calling `add_one` function twice...");
     add_one.call(1)?;
@@ -118,15 +109,9 @@ fn main() -> anyhow::Result<()> {
     // We spent 4 more points with the second call.
     // We have 2 remaining points.
     let remaining_points_after_second_call = get_remaining_points(&instance);
-    assert_eq!(
-        remaining_points_after_second_call,
-        MeteringPoints::Remaining(2)
-    );
+    assert_eq!(remaining_points_after_second_call, MeteringPoints::Remaining(2));
 
-    println!(
-        "Remaining points after the second call: {:?}",
-        remaining_points_after_second_call
-    );
+    println!("Remaining points after the second call: {:?}", remaining_points_after_second_call);
 
     // Because calling our `add_one` function consumes 4 points,
     // calling it a third time will fail: we already consume 8
@@ -134,10 +119,7 @@ fn main() -> anyhow::Result<()> {
     println!("Calling `add_one` function a third time...");
     match add_one.call(1) {
         Ok(result) => {
-            bail!(
-                "Expected failure while calling `add_one`, found: {}",
-                result
-            );
+            bail!("Expected failure while calling `add_one`, found: {}", result);
         }
         Err(_) => {
             println!("Calling `add_one` failed.");

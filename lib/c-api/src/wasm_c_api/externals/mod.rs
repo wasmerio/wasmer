@@ -99,25 +99,17 @@ impl Clone for wasm_extern_t {
     fn clone(&self) -> Self {
         match self.get_tag() {
             CApiExternTag::Function => Self {
-                inner: wasm_extern_inner {
-                    function: unsafe { self.inner.function.clone() },
-                },
+                inner: wasm_extern_inner { function: unsafe { self.inner.function.clone() } },
             },
-            CApiExternTag::Memory => Self {
-                inner: wasm_extern_inner {
-                    memory: unsafe { self.inner.memory.clone() },
-                },
-            },
-            CApiExternTag::Global => Self {
-                inner: wasm_extern_inner {
-                    global: unsafe { self.inner.global.clone() },
-                },
-            },
-            CApiExternTag::Table => Self {
-                inner: wasm_extern_inner {
-                    table: unsafe { self.inner.table.clone() },
-                },
-            },
+            CApiExternTag::Memory => {
+                Self { inner: wasm_extern_inner { memory: unsafe { self.inner.memory.clone() } } }
+            }
+            CApiExternTag::Global => {
+                Self { inner: wasm_extern_inner { global: unsafe { self.inner.global.clone() } } }
+            }
+            CApiExternTag::Table => {
+                Self { inner: wasm_extern_inner { table: unsafe { self.inner.table.clone() } } }
+            }
         }
     }
 }

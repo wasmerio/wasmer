@@ -174,13 +174,15 @@ impl MachineState {
         let prev_frame_diff: BTreeMap<usize, Option<MachineValue>> = self
             .prev_frame
             .iter()
-            .filter(|(k, v)| {
-                if let Some(ref old_v) = old.prev_frame.get(k) {
-                    v != old_v
-                } else {
-                    true
-                }
-            })
+            .filter(
+                |(k, v)| {
+                    if let Some(ref old_v) = old.prev_frame.get(k) {
+                        v != old_v
+                    } else {
+                        true
+                    }
+                },
+            )
             .map(|(&k, v)| (k, Some(v.clone())))
             .chain(
                 old.prev_frame

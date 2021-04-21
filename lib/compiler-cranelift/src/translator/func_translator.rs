@@ -37,10 +37,7 @@ pub struct FuncTranslator {
 impl FuncTranslator {
     /// Create a new translator.
     pub fn new() -> Self {
-        Self {
-            func_ctx: FunctionBuilderContext::new(),
-            state: FuncTranslationState::new(),
-        }
+        Self { func_ctx: FunctionBuilderContext::new(), state: FuncTranslationState::new() }
     }
 
     /// Translate a binary WebAssembly function.
@@ -73,9 +70,7 @@ impl FuncTranslator {
     ) -> WasmResult<()> {
         let mut reader = MiddlewareBinaryReader::new_with_offset(code, code_offset);
         reader.set_middleware_chain(
-            config
-                .middlewares
-                .generate_function_middleware_chain(local_function_index),
+            config.middlewares.generate_function_middleware_chain(local_function_index),
         );
         environ.push_params_on_stack(local_function_index);
         self.translate_from_reader(module_translation_state, reader, func, environ)
@@ -90,12 +85,7 @@ impl FuncTranslator {
         environ: &mut FE,
     ) -> WasmResult<()> {
         let _tt = timing::wasm_translate_function();
-        info!(
-            "translate({} bytes, {}{})",
-            reader.bytes_remaining(),
-            func.name,
-            func.signature
-        );
+        info!("translate({} bytes, {}{})", reader.bytes_remaining(), func.name, func.signature);
         debug_assert_eq!(func.dfg.num_blocks(), 0, "Function must be empty");
         debug_assert_eq!(func.dfg.num_insts(), 0, "Function must be empty");
 

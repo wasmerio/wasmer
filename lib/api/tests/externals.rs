@@ -5,22 +5,10 @@ use wasmer::*;
 fn global_new() -> Result<()> {
     let store = Store::default();
     let global = Global::new(&store, Value::I32(10));
-    assert_eq!(
-        *global.ty(),
-        GlobalType {
-            ty: Type::I32,
-            mutability: Mutability::Const,
-        }
-    );
+    assert_eq!(*global.ty(), GlobalType { ty: Type::I32, mutability: Mutability::Const });
 
     let global_mut = Global::new_mut(&store, Value::I32(10));
-    assert_eq!(
-        *global_mut.ty(),
-        GlobalType {
-            ty: Type::I32,
-            mutability: Mutability::Var,
-        }
-    );
+    assert_eq!(*global_mut.ty(), GlobalType { ty: Type::I32, mutability: Mutability::Var });
 
     Ok(())
 }
@@ -61,11 +49,7 @@ fn global_set() -> Result<()> {
 #[test]
 fn table_new() -> Result<()> {
     let store = Store::default();
-    let table_type = TableType {
-        ty: Type::FuncRef,
-        minimum: 0,
-        maximum: None,
-    };
+    let table_type = TableType { ty: Type::FuncRef, minimum: 0, maximum: None };
     let f = Function::new_native(&store, || {});
     let table = Table::new(&store, table_type, Value::FuncRef(Some(f)))?;
     assert_eq!(*table.ty(), table_type);
@@ -86,11 +70,7 @@ fn table_new() -> Result<()> {
 #[ignore]
 fn table_get() -> Result<()> {
     let store = Store::default();
-    let table_type = TableType {
-        ty: Type::FuncRef,
-        minimum: 0,
-        maximum: Some(1),
-    };
+    let table_type = TableType { ty: Type::FuncRef, minimum: 0, maximum: Some(1) };
     let f = Function::new_native(&store, |num: i32| num + 1);
     let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     assert_eq!(*table.ty(), table_type);
@@ -109,11 +89,7 @@ fn table_set() -> Result<()> {
 #[test]
 fn table_grow() -> Result<()> {
     let store = Store::default();
-    let table_type = TableType {
-        ty: Type::FuncRef,
-        minimum: 0,
-        maximum: Some(10),
-    };
+    let table_type = TableType { ty: Type::FuncRef, minimum: 0, maximum: Some(10) };
     let f = Function::new_native(&store, |num: i32| num + 1);
     let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     // Growing to a bigger maximum should return None
@@ -137,11 +113,7 @@ fn table_copy() -> Result<()> {
 #[test]
 fn memory_new() -> Result<()> {
     let store = Store::default();
-    let memory_type = MemoryType {
-        shared: false,
-        minimum: Pages(0),
-        maximum: Some(Pages(10)),
-    };
+    let memory_type = MemoryType { shared: false, minimum: Pages(0), maximum: Some(Pages(10)) };
     let memory = Memory::new(&store, memory_type)?;
     assert_eq!(memory.size(), Pages(0));
     assert_eq!(*memory.ty(), memory_type);
@@ -163,10 +135,7 @@ fn memory_grow() -> Result<()> {
     let result = memory.grow(Pages(10));
     assert_eq!(
         result,
-        Err(MemoryError::CouldNotGrow {
-            current: 12.into(),
-            attempted_delta: 10.into(),
-        })
+        Err(MemoryError::CouldNotGrow { current: 12.into(), attempted_delta: 10.into() })
     );
 
     let bad_desc = MemoryType::new(Pages(15), Some(Pages(10)), false);
@@ -183,20 +152,14 @@ fn function_new() -> Result<()> {
     let function = Function::new_native(&store, || {});
     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
     let function = Function::new_native(&store, |_a: i32| {});
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![Type::I32], vec![])
-    );
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![Type::I32], vec![]));
     let function = Function::new_native(&store, |_a: i32, _b: i64, _c: f32, _d: f64| {});
     assert_eq!(
         function.ty().clone(),
         FunctionType::new(vec![Type::I32, Type::I64, Type::F32, Type::F64], vec![])
     );
     let function = Function::new_native(&store, || -> i32 { 1 });
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![], vec![Type::I32])
-    );
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![Type::I32]));
     let function = Function::new_native(&store, || -> (i32, i64, f32, f64) { (1, 2, 3.0, 4.0) });
     assert_eq!(
         function.ty().clone(),
@@ -216,10 +179,7 @@ fn function_new_env() -> Result<()> {
     assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![]));
     let function =
         Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv, _a: i32| {});
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![Type::I32], vec![])
-    );
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![Type::I32], vec![]));
     let function = Function::new_native_with_env(
         &store,
         my_env.clone(),
@@ -231,10 +191,7 @@ fn function_new_env() -> Result<()> {
     );
     let function =
         Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| -> i32 { 1 });
-    assert_eq!(
-        function.ty().clone(),
-        FunctionType::new(vec![], vec![Type::I32])
-    );
+    assert_eq!(function.ty().clone(), FunctionType::new(vec![], vec![Type::I32]));
     let function = Function::new_native_with_env(
         &store,
         my_env.clone(),
@@ -413,10 +370,7 @@ fn manually_generate_wasmer_env() -> Result<()> {
         env.val + arg1 + arg2
     }
 
-    let mut env = MyEnv {
-        val: 5,
-        memory: LazyInit::new(),
-    };
+    let mut env = MyEnv { val: 5, memory: LazyInit::new() };
 
     let result = host_function(&mut env, 7, 9);
     assert_eq!(result, 21);

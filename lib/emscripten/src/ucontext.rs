@@ -5,10 +5,7 @@ pub fn _getcontext(_ctx: &EmEnv, _ucp: i32) -> i32 {
     0
 }
 pub fn _makecontext(_ctx: &EmEnv, _ucp: i32, _func: i32, _argc: i32, _argv: i32) {
-    debug!(
-        "emscripten::_makecontext({}, {}, {}, {})",
-        _ucp, _func, _argc, _argv
-    );
+    debug!("emscripten::_makecontext({}, {}, {}, {})", _ucp, _func, _argc, _argv);
 }
 pub fn _setcontext(_ctx: &EmEnv, _ucp: i32) -> i32 {
     debug!("emscripten::_setcontext({})", _ucp);

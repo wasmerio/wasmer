@@ -21,10 +21,8 @@ use wasmer_engine_jit::JIT;
 use wasmer_wasi::WasiState;
 
 fn main() -> Result<(), Box<dyn std::error::Error>> {
-    let wasm_path = concat!(
-        env!("CARGO_MANIFEST_DIR"),
-        "/tests/wasi-wast/wasi/unstable/hello.wasm"
-    );
+    let wasm_path =
+        concat!(env!("CARGO_MANIFEST_DIR"), "/tests/wasi-wast/wasi/unstable/hello.wasm");
     // Let's declare the Wasm module with the text representation.
     let wasm_bytes = std::fs::read(wasm_path)?;
 

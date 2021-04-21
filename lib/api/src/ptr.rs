@@ -43,10 +43,7 @@ impl<T: Copy, Ty> WasmPtr<T, Ty> {
     /// Create a new `WasmPtr` at the given offset.
     #[inline]
     pub fn new(offset: u32) -> Self {
-        Self {
-            offset,
-            _phantom: PhantomData,
-        }
+        Self { offset, _phantom: PhantomData }
     }
 
     /// Get the offset into Wasm linear memory for this `WasmPtr`.
@@ -270,10 +267,7 @@ unsafe impl<T: Copy, Ty> FromToNativeWasmType for WasmPtr<T, Ty> {
         self.offset as i32
     }
     fn from_native(n: Self::Native) -> Self {
-        Self {
-            offset: n as u32,
-            _phantom: PhantomData,
-        }
+        Self { offset: n as u32, _phantom: PhantomData }
     }
 }
 
@@ -281,10 +275,7 @@ unsafe impl<T: Copy, Ty> ValueType for WasmPtr<T, Ty> {}
 
 impl<T: Copy, Ty> Clone for WasmPtr<T, Ty> {
     fn clone(&self) -> Self {
-        Self {
-            offset: self.offset,
-            _phantom: PhantomData,
-        }
+        Self { offset: self.offset, _phantom: PhantomData }
     }
 }
 

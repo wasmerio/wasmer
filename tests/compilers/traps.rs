@@ -25,10 +25,7 @@ fn test_trap_return() -> Result<()> {
             }
         },
     )?;
-    let run_func = instance
-        .exports
-        .get_function("run")
-        .expect("expected function export");
+    let run_func = instance.exports.get_function("run").expect("expected function export");
 
     let e = run_func.call(&[]).err().expect("error calling function");
 
@@ -58,10 +55,7 @@ fn test_trap_trace() -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
-    let run_func = instance
-        .exports
-        .get_function("run")
-        .expect("expected function export");
+    let run_func = instance.exports.get_function("run").expect("expected function export");
 
     let e = run_func.call(&[]).err().expect("error calling function");
 
@@ -73,11 +67,7 @@ fn test_trap_trace() -> Result<()> {
     assert_eq!(trace[1].module_name(), "hello_mod");
     assert_eq!(trace[1].func_index(), 0);
     assert_eq!(trace[1].function_name(), None);
-    assert!(
-        e.message().contains("unreachable"),
-        "wrong message: {}",
-        e.message()
-    );
+    assert!(e.message().contains("unreachable"), "wrong message: {}", e.message());
 
     Ok(())
 }
@@ -105,10 +95,7 @@ fn test_trap_trace_cb() -> Result<()> {
             }
         },
     )?;
-    let run_func = instance
-        .exports
-        .get_function("run")
-        .expect("expected function export");
+    let run_func = instance.exports.get_function("run").expect("expected function export");
 
     let e = run_func.call(&[]).err().expect("error calling function");
 
@@ -145,10 +132,7 @@ fn test_trap_stack_overflow() -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
-    let run_func = instance
-        .exports
-        .get_function("run")
-        .expect("expected function export");
+    let run_func = instance.exports.get_function("run").expect("expected function export");
 
     let e = run_func.call(&[]).err().expect("error calling function");
 
@@ -188,10 +172,7 @@ fn trap_display_pretty() -> Result<()> {
 
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
-    let run_func = instance
-        .exports
-        .get_function("bar")
-        .expect("expected function export");
+    let run_func = instance.exports.get_function("bar").expect("expected function export");
 
     let e = run_func.call(&[]).err().expect("error calling function");
     assert_eq!(
@@ -248,10 +229,7 @@ fn trap_display_multi_module() -> Result<()> {
             }
         },
     )?;
-    let bar2 = instance
-        .exports
-        .get_function("bar2")
-        .expect("expected function export");
+    let bar2 = instance.exports.get_function("bar2").expect("expected function export");
 
     let e = bar2.call(&[]).err().expect("error calling function");
     assert_eq!(
@@ -386,10 +364,7 @@ fn rust_panic_start_function() -> Result<()> {
         ));
     }))
     .unwrap_err();
-    assert_eq!(
-        err.downcast_ref::<&'static str>(),
-        Some(&"this is another panic")
-    );
+    assert_eq!(err.downcast_ref::<&'static str>(), Some(&"this is another panic"));
     Ok(())
 }
 
@@ -414,9 +389,7 @@ fn mismatched_arguments() -> Result<()> {
         "Parameters of type [F32] did not match signature [I32] -> []",
     );
     assert_eq!(
-        func.call(&[Val::I32(0), Val::I32(1)])
-            .unwrap_err()
-            .message(),
+        func.call(&[Val::I32(0), Val::I32(1)]).unwrap_err().message(),
         "Parameters of type [I32, I32] did not match signature [I32] -> []"
     );
     Ok(())
@@ -449,9 +422,7 @@ fn call_signature_mismatch() -> Result<()> {
     "#;
 
     let module = Module::new(&store, &binary)?;
-    let err = Instance::new(&module, &imports! {})
-        .err()
-        .expect("expected error");
+    let err = Instance::new(&module, &imports! {}).err().expect("expected error");
     assert_eq!(
         format!("{}", err),
         "\
@@ -486,9 +457,7 @@ fn start_trap_pretty() -> Result<()> {
     "#;
 
     let module = Module::new(&store, wat)?;
-    let err = Instance::new(&module, &imports! {})
-        .err()
-        .expect("expected error");
+    let err = Instance::new(&module, &imports! {}).err().expect("expected error");
 
     assert_eq!(
         format!("{}", err),

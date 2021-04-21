@@ -36,16 +36,8 @@ pub unsafe extern "C" fn wasmer_table_new(
     table: *mut *mut wasmer_table_t,
     limits: wasmer_limits_t,
 ) -> wasmer_result_t {
-    let max = if limits.max.has_some {
-        Some(limits.max.some)
-    } else {
-        None
-    };
-    let desc = TableType {
-        ty: ValType::FuncRef,
-        minimum: limits.min,
-        maximum: max,
-    };
+    let max = if limits.max.has_some { Some(limits.max.some) } else { None };
+    let desc = TableType { ty: ValType::FuncRef, minimum: limits.min, maximum: max };
     let store = get_global_store();
     let result = Table::new(store, desc, get_default_table_value(ValType::FuncRef));
     let new_table = match result {

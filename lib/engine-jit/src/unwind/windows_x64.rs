@@ -17,10 +17,7 @@ pub struct UnwindRegistry {
 impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
     pub fn new() -> Self {
-        Self {
-            functions: HashMap::new(),
-            published: false,
-        }
+        Self { functions: HashMap::new(), published: false }
     }
 
     /// Registers a function given the start offset, length, and unwind information.
@@ -50,10 +47,7 @@ impl UnwindRegistry {
         unsafe {
             *entry.u.UnwindInfoAddress_mut() = (entry.EndAddress + 3) & !3;
         }
-        let entries = self
-            .functions
-            .entry(base_address)
-            .or_insert_with(|| Vec::new());
+        let entries = self.functions.entry(base_address).or_insert_with(|| Vec::new());
 
         entries.push(entry);
 
@@ -116,10 +110,7 @@ impl MemoryUsage for UnwindRegistry {
         //
         // [doc1]: https://docs.rs/winapi/0.3.9/winapi/um/winnt/type.RUNTIME_FUNCTION.html
         // [doc2]: https://docs.rs/winapi/0.3.9/winapi/um/winnt/struct._IMAGE_RUNTIME_FUNCTION_ENTRY.html
-        self.functions
-            .iter()
-            .map(|(_, _)| std::mem::size_of::<u64>() * 3)
-            .sum::<usize>()
+        self.functions.iter().map(|(_, _)| std::mem::size_of::<u64>() * 3).sum::<usize>()
             + self.published.size_of_val(tracker)
     }
 }

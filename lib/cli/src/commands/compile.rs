@@ -34,8 +34,7 @@ pub struct Compile {
 impl Compile {
     /// Runs logic for the `compile` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute()
-            .context(format!("failed to compile `{}`", self.path.display()))
+        self.inner_execute().context(format!("failed to compile `{}`", self.path.display()))
     }
 
     pub(crate) fn get_recommend_extension(
@@ -63,11 +62,8 @@ impl Compile {
             .target_triple
             .as_ref()
             .map(|target_triple| {
-                let mut features = self
-                    .cpu_features
-                    .clone()
-                    .into_iter()
-                    .fold(CpuFeature::set(), |a, b| a | b);
+                let mut features =
+                    self.cpu_features.clone().into_iter().fold(CpuFeature::set(), |a, b| a | b);
                 // Cranelift requires SSE2, so we have this "hack" for now to facilitate
                 // usage
                 features |= CpuFeature::SSE2;
@@ -98,10 +94,7 @@ impl Compile {
 
         let module = Module::from_file(&store, &self.path)?;
         let _ = module.serialize_to_file(&self.output)?;
-        eprintln!(
-            "✔ File compiled successfully to `{}`.",
-            self.output.display(),
-        );
+        eprintln!("✔ File compiled successfully to `{}`.", self.output.display(),);
 
         #[cfg(feature = "object-file")]
         if engine_type == EngineType::ObjectFile {
@@ -135,10 +128,7 @@ impl Compile {
 
             use std::io::Write;
             header.write_all(header_file_src.as_bytes())?;
-            eprintln!(
-                "✔ Header file generated successfully at `{}`.",
-                header_path.display(),
-            );
+            eprintln!("✔ Header file generated successfully at `{}`.", header_path.display(),);
         }
         Ok(())
     }

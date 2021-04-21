@@ -65,10 +65,7 @@ pub enum MemoryError {
 
 /// Implementation styles for WebAssembly linear memory.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage)]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub enum MemoryStyle {
     /// The actual memory can be resized and moved.
     Dynamic {
@@ -95,9 +92,7 @@ impl MemoryStyle {
     pub fn offset_guard_size(&self) -> u64 {
         match self {
             Self::Dynamic { offset_guard_size } => *offset_guard_size,
-            Self::Static {
-                offset_guard_size, ..
-            } => *offset_guard_size,
+            Self::Static { offset_guard_size, .. } => *offset_guard_size,
         }
     }
 }
@@ -282,10 +277,7 @@ impl LinearMemory {
                 VMMemoryDefinitionOwnership::VMOwned(mem_loc)
             } else {
                 VMMemoryDefinitionOwnership::HostOwned(Box::new(UnsafeCell::new(
-                    VMMemoryDefinition {
-                        base: base_ptr,
-                        current_length: mem_length,
-                    },
+                    VMMemoryDefinition { base: base_ptr, current_length: mem_length },
                 )))
             },
             memory: *memory,
@@ -344,10 +336,7 @@ impl Memory for LinearMemory {
         let new_pages = mmap
             .size
             .checked_add(delta)
-            .ok_or(MemoryError::CouldNotGrow {
-                current: mmap.size,
-                attempted_delta: delta,
-            })?;
+            .ok_or(MemoryError::CouldNotGrow { current: mmap.size, attempted_delta: delta })?;
         let prev_pages = mmap.size;
 
         if let Some(maximum) = self.maximum {
@@ -364,10 +353,7 @@ impl Memory for LinearMemory {
         // limit here.
         if new_pages >= Pages::max_value() {
             // Linear memory size would exceed the index range.
-            return Err(MemoryError::CouldNotGrow {
-                current: mmap.size,
-                attempted_delta: delta,
-            });
+            return Err(MemoryError::CouldNotGrow { current: mmap.size, attempted_delta: delta });
         }
 
         let delta_bytes = delta.bytes().0;
@@ -379,12 +365,10 @@ impl Memory for LinearMemory {
             // have on hand, it's a dynamic heap and it can move.
             let guard_bytes = self.offset_guard_size;
             let request_bytes =
-                new_bytes
-                    .checked_add(guard_bytes)
-                    .ok_or_else(|| MemoryError::CouldNotGrow {
-                        current: new_pages,
-                        attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
-                    })?;
+                new_bytes.checked_add(guard_bytes).ok_or_else(|| MemoryError::CouldNotGrow {
+                    current: new_pages,
+                    attempted_delta: Bytes(guard_bytes).try_into().unwrap(),
+                })?;
 
             let mut new_mmap =
                 Mmap::accessible_reserved(new_bytes, request_bytes).map_err(MemoryError::Region)?;
@@ -395,9 +379,7 @@ impl Memory for LinearMemory {
             mmap.alloc = new_mmap;
         } else if delta_bytes > 0 {
             // Make the newly allocated pages accessible.
-            mmap.alloc
-                .make_accessible(prev_bytes, delta_bytes)
-                .map_err(MemoryError::Region)?;
+            mmap.alloc.make_accessible(prev_bytes, delta_bytes).map_err(MemoryError::Region)?;
         }
 
         mmap.size = new_pages;

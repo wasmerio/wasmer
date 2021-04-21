@@ -132,9 +132,7 @@ impl DummyArtifact {
 
     #[cfg(not(feature = "serialize"))]
     pub fn deserialize(engine: &DummyEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
-        Err(DeserializeError::Generic(
-            "The serializer feature is not enabled in the DummyEngine",
-        ))
+        Err(DeserializeError::Generic("The serializer feature is not enabled in the DummyEngine"))
     }
 
     /// Construct a `DummyArtifact` from component parts.
@@ -256,8 +254,6 @@ impl Artifact for DummyArtifact {
 
     #[cfg(not(feature = "serialize"))]
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Err(SerializeError::Generic(
-            "The serializer feature is not enabled in the DummyEngine",
-        ))
+        Err(SerializeError::Generic("The serializer feature is not enabled in the DummyEngine"))
     }
 }

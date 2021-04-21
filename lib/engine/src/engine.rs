@@ -95,8 +95,6 @@ impl Clone for EngineId {
 impl Default for EngineId {
     fn default() -> Self {
         static NEXT_ID: AtomicUsize = AtomicUsize::new(0);
-        Self {
-            id: NEXT_ID.fetch_add(1, SeqCst),
-        }
+        Self { id: NEXT_ID.fetch_add(1, SeqCst) }
     }
 }

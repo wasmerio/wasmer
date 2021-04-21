@@ -23,10 +23,8 @@ impl SelfUpdate {
             .stdout(Stdio::piped())
             .spawn()?;
 
-        let mut process = Command::new("sh")
-            .stdin(cmd.stdout.unwrap())
-            .stdout(Stdio::inherit())
-            .spawn()?;
+        let mut process =
+            Command::new("sh").stdin(cmd.stdout.unwrap()).stdout(Stdio::inherit()).spawn()?;
 
         process.wait().unwrap();
         Ok(())

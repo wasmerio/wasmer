@@ -80,11 +80,7 @@ impl Run {
             format!(
                 "failed to run `{}`{}",
                 self.path.display(),
-                if CompilerType::enabled().is_empty() {
-                    " (no compilers enabled)"
-                } else {
-                    ""
-                }
+                if CompilerType::enabled().is_empty() { " (no compilers enabled)" } else { "" }
             )
         })
     }
@@ -98,11 +94,7 @@ impl Run {
             let result = self.invoke_function(&instance, &invoke, &self.args)?;
             println!(
                 "{}",
-                result
-                    .iter()
-                    .map(|val| val.to_string())
-                    .collect::<Vec<String>>()
-                    .join(" ")
+                result.iter().map(|val| val.to_string()).collect::<Vec<String>>().join(" ")
             );
             return Ok(());
         }
@@ -157,11 +149,7 @@ impl Run {
                 let program_name = self
                     .command_name
                     .clone()
-                    .or_else(|| {
-                        self.path
-                            .file_name()
-                            .map(|f| f.to_string_lossy().to_string())
-                    })
+                    .or_else(|| self.path.file_name().map(|f| f.to_string_lossy().to_string()))
                     .unwrap_or_default();
                 return self
                     .wasi
@@ -359,31 +347,19 @@ impl Run {
             .iter()
             .zip(func_ty.params().iter())
             .map(|(arg, param_type)| match param_type {
-                ValType::I32 => {
-                    Ok(Val::I32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a i32", arg)
-                    })?))
-                }
-                ValType::I64 => {
-                    Ok(Val::I64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a i64", arg)
-                    })?))
-                }
-                ValType::F32 => {
-                    Ok(Val::F32(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a f32", arg)
-                    })?))
-                }
-                ValType::F64 => {
-                    Ok(Val::F64(arg.parse().map_err(|_| {
-                        anyhow!("Can't convert `{}` into a f64", arg)
-                    })?))
-                }
-                _ => Err(anyhow!(
-                    "Don't know how to convert {} into {:?}",
-                    arg,
-                    param_type
+                ValType::I32 => Ok(Val::I32(
+                    arg.parse().map_err(|_| anyhow!("Can't convert `{}` into a i32", arg))?,
                 )),
+                ValType::I64 => Ok(Val::I64(
+                    arg.parse().map_err(|_| anyhow!("Can't convert `{}` into a i64", arg))?,
+                )),
+                ValType::F32 => Ok(Val::F32(
+                    arg.parse().map_err(|_| anyhow!("Can't convert `{}` into a f32", arg))?,
+                )),
+                ValType::F64 => Ok(Val::F64(
+                    arg.parse().map_err(|_| anyhow!("Can't convert `{}` into a f64", arg))?,
+                )),
+                _ => Err(anyhow!("Don't know how to convert {} into {:?}", arg, param_type)),
             })
             .collect::<Result<Vec<_>>>()?;
         Ok(func.call(&invoke_args)?)

@@ -55,10 +55,7 @@ fn apply_relocation(
             write_unaligned(reloc_address as *mut u32, reloc_delta as _);
         },
         RelocationKind::X86PCRelRodata4 => {}
-        kind => panic!(
-            "Relocation kind unsupported in the current architecture {}",
-            kind
-        ),
+        kind => panic!("Relocation kind unsupported in the current architecture {}", kind),
     }
 }
 

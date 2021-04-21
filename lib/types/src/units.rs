@@ -24,10 +24,7 @@ pub const WASM_MIN_PAGES: u32 = 0x100;
 /// Units of WebAssembly pages (as specified to be 65,536 bytes).
 #[derive(Copy, Clone, PartialEq, Eq, PartialOrd, Ord, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct Pages(pub u32);
 
 impl Pages {
@@ -126,9 +123,7 @@ impl TryFrom<Bytes> for Pages {
     type Error = PageCountOutOfRange;
 
     fn try_from(bytes: Bytes) -> Result<Self, Self::Error> {
-        let pages: u32 = (bytes.0 / WASM_PAGE_SIZE)
-            .try_into()
-            .or(Err(PageCountOutOfRange))?;
+        let pages: u32 = (bytes.0 / WASM_PAGE_SIZE).try_into().or(Err(PageCountOutOfRange))?;
         Ok(Self(pages))
     }
 }

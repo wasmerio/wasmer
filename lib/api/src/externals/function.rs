@@ -109,9 +109,7 @@ where
     });
     let host_env_clone_fn = |ptr: *mut c_void| -> *mut c_void {
         let env_ref: &Env = unsafe {
-            ptr.cast::<Env>()
-                .as_ref()
-                .expect("`ptr` to the environment is null when cloning it")
+            ptr.cast::<Env>().as_ref().expect("`ptr` to the environment is null when cloning it")
         };
         Box::into_raw(Box::new(env_ref.clone())) as _
     };
@@ -352,9 +350,7 @@ impl Function {
         }
         let function = inner::Function::<Args, Rets>::new(func);
         let address = function.address() as *const VMFunctionBody;
-        let vmctx = VMFunctionEnvironment {
-            host_env: std::ptr::null_mut() as *mut _,
-        };
+        let vmctx = VMFunctionEnvironment { host_env: std::ptr::null_mut() as *mut _ };
         let signature = function.ty();
 
         Self {
@@ -517,11 +513,7 @@ impl Function {
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
         let format_types_for_error_message = |items: &[Val]| {
-            items
-                .iter()
-                .map(|param| param.ty().to_string())
-                .collect::<Vec<String>>()
-                .join(", ")
+            items.iter().map(|param| param.ty().to_string()).collect::<Vec<String>>().join(", ")
         };
         let signature = self.ty();
         if signature.params().len() != params.len() {
@@ -798,11 +790,7 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(
-            self.store.clone(),
-            self.exported.clone(),
-            self.definition.clone(),
-        ))
+        Ok(NativeFunc::new(self.store.clone(), self.exported.clone(), self.definition.clone()))
     }
 
     #[track_caller]
@@ -826,10 +814,7 @@ impl<'a> Exportable<'a> for Function {
 
 impl fmt::Debug for Function {
     fn fmt(&self, formatter: &mut fmt::Formatter) -> fmt::Result {
-        formatter
-            .debug_struct("Function")
-            .field("ty", &self.ty())
-            .finish()
+        formatter.debug_struct("Function").field("ty", &self.ty()).finish()
     }
 }
 
@@ -905,10 +890,7 @@ trait VMDynamicFunctionCall<T: VMDynamicFunction> {
 
 impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext<T> {
     fn from_context(ctx: T) -> Self {
-        Self {
-            address: Self::address_ptr(),
-            ctx,
-        }
+        Self { address: Self::address_ptr(), ctx }
     }
 
     fn address_ptr() -> *const VMFunctionBody {
@@ -1312,10 +1294,7 @@ mod inner {
             T: HostFunctionKind,
             E: Sized,
         {
-            Self {
-                address: function.function_body_ptr(),
-                _phantom: PhantomData,
-            }
+            Self { address: function.function_body_ptr(), _phantom: PhantomData }
         }
 
         /// Get the function type of this `Function`.
@@ -1734,14 +1713,8 @@ mod inner {
         #[test]
         fn test_function_types() {
             assert_eq!(Function::new(func).ty(), FunctionType::new(vec![], vec![]));
-            assert_eq!(
-                Function::new(func__i32).ty(),
-                FunctionType::new(vec![], vec![Type::I32])
-            );
-            assert_eq!(
-                Function::new(func_i32).ty(),
-                FunctionType::new(vec![Type::I32], vec![])
-            );
+            assert_eq!(Function::new(func__i32).ty(), FunctionType::new(vec![], vec![Type::I32]));
+            assert_eq!(Function::new(func_i32).ty(), FunctionType::new(vec![Type::I32], vec![]));
             assert_eq!(
                 Function::new(func_i32__i32).ty(),
                 FunctionType::new(vec![Type::I32], vec![Type::I32])

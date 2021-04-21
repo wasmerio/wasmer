@@ -19,21 +19,13 @@ pub struct Inspect {
 impl Inspect {
     /// Runs logic for the `validate` subcommand
     pub fn execute(&self) -> Result<()> {
-        self.inner_execute()
-            .context(format!("failed to inspect `{}`", self.path.display()))
+        self.inner_execute().context(format!("failed to inspect `{}`", self.path.display()))
     }
     fn inner_execute(&self) -> Result<()> {
         let (store, _engine_type, _compiler_type) = self.store.get_store()?;
         let module_contents = std::fs::read(&self.path)?;
         let module = Module::new(&store, &module_contents)?;
-        println!(
-            "Type: {}",
-            if !is_wasm(&module_contents) {
-                "wat"
-            } else {
-                "wasm"
-            }
-        );
+        println!("Type: {}", if !is_wasm(&module_contents) { "wat" } else { "wasm" });
         println!("Size: {}", ByteSize(module_contents.len() as _));
         println!("Imports:");
         println!("  Functions:");

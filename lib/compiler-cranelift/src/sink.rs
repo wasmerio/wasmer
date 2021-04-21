@@ -75,14 +75,9 @@ impl<'a> binemit::RelocSink for RelocSink<'a> {
 impl<'a> RelocSink<'a> {
     /// Return a new `RelocSink` instance.
     pub fn new(module: &'a ModuleInfo, func_index: FunctionIndex) -> Self {
-        let local_func_index = module
-            .local_func_index(func_index)
-            .expect("The provided function should be local");
-        Self {
-            module,
-            local_func_index,
-            func_relocs: Vec::new(),
-        }
+        let local_func_index =
+            module.local_func_index(func_index).expect("The provided function should be local");
+        Self { module, local_func_index, func_relocs: Vec::new() }
     }
 }
 

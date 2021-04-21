@@ -22,10 +22,7 @@ extern "C" {
 impl UnwindRegistry {
     /// Creates a new unwind registry with the given base address.
     pub fn new() -> Self {
-        Self {
-            registrations: Vec::new(),
-            published: false,
-        }
+        Self { registrations: Vec::new(), published: false }
     }
 
     /// Registers a function given the start offset, length, and unwind information.
@@ -68,11 +65,7 @@ impl UnwindRegistry {
             // deregistering it. We must avoid this
             // scenario. Usually, this is handled upstream by the
             // compilers.
-            debug_assert_ne!(
-                eh_frame,
-                &[0, 0, 0, 0],
-                "`eh_frame` seems to contain empty FDEs"
-            );
+            debug_assert_ne!(eh_frame, &[0, 0, 0, 0], "`eh_frame` seems to contain empty FDEs");
 
             // On gnu (libgcc), `__register_frame` will walk the FDEs until an entry of length 0
             let ptr = eh_frame.as_ptr();

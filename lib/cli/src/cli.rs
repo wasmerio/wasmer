@@ -19,11 +19,7 @@ use clap::{Clap, ErrorKind};
 )]
 #[cfg_attr(
     feature = "headless",
-    clap(
-        name = "wasmer-headless",
-        about = "Headless WebAssembly standalone runtime.",
-        author
-    )
+    clap(name = "wasmer-headless", about = "Headless WebAssembly standalone runtime.", author)
 )]
 /// The options for the wasmer Command Line Interface
 enum WasmerCLIOptions {

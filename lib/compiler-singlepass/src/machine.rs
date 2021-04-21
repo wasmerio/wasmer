@@ -371,19 +371,14 @@ impl Machine {
         let callee_saved_regs_size = static_area_size;
 
         // Now we can determine concrete locations for locals.
-        let locations: Vec<Location> = (0..n)
-            .map(|i| get_local_location(i, callee_saved_regs_size))
-            .collect();
+        let locations: Vec<Location> =
+            (0..n).map(|i| get_local_location(i, callee_saved_regs_size)).collect();
 
         // Add size of locals on stack.
         static_area_size += num_mem_slots * 8;
 
         // Allocate save area, without actually writing to it.
-        a.emit_sub(
-            Size::S64,
-            Location::Imm32(static_area_size as _),
-            Location::GPR(GPR::RSP),
-        );
+        a.emit_sub(Size::S64, Location::Imm32(static_area_size as _), Location::GPR(GPR::RSP));
 
         // Save callee-saved registers.
         for loc in locations.iter() {
@@ -394,9 +389,9 @@ impl Machine {
                     *loc,
                     Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
                 );
-                self.state.stack_values.push(MachineValue::PreserveRegister(
-                    X64Register::GPR(x).to_index(),
-                ));
+                self.state
+                    .stack_values
+                    .push(MachineValue::PreserveRegister(X64Register::GPR(x).to_index()));
             }
         }
 
@@ -407,9 +402,9 @@ impl Machine {
             Location::GPR(GPR::R15),
             Location::Memory(GPR::RBP, -(self.stack_offset.0 as i32)),
         );
-        self.state.stack_values.push(MachineValue::PreserveRegister(
-            X64Register::GPR(GPR::R15).to_index(),
-        ));
+        self.state
+            .stack_values
+            .push(MachineValue::PreserveRegister(X64Register::GPR(GPR::R15).to_index()));
 
         // Save the offset of register save area.
         self.save_area_offset = Some(MachineStackOffset(self.stack_offset.0));
@@ -452,11 +447,7 @@ impl Machine {
         }
 
         // Load vmctx into R15.
-        a.emit_mov(
-            Size::S64,
-            Self::get_param_location(0),
-            Location::GPR(GPR::R15),
-        );
+        a.emit_mov(Size::S64, Self::get_param_location(0), Location::GPR(GPR::R15));
 
         // Stack probe.
         //
@@ -503,10 +494,7 @@ impl Machine {
         // Unwind stack to the "save area".
         a.emit_lea(
             Size::S64,
-            Location::Memory(
-                GPR::RBP,
-                -(self.save_area_offset.as_ref().unwrap().0 as i32),
-            ),
+            Location::Memory(GPR::RBP, -(self.save_area_offset.as_ref().unwrap().0 as i32)),
             Location::GPR(GPR::RSP),
         );
 
@@ -545,9 +533,7 @@ mod test {
         let mut assembler = Assembler::new().unwrap();
         let locs = machine.acquire_locations(
             &mut assembler,
-            &(0..10)
-                .map(|_| (WpType::I32, MachineValue::Undefined))
-                .collect::<Vec<_>>(),
+            &(0..10).map(|_| (WpType::I32, MachineValue::Undefined)).collect::<Vec<_>>(),
             false,
         );
 

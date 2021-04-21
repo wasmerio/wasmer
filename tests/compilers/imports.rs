@@ -100,9 +100,7 @@ fn dynamic_function_with_env() -> Result<()> {
         }
     }
 
-    let env: Env = Env {
-        counter: Arc::new(AtomicUsize::new(0)),
-    };
+    let env: Env = Env { counter: Arc::new(AtomicUsize::new(0)) };
     Instance::new(
         &module,
         &imports! {
@@ -325,9 +323,7 @@ fn dynamic_function_with_env_wasmer_env_init_works() -> Result<()> {
         memory: LazyInit<Memory>,
     }
 
-    let env: Env = Env {
-        memory: LazyInit::default(),
-    };
+    let env: Env = Env { memory: LazyInit::default() };
     let instance = Instance::new(
         &module,
         &imports! {
@@ -363,9 +359,7 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
         }
     }
 
-    let env: Env = Env {
-        memory: LazyInit::default(),
-    };
+    let env: Env = Env { memory: LazyInit::default() };
     fn host_fn(env: &Env) {
         assert!(env.memory.get_ref().is_some());
         println!("Hello, world!");

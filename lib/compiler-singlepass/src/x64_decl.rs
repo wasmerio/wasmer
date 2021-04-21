@@ -202,10 +202,7 @@ impl ArgumentRegisterAllocator {
                     None
                 }
             }
-            _ => todo!(
-                "ArgumentRegisterAllocator::next: Unsupported type: {:?}",
-                ty
-            ),
+            _ => todo!("ArgumentRegisterAllocator::next: Unsupported type: {:?}", ty),
         }
     }
 }

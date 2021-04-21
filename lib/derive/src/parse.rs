@@ -66,11 +66,7 @@ impl Parse for ExportOptions {
             }
         }
 
-        Ok(ExportOptions {
-            name,
-            optional,
-            aliases,
-        })
+        Ok(ExportOptions { name, optional, aliases })
     }
 }
 
@@ -89,11 +85,7 @@ impl Parse for ExportExpr {
             optional = false;
             aliases = vec![];
         }
-        Ok(Self {
-            name,
-            optional,
-            aliases,
-        })
+        Ok(Self { name, optional, aliases })
     }
 }
 
@@ -117,18 +109,9 @@ impl Parse for WasmerAttrInner {
                     (None, false, vec![])
                 };
 
-                WasmerAttr::Export {
-                    identifier: name,
-                    optional,
-                    aliases,
-                    span,
-                }
+                WasmerAttr::Export { identifier: name, optional, aliases, span }
             }
-            otherwise => abort!(
-                ident,
-                "Unexpected identifier `{}`. Expected `export`.",
-                otherwise
-            ),
+            otherwise => abort!(ident, "Unexpected identifier `{}`. Expected `export`.", otherwise),
         };
         Ok(WasmerAttrInner(out))
     }

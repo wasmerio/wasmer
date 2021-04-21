@@ -22,10 +22,7 @@ pub fn wast_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
     // The implementation of `run_wast` lives in /tests/spectest.rs
     let body = format!("crate::run_wast(r#\"{}\"#, \"{}\")", p.display(), compiler);
 
-    Some(Test {
-        name: testname,
-        body,
-    })
+    Some(Test { name: testname, body })
 }
 
 /// Given a Testsuite and a path, process the path in case is a Emscripten
@@ -58,10 +55,7 @@ pub fn emscripten_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
         compiler
     );
 
-    Some(Test {
-        name: testname,
-        body,
-    })
+    Some(Test { name: testname, body })
 }
 
 /// Given a Testsuite and a path, process the path in case is a WASI
@@ -89,8 +83,5 @@ pub fn wasi_processor(out: &mut Testsuite, p: PathBuf) -> Option<Test> {
         compiler
     );
 
-    Some(Test {
-        name: testname,
-        body,
-    })
+    Some(Test { name: testname, body })
 }

@@ -10,10 +10,7 @@ use thiserror::Error;
 ///
 /// Internal method only, users should call [`WasiState::new`].
 pub(crate) fn create_wasi_state(program_name: &str) -> WasiStateBuilder {
-    WasiStateBuilder {
-        args: vec![program_name.bytes().collect()],
-        ..WasiStateBuilder::default()
-    }
+    WasiStateBuilder { args: vec![program_name.bytes().collect()], ..WasiStateBuilder::default() }
 }
 
 /// Convenient builder API for configuring WASI via [`WasiState`].
@@ -81,9 +78,10 @@ pub enum WasiStateCreationError {
 
 fn validate_mapped_dir_alias(alias: &str) -> Result<(), WasiStateCreationError> {
     if !alias.bytes().all(|b| b != b'\0') {
-        return Err(WasiStateCreationError::MappedDirAliasFormattingError(
-            format!("Alias \"{}\" contains a nul byte", alias),
-        ));
+        return Err(WasiStateCreationError::MappedDirAliasFormattingError(format!(
+            "Alias \"{}\" contains a nul byte",
+            alias
+        )));
     }
 
     Ok(())
@@ -102,8 +100,7 @@ impl WasiStateBuilder {
         Key: AsRef<[u8]>,
         Value: AsRef<[u8]>,
     {
-        self.envs
-            .push((key.as_ref().to_vec(), value.as_ref().to_vec()));
+        self.envs.push((key.as_ref().to_vec(), value.as_ref().to_vec()));
 
         self
     }
@@ -230,11 +227,7 @@ impl WasiStateBuilder {
     {
         let mut pdb = PreopenDirBuilder::new();
         let path = po_dir.as_ref();
-        pdb.directory(path)
-            .alias(alias)
-            .read(true)
-            .write(true)
-            .create(true);
+        pdb.directory(path).alias(alias).read(true).write(true).create(true);
         let preopen = pdb.build()?;
 
         self.preopens.push(preopen);
@@ -329,33 +322,27 @@ impl WasiStateBuilder {
                 }
             }) {
                 Some(InvalidCharacter::Nul) => {
-                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!(
-                            "found nul byte in env var key \"{}\" (key=value)",
-                            String::from_utf8_lossy(env_key)
-                        ),
-                    ))
+                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(format!(
+                        "found nul byte in env var key \"{}\" (key=value)",
+                        String::from_utf8_lossy(env_key)
+                    )))
                 }
 
                 Some(InvalidCharacter::Equal) => {
-                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                        format!(
-                            "found equal sign in env var key \"{}\" (key=value)",
-                            String::from_utf8_lossy(env_key)
-                        ),
-                    ))
+                    return Err(WasiStateCreationError::EnvironmentVariableFormatError(format!(
+                        "found equal sign in env var key \"{}\" (key=value)",
+                        String::from_utf8_lossy(env_key)
+                    )))
                 }
 
                 None => (),
             }
 
             if env_value.iter().any(|&ch| ch == 0) {
-                return Err(WasiStateCreationError::EnvironmentVariableFormatError(
-                    format!(
-                        "found nul byte in env var value \"{}\" (key=value)",
-                        String::from_utf8_lossy(env_value)
-                    ),
-                ));
+                return Err(WasiStateCreationError::EnvironmentVariableFormatError(format!(
+                    "found nul byte in env var value \"{}\" (key=value)",
+                    String::from_utf8_lossy(env_value)
+                )));
             }
         }
 
@@ -522,37 +509,25 @@ mod test {
     fn env_var_errors() {
         // `=` in the key is invalid.
         assert!(
-            create_wasi_state("test_prog")
-                .env("HOM=E", "/home/home")
-                .build()
-                .is_err(),
+            create_wasi_state("test_prog").env("HOM=E", "/home/home").build().is_err(),
             "equal sign in key must be invalid"
         );
 
         // `\0` in the key is invalid.
         assert!(
-            create_wasi_state("test_prog")
-                .env("HOME\0", "/home/home")
-                .build()
-                .is_err(),
+            create_wasi_state("test_prog").env("HOME\0", "/home/home").build().is_err(),
             "nul in key must be invalid"
         );
 
         // `=` in the value is valid.
         assert!(
-            create_wasi_state("test_prog")
-                .env("HOME", "/home/home=home")
-                .build()
-                .is_ok(),
+            create_wasi_state("test_prog").env("HOME", "/home/home=home").build().is_ok(),
             "equal sign in the value must be valid"
         );
 
         // `\0` in the value is invalid.
         assert!(
-            create_wasi_state("test_prog")
-                .env("HOME", "/home/home\0")
-                .build()
-                .is_err(),
+            create_wasi_state("test_prog").env("HOME", "/home/home\0").build().is_err(),
             "nul in value must be invalid"
         );
     }
@@ -564,9 +539,7 @@ mod test {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),
         }
-        let output = create_wasi_state("test_prog")
-            .args(&["--help", "--wat\0"])
-            .build();
+        let output = create_wasi_state("test_prog").args(&["--help", "--wat\0"]).build();
         match output {
             Err(WasiStateCreationError::ArgumentContainsNulByte(_)) => assert!(true),
             _ => assert!(false),

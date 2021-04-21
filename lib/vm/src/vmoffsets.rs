@@ -489,10 +489,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_functions);
         self.vmctx_imported_functions_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmfunction_import()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmfunction_import())).unwrap(),
             )
             .unwrap()
     }
@@ -504,10 +501,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_tables);
         self.vmctx_imported_tables_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmtable_import()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmtable_import())).unwrap(),
             )
             .unwrap()
     }
@@ -519,10 +513,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_memories);
         self.vmctx_imported_memories_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmmemory_import()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmmemory_import())).unwrap(),
             )
             .unwrap()
     }
@@ -534,10 +525,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_imported_globals);
         self.vmctx_imported_globals_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmglobal_import()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmglobal_import())).unwrap(),
             )
             .unwrap()
     }
@@ -549,10 +537,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_local_tables);
         self.vmctx_tables_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmtable_definition()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmtable_definition())).unwrap(),
             )
             .unwrap()
     }
@@ -564,10 +549,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_local_memories);
         self.vmctx_memories_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmmemory_definition()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmmemory_definition())).unwrap(),
             )
             .unwrap()
     }
@@ -579,10 +561,7 @@ impl VMOffsets {
         assert_lt!(index.as_u32(), self.num_local_globals);
         self.vmctx_globals_begin()
             .checked_add(
-                index
-                    .as_u32()
-                    .checked_mul(u32::from(self.size_of_vmglobal_local()))
-                    .unwrap(),
+                index.as_u32().checked_mul(u32::from(self.size_of_vmglobal_local())).unwrap(),
             )
             .unwrap()
     }
@@ -676,12 +655,7 @@ impl VMOffsets {
     /// Return the offset to builtin function in `VMBuiltinFunctionsArray` index `index`.
     pub fn vmctx_builtin_function(&self, index: VMBuiltinFunctionIndex) -> u32 {
         self.vmctx_builtin_functions_begin()
-            .checked_add(
-                index
-                    .index()
-                    .checked_mul(u32::from(self.pointer_size))
-                    .unwrap(),
-            )
+            .checked_add(index.index().checked_mul(u32::from(self.pointer_size)).unwrap())
             .unwrap()
     }
 }

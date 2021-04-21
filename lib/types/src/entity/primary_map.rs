@@ -48,18 +48,12 @@ where
 {
     /// Create a new empty map.
     pub fn new() -> Self {
-        Self {
-            elems: Vec::new(),
-            unused: PhantomData,
-        }
+        Self { elems: Vec::new(), unused: PhantomData }
     }
 
     /// Create a new empty map with the given capacity.
     pub fn with_capacity(capacity: usize) -> Self {
-        Self {
-            elems: Vec::with_capacity(capacity),
-            unused: PhantomData,
-        }
+        Self { elems: Vec::with_capacity(capacity), unused: PhantomData }
     }
 
     /// Check if `k` is a valid key in the map.
@@ -231,10 +225,7 @@ where
     where
         T: IntoIterator<Item = V>,
     {
-        Self {
-            elems: Vec::from_iter(iter),
-            unused: PhantomData,
-        }
+        Self { elems: Vec::from_iter(iter), unused: PhantomData }
     }
 }
 

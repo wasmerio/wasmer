@@ -13,11 +13,7 @@ impl WasmFunctionType {
         let params: Box<wasm_valtype_vec_t> = Box::new(function_type.params().into());
         let results: Box<wasm_valtype_vec_t> = Box::new(function_type.results().into());
 
-        Self {
-            function_type,
-            params,
-            results,
-        }
+        Self { function_type, params, results }
     }
 }
 
@@ -36,9 +32,7 @@ pub struct wasm_functype_t {
 
 impl wasm_functype_t {
     pub(crate) fn new(function_type: FunctionType) -> Self {
-        Self {
-            extern_type: wasm_externtype_t::new(ExternType::Function(function_type)),
-        }
+        Self { extern_type: wasm_externtype_t::new(ExternType::Function(function_type)) }
     }
 
     pub(crate) fn inner(&self) -> &WasmFunctionType {
@@ -61,24 +55,15 @@ pub unsafe extern "C" fn wasm_functype_new(
     let params = params?;
     let results = results?;
 
-    let params_as_valtype: Vec<ValType> = params
-        .into_slice()?
-        .into_iter()
-        .map(|val| val.as_ref().into())
-        .collect::<Vec<_>>();
-    let results_as_valtype: Vec<ValType> = results
-        .into_slice()?
-        .iter()
-        .map(|val| val.as_ref().into())
-        .collect::<Vec<_>>();
+    let params_as_valtype: Vec<ValType> =
+        params.into_slice()?.into_iter().map(|val| val.as_ref().into()).collect::<Vec<_>>();
+    let results_as_valtype: Vec<ValType> =
+        results.into_slice()?.iter().map(|val| val.as_ref().into()).collect::<Vec<_>>();
 
     wasm_valtype_vec_delete(Some(params));
     wasm_valtype_vec_delete(Some(results));
 
-    Some(Box::new(wasm_functype_t::new(FunctionType::new(
-        params_as_valtype,
-        results_as_valtype,
-    ))))
+    Some(Box::new(wasm_functype_t::new(FunctionType::new(params_as_valtype, results_as_valtype))))
 }
 
 #[no_mangle]

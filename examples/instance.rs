@@ -60,10 +60,7 @@ fn main() -> Result<(), Box<dyn std::error::Error>> {
     // Here we are retrieving the exported function. We won't go into details here
     // as the main focus of this example is to show how to create an instance out
     // of a Wasm module and have basic interactions with it.
-    let add_one = instance
-        .exports
-        .get_function("add_one")?
-        .native::<i32, i32>()?;
+    let add_one = instance.exports.get_function("add_one")?.native::<i32, i32>()?;
 
     println!("Calling `add_one` function...");
     let result = add_one.call(1)?;

@@ -94,9 +94,7 @@ pub fn generate_header_file(
         name: "WASMER_METADATA".to_string(),
         is_extern: true,
         is_const: true,
-        ctype: CType::Array {
-            inner: Box::new(CType::U8),
-        },
+        ctype: CType::Array { inner: Box::new(CType::U8) },
         definition: None,
     });
     let function_declarations = module_info
@@ -113,10 +111,7 @@ pub fn generate_header_file(
                 name: function_name,
                 is_extern: false,
                 is_const: false,
-                ctype: CType::Function {
-                    arguments: vec![CType::Void],
-                    return_value: None,
-                },
+                ctype: CType::Function { arguments: vec![CType::Void], return_value: None },
                 definition: None,
             }
         });
@@ -144,9 +139,7 @@ pub fn generate_header_file(
 
                 CStatement::Cast {
                     target_type: CType::void_ptr(),
-                    expression: Box::new(CStatement::LiteralConstant {
-                        value: function_name,
-                    }),
+                    expression: Box::new(CStatement::LiteralConstant { value: function_name }),
                 }
             })
             .collect::<Vec<_>>();
@@ -155,9 +148,7 @@ pub fn generate_header_file(
             name: "function_pointers".to_string(),
             is_extern: false,
             is_const: true,
-            ctype: CType::Array {
-                inner: Box::new(CType::void_ptr()),
-            },
+            ctype: CType::Array { inner: Box::new(CType::void_ptr()) },
             definition: Some(Box::new(CStatement::LiteralArray {
                 items: function_pointer_array_statements,
             })),
@@ -165,24 +156,21 @@ pub fn generate_header_file(
     }
 
     let func_trampoline_declarations =
-        module_info
-            .signatures
-            .iter()
-            .map(|(sig_index, _func_type)| {
-                let function_name =
-                    symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
+        module_info.signatures.iter().map(|(sig_index, _func_type)| {
+            let function_name =
+                symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
 
-                CStatement::Declaration {
-                    name: function_name,
-                    is_extern: false,
-                    is_const: false,
-                    ctype: CType::Function {
-                        arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
-                        return_value: None,
-                    },
-                    definition: None,
-                }
-            });
+            CStatement::Declaration {
+                name: function_name,
+                is_extern: false,
+                is_const: false,
+                ctype: CType::Function {
+                    arguments: vec![CType::void_ptr(), CType::void_ptr(), CType::void_ptr()],
+                    return_value: None,
+                },
+                definition: None,
+            }
+        });
     c_statements.push(CStatement::LiteralConstant {
         value: r#"
 // Trampolines (functions by which we can call into Wasm) ordered by signature.
@@ -201,9 +189,7 @@ pub fn generate_header_file(
             .map(|(sig_index, _vm_shared_index)| {
                 let function_name =
                     symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(sig_index));
-                CStatement::LiteralConstant {
-                    value: function_name,
-                }
+                CStatement::LiteralConstant { value: function_name }
             })
             .collect::<Vec<_>>();
 
@@ -211,20 +197,15 @@ pub fn generate_header_file(
             name: "function_trampolines".to_string(),
             is_extern: false,
             is_const: true,
-            ctype: CType::Array {
-                inner: Box::new(CType::void_ptr()),
-            },
+            ctype: CType::Array { inner: Box::new(CType::void_ptr()) },
             definition: Some(Box::new(CStatement::LiteralArray {
                 items: function_trampoline_statements,
             })),
         });
     }
 
-    let dyn_func_declarations = module_info
-        .functions
-        .keys()
-        .take(module_info.num_imported_functions)
-        .map(|func_index| {
+    let dyn_func_declarations =
+        module_info.functions.keys().take(module_info.num_imported_functions).map(|func_index| {
             let function_name =
                 symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
             // TODO: figure out the signature here
@@ -266,9 +247,7 @@ pub fn generate_header_file(
             .map(|func_index| {
                 let function_name =
                     symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(func_index));
-                CStatement::LiteralConstant {
-                    value: function_name,
-                }
+                CStatement::LiteralConstant { value: function_name }
             })
             .collect::<Vec<_>>();
         c_statements.push(CStatement::Declaration {
@@ -284,9 +263,7 @@ pub fn generate_header_file(
         });
     }
 
-    c_statements.push(CStatement::LiteralConstant {
-        value: HELPER_FUNCTIONS.to_string(),
-    });
+    c_statements.push(CStatement::LiteralConstant { value: HELPER_FUNCTIONS.to_string() });
 
     c_statements.push(CStatement::LiteralConstant {
         value: "\n#ifdef __cplusplus\n}\n#endif\n\n".to_string(),

@@ -61,10 +61,7 @@ pub unsafe extern "C" fn wasmer_global_get_descriptor(
 ) -> wasmer_global_descriptor_t {
     let global = &*(global as *mut Global);
     let descriptor = global.ty();
-    wasmer_global_descriptor_t {
-        mutable: descriptor.mutability.into(),
-        kind: descriptor.ty.into(),
-    }
+    wasmer_global_descriptor_t { mutable: descriptor.mutability.into(), kind: descriptor.ty.into() }
 }
 
 /// Frees memory for the given Global

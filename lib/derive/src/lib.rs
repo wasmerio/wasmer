@@ -124,12 +124,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
                 helpers.push(helper_tokens);
             }
             match wasmer_attr {
-                WasmerAttr::Export {
-                    identifier,
-                    optional,
-                    aliases,
-                    span,
-                } => {
+                WasmerAttr::Export { identifier, optional, aliases, span } => {
                     let finish_tokens = if let Some(name) = name {
                         let name_str = name.to_string();
                         let item_name =
@@ -221,10 +216,7 @@ fn derive_struct_fields(data: &DataStruct) -> (TokenStream, TokenStream) {
 // TODO: name this something that makes sense
 fn get_identifier(ty: &Type) -> TokenStream {
     match ty {
-        Type::Path(TypePath {
-            path: Path { segments, .. },
-            ..
-        }) => {
+        Type::Path(TypePath { path: Path { segments, .. }, .. }) => {
             if let Some(PathSegment { ident, arguments }) = segments.last() {
                 if ident != "LazyInit" {
                     abort!(

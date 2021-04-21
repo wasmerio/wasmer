@@ -19,11 +19,7 @@ pub struct Keys<K: EntityRef> {
 impl<K: EntityRef> Keys<K> {
     /// Create a `Keys` iterator that visits `len` entities starting from 0.
     pub fn with_len(len: usize) -> Self {
-        Self {
-            pos: 0,
-            rev_pos: len,
-            unused: PhantomData,
-        }
+        Self { pos: 0, rev_pos: len, unused: PhantomData }
     }
 }
 

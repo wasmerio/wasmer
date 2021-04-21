@@ -122,13 +122,10 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
         }
 
         // Append a global for remaining points and initialize it.
-        let remaining_points_global_index = module_info
-            .globals
-            .push(GlobalType::new(Type::I64, Mutability::Var));
+        let remaining_points_global_index =
+            module_info.globals.push(GlobalType::new(Type::I64, Mutability::Var));
 
-        module_info
-            .global_initializers
-            .push(GlobalInit::I64Const(self.initial_limit as i64));
+        module_info.global_initializers.push(GlobalInit::I64Const(self.initial_limit as i64));
 
         module_info.exports.insert(
             "wasmer_metering_remaining_points".to_string(),
@@ -136,13 +133,10 @@ impl<F: Fn(&Operator) -> u64 + Send + Sync + 'static> ModuleMiddleware for Meter
         );
 
         // Append a global for the exhausted points boolean and initialize it.
-        let points_exhausted_global_index = module_info
-            .globals
-            .push(GlobalType::new(Type::I32, Mutability::Var));
+        let points_exhausted_global_index =
+            module_info.globals.push(GlobalType::new(Type::I32, Mutability::Var));
 
-        module_info
-            .global_initializers
-            .push(GlobalInit::I32Const(0));
+        module_info.global_initializers.push(GlobalInit::I32Const(0));
 
         module_info.exports.insert(
             "wasmer_metering_points_exhausted".to_string(),
@@ -324,10 +318,7 @@ mod tests {
 
         // Instantiate
         let instance = Instance::new(&module, &imports! {}).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(10)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(10));
 
         // First call
         //
@@ -335,24 +326,14 @@ mod tests {
         // * `local.get $value` is a `Operator::LocalGet` which costs 1 point;
         // * `i32.const` is a `Operator::I32Const` which costs 1 point;
         // * `i32.add` is a `Operator::I32Add` which costs 2 points.
-        let add_one = instance
-            .exports
-            .get_function("add_one")
-            .unwrap()
-            .native::<i32, i32>()
-            .unwrap();
+        let add_one =
+            instance.exports.get_function("add_one").unwrap().native::<i32, i32>().unwrap();
         add_one.call(1).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(6)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(6));
 
         // Second call
         add_one.call(1).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(2)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(2));
 
         // Third call fails due to limit
         assert!(add_one.call(1).is_err());
@@ -369,47 +350,28 @@ mod tests {
 
         // Instantiate
         let instance = Instance::new(&module, &imports! {}).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(10)
-        );
-        let add_one = instance
-            .exports
-            .get_function("add_one")
-            .unwrap()
-            .native::<i32, i32>()
-            .unwrap();
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(10));
+        let add_one =
+            instance.exports.get_function("add_one").unwrap().native::<i32, i32>().unwrap();
 
         // Increase a bit to have enough for 3 calls
         set_remaining_points(&instance, 12);
 
         // Ensure we can use the new points now
         add_one.call(1).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(8)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(8));
 
         add_one.call(1).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(4)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(4));
 
         add_one.call(1).unwrap();
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(0)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(0));
 
         assert!(add_one.call(1).is_err());
         assert_eq!(get_remaining_points(&instance), MeteringPoints::Exhausted);
 
         // Add some points for another call
         set_remaining_points(&instance, 4);
-        assert_eq!(
-            get_remaining_points(&instance),
-            MeteringPoints::Remaining(4)
-        );
+        assert_eq!(get_remaining_points(&instance), MeteringPoints::Remaining(4));
     }
 }

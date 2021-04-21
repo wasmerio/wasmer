@@ -19,11 +19,8 @@ pub fn ___syscall5(ctx: &EmEnv, which: c_int, mut varargs: VarArgs) -> c_int {
     let _ = which;
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = get_cstr_path(ctx, pathname_addr);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
     let path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
@@ -48,10 +45,7 @@ pub fn ___syscall5(ctx: &EmEnv, which: c_int, mut varargs: VarArgs) -> c_int {
             let raw_pointer_to_urandom_file =
                 emscripten_memory_pointer!(&memory, urandom_file_offset) as *const i8;
             let fd = unsafe { open(raw_pointer_to_urandom_file, flags, mode) };
-            debug!(
-                "=> pathname: {}, flags: {}, mode: {} = fd: {}",
-                path_str, flags, mode, fd
-            );
+            debug!("=> pathname: {}, flags: {}, mode: {} = fd: {}", path_str, flags, mode, fd);
             fd
         }
         _ => {
@@ -104,11 +98,8 @@ pub fn ___syscall39(ctx: &EmEnv, which: c_int, mut varargs: VarArgs) -> c_int {
     let _ = which;
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = get_cstr_path(ctx, pathname_addr);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
     unsafe { mkdir(real_path) }
 }
 

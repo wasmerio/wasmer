@@ -10,10 +10,7 @@ use serde::{Deserialize, Serialize};
 /// [WebAssembly proposal]: https://github.com/WebAssembly/proposals
 #[derive(Clone, Debug, Eq, PartialEq, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
-#[cfg_attr(
-    feature = "enable-rkyv",
-    derive(RkyvSerialize, RkyvDeserialize, Archive)
-)]
+#[cfg_attr(feature = "enable-rkyv", derive(RkyvSerialize, RkyvDeserialize, Archive))]
 pub struct Features {
     /// Threads proposal should be enabled
     pub threads: bool,
@@ -301,10 +298,7 @@ mod test_features {
     #[test]
     fn disable_bulk_memory() {
         let mut features = Features::new();
-        features
-            .threads(true)
-            .reference_types(true)
-            .bulk_memory(false);
+        features.threads(true).reference_types(true).bulk_memory(false);
         assert!(!features.bulk_memory);
         assert!(!features.reference_types);
     }

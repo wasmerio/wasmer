@@ -22,10 +22,7 @@ impl<'a, K: EntityRef, V> Iter<'a, K, V> {
     /// Create an `Iter` iterator that visits the `PrimaryMap` keys and values
     /// of `iter`.
     pub fn new(iter: slice::Iter<'a, V>) -> Self {
-        Self {
-            enumerate: iter.enumerate(),
-            unused: PhantomData,
-        }
+        Self { enumerate: iter.enumerate(), unused: PhantomData }
     }
 }
 
@@ -62,10 +59,7 @@ impl<'a, K: EntityRef, V> IterMut<'a, K, V> {
     /// Create an `IterMut` iterator that visits the `PrimaryMap` keys and values
     /// of `iter`.
     pub fn new(iter: slice::IterMut<'a, V>) -> Self {
-        Self {
-            enumerate: iter.enumerate(),
-            unused: PhantomData,
-        }
+        Self { enumerate: iter.enumerate(), unused: PhantomData }
     }
 }
 
@@ -99,10 +93,7 @@ impl<K: EntityRef, V> IntoIter<K, V> {
     /// Create an `IntoIter` iterator that visits the `PrimaryMap` keys and values
     /// of `iter`.
     pub fn new(iter: vec::IntoIter<V>) -> Self {
-        Self {
-            enumerate: iter.enumerate(),
-            unused: PhantomData,
-        }
+        Self { enumerate: iter.enumerate(), unused: PhantomData }
     }
 }
 

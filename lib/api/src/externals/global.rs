@@ -63,20 +63,14 @@ impl Global {
         if !val.comes_from_same_store(store) {
             return Err(RuntimeError::new("cross-`Store` globals are not supported"));
         }
-        let global = RuntimeGlobal::new(GlobalType {
-            mutability,
-            ty: val.ty(),
-        });
+        let global = RuntimeGlobal::new(GlobalType { mutability, ty: val.ty() });
         unsafe {
             global
                 .set_unchecked(val.clone())
                 .map_err(|e| RuntimeError::new(format!("create global for {:?}: {}", val, e)))?;
         };
 
-        Ok(Self {
-            store: store.clone(),
-            global: Arc::new(global),
-        })
+        Ok(Self { store: store.clone(), global: Arc::new(global) })
     }
 
     /// Returns the [`GlobalType`] of the `Global`.
@@ -175,18 +169,13 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            self.global
-                .set(val)
-                .map_err(|e| RuntimeError::new(format!("{}", e)))?;
+            self.global.set(val).map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
-        Self {
-            store: store.clone(),
-            global: wasmer_export.vm_global.from,
-        }
+        Self { store: store.clone(), global: wasmer_export.vm_global.from }
     }
 
     /// Returns whether or not these two globals refer to the same data.
@@ -218,13 +207,8 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        ExportGlobal {
-            vm_global: VMExportGlobal {
-                from: self.global.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        ExportGlobal { vm_global: VMExportGlobal { from: self.global.clone(), instance_ref: None } }
+            .into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

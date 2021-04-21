@@ -43,19 +43,14 @@ impl Table {
         let item = init.into_table_reference(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
-        let table = tunables
-            .create_host_table(&ty, &style)
-            .map_err(RuntimeError::new)?;
+        let table = tunables.create_host_table(&ty, &style).map_err(RuntimeError::new)?;
 
         let num_elements = table.size();
         for i in 0..num_elements {
             set_table_item(table.as_ref(), i, item.clone())?;
         }
 
-        Ok(Self {
-            store: store.clone(),
-            table,
-        })
+        Ok(Self { store: store.clone(), table })
     }
 
     /// Returns the [`TableType`] of the `Table`.
@@ -116,9 +111,7 @@ impl Table {
         len: u32,
     ) -> Result<(), RuntimeError> {
         if !Store::same(&dst_table.store, &src_table.store) {
-            return Err(RuntimeError::new(
-                "cross-`Store` table copies are not supported",
-            ));
+            return Err(RuntimeError::new("cross-`Store` table copies are not supported"));
         }
         RuntimeTable::copy(
             dst_table.table.as_ref(),
@@ -132,10 +125,7 @@ impl Table {
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportTable) -> Self {
-        Self {
-            store: store.clone(),
-            table: wasmer_export.vm_table.from,
-        }
+        Self { store: store.clone(), table: wasmer_export.vm_table.from }
     }
 
     /// Returns whether or not these two tables refer to the same data.
@@ -146,13 +136,8 @@ impl Table {
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        ExportTable {
-            vm_table: VMExportTable {
-                from: self.table.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        ExportTable { vm_table: VMExportTable { from: self.table.clone(), instance_ref: None } }
+            .into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

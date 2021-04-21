@@ -34,10 +34,7 @@ pub fn make_trampoline_function_call(
     let mut wrapper_sig = ir::Signature::new(frontend_config.default_call_conv);
 
     // Add the callee `vmctx` parameter.
-    wrapper_sig.params.push(ir::AbiParam::special(
-        pointer_type,
-        ir::ArgumentPurpose::VMContext,
-    ));
+    wrapper_sig.params.push(ir::AbiParam::special(pointer_type, ir::ArgumentPurpose::VMContext));
 
     // Add the `callee_address` parameter.
     wrapper_sig.params.push(ir::AbiParam::new(pointer_type));
@@ -87,18 +84,14 @@ pub fn make_trampoline_function_call(
 
         let new_sig = builder.import_signature(signature);
 
-        let call = builder
-            .ins()
-            .call_indirect(new_sig, callee_value, &callee_args);
+        let call = builder.ins().call_indirect(new_sig, callee_value, &callee_args);
 
         let results = builder.func.dfg.inst_results(call).to_vec();
 
         // Store the return values into `values_vec`.
         let mflags = ir::MemFlags::trusted();
         for (i, r) in results.iter().enumerate() {
-            builder
-                .ins()
-                .store(mflags, *r, values_vec_ptr_val, (i * value_size) as i32);
+            builder.ins().store(mflags, *r, values_vec_ptr_val, (i * value_size) as i32);
         }
 
         builder.ins().return_(&[]);
@@ -111,13 +104,7 @@ pub fn make_trampoline_function_call(
     let mut stackmap_sink = binemit::NullStackMapSink {};
 
     context
-        .compile_and_emit(
-            isa,
-            &mut code_buf,
-            &mut reloc_sink,
-            &mut trap_sink,
-            &mut stackmap_sink,
-        )
+        .compile_and_emit(isa, &mut code_buf, &mut reloc_sink, &mut trap_sink, &mut stackmap_sink)
         .map_err(|error| CompileError::Codegen(pretty_error(&context.func, Some(isa), error)))?;
 
     let unwind_info = compiled_function_unwind_info(isa, &context)?.maybe_into_to_windows_unwind();

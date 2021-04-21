@@ -39,9 +39,7 @@ pub unsafe extern "C" fn wasm_module_new(
     let bytes = bytes.into_slice()?;
     let module = c_try!(Module::from_binary(&store.inner, bytes));
 
-    Some(Box::new(wasm_module_t {
-        inner: Arc::new(module),
-    }))
+    Some(Box::new(wasm_module_t { inner: Arc::new(module) }))
 }
 
 /// Deletes a WebAssembly module.
@@ -488,11 +486,7 @@ pub unsafe extern "C" fn wasm_module_deserialize(
 
     let module = c_try!(Module::deserialize(&store.inner, byte_slice));
 
-    Some(NonNull::new_unchecked(Box::into_raw(Box::new(
-        wasm_module_t {
-            inner: Arc::new(module),
-        },
-    ))))
+    Some(NonNull::new_unchecked(Box::into_raw(Box::new(wasm_module_t { inner: Arc::new(module) }))))
 }
 
 /// Serializes a module into a binary representation that the

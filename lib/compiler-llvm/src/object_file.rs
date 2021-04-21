@@ -71,45 +71,24 @@ where
     libcalls.insert("wasmer_vm_f32_trunc".to_string(), LibCall::TruncF32);
     libcalls.insert("wasmer_vm_f64_trunc".to_string(), LibCall::TruncF64);
     libcalls.insert("wasmer_vm_memory32_size".to_string(), LibCall::Memory32Size);
-    libcalls.insert(
-        "wasmer_vm_imported_memory32_size".to_string(),
-        LibCall::ImportedMemory32Size,
-    );
+    libcalls.insert("wasmer_vm_imported_memory32_size".to_string(), LibCall::ImportedMemory32Size);
     libcalls.insert("wasmer_vm_table_copy".to_string(), LibCall::TableCopy);
     libcalls.insert("wasmer_vm_table_init".to_string(), LibCall::TableInit);
     libcalls.insert("wasmer_vm_table_fill".to_string(), LibCall::TableFill);
     libcalls.insert("wasmer_vm_table_size".to_string(), LibCall::TableSize);
-    libcalls.insert(
-        "wasmer_vm_imported_table_size".to_string(),
-        LibCall::ImportedTableSize,
-    );
+    libcalls.insert("wasmer_vm_imported_table_size".to_string(), LibCall::ImportedTableSize);
     libcalls.insert("wasmer_vm_table_get".to_string(), LibCall::TableGet);
-    libcalls.insert(
-        "wasmer_vm_imported_table_get".to_string(),
-        LibCall::ImportedTableGet,
-    );
+    libcalls.insert("wasmer_vm_imported_table_get".to_string(), LibCall::ImportedTableGet);
     libcalls.insert("wasmer_vm_table_set".to_string(), LibCall::TableSet);
-    libcalls.insert(
-        "wasmer_vm_imported_table_set".to_string(),
-        LibCall::ImportedTableSet,
-    );
+    libcalls.insert("wasmer_vm_imported_table_set".to_string(), LibCall::ImportedTableSet);
     libcalls.insert("wasmer_vm_table_grow".to_string(), LibCall::TableGrow);
-    libcalls.insert(
-        "wasmer_vm_imported_table_grow".to_string(),
-        LibCall::ImportedTableGrow,
-    );
+    libcalls.insert("wasmer_vm_imported_table_grow".to_string(), LibCall::ImportedTableGrow);
     libcalls.insert("wasmer_vm_func_ref".to_string(), LibCall::FuncRef);
     libcalls.insert("wasmer_vm_elem_drop".to_string(), LibCall::ElemDrop);
     libcalls.insert("wasmer_vm_memory32_copy".to_string(), LibCall::Memory32Copy);
-    libcalls.insert(
-        "wasmer_vm_imported_memory32_copy".to_string(),
-        LibCall::ImportedMemory32Copy,
-    );
+    libcalls.insert("wasmer_vm_imported_memory32_copy".to_string(), LibCall::ImportedMemory32Copy);
     libcalls.insert("wasmer_vm_memory32_fill".to_string(), LibCall::Memory32Fill);
-    libcalls.insert(
-        "wasmer_vm_imported_memory32_fill".to_string(),
-        LibCall::ImportedMemory32Fill,
-    );
+    libcalls.insert("wasmer_vm_imported_memory32_fill".to_string(), LibCall::ImportedMemory32Fill);
     libcalls.insert("wasmer_vm_memory32_init".to_string(), LibCall::Memory32Init);
     libcalls.insert("wasmer_vm_data_drop".to_string(), LibCall::DataDrop);
     libcalls.insert("wasmer_vm_raise_trap".to_string(), LibCall::RaiseTrap);
@@ -274,15 +253,12 @@ where
             } else {
                 unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
             };
-            relocations
-                .entry(section_index)
-                .or_default()
-                .push(Relocation {
-                    kind,
-                    reloc_target,
-                    offset,
-                    addend,
-                });
+            relocations.entry(section_index).or_default().push(Relocation {
+                kind,
+                reloc_target,
+                offset,
+                addend,
+            });
         }
     }
 
@@ -317,15 +293,10 @@ where
         })
         .collect::<Vec<_>>();
     custom_sections.sort_unstable_by_key(|a| a.0);
-    let custom_sections = custom_sections
-        .into_iter()
-        .map(|(_, v)| v)
-        .collect::<PrimaryMap<SectionIndex, _>>();
+    let custom_sections =
+        custom_sections.into_iter().map(|(_, v)| v).collect::<PrimaryMap<SectionIndex, _>>();
 
-    let function_body = FunctionBody {
-        body: section_bytes(root_section_index),
-        unwind_info: None,
-    };
+    let function_body = FunctionBody { body: section_bytes(root_section_index), unwind_info: None };
 
     let address_map = FunctionAddressMap {
         instructions: vec![InstructionAddressMap {
@@ -343,13 +314,8 @@ where
         compiled_function: wasmer_compiler::CompiledFunction {
             body: function_body,
             jt_offsets: SecondaryMap::new(),
-            relocations: relocations
-                .remove_entry(&root_section_index)
-                .map_or(vec![], |(_, v)| v),
-            frame_info: CompiledFunctionFrameInfo {
-                address_map,
-                traps: vec![],
-            },
+            relocations: relocations.remove_entry(&root_section_index).map_or(vec![], |(_, v)| v),
+            frame_info: CompiledFunctionFrameInfo { address_map, traps: vec![] },
         },
         custom_sections,
         eh_frame_section_indices,

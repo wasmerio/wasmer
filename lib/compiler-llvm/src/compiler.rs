@@ -61,12 +61,8 @@ impl SymbolRegistry for ShortNames {
         match ty.chars().next().unwrap() {
             'f' => Some(Symbol::LocalFunction(LocalFunctionIndex::from_u32(idx))),
             's' => Some(Symbol::Section(SectionIndex::from_u32(idx))),
-            't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(
-                idx,
-            ))),
-            'd' => Some(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(
-                idx,
-            ))),
+            't' => Some(Symbol::FunctionCallTrampoline(SignatureIndex::from_u32(idx))),
+            'd' => Some(Symbol::DynamicFunctionTrampoline(FunctionIndex::from_u32(idx))),
             _ => None,
         }
     }
@@ -123,10 +119,7 @@ impl LLVMCompiler {
             compile_info.module.functions.iter().par_bridge().map_init(
                 || {
                     let target_machine = self.config().target_machine(target);
-                    (
-                        FuncTrampoline::new(target_machine),
-                        &compile_info.module.signatures,
-                    )
+                    (FuncTrampoline::new(target_machine), &compile_info.module.signatures)
                 },
                 |(func_trampoline, signatures), (i, sig)| {
                     let sig = &signatures[*sig];
@@ -176,9 +169,8 @@ impl LLVMCompiler {
             merged_module.verify().unwrap();
         }
 
-        let memory_buffer = target_machine
-            .write_to_memory_buffer(&merged_module, FileType::Object)
-            .unwrap();
+        let memory_buffer =
+            target_machine.write_to_memory_buffer(&merged_module, FileType::Object).unwrap();
         if let Some(ref callbacks) = self.config.callbacks {
             callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
         }
@@ -274,10 +266,7 @@ impl Compiler for LLVMCompiler {
                             )
                         }
                     }
-                    if compiled_function
-                        .eh_frame_section_indices
-                        .contains(&section_index)
-                    {
+                    if compiled_function.eh_frame_section_indices.contains(&section_index) {
                         let offset = frame_section_bytes.len() as u32;
                         for mut reloc in &mut custom_section.relocations {
                             reloc.offset += offset;
@@ -306,9 +295,8 @@ impl Compiler for LLVMCompiler {
             .collect::<PrimaryMap<LocalFunctionIndex, _>>();
 
         let dwarf = if !frame_section_bytes.is_empty() {
-            let dwarf = Some(Dwarf::new(SectionIndex::from_u32(
-                module_custom_sections.len() as u32,
-            )));
+            let dwarf =
+                Some(Dwarf::new(SectionIndex::from_u32(module_custom_sections.len() as u32)));
             // Terminating zero-length CIE.
             frame_section_bytes.extend(vec![
                 0x00, 0x00, 0x00, 0x00, // Length

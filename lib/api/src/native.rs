@@ -41,12 +41,7 @@ where
         exported: ExportFunction,
         definition: FunctionDefinition,
     ) -> Self {
-        Self {
-            definition,
-            store,
-            exported,
-            _phantom: PhantomData,
-        }
+        Self { definition, store, exported, _phantom: PhantomData }
     }
 
     pub(crate) fn vmctx(&self) -> VMFunctionEnvironment {
@@ -97,11 +92,7 @@ where
     Rets: WasmTypeList,
 {
     fn from(other: NativeFunc<Args, Rets>) -> Self {
-        Self {
-            store: other.store,
-            definition: other.definition,
-            exported: other.exported,
-        }
+        Self { store: other.store, definition: other.definition, exported: other.exported }
     }
 }
 

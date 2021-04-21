@@ -66,17 +66,14 @@ impl CodeMemory {
 
         let total_len = round_up(
             functions.iter().fold(0, |acc, func| {
-                round_up(
-                    acc + Self::function_allocation_size(func),
-                    ARCH_FUNCTION_ALIGNMENT,
-                )
-            }) + executable_sections.iter().fold(0, |acc, exec| {
-                round_up(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)
-            }),
+                round_up(acc + Self::function_allocation_size(func), ARCH_FUNCTION_ALIGNMENT)
+            }) + executable_sections
+                .iter()
+                .fold(0, |acc, exec| round_up(acc + exec.bytes.len(), ARCH_FUNCTION_ALIGNMENT)),
             page_size,
-        ) + data_sections.iter().fold(0, |acc, data| {
-            round_up(acc + data.bytes.len(), DATA_SECTION_ALIGNMENT)
-        });
+        ) + data_sections
+            .iter()
+            .fold(0, |acc, data| round_up(acc + data.bytes.len(), DATA_SECTION_ALIGNMENT));
 
         // 2. Allocate the pages. Mark them all read-write.
 
@@ -88,10 +85,7 @@ impl CodeMemory {
         let mut bytes = 0;
         let mut buf = self.mmap.as_mut_slice();
         for func in functions {
-            let len = round_up(
-                Self::function_allocation_size(func),
-                ARCH_FUNCTION_ALIGNMENT,
-            );
+            let len = round_up(Self::function_allocation_size(func), ARCH_FUNCTION_ALIGNMENT);
             let (func_buf, next_buf) = buf.split_at_mut(len);
             buf = next_buf;
             bytes += len;
@@ -130,11 +124,7 @@ impl CodeMemory {
             }
         }
 
-        Ok((
-            function_result,
-            executable_section_result,
-            data_section_result,
-        ))
+        Ok((function_result, executable_section_result, data_section_result))
     }
 
     /// Apply the page permissions.

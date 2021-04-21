@@ -41,10 +41,7 @@ fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
 }
 
 pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
-    println!(
-        "Running wast `{}` with the {} compiler",
-        wast_path, compiler
-    );
+    println!("Running wast `{}` with the {} compiler", wast_path, compiler);
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
     let is_bulkmemory = wast_path.contains("bulk-memory");

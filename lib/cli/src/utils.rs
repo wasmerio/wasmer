@@ -84,9 +84,6 @@ mod tests {
         );
         assert_eq!(parse_envvar("A=B").unwrap(), ("A".into(), "B".into()));
         assert_eq!(parse_envvar("   A=B\t").unwrap(), ("A".into(), "B".into()));
-        assert_eq!(
-            parse_envvar("A=B=C=D").unwrap(),
-            ("A".into(), "B=C=D".into())
-        );
+        assert_eq!(parse_envvar("A=B=C=D").unwrap(), ("A".into(), "B=C=D".into()));
     }
 }

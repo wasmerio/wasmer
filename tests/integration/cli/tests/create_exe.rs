@@ -134,11 +134,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     let result = run_code(
         &operating_dir,
         &executable_path,
-        &[
-            "--dir=.".to_string(),
-            "--script".to_string(),
-            "test.js".to_string(),
-        ],
+        &["--dir=.".to_string(), "--script".to_string(), "test.js".to_string()],
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();
@@ -148,11 +144,7 @@ fn create_exe_works_with_file() -> anyhow::Result<()> {
     let result = run_code(
         &operating_dir,
         &executable_path,
-        &[
-            "--mapdir=abc:.".to_string(),
-            "--script".to_string(),
-            "abc/test.js".to_string(),
-        ],
+        &["--mapdir=abc:.".to_string(), "--script".to_string(), "abc/test.js".to_string()],
     )
     .context("Failed to run generated executable")?;
     let result_lines = result.lines().collect::<Vec<&str>>();

@@ -14,10 +14,7 @@ fn impls_wasmer_env<T: WasmerEnv>() -> bool {
 
 #[test]
 fn test_derive() {
-    let _my_env = MyEnv {
-        num: 3,
-        nums: vec![1, 2, 3],
-    };
+    let _my_env = MyEnv { num: 3, nums: vec![1, 2, 3] };
     assert!(impls_wasmer_env::<MyEnv>());
 }
 

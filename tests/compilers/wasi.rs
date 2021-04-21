@@ -18,10 +18,7 @@ use wasmer_wast::WasiTest;
 include!(concat!(env!("OUT_DIR"), "/generated_wasitests.rs"));
 
 pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Result<()> {
-    println!(
-        "Running wasi wast `{}` with the {} compiler",
-        wast_path, compiler
-    );
+    println!("Running wasi wast `{}` with the {} compiler", wast_path, compiler);
     let store = get_store(true);
 
     let source = {

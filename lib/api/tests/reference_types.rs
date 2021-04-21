@@ -112,9 +112,8 @@ fn func_ref_passed_and_called() -> Result<()> {
     }
 
     {
-        let f: NativeFunc<(), i32> = instance
-            .exports
-            .get_native_function("call_host_func_with_wasm_func")?;
+        let f: NativeFunc<(), i32> =
+            instance.exports.get_native_function("call_host_func_with_wasm_func")?;
         let result = f.call()?;
         assert_eq!(result, 63);
     }
@@ -415,12 +414,10 @@ fn extern_ref_ref_counting_table_instructions() -> Result<()> {
     let module = Module::new(&store, wat)?;
     let instance = Instance::new(&module, &imports! {})?;
 
-    let grow_table_with_ref: NativeFunc<(ExternRef, i32), i32> = instance
-        .exports
-        .get_native_function("grow_table_with_ref")?;
-    let fill_table_with_ref: NativeFunc<(ExternRef, i32, i32), ()> = instance
-        .exports
-        .get_native_function("fill_table_with_ref")?;
+    let grow_table_with_ref: NativeFunc<(ExternRef, i32), i32> =
+        instance.exports.get_native_function("grow_table_with_ref")?;
+    let fill_table_with_ref: NativeFunc<(ExternRef, i32, i32), ()> =
+        instance.exports.get_native_function("fill_table_with_ref")?;
     let copy_into_table2: NativeFunc<(), ()> =
         instance.exports.get_native_function("copy_into_table2")?;
     let table1: &Table = instance.exports.get_table("table1")?;

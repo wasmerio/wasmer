@@ -152,11 +152,7 @@ pub fn _gai_strerror(ctx: &EmEnv, ecode: i32) -> i32 {
     let string_on_guest: WasmPtr<c_char, Array> = call_malloc_with_cast(ctx, bytes.len() as _);
     let memory = ctx.memory(0);
 
-    let writer = unsafe {
-        string_on_guest
-            .deref_mut(&memory, 0, bytes.len() as _)
-            .unwrap()
-    };
+    let writer = unsafe { string_on_guest.deref_mut(&memory, 0, bytes.len() as _).unwrap() };
     for (i, byte) in bytes.iter().enumerate() {
         writer[i].set(*byte as _);
     }
@@ -212,18 +208,13 @@ pub fn _getaddrinfo(
     // allocate equivalent memory for res_val_ptr
     let result = unsafe {
         libc::getaddrinfo(
-            (node_ptr
-                .deref(&memory)
-                .map(|m| m as *const Cell<c_char> as *const c_char))
-            .unwrap_or(std::ptr::null()),
+            (node_ptr.deref(&memory).map(|m| m as *const Cell<c_char> as *const c_char))
+                .unwrap_or(std::ptr::null()),
             service_str_ptr
                 .deref(&memory)
                 .map(|m| m as *const Cell<c_char> as *const c_char)
                 .unwrap_or(std::ptr::null()),
-            hints
-                .as_ref()
-                .map(|h| h as *const addrinfo)
-                .unwrap_or(std::ptr::null()),
+            hints.as_ref().map(|h| h as *const addrinfo).unwrap_or(std::ptr::null()),
             &mut out_ptr as *mut *mut addrinfo,
         )
     };

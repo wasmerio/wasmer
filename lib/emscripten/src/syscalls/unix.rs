@@ -162,17 +162,11 @@ pub fn ___syscall5(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     let flags: i32 = varargs.get(ctx);
     let mode: u32 = varargs.get(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
     let _path_str = unsafe { std::ffi::CStr::from_ptr(real_path).to_str().unwrap() };
     let fd = unsafe { open(real_path, flags, mode) };
-    debug!(
-        "=> path: {}, flags: {}, mode: {} = fd: {}",
-        _path_str, flags, mode, fd,
-    );
+    debug!("=> path: {}, flags: {}, mode: {} = fd: {}", _path_str, flags, mode, fd,);
     if fd == -1 {
         debug!("=> last os error: {}", Error::last_os_error(),);
     }
@@ -214,17 +208,11 @@ pub fn ___syscall83(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     let path1 = varargs.get_str(ctx);
     let path2 = varargs.get_str(ctx);
     let real_path1_owned = utils::get_cstr_path(ctx, path1 as *const _);
-    let real_path1 = if let Some(ref rp) = real_path1_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        path1
-    };
+    let real_path1 =
+        if let Some(ref rp) = real_path1_owned { rp.as_c_str().as_ptr() } else { path1 };
     let real_path2_owned = utils::get_cstr_path(ctx, path2 as *const _);
-    let real_path2 = if let Some(ref rp) = real_path2_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        path2
-    };
+    let real_path2 =
+        if let Some(ref rp) = real_path2_owned { rp.as_c_str().as_ptr() } else { path2 };
     let result = unsafe { symlink(real_path1, real_path2) };
     debug!(
         "=> path1: {}, path2: {}, result: {}",
@@ -243,11 +231,8 @@ pub fn ___syscall85(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> i32 {
     // let buf_addr: i32 = varargs.get(ctx);
     let buf_size: i32 = varargs.get(ctx);
     let real_path_owned = get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
 
     let ret = unsafe { libc::readlink(real_path, buf as _, buf_size as _) as i32 };
     if ret == -1 {
@@ -286,11 +271,8 @@ pub fn ___syscall198(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     debug!("emscripten::___syscall198 (lchown) {}", _which);
     let path_ptr = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path_ptr as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        path_ptr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { path_ptr };
     let uid: uid_t = varargs.get(ctx);
     let gid: gid_t = varargs.get(ctx);
     let result = unsafe { lchown(real_path, uid, gid) };
@@ -314,10 +296,7 @@ pub fn ___syscall205(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
     let gid_ptr = emscripten_memory_pointer!(ctx.memory(0), groups) as *mut gid_t;
     assert_eq!(4, mem::align_of_val(&gid_ptr));
     let result = unsafe { getgroups(ngroups_max, gid_ptr) };
-    debug!(
-        "=> ngroups_max: {}, gid_ptr: {:?}, result: {}",
-        ngroups_max, gid_ptr, result,
-    );
+    debug!("=> ngroups_max: {}, gid_ptr: {:?}, result: {}", ngroups_max, gid_ptr, result,);
     result
 }
 
@@ -327,11 +306,8 @@ pub fn ___syscall212(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
 
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
     let owner: u32 = varargs.get(ctx);
     let group: u32 = varargs.get(ctx);
 
@@ -356,11 +332,7 @@ pub fn ___syscall33(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall33 (access) {}", _which);
     let path = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        path
-    };
+    let real_path = if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { path };
     let amode: c_int = varargs.get(ctx);
     let result = unsafe { access(real_path, amode) };
     debug!(
@@ -384,11 +356,8 @@ pub fn ___syscall39(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
     debug!("emscripten::___syscall39 (mkdir) {}", _which);
     let pathname_addr = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, pathname_addr as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        pathname_addr
-    };
+    let real_path =
+        if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { pathname_addr };
     let mode: u32 = varargs.get(ctx);
     unsafe { mkdir(real_path, mode as _) }
 }
@@ -461,10 +430,7 @@ pub fn ___syscall330(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> pid_t 
         fcntl(newfd, F_SETFD, old_flags);
     }
 
-    debug!(
-        "=> oldfd: {}, newfd: {}, flags: {} = pid: {}",
-        oldfd, newfd, flags, res
-    );
+    debug!("=> oldfd: {}, newfd: {}, flags: {} = pid: {}", oldfd, newfd, flags, res);
     res
 }
 
@@ -484,10 +450,7 @@ pub fn ___syscall54(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
             let argp_ptr = emscripten_memory_pointer!(ctx.memory(0), argp) as *mut c_void;
             let translated_request = translate_ioctl(request);
             let ret = unsafe { ioctl(fd, translated_request as _, argp_ptr) };
-            debug!(
-                " => request: {}, translated: {}, return: {}",
-                request, translated_request, ret
-            );
+            debug!(" => request: {}, translated: {}, return: {}", request, translated_request, ret);
 
             // TODO: We hardcode the value to have emscripten tests pass, as for some reason
             // when the capturer is active, ioctl returns -1 instead of 0
@@ -497,10 +460,7 @@ pub fn ___syscall54(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int {
             ret
         }
         _ => {
-            debug!(
-                " => not implemented case {} (noop, hardcoded to 0)",
-                request
-            );
+            debug!(" => not implemented case {} (noop, hardcoded to 0)", request);
             0
         }
     }
@@ -558,19 +518,10 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             type T = u32;
             let payload = 1 as *const T as _;
             unsafe {
-                setsockopt(
-                    fd,
-                    SOL_SOCKET,
-                    SO_NOSIGPIPE,
-                    payload,
-                    mem::size_of::<T>() as socklen_t,
-                );
+                setsockopt(fd, SOL_SOCKET, SO_NOSIGPIPE, payload, mem::size_of::<T>() as socklen_t);
             };
 
-            debug!(
-                "=> domain: {}, type: {}, protocol: {} = fd: {}",
-                domain, ty, protocol, fd
-            );
+            debug!("=> domain: {}, type: {}, protocol: {} = fd: {}", domain, ty, protocol, fd);
             fd as _
         }
         2 => {
@@ -614,10 +565,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             let socket = socket_varargs.get(ctx);
             let backlog: i32 = socket_varargs.get(ctx);
             let status = unsafe { listen(socket, backlog) };
-            debug!(
-                "=> socketfd: {}, backlog: {} = status: {}",
-                socket, backlog, status
-            );
+            debug!("=> socketfd: {}, backlog: {} = status: {}", socket, backlog, status);
             status
         }
         5 => {
@@ -654,10 +602,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
                 ioctl(fd, translate_ioctl(WASM_FIOCLEX) as _);
             };
 
-            debug!(
-                "address: {:?}, len: {}, result fd = {}",
-                address_addr, address_len_addr, fd
-            );
+            debug!("address: {:?}, len: {}, result fd = {}", address_addr, address_len_addr, fd);
 
             fd as _
         }
@@ -732,14 +677,7 @@ pub fn ___syscall102(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
             let address_len_addr =
                 emscripten_memory_pointer!(memory, address_len) as *mut socklen_t;
             unsafe {
-                recvfrom(
-                    socket,
-                    buf_addr,
-                    len as usize,
-                    flags,
-                    address,
-                    address_len_addr,
-                ) as i32
+                recvfrom(socket, buf_addr, len as usize, flags, address, address_len_addr) as i32
             }
         }
         14 => {
@@ -859,13 +797,8 @@ pub fn ___syscall168(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
 
     let fds_mut = unsafe { fds.deref_mut(&memory).unwrap().get_mut() };
 
-    let ret = unsafe {
-        libc::poll(
-            fds_mut as *mut EmPollFd as *mut libc::pollfd,
-            nfds as _,
-            timeout,
-        )
-    };
+    let ret =
+        unsafe { libc::poll(fds_mut as *mut EmPollFd as *mut libc::pollfd, nfds as _, timeout) };
 
     ret
 }
@@ -901,10 +834,7 @@ pub fn ___syscall181(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> c_int 
 
     let buf_ptr = emscripten_memory_pointer!(ctx.memory(0), buf) as _;
     let status = unsafe { pwrite(fd, buf_ptr, count as _, offset) as _ };
-    debug!(
-        "=> fd: {}, buf: {}, count: {}, offset: {} = status:{}",
-        fd, buf, count, offset, status
-    );
+    debug!("=> fd: {}, buf: {}, count: {}, offset: {} = status:{}", fd, buf, count, offset, status);
     status
 }
 
@@ -1004,11 +934,7 @@ pub fn ___syscall196(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     debug!("emscripten::___syscall196 (lstat64) {}", _which);
     let path = varargs.get_str(ctx);
     let real_path_owned = utils::get_cstr_path(ctx, path as *const _);
-    let real_path = if let Some(ref rp) = real_path_owned {
-        rp.as_c_str().as_ptr()
-    } else {
-        path
-    };
+    let real_path = if let Some(ref rp) = real_path_owned { rp.as_c_str().as_ptr() } else { path };
     let buf_ptr: u32 = varargs.get(ctx);
     unsafe {
         let mut stat: stat = std::mem::zeroed();
@@ -1049,10 +975,7 @@ pub fn ___syscall220(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let fd: i32 = varargs.get(ctx);
     let dirp_addr: i32 = varargs.get(ctx);
     let count: u32 = varargs.get(ctx);
-    debug!(
-        "emscripten::___syscall220 (getdents) {} {} {}",
-        fd, dirp_addr, count
-    );
+    debug!("emscripten::___syscall220 (getdents) {} {} {}", fd, dirp_addr, count);
 
     let dirp = emscripten_memory_pointer!(ctx.memory(0), dirp_addr) as *mut u8;
 
@@ -1096,9 +1019,7 @@ pub fn ___syscall220(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
             *(dirp.add(pos + 11 + i) as *mut c_char) = 0 as c_char;
             debug!(
                 "  => file {}",
-                CStr::from_ptr(dirp.add(pos + 11) as *const c_char)
-                    .to_str()
-                    .unwrap()
+                CStr::from_ptr(dirp.add(pos + 11) as *const c_char).to_str().unwrap()
             );
         }
         pos += offset;

@@ -18,10 +18,7 @@ pub struct wasm_func_t {
 
 impl wasm_func_t {
     pub(crate) fn new(function: Function) -> Self {
-        Self {
-            tag: CApiExternTag::Function,
-            inner: Box::new(function),
-        }
+        Self { tag: CApiExternTag::Function, inner: Box::new(function) }
     }
 }
 
@@ -171,10 +168,7 @@ pub unsafe extern "C" fn wasm_func_new_with_env(
     let function = Function::new_with_env(
         &store.inner,
         func_sig,
-        WrapperEnv {
-            env,
-            env_finalizer: Arc::new(env_finalizer),
-        },
+        WrapperEnv { env, env_finalizer: Arc::new(env_finalizer) },
         trampoline,
     );
 

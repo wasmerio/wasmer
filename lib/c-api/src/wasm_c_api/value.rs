@@ -114,10 +114,7 @@ wasm_declare_vec!(val);
 
 impl Clone for wasm_val_t {
     fn clone(&self) -> Self {
-        wasm_val_t {
-            kind: self.kind,
-            of: self.of.clone(),
-        }
+        wasm_val_t { kind: self.kind, of: self.of.clone() }
     }
 }
 
@@ -130,18 +127,10 @@ pub unsafe extern "C" fn wasm_val_copy(
     out.kind = val.kind;
     out.of = match val.kind.try_into() {
         Ok(kind) => match kind {
-            wasm_valkind_enum::WASM_I32 => wasm_val_inner {
-                int32_t: val.of.int32_t,
-            },
-            wasm_valkind_enum::WASM_I64 => wasm_val_inner {
-                int64_t: val.of.int64_t,
-            },
-            wasm_valkind_enum::WASM_F32 => wasm_val_inner {
-                float32_t: val.of.float32_t,
-            },
-            wasm_valkind_enum::WASM_F64 => wasm_val_inner {
-                float64_t: val.of.float64_t,
-            },
+            wasm_valkind_enum::WASM_I32 => wasm_val_inner { int32_t: val.of.int32_t },
+            wasm_valkind_enum::WASM_I64 => wasm_val_inner { int64_t: val.of.int64_t },
+            wasm_valkind_enum::WASM_F32 => wasm_val_inner { float32_t: val.of.float32_t },
+            wasm_valkind_enum::WASM_F64 => wasm_val_inner { float64_t: val.of.float64_t },
             wasm_valkind_enum::WASM_ANYREF => wasm_val_inner { wref: val.of.wref },
             wasm_valkind_enum::WASM_FUNCREF => wasm_val_inner { wref: val.of.wref },
         },

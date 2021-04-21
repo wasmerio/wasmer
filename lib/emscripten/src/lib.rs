@@ -280,12 +280,7 @@ impl EmscriptenData {
         globals: EmscriptenGlobalsData,
         mapped_dirs: HashMap<String, PathBuf>,
     ) -> EmscriptenData {
-        EmscriptenData {
-            globals,
-            temp_ret_0: 0,
-            mapped_dirs,
-            ..Default::default()
-        }
+        EmscriptenData { globals, temp_ret_0: 0, mapped_dirs, ..Default::default() }
     }
 }
 
@@ -301,10 +296,7 @@ pub fn set_up_emscripten(instance: &mut Instance) -> Result<(), RuntimeError> {
         func.call(&[])?;
     }
 
-    if let Ok(func) = instance
-        .exports
-        .get::<Function>("___emscripten_environ_constructor")
-    {
+    if let Ok(func) = instance.exports.get::<Function>("___emscripten_environ_constructor") {
         func.call(&[])?;
     }
     Ok(())
@@ -322,10 +314,7 @@ pub fn emscripten_call_main(
 ) -> Result<(), RuntimeError> {
     let (function_name, main_func) = match instance.exports.get::<Function>("_main") {
         Ok(func) => Ok(("_main", func)),
-        Err(_e) => instance
-            .exports
-            .get::<Function>("main")
-            .map(|func| ("main", func)),
+        Err(_e) => instance.exports.get::<Function>("main").map(|func| ("main", func)),
     }
     .map_err(|e| RuntimeError::new(e.to_string()))?;
     let num_params = main_func.ty().params().len();
@@ -376,10 +365,8 @@ pub fn run_emscripten_instance(
         debug!("Running entry point: {}", &ep);
         let arg = unsafe { allocate_cstr_on_stack(env, args[0]).0 };
         //let (argc, argv) = store_module_arguments(instance.context_mut(), args);
-        let func: &Function = instance
-            .exports
-            .get(&ep)
-            .map_err(|e| RuntimeError::new(e.to_string()))?;
+        let func: &Function =
+            instance.exports.get(&ep).map_err(|e| RuntimeError::new(e.to_string()))?;
         func.call(&[Val::I32(arg as i32)])?;
     } else {
         emscripten_call_main(instance, env, path, &args)?;
@@ -470,11 +457,7 @@ impl EmscriptenGlobals {
         let memory_type = MemoryType::new(memory_min, memory_max, shared);
         let memory = Memory::new(store, memory_type).unwrap();
 
-        let table_type = TableType {
-            ty: ValType::FuncRef,
-            minimum: table_min,
-            maximum: table_max,
-        };
+        let table_type = TableType { ty: ValType::FuncRef, minimum: table_min, maximum: table_max };
         let table = Table::new(store, table_type, Val::FuncRef(None)).unwrap();
 
         let data = {
@@ -491,10 +474,7 @@ impl EmscriptenGlobals {
             let (dynamic_base, dynamictop_ptr) =
                 get_emscripten_metadata(&module)?.unwrap_or_else(|| {
                     let dynamictop_ptr = static_alloc(&mut static_top, 4);
-                    (
-                        align_memory(align_memory(static_top) + TOTAL_STACK),
-                        dynamictop_ptr,
-                    )
+                    (align_memory(align_memory(static_top) + TOTAL_STACK), dynamictop_ptr)
                 });
 
             let stacktop = align_memory(static_top);
@@ -525,14 +505,7 @@ impl EmscriptenGlobals {
             }
         }
 
-        Ok(Self {
-            data,
-            memory,
-            table,
-            memory_min,
-            memory_max,
-            null_function_names,
-        })
+        Ok(Self { data, memory, table, memory_min, memory_max, null_function_names })
     }
 }
 

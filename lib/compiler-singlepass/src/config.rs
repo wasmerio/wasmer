@@ -19,11 +19,7 @@ impl Singlepass {
     /// Creates a new configuration object with the default configuration
     /// specified.
     pub fn new() -> Self {
-        Self {
-            enable_nan_canonicalization: true,
-            enable_stack_check: false,
-            middlewares: vec![],
-        }
+        Self { enable_nan_canonicalization: true, enable_stack_check: false, middlewares: vec![] }
     }
 
     /// Enable stack check.

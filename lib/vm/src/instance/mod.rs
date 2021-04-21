@@ -163,12 +163,7 @@ impl Clone for ImportFunctionEnv {
     fn clone(&self) -> Self {
         match &self {
             Self::NoEnv => Self::NoEnv,
-            Self::Env {
-                env,
-                clone,
-                destructor,
-                initializer,
-            } => {
+            Self::Env { env, clone, destructor, initializer } => {
                 let new_env = (*clone)(*env);
                 Self::Env {
                     env: new_env,
@@ -184,9 +179,7 @@ impl Clone for ImportFunctionEnv {
 impl Drop for ImportFunctionEnv {
     fn drop(&mut self) {
         match self {
-            Self::Env {
-                env, destructor, ..
-            } => {
+            Self::Env { env, destructor, .. } => {
                 // # Safety
                 // - This is correct because we know no other references
                 //   to this data can exist if we're dropping it.
@@ -216,9 +209,7 @@ impl Instance {
     /// Helper function to access various locations offset from our `*mut
     /// VMContext` object.
     unsafe fn vmctx_plus_offset<T>(&self, offset: u32) -> *mut T {
-        (self.vmctx_ptr() as *mut u8)
-            .add(usize::try_from(offset).unwrap())
-            .cast()
+        (self.vmctx_ptr() as *mut u8).add(usize::try_from(offset).unwrap()).cast()
     }
 
     fn module(&self) -> &Arc<ModuleInfo> {
@@ -405,17 +396,9 @@ impl Instance {
 
         let (callee_address, callee_vmctx) = match self.module.local_func_index(start_index) {
             Some(local_index) => {
-                let body = self
-                    .functions
-                    .get(local_index)
-                    .expect("function index is out of bounds")
-                    .0;
-                (
-                    body as *const _,
-                    VMFunctionEnvironment {
-                        vmctx: self.vmctx_ptr(),
-                    },
-                )
+                let body =
+                    self.functions.get(local_index).expect("function index is out of bounds").0;
+                (body as *const _, VMFunctionEnvironment { vmctx: self.vmctx_ptr() })
             }
             None => {
                 assert_lt!(start_index.index(), self.module.num_imported_functions);
@@ -660,13 +643,9 @@ impl Instance {
 
         let table = self.get_table(table_index);
         let passive_elements = self.passive_elements.borrow();
-        let elem = passive_elements
-            .get(&elem_index)
-            .map_or::<&[VMFuncRef], _>(&[], |e| &**e);
+        let elem = passive_elements.get(&elem_index).map_or::<&[VMFuncRef], _>(&[], |e| &**e);
 
-        if src
-            .checked_add(len)
-            .map_or(true, |n| n as usize > elem.len())
+        if src.checked_add(len).map_or(true, |n| n as usize > elem.len())
             || dst.checked_add(len).map_or(true, |m| m > table.size())
         {
             return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
@@ -698,10 +677,7 @@ impl Instance {
         let table = self.get_table(table_index);
         let table_size = table.size() as usize;
 
-        if start_index
-            .checked_add(len)
-            .map_or(true, |n| n as usize > table_size)
-        {
+        if start_index.checked_add(len).map_or(true, |n| n as usize > table_size) {
             return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
@@ -814,12 +790,8 @@ impl Instance {
         let passive_data = self.passive_data.borrow();
         let data = passive_data.get(&data_index).map_or(&[][..], |d| &**d);
 
-        if src
-            .checked_add(len)
-            .map_or(true, |n| n as usize > data.len())
-            || dst
-                .checked_add(len)
-                .map_or(true, |m| m > memory.current_length)
+        if src.checked_add(len).map_or(true, |n| n as usize > data.len())
+            || dst.checked_add(len).map_or(true, |m| m > memory.current_length)
         {
             return Err(Trap::new_from_runtime(TrapCode::HeapAccessOutOfBounds));
         }
@@ -956,9 +928,7 @@ impl InstanceHandle {
                 );
             }
 
-            Self {
-                instance: instance_ref,
-            }
+            Self { instance: instance_ref }
         };
         let instance = handle.instance().as_ref();
 
@@ -1086,9 +1056,7 @@ impl InstanceHandle {
                     if let Some(def_index) = instance_ref.module.local_func_index(*index) {
                         (
                             instance_ref.functions[def_index].0 as *const _,
-                            VMFunctionEnvironment {
-                                vmctx: instance_ref.vmctx_ptr(),
-                            },
+                            VMFunctionEnvironment { vmctx: instance_ref.vmctx_ptr() },
                             None,
                         )
                     } else {
@@ -1120,11 +1088,7 @@ impl InstanceHandle {
                     let import = instance_ref.imported_table(*index);
                     import.from.clone()
                 };
-                VMExportTable {
-                    from,
-                    instance_ref: Some(instance),
-                }
-                .into()
+                VMExportTable { from, instance_ref: Some(instance) }.into()
             }
             ExportIndex::Memory(index) => {
                 let from = if let Some(def_index) = instance_ref.module.local_memory_index(*index) {
@@ -1133,11 +1097,7 @@ impl InstanceHandle {
                     let import = instance_ref.imported_memory(*index);
                     import.from.clone()
                 };
-                VMExportMemory {
-                    from,
-                    instance_ref: Some(instance),
-                }
-                .into()
+                VMExportMemory { from, instance_ref: Some(instance) }.into()
             }
             ExportIndex::Global(index) => {
                 let from = {
@@ -1148,11 +1108,7 @@ impl InstanceHandle {
                         import.from.clone()
                     }
                 };
-                VMExportGlobal {
-                    from,
-                    instance_ref: Some(instance),
-                }
-                .into()
+                VMExportGlobal { from, instance_ref: Some(instance) }.into()
             }
         }
     }
@@ -1206,9 +1162,7 @@ impl InstanceHandle {
         delta: u32,
         init_value: TableElement,
     ) -> Option<u32> {
-        self.instance()
-            .as_ref()
-            .table_grow(table_index, delta, init_value)
+        self.instance().as_ref().table_grow(table_index, delta, init_value)
     }
 
     /// Get table element reference.
@@ -1250,11 +1204,7 @@ impl InstanceHandle {
 
         for import_function_env in instance_ref.imported_function_envs.values_mut() {
             match import_function_env {
-                ImportFunctionEnv::Env {
-                    env,
-                    ref mut initializer,
-                    ..
-                } => {
+                ImportFunctionEnv::Env { env, ref mut initializer, .. } => {
                     if let Some(f) = initializer {
                         // transmute our function pointer into one with the correct error type
                         let f = mem::transmute::<
@@ -1339,9 +1289,8 @@ unsafe fn get_memory_slice<'instance>(
     init: &DataInitializer<'_>,
     instance: &'instance Instance,
 ) -> &'instance mut [u8] {
-    let memory = if let Some(local_memory_index) = instance
-        .module
-        .local_memory_index(init.location.memory_index)
+    let memory = if let Some(local_memory_index) =
+        instance.module.local_memory_index(init.location.memory_index)
     {
         instance.memory(local_memory_index)
     } else {
@@ -1393,21 +1342,13 @@ fn initialize_tables(instance: &Instance) -> Result<(), Trap> {
         let start = get_table_init_start(init, instance);
         let table = instance.get_table(init.table_index);
 
-        if start
-            .checked_add(init.elements.len())
-            .map_or(true, |end| end > table.size() as usize)
-        {
+        if start.checked_add(init.elements.len()).map_or(true, |end| end > table.size() as usize) {
             return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
         for (i, func_idx) in init.elements.iter().enumerate() {
             let anyfunc = instance.get_vm_funcref(*func_idx);
-            table
-                .set(
-                    u32::try_from(start + i).unwrap(),
-                    TableElement::FuncRef(anyfunc),
-                )
-                .unwrap();
+            table.set(u32::try_from(start + i).unwrap(), TableElement::FuncRef(anyfunc)).unwrap();
         }
     }
 
@@ -1425,20 +1366,11 @@ fn initialize_passive_elements(instance: &Instance) {
     );
 
     passive_elements.extend(
-        instance
-            .module
-            .passive_elements
-            .iter()
-            .filter(|(_, segments)| !segments.is_empty())
-            .map(|(idx, segments)| {
-                (
-                    *idx,
-                    segments
-                        .iter()
-                        .map(|s| instance.get_vm_funcref(*s))
-                        .collect(),
-                )
-            }),
+        instance.module.passive_elements.iter().filter(|(_, segments)| !segments.is_empty()).map(
+            |(idx, segments)| {
+                (*idx, segments.iter().map(|s| instance.get_vm_funcref(*s)).collect())
+            },
+        ),
     );
 }
 
@@ -1515,11 +1447,8 @@ fn build_funcrefs(
     for (index, import) in imports.functions.iter() {
         let sig_index = module_info.functions[index];
         let type_index = vmshared_signatures[sig_index];
-        let anyfunc = VMCallerCheckedAnyfunc {
-            func_ptr: import.body,
-            type_index,
-            vmctx: import.environment,
-        };
+        let anyfunc =
+            VMCallerCheckedAnyfunc { func_ptr: import.body, type_index, vmctx: import.environment };
         let func_ref = func_data_registry.register(anyfunc);
         func_refs.push(func_ref);
     }

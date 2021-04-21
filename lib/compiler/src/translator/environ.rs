@@ -78,10 +78,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn declare_export(&mut self, export: ExportIndex, name: &str) -> WasmResult<()> {
-        self.result
-            .module
-            .exports
-            .insert(String::from(name), export);
+        self.result.module.exports.insert(String::from(name), export);
         Ok(())
     }
 
@@ -91,18 +88,15 @@ impl<'data> ModuleEnvironment<'data> {
         module: &str,
         field: &str,
     ) -> WasmResult<()> {
-        self.result.module.imports.insert(
-            (String::from(module), String::from(field), self.imports),
-            import,
-        );
+        self.result
+            .module
+            .imports
+            .insert((String::from(module), String::from(field), self.imports), import);
         Ok(())
     }
 
     pub(crate) fn reserve_signatures(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .signatures
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.signatures.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -148,9 +142,7 @@ impl<'data> ModuleEnvironment<'data> {
             "Imported tables must be declared first"
         );
         self.declare_import(
-            ImportIndex::Table(TableIndex::from_u32(
-                self.result.module.num_imported_tables as _,
-            )),
+            ImportIndex::Table(TableIndex::from_u32(self.result.module.num_imported_tables as _)),
             module,
             field,
         )?;
@@ -213,13 +205,8 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_func_types(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .functions
-            .reserve_exact(usize::try_from(num).unwrap());
-        self.result
-            .function_body_inputs
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.functions.reserve_exact(usize::try_from(num).unwrap());
+        self.result.function_body_inputs.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -229,10 +216,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_tables(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .tables
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.tables.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -242,28 +226,20 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_memories(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .memories
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.memories.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
     pub(crate) fn declare_memory(&mut self, memory: MemoryType) -> WasmResult<()> {
         if memory.shared {
-            return Err(WasmError::Unsupported(
-                "shared memories are not supported yet".to_owned(),
-            ));
+            return Err(WasmError::Unsupported("shared memories are not supported yet".to_owned()));
         }
         self.result.module.memories.push(memory);
         Ok(())
     }
 
     pub(crate) fn reserve_globals(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .globals
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.globals.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -278,10 +254,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_exports(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .exports
-            .reserve(usize::try_from(num).unwrap());
+        self.result.module.exports.reserve(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -324,10 +297,7 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_table_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .table_initializers
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.module.table_initializers.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -338,15 +308,12 @@ impl<'data> ModuleEnvironment<'data> {
         offset: usize,
         elements: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.result
-            .module
-            .table_initializers
-            .push(TableInitializer {
-                table_index,
-                base,
-                offset,
-                elements,
-            });
+        self.result.module.table_initializers.push(TableInitializer {
+            table_index,
+            base,
+            offset,
+            elements,
+        });
         Ok(())
     }
 
@@ -355,11 +322,7 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        let old = self
-            .result
-            .module
-            .passive_elements
-            .insert(elem_index, segments);
+        let old = self.result.module.passive_elements.insert(elem_index, segments);
         debug_assert!(
             old.is_none(),
             "should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
@@ -374,17 +337,14 @@ impl<'data> ModuleEnvironment<'data> {
         body_bytes: &'data [u8],
         body_offset: usize,
     ) -> WasmResult<()> {
-        self.result.function_body_inputs.push(FunctionBodyData {
-            data: body_bytes,
-            module_offset: body_offset,
-        });
+        self.result
+            .function_body_inputs
+            .push(FunctionBodyData { data: body_bytes, module_offset: body_offset });
         Ok(())
     }
 
     pub(crate) fn reserve_data_initializers(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .data_initializers
-            .reserve_exact(usize::try_from(num).unwrap());
+        self.result.data_initializers.reserve_exact(usize::try_from(num).unwrap());
         Ok(())
     }
 
@@ -396,11 +356,7 @@ impl<'data> ModuleEnvironment<'data> {
         data: &'data [u8],
     ) -> WasmResult<()> {
         self.result.data_initializers.push(DataInitializer {
-            location: DataInitializerLocation {
-                memory_index,
-                base,
-                offset,
-            },
+            location: DataInitializerLocation { memory_index, base, offset },
             data,
         });
         Ok(())
@@ -417,11 +373,7 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        let old = self
-            .result
-            .module
-            .passive_data
-            .insert(data_index, Arc::from(data));
+        let old = self.result.module.passive_data.insert(data_index, Arc::from(data));
         debug_assert!(
             old.is_none(),
             "a module can't have duplicate indices, this would be a wasmer-compiler bug"
@@ -439,10 +391,7 @@ impl<'data> ModuleEnvironment<'data> {
         func_index: FunctionIndex,
         name: &'data str,
     ) -> WasmResult<()> {
-        self.result
-            .module
-            .function_names
-            .insert(func_index, name.to_string());
+        self.result.module.function_names.insert(func_index, name.to_string());
         Ok(())
     }
 
@@ -460,21 +409,10 @@ impl<'data> ModuleEnvironment<'data> {
     /// Indicates that a custom section has been found in the wasm file
     pub(crate) fn custom_section(&mut self, name: &'data str, data: &'data [u8]) -> WasmResult<()> {
         let custom_section = CustomSectionIndex::from_u32(
-            self.result
-                .module
-                .custom_sections_data
-                .len()
-                .try_into()
-                .unwrap(),
+            self.result.module.custom_sections_data.len().try_into().unwrap(),
         );
-        self.result
-            .module
-            .custom_sections
-            .insert(String::from(name), custom_section);
-        self.result
-            .module
-            .custom_sections_data
-            .push(Arc::from(data));
+        self.result.module.custom_sections.insert(String::from(name), custom_section);
+        self.result.module.custom_sections_data.push(Arc::from(data));
         Ok(())
     }
 }

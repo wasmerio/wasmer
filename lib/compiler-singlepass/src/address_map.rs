@@ -10,11 +10,5 @@ pub fn get_function_address_map<'data>(
     let start_srcloc = SourceLoc::new(data.module_offset as u32);
     let end_srcloc = SourceLoc::new((data.module_offset + data.data.len()) as u32);
 
-    FunctionAddressMap {
-        instructions,
-        start_srcloc,
-        end_srcloc,
-        body_offset: 0,
-        body_len,
-    }
+    FunctionAddressMap { instructions, start_srcloc, end_srcloc, body_offset: 0, body_len }
 }

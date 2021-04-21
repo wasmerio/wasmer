@@ -35,10 +35,9 @@ impl From<Export> for VMExport {
 impl From<VMExport> for Export {
     fn from(other: VMExport) -> Self {
         match other {
-            VMExport::Function(vm_function) => Self::Function(ExportFunction {
-                vm_function,
-                metadata: None,
-            }),
+            VMExport::Function(vm_function) => {
+                Self::Function(ExportFunction { vm_function, metadata: None })
+            }
             VMExport::Memory(vm_memory) => Self::Memory(ExportMemory { vm_memory }),
             VMExport::Table(vm_table) => Self::Table(ExportTable { vm_table }),
             VMExport::Global(vm_global) => Self::Global(ExportGlobal { vm_global }),
@@ -112,12 +111,7 @@ impl ExportFunctionMetadata {
         host_env_clone_fn: fn(*mut std::ffi::c_void) -> *mut std::ffi::c_void,
         host_env_drop_fn: fn(*mut std::ffi::c_void),
     ) -> Self {
-        Self {
-            host_env,
-            import_init_function_ptr,
-            host_env_clone_fn,
-            host_env_drop_fn,
-        }
+        Self { host_env, import_init_function_ptr, host_env_clone_fn, host_env_drop_fn }
     }
 }
 
