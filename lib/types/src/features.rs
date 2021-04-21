@@ -42,7 +42,8 @@ impl Features {
     pub fn new() -> Self {
         Self {
             threads: false,
-            reference_types: false,
+            // Reference types should be on by default
+            reference_types: true,
             simd: false,
             // Bulk Memory should be on by default
             bulk_memory: true,
@@ -76,16 +77,14 @@ impl Features {
     /// Configures whether the WebAssembly reference types proposal will be
     /// enabled.
     ///
-    /// The [WebAssembly reference types proposal][proposal] is not currently
-    /// fully standardized and is undergoing development. Support for this
-    /// feature can be enabled through this method for appropriate WebAssembly
-    /// modules.
+    /// The [WebAssembly reference types proposal][proposal] is now
+    /// fully standardized and enabled by default.
     ///
     /// This feature gates items such as the `externref` type and multiple tables
     /// being in a module. Note that enabling the reference types feature will
     /// also enable the bulk memory feature.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/reference-types
     pub fn reference_types(&mut self, enable: bool) -> &mut Self {
@@ -119,15 +118,13 @@ impl Features {
     /// Configures whether the WebAssembly bulk memory operations proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly bulk memory operations proposal][proposal] is not
-    /// currently fully standardized and is undergoing development.
-    /// Support for this feature can be enabled through this method for
-    /// appropriate WebAssembly modules.
+    /// The [WebAssembly bulk memory operations proposal][proposal] is now
+    /// fully standardized and enabled by default.
     ///
     /// This feature gates items such as the `memory.copy` instruction, passive
     /// data/table segments, etc, being in a module.
     ///
-    /// This is `false` by default.
+    /// This is `true` by default.
     ///
     /// [proposal]: https://github.com/webassembly/bulk-memory-operations
     pub fn bulk_memory(&mut self, enable: bool) -> &mut Self {
@@ -177,10 +174,10 @@ impl Features {
         self
     }
 
-    /// Configures whether the WebAssembly tail-call proposal will
+    /// Configures whether the WebAssembly module linking proposal will
     /// be enabled.
     ///
-    /// The [WebAssembly tail-call proposal][proposal] is not
+    /// The [WebAssembly module linking proposal][proposal] is not
     /// currently fully standardized and is undergoing development.
     /// Support for this feature can be enabled through this method for
     /// appropriate WebAssembly modules.
@@ -251,7 +248,7 @@ mod test_features {
             default,
             Features {
                 threads: false,
-                reference_types: false,
+                reference_types: true,
                 simd: false,
                 bulk_memory: true,
                 multi_value: true,

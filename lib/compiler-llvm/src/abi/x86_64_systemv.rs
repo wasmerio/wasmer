@@ -92,8 +92,7 @@ impl Abi for X86_64SystemV {
                 Type::I32 | Type::F32 => 32,
                 Type::I64 | Type::F64 => 64,
                 Type::V128 => 128,
-                Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
             .collect::<Vec<i32>>();
 
@@ -316,26 +315,7 @@ impl Abi for X86_64SystemV {
                     );
                     builder.build_bitcast(value, intrinsics.f32_ty, "")
                 }
-                Type::I64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.i64_ty, "")
-                }
-                Type::F64 => {
-                    assert!(
-                        value.get_type() == intrinsics.i64_ty.as_basic_type_enum()
-                            || value.get_type() == intrinsics.f64_ty.as_basic_type_enum()
-                    );
-                    builder.build_bitcast(value, intrinsics.f64_ty, "")
-                }
-                Type::V128 => {
-                    assert!(value.get_type() == intrinsics.i128_ty.as_basic_type_enum());
-                    value
-                }
-                Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                _ => panic!("should only be called to repack 32-bit values"),
             }
         };
 
@@ -365,8 +345,7 @@ impl Abi for X86_64SystemV {
                         Type::I32 | Type::F32 => 32,
                         Type::I64 | Type::F64 => 64,
                         Type::V128 => 128,
-                        Type::ExternRef => unimplemented!("externref in the llvm backend"),
-                        Type::FuncRef => unimplemented!("funcref in the llvm backend"),
+                        Type::ExternRef | Type::FuncRef => 64, /* pointer */
                     })
                     .collect::<Vec<i32>>();
 
@@ -475,15 +454,12 @@ impl Abi for X86_64SystemV {
             .results()
             .iter()
             .map(|ty| match ty {
-                Type::I32 | Type::F32 => Ok(32),
-                Type::I64 | Type::F64 => Ok(64),
-                Type::V128 => Ok(128),
-                ty => Err(CompileError::Codegen(format!(
-                    "is_sret: unimplemented wasmer_types type {:?}",
-                    ty
-                ))),
+                Type::I32 | Type::F32 => 32,
+                Type::I64 | Type::F64 => 64,
+                Type::V128 => 128,
+                Type::ExternRef | Type::FuncRef => 64, /* pointer */
             })
-            .collect::<Result<Vec<i32>, _>>()?;
+            .collect::<Vec<i32>>();
 
         Ok(!matches!(
             func_sig_returns_bitwidths.as_slice(),

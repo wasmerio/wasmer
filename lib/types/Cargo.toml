@@ -23,3 +23,6 @@ std = ["serde/std"]
 core = []
 enable-rkyv = ["rkyv"]
 enable-serde = ["serde"]
+
+# experimental / in-development features
+experimental-reference-types-extern-ref = []

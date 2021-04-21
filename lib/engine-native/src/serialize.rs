@@ -86,10 +86,10 @@ impl ModuleMetadata {
         {
             return Err(DeserializeError::Incompatible("incompatible endian".into()));
         }
-        pos.copy_from_slice(&metadata_slice[metadata_slice.len()-9..metadata_slice.len()-1]);
+        pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 9..metadata_slice.len() - 1]);
         let pos: u64 = u64::from_le_bytes(pos);
         Ok(archived_value::<ModuleMetadata>(
-            &metadata_slice[..metadata_slice.len()-9],
+            &metadata_slice[..metadata_slice.len() - 9],
             pos as usize,
         ))
     }

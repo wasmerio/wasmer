@@ -1,7 +1,7 @@
 use crate::exports::{ExportError, Exportable};
 use crate::externals::Extern;
 use crate::store::Store;
-use crate::types::Val;
+use crate::types::{Val, ValFuncRef};
 use crate::FunctionType;
 use crate::NativeFunc;
 use crate::RuntimeError;
@@ -18,7 +18,7 @@ use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMExportFunction, VMFunctionBody,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMExportFunction, VMFuncRef, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
@@ -68,6 +68,30 @@ pub struct Function {
     pub(crate) store: Store,
     pub(crate) definition: FunctionDefinition,
     pub(crate) exported: ExportFunction,
+}
+
+impl wasmer_types::WasmValueType for Function {
+    /// Write the value.
+    unsafe fn write_value_to(&self, p: *mut i128) {
+        let func_ref =
+            Val::into_vm_funcref(&Val::FuncRef(Some(self.clone())), &self.store).unwrap();
+        std::ptr::write(p as *mut VMFuncRef, func_ref);
+    }
+
+    /// Read the value.
+    // TODO(reftypes): this entire function should be cleaned up, `dyn Any` should
+    // ideally be removed
+    unsafe fn read_value_from(store: &dyn std::any::Any, p: *const i128) -> Self {
+        let func_ref = std::ptr::read(p as *const VMFuncRef);
+        let store = store.downcast_ref::<Store>().expect("Store expected in `Function::read_value_from`. If you see this error message it likely means you're using a function ref in a place we don't yet support it -- sorry about the inconvenience.");
+        match Val::from_vm_funcref(func_ref, store) {
+            Val::FuncRef(Some(fr)) => fr,
+            // these bottom two cases indicate bugs in `wasmer-types` or elsewhere.
+            // They should never be triggered, so we just panic.
+            Val::FuncRef(None) => panic!("Null funcref found in `Function::read_value_from`!"),
+            other => panic!("Invalid value in `Function::read_value_from`: {:?}", other),
+        }
+    }
 }
 
 fn build_export_function_metadata<Env>(
@@ -154,6 +178,7 @@ impl Function {
         let dynamic_ctx: VMDynamicFunctionContext<DynamicFunctionWithoutEnv> =
             VMDynamicFunctionContext::from_context(DynamicFunctionWithoutEnv {
                 func: Arc::new(func),
+                store: store.clone(),
                 function_type: ty.clone(),
             });
         // We don't yet have the address with the Wasm ABI signature.
@@ -261,6 +286,7 @@ impl Function {
             VMDynamicFunctionContext::from_context(DynamicFunctionWithEnv {
                 env: Box::new(env),
                 func: Arc::new(func),
+                store: store.clone(),
                 function_type: ty.clone(),
             });
 
@@ -546,7 +572,7 @@ impl Function {
         for (index, &value_type) in signature.results().iter().enumerate() {
             unsafe {
                 let ptr = values_vec.as_ptr().add(index);
-                results[index] = Val::read_value_from(ptr, value_type);
+                results[index] = Val::read_value_from(&self.store, ptr, value_type);
             }
         }
 
@@ -629,6 +655,7 @@ impl Function {
             FunctionDefinition::Wasm(wasm) => {
                 self.call_wasm(&wasm, params, &mut results)?;
             }
+            // TODO: we can trivially hit this, look into it
             _ => unimplemented!("The function definition isn't supported for the moment"),
         }
 
@@ -653,16 +680,14 @@ impl Function {
         }
     }
 
-    pub(crate) fn checked_anyfunc(&self) -> VMCallerCheckedAnyfunc {
-        let vmsignature = self
-            .store
-            .engine()
-            .register_signature(&self.exported.vm_function.signature);
-        VMCallerCheckedAnyfunc {
+    pub(crate) fn vm_funcref(&self) -> VMFuncRef {
+        let engine = self.store.engine();
+        let vmsignature = engine.register_signature(&self.exported.vm_function.signature);
+        engine.register_function_metadata(VMCallerCheckedAnyfunc {
             func_ptr: self.exported.vm_function.address,
             type_index: vmsignature,
             vmctx: self.exported.vm_function.vmctx,
-        }
+        })
     }
 
     /// Transform this WebAssembly function into a function with the
@@ -812,6 +837,7 @@ impl fmt::Debug for Function {
 pub(crate) trait VMDynamicFunction: Send + Sync {
     fn call(&self, args: &[Val]) -> Result<Vec<Val>, RuntimeError>;
     fn function_type(&self) -> &FunctionType;
+    fn store(&self) -> &Store;
 }
 
 #[derive(Clone)]
@@ -819,6 +845,7 @@ pub(crate) struct DynamicFunctionWithoutEnv {
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync>,
     function_type: FunctionType,
+    store: Store,
 }
 
 impl VMDynamicFunction for DynamicFunctionWithoutEnv {
@@ -827,6 +854,9 @@ impl VMDynamicFunction for DynamicFunctionWithoutEnv {
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
+    }
+    fn store(&self) -> &Store {
+        &self.store
     }
 }
 
@@ -837,6 +867,7 @@ where
     function_type: FunctionType,
     #[allow(clippy::type_complexity)]
     func: Arc<dyn Fn(&Env, &[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync>,
+    store: Store,
     env: Box<Env>,
 }
 
@@ -845,6 +876,7 @@ impl<Env: Sized + Clone + 'static + Send + Sync> Clone for DynamicFunctionWithEn
         Self {
             env: self.env.clone(),
             function_type: self.function_type.clone(),
+            store: self.store.clone(),
             func: self.func.clone(),
         }
     }
@@ -859,6 +891,9 @@ where
     }
     fn function_type(&self) -> &FunctionType {
         &self.function_type
+    }
+    fn store(&self) -> &Store {
+        &self.store
     }
 }
 
@@ -892,8 +927,9 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
         let result = panic::catch_unwind(AssertUnwindSafe(|| {
             let func_ty = self.ctx.function_type();
             let mut args = Vec::with_capacity(func_ty.params().len());
+            let store = self.ctx.store();
             for (i, ty) in func_ty.params().iter().enumerate() {
-                args.push(Val::read_value_from(values_vec.add(i), *ty));
+                args.push(Val::read_value_from(store, values_vec.add(i), *ty));
             }
             let returns = self.ctx.call(&args)?;
 
@@ -911,7 +947,9 @@ impl<T: VMDynamicFunction> VMDynamicFunctionCall<T> for VMDynamicFunctionContext
                 ret.write_value_to(values_vec.add(i));
             }
             Ok(())
-        }));
+        })); // We get extern ref drops at the end of this block that we don't need.
+             // By preventing extern ref incs in the code above we can save the work of
+             // incrementing and decrementing. However the logic as-is is correct.
 
         match result {
             Ok(Ok(())) => {}
@@ -929,6 +967,9 @@ mod inner {
     use std::error::Error;
     use std::marker::PhantomData;
     use std::panic::{self, AssertUnwindSafe};
+
+    #[cfg(feature = "experimental-reference-types-extern-ref")]
+    pub use wasmer_types::{ExternRef, VMExternRef};
     use wasmer_types::{FunctionType, NativeWasmType, Type};
     use wasmer_vm::{raise_user_trap, resume_panic, VMFunctionBody};
 
@@ -939,7 +980,7 @@ mod inner {
     /// `FromNativeWasmType` and `ToNativeWasmType` but it creates a
     /// non-negligible complexity in the `WasmTypeList`
     /// implementation.
-    pub unsafe trait FromToNativeWasmType: Copy
+    pub unsafe trait FromToNativeWasmType
     where
         Self: Sized,
     {
@@ -1020,6 +1061,18 @@ mod inner {
         f32 => f32,
         f64 => f64
     );
+
+    #[cfg(feature = "experimental-reference-types-extern-ref")]
+    unsafe impl FromToNativeWasmType for ExternRef {
+        type Native = VMExternRef;
+
+        fn to_native(self) -> Self::Native {
+            self.into()
+        }
+        fn from_native(n: Self::Native) -> Self {
+            n.into()
+        }
+    }
 
     #[cfg(test)]
     mod test_from_to_native_wasm_type {

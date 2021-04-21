@@ -20,11 +20,11 @@ pub struct StoreOptions {
     compiler: CompilerOptions,
 
     /// Use JIT Engine.
-    #[clap(long, conflicts_with_all = &["native", "object_file"])]
+    #[clap(long, conflicts_with_all = &["native", "object-file"])]
     jit: bool,
 
     /// Use Native Engine.
-    #[clap(long, conflicts_with_all = &["jit", "object_file"])]
+    #[clap(long, conflicts_with_all = &["jit", "object-file"])]
     native: bool,
 
     /// Use ObjectFile Engine.
@@ -212,18 +212,19 @@ impl CompilerOptions {
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
                 fn types_to_signature(types: &[Type]) -> String {
-                    types.iter().map(|ty| {
-                        match ty {
+                    types
+                        .iter()
+                        .map(|ty| match ty {
                             Type::I32 => "i".to_string(),
                             Type::I64 => "I".to_string(),
                             Type::F32 => "f".to_string(),
                             Type::F64 => "F".to_string(),
                             Type::V128 => "v".to_string(),
-                            _ => {
-                                unimplemented!("Function type not yet supported for generated signatures in debugging");
-                            }
-                        }
-                    }).collect::<Vec<_>>().join("")
+                            Type::ExternRef => "e".to_string(),
+                            Type::FuncRef => "r".to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join("")
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.

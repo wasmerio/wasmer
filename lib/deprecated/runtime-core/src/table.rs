@@ -100,7 +100,7 @@ mod table_tests {
                 minimum: 10,
                 maximum: Some(20),
             },
-            Value::null(),
+            Value::FuncRef(None),
         )
         .unwrap();
         assert_eq!(table.size(), 10);

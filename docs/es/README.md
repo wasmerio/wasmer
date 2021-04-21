@@ -29,7 +29,7 @@
 
 [Wasmer](https://wasmer.io/) hace posible tener contenedores ultraligeros basados en [WebAssembly](https://webassembly.org/) que pueden ser ejecutados en cualquier sitio: desde tu ordenador hasta la nube y dispositivos de IoT, además de poder ser ejecutados [*en cualquier lenguaje de programación*](https://github.com/wasmerio/wasmer#language-integrations).
 
-> This README is also available in: [🇬🇧 English-Inglés](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇫🇷 Français-Francés](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇨🇳 中文-Chino](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md).
+> This README is also available in: [🇬🇧 English-Inglés](https://github.com/wasmerio/wasmer/blob/master/README.md) • [🇫🇷 Français-Francés](https://github.com/wasmerio/wasmer/blob/master/docs/fr/README.md) • [🇨🇳 中文-Chino](https://github.com/wasmerio/wasmer/blob/master/docs/cn/README.md) • [🇯🇵 日本語-japonés](https://github.com/wasmerio/wasmer/blob/master/docs/ja/README.md).
 
 ## Funcionalidades
 
@@ -107,7 +107,7 @@ qjs >
 [rust logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/rust.svg
 [rust integration]: https://github.com/wasmerio/wasmer/tree/master/lib/api
 [`wasmer` en crates.io]: https://crates.io/crates/wasmer/
-[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer_runtime
+[rust docs]: https://wasmerio.github.io/wasmer/crates/wasmer
 
 [c logo]: https://raw.githubusercontent.com/wasmerio/wasmer/master/assets/languages/c.svg
 [c integration]: https://github.com/wasmerio/wasmer/tree/master/lib/c-api
