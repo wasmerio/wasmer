@@ -69,12 +69,17 @@ pub fn get_object_for_target(triple: &Triple) -> Result<Object, ObjectError> {
 ///
 /// # fn emit_data_into_object(triple: &Triple) -> Result<(), ObjectError> {
 /// let mut object = get_object_for_target(&triple)?;
-/// emit_data(&mut object, b"WASMER_METADATA", &b"Hello, World!"[..])?;
+/// emit_data(&mut object, b"WASMER_METADATA", &b"Hello, World!"[..], 1)?;
 ///
 /// # Ok(())
 /// # }
 /// ```
-pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), ObjectError> {
+pub fn emit_data(
+    obj: &mut Object,
+    name: &[u8],
+    data: &[u8],
+    align: u64,
+) -> Result<(), ObjectError> {
     let symbol_id = obj.add_symbol(ObjSymbol {
         name: name.to_vec(),
         value: 0,
@@ -86,7 +91,7 @@ pub fn emit_data(obj: &mut Object, name: &[u8], data: &[u8]) -> Result<(), Objec
         flags: SymbolFlags::None,
     });
     let section_id = obj.section_id(StandardSection::Data);
-    obj.add_symbol_data(symbol_id, section_id, &data, 1);
+    obj.add_symbol_data(symbol_id, section_id, &data, align);
 
     Ok(())
 }
