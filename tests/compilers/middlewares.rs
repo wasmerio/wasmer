@@ -1,3 +1,5 @@
+#![cfg(all(feature = "compiler", feature = "engine", feature = "middlewares"))]
+
 use crate::utils::get_store_with_middlewares;
 use anyhow::Result;
 
