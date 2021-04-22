@@ -266,26 +266,35 @@ impl dyn WasiFile + 'static {
 #[derive(Debug, Clone)]
 pub enum PollEvent {
     /// Data available to read
-    PollIn = 1,
+    PollIn = 0x0001,
     /// Data available to write (will still block if data is greater than space available unless
     /// the fd is configured to not block)
-    PollOut = 2,
+    PollOut = 0x0002,
     /// Something didn't work. ignored as input
-    PollError = 4,
+    PollError = 0x0004,
     /// Connection closed. ignored as input
-    PollHangUp = 8,
+    PollHangUp = 0x0008,
     /// Invalid request. ignored as input
-    PollInvalid = 16,
+    PollInvalid = 0x0010,
+    /// Prioritize request. FIXME: document this more properly.
+    PollPriority = 0x0020,
+    /// Normal data can be read without blocking.
+    PollReadNormal = 0x0040,
+    /// Priority data can be read without blocking.
+    PollReadBand = 0x0080,
 }
 
 impl PollEvent {
     fn from_i16(raw_num: i16) -> Option<PollEvent> {
         Some(match raw_num {
-            1 => PollEvent::PollIn,
-            2 => PollEvent::PollOut,
-            4 => PollEvent::PollError,
-            8 => PollEvent::PollHangUp,
-            16 => PollEvent::PollInvalid,
+            0x0001 => PollEvent::PollIn,
+            0x0002 => PollEvent::PollOut,
+            0x0004 => PollEvent::PollError,
+            0x0008 => PollEvent::PollHangUp,
+            0x0010 => PollEvent::PollInvalid,
+            0x0020 => PollEvent::PollPriority,
+            0x0040 => PollEvent::PollReadNormal,
+            0x0080 => PollEvent::PollReadBand,
             _ => return None,
         })
     }
@@ -338,6 +347,9 @@ fn poll_event_set_to_platform_poll_events(mut pes: PollEventSet) -> i16 {
             Some(PollEvent::PollError) => libc::POLLERR,
             Some(PollEvent::PollHangUp) => libc::POLLHUP,
             Some(PollEvent::PollInvalid) => libc::POLLNVAL,
+            Some(PollEvent::PollPriority) => libc::POLLPRI,
+            Some(PollEvent::PollReadNormal) => libc::POLLRDNORM,
+            Some(PollEvent::PollReadBand) => libc::POLLRDBAND,
             _ => 0,
         };
         pes &= !(1 << i);
@@ -355,6 +367,9 @@ fn platform_poll_events_to_pollevent_set(mut num: i16) -> PollEventSet {
             libc::POLLERR => peb.add(PollEvent::PollError),
             libc::POLLHUP => peb.add(PollEvent::PollHangUp),
             libc::POLLNVAL => peb.add(PollEvent::PollInvalid),
+            libc::POLLPRI => peb.add(PollEvent::PollPriority),
+            libc::POLLRDNORM => peb.add(PollEvent::PollReadNormal),
+            libc::POLLRDBAND => peb.add(PollEvent::PollReadBand),
             _ => peb,
         };
         num &= !(1 << i);

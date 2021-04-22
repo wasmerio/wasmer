@@ -896,7 +896,7 @@ pub fn fd_read(
     prepare_wasio(&mut state, |state| {
         let iovs_arr_cell = wasi_try!(iovs.deref(memory, 0, iovs_len));
         let nread_cell = wasi_try!(nread.deref(memory));
-    
+
         let bytes_read = match fd {
             __WASI_STDIN_FILENO => {
                 if let Some(ref mut stdin) =
@@ -910,16 +910,16 @@ pub fn fd_read(
             __WASI_STDOUT_FILENO | __WASI_STDERR_FILENO => return __WASI_EINVAL,
             _ => {
                 let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
-    
+
                 if !has_rights(fd_entry.rights, __WASI_RIGHT_FD_READ) {
                     // TODO: figure out the error to return when lacking rights
                     return __WASI_EACCES;
                 }
-    
+
                 let offset = fd_entry.offset as usize;
                 let inode_idx = fd_entry.inode;
                 let inode = &mut state.fs.inodes[inode_idx];
-    
+
                 let bytes_read = match &mut inode.kind {
                     Kind::File { handle, .. } => {
                         if let Some(handle) = handle {
@@ -938,17 +938,17 @@ pub fn fd_read(
                         wasi_try!(read_bytes(&buffer[offset..], memory, iovs_arr_cell))
                     }
                 };
-    
+
                 // reborrow
                 let fd_entry = wasi_try!(state.fs.fd_map.get_mut(&fd).ok_or(__WASI_EBADF));
                 fd_entry.offset += bytes_read as u64;
-    
+
                 bytes_read
             }
         };
-    
+
         nread_cell.set(bytes_read);
-    
+
         __WASI_ESUCCESS
     })
 }
@@ -2386,7 +2386,12 @@ pub fn poll_oneoff(
                             }
                         }
                     }
-                    in_events.push(peb.add(PollEvent::PollIn).build());
+                    in_events.push(
+                        peb.add(PollEvent::PollIn)
+                            .add(PollEvent::PollReadNormal)
+                            .add(PollEvent::PollReadBand)
+                            .build(),
+                    );
                     Some(fd)
                 }
                 EventType::Write(__wasi_subscription_fs_readwrite_t { fd }) => {
@@ -2484,7 +2489,10 @@ pub fn poll_oneoff(
                     PollEvent::PollError => error = __WASI_EIO,
                     PollEvent::PollHangUp => flags = __WASI_EVENT_FD_READWRITE_HANGUP,
                     PollEvent::PollInvalid => error = __WASI_EINVAL,
-                    PollEvent::PollIn => {
+                    PollEvent::PollPriority => {
+                        debug!("Got poll priority event");
+                    }
+                    PollEvent::PollReadNormal | PollEvent::PollReadBand | PollEvent::PollIn => {
                         bytes_available =
                             wasi_try!(fds[i].bytes_available().map_err(|e| e.into_wasi_err()));
                         error = __WASI_ESUCCESS;
@@ -2775,7 +2783,12 @@ pub fn wasio_socket_pre_accept(
 }
 
 #[cfg(feature = "wasio")]
-pub fn wasio_socket_accept(env: &WasiEnv, fd_out: WasmPtr<__wasi_fd_t>, sockaddr: WasmPtr<u8, Array>, sockaddr_size: u32) -> __wasi_errno_t {
+pub fn wasio_socket_accept(
+    env: &WasiEnv,
+    fd_out: WasmPtr<__wasi_fd_t>,
+    sockaddr: WasmPtr<u8, Array>,
+    sockaddr_size: u32,
+) -> __wasi_errno_t {
     debug!("wasio::wasio_socket_accept");
     let (memory, mut state) = env.get_memory_and_wasi_state(0);
     let state = &mut *state;
@@ -2915,9 +2928,7 @@ pub fn wasio_dns_lookup(
     let cancellation_token_cell = wasi_try!(cancellation_token.deref(memory));
 
     let name = wasi_try!(name.deref(memory, 0, name_len));
-    let name = unsafe {
-        std::mem::transmute::<&[Cell<u8>], &[u8]>(name)
-    };
+    let name = unsafe { std::mem::transmute::<&[Cell<u8>], &[u8]>(name) };
     let name = wasi_try!(std::str::from_utf8(name).map_err(|_| __WASI_EINVAL));
 
     let ct = wasi_try!(state.wasio_executor.enqueue_oneshot(
@@ -2937,10 +2948,7 @@ pub fn wasio_dns_lookup(
 
 #[cfg(feature = "wasio")]
 fn prepare_wasio<F: FnOnce(&mut WasiState) -> R, R>(state: &mut WasiState, f: F) -> R {
-    wasio::executor::make_current(
-        state.wasio_executor.clone(),
-        || { f(state) }
-    )
+    wasio::executor::make_current(state.wasio_executor.clone(), || f(state))
 }
 
 #[cfg(not(feature = "wasio"))]
