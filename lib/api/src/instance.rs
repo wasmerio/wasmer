@@ -204,13 +204,12 @@ impl Instance {
             use std::cell::Cell;
             use wasmer_vm::{take_tls, restore_tls};
 
-            let ptr = {
+            let ptr: u64 = {
                 let ptr = take_tls().into_inner();
                 unsafe{ std::mem::transmute(ptr) }
             };
 
-            let tls_store = Mutex::new((false, 0u64));
-
+            let tls_store = Mutex::new((false, ptr));
 
             task.set_pre_post_poll(move || {
                 let mut tls_store = tls_store.lock().unwrap();
@@ -218,7 +217,7 @@ impl Instance {
                 if tls_store.0 {
                     let ptr = take_tls().into_inner();
                     tls_store.1 = unsafe{ std::mem::transmute(ptr) };
-                    tls.store.0 = false;
+                    tls_store.0 = false;
                 } else {
                     let mut value = 0;
                     std::mem::swap(&mut value, &mut tls_store.1);
