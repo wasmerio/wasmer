@@ -79,10 +79,10 @@ default = [
     "wast",
     "jit",
     "native",
-    "object-file",
-    "cache",
-    "wasi",
-    "emscripten",
+    # "object-file",
+    # "cache",
+    # "wasi",
+    # "emscripten",
     "middlewares",
 ]
 engine = []

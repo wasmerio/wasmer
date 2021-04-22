@@ -243,12 +243,15 @@ unsafe fn handler_thread() {
 }
 
 unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
-    println!("Handle exception");
+    println!("Handle exception: {}", request.body.exception);
     // First make sure that this exception is one that we actually expect to
     // get raised by wasm code. All other exceptions we safely ignore.
     match request.body.exception as u32 {
         EXC_BAD_ACCESS | EXC_BAD_INSTRUCTION => {}
-        _ => return false,
+        _ => {
+            println!("RETURNED");
+            return false;
+        },
     }
 
     // Depending on the current architecture various bits and pieces of this
@@ -363,6 +366,7 @@ unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
     if !super::IS_WASM_PC(pc as usize) {
         return false;
     }
+    println!("IS WASM TRAP!");
 
     // We have determined that this is a wasm trap and we need to actually
     // force the thread itself to trap. The thread's register state is
@@ -375,6 +379,7 @@ unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
         &mut thread_state as *mut ThreadState as *mut u32,
         thread_state_count,
     );
+    println!("KRET {} {}", kret, KERN_SUCCESS);
     kret == KERN_SUCCESS
 }
 
@@ -386,12 +391,17 @@ unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
 /// the backtrace is captured we can do the usual `longjmp` back to the source
 /// of the wasm code.
 unsafe extern "C" fn unwind(wasm_pc: *const u8) -> ! {
+    println!("DO UNWIND 0");
     let jmp_buf = tls::with(|state| {
+        println!("DO UNWIND 1");
         let state = state.unwrap();
+        println!("DO UNWIND 2");
         state.capture_backtrace(wasm_pc);
+        println!("DO UNWIND 3");
         state.jmp_buf.get()
     });
     debug_assert!(!jmp_buf.is_null());
+    println!("DO UNWIND 4");
     do_unwind(jmp_buf);
 }
 

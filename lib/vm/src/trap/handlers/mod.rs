@@ -361,6 +361,7 @@ impl<'a> CallThreadState<'a> {
         pc: *const u8,
         call_handler: impl Fn(&SignalHandler) -> bool,
     ) -> *const u8 {
+        println!("jmp_buf_if_trap");
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
         //
@@ -380,6 +381,7 @@ impl<'a> CallThreadState<'a> {
         // in which case run them all. If anything handles the trap then we
         // return that the trap was handled.
         if self.trap_info.custom_signal_handler(&call_handler) {
+            println!("CUSTOM SIGNAL HANDLER");
             return 1 as *const _;
         }
 
