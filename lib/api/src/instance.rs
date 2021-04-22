@@ -212,6 +212,7 @@ impl Instance {
                 if *tls_store == 0 {
                     let ptr = take_tls().into_inner();
                     *tls_store = unsafe{ std::mem::transmute(ptr) };
+                    assert!(*tls_store != 0);
                 } else {
                     let mut value = 0;
                     std::mem::swap(&mut value, &mut *tls_store);
