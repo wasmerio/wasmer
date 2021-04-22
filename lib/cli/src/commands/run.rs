@@ -152,8 +152,12 @@ impl Run {
         // If WASI is enabled, try to execute it with it
         #[cfg(feature = "wasi")]
         {
-            let wasi_version = Wasi::get_version(&module);
-            if wasi_version.is_some() {
+            let wasi_versions = Wasi::get_versions(&module);
+            if let Some(wasi_versions) = wasi_versions {
+                if wasi_versions.len() >= 2 && !self.wasi.allow_multiple_wasi_versions {
+                    warning!("Found more than 1 WASI version in this module. If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.");
+                }
+
                 let program_name = self
                     .command_name
                     .clone()
