@@ -211,7 +211,7 @@ impl Instance {
                 let (is_first, ptr_store) = &mut *tls_store;
 
                 if *is_first {
-                    // do nothign
+                    // do nothing
                     *is_first = false;
                 } else if *ptr_store == 0 {
                     let ptr = take_tls().into_inner();

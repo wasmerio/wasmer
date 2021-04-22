@@ -791,7 +791,6 @@ mod tls {
 
     pub fn restore(value: Cell<*const CallThreadState>) {
         PTR.with(|ptr| {
-            assert!(value.get().is_null());
             ptr.swap(&value);
         });
     }
