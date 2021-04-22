@@ -208,19 +208,22 @@ impl Instance {
 
             task.set_pre_post_poll(move || {
                 let mut tls_store = tls_store.lock().unwrap();
+                let (is_first, ptr_store) = &mut *tls_store;
 
-                if tls_store.0 {
+                if *is_first {
+                    // do nothign
+                    *is_first = false;
+                } else if *ptr_store == 0 {
                     let ptr = take_tls().into_inner();
-                    tls_store.1 = unsafe{ std::mem::transmute(ptr) };
-                    tls_store.0 = false;
+                    *ptr_store = unsafe{ std::mem::transmute(ptr) };
                 } else {
                     let mut value = 0;
-                    std::mem::swap(&mut value, &mut tls_store.1);
+                    std::mem::swap(&mut value, &mut *ptr_store);
 
                     let value = unsafe{ std::mem::transmute(value) };
                     restore_tls(Cell::new(value));
 
-                    tls_store.0 = true;
+                    assert!(*ptr_store != 0);
                 }
             });
         }
