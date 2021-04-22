@@ -1,10 +1,9 @@
 use loupe::MemoryUsage;
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{
-    CompileModuleInfo, CustomSection, Dwarf, FunctionBody, JumpTableOffsets, Relocation,
-    SectionIndex,
+    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
+    JumpTableOffsets, Relocation, SectionIndex,
 };
-use wasmer_engine::SerializableFunctionFrameInfo;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
@@ -24,10 +23,7 @@ pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
     pub function_jt_offsets: PrimaryMap<LocalFunctionIndex, JumpTableOffsets>,
-    // This is `SerializableFunctionFrameInfo` instead of `CompiledFunctionFrameInfo`,
-    // to allow lazy frame_info deserialization, we convert it to it's lazy binary
-    // format upon serialization.
-    pub function_frame_info: PrimaryMap<LocalFunctionIndex, SerializableFunctionFrameInfo>,
+    pub function_frame_info: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
     pub function_call_trampolines: PrimaryMap<SignatureIndex, FunctionBody>,
     pub dynamic_function_trampolines: PrimaryMap<FunctionIndex, FunctionBody>,
     pub custom_sections: PrimaryMap<SectionIndex, CustomSection>,

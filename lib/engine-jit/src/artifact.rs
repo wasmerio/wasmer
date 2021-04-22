@@ -16,7 +16,7 @@ use wasmer_engine::{
     SerializeError,
 };
 #[cfg(feature = "compiler")]
-use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
+use wasmer_engine::{Engine, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
@@ -104,11 +104,7 @@ impl JITArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let frame_infos = compilation
-            .get_frame_info()
-            .values()
-            .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        let frame_infos = compilation.get_frame_info();
 
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
