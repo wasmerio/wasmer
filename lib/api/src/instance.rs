@@ -200,7 +200,27 @@ impl Instance {
         )
         .expect("Failed to create async function call");
 
-        task.set_pre_post_poll(|| {});
+        {
+            use std::cell::Cell;
+            use wasmer_vm::{take_tls, restore_tls};
+
+            let tls_store = Mutex::new(0u64);
+
+            task.set_pre_post_poll(move || {
+                let mut tls_store = tls_store.lock().unwrap();
+
+                if *tls_store == 0 {
+                    let ptr = take_tls().into_inner();
+                    *tls_store = unsafe{ std::mem::transmute(ptr) };
+                } else {
+                    let mut value = 0;
+                    std::mem::swap(&mut value, &mut *tls_store);
+
+                    let value = unsafe{ std::mem::transmute(value) };
+                    restore_tls(Cell::new(value));
+                }
+            });
+        }
 
         task.await
     }

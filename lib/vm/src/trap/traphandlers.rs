@@ -732,6 +732,16 @@ impl Drop for CallThreadState {
     }
 }
 
+/// Unset and retrieve the thread local state
+pub fn take_tls() -> Cell<*const CallThreadState> {
+    tls::take()
+}
+
+/// Restore the thread local state
+pub fn restore_tls(value: Cell<*const CallThreadState>) {
+    tls::restore(value);
+}
+
 // A private inner module for managing the TLS state that we require across
 // calls in wasm. The WebAssembly code is called from C++ and then a trap may
 // happen which requires us to read some contextual state to figure out what to
@@ -769,6 +779,21 @@ mod tls {
             let p = ptr.get();
             unsafe { closure(if p.is_null() { None } else { Some(&*p) }) }
         })
+    }
+
+    pub fn take() -> Cell<*const CallThreadState> {
+        let value = Cell::new(ptr::null());
+        PTR.with(|ptr| {
+            ptr.swap(&value);
+            value
+        })
+    }
+
+    pub fn restore(value: Cell<*const CallThreadState>) {
+        PTR.with(|ptr| {
+            ptr.swap(&value);
+            assert!(value.get().is_null());
+        });
     }
 }
 
