@@ -31,6 +31,17 @@ pub enum WasiVersion {
     Latest,
 }
 
+impl WasiVersion {
+    /// Get the version as its namespace str as it appears in Wasm modules.
+    pub const fn get_namespace_str(&self) -> &'static str {
+        match *self {
+            WasiVersion::Snapshot0 => SNAPSHOT0_NAMESPACE,
+            WasiVersion::Snapshot1 => SNAPSHOT1_NAMESPACE,
+            WasiVersion::Latest => SNAPSHOT1_NAMESPACE,
+        }
+    }
+}
+
 impl PartialEq<WasiVersion> for WasiVersion {
     fn eq(&self, other: &Self) -> bool {
         match (*self, *other) {

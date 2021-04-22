@@ -29,6 +29,9 @@ pub struct Wasi {
 
     #[clap(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
+
+    #[clap(long = "deny-multiple-wasi-versions")]
+    pub deny_multiple_wasi_versions: bool,
 }
 
 #[allow(dead_code)]
