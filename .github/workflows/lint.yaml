@@ -19,6 +19,7 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
+          toolchain: "1.50"
           override: true
           components: rustfmt, clippy
       - name: Install LLVM (Linux)
@@ -30,9 +31,9 @@ jobs:
           echo 'LLVM_SYS_110_PREFIX=/opt/llvm-11' >> $GITHUB_ENV
       - run: make lint
         env:
-          ENABLE_CRANELIFT: '1'
-          ENABLE_LLVM: '1'
-          ENABLE_SINGLEPASS: '1'
+          ENABLE_CRANELIFT: "1"
+          ENABLE_LLVM: "1"
+          ENABLE_SINGLEPASS: "1"
       - name: Assert no files have changed
         run: |
           git status

@@ -41,22 +41,26 @@ jobs:
         include:
           - build: linux-x64
             os: ubuntu-18.04
+            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos-x64
             os: macos-latest
+            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: macos-arm64
             os: macos-11.0
+            rust: "1.50"
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
           - build: windows-x64
             os: windows-latest
+            rust: "1.50"
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
@@ -64,6 +68,7 @@ jobs:
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             random_sccache_port: true
+            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
@@ -83,7 +88,7 @@ jobs:
       - name: Install Rust ${{ matrix.rust }}
         uses: actions-rs/toolchain@v1
         with:
-          # toolchain: ${{ matrix.rust }}
+          toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
           override: true
       - name: Install LLVM (Windows)
@@ -193,7 +198,7 @@ jobs:
           toolchain: 'nightly-2020-12-22'
           target: ${{ matrix.target }}
           override: true
-          components: 'rust-src'
+          components: "rust-src"
         if: needs.setup.outputs.DOING_RELEASE == '1'
       - name: Build Minimal Wasmer Headless
         if: needs.setup.outputs.DOING_RELEASE == '1'
@@ -284,6 +289,7 @@ jobs:
         include:
           - build: linux-musl-x64
             image: alpine:latest
+            rust: "1.50"
             artifact_name: 'wasmer-linux-musl-amd64'
     steps:
       - uses: actions/checkout@v2
@@ -364,7 +370,7 @@ jobs:
           OUTPUT=$(./wasmer run artifacts/cross_compiled_from_linux/qjs_mac_from_linux.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));")
           [[ "$OUTPUT" == '"Hello, World"' ]]
           #wasmer run artifacts/cross/cross_compiled_from_win/qjs_mac_from_win.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
-
+          
   #test-cross-compile-on-win:
   #  needs: [setup, test]
   #  runs-on: windows-latest
@@ -381,13 +387,7 @@ jobs:
   #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   release:
-    needs: [
-        setup,
-        test,
-        test-docker,
-        test-cross-compile-on-linux,
-        test-cross-compile-on-mac,
-      ] #, test-cross-compile-on-win]
+    needs: [setup, test, test-docker, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
