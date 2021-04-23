@@ -10,7 +10,7 @@ name: Coverage
 
 env:
   RUST_BACKTRACE: 1
-  RUSTFLAGS: "-Ccodegen-units=1 -Clink-dead-code -Coverflow-checks=off"
+  RUSTFLAGS: '-Ccodegen-units=1 -Clink-dead-code -Coverflow-checks=off'
 
 jobs:
   coverage:
@@ -22,7 +22,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.46.0
           override: true
       - name: Install LLVM (Linux)
         run: |
