@@ -1,7 +1,7 @@
 # `wasmer` [![Build Status](https://github.com/wasmerio/wasmer/workflows/build/badge.svg?style=flat-square)](https://github.com/wasmerio/wasmer/actions?query=workflow%3Abuild) [![Join Wasmer Slack](https://img.shields.io/static/v1?label=Slack&message=join%20chat&color=brighgreen&style=flat-square)](https://slack.wasmer.io) [![MIT License](https://img.shields.io/github/license/wasmerio/wasmer.svg?style=flat-square)](https://github.com/wasmerio/wasmer/blob/master/LICENSE) [![crates.io](https://img.shields.io/crates/v/wasmer.svg)](https://crates.io/crates/wasmer)
 
 [`Wasmer`](https://wasmer.io/) is the most popular [WebAssembly](https://webassembly.org/)
-runtime for Rust (...and also [the fastest]()!). It supports JIT (Just in Time) and AOT (Ahead of time)
+runtime for Rust (...and also the fastest). It supports JIT (Just in Time) and AOT (Ahead of time)
 compilation as well as pluggable compilers suited to your needs.
 
 It's designed to be safe and secure, and runnable in any kind of environment.
