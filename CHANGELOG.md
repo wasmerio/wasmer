@@ -30,7 +30,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2149](https://github.com/wasmerio/wasmer/pull/2144) `wasmer-engine-native` looks for clang-11 instead of clang-10.
 
 ### Fixed
-- [#2258](https://github.com/wasmerio/wasmer/pull/2257) Fixed a bug that only worked with memory size 65535 or less.
+- [#2258](https://github.com/wasmerio/wasmer/pull/2258) Fixed a bug that only worked with memory size 65535 or less.
 - [#2208](https://github.com/wasmerio/wasmer/pull/2208) Fix ownership in Wasm C API of `wasm_extern_as_func`, `wasm_extern_as_memory`, `wasm_extern_as_table`, `wasm_extern_as_global`, `wasm_func_as_extern`, `wasm_memory_as_extern`, `wasm_table_as_extern`, and `wasm_global_as_extern`. These functions no longer allocate memory and thus their results should not be freed. This is a breaking change to align more closely with the Wasm C API's stated ownership.
 - [#2210](https://github.com/wasmerio/wasmer/pull/2210) Fix a memory leak in the Wasm C API in the strings used to identify imports and exports coming from user code.
 - [#2108](https://github.com/wasmerio/wasmer/pull/2108) The Object Native Engine generates code that now compiles correctly with C++.
