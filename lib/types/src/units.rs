@@ -97,6 +97,12 @@ impl From<u32> for Bytes {
     }
 }
 
+impl From<u64> for Bytes {
+    fn from(other: u64) -> Self {
+        Self(other.try_into().unwrap())
+    }
+}
+
 impl<T> Sub<T> for Pages
 where
     T: Into<Self>,
