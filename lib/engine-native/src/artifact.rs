@@ -187,22 +187,25 @@ impl NativeArtifact {
             function_body_lengths,
         };
 
-        let serialized_data = metadata.serialize()?;
-
-        let mut metadata_binary = vec![0; 16];
-        let mut writable = &mut metadata_binary[..];
-        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
-            .expect("Should write number");
-        metadata_binary.extend(serialized_data);
-
         let (mut compile_info, symbol_registry) = metadata.split();
+
+        let metadata_serializer = || {
+            let serialized_data = metadata.serialize()?;
+            let mut metadata_binary = vec![0; 16];
+            let mut writable = &mut metadata_binary[..];
+            leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
+                .expect("Should write number");
+            metadata_binary.extend(serialized_data);
+            Ok(metadata_binary)
+        };
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
             &mut compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
-            &metadata_binary,
+            &metadata_serializer,
         );
 
         let filepath = match maybe_obj_bytes {
@@ -227,6 +230,7 @@ impl NativeArtifact {
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                let metadata_binary = metadata_serializer()?;
                 emit_data(
                     &mut obj,
                     WASMER_METADATA_SYMBOL,

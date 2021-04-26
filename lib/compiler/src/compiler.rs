@@ -16,6 +16,10 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
 
+// pub type ExperimentalNativeMetadataSerializer<'a> = dyn Fn() -> Vec<u8> + 'a;
+/// The serializer for metadata
+pub type ExperimentalNativeMetadataSerializer = dyn Fn() -> Result<Vec<u8>, CompileError>;
+
 /// The compiler configuration options.
 pub trait CompilerConfig {
     /// Enable Position Independent Code (PIC).
@@ -113,7 +117,7 @@ pub trait Compiler: Send + MemoryUsage {
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         _symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
-        _wasmer_metadata: &[u8],
+        _serializer: &ExperimentalNativeMetadataSerializer,
     ) -> Option<Result<Vec<u8>, CompileError>> {
         None
     }

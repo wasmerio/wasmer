@@ -195,12 +195,14 @@ impl ObjectFileArtifact {
          */
 
         let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-        let mut metadata_binary = vec![0; 10];
-        let mut writable = &mut metadata_binary[..];
-        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
-            .expect("Should write number");
-        metadata_binary.extend(serialized_data);
-        let metadata_length = metadata_binary.len();
+        let metadata_serializer = || {
+            let mut metadata_binary = vec![0; 10];
+            let mut writable = &mut metadata_binary[..];
+            leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
+                .expect("Should write number");
+            metadata_binary.extend(serialized_data);
+            Ok(metadata_binary)
+        };
 
         let (compile_info, symbol_registry) = metadata.split();
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
@@ -209,9 +211,10 @@ impl ObjectFileArtifact {
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
-            &metadata_binary,
+            &metadata_serializer,
         );
 
+        let mut metadata_length = 0;
         let obj_bytes = if let Some(obj_bytes) = maybe_obj_bytes {
             obj_bytes?
         } else {
@@ -231,6 +234,8 @@ impl ObjectFileArtifact {
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
              */
             let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+            let metadata_binary = metadata_serializer()?;
+            let metadata_length = metadata_binary.len();
             emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
                 .map_err(to_compile_error)?;
             emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)

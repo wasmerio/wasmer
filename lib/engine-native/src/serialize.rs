@@ -58,7 +58,7 @@ impl ModuleMetadata {
         }
     }
 
-    pub fn serialize(&mut self) -> Result<Vec<u8>, CompileError> {
+    pub fn serialize(&self) -> Result<Vec<u8>, CompileError> {
         let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![]));
         let pos = serializer.serialize_value(self).map_err(to_compile_error)? as u64;
         let mut serialized_data = serializer.into_inner().into_inner();

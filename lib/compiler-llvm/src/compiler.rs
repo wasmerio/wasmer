@@ -14,7 +14,7 @@ use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
     Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
-    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
+    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target, ExperimentalNativeMetadataSerializer
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -80,7 +80,7 @@ impl LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
-        wasmer_metadata: &[u8],
+        metadata_serializer: &ExperimentalNativeMetadataSerializer,
     ) -> Result<Vec<u8>, CompileError> {
         let target_machine = self.config().target_machine(target);
         let ctx = Context::create();
@@ -159,6 +159,7 @@ impl LLVMCompiler {
         };
 
         let i8_ty = ctx.i8_type();
+        let wasmer_metadata = metadata_serializer()?;
         let metadata_init = i8_ty.const_array(
             wasmer_metadata
                 .iter()
@@ -197,7 +198,7 @@ impl Compiler for LLVMCompiler {
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
         // The metadata to inject into the wasmer_metadata section of the object file.
-        wasmer_metadata: &[u8],
+        metadata_serializer: &ExperimentalNativeMetadataSerializer,
     ) -> Option<Result<Vec<u8>, CompileError>> {
         let mut module = (*compile_info.module).clone();
         self.config.middlewares.apply_on_module_info(&mut module);
@@ -209,7 +210,7 @@ impl Compiler for LLVMCompiler {
             module_translation,
             function_body_inputs,
             symbol_registry,
-            wasmer_metadata,
+            metadata_serializer,
         ))
     }
 
