@@ -259,7 +259,6 @@ impl LinearMemory {
         let mapped_pages = memory.minimum;
         let mapped_bytes = mapped_pages.bytes();
 
-        println!("{}", minimum_bytes);
         let mut mmap = WasmMmap {
             alloc: Mmap::accessible_reserved(mapped_bytes.0, request_bytes)
                 .map_err(MemoryError::Region)?,
