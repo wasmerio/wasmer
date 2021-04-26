@@ -8,7 +8,8 @@ use crate::codegen_x64::{
 };
 use crate::config::Singlepass;
 use loupe::MemoryUsage;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
@@ -71,7 +72,7 @@ impl Compiler for SinglepassCompiler {
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
-            .into_par_iter()
+            .into_par_iter_if_rayon()
             .map(|i| {
                 gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
             })
@@ -81,7 +82,7 @@ impl Compiler for SinglepassCompiler {
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .into_par_iter()
+            .into_par_iter_if_rayon()
             .map(|(i, input)| {
                 let middleware_chain = self
                     .config
@@ -128,7 +129,7 @@ impl Compiler for SinglepassCompiler {
             .signatures
             .values()
             .collect::<Vec<_>>()
-            .into_par_iter()
+            .into_par_iter_if_rayon()
             .map(gen_std_trampoline)
             .collect::<Vec<_>>()
             .into_iter()
@@ -137,7 +138,7 @@ impl Compiler for SinglepassCompiler {
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
-            .into_par_iter()
+            .into_par_iter_if_rayon()
             .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
@@ -165,6 +166,25 @@ impl ToCompileError for CodegenError {
 
 fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
     x.to_compile_error()
+}
+
+trait IntoParIterIfRayon {
+    type Output;
+    fn into_par_iter_if_rayon(self) -> Self::Output;
+}
+
+impl<T: Send> IntoParIterIfRayon for Vec<T> {
+    #[cfg(not(feature = "rayon"))]
+    type Output = std::vec::IntoIter<T>;
+    #[cfg(feature = "rayon")]
+    type Output = rayon::vec::IntoIter<T>;
+
+    fn into_par_iter_if_rayon(self) -> Self::Output {
+        #[cfg(not(feature = "rayon"))]
+        return self.into_iter();
+        #[cfg(feature = "rayon")]
+        return self.into_par_iter();
+    }
 }
 
 #[cfg(test)]
