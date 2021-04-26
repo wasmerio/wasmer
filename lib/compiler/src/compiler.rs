@@ -47,6 +47,9 @@ pub trait CompilerConfig {
 
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>);
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>>;
 }
 
 impl<T> From<T> for Box<dyn CompilerConfig + 'static>

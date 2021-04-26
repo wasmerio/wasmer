@@ -218,6 +218,10 @@ impl CompilerConfig for LLVM {
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
     }
+
+    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
+        self.middlewares.clone()
+    }
 }
 
 impl Default for LLVM {
