@@ -81,12 +81,12 @@ impl Compiler for SinglepassCompiler {
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
+            .into_par_iter()
             .map(|(i, input)| {
                 let middleware_chain = self
                     .config
                     .middlewares
-                    .generate_function_middleware_chain(*i);
+                    .generate_function_middleware_chain(i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);
@@ -107,7 +107,7 @@ impl Compiler for SinglepassCompiler {
                     &vmoffsets,
                     &memory_styles,
                     &table_styles,
-                    *i,
+                    i,
                     &locals,
                 )
                 .map_err(to_compile_error)?;
@@ -128,8 +128,7 @@ impl Compiler for SinglepassCompiler {
             .signatures
             .values()
             .collect::<Vec<_>>()
-            .par_iter()
-            .cloned()
+            .into_par_iter()
             .map(gen_std_trampoline)
             .collect::<Vec<_>>()
             .into_iter()
@@ -138,7 +137,7 @@ impl Compiler for SinglepassCompiler {
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
-            .par_iter()
+            .into_par_iter()
             .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
