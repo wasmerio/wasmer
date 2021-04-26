@@ -4,7 +4,7 @@
 use crate::{
     ptr::{Array, WasmPtr},
     syscalls::types::*,
-    WasiFile, WasiFs,
+    WasiFs,
 };
 use std::time::Duration;
 use wasmer::{FromToNativeWasmType, Memory, ValueType};

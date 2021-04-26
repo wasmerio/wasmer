@@ -4,15 +4,16 @@ use super::super::executor::{self, Executor};
 use super::super::socket::*;
 use super::super::types::*;
 use crate::syscalls::types::*;
-use crate::{ptr::WasmPtr, Fd, WasiFile, WasiFs, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
-use wasmer::{Memory, Array};
+use crate::{ptr::WasmPtr, Fd, WasiFile, WasiFsError, ALL_RIGHTS, VIRTUAL_ROOT_FD};
 use crossbeam::channel::{unbounded, Receiver, Sender};
 use flurry::HashMap as ConcHashMap;
-use futures::future::{ready, AbortHandle, Abortable, Future, FutureExt, TryFutureExt};
+use futures::future::{AbortHandle, Abortable, Future, FutureExt, TryFutureExt};
+use std::any::Any;
 use std::cell::{Cell, RefCell};
 use std::collections::VecDeque;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
+use std::os::unix::io::{AsRawFd, RawFd};
 use std::sync::{
     atomic::{AtomicU64, Ordering},
     Arc,
@@ -23,10 +24,8 @@ use tokio::net::{
     TcpListener, TcpStream,
 };
 use tokio::runtime::Runtime;
-use tokio::stream::StreamExt;
 use tokio::sync::{mpsc, Mutex as AsyncMutex, RwLock as AsyncRwLock};
-use std::any::Any;
-use std::os::unix::io::{RawFd, AsRawFd};
+use wasmer::{Array, Memory};
 
 /// An executor backed by the Tokio runtime.
 ///
@@ -169,9 +168,8 @@ impl Executor for TokioExecutor {
                 fd,
                 ri_data,
                 ri_data_len,
-                ri_flags,
                 ro_datalen,
-                ro_flags,
+                ..
             } => {
                 let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
 
@@ -202,7 +200,7 @@ impl Executor for TokioExecutor {
                                             >(
                                                 match v.buf.deref_mut(&memory, 0, v.buf_len) {
                                                     Ok(x) => x,
-                                                    Err(e) => return __WASI_EFAULT,
+                                                    Err(_) => return __WASI_EFAULT,
                                                 },
                                             )
                                         };
@@ -217,7 +215,7 @@ impl Executor for TokioExecutor {
 
                                     let ro_datalen = match ro_datalen.deref(&memory) {
                                         Ok(x) => x,
-                                        Err(e) => return __WASI_EFAULT,
+                                        Err(_) => return __WASI_EFAULT,
                                     };
 
                                     ro_datalen.set(read_len as u32);
@@ -236,8 +234,8 @@ impl Executor for TokioExecutor {
                 fd,
                 si_data,
                 si_data_len,
-                si_flags,
                 so_datalen,
+                ..
             } => {
                 let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
 
@@ -258,7 +256,7 @@ impl Executor for TokioExecutor {
                         for v in iovecs {
                             let data = match v.buf.deref(&memory, 0, v.buf_len) {
                                 Ok(x) => x,
-                                Err(e) => return __WASI_EFAULT,
+                                Err(_) => return __WASI_EFAULT,
                             };
                             for b in data {
                                 data_to_write.push(b.get());
@@ -273,7 +271,7 @@ impl Executor for TokioExecutor {
                                     Ok(n) => {
                                         let so_datalen = match so_datalen.deref(&memory) {
                                             Ok(x) => x,
-                                            Err(e) => return __WASI_EFAULT,
+                                            Err(_) => return __WASI_EFAULT,
                                         };
 
                                         so_datalen.set(n as u32);
@@ -294,9 +292,8 @@ impl Executor for TokioExecutor {
                 fd,
                 ri_data,
                 ri_data_len,
-                ri_flags,
                 ro_datalen,
-                ro_flags,
+                ..
             } => {
                 let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
 
@@ -316,7 +313,7 @@ impl Executor for TokioExecutor {
                         if iovecs.len() == 0 {
                             let ro_datalen = match ro_datalen.deref(&memory) {
                                 Ok(x) => x,
-                                Err(e) => return __WASI_EFAULT,
+                                Err(_) => return __WASI_EFAULT,
                             };
                             ro_datalen.set(0);
                             return __WASI_ESUCCESS;
@@ -325,7 +322,7 @@ impl Executor for TokioExecutor {
 
                         let data = match unsafe { iov.buf.deref_mut(&memory, 0, iov.buf_len) } {
                             Ok(x) => x,
-                            Err(e) => return __WASI_EFAULT,
+                            Err(_) => return __WASI_EFAULT,
                         };
                         let data =
                             unsafe { std::mem::transmute::<&mut [Cell<u8>], &mut [u8]>(data) };
@@ -338,7 +335,7 @@ impl Executor for TokioExecutor {
                                     Ok(n) => {
                                         let ro_datalen = match ro_datalen.deref(&memory) {
                                             Ok(x) => x,
-                                            Err(e) => return __WASI_EFAULT,
+                                            Err(_) => return __WASI_EFAULT,
                                         };
                                         ro_datalen.set(n as u32);
                                         __WASI_ESUCCESS
@@ -386,9 +383,14 @@ impl Executor for TokioExecutor {
                     user_context,
                 ));
             }
-            AsyncOneshotOperation::SocketConnect { memory, fs, fd, sockaddr_ptr, sockaddr_size } => {
+            AsyncOneshotOperation::SocketConnect {
+                memory,
+                fs,
+                fd,
+                sockaddr_ptr,
+                sockaddr_size,
+            } => {
                 let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
-                let state = self.state.clone();
                 let addr = decode_socket_addr(memory, sockaddr_ptr, sockaddr_size)?;
 
                 return Ok(self.spawn_oneshot(
@@ -397,13 +399,13 @@ impl Executor for TokioExecutor {
                             let mut sock_inner = sock.inner.write().await;
                             match *sock_inner {
                                 AbstractTcpSocketInner::Undefined4
-                                    | AbstractTcpSocketInner::Undefined6
-                                    | AbstractTcpSocketInner::Binded(_) => {}
+                                | AbstractTcpSocketInner::Undefined6
+                                | AbstractTcpSocketInner::Binded(_) => {}
                                 _ => break __WASI_EINVAL,
                             }
                             let stream = match TcpStream::connect(addr).await {
                                 Ok(x) => x,
-                                Err(e) => break from_tokio_error(e)
+                                Err(e) => break from_tokio_error(e),
                             };
                             let fd = stream.as_raw_fd();
                             let md = SocketMetadata {
@@ -418,14 +420,25 @@ impl Executor for TokioExecutor {
                                 },
                             };
                             let (r, w) = stream.into_split();
-                            *sock_inner = AbstractTcpSocketInner::Stream(AsyncMutex::new(r), AsyncMutex::new(w), md);
+                            *sock_inner = AbstractTcpSocketInner::Stream(
+                                AsyncMutex::new(r),
+                                AsyncMutex::new(w),
+                                md,
+                            );
                             break 0;
                         }
                     },
-                    user_context
+                    user_context,
                 ));
             }
-            AsyncOneshotOperation::DnsLookup { memory, name, family, output_ptr, output_count_ptr, output_size } => {
+            AsyncOneshotOperation::DnsLookup {
+                memory,
+                name,
+                family,
+                output_ptr,
+                output_count_ptr,
+                output_size,
+            } => {
                 let name = format!("{}:0", name);
                 let memory = memory.clone();
 
@@ -434,7 +447,7 @@ impl Executor for TokioExecutor {
                         loop {
                             let results = match tokio::net::lookup_host(&name).await {
                                 Ok(x) => x,
-                                Err(e) => break from_tokio_error(e), 
+                                Err(e) => break from_tokio_error(e),
                             };
                             let output = match output_ptr.deref(&memory, 0, output_size) {
                                 Ok(x) => x,
@@ -465,7 +478,7 @@ impl Executor for TokioExecutor {
                             break 0;
                         }
                     },
-                    user_context
+                    user_context,
                 ));
             }
         };
@@ -478,7 +491,7 @@ impl Executor for TokioExecutor {
     fn enqueue_stream(
         &self,
         op: AsyncStreamOperation,
-        user_context: UserContext,
+        _user_context: UserContext,
     ) -> Result<CancellationToken, __wasi_errno_t> {
         match op {}
     }
@@ -585,46 +598,57 @@ impl Executor for TokioExecutor {
                     }
                 })
             }
-            SyncOperation::SocketAccept { memory, fs, fd_out, sockaddr_ptr, sockaddr_size } => {
-                match self.accepted_rx.borrow_mut().try_recv() {
-                    Ok((stream, addr)) => {
-                        let fd_out_cell = fd_out.deref(memory)?;
-                        let fd = stream.as_raw_fd();
-                        let md = SocketMetadata {
-                            fd,
-                            local_address: stream.local_addr().map_err(from_tokio_error)?,
-                            remote_address: Some(addr),
-                        };
-                        let (r, w) = stream.into_split();
-                        let socket = AbstractTcpSocket {
-                            inner: Arc::new(AsyncRwLock::new(AbstractTcpSocketInner::Stream(
-                                AsyncMutex::new(r),
-                                AsyncMutex::new(w),
-                                md,
-                            ))),
-                            flags: 0,
-                        };
-                        let file = Box::new(socket);
-                        let socket_name = format!("<accept:{}>", uuid::Uuid::new_v4());
-                        let fd = fs
-                            .open_file_at(
-                                VIRTUAL_ROOT_FD,
-                                file,
-                                Fd::READ | Fd::WRITE,
-                                socket_name,
-                                ALL_RIGHTS,
-                                ALL_RIGHTS,
-                                0,
-                            )
-                            .map_err(|_| __WASI_EINVAL)?;
-                        fd_out_cell.set(fd);
-                        encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, addr)?;
-                        Ok(())
-                    }
-                    Err(e) => Err(__WASI_EAGAIN),
+            SyncOperation::SocketAccept {
+                memory,
+                fs,
+                fd_out,
+                sockaddr_ptr,
+                sockaddr_size,
+            } => match self.accepted_rx.borrow_mut().try_recv() {
+                Ok((stream, addr)) => {
+                    let fd_out_cell = fd_out.deref(memory)?;
+                    let fd = stream.as_raw_fd();
+                    let md = SocketMetadata {
+                        fd,
+                        local_address: stream.local_addr().map_err(from_tokio_error)?,
+                        remote_address: Some(addr),
+                    };
+                    let (r, w) = stream.into_split();
+                    let socket = AbstractTcpSocket {
+                        inner: Arc::new(AsyncRwLock::new(AbstractTcpSocketInner::Stream(
+                            AsyncMutex::new(r),
+                            AsyncMutex::new(w),
+                            md,
+                        ))),
+                        flags: 0,
+                    };
+                    let file = Box::new(socket);
+                    let socket_name = format!("<accept:{}>", uuid::Uuid::new_v4());
+                    let fd = fs
+                        .open_file_at(
+                            VIRTUAL_ROOT_FD,
+                            file,
+                            Fd::READ | Fd::WRITE,
+                            socket_name,
+                            ALL_RIGHTS,
+                            ALL_RIGHTS,
+                            0,
+                        )
+                        .map_err(|_| __WASI_EINVAL)?;
+                    fd_out_cell.set(fd);
+                    encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, addr)?;
+                    Ok(())
                 }
-            }
-            SyncOperation::SocketAddr { memory, fs, fd, sockaddr_ptr, sockaddr_size_ptr, remote } => {
+                Err(_) => Err(__WASI_EAGAIN),
+            },
+            SyncOperation::SocketAddr {
+                memory,
+                fs,
+                fd,
+                sockaddr_ptr,
+                sockaddr_size_ptr,
+                remote,
+            } => {
                 let sock: &AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?;
                 let sockaddr_size_ptr = sockaddr_size_ptr.deref(memory)?;
                 let sockaddr_size = sockaddr_size_ptr.get();
@@ -636,28 +660,44 @@ impl Executor for TokioExecutor {
                             if remote {
                                 return Err(__WASI_ENOTCONN);
                             } else {
-                                actual_len = encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, *addr)?;
+                                actual_len =
+                                    encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, *addr)?;
                             }
                         }
-                        AbstractTcpSocketInner::Listening(_, ref md) =>{
+                        AbstractTcpSocketInner::Listening(_, ref md) => {
                             if remote {
                                 return Err(__WASI_ENOTCONN);
                             } else {
-                                actual_len = encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, md.local_address)?;
+                                actual_len = encode_socket_addr(
+                                    memory,
+                                    sockaddr_ptr,
+                                    sockaddr_size,
+                                    md.local_address,
+                                )?;
                             }
                         }
                         AbstractTcpSocketInner::Stream(_, _, ref md) => {
                             if remote {
                                 match md.remote_address {
                                     Some(ref x) => {
-                                        actual_len = encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, *x)?;
+                                        actual_len = encode_socket_addr(
+                                            memory,
+                                            sockaddr_ptr,
+                                            sockaddr_size,
+                                            *x,
+                                        )?;
                                     }
                                     None => {
                                         return Err(__WASI_ENOTCONN);
                                     }
                                 }
                             } else {
-                                actual_len = encode_socket_addr(memory, sockaddr_ptr, sockaddr_size, md.local_address)?;
+                                actual_len = encode_socket_addr(
+                                    memory,
+                                    sockaddr_ptr,
+                                    sockaddr_size,
+                                    md.local_address,
+                                )?;
                             }
                         }
                         _ => return Err(__WASI_EINVAL),
@@ -704,7 +744,11 @@ enum AbstractTcpSocketInner {
     Listening(AsyncMutex<TcpListener>, SocketMetadata),
 
     /// A connection is established on this socket.
-    Stream(AsyncMutex<OwnedReadHalf>, AsyncMutex<OwnedWriteHalf>, SocketMetadata),
+    Stream(
+        AsyncMutex<OwnedReadHalf>,
+        AsyncMutex<OwnedWriteHalf>,
+        SocketMetadata,
+    ),
 }
 
 #[derive(Clone, Debug)]
@@ -734,7 +778,7 @@ impl AbstractTcpSocket {
 }
 
 impl Seek for AbstractTcpSocket {
-    fn seek(&mut self, pos: SeekFrom) -> io::Result<u64> {
+    fn seek(&mut self, _pos: SeekFrom) -> io::Result<u64> {
         Err(io::Error::from(io::ErrorKind::Other)) // seek operation not supported on sockets
     }
 }
@@ -744,7 +788,7 @@ impl Read for AbstractTcpSocket {
         executor::with_current::<TokioExecutor, _, _>(|current| {
             let current = match current {
                 Some(x) => x,
-                None => return Err(io::Error::from(io::ErrorKind::WouldBlock))
+                None => return Err(io::Error::from(io::ErrorKind::WouldBlock)),
             };
             current.runtime.handle().block_on(async {
                 let sock_inner = self.inner.read().await;
@@ -765,7 +809,7 @@ impl Write for AbstractTcpSocket {
         executor::with_current::<TokioExecutor, _, _>(|current| {
             let current = match current {
                 Some(x) => x,
-                None => return Err(io::Error::from(io::ErrorKind::WouldBlock))
+                None => return Err(io::Error::from(io::ErrorKind::WouldBlock)),
             };
             current.runtime.handle().block_on(async {
                 let sock_inner = self.inner.read().await;
@@ -824,12 +868,10 @@ impl WasiFile for AbstractTcpSocket {
 
     #[cfg(unix)]
     fn get_raw_fd(&self) -> Option<i32> {
-        use std::os::unix::io::AsRawFd;
-
         executor::with_current::<TokioExecutor, _, _>(|current| {
             let current = match current {
                 Some(x) => x,
-                None => return None
+                None => return None,
             };
             current.runtime.handle().block_on(async {
                 let sock_inner = self.inner.read().await;
@@ -888,7 +930,11 @@ fn from_tokio_error(e: tokio::io::Error) -> __wasi_errno_t {
     }
 }
 
-fn decode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockaddr_size: u32) -> Result<SocketAddr, __wasi_errno_t> {
+fn decode_socket_addr(
+    memory: &Memory,
+    sockaddr_ptr: WasmPtr<u8, Array>,
+    sockaddr_size: u32,
+) -> Result<SocketAddr, __wasi_errno_t> {
     match sockaddr_size {
         16 => {
             let sockaddr = WasmPtr::<SockaddrIn>::new(sockaddr_ptr.offset())
@@ -911,13 +957,17 @@ fn decode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockadd
                 sockaddr.sin6_flowinfo,
                 sockaddr.sin6_scope_id,
             )))
-
         }
-        _ => Err(__WASI_EINVAL)
+        _ => Err(__WASI_EINVAL),
     }
 }
 
-fn encode_socket_addr(memory: &Memory, sockaddr_ptr: WasmPtr<u8, Array>, sockaddr_size: u32, addr: SocketAddr) -> Result<u32, __wasi_errno_t> {
+fn encode_socket_addr(
+    memory: &Memory,
+    sockaddr_ptr: WasmPtr<u8, Array>,
+    sockaddr_size: u32,
+    addr: SocketAddr,
+) -> Result<u32, __wasi_errno_t> {
     match addr {
         SocketAddr::V4(addr) => {
             if sockaddr_size < 16 {

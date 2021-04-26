@@ -2,10 +2,10 @@
 
 use super::types::*;
 use crate::syscalls::types::*;
+use std::any::Any;
+use std::cell::RefCell;
 use std::fmt::{self, Debug};
 use std::sync::Arc;
-use std::cell::RefCell;
-use std::any::Any;
 
 /// The `Executor` trait.
 pub trait Executor: Send {
@@ -50,8 +50,8 @@ impl Debug for dyn Executor {
     }
 }
 
-/// The current executor on this thread.
 thread_local! {
+    /// The current executor on this thread.
     static CURRENT: RefCell<Option<Arc<dyn Executor>>> = RefCell::new(None);
 }
 
@@ -70,9 +70,9 @@ pub fn with_current<T: 'static, F: FnOnce(Option<&T>) -> R, R>(f: F) -> R {
         let downcasted = match inner {
             Some(ref x) => match x.as_any().downcast_ref::<T>() {
                 Some(x) => Some(x),
-                None => None
-            }
-            None => None
+                None => None,
+            },
+            None => None,
         };
         f(downcasted)
     })
