@@ -12,8 +12,8 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};

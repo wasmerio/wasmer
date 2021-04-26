@@ -19,8 +19,8 @@ use cranelift_frontend::{FunctionBuilder, FunctionBuilderContext, Variable};
 use tracing::info;
 use wasmer_compiler::wasmparser;
 use wasmer_compiler::{
-    wasm_unsupported, wptype_to_type, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, WasmResult,
+    wasm_unsupported, wptype_to_type, FunctionBinaryReader, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, WasmResult,
 };
 use wasmer_types::LocalFunctionIndex;
 
