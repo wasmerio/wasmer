@@ -2187,47 +2187,6 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 let func_index = self.state.pop1()?.into_int_value();
 
-                // We assume the table has the `anyfunc` element type.
-                let casted_table_base = self.builder.build_pointer_cast(
-                    table_base,
-                    self.intrinsics.anyfunc_ty.ptr_type(AddressSpace::Generic),
-                    "casted_table_base",
-                );
-
-                let anyfunc_struct_ptr = unsafe {
-                    self.builder.build_in_bounds_gep(
-                        casted_table_base,
-                        &[func_index],
-                        "anyfunc_struct_ptr",
-                    )
-                };
-
-                // Load things from the anyfunc data structure.
-                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
-                    self.builder
-                        .build_load(
-                            self.builder
-                                .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
-                                .unwrap(),
-                            "func_ptr",
-                        )
-                        .into_pointer_value(),
-                    self.builder
-                        .build_load(
-                            self.builder
-                                .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
-                                .unwrap(),
-                            "sigindex",
-                        )
-                        .into_int_value(),
-                    self.builder.build_load(
-                        self.builder
-                            .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
-                            .unwrap(),
-                        "ctx_ptr",
-                    ),
-                );
-
                 let truncated_table_bounds = self.builder.build_int_truncate(
                     table_bound,
                     self.intrinsics.i32_ty,
@@ -2280,8 +2239,85 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 self.builder.build_unreachable();
                 self.builder.position_at_end(in_bounds_continue_block);
 
+                // We assume the table has the `funcref` (pointer to `anyfunc`)
+                // element type.
+                let casted_table_base = self.builder.build_pointer_cast(
+                    table_base,
+                    self.intrinsics.funcref_ty.ptr_type(AddressSpace::Generic),
+                    "casted_table_base",
+                );
+
+                let funcref_ptr = unsafe {
+                    self.builder.build_in_bounds_gep(
+                        casted_table_base,
+                        &[func_index],
+                        "funcref_ptr",
+                    )
+                };
+
+                // a funcref (pointer to `anyfunc`)
+                let anyfunc_struct_ptr = self
+                    .builder
+                    .build_load(funcref_ptr, "anyfunc_struct_ptr")
+                    .into_pointer_value();
+
+                // trap if we're trying to call a null funcref
+                {
+                    let funcref_not_null = self
+                        .builder
+                        .build_is_not_null(anyfunc_struct_ptr, "null funcref check");
+
+                    let funcref_continue_deref_block = self
+                        .context
+                        .append_basic_block(self.function, "funcref_continue deref_block");
+
+                    let funcref_is_null_block = self
+                        .context
+                        .append_basic_block(self.function, "funcref_is_null_block");
+                    self.builder.build_conditional_branch(
+                        funcref_not_null,
+                        funcref_continue_deref_block,
+                        funcref_is_null_block,
+                    );
+                    self.builder.position_at_end(funcref_is_null_block);
+                    self.builder.build_call(
+                        self.intrinsics.throw_trap,
+                        &[self.intrinsics.trap_call_indirect_null],
+                        "throw",
+                    );
+                    self.builder.build_unreachable();
+                    self.builder.position_at_end(funcref_continue_deref_block);
+                }
+
+                // Load things from the anyfunc data structure.
+                let (func_ptr, found_dynamic_sigindex, ctx_ptr) = (
+                    self.builder
+                        .build_load(
+                            self.builder
+                                .build_struct_gep(anyfunc_struct_ptr, 0, "func_ptr_ptr")
+                                .unwrap(),
+                            "func_ptr",
+                        )
+                        .into_pointer_value(),
+                    self.builder
+                        .build_load(
+                            self.builder
+                                .build_struct_gep(anyfunc_struct_ptr, 1, "sigindex_ptr")
+                                .unwrap(),
+                            "sigindex",
+                        )
+                        .into_int_value(),
+                    self.builder.build_load(
+                        self.builder
+                            .build_struct_gep(anyfunc_struct_ptr, 2, "ctx_ptr_ptr")
+                            .unwrap(),
+                        "ctx_ptr",
+                    ),
+                );
+
                 // Next, check if the table element is initialized.
 
+                // TODO: we may not need this check anymore
                 let elem_initialized = self.builder.build_is_not_null(func_ptr, "");
 
                 // Next, check if the signature id is correct.
@@ -9349,6 +9385,215 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().left().unwrap());
+            }
+            /***************************
+             * Reference types.
+             * https://github.com/WebAssembly/reference-types/blob/master/proposals/reference-types/Overview.md
+             ***************************/
+            Operator::RefNull { ty } => {
+                let ty = wptype_to_type(ty).map_err(to_compile_error)?;
+                let ty = type_to_llvm(self.intrinsics, ty)?;
+                self.state.push1(ty.const_zero());
+            }
+            Operator::RefIsNull => {
+                let value = self.state.pop1()?.into_pointer_value();
+                let is_null = self.builder.build_is_null(value, "");
+                let is_null = self
+                    .builder
+                    .build_int_z_extend(is_null, self.intrinsics.i32_ty, "");
+                self.state.push1(is_null);
+            }
+            Operator::RefFunc { function_index } => {
+                let index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(function_index.into(), false)
+                    .as_basic_value_enum();
+                let value = self
+                    .builder
+                    .build_call(self.intrinsics.func_ref, &[self.ctx.basic(), index], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                self.state.push1(value);
+            }
+            Operator::TableGet { table } => {
+                let table_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table.into(), false)
+                    .as_basic_value_enum();
+                let elem = self.state.pop1()?;
+                let table_get = if let Some(_) = self
+                    .wasm_module
+                    .local_table_index(TableIndex::from_u32(table))
+                {
+                    self.intrinsics.table_get
+                } else {
+                    self.intrinsics.imported_table_get
+                };
+                let value = self
+                    .builder
+                    .build_call(table_get, &[self.ctx.basic(), table_index, elem], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                let value = self.builder.build_bitcast(
+                    value,
+                    type_to_llvm(
+                        self.intrinsics,
+                        self.wasm_module
+                            .tables
+                            .get(TableIndex::from_u32(table))
+                            .unwrap()
+                            .ty,
+                    )?,
+                    "",
+                );
+                self.state.push1(value);
+            }
+            Operator::TableSet { table } => {
+                let table_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table.into(), false)
+                    .as_basic_value_enum();
+                let (elem, value) = self.state.pop2()?;
+                let value = self
+                    .builder
+                    .build_bitcast(value, self.intrinsics.anyref_ty, "");
+                let table_set = if let Some(_) = self
+                    .wasm_module
+                    .local_table_index(TableIndex::from_u32(table))
+                {
+                    self.intrinsics.table_set
+                } else {
+                    self.intrinsics.imported_table_set
+                };
+                self.builder.build_call(
+                    table_set,
+                    &[self.ctx.basic(), table_index, elem, value],
+                    "",
+                );
+            }
+            Operator::TableCopy {
+                dst_table,
+                src_table,
+            } => {
+                let (dst, src, len) = self.state.pop3()?;
+                let dst_table = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(dst_table as u64, false)
+                    .as_basic_value_enum();
+                let src_table = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(src_table as u64, false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.table_copy,
+                    &[self.ctx.basic(), dst_table, src_table, dst, src, len],
+                    "",
+                );
+            }
+            Operator::TableInit { segment, table } => {
+                let (dst, src, len) = self.state.pop3()?;
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment as u64, false)
+                    .as_basic_value_enum();
+                let table = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table as u64, false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.table_init,
+                    &[self.ctx.basic(), table, segment, dst, src, len],
+                    "",
+                );
+            }
+            Operator::ElemDrop { segment } => {
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment as u64, false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.elem_drop,
+                    &[self.ctx.basic(), segment],
+                    "",
+                );
+            }
+            Operator::TableFill { table } => {
+                let table = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table as u64, false)
+                    .as_basic_value_enum();
+                let (start, elem, len) = self.state.pop3()?;
+                let elem = self
+                    .builder
+                    .build_bitcast(elem, self.intrinsics.anyref_ty, "");
+                self.builder.build_call(
+                    self.intrinsics.table_fill,
+                    &[self.ctx.basic(), table, start, elem, len],
+                    "",
+                );
+            }
+            Operator::TableGrow { table } => {
+                let (elem, delta) = self.state.pop2()?;
+                let elem = self
+                    .builder
+                    .build_bitcast(elem, self.intrinsics.anyref_ty, "");
+                let (table_grow, table_index) = if let Some(local_table_index) = self
+                    .wasm_module
+                    .local_table_index(TableIndex::from_u32(table))
+                {
+                    (self.intrinsics.table_grow, local_table_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_table_grow, table)
+                };
+                let table_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table_index as u64, false)
+                    .as_basic_value_enum();
+                let size = self
+                    .builder
+                    .build_call(
+                        table_grow,
+                        &[self.ctx.basic(), elem, delta, table_index],
+                        "",
+                    )
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                self.state.push1(size);
+            }
+            Operator::TableSize { table } => {
+                let (table_size, table_index) = if let Some(local_table_index) = self
+                    .wasm_module
+                    .local_table_index(TableIndex::from_u32(table))
+                {
+                    (self.intrinsics.table_size, local_table_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_table_size, table)
+                };
+                let table_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(table_index as u64, false)
+                    .as_basic_value_enum();
+                let size = self
+                    .builder
+                    .build_call(table_size, &[self.ctx.basic(), table_index], "")
+                    .try_as_basic_value()
+                    .left()
+                    .unwrap();
+                self.state.push1(size);
             }
             _ => {
                 return Err(CompileError::Codegen(format!(

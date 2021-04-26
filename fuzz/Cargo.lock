@@ -691,6 +691,26 @@ dependencies = [
 ]
 
 [[package]]
+name = "ptr_meta"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "6de4703776ff261fe3cbf05c8781f129b284e57ee35a785fe6c92b1dcf93a612"
+dependencies = [
+ "ptr_meta_derive",
+]
+
+[[package]]
+name = "ptr_meta_derive"
+version = "0.1.2"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "53005b9863728f508d3f23ae37e03d60986a01b65f7ae8397dcebaa1d5e54e10"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "quote"
 version = "1.0.9"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -823,6 +843,29 @@ dependencies = [
 ]
 
 [[package]]
+name = "rkyv"
+version = "0.4.3"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "70de01b38fe7baba4ecdd33b777096d2b326993d8ea99bc5b6ede691883d3010"
+dependencies = [
+ "memoffset",
+ "ptr_meta",
+ "rkyv_derive",
+ "seahash",
+]
+
+[[package]]
+name = "rkyv_derive"
+version = "0.4.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "95a169f6bc5a81033e86ed39d0f4150e2608160b73d2b93c6e8e6a3efa873f14"
+dependencies = [
+ "proc-macro2",
+ "quote",
+ "syn",
+]
+
+[[package]]
 name = "rustc-demangle"
 version = "0.1.18"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -874,6 +917,12 @@ dependencies = [
  "quote",
  "syn",
 ]
+
+[[package]]
+name = "seahash"
+version = "4.1.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "1c107b6f4780854c8b126e228ea8869f4d7b71260f962fefb57b996b8959ba6b"
 
 [[package]]
 name = "semver"
@@ -1117,6 +1166,7 @@ dependencies = [
  "wasmer-engine-jit",
  "wasmer-engine-native",
  "wasmer-middlewares",
+ "wasmprinter",
 ]
 
 [[package]]
@@ -1125,6 +1175,7 @@ version = "1.0.2"
 dependencies = [
  "enumset",
  "loupe",
+ "rkyv",
  "serde",
  "serde_bytes",
  "smallvec",
@@ -1132,7 +1183,7 @@ dependencies = [
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser",
+ "wasmparser 0.74.0",
 ]
 
 [[package]]
@@ -1251,6 +1302,7 @@ dependencies = [
  "leb128",
  "libloading",
  "loupe",
+ "rkyv",
  "serde",
  "tempfile",
  "tracing",
@@ -1286,7 +1338,9 @@ dependencies = [
 name = "wasmer-types"
 version = "1.0.2"
 dependencies = [
+ "indexmap",
  "loupe",
+ "rkyv",
  "serde",
  "thiserror",
 ]
@@ -1304,6 +1358,7 @@ dependencies = [
  "memoffset",
  "more-asserts",
  "region",
+ "rkyv",
  "serde",
  "thiserror",
  "wasmer-types",
@@ -1315,6 +1370,22 @@ name = "wasmparser"
 version = "0.74.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "4a4d63608421d9a22d4bce220f2841f3b609a5aaabd3ed3aeeb5fed2702c3c78"
+
+[[package]]
+name = "wasmparser"
+version = "0.77.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "b35c86d22e720a07d954ebbed772d01180501afe7d03d464f413bb5f8914a8d6"
+
+[[package]]
+name = "wasmprinter"
+version = "0.2.25"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "d0a64a1ecb60865b59789953ee6f62e49c3d47dde66b5b3f521c99b49d921836"
+dependencies = [
+ "anyhow",
+ "wasmparser 0.77.0",
+]
 
 [[package]]
 name = "wast"

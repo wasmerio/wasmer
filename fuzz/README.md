@@ -40,22 +40,8 @@ It will continue to generate random inputs forever, until it finds a bug or is t
 
 ## The corpus
 
-Each fuzzer has an individual corpus under fuzz/corpus/test_name, created on first run if not already present. The validate fuzzer works directly with `.wasm` files as bytes and works best if seeded with examples of small Wasm file. Using `wast2json` from [wabt](https://github.com/WebAssembly/wabt), we can easily produce `.wasm` files out of the WebAssembly spec tests.
+Each fuzzer has an individual corpus under fuzz/corpus/test_name, created on first run if not already present. The fuzzers use `wasm-smith` which means that the testcase files are random number seeds input to the wasm generator, not `.wasm` files themselves. In order to debug a testcase, you may find that you need to convert it into a `.wasm` file. Using the standalone `wasm-smith` tool doesn't work for this purpose because we use a custom configuration to our `wasm_smith::Module`. Instead, our fuzzers use an environment variable `DUMP_TESTCASE=path`. For example:
 
-```sh
-mkdir spec-test-corpus
-for i in `find tests/ -name "*.wast"`; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
-mv spec-test-corpus/*.wasm fuzz/corpus/validate/
-rm -r spec-test-corpus
 ```
-
-The others fuzzers use `wasm-smith` which means that the testcase files are the input to the wasm generator, not the valid `.wasm` bytes themselves. In order to debug a testcase, you may find that you need to convert it into a `.wasm` file. Using the standalone `wasm-smith` tool doesn't work for this purpose because we use a custom configuration to our `wasm_smith::Module`. Instead, add some code to the fuzzer target:
-
-```rust
-    use std::fs::File;
-    use std::io::Write;
-    let mut file = File::create("/tmp/crash.wasm").unwrap();
-    file.write_all(&wasm_bytes).unwrap();
+DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=jit,singlepass jit_singlepass fuzz/artifacts/jit_singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
 ```
-
-and run it over just the one testcase.

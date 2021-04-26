@@ -20,10 +20,26 @@ impl Config for NoImportsConfig {
         false
     }
 }
+#[derive(Arbitrary)]
+struct WasmSmithModule(ConfiguredModule<NoImportsConfig>);
+impl std::fmt::Debug for WasmSmithModule {
+    fn fmt(&self, f: &mut std::fmt::Formatter<'_>) -> std::fmt::Result {
+        f.write_str(&wasmprinter::print_bytes(self.0.to_bytes()).unwrap())
+    }
+}
 
-fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
+fuzz_target!(|module: WasmSmithModule| {
     let serialized = {
-        let wasm_bytes = module.to_bytes();
+        let wasm_bytes = module.0.to_bytes();
+
+        if let Ok(path) = std::env::var("DUMP_TESTCASE") {
+            use std::fs::File;
+            use std::io::Write;
+            let mut file = File::create(path).unwrap();
+            file.write_all(&wasm_bytes).unwrap();
+            return;
+        }
+
         let compiler = Cranelift::default();
         let store = Store::new(&Native::new(compiler).engine());
         let module = Module::new(&store, &wasm_bytes).unwrap();
@@ -41,6 +57,9 @@ fuzz_target!(|module: ConfiguredModule<NoImportsConfig>| {
                 .contains("RuntimeError: memory out of bounds: data segment does not fit")
                 || error_message
                     .contains("RuntimeError: table out of bounds: elements segment does not fit")
+                || error_message.contains(
+                    "RuntimeError: out of bounds table access: elements segment does not fit",
+                )
             {
                 return;
             }

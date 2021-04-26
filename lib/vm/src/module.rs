@@ -6,6 +6,11 @@
 
 use indexmap::IndexMap;
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{
+    de::SharedDeserializer, ser::Serializer, ser::SharedSerializer, Archive, Archived,
+    Deserialize as RkyvDeserialize, Fallible, Serialize as RkyvSerialize,
+};
 use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
@@ -13,6 +18,8 @@ use std::iter::ExactSizeIterator;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
+#[cfg(feature = "enable-rkyv")]
+use wasmer_types::ArchivableIndexMap;
 use wasmer_types::{
     CustomSectionIndex, DataIndex, ElemIndex, ExportIndex, ExportType, ExternType, FunctionIndex,
     FunctionType, GlobalIndex, GlobalInit, GlobalType, ImportIndex, ImportType, LocalFunctionIndex,
@@ -21,6 +28,10 @@ use wasmer_types::{
 };
 
 #[derive(Debug, Clone, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct ModuleId {
     id: usize,
 }
@@ -48,6 +59,8 @@ pub struct ModuleInfo {
     ///
     /// We skip serialization/deserialization of this field, as it
     /// should be computed by the process.
+    /// It's not skipped in rkyv, but that is okay, because even though it's skipped in bincode/serde
+    /// it's still deserialized back as a garbage number, and later override from computed by the process
     #[serde(skip_serializing, skip_deserializing)]
     pub id: ModuleId,
 
@@ -71,10 +84,10 @@ pub struct ModuleInfo {
     pub table_initializers: Vec<TableInitializer>,
 
     /// WebAssembly passive elements.
-    pub passive_elements: PrimaryMap<ElemIndex, Box<[FunctionIndex]>>,
+    pub passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
 
     /// WebAssembly passive data segments.
-    pub passive_data: PrimaryMap<DataIndex, Arc<[u8]>>,
+    pub passive_data: HashMap<DataIndex, Arc<[u8]>>,
 
     /// WebAssembly global initializers.
     pub global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
@@ -116,6 +129,152 @@ pub struct ModuleInfo {
     pub num_imported_globals: usize,
 }
 
+/// Mirror version of ModuleInfo that can derive rkyv traits
+#[cfg(feature = "enable-rkyv")]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
+pub struct ArchivableModuleInfo {
+    name: Option<String>,
+    imports: ArchivableIndexMap<(String, String, u32), ImportIndex>,
+    exports: ArchivableIndexMap<String, ExportIndex>,
+    start_function: Option<FunctionIndex>,
+    table_initializers: Vec<TableInitializer>,
+    passive_elements: HashMap<ElemIndex, Box<[FunctionIndex]>>,
+    passive_data: HashMap<DataIndex, Arc<[u8]>>,
+    global_initializers: PrimaryMap<LocalGlobalIndex, GlobalInit>,
+    function_names: HashMap<FunctionIndex, String>,
+    signatures: PrimaryMap<SignatureIndex, FunctionType>,
+    functions: PrimaryMap<FunctionIndex, SignatureIndex>,
+    tables: PrimaryMap<TableIndex, TableType>,
+    memories: PrimaryMap<MemoryIndex, MemoryType>,
+    globals: PrimaryMap<GlobalIndex, GlobalType>,
+    custom_sections: ArchivableIndexMap<String, CustomSectionIndex>,
+    custom_sections_data: PrimaryMap<CustomSectionIndex, Arc<[u8]>>,
+    num_imported_functions: usize,
+    num_imported_tables: usize,
+    num_imported_memories: usize,
+    num_imported_globals: usize,
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl From<ModuleInfo> for ArchivableModuleInfo {
+    fn from(it: ModuleInfo) -> ArchivableModuleInfo {
+        ArchivableModuleInfo {
+            name: it.name,
+            imports: ArchivableIndexMap::from(it.imports),
+            exports: ArchivableIndexMap::from(it.exports),
+            start_function: it.start_function,
+            table_initializers: it.table_initializers,
+            passive_elements: it.passive_elements,
+            passive_data: it.passive_data,
+            global_initializers: it.global_initializers,
+            function_names: it.function_names,
+            signatures: it.signatures,
+            functions: it.functions,
+            tables: it.tables,
+            memories: it.memories,
+            globals: it.globals,
+            custom_sections: ArchivableIndexMap::from(it.custom_sections),
+            custom_sections_data: it.custom_sections_data,
+            num_imported_functions: it.num_imported_functions,
+            num_imported_tables: it.num_imported_tables,
+            num_imported_memories: it.num_imported_memories,
+            num_imported_globals: it.num_imported_globals,
+        }
+    }
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl From<ArchivableModuleInfo> for ModuleInfo {
+    fn from(it: ArchivableModuleInfo) -> ModuleInfo {
+        ModuleInfo {
+            id: Default::default(),
+            name: it.name,
+            imports: it.imports.into(),
+            exports: it.exports.into(),
+            start_function: it.start_function,
+            table_initializers: it.table_initializers,
+            passive_elements: it.passive_elements,
+            passive_data: it.passive_data,
+            global_initializers: it.global_initializers,
+            function_names: it.function_names,
+            signatures: it.signatures,
+            functions: it.functions,
+            tables: it.tables,
+            memories: it.memories,
+            globals: it.globals,
+            custom_sections: it.custom_sections.into(),
+            custom_sections_data: it.custom_sections_data,
+            num_imported_functions: it.num_imported_functions,
+            num_imported_tables: it.num_imported_tables,
+            num_imported_memories: it.num_imported_memories,
+            num_imported_globals: it.num_imported_globals,
+        }
+    }
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl From<&ModuleInfo> for ArchivableModuleInfo {
+    fn from(it: &ModuleInfo) -> ArchivableModuleInfo {
+        ArchivableModuleInfo::from(it.clone())
+    }
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl Archive for ModuleInfo {
+    type Archived = <ArchivableModuleInfo as Archive>::Archived;
+    type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
+
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+        ArchivableModuleInfo::from(self).resolve(pos, resolver)
+    }
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl<S: Serializer + SharedSerializer + ?Sized> RkyvSerialize<S> for ModuleInfo {
+    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+        ArchivableModuleInfo::from(self).serialize(serializer)
+    }
+}
+
+#[cfg(feature = "enable-rkyv")]
+impl<D: Fallible + ?Sized + SharedDeserializer> RkyvDeserialize<ModuleInfo, D>
+    for Archived<ModuleInfo>
+{
+    fn deserialize(&self, deserializer: &mut D) -> Result<ModuleInfo, D::Error> {
+        let r: ArchivableModuleInfo =
+            RkyvDeserialize::<ArchivableModuleInfo, D>::deserialize(self, deserializer)?;
+        Ok(ModuleInfo::from(r))
+    }
+}
+
+// For test serialization correctness, everything except module id should be same
+impl PartialEq for ModuleInfo {
+    fn eq(&self, other: &ModuleInfo) -> bool {
+        self.name == other.name
+            && self.imports == other.imports
+            && self.exports == other.exports
+            && self.start_function == other.start_function
+            && self.table_initializers == other.table_initializers
+            && self.passive_elements == other.passive_elements
+            && self.passive_data == other.passive_data
+            && self.global_initializers == other.global_initializers
+            && self.function_names == other.function_names
+            && self.signatures == other.signatures
+            && self.functions == other.functions
+            && self.tables == other.tables
+            && self.memories == other.memories
+            && self.globals == other.globals
+            && self.custom_sections == other.custom_sections
+            && self.custom_sections_data == other.custom_sections_data
+            && self.num_imported_functions == other.num_imported_functions
+            && self.num_imported_tables == other.num_imported_tables
+            && self.num_imported_memories == other.num_imported_memories
+            && self.num_imported_globals == other.num_imported_globals
+    }
+}
+
+impl Eq for ModuleInfo {}
+
 impl ModuleInfo {
     /// Allocates the module data structures.
     pub fn new() -> Self {
@@ -126,8 +285,8 @@ impl ModuleInfo {
             exports: IndexMap::new(),
             start_function: None,
             table_initializers: Vec::new(),
-            passive_elements: PrimaryMap::new(),
-            passive_data: PrimaryMap::new(),
+            passive_elements: HashMap::new(),
+            passive_data: HashMap::new(),
             global_initializers: PrimaryMap::new(),
             function_names: HashMap::new(),
             signatures: PrimaryMap::new(),
@@ -146,7 +305,7 @@ impl ModuleInfo {
 
     /// Get the given passive element, if it exists.
     pub fn get_passive_element(&self, index: ElemIndex) -> Option<&[FunctionIndex]> {
-        self.passive_elements.get(index).map(|es| &**es)
+        self.passive_elements.get(&index).map(|es| &**es)
     }
 
     /// Get the exported signatures of the module

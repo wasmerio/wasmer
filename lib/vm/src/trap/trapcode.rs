@@ -86,7 +86,9 @@ impl TrapCode {
             Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
             Self::HeapMisaligned => "misaligned heap",
-            Self::TableSetterOutOfBounds => "table out of bounds: elements segment does not fit",
+            Self::TableSetterOutOfBounds => {
+                "out of bounds table access: elements segment does not fit"
+            }
             Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
             Self::OutOfBounds => "out of bounds",
             Self::IndirectCallToNull => "uninitialized element",

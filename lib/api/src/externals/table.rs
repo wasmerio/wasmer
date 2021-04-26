@@ -7,7 +7,7 @@ use crate::TableType;
 use loupe::MemoryUsage;
 use std::sync::Arc;
 use wasmer_engine::{Export, ExportTable};
-use wasmer_vm::{Table as RuntimeTable, VMCallerCheckedAnyfunc, VMExportTable};
+use wasmer_vm::{Table as RuntimeTable, TableElement, VMExportTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -27,7 +27,7 @@ pub struct Table {
 fn set_table_item(
     table: &dyn RuntimeTable,
     item_index: u32,
-    item: VMCallerCheckedAnyfunc,
+    item: TableElement,
 ) -> Result<(), RuntimeError> {
     table.set(item_index, item).map_err(|e| e.into())
 }
@@ -40,7 +40,7 @@ impl Table {
     /// This function will construct the `Table` using the store
     /// [`BaseTunables`][crate::tunables::BaseTunables].
     pub fn new(store: &Store, ty: TableType, init: Val) -> Result<Self, RuntimeError> {
-        let item = init.into_checked_anyfunc(store)?;
+        let item = init.into_table_reference(store)?;
         let tunables = store.tunables();
         let style = tunables.table_style(&ty);
         let table = tunables
@@ -71,12 +71,12 @@ impl Table {
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
         let item = self.table.get(index)?;
-        Some(ValFuncRef::from_checked_anyfunc(item, &self.store))
+        Some(ValFuncRef::from_table_reference(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
-        let item = val.into_checked_anyfunc(&self.store)?;
+        let item = val.into_table_reference(&self.store)?;
         set_table_item(self.table.as_ref(), index, item)
     }
 
@@ -95,19 +95,10 @@ impl Table {
     ///
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
-        let item = init.into_checked_anyfunc(&self.store)?;
-        match self.table.grow(delta) {
-            Some(len) => {
-                for i in 0..delta {
-                    set_table_item(self.table.as_ref(), len + i, item.clone())?;
-                }
-                Ok(len)
-            }
-            None => Err(RuntimeError::new(format!(
-                "failed to grow table by `{}`",
-                delta
-            ))),
-        }
+        let item = init.into_table_reference(&self.store)?;
+        self.table
+            .grow(delta, item)
+            .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
 
     /// Copies the `len` elements of `src_table` starting at `src_index`

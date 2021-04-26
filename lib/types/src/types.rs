@@ -5,9 +5,11 @@ use crate::lib::std::format;
 use crate::lib::std::string::{String, ToString};
 use crate::lib::std::vec::Vec;
 use crate::units::Pages;
-use crate::values::Value;
+use crate::values::{Value, WasmValueType};
 use loupe::{MemoryUsage, MemoryUsageTracker};
 
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -18,6 +20,10 @@ use serde::{Deserialize, Serialize};
 /// A list of all possible value types in WebAssembly.
 #[derive(Copy, Debug, Clone, Eq, PartialEq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum Type {
     /// Signed 32 bit integer.
     I32,
@@ -59,6 +65,10 @@ impl fmt::Display for Type {
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Hash)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 /// The WebAssembly V128 type
 pub struct V128(pub(crate) [u8; 16]);
 
@@ -234,6 +244,10 @@ impl ExternType {
 /// WebAssembly functions can have 0 or more parameters and results.
 #[derive(Debug, Clone, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct FunctionType {
     /// The parameters of the function
     params: Box<[Type]>,
@@ -319,6 +333,10 @@ impl From<&FunctionType> for FunctionType {
 /// Indicator of whether a global is mutable or not
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum Mutability {
     /// The global is constant and its value does not change
     Const,
@@ -355,6 +373,10 @@ impl From<Mutability> for bool {
 /// WebAssembly global.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct GlobalType {
     /// The type of the value stored in the global.
     pub ty: Type,
@@ -396,8 +418,12 @@ impl fmt::Display for GlobalType {
 }
 
 /// Globals are initialized via the `const` operators or by referring to another import.
-#[derive(Debug, Clone, Copy, MemoryUsage)]
+#[derive(Debug, Clone, Copy, MemoryUsage, PartialEq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum GlobalInit {
     /// An `i32.const`.
     I32Const(i32),
@@ -411,15 +437,20 @@ pub enum GlobalInit {
     V128Const(V128),
     /// A `global.get` of another global.
     GetGlobal(GlobalIndex),
+    // TODO(reftypes): `ref.null func` and `ref.null extern` seem to be 2 different
+    // things: we need to handle both. Perhaps this handled in context by the
+    // global knowing its own type?
     /// A `ref.null`.
     RefNullConst,
     /// A `ref.func <index>`.
     RefFunc(FunctionIndex),
 }
 
+impl Eq for GlobalInit {}
+
 impl GlobalInit {
     /// Get the `GlobalInit` from a given `Value`
-    pub fn from_value<T>(value: Value<T>) -> Self {
+    pub fn from_value<T: WasmValueType>(value: Value<T>) -> Self {
         match value {
             Value::I32(i) => Self::I32Const(i),
             Value::I64(i) => Self::I64Const(i),
@@ -429,7 +460,7 @@ impl GlobalInit {
         }
     }
     /// Get the `Value` from the Global init value
-    pub fn to_value<T>(&self) -> Value<T> {
+    pub fn to_value<T: WasmValueType>(&self) -> Value<T> {
         match self {
             Self::I32Const(i) => Value::I32(*i),
             Self::I64Const(i) => Value::I64(*i),
@@ -449,6 +480,10 @@ impl GlobalInit {
 /// which `call_indirect` can invoke other functions.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct TableType {
     /// The type of data stored in elements of the table.
     pub ty: Type,
@@ -488,6 +523,10 @@ impl fmt::Display for TableType {
 /// chunks of addressable memory.
 #[derive(Debug, Clone, Copy, PartialEq, Eq, Hash, MemoryUsage)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct MemoryType {
     /// The minimum number of pages in the memory.
     pub minimum: Pages,

@@ -332,7 +332,6 @@ pub fn parse_element_section<'data>(
     environ: &mut ModuleEnvironment,
 ) -> WasmResult<()> {
     environ.reserve_table_initializers(elements.get_count())?;
-    environ.reserve_passive_elements(elements.get_count())?;
 
     for (index, entry) in elements.into_iter().enumerate() {
         let Element { kind, items, ty } = entry?;
@@ -372,7 +371,7 @@ pub fn parse_element_section<'data>(
                 let index = ElemIndex::from_u32(index as u32);
                 environ.declare_passive_element(index, segments)?;
             }
-            ElementKind::Declared => return Err(wasm_unsupported!("element kind declared")),
+            ElementKind::Declared => (),
         }
     }
     Ok(())

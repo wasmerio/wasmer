@@ -356,8 +356,9 @@ pub fn ___syscall183(ctx: &EmEnv, _which: c_int, mut varargs: VarArgs) -> i32 {
     let path = get_current_directory(ctx);
     let path_string = path.unwrap().display().to_string();
     let len = path_string.len();
+    let memory = ctx.memory(0);
 
-    let buf_writer = buf_offset.deref(ctx.memory(0), 0, len as u32 + 1).unwrap();
+    let buf_writer = buf_offset.deref(&memory, 0, len as u32 + 1).unwrap();
     for (i, byte) in path_string.bytes().enumerate() {
         buf_writer[i].set(byte as _);
     }
@@ -411,8 +412,9 @@ pub fn ___syscall140(ctx: &EmEnv, _which: i32, mut varargs: VarArgs) -> i32 {
     let whence: i32 = varargs.get(ctx);
     let offset = offset_low;
     let ret = unsafe { lseek(fd, offset as _, whence) as i64 };
+    let memory = ctx.memory(0);
 
-    let result_ptr = result_ptr_value.deref(ctx.memory(0)).unwrap();
+    let result_ptr = result_ptr_value.deref(&memory).unwrap();
     result_ptr.set(ret);
 
     debug!(

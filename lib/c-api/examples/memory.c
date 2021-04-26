@@ -99,10 +99,6 @@ int main(int argc, const char* argv[]) {
 
     printf("Value at 0x%04x: %d\n", mem_addr, get_at_results_val[0].of.i32);
 
-    wasm_memory_delete(memory);
-    wasm_func_delete(mem_size);
-    wasm_func_delete(set_at);
-    wasm_func_delete(get_at);
     wasm_extern_vec_delete(&exports);
     wasm_module_delete(module);
     wasm_instance_delete(instance);

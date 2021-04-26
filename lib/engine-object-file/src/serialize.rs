@@ -42,16 +42,20 @@ impl SymbolRegistry for ModuleMetadataSymbolRegistry {
                 format!("wasmer_function_{}_{}", self.prefix, index.index())
             }
             Symbol::Section(index) => format!("wasmer_section_{}_{}", self.prefix, index.index()),
-            Symbol::FunctionCallTrampoline(index) => format!(
-                "wasmer_trampoline_function_call_{}_{}",
-                self.prefix,
-                index.index()
-            ),
-            Symbol::DynamicFunctionTrampoline(index) => format!(
-                "wasmer_trampoline_dynamic_function_{}_{}",
-                self.prefix,
-                index.index()
-            ),
+            Symbol::FunctionCallTrampoline(index) => {
+                format!(
+                    "wasmer_trampoline_function_call_{}_{}",
+                    self.prefix,
+                    index.index()
+                )
+            }
+            Symbol::DynamicFunctionTrampoline(index) => {
+                format!(
+                    "wasmer_trampoline_dynamic_function_{}_{}",
+                    self.prefix,
+                    index.index()
+                )
+            }
         }
     }
 

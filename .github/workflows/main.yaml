@@ -294,7 +294,7 @@ jobs:
     steps:
       - uses: actions/checkout@v2
 
-      - uses: addnab/docker-run-action@v1
+      - uses: addnab/docker-run-action@v3
         with:
           image: ${{ matrix.image }}
           options: -v ${{ github.workspace }}:/work

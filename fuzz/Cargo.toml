@@ -19,6 +19,7 @@ wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = t
 wasmer-engine-jit = { path = "../lib/engine-jit", optional = true }
 wasmer-engine-native = { path = "../lib/engine-native", optional = true }
 wasmer-middlewares = { path = "../lib/middlewares" }
+wasmprinter = "0.2"
 
 [features]
 cranelift = [ "wasmer-compiler-cranelift" ]
@@ -60,8 +61,3 @@ required-features = ["jit", "cranelift"]
 name = "native_cranelift"
 path = "fuzz_targets/native_cranelift.rs"
 required-features = ["native", "cranelift"]
-
-[[bin]]
-name = "validate"
-path = "fuzz_targets/validate.rs"
-required-features = ["jit", "cranelift"]

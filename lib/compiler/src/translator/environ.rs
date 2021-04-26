@@ -331,14 +331,6 @@ impl<'data> ModuleEnvironment<'data> {
         Ok(())
     }
 
-    pub(crate) fn reserve_passive_elements(&mut self, num: u32) -> WasmResult<()> {
-        self.result
-            .module
-            .passive_elements
-            .reserve_exact(usize::try_from(num).unwrap());
-        Ok(())
-    }
-
     pub(crate) fn declare_table_initializers(
         &mut self,
         table_index: TableIndex,
@@ -363,7 +355,16 @@ impl<'data> ModuleEnvironment<'data> {
         elem_index: ElemIndex,
         segments: Box<[FunctionIndex]>,
     ) -> WasmResult<()> {
-        self.result.module.passive_elements[elem_index] = segments;
+        let old = self
+            .result
+            .module
+            .passive_elements
+            .insert(elem_index, segments);
+        debug_assert!(
+            old.is_none(),
+            "should never get duplicate element indices, that would be a bug in `wasmer_compiler`'s \
+             translation"
+        );
         Ok(())
     }
 
@@ -406,7 +407,8 @@ impl<'data> ModuleEnvironment<'data> {
     }
 
     pub(crate) fn reserve_passive_data(&mut self, count: u32) -> WasmResult<()> {
-        self.result.module.passive_data.reserve(count as usize);
+        let count = usize::try_from(count).unwrap();
+        self.result.module.passive_data.reserve(count);
         Ok(())
     }
 
@@ -415,7 +417,15 @@ impl<'data> ModuleEnvironment<'data> {
         data_index: DataIndex,
         data: &'data [u8],
     ) -> WasmResult<()> {
-        self.result.module.passive_data[data_index] = Arc::from(data);
+        let old = self
+            .result
+            .module
+            .passive_data
+            .insert(data_index, Arc::from(data));
+        debug_assert!(
+            old.is_none(),
+            "a module can't have duplicate indices, this would be a wasmer-compiler bug"
+        );
         Ok(())
     }
 

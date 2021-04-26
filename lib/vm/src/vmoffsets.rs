@@ -335,6 +335,24 @@ impl VMOffsets {
     }
 }
 
+/// Offsets for [`VMFuncRef`].
+///
+/// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+impl VMOffsets {
+    /// The offset to the pointer to the anyfunc inside the ref.
+    #[allow(clippy::erasing_op)]
+    pub const fn vm_funcref_anyfunc_ptr(&self) -> u8 {
+        0 * self.pointer_size
+    }
+
+    /// Return the size of [`VMFuncRef`].
+    ///
+    /// [`VMFuncRef`]: crate::func_data_registry::VMFuncRef
+    pub const fn size_of_vm_funcref(&self) -> u8 {
+        1 * self.pointer_size
+    }
+}
+
 /// Offsets for [`VMContext`].
 ///
 /// [`VMContext`]: crate::vmcontext::VMContext

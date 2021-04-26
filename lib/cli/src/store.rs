@@ -212,18 +212,19 @@ impl CompilerOptions {
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
                 fn types_to_signature(types: &[Type]) -> String {
-                    types.iter().map(|ty| {
-                        match ty {
+                    types
+                        .iter()
+                        .map(|ty| match ty {
                             Type::I32 => "i".to_string(),
                             Type::I64 => "I".to_string(),
                             Type::F32 => "f".to_string(),
                             Type::F64 => "F".to_string(),
                             Type::V128 => "v".to_string(),
-                            _ => {
-                                unimplemented!("Function type not yet supported for generated signatures in debugging");
-                            }
-                        }
-                    }).collect::<Vec<_>>().join("")
+                            Type::ExternRef => "e".to_string(),
+                            Type::FuncRef => "r".to_string(),
+                        })
+                        .collect::<Vec<_>>()
+                        .join("")
                 }
                 // Converts a kind into a filename, that we will use to dump
                 // the contents of the IR object file to.
@@ -292,10 +293,12 @@ impl CompilerOptions {
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
-            compiler => bail!(
-                "The `{}` compiler is not included in this binary.",
-                compiler.to_string()
-            ),
+            compiler => {
+                bail!(
+                    "The `{}` compiler is not included in this binary.",
+                    compiler.to_string()
+                )
+            }
         };
 
         #[allow(unreachable_code)]
