@@ -41,26 +41,22 @@ jobs:
         include:
           - build: linux-x64
             os: ubuntu-18.04
-            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-amd64.tar.gz'
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
           - build: macos-x64
             os: macos-latest
-            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
           - build: macos-arm64
             os: macos-11.0
-            rust: "1.50"
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
           - build: windows-x64
             os: windows-latest
-            rust: "1.50"
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
@@ -68,7 +64,6 @@ jobs:
           - build: linux-aarch64
             os: [self-hosted, linux, ARM64]
             random_sccache_port: true
-            rust: "1.50"
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
@@ -85,10 +80,9 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
-      - name: Install Rust ${{ matrix.rust }}
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
-          toolchain: ${{ matrix.rust }}
           target: ${{ matrix.target }}
           override: true
       - name: Install LLVM (Windows)
@@ -289,7 +283,6 @@ jobs:
         include:
           - build: linux-musl-x64
             image: alpine:latest
-            rust: "1.50"
             artifact_name: 'wasmer-linux-musl-amd64'
     steps:
       - uses: actions/checkout@v2
@@ -304,15 +297,11 @@ jobs:
             # Set up tools
             apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
 
-            # Install Rust ${{ matrix.rust }}
+            # Install Rustup
             curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
             sh ./rustup.sh -y
             source ~/.cargo/env
             rm -f ./rustup.sh
-
-            # Set up Rust
-            rustup toolchain install ${{ matrix.rust }}
-            rustup default ${{ matrix.rust }}
 
             # Change working directory
             cd /work
