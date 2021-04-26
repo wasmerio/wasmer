@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["to_compile_error",""]],"struct":[["SinglepassCompiler","A compiler that compiles a WebAssembly module with Singlepass. It does the compilation in one pass"]],"trait":[["ToCompileError",""]]});
+initSidebarItems({"fn":[["to_compile_error",""]],"struct":[["SinglepassCompiler","A compiler that compiles a WebAssembly module with Singlepass. It does the compilation in one pass"]],"trait":[["IntoParIterIfRayon",""],["ToCompileError",""]]});
