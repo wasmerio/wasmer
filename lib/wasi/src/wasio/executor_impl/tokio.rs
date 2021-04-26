@@ -9,7 +9,7 @@ use crossbeam::channel::{unbounded, Receiver, Sender};
 use flurry::HashMap as ConcHashMap;
 use futures::future::{AbortHandle, Abortable, Future, FutureExt, TryFutureExt};
 use std::any::Any;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::VecDeque;
 use std::io::{self, Read, Seek, SeekFrom, Write};
 use std::net::{Ipv4Addr, Ipv6Addr, SocketAddr, SocketAddrV4, SocketAddrV6};
@@ -275,69 +275,6 @@ impl Executor for TokioExecutor {
                                         };
 
                                         so_datalen.set(n as u32);
-                                        __WASI_ESUCCESS
-                                    }
-                                    Err(e) => from_tokio_error(e),
-                                }
-                            }
-                            _ => __WASI_EINVAL,
-                        }
-                    }),
-                    user_context,
-                ));
-            }
-            AsyncOneshotOperation::Read {
-                memory,
-                fs,
-                fd,
-                ri_data,
-                ri_data_len,
-                ro_datalen,
-                ..
-            } => {
-                let sock: AbstractTcpSocket = fs.get_wasi_file_as::<AbstractTcpSocket>(fd)?.clone();
-
-                // Read iovecs into local buffers, to allow the caller to deallocate them.
-                let iovecs: Vec<_> = ri_data
-                    .deref(memory, 0, ri_data_len)?
-                    .iter()
-                    .map(|x| x.get())
-                    .collect();
-
-                // FIXME: `memory` is marked as `Clone` but might not be actually be safe to clone: `grow()`.
-                let memory = memory.clone();
-
-                return Ok(self.spawn_oneshot(
-                    self.runtime.enter(|| async move {
-                        // FIXME: Allow multiple iovec elements
-                        if iovecs.len() == 0 {
-                            let ro_datalen = match ro_datalen.deref(&memory) {
-                                Ok(x) => x,
-                                Err(_) => return __WASI_EFAULT,
-                            };
-                            ro_datalen.set(0);
-                            return __WASI_ESUCCESS;
-                        }
-                        let iov = &iovecs[0];
-
-                        let data = match unsafe { iov.buf.deref_mut(&memory, 0, iov.buf_len) } {
-                            Ok(x) => x,
-                            Err(_) => return __WASI_EFAULT,
-                        };
-                        let data =
-                            unsafe { std::mem::transmute::<&mut [Cell<u8>], &mut [u8]>(data) };
-
-                        let sock_inner = sock.inner.read().await;
-                        match *sock_inner {
-                            AbstractTcpSocketInner::Stream(ref read_half, _, _) => {
-                                let mut read_half = read_half.lock().await;
-                                match sock.run_io_maybe_nb(read_half.read(data)).await {
-                                    Ok(n) => {
-                                        let ro_datalen = match ro_datalen.deref(&memory) {
-                                            Ok(x) => x,
-                                            Err(_) => return __WASI_EFAULT,
-                                        };
-                                        ro_datalen.set(n as u32);
                                         __WASI_ESUCCESS
                                     }
                                     Err(e) => from_tokio_error(e),
