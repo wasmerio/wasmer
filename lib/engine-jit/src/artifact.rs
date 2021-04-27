@@ -60,34 +60,32 @@ impl JITArtifact {
         let mut inner_jit = jit.inner_mut();
         let features = inner_jit.features();
 
-        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        let mut translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
-            .module
+        let compiler = inner_jit.compiler()?;
+
+        // We try to apply the middleware first
+        let mut module = translation.module;
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
             .values()
             .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
-            .module
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
             .tables
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let mut compile_info = CompileModuleInfo {
-            module: Arc::new(translation.module),
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
         };
-
-        let compiler = inner_jit.compiler()?;
-
-        let mut module = (*compile_info.module).clone();
-        let middlewares = compiler.get_middlewares();
-        middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
 
         // Compile the Module
         let compilation = compiler.compile_module(
