@@ -167,6 +167,8 @@ jobs:
         if: matrix.random_sccache_port
         shell: bash
       - name: Start sccache
+        env:
+          SCCACHE_LOG: debug
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
