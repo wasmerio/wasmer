@@ -8,9 +8,10 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
-use wasmparser::{BinaryReader, Operator, Type};
+use wasmparser::{BinaryReader, Operator, Range, Type};
 
 use crate::error::{MiddlewareError, WasmResult};
+use crate::translator::environ::FunctionBinaryReader;
 
 /// A shared builder for function middlewares.
 pub trait ModuleMiddleware: Debug + Send + Sync + MemoryUsage {
@@ -128,21 +129,20 @@ impl<'a> MiddlewareBinaryReader<'a> {
     pub fn set_middleware_chain(&mut self, stages: Vec<Box<dyn FunctionMiddleware>>) {
         self.chain = stages;
     }
+}
 
-    /// Read a `count` indicating the number of times to call `read_local_decl`.
-    pub fn read_local_count(&mut self) -> WasmResult<u32> {
+impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
+    fn read_local_count(&mut self) -> WasmResult<u32> {
         Ok(self.state.inner.read_var_u32()?)
     }
 
-    /// Read a `(count, value_type)` declaration of local variables of the same type.
-    pub fn read_local_decl(&mut self) -> WasmResult<(u32, Type)> {
+    fn read_local_decl(&mut self) -> WasmResult<(u32, Type)> {
         let count = self.state.inner.read_var_u32()?;
         let ty = self.state.inner.read_type()?;
         Ok((count, ty))
     }
 
-    /// Reads the next available `Operator`.
-    pub fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
+    fn read_operator(&mut self) -> WasmResult<Operator<'a>> {
         if self.chain.is_empty() {
             // We short-circuit in case no chain is used
             return Ok(self.state.inner.read_operator()?);
@@ -171,23 +171,23 @@ impl<'a> MiddlewareBinaryReader<'a> {
         Ok(self.state.pending_operations.pop_front().unwrap())
     }
 
-    /// Returns the inner `BinaryReader`'s current position.
-    pub fn current_position(&self) -> usize {
+    fn current_position(&self) -> usize {
         self.state.inner.current_position()
     }
 
-    /// Returns the inner `BinaryReader`'s original position (with the offset)
-    pub fn original_position(&self) -> usize {
+    fn original_position(&self) -> usize {
         self.state.inner.original_position()
     }
 
-    /// Returns the number of bytes remaining in the inner `BinaryReader`.
-    pub fn bytes_remaining(&self) -> usize {
+    fn bytes_remaining(&self) -> usize {
         self.state.inner.bytes_remaining()
     }
 
-    /// Returns whether the inner `BinaryReader` has reached the end of the file.
-    pub fn eof(&self) -> bool {
+    fn eof(&self) -> bool {
         self.state.inner.eof()
+    }
+
+    fn range(&self) -> Range {
+        self.state.inner.range()
     }
 }

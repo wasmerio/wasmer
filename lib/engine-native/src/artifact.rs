@@ -18,7 +18,8 @@ use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -102,6 +103,7 @@ impl NativeArtifact {
     fn generate_metadata<'data>(
         data: &'data [u8],
         features: &Features,
+        compiler: &dyn Compiler,
         tunables: &dyn Tunables,
     ) -> Result<
         (
@@ -114,21 +116,25 @@ impl NativeArtifact {
     > {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
-            .module
+
+        // We try to apply the middleware first
+        let mut module = translation.module;
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
             .values()
             .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
-            .module
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
             .tables
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let compile_info = CompileModuleInfo {
-            module: Arc::new(translation.module),
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
@@ -152,7 +158,7 @@ impl NativeArtifact {
         let target = engine.target();
         let compiler = engine_inner.compiler()?;
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, engine_inner.features(), tunables)?;
+            Self::generate_metadata(data, engine_inner.features(), compiler, tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -195,10 +201,11 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        let (mut compile_info, symbol_registry) = metadata.split();
+        let (compile_info, symbol_registry) = metadata.split();
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            &mut compile_info,
+            &compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -222,7 +229,7 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &mut compile_info,
+                    &compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
