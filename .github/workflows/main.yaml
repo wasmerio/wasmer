@@ -67,6 +67,12 @@ jobs:
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
             artifact_name: 'wasmer-linux-aarch64'
             run_integration_tests: false
+          - build: linux-musl-x64
+            os: ubuntu-latest
+            container: alpine:latest
+            artifact_name: 'wasmer-linux-musl-amd64'
+            run_integration_tests: true
+    container: ${{ matrix.container }}
     env:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -273,66 +279,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  test-docker:
-    name: Test on ${{ matrix.build }}
-    runs-on: ubuntu-latest
-    container: alpine:latest
-    needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build: linux-musl-x64
-            artifact_name: 'wasmer-linux-musl-amd64'
-    steps:
-      - uses: actions/checkout@v2
-      - name: Install Dependencies
-        run: |
-          set -e
-          # Set up tools
-          apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
-      - name: Install Rust
-        uses: actions-rs/toolchain@v1
-        with:
-          override: true
-      - name: musl Test
-        run: |
-          set -e
-          # Test
-          make test
-      - name: musl Test C API
-        run: |
-          set -e
-          make test-capi
-      - name: Build C API and Wasmer
-        run: |
-          set -e
-          # Build C API, Wasmer & Wapm
-          make build-capi build-wasmer
-      - name: Build Wapm
-        if: needs.setup.outputs.DOING_RELEASE == '1'
-        run: |
-          set -e
-          make build-wapm
-      - name: Package Artifacts
-        run: |
-          set -e
-          # Dist
-          make distribution
-      - name: musl Integration Tests
-        run: |
-          set -e 
-          # Run integration tests
-          export WASMER_DIR=`pwd`/package
-          make test-integration
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist
-          if-no-files-found: error
-          retention-days: 1
-
   test-cross-compile-on-linux:
     name: Test cross-compile on linux
     needs: [setup, test]
@@ -383,7 +329,7 @@ jobs:
   #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   release:
-    needs: [setup, test, test-docker, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
+    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
