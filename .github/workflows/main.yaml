@@ -276,48 +276,42 @@ jobs:
   test-docker:
     name: Test on ${{ matrix.build }}
     runs-on: ubuntu-latest
+    container: alpine:latest
     needs: setup
     strategy:
       fail-fast: false
       matrix:
         include:
           - build: linux-musl-x64
-            image: alpine:latest
             artifact_name: 'wasmer-linux-musl-amd64'
     steps:
       - uses: actions/checkout@v2
 
-      - uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ matrix.image }}
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            set -e
+      - name: musl test
+        run: |
+          set -e
 
-            # Set up tools
-            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
+          # Set up tools
+          apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
 
-            # Install Rustup
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
-            sh ./rustup.sh -y
-            source ~/.cargo/env
-            rm -f ./rustup.sh
+          # Install Rustup
+          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
+          sh ./rustup.sh -y
+          source ~/.cargo/env
+          rm -f ./rustup.sh
 
-            # Change working directory
-            cd /work
+          # Test
+          make test test-capi
 
-            # Test
-            make test test-capi
+          # Build C API, Wasmer & Wapm
+          make build-capi build-wasmer build-wapm
 
-            # Build C API, Wasmer & Wapm
-            make build-capi build-wasmer build-wapm
+          # Dist
+          make distribution
 
-            # Dist
-            make distribution
-
-            # Run integration tests
-            export WASMER_DIR=`pwd`/package
-            make test-integration
+          # Run integration tests
+          export WASMER_DIR=`pwd`/package
+          make test-integration
       - name: Upload Artifacts
         uses: actions/upload-artifact@v2
         with:
