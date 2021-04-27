@@ -14,7 +14,7 @@ pub struct Wasi {
     #[clap(long = "dir", name = "DIR", multiple = true, group = "wasi")]
     pre_opened_directories: Vec<PathBuf>,
 
-    /// Map a host directory to a different location for the wasm module
+    /// Map a host directory to a different location for the Wasm module
     #[clap(long = "mapdir", name = "GUEST_DIR:HOST_DIR", multiple = true, parse(try_from_str = parse_mapdir))]
     mapped_dirs: Vec<(String, PathBuf)>,
 
@@ -27,9 +27,11 @@ pub struct Wasi {
     #[clap(long = "enable-experimental-io-devices")]
     enable_experimental_io_devices: bool,
 
+    /// Allow WASI modules to import multiple versions of WASI without a warning.
     #[clap(long = "allow-multiple-wasi-versions")]
     pub allow_multiple_wasi_versions: bool,
 
+    /// Require WASI modules to only import 1 version of WASI.
     #[clap(long = "deny-multiple-wasi-versions")]
     pub deny_multiple_wasi_versions: bool,
 }
@@ -70,8 +72,7 @@ impl Wasi {
         }
 
         let mut wasi_env = wasi_state_builder.finalize()?;
-        //let import_object = wasi_env.import_object(&module)?;
-        let resolver = wasi_env.multiple_wasi_resolver(&module)?;
+        let resolver = wasi_env.import_object_for_all_wasi_versions(&module)?;
         let instance = Instance::new(&module, &resolver)?;
 
         let start = instance.exports.get_function("_start")?;

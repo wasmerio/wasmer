@@ -82,7 +82,7 @@ impl WasiEnv {
 
     /// Like `import_object` but containing all the WASI versions detected in
     /// the module.
-    pub fn multiple_wasi_resolver(
+    pub fn import_object_for_all_wasi_versions(
         &mut self,
         module: &Module,
     ) -> Result<Box<dyn NamedResolver>, WasiError> {

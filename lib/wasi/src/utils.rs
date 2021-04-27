@@ -88,7 +88,7 @@ const SNAPSHOT1_NAMESPACE: &str = "wasi_snapshot_preview1";
 ///
 /// A strict detection expects that all imports live in a single WASI
 /// namespace. A non-strict detection expects that at least one WASI
-/// namespace exits to detect the version. Note that the strict
+/// namespace exists to detect the version. Note that the strict
 /// detection is faster than the non-strict one.
 pub fn get_wasi_version(module: &Module, strict: bool) -> Option<WasiVersion> {
     let mut imports = module.imports().functions().map(|f| f.module().to_owned());
