@@ -286,29 +286,42 @@ jobs:
             artifact_name: 'wasmer-linux-musl-amd64'
     steps:
       - uses: actions/checkout@v2
-
-      - name: musl test
+      - name: Install Dependencies
         run: |
           set -e
-
           # Set up tools
           apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
-
-          # Install Rustup
-          curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
-          sh ./rustup.sh -y
-          source ~/.cargo/env
-          rm -f ./rustup.sh
-
+      - name: Install Rust
+        uses: actions-rs/toolchain@v1
+        with:
+          override: true
+      - name: musl Test
+        run: |
+          set -e
           # Test
-          make test test-capi
-
+          make test
+      - name: musl Test C API
+        run: |
+          set -e
+          make test-capi
+      - name: Build C API and Wasmer
+        run: |
+          set -e
           # Build C API, Wasmer & Wapm
-          make build-capi build-wasmer build-wapm
-
+          make build-capi build-wasmer
+      - name: Build Wapm
+        if: needs.setup.outputs.DOING_RELEASE == '1'
+        run: |
+          set -e
+          make build-wapm
+      - name: Package Artifacts
+        run: |
+          set -e
           # Dist
           make distribution
-
+      - name: musl Integration Tests
+        run: |
+          set -e 
           # Run integration tests
           export WASMER_DIR=`pwd`/package
           make test-integration
