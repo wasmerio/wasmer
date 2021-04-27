@@ -5,7 +5,7 @@ use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 /// Serializable struct that represents the compiled metadata.
-#[derive(Serialize, Deserialize, Debug, MemoryUsage)]
+#[derive(Clone, Serialize, Deserialize, Debug, MemoryUsage)]
 pub struct ModuleMetadata {
     pub compile_info: CompileModuleInfo,
     pub prefix: String,
@@ -20,14 +20,6 @@ pub struct ModuleMetadataSymbolRegistry {
 }
 
 impl ModuleMetadata {
-    pub fn split(&mut self) -> (&mut CompileModuleInfo, ModuleMetadataSymbolRegistry) {
-        let compile_info = &mut self.compile_info;
-        let symbol_registry = ModuleMetadataSymbolRegistry {
-            prefix: self.prefix.clone(),
-        };
-        (compile_info, symbol_registry)
-    }
-
     pub fn get_symbol_registry(&self) -> ModuleMetadataSymbolRegistry {
         ModuleMetadataSymbolRegistry {
             prefix: self.prefix.clone(),

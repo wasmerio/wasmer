@@ -68,7 +68,9 @@ mod sourceloc;
 
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]
-pub use crate::compiler::{ExperimentalNativeMetadataSerializer, Compiler, CompilerConfig, Symbol, SymbolRegistry};
+pub use crate::compiler::{
+    Compiler, CompilerConfig, ExperimentalNativeMetadataSerializer, Symbol, SymbolRegistry,
+};
 pub use crate::error::{
     CompileError, MiddlewareError, ParseCpuFeatureError, WasmError, WasmResult,
 };
@@ -87,9 +89,9 @@ pub use crate::target::{
 };
 #[cfg(feature = "translator")]
 pub use crate::translator::{
-    translate_module, wptype_to_type, FunctionBodyData, FunctionMiddleware, MiddlewareBinaryReader,
-    MiddlewareReaderState, ModuleEnvironment, ModuleInfoTranslation, ModuleMiddleware,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    translate_module, wptype_to_type, FunctionBinaryReader, FunctionBodyData, FunctionMiddleware,
+    MiddlewareBinaryReader, MiddlewareReaderState, ModuleEnvironment, ModuleInfoTranslation,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState,
 };
 pub use crate::trap::TrapInformation;
 pub use crate::unwind::CompiledFunctionUnwindInfo;

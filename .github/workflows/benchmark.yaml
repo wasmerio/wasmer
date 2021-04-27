@@ -16,18 +16,16 @@ jobs:
         include:
           - build: linux
             os: ubuntu-latest
-            rust: 1.47.0
     env:
       CARGO_SCCACHE_VERSION: 0.2.13
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
       SCCACHE_AZURE_CONNECTION_STRING: ${{ secrets.SCCACHE_AZURE_CONNECTION_STRING }}
     steps:
       - uses: actions/checkout@v2
-      - name: Install Rust ${{ matrix.rust }}
+      - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: ${{ matrix.rust }}
           override: true
       - name: Configure cargo data directory
         # After this point, all cargo registry and crate data is stored in
@@ -47,9 +45,9 @@ jobs:
             target/*/.*
             target/*/build
             target/*/deps
-          key: ${{ matrix.os }}-${{ matrix.rust }}-${{ hashFiles('Cargo.lock') }}
+          key: ${{ matrix.os }}-${{ hashFiles('Cargo.lock') }}
           restore-keys: |
-            ${{ matrix.os }}-${{ matrix.rust }}-
+            ${{ matrix.os }}
       - name: Install LLVM (Linux)
         if: matrix.os == 'ubuntu-latest'
         run: |

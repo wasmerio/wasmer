@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    wptype_to_type, CompileError, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{

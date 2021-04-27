@@ -13,7 +13,7 @@ use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle};
 /// This differs from [`ModuleInfo`] because it have extra info only
 /// possible after translation (such as the features used for compiling,
 /// or the `MemoryStyle` and `TableStyle`).
-#[derive(Debug, MemoryUsage, PartialEq, Eq)]
+#[derive(Clone, Debug, MemoryUsage, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
 #[cfg_attr(
     feature = "enable-rkyv",

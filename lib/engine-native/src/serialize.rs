@@ -19,6 +19,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 
 /// Serializable struct that represents the compiled metadata.
 #[derive(
+    Clone,
     Serialize,
     Deserialize,
     Debug,
@@ -42,16 +43,6 @@ pub struct ModuleMetadataSymbolRegistry<'a> {
 }
 
 impl ModuleMetadata {
-    pub fn split<'a>(
-        &'a mut self,
-    ) -> (&'a mut CompileModuleInfo, ModuleMetadataSymbolRegistry<'a>) {
-        let compile_info = &mut self.compile_info;
-        let symbol_registry = ModuleMetadataSymbolRegistry {
-            prefix: &self.prefix,
-        };
-        (compile_info, symbol_registry)
-    }
-
     pub fn get_symbol_registry<'a>(&'a self) -> ModuleMetadataSymbolRegistry<'a> {
         ModuleMetadataSymbolRegistry {
             prefix: &self.prefix,
