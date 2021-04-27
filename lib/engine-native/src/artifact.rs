@@ -18,7 +18,8 @@ use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -196,9 +197,15 @@ impl NativeArtifact {
         metadata_binary.extend(serialized_data);
 
         let (mut compile_info, symbol_registry) = metadata.split();
+
+        let mut module = (*compile_info.module).clone();
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            &mut compile_info,
+            &compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -222,7 +229,7 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &mut compile_info,
+                    &compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;

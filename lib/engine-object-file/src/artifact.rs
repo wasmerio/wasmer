@@ -11,7 +11,8 @@ use std::sync::Arc;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -203,9 +204,15 @@ impl ObjectFileArtifact {
         let metadata_length = metadata_binary.len();
 
         let (compile_info, symbol_registry) = metadata.split();
+
+        let mut module = (*compile_info.module).clone();
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            compile_info,
+            &compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -217,7 +224,7 @@ impl ObjectFileArtifact {
         } else {
             let compilation = compiler.compile_module(
                 &target,
-                &mut metadata.compile_info,
+                &metadata.compile_info,
                 module_translation.as_ref().unwrap(),
                 function_body_inputs,
             )?;

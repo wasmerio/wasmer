@@ -25,8 +25,8 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData,
-    ModuleMiddlewareChain, SectionIndex,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, ModuleMiddleware,
+    SectionIndex,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -51,12 +51,17 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
+        self.config.get_middlewares()
+    }
+
     /// Compile the module using Cranelift, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &mut CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -64,9 +69,6 @@ impl Compiler for CraneliftCompiler {
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let signatures = module
             .signatures

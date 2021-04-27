@@ -10,7 +10,7 @@ use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
+use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, ModuleMiddlewareChain};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
     SerializeError,
@@ -84,10 +84,15 @@ impl JITArtifact {
 
         let compiler = inner_jit.compiler()?;
 
+        let mut module = (*compile_info.module).clone();
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         // Compile the Module
         let compilation = compiler.compile_module(
             &jit.target(),
-            &mut compile_info,
+            &compile_info,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.

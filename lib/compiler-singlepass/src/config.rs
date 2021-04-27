@@ -46,6 +46,11 @@ impl Singlepass {
         self.enable_nan_canonicalization = enable;
         self
     }
+
+    /// Get Middlewares
+    pub fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
+        self.middlewares.clone()
+    }
 }
 
 impl CompilerConfig for Singlepass {
@@ -69,10 +74,6 @@ impl CompilerConfig for Singlepass {
     /// Pushes a middleware onto the back of the middleware chain.
     fn push_middleware(&mut self, middleware: Arc<dyn ModuleMiddleware>) {
         self.middlewares.push(middleware);
-    }
-
-    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
-        self.middlewares.clone()
     }
 }
 
