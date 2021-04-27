@@ -6,7 +6,7 @@ use super::state::ModuleTranslationState;
 use crate::lib::std::borrow::ToOwned;
 use crate::lib::std::string::ToString;
 use crate::lib::std::{boxed::Box, string::String, vec::Vec};
-use crate::wasmparser::{Operator, Type};
+use crate::wasmparser::{Operator, Range, Type};
 use crate::{WasmError, WasmResult};
 use std::convert::{TryFrom, TryInto};
 use std::sync::Arc;
@@ -52,6 +52,9 @@ pub trait FunctionBinaryReader<'a> {
 
     /// Returns whether the readers has reached the end of the file.
     fn eof(&self) -> bool;
+
+    /// Return the range (original offset, original offset + data length)
+    fn range(&self) -> Range;
 }
 
 /// The result of translating via `ModuleEnvironment`. Function bodies are not

@@ -3,11 +3,11 @@
 
 use cranelift_codegen::machinst::buffer::MachSrcLoc;
 use cranelift_codegen::{isa, Context};
-use wasmer_compiler::{FunctionAddressMap, FunctionBodyData, InstructionAddressMap, SourceLoc};
+use wasmer_compiler::{wasmparser::Range, FunctionAddressMap, InstructionAddressMap, SourceLoc};
 
 pub fn get_function_address_map<'data>(
     context: &Context,
-    data: &FunctionBodyData<'data>,
+    range: Range,
     body_len: usize,
     isa: &dyn isa::TargetIsa,
 ) -> FunctionAddressMap {
@@ -44,8 +44,8 @@ pub fn get_function_address_map<'data>(
     // Generate artificial srcloc for function start/end to identify boundary
     // within module. Similar to FuncTranslator::cur_srcloc(): it will wrap around
     // if byte code is larger than 4 GB.
-    let start_srcloc = SourceLoc::new(data.module_offset as u32);
-    let end_srcloc = SourceLoc::new((data.module_offset + data.data.len()) as u32);
+    let start_srcloc = SourceLoc::new(range.start as u32);
+    let end_srcloc = SourceLoc::new(range.end as u32);
 
     FunctionAddressMap {
         instructions,

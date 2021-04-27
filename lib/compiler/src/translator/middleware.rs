@@ -8,7 +8,7 @@ use std::fmt::Debug;
 use std::ops::Deref;
 use wasmer_types::LocalFunctionIndex;
 use wasmer_vm::ModuleInfo;
-use wasmparser::{BinaryReader, Operator, Type};
+use wasmparser::{BinaryReader, Operator, Range, Type};
 
 use crate::error::{MiddlewareError, WasmResult};
 use crate::translator::environ::FunctionBinaryReader;
@@ -185,5 +185,9 @@ impl<'a> FunctionBinaryReader<'a> for MiddlewareBinaryReader<'a> {
 
     fn eof(&self) -> bool {
         self.state.inner.eof()
+    }
+
+    fn range(&self) -> Range {
+        self.state.inner.range()
     }
 }

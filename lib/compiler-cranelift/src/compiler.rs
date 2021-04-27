@@ -25,7 +25,8 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData, ModuleMiddleware,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBinaryReader, FunctionBody,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
     SectionIndex,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -120,15 +121,20 @@ impl Compiler for CraneliftCompiler {
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
+                let mut reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(
+                    self.config
+                        .middlewares
+                        .generate_function_middleware_chain(*i),
+                );
 
                 func_translator.translate(
                     module_translation_state,
-                    input.data,
-                    input.module_offset,
+                    &mut reader,
                     &mut context.func,
                     &mut func_env,
                     *i,
-                    &self.config,
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
@@ -174,7 +180,8 @@ impl Compiler for CraneliftCompiler {
                     other => other.maybe_into_to_windows_unwind(),
                 };
 
-                let address_map = get_function_address_map(&context, input, code_buf.len(), &*isa);
+                let range = reader.range();
+                let address_map = get_function_address_map(&context, range, code_buf.len(), &*isa);
 
                 // We transform the Cranelift JumpTable's into compiler JumpTables
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);
