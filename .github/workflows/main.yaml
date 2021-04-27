@@ -89,7 +89,7 @@ jobs:
       - name: Set up base deps on musl
         if: matrix.build == 'linux-musl-x64'
         run: |
-            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
+            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git libssl-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
