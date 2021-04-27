@@ -60,7 +60,7 @@ impl JITArtifact {
         let mut inner_jit = jit.inner_mut();
         let features = inner_jit.features();
 
-        let mut translation = environ.translate(data).map_err(CompileError::Wasm)?;
+        let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
         let compiler = inner_jit.compiler()?;
 
@@ -80,7 +80,7 @@ impl JITArtifact {
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let mut compile_info = CompileModuleInfo {
+        let compile_info = CompileModuleInfo {
             module: Arc::new(module),
             features: features.clone(),
             memory_styles,

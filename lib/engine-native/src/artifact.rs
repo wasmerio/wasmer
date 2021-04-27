@@ -201,7 +201,7 @@ impl NativeArtifact {
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        let (mut compile_info, symbol_registry) = metadata.split();
+        let (compile_info, symbol_registry) = metadata.split();
 
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
