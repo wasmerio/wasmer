@@ -246,6 +246,8 @@
 <span id="243">243</span>
 <span id="244">244</span>
 <span id="245">245</span>
+<span id="246">246</span>
+<span id="247">247</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Support for compiling with Singlepass.</span>
 <span class="comment">// Allow unused imports while developing.</span>
@@ -262,8 +264,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::<span class="ident">TrapInformation</span>;
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">Architecture</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompilerConfig</span>, <span class="ident">MiddlewareBinaryReader</span>, <span class="ident">ModuleMiddlewareChain</span>,
-    <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Target</span>,
+    <span class="ident">Architecture</span>, <span class="ident">CompileModuleInfo</span>, <span class="ident">CompilerConfig</span>, <span class="ident">FunctionBinaryReader</span>, <span class="ident">MiddlewareBinaryReader</span>,
+    <span class="ident">ModuleMiddleware</span>, <span class="ident">ModuleMiddlewareChain</span>, <span class="ident">ModuleTranslationState</span>, <span class="ident">OperatingSystem</span>, <span class="ident">Target</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">Compilation</span>, <span class="ident">CompileError</span>, <span class="ident">CompiledFunction</span>, <span class="ident">Compiler</span>, <span class="ident">SectionIndex</span>};
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">FunctionBody</span>, <span class="ident">FunctionBodyData</span>};
@@ -291,12 +293,17 @@
 }
 
 <span class="kw">impl</span> <span class="ident">Compiler</span> <span class="kw">for</span> <span class="ident">SinglepassCompiler</span> {
+    <span class="doccomment">/// Get the middlewares for this compiler</span>
+    <span class="kw">fn</span> <span class="ident">get_middlewares</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>] {
+        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">config</span>.<span class="ident">middlewares</span>
+    }
+
     <span class="doccomment">/// Compile the module using Singlepass, producing a compilation result with</span>
     <span class="doccomment">/// associated relocations.</span>
     <span class="kw">fn</span> <span class="ident">compile_module</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">compile_info</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">CompileModuleInfo</span>,
+        <span class="ident">compile_info</span>: <span class="kw-2">&amp;</span><span class="ident">CompileModuleInfo</span>,
         <span class="ident">_module_translation</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
         <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;_</span><span class="op">&gt;</span><span class="op">&gt;</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Compilation</span>, <span class="ident">CompileError</span><span class="op">&gt;</span> {
@@ -313,9 +320,6 @@
         }
         <span class="kw">let</span> <span class="ident">memory_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">memory_styles</span>;
         <span class="kw">let</span> <span class="ident">table_styles</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">table_styles</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">compile_info</span>.<span class="ident">module</span>).<span class="ident">clone</span>();
-        <span class="self">self</span>.<span class="ident">config</span>.<span class="ident">middlewares</span>.<span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">module</span>);
-        <span class="ident">compile_info</span>.<span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">module</span>);
         <span class="kw">let</span> <span class="ident">vmoffsets</span> <span class="op">=</span> <span class="ident">VMOffsets</span>::<span class="ident">new</span>(<span class="number">8</span>, <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">module</span>);
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">compile_info</span>.<span class="ident">module</span>;
         <span class="kw">let</span> <span class="ident">import_trampolines</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">SectionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span> <span class="op">=</span> (<span class="number">0</span>..<span class="ident">module</span>.<span class="ident">num_imported_functions</span>)

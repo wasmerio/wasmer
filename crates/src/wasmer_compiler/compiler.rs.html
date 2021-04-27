@@ -148,6 +148,9 @@
 <span id="145">145</span>
 <span id="146">146</span>
 <span id="147">147</span>
+<span id="148">148</span>
+<span id="149">149</span>
+<span id="150">150</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module mainly outputs the `Compiler` trait that custom</span>
 <span class="doccomment">//! compilers will need to implement.</span>
@@ -246,7 +249,7 @@
     <span class="kw">fn</span> <span class="ident">compile_module</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span>, <span class="lifetime">&#39;module</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module</span> <span class="kw-2">mut</span> <span class="ident">CompileModuleInfo</span>,
+        <span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module</span> <span class="ident">CompileModuleInfo</span>,
         <span class="ident">module_translation</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
         <span class="comment">// The list of function bodies</span>
         <span class="ident">function_body_inputs</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -258,7 +261,7 @@
     <span class="kw">fn</span> <span class="ident">experimental_native_compile_module</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span>, <span class="lifetime">&#39;module</span><span class="op">&gt;</span>(
         <span class="kw-2">&amp;</span><span class="self">self</span>,
         <span class="ident">_target</span>: <span class="kw-2">&amp;</span><span class="ident">Target</span>,
-        <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module</span> <span class="kw-2">mut</span> <span class="ident">CompileModuleInfo</span>,
+        <span class="ident">_module</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;module</span> <span class="ident">CompileModuleInfo</span>,
         <span class="ident">_module_translation</span>: <span class="kw-2">&amp;</span><span class="ident">ModuleTranslationState</span>,
         <span class="comment">// The list of function bodies</span>
         <span class="ident">_function_body_inputs</span>: <span class="kw-2">&amp;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span><span class="op">&gt;</span>,
@@ -268,6 +271,9 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">CompileError</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="prelude-val">None</span>
     }
+
+    <span class="doccomment">/// Get the middlewares for this compiler</span>
+    <span class="kw">fn</span> <span class="ident">get_middlewares</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span>[<span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">ModuleMiddleware</span><span class="op">&gt;</span>];
 }
 
 <span class="doccomment">/// The kinds of wasmer_types objects that might be found in a native object file.</span>

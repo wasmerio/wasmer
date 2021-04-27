@@ -482,6 +482,18 @@
 <span id="479">479</span>
 <span id="480">480</span>
 <span id="481">481</span>
+<span id="482">482</span>
+<span id="483">483</span>
+<span id="484">484</span>
+<span id="485">485</span>
+<span id="486">486</span>
+<span id="487">487</span>
+<span id="488">488</span>
+<span id="489">489</span>
+<span id="490">490</span>
+<span id="491">491</span>
+<span id="492">492</span>
+<span id="493">493</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `ObjectFileArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
@@ -496,7 +508,8 @@
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">CompileError</span>, <span class="ident">Features</span>, <span class="ident">OperatingSystem</span>, <span class="ident">SymbolRegistry</span>, <span class="ident">Triple</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
 <span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{
-    <span class="ident">CompileModuleInfo</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleTranslationState</span>,
+    <span class="ident">CompileModuleInfo</span>, <span class="ident">Compiler</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">ModuleEnvironment</span>, <span class="ident">ModuleMiddlewareChain</span>,
+    <span class="ident">ModuleTranslationState</span>,
 };
 <span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Artifact</span>, <span class="ident">DeserializeError</span>, <span class="ident">InstantiationError</span>, <span class="ident">SerializeError</span>};
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
@@ -586,6 +599,7 @@
     <span class="kw">fn</span> <span class="ident">generate_metadata</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
         <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;data</span> [<span class="ident">u8</span>],
         <span class="ident">features</span>: <span class="kw-2">&amp;</span><span class="ident">Features</span>,
+        <span class="ident">compiler</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Compiler</span>,
         <span class="ident">tunables</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Tunables</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>
         (
@@ -598,25 +612,29 @@
     <span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">environ</span> <span class="op">=</span> <span class="ident">ModuleEnvironment</span>::<span class="ident">new</span>();
         <span class="kw">let</span> <span class="ident">translation</span> <span class="op">=</span> <span class="ident">environ</span>.<span class="ident">translate</span>(<span class="ident">data</span>).<span class="ident">map_err</span>(<span class="ident">CompileError</span>::<span class="ident">Wasm</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">translation</span>
-            .<span class="ident">module</span>
+
+        <span class="comment">// We try to apply the middleware first</span>
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> <span class="ident">translation</span>.<span class="ident">module</span>;
+        <span class="kw">let</span> <span class="ident">middlewares</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_middlewares</span>();
+        <span class="ident">middlewares</span>.<span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">module</span>);
+
+        <span class="kw">let</span> <span class="ident">memory_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">MemoryIndex</span>, <span class="ident">MemoryStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
             .<span class="ident">memories</span>
             .<span class="ident">values</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">memory_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">memory_style</span>(<span class="ident">memory_type</span>))
             .<span class="ident">collect</span>();
-        <span class="kw">let</span> <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">translation</span>
-            .<span class="ident">module</span>
+        <span class="kw">let</span> <span class="ident">table_styles</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">TableIndex</span>, <span class="ident">TableStyle</span><span class="op">&gt;</span> <span class="op">=</span> <span class="ident">module</span>
             .<span class="ident">tables</span>
             .<span class="ident">values</span>()
             .<span class="ident">map</span>(<span class="op">|</span><span class="ident">table_type</span><span class="op">|</span> <span class="ident">tunables</span>.<span class="ident">table_style</span>(<span class="ident">table_type</span>))
             .<span class="ident">collect</span>();
+
         <span class="kw">let</span> <span class="ident">compile_info</span> <span class="op">=</span> <span class="ident">CompileModuleInfo</span> {
-            <span class="ident">module</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">translation</span>.<span class="ident">module</span>),
+            <span class="ident">module</span>: <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">module</span>),
             <span class="ident">features</span>: <span class="ident">features</span>.<span class="ident">clone</span>(),
             <span class="ident">memory_styles</span>,
             <span class="ident">table_styles</span>,
         };
-
         <span class="prelude-val">Ok</span>((
             <span class="ident">compile_info</span>,
             <span class="ident">translation</span>.<span class="ident">function_body_inputs</span>,
@@ -637,7 +655,7 @@
         <span class="kw">let</span> <span class="ident">target</span> <span class="op">=</span> <span class="ident">engine</span>.<span class="ident">target</span>();
         <span class="kw">let</span> <span class="ident">compiler</span> <span class="op">=</span> <span class="ident">engine_inner</span>.<span class="ident">compiler</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> (<span class="ident">compile_info</span>, <span class="ident">function_body_inputs</span>, <span class="ident">data_initializers</span>, <span class="ident">module_translation</span>) <span class="op">=</span>
-            <span class="self">Self</span>::<span class="ident">generate_metadata</span>(<span class="ident">data</span>, <span class="ident">engine_inner</span>.<span class="ident">features</span>(), <span class="ident">tunables</span>)<span class="question-mark">?</span>;
+            <span class="self">Self</span>::<span class="ident">generate_metadata</span>(<span class="ident">data</span>, <span class="ident">engine_inner</span>.<span class="ident">features</span>(), <span class="ident">compiler</span>, <span class="ident">tunables</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">data_initializers</span> <span class="op">=</span> <span class="ident">data_initializers</span>
             .<span class="ident">iter</span>()
@@ -688,9 +706,15 @@
         <span class="kw">let</span> <span class="ident">metadata_length</span> <span class="op">=</span> <span class="ident">metadata_binary</span>.<span class="ident">len</span>();
 
         <span class="kw">let</span> (<span class="ident">compile_info</span>, <span class="ident">symbol_registry</span>) <span class="op">=</span> <span class="ident">metadata</span>.<span class="ident">split</span>();
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">module</span> <span class="op">=</span> (<span class="kw-2">*</span><span class="ident">compile_info</span>.<span class="ident">module</span>).<span class="ident">clone</span>();
+        <span class="kw">let</span> <span class="ident">middlewares</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">get_middlewares</span>();
+        <span class="ident">middlewares</span>.<span class="ident">apply_on_module_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">module</span>);
+        <span class="ident">compile_info</span>.<span class="ident">module</span> <span class="op">=</span> <span class="ident">Arc</span>::<span class="ident">new</span>(<span class="ident">module</span>);
+
         <span class="kw">let</span> <span class="ident">maybe_obj_bytes</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">experimental_native_compile_module</span>(
             <span class="kw-2">&amp;</span><span class="ident">target</span>,
-            <span class="ident">compile_info</span>,
+            <span class="kw-2">&amp;</span><span class="ident">compile_info</span>,
             <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
             <span class="kw-2">&amp;</span><span class="ident">function_body_inputs</span>,
             <span class="kw-2">&amp;</span><span class="ident">symbol_registry</span>,
@@ -702,7 +726,7 @@
         } <span class="kw">else</span> {
             <span class="kw">let</span> <span class="ident">compilation</span> <span class="op">=</span> <span class="ident">compiler</span>.<span class="ident">compile_module</span>(
                 <span class="kw-2">&amp;</span><span class="ident">target</span>,
-                <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">metadata</span>.<span class="ident">compile_info</span>,
+                <span class="kw-2">&amp;</span><span class="ident">metadata</span>.<span class="ident">compile_info</span>,
                 <span class="ident">module_translation</span>.<span class="ident">as_ref</span>().<span class="ident">unwrap</span>(),
                 <span class="ident">function_body_inputs</span>,
             )<span class="question-mark">?</span>;

@@ -64,11 +64,11 @@
 
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::<span class="ident">machinst</span>::<span class="ident">buffer</span>::<span class="ident">MachSrcLoc</span>;
 <span class="kw">use</span> <span class="ident">cranelift_codegen</span>::{<span class="ident">isa</span>, <span class="ident">Context</span>};
-<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">FunctionAddressMap</span>, <span class="ident">FunctionBodyData</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
+<span class="kw">use</span> <span class="ident">wasmer_compiler</span>::{<span class="ident">wasmparser</span>::<span class="ident">Range</span>, <span class="ident">FunctionAddressMap</span>, <span class="ident">InstructionAddressMap</span>, <span class="ident">SourceLoc</span>};
 
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_function_address_map</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>(
     <span class="ident">context</span>: <span class="kw-2">&amp;</span><span class="ident">Context</span>,
-    <span class="ident">data</span>: <span class="kw-2">&amp;</span><span class="ident">FunctionBodyData</span><span class="op">&lt;</span><span class="lifetime">&#39;data</span><span class="op">&gt;</span>,
+    <span class="ident">range</span>: <span class="ident">Range</span>,
     <span class="ident">body_len</span>: <span class="ident">usize</span>,
     <span class="ident">isa</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">isa</span>::<span class="ident">TargetIsa</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">FunctionAddressMap</span> {
@@ -105,8 +105,8 @@
     <span class="comment">// Generate artificial srcloc for function start/end to identify boundary</span>
     <span class="comment">// within module. Similar to FuncTranslator::cur_srcloc(): it will wrap around</span>
     <span class="comment">// if byte code is larger than 4 GB.</span>
-    <span class="kw">let</span> <span class="ident">start_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">data</span>.<span class="ident">module_offset</span> <span class="kw">as</span> <span class="ident">u32</span>);
-    <span class="kw">let</span> <span class="ident">end_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>((<span class="ident">data</span>.<span class="ident">module_offset</span> <span class="op">+</span> <span class="ident">data</span>.<span class="ident">data</span>.<span class="ident">len</span>()) <span class="kw">as</span> <span class="ident">u32</span>);
+    <span class="kw">let</span> <span class="ident">start_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">range</span>.<span class="ident">start</span> <span class="kw">as</span> <span class="ident">u32</span>);
+    <span class="kw">let</span> <span class="ident">end_srcloc</span> <span class="op">=</span> <span class="ident">SourceLoc</span>::<span class="ident">new</span>(<span class="ident">range</span>.<span class="ident">end</span> <span class="kw">as</span> <span class="ident">u32</span>);
 
     <span class="ident">FunctionAddressMap</span> {
         <span class="ident">instructions</span>,

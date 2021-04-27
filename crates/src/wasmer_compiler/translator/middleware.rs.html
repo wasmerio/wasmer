@@ -205,9 +205,10 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">ops</span>::<span class="ident">Deref</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">LocalFunctionIndex</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::<span class="ident">ModuleInfo</span>;
-<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">Type</span>};
+<span class="kw">use</span> <span class="ident">wasmparser</span>::{<span class="ident">BinaryReader</span>, <span class="ident">Operator</span>, <span class="ident">Range</span>, <span class="ident">Type</span>};
 
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{<span class="ident">MiddlewareError</span>, <span class="ident">WasmResult</span>};
+<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">translator</span>::<span class="ident">environ</span>::<span class="ident">FunctionBinaryReader</span>;
 
 <span class="doccomment">/// A shared builder for function middlewares.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">ModuleMiddleware</span>: <span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
@@ -325,21 +326,20 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set_middleware_chain</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">stages</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">FunctionMiddleware</span><span class="op">&gt;</span><span class="op">&gt;</span>) {
         <span class="self">self</span>.<span class="ident">chain</span> <span class="op">=</span> <span class="ident">stages</span>;
     }
+}
 
-    <span class="doccomment">/// Read a `count` indicating the number of times to call `read_local_decl`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
+<span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">FunctionBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">MiddlewareBinaryReader</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_local_count</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">u32</span><span class="op">&gt;</span> {
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_var_u32</span>()<span class="question-mark">?</span>)
     }
 
-    <span class="doccomment">/// Read a `(count, value_type)` declaration of local variables of the same type.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">Type</span>)<span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_local_decl</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span>(<span class="ident">u32</span>, <span class="ident">Type</span>)<span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">count</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_var_u32</span>()<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">ty</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_type</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Ok</span>((<span class="ident">count</span>, <span class="ident">ty</span>))
     }
 
-    <span class="doccomment">/// Reads the next available `Operator`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
+    <span class="kw">fn</span> <span class="ident">read_operator</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">WasmResult</span><span class="op">&lt;</span><span class="ident">Operator</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="self">self</span>.<span class="ident">chain</span>.<span class="ident">is_empty</span>() {
             <span class="comment">// We short-circuit in case no chain is used</span>
             <span class="kw">return</span> <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">read_operator</span>()<span class="question-mark">?</span>);
@@ -368,24 +368,24 @@
         <span class="prelude-val">Ok</span>(<span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pending_operations</span>.<span class="ident">pop_front</span>().<span class="ident">unwrap</span>())
     }
 
-    <span class="doccomment">/// Returns the inner `BinaryReader`&#39;s current position.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">current_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">fn</span> <span class="ident">current_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">current_position</span>()
     }
 
-    <span class="doccomment">/// Returns the inner `BinaryReader`&#39;s original position (with the offset)</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">original_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">fn</span> <span class="ident">original_position</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">original_position</span>()
     }
 
-    <span class="doccomment">/// Returns the number of bytes remaining in the inner `BinaryReader`.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">bytes_remaining</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">fn</span> <span class="ident">bytes_remaining</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">bytes_remaining</span>()
     }
 
-    <span class="doccomment">/// Returns whether the inner `BinaryReader` has reached the end of the file.</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">eof</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
+    <span class="kw">fn</span> <span class="ident">eof</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">eof</span>()
+    }
+
+    <span class="kw">fn</span> <span class="ident">range</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Range</span> {
+        <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">inner</span>.<span class="ident">range</span>()
     }
 }
 </pre></div>
