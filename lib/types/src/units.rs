@@ -91,6 +91,12 @@ impl From<usize> for Bytes {
     }
 }
 
+impl From<u32> for Bytes {
+    fn from(other: u32) -> Self {
+        Self(other.try_into().unwrap())
+    }
+}
+
 impl From<u64> for Bytes {
     fn from(other: u64) -> Self {
         Self(other.try_into().unwrap())
