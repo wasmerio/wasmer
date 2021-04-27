@@ -14,7 +14,7 @@ use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
     Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
-    ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
