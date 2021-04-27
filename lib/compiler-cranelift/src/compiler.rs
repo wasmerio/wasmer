@@ -53,8 +53,8 @@ impl CraneliftCompiler {
 
 impl Compiler for CraneliftCompiler {
     /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
-        self.config.get_middlewares()
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
     }
 
     /// Compile the module using Cranelift, producing a compilation result with

@@ -189,8 +189,8 @@ impl LLVMCompiler {
 
 impl Compiler for LLVMCompiler {
     /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
-        self.config.get_middlewares()
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
     }
 
     fn experimental_native_compile_module<'data, 'module>(

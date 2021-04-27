@@ -119,7 +119,7 @@ pub trait Compiler: Send + MemoryUsage {
     }
 
     /// Get the middlewares for this compiler
-    fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>>;
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
 }
 
 /// The kinds of wasmer_types objects that might be found in a native object file.

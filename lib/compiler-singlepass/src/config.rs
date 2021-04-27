@@ -46,11 +46,6 @@ impl Singlepass {
         self.enable_nan_canonicalization = enable;
         self
     }
-
-    /// Get Middlewares
-    pub fn get_middlewares(&self) -> Vec<Arc<dyn ModuleMiddleware>> {
-        self.middlewares.clone()
-    }
 }
 
 impl CompilerConfig for Singlepass {
