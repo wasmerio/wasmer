@@ -8970,6 +8970,8 @@
 <span id="8967">8967</span>
 <span id="8968">8968</span>
 <span id="8969">8969</span>
+<span id="8970">8970</span>
+<span id="8971">8971</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">address_map</span>::<span class="ident">get_function_address_map</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::{<span class="ident">common_decl</span>::<span class="kw-2">*</span>, <span class="ident">config</span>::<span class="ident">Singlepass</span>, <span class="ident">emitter_x64</span>::<span class="kw-2">*</span>, <span class="ident">machine</span>::<span class="ident">Machine</span>, <span class="ident">x64_decl</span>::<span class="kw-2">*</span>};
@@ -14498,7 +14500,9 @@
                     }
                 }
             }
-            <span class="ident">Operator</span>::<span class="ident">Select</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="comment">// `TypedSelect` must be used for extern refs so ref counting should</span>
+            <span class="comment">// be done with TypedSelect. But otherwise they&#39;re the same.</span>
+            <span class="ident">Operator</span>::<span class="ident">TypedSelect</span> { .. } <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Select</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> <span class="ident">cond</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>();
                 <span class="kw">let</span> <span class="ident">v_b</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>();
                 <span class="kw">let</span> <span class="ident">v_a</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">pop_value_released</span>();

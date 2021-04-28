@@ -9658,6 +9658,8 @@
 <span id="9657">9657</span>
 <span id="9658">9658</span>
 <span id="9659">9659</span>
+<span id="9660">9660</span>
+<span id="9661">9661</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::{
     <span class="ident">intrinsics</span>::{
@@ -11683,7 +11685,9 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 }
             }
 
-            <span class="ident">Operator</span>::<span class="ident">Select</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="comment">// `TypedSelect` must be used for extern refs so ref counting should</span>
+            <span class="comment">// be done with TypedSelect. But otherwise they&#39;re the same.</span>
+            <span class="ident">Operator</span>::<span class="ident">TypedSelect</span> { .. } <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Select</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> ((<span class="ident">v1</span>, <span class="ident">i1</span>), (<span class="ident">v2</span>, <span class="ident">i2</span>), (<span class="ident">cond</span>, <span class="kw">_</span>)) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop3_extra</span>()<span class="question-mark">?</span>;
                 <span class="comment">// We don&#39;t bother canonicalizing &#39;cond&#39; here because we only</span>
                 <span class="comment">// compare it to zero, and that&#39;s invariant under</span>
