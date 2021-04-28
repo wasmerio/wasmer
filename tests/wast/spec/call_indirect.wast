@@ -617,6 +617,52 @@
 (assert_return (invoke "as-compare-right") (i32.const 1))
 (assert_return (invoke "as-convert-operand") (i64.const 1))
 
+
+;; Multiple tables
+
+(module
+  (type $ii-i (func (param i32 i32) (result i32)))
+
+  (table $t1 funcref (elem $f $g))
+  (table $t2 funcref (elem $h $i $j))
+  (table $t3 4 funcref)
+  (elem (table $t3) (i32.const 0) func $g $h)
+  (elem (table $t3) (i32.const 3) func $z)
+
+  (func $f (type $ii-i) (i32.add (local.get 0) (local.get 1)))
+  (func $g (type $ii-i) (i32.sub (local.get 0) (local.get 1)))
+  (func $h (type $ii-i) (i32.mul (local.get 0) (local.get 1)))
+  (func $i (type $ii-i) (i32.div_u (local.get 0) (local.get 1)))
+  (func $j (type $ii-i) (i32.rem_u (local.get 0) (local.get 1)))
+  (func $z)
+
+  (func (export "call-1") (param i32 i32 i32) (result i32)
+    (call_indirect $t1 (type $ii-i) (local.get 0) (local.get 1) (local.get 2))
+  )
+  (func (export "call-2") (param i32 i32 i32) (result i32)
+    (call_indirect $t2 (type $ii-i) (local.get 0) (local.get 1) (local.get 2))
+  )
+  (func (export "call-3") (param i32 i32 i32) (result i32)
+    (call_indirect $t3 (type $ii-i) (local.get 0) (local.get 1) (local.get 2))
+  )
+)
+
+(assert_return (invoke "call-1" (i32.const 2) (i32.const 3) (i32.const 0)) (i32.const 5))
+(assert_return (invoke "call-1" (i32.const 2) (i32.const 3) (i32.const 1)) (i32.const -1))
+(assert_trap (invoke "call-1" (i32.const 2) (i32.const 3) (i32.const 2)) "undefined element")
+
+(assert_return (invoke "call-2" (i32.const 2) (i32.const 3) (i32.const 0)) (i32.const 6))
+(assert_return (invoke "call-2" (i32.const 2) (i32.const 3) (i32.const 1)) (i32.const 0))
+(assert_return (invoke "call-2" (i32.const 2) (i32.const 3) (i32.const 2)) (i32.const 2))
+(assert_trap (invoke "call-2" (i32.const 2) (i32.const 3) (i32.const 3)) "undefined element")
+
+(assert_return (invoke "call-3" (i32.const 2) (i32.const 3) (i32.const 0)) (i32.const -1))
+(assert_return (invoke "call-3" (i32.const 2) (i32.const 3) (i32.const 1)) (i32.const 6))
+(assert_trap (invoke "call-3" (i32.const 2) (i32.const 3) (i32.const 2)) "uninitialized element")
+(assert_trap (invoke "call-3" (i32.const 2) (i32.const 3) (i32.const 3)) "indirect call type mismatch")
+(assert_trap (invoke "call-3" (i32.const 2) (i32.const 3) (i32.const 4)) "undefined element")
+
+
 ;; Invalid syntax
 
 (assert_malformed
