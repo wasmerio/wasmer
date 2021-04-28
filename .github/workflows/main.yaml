@@ -69,7 +69,9 @@ jobs:
           #  run_integration_tests: false
           - build: linux-musl-x64
             os: ubuntu-latest
-            container: alpine:latest
+            container:
+              image: alpine:latest
+              ports: 4226:4226
             artifact_name: 'wasmer-linux-musl-amd64'
             run_integration_tests: true
     container: ${{ matrix.container }}
