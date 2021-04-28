@@ -101,6 +101,8 @@ jobs:
         with:
           target: ${{ matrix.target }}
           override: true
+      - uses: Swatinem/rust-cache@v1
+        if: ! matrix.use_sccache
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest' && !matrix.llvm_url
         shell: cmd
