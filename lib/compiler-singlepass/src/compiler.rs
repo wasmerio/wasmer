@@ -13,8 +13,8 @@ use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
@@ -42,12 +42,17 @@ impl SinglepassCompiler {
 }
 
 impl Compiler for SinglepassCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &mut CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -64,9 +69,6 @@ impl Compiler for SinglepassCompiler {
         }
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)

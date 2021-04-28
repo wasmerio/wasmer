@@ -95,7 +95,7 @@ pub trait Compiler: Send + MemoryUsage {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module mut CompileModuleInfo,
+        module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -107,7 +107,7 @@ pub trait Compiler: Send + MemoryUsage {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         _target: &Target,
-        _module: &'module mut CompileModuleInfo,
+        _module: &'module CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -117,6 +117,9 @@ pub trait Compiler: Send + MemoryUsage {
     ) -> Option<Result<Vec<u8>, CompileError>> {
         None
     }
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
 }
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
