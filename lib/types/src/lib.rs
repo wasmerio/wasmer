@@ -54,6 +54,8 @@ pub mod lib {
     }
 }
 
+#[cfg(feature = "enable-rkyv")]
+mod archives;
 mod extern_ref;
 mod features;
 mod indexes;
@@ -86,6 +88,9 @@ pub use types::{
     ExportType, ExternType, FunctionType, GlobalInit, GlobalType, ImportType, MemoryType,
     Mutability, TableType, Type, V128,
 };
+
+#[cfg(feature = "enable-rkyv")]
+pub use archives::{ArchivableIndexMap, ArchivedPrimaryMap};
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");

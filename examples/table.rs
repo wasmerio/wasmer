@@ -79,7 +79,7 @@ fn main() -> anyhow::Result<()> {
         &TableType {
             ty: Type::FuncRef,
             minimum: 3,
-            maximum: Some(6),
+            maximum: Some(6)
         }
     );
 
@@ -113,7 +113,7 @@ fn main() -> anyhow::Result<()> {
         &TableType {
             ty: Type::FuncRef,
             minimum: 3,
-            maximum: Some(6),
+            maximum: Some(6)
         }
     );
     // Now demonstrate that the function we grew the table with is actually in the table.

@@ -10,7 +10,7 @@ use loupe::MemoryUsage;
 use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, Triple};
 #[cfg(feature = "compiler")]
-use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment};
+use wasmer_compiler::{CompileModuleInfo, ModuleEnvironment, ModuleMiddlewareChain};
 use wasmer_engine::{
     register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
     SerializeError,
@@ -62,32 +62,35 @@ impl JITArtifact {
 
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
 
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
-            .module
+        let compiler = inner_jit.compiler()?;
+
+        // We try to apply the middleware first
+        let mut module = translation.module;
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
             .values()
             .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
-            .module
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
             .tables
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
-        let mut compile_info = CompileModuleInfo {
-            module: Arc::new(translation.module),
+        let compile_info = CompileModuleInfo {
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
         };
 
-        let compiler = inner_jit.compiler()?;
-
         // Compile the Module
         let compilation = compiler.compile_module(
             &jit.target(),
-            &mut compile_info,
+            &compile_info,
             // SAFETY: Calling `unwrap` is correct since
             // `environ.translate()` above will write some data into
             // `module_translation_state`.
