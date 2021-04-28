@@ -132,7 +132,7 @@ jobs:
       - uses: actions/cache@v2
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
-          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1-
+          key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
@@ -169,6 +169,7 @@ jobs:
       - name: Start sccache
         env:
           SCCACHE_LOG: debug
+          SERVER_STARTUP_TIMEOUT_MS: 100000
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
