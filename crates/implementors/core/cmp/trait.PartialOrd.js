@@ -4,4 +4,5 @@ implementors["wasmer_compiler"] = [{"text":"impl PartialOrd&lt;JumpTable&gt; for
 implementors["wasmer_compiler_llvm"] = [{"text":"impl PartialOrd&lt;ElfSectionIndex&gt; for ElfSectionIndex","synthetic":false,"types":[]}];
 implementors["wasmer_compiler_singlepass"] = [{"text":"impl PartialOrd&lt;Location&gt; for Location","synthetic":false,"types":[]},{"text":"impl PartialOrd&lt;Size&gt; for Size","synthetic":false,"types":[]},{"text":"impl PartialOrd&lt;GPR&gt; for GPR","synthetic":false,"types":[]},{"text":"impl PartialOrd&lt;XMM&gt; for XMM","synthetic":false,"types":[]}];
 implementors["wasmer_engine"] = [{"text":"impl PartialOrd&lt;EngineId&gt; for EngineId","synthetic":false,"types":[]}];
+implementors["wasmer_wasi"] = [{"text":"impl PartialOrd&lt;WasiVersion&gt; for WasiVersion","synthetic":false,"types":[]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

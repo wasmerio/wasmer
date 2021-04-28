@@ -87,12 +87,22 @@
 <span id="86">86</span>
 <span id="87">87</span>
 <span id="88">88</span>
+<span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
+<span id="96">96</span>
+<span id="97">97</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">utils</span>::{<span class="ident">parse_envvar</span>, <span class="ident">parse_mapdir</span>};
 <span class="kw">use</span> <span class="ident">anyhow</span>::{<span class="ident">Context</span>, <span class="prelude-ty">Result</span>};
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeSet</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">path</span>::<span class="ident">PathBuf</span>;
 <span class="kw">use</span> <span class="ident">wasmer</span>::{<span class="ident">Instance</span>, <span class="ident">Module</span>};
-<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">get_wasi_version</span>, <span class="ident">WasiError</span>, <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>};
+<span class="kw">use</span> <span class="ident">wasmer_wasi</span>::{<span class="ident">get_wasi_versions</span>, <span class="ident">WasiError</span>, <span class="ident">WasiState</span>, <span class="ident">WasiVersion</span>};
 
 <span class="kw">use</span> <span class="ident">clap</span>::<span class="ident">Clap</span>;
 
@@ -103,7 +113,7 @@
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;dir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">group</span> <span class="op">=</span> <span class="string">&quot;wasi&quot;</span>)]</span>
     <span class="ident">pre_opened_directories</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">PathBuf</span><span class="op">&gt;</span>,
 
-    <span class="doccomment">/// Map a host directory to a different location for the wasm module</span>
+    <span class="doccomment">/// Map a host directory to a different location for the Wasm module</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;mapdir&quot;</span>, <span class="ident">name</span> <span class="op">=</span> <span class="string">&quot;GUEST_DIR:HOST_DIR&quot;</span>, <span class="ident">multiple</span> <span class="op">=</span> <span class="bool-val">true</span>, <span class="ident">parse</span>(<span class="ident">try_from_str</span> <span class="op">=</span> <span class="ident">parse_mapdir</span>))]</span>
     <span class="ident">mapped_dirs</span>: <span class="ident">Vec</span><span class="op">&lt;</span>(<span class="ident">String</span>, <span class="ident">PathBuf</span>)<span class="op">&gt;</span>,
 
@@ -115,22 +125,30 @@
     <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;experimental-io-devices&quot;</span>)]</span>
     <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;enable-experimental-io-devices&quot;</span>)]</span>
     <span class="ident">enable_experimental_io_devices</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Allow WASI modules to import multiple versions of WASI without a warning.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;allow-multiple-wasi-versions&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">allow_multiple_wasi_versions</span>: <span class="ident">bool</span>,
+
+    <span class="doccomment">/// Require WASI modules to only import 1 version of WASI.</span>
+    <span class="attribute">#[<span class="ident">clap</span>(<span class="ident">long</span> <span class="op">=</span> <span class="string">&quot;deny-multiple-wasi-versions&quot;</span>)]</span>
+    <span class="kw">pub</span> <span class="ident">deny_multiple_wasi_versions</span>: <span class="ident">bool</span>,
 }
 
 <span class="attribute">#[<span class="ident">allow</span>(<span class="ident">dead_code</span>)]</span>
 <span class="kw">impl</span> <span class="ident">Wasi</span> {
     <span class="doccomment">/// Gets the WASI version (if any) for the provided module</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_version</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get_versions</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">BTreeSet</span><span class="op">&lt;</span><span class="ident">WasiVersion</span><span class="op">&gt;</span><span class="op">&gt;</span> {
         <span class="comment">// Get the wasi version in strict mode, so no other imports are</span>
         <span class="comment">// allowed.</span>
-        <span class="ident">get_wasi_version</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="bool-val">true</span>)
+        <span class="ident">get_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="bool-val">true</span>)
     }
 
     <span class="doccomment">/// Checks if a given module has any WASI imports at all.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">has_wasi_imports</span>(<span class="ident">module</span>: <span class="kw-2">&amp;</span><span class="ident">Module</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
         <span class="comment">// Get the wasi version in non-strict mode, so no other imports</span>
         <span class="comment">// are allowed</span>
-        <span class="ident">get_wasi_version</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">is_some</span>()
+        <span class="ident">get_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">is_some</span>()
     }
 
     <span class="doccomment">/// Helper function for executing Wasi from the `Run` command.</span>
@@ -153,8 +171,8 @@
         }
 
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">wasi_env</span> <span class="op">=</span> <span class="ident">wasi_state_builder</span>.<span class="ident">finalize</span>()<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">import_object</span> <span class="op">=</span> <span class="ident">wasi_env</span>.<span class="ident">import_object</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">import_object</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">wasi_env</span>.<span class="ident">import_object_for_all_wasi_versions</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">instance</span> <span class="op">=</span> <span class="ident">Instance</span>::<span class="ident">new</span>(<span class="kw-2">&amp;</span><span class="ident">module</span>, <span class="kw-2">&amp;</span><span class="ident">resolver</span>)<span class="question-mark">?</span>;
 
         <span class="kw">let</span> <span class="ident">start</span> <span class="op">=</span> <span class="ident">instance</span>.<span class="ident">exports</span>.<span class="ident">get_function</span>(<span class="string">&quot;_start&quot;</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">result</span> <span class="op">=</span> <span class="ident">start</span>.<span class="ident">call</span>(<span class="kw-2">&amp;</span>[]);
