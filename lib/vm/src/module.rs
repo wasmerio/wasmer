@@ -226,8 +226,8 @@ impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
+    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> ArchivedArchivableModuleInfo {
+        ArchivableModuleInfo::from(self).resolve(pos, resolver)
     }
 }
 
