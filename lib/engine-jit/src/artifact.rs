@@ -137,6 +137,10 @@ impl JITArtifact {
     }
 
     /// Deserialize a JITArtifact
+    ///
+    /// # Safety
+    /// This function is unsafe because rkyv reads directly without validating
+    /// the data.
     pub unsafe fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
@@ -340,13 +344,16 @@ impl Artifact for JITArtifact {
 
         let align = std::mem::align_of::<SerializableModule>() as u64;
         // println!("[SER] Metadata: First 16 bytes {:?}.\nLast 16 bytes: {:?}\nTotal length: {}", &serialized_data[..16], &serialized_data[length-16..], length);
-        let (serialized, offset) = append_data(serialized, &serialized_data, align);
         // println!("[SER] First 50 bytes {:?}.\nAlign: {} - Offset: {}\nLast 50 bytes: {:?}", &serialized[..50], align, offset, &serialized[serialized.len()-50..]);
+        let _offset = pad_and_extend(&mut serialized, &serialized_data, 1);
         Ok(serialized)
     }
 }
 
-pub fn append_data(mut prev_data: Vec<u8>, data: &[u8], align: u64) -> (Vec<u8>, u64) {
+/// It pads the data with the desired alignment
+pub fn pad_and_extend(prev_data: &mut Vec<u8>, data: &[u8], align: u64) -> u64 {
+    // We assert that align is a power of 2
+    debug_assert_eq!(align & (align - 1), 0);
     let align = align as usize;
     let mut offset = prev_data.len();
     if offset & (align - 1) != 0 {
@@ -354,5 +361,5 @@ pub fn append_data(mut prev_data: Vec<u8>, data: &[u8], align: u64) -> (Vec<u8>,
         prev_data.resize(offset, 0);
     }
     prev_data.extend(data);
-    (prev_data, offset as u64)
+    offset as u64
 }

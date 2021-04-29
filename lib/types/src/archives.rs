@@ -1,4 +1,4 @@
-use crate::entity::{EntityRef, PrimaryMap, SecondaryMap};
+use crate::entity::{EntityRef, PrimaryMap};
 use indexmap::IndexMap;
 
 use rkyv::{
@@ -60,7 +60,6 @@ where
         })
     }
 }
-
 
 #[derive(Serialize, Deserialize, Archive)]
 /// Rkyv Archivable IndexMap

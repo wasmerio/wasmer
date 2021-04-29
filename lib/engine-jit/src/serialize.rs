@@ -8,7 +8,7 @@ use rkyv::{
 };
 use serde::{Deserialize, Serialize};
 use wasmer_compiler::{
-    CompileError, CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
+    CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
     JumpTableOffsets, Relocation, SectionIndex,
 };
 use wasmer_engine::{DeserializeError, SerializeError};
