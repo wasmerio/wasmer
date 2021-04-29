@@ -10,6 +10,8 @@ use crate::trap::{Trap, TrapCode};
 use crate::vmcontext::VMTableDefinition;
 use crate::VMExternRef;
 use loupe::{MemoryUsage, MemoryUsageTracker};
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
 use std::cell::UnsafeCell;
@@ -20,7 +22,11 @@ use std::sync::Mutex;
 use wasmer_types::{ExternRef, TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash, Serialize, Deserialize, MemoryUsage)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, Serialize, Deserialize, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
     CallerChecksSignature,
@@ -395,10 +401,12 @@ impl Table for LinearTable {
                     }
                     // This path should never be hit by the generated code due to Wasm
                     // validation.
-                    (ty, v) => panic!(
-                        "Attempted to set a table of type {} with the value {:?}",
-                        ty, v
-                    ),
+                    (ty, v) => {
+                        panic!(
+                            "Attempted to set a table of type {} with the value {:?}",
+                            ty, v
+                        )
+                    }
                 };
 
                 Ok(())

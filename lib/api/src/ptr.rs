@@ -34,7 +34,7 @@ pub struct Item;
 /// ```
 ///
 /// This type can also be used with primitive-filled structs, but be careful of
-/// guarentees required by ValueType.
+/// guarantees required by `ValueType`.
 /// ```
 /// #[derive(Copy, Clone, Default)]
 /// #[repr(C)]

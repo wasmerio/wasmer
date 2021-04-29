@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    wptype_to_type, CompileError, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -2022,7 +2022,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
 
-            Operator::Select => {
+            // `TypedSelect` must be used for extern refs so ref counting should
+            // be done with TypedSelect. But otherwise they're the same.
+            Operator::TypedSelect { .. } | Operator::Select => {
                 let ((v1, i1), (v2, i2), (cond, _)) = self.state.pop3_extra()?;
                 // We don't bother canonicalizing 'cond' here because we only
                 // compare it to zero, and that's invariant under

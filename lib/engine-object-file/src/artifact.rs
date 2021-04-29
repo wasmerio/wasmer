@@ -11,7 +11,8 @@ use std::sync::Arc;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -101,6 +102,7 @@ impl ObjectFileArtifact {
     fn generate_metadata<'data>(
         data: &'data [u8],
         features: &Features,
+        compiler: &dyn Compiler,
         tunables: &dyn Tunables,
     ) -> Result<
         (
@@ -113,25 +115,29 @@ impl ObjectFileArtifact {
     > {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
-            .module
+
+        // We try to apply the middleware first
+        let mut module = translation.module;
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
             .values()
             .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
-            .module
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
             .tables
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
+
         let compile_info = CompileModuleInfo {
-            module: Arc::new(translation.module),
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
         };
-
         Ok((
             compile_info,
             translation.function_body_inputs,
@@ -152,7 +158,7 @@ impl ObjectFileArtifact {
         let target = engine.target();
         let compiler = engine_inner.compiler()?;
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, engine_inner.features(), tunables)?;
+            Self::generate_metadata(data, engine_inner.features(), compiler, tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -203,9 +209,15 @@ impl ObjectFileArtifact {
         let metadata_length = metadata_binary.len();
 
         let (compile_info, symbol_registry) = metadata.split();
+
+        let mut module = (*compile_info.module).clone();
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+        compile_info.module = Arc::new(module);
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            compile_info,
+            &compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -217,7 +229,7 @@ impl ObjectFileArtifact {
         } else {
             let compilation = compiler.compile_module(
                 &target,
-                &mut metadata.compile_info,
+                &metadata.compile_info,
                 module_translation.as_ref().unwrap(),
                 function_body_inputs,
             )?;
@@ -231,7 +243,7 @@ impl ObjectFileArtifact {
             .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
              */
             let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-            emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
+            emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
                 .map_err(to_compile_error)?;
             emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                 .map_err(to_compile_error)?;
