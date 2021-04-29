@@ -1,5 +1,5 @@
 #![deny(unused_mut)]
-#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 
 //! Wasmer's WASI implementation
@@ -26,10 +26,13 @@ pub use crate::state::{
     WasiStateCreationError, ALL_RIGHTS, VIRTUAL_ROOT_FD,
 };
 pub use crate::syscalls::types;
-pub use crate::utils::{get_wasi_version, is_wasi_module, WasiVersion};
+pub use crate::utils::{get_wasi_version, get_wasi_versions, is_wasi_module, WasiVersion};
 
 use thiserror::Error;
-use wasmer::{imports, Function, ImportObject, LazyInit, Memory, Module, Store, WasmerEnv};
+use wasmer::{
+    imports, ChainableNamedResolver, Function, ImportObject, LazyInit, Memory, Module,
+    NamedResolver, Store, WasmerEnv,
+};
 #[cfg(all(target_os = "macos", target_arch = "aarch64",))]
 use wasmer::{FunctionType, ValType};
 
@@ -67,6 +70,7 @@ impl WasiEnv {
         }
     }
 
+    /// Get an `ImportObject` for a specific version of WASI detected in the module.
     pub fn import_object(&mut self, module: &Module) -> Result<ImportObject, WasiError> {
         let wasi_version = get_wasi_version(module, false).ok_or(WasiError::UnknownWasiVersion)?;
         Ok(generate_import_object_from_env(
@@ -74,6 +78,31 @@ impl WasiEnv {
             self.clone(),
             wasi_version,
         ))
+    }
+
+    /// Like `import_object` but containing all the WASI versions detected in
+    /// the module.
+    pub fn import_object_for_all_wasi_versions(
+        &mut self,
+        module: &Module,
+    ) -> Result<Box<dyn NamedResolver>, WasiError> {
+        let wasi_versions =
+            get_wasi_versions(module, false).ok_or(WasiError::UnknownWasiVersion)?;
+        let mut version_iter = wasi_versions.iter();
+        let mut resolver: Box<dyn NamedResolver> = {
+            let version = version_iter.next().ok_or(WasiError::UnknownWasiVersion)?;
+            Box::new(generate_import_object_from_env(
+                module.store(),
+                self.clone(),
+                *version,
+            ))
+        };
+        for version in version_iter {
+            let new_import_object =
+                generate_import_object_from_env(module.store(), self.clone(), *version);
+            resolver = Box::new(new_import_object.chain_front(resolver));
+        }
+        Ok(resolver)
     }
 
     /// Get the WASI state

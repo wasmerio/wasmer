@@ -25,8 +25,9 @@ use wasmer_compiler::CompileError;
 use wasmer_compiler::{CallingConvention, ModuleTranslationState, Target};
 use wasmer_compiler::{
     Compilation, CompileModuleInfo, CompiledFunction, CompiledFunctionFrameInfo,
-    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBody, FunctionBodyData,
-    ModuleMiddlewareChain, SectionIndex,
+    CompiledFunctionUnwindInfo, Compiler, Dwarf, FunctionBinaryReader, FunctionBody,
+    FunctionBodyData, MiddlewareBinaryReader, ModuleMiddleware, ModuleMiddlewareChain,
+    SectionIndex,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -51,12 +52,17 @@ impl CraneliftCompiler {
 }
 
 impl Compiler for CraneliftCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     /// Compile the module using Cranelift, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &mut CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         module_translation_state: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -64,9 +70,6 @@ impl Compiler for CraneliftCompiler {
         let frontend_config = isa.frontend_config();
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
         let signatures = module
             .signatures
@@ -118,15 +121,20 @@ impl Compiler for CraneliftCompiler {
                 // if generate_debug_info {
                 //     context.func.collect_debug_info();
                 // }
+                let mut reader =
+                    MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
+                reader.set_middleware_chain(
+                    self.config
+                        .middlewares
+                        .generate_function_middleware_chain(*i),
+                );
 
                 func_translator.translate(
                     module_translation_state,
-                    input.data,
-                    input.module_offset,
+                    &mut reader,
                     &mut context.func,
                     &mut func_env,
                     *i,
-                    &self.config,
                 )?;
 
                 let mut code_buf: Vec<u8> = Vec::new();
@@ -172,7 +180,8 @@ impl Compiler for CraneliftCompiler {
                     other => other.maybe_into_to_windows_unwind(),
                 };
 
-                let address_map = get_function_address_map(&context, input, code_buf.len(), &*isa);
+                let range = reader.range();
+                let address_map = get_function_address_map(&context, range, code_buf.len(), &*isa);
 
                 // We transform the Cranelift JumpTable's into compiler JumpTables
                 let func_jt_offsets = transform_jump_table(context.func.jt_offsets);

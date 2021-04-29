@@ -152,8 +152,28 @@ impl Run {
         // If WASI is enabled, try to execute it with it
         #[cfg(feature = "wasi")]
         {
-            let wasi_version = Wasi::get_version(&module);
-            if wasi_version.is_some() {
+            use std::collections::BTreeSet;
+            use wasmer_wasi::WasiVersion;
+
+            let wasi_versions = Wasi::get_versions(&module);
+            if let Some(wasi_versions) = wasi_versions {
+                if wasi_versions.len() >= 2 {
+                    let get_version_list = |versions: &BTreeSet<WasiVersion>| -> String {
+                        versions
+                            .iter()
+                            .map(|v| format!("`{}`", v.get_namespace_str()))
+                            .collect::<Vec<String>>()
+                            .join(", ")
+                    };
+                    if self.wasi.deny_multiple_wasi_versions {
+                        let version_list = get_version_list(&wasi_versions);
+                        bail!("Found more than 1 WASI version in this module ({}) and `--deny-multiple-wasi-versions` is enabled.", version_list);
+                    } else if !self.wasi.allow_multiple_wasi_versions {
+                        let version_list = get_version_list(&wasi_versions);
+                        warning!("Found more than 1 WASI version in this module ({}). If this is intentional, pass `--allow-multiple-wasi-versions` to suppress this warning.", version_list);
+                    }
+                }
+
                 let program_name = self
                     .command_name
                     .clone()

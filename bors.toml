@@ -3,7 +3,7 @@ status = [
     "Code lint",
     "Test on linux-x64",
     "Test on linux-musl-x64",
-    "Test on linux-aarch64",
+    #"Test on linux-aarch64",
     "Test on macos-x64",
     "Test on windows-x64",
     "Test cross-compile on linux",

@@ -25,7 +25,7 @@
 //! yet officially stabilized, over the `deprecated` API, which is
 //! more stable but less powerful and in a maintainance state.
 
-#![doc(html_favicon_url = "https://wasmer.io/static/icons/favicon.ico")]
+#![doc(html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png")]
 #![doc(html_logo_url = "https://github.com/wasmerio.png?size=200")]
 // temporary while in transition
 #![allow(unused_variables)]
