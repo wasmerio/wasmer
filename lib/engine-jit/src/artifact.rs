@@ -42,7 +42,7 @@ pub struct JITArtifact {
 }
 
 impl JITArtifact {
-    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+    const MAGIC_HEADER: &'static [u8; 16] = b"\0wasmer-jit\0\0\0\0\0";
 
     /// Check if the provided bytes look like a serialized `JITArtifact`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
@@ -146,14 +146,15 @@ impl JITArtifact {
 
         let mut inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
 
-        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-
         let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
         let metadata_slice: &'static [u8] =
-            std::slice::from_raw_parts(&inner_bytes[16] as *const u8, metadata_len as usize);
+            std::slice::from_raw_parts(&inner_bytes[12] as *const u8, metadata_len as usize);
+
+        let length = metadata_slice.len();
+        // println!("[DES] Metadata: First 16 bytes {:?}.\nLast 16 bytes: {:?}\nTotal length: {}", &metadata_slice[..16], &metadata_slice[length-16..], length);
+        // println!("[DES] First 50 bytes {:?}.\nLast 50 bytes: {:?}", &bytes[..50], &bytes[inner_bytes.len()-50..]);
 
         let serializable = SerializableModule::deserialize(metadata_slice)?;
 
@@ -329,15 +330,29 @@ impl Artifact for JITArtifact {
         // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
 
-        let serialized_data = self.serializable.serialize()?;
-
-        let mut metadata_binary = vec![0; 16];
+        let mut metadata_binary = vec![0; 12];
         let mut writable = &mut metadata_binary[..];
-        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
-            .expect("Should write number");
-        metadata_binary.extend(serialized_data);
+        let serialized_data = self.serializable.serialize()?;
+        let length = serialized_data.len();
+        leb128::write::unsigned(&mut writable, length as u64).expect("Should write number");
 
         serialized.extend(metadata_binary);
+
+        let align = std::mem::align_of::<SerializableModule>() as u64;
+        // println!("[SER] Metadata: First 16 bytes {:?}.\nLast 16 bytes: {:?}\nTotal length: {}", &serialized_data[..16], &serialized_data[length-16..], length);
+        let (serialized, offset) = append_data(serialized, &serialized_data, align);
+        // println!("[SER] First 50 bytes {:?}.\nAlign: {} - Offset: {}\nLast 50 bytes: {:?}", &serialized[..50], align, offset, &serialized[serialized.len()-50..]);
         Ok(serialized)
     }
+}
+
+pub fn append_data(mut prev_data: Vec<u8>, data: &[u8], align: u64) -> (Vec<u8>, u64) {
+    let align = align as usize;
+    let mut offset = prev_data.len();
+    if offset & (align - 1) != 0 {
+        offset += align - (offset & (align - 1));
+        prev_data.resize(offset, 0);
+    }
+    prev_data.extend(data);
+    (prev_data, offset as u64)
 }
