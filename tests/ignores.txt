@@ -143,7 +143,6 @@ llvm::spec::linking
 llvm::spec::memory_copy
 llvm::spec::memory_fill
 llvm::spec::memory_init
-llvm::spec::select
 llvm::spec::simd::simd_align
 llvm::spec::simd::simd_conversions
 llvm::spec::simd::simd_f32x4_pmin_pmax
@@ -186,4 +185,3 @@ singlepass::spec::linking
 singlepass::spec::memory_copy
 singlepass::spec::memory_fill
 singlepass::spec::memory_init
-singlepass::spec::select
