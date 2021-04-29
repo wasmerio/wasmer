@@ -32,7 +32,7 @@ pub struct Item;
 ///     derefed_ptr.set(inner_val + 1);
 /// }
 /// ```
-/// 
+///
 /// This type can also be used with primitive-filled structs, but be careful of
 /// guarentees required by ValueType.
 /// ```
@@ -47,7 +47,7 @@ pub struct Item;
 /// // are valid for all bit combinations.
 /// unsafe impl ValueType for V3 {
 /// }
-/// 
+///
 /// fn update_vector_3(memory: Memory, ptr: WasmPtr<V3>) {
 ///     let derefed_ptr = ptr.deref(&memory).expect("pointer in bounds");
 ///     let mut inner_val: V3 = derefed_ptr.get();
