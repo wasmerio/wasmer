@@ -1,4 +1,4 @@
-use crate::entity::{EntityRef, PrimaryMap};
+use crate::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use indexmap::IndexMap;
 
 use rkyv::{
@@ -54,6 +54,51 @@ where
         })
     }
 }
+
+/// SecondaryMap after archive
+// pub struct ArchivedSecondaryMap<K: EntityRef, V: Clone>(ArchivedVec<V>, V, PhantomData<K>);
+
+// impl<K: Archive + EntityRef, V: Archive + Clone> Archive for SecondaryMap<K, V>
+// where
+//     K::Archived: EntityRef,
+//     V::Archived: Clone,
+// {
+//     type Archived = ArchivedSecondaryMap<K::Archived, V::Archived>;
+//     type Resolver = VecResolver<MetadataResolver<[V]>>;
+
+//     fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
+//         ArchivedSecondaryMap(Vec::resolve(&self.elems, pos, resolver), V::resolve(&self.default, pos, resolver), PhantomData)
+//     }
+// }
+
+// impl<K: Serialize<S> + EntityRef, V: Serialize<S> + Clone, S: Serializer + ?Sized> Serialize<S>
+//     for SecondaryMap<K, V>
+// where
+//     K::Archived: EntityRef,
+//     V::Archived: Clone,
+// {
+//     fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
+//         self.elems.serialize(serializer)
+//     }
+// }
+
+// impl<K: Archive + EntityRef, V: Archive + Clone, D: Fallible + ?Sized> Deserialize<SecondaryMap<K, V>, D>
+//     for Archived<SecondaryMap<K, V>>
+// where
+//     K::Archived: Deserialize<K, D> + EntityRef,
+//     V::Archived: Deserialize<V, D> + Clone,
+//     [V::Archived]: DeserializeUnsized<[V], D>,
+// {
+//     fn deserialize(&self, deserializer: &mut D) -> Result<SecondaryMap<K, V>, D::Error> {
+//         let elems: Vec<_> = self.0.deserialize(deserializer)?;
+//         let default = self.1.deserialize(deserializer)?;
+//         Ok(SecondaryMap {
+//             elems,
+//             default,
+//             unused: PhantomData,
+//         })
+//     }
+// }
 
 #[derive(Serialize, Deserialize, Archive)]
 /// Rkyv Archivable IndexMap

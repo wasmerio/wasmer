@@ -33,7 +33,7 @@ translator = ["wasmparser"]
 std = ["wasmer-types/std"]
 core = ["hashbrown", "wasmer-types/core"]
 enable-serde = ["serde", "serde_bytes", "wasmer-types/enable-serde"]
-enable-rkyv = ["rkyv", "wasmer-vm/enable-rkyv"]
+enable-rkyv = ["rkyv", "wasmer-vm/enable-rkyv", "wasmer-types/enable-rkyv"]
 
 [badges]
 maintenance = { status = "experimental" }

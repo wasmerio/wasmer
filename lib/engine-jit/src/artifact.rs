@@ -137,20 +137,25 @@ impl JITArtifact {
     }
 
     /// Deserialize a JITArtifact
-    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+    pub unsafe fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-jit".to_string(),
             ));
         }
 
-        let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
+        let mut inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
 
         // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
         // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
 
-        let serializable: SerializableModule = bincode::deserialize(inner_bytes)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
+            DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
+        })?;
+        let metadata_slice: &'static [u8] =
+            std::slice::from_raw_parts(&inner_bytes[16] as *const u8, metadata_len as usize);
+
+        let serializable = SerializableModule::deserialize(metadata_slice)?;
 
         Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
     }
@@ -321,15 +326,18 @@ impl Artifact for JITArtifact {
         &self.func_data_registry
     }
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // let mut s = flexbuffers::FlexbufferSerializer::new();
-        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
-        // Ok(s.take_buffer())
-        let bytes = bincode::serialize(&self.serializable)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
-
         // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
-        serialized.extend(bytes);
+
+        let serialized_data = self.serializable.serialize()?;
+
+        let mut metadata_binary = vec![0; 16];
+        let mut writable = &mut metadata_binary[..];
+        leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
+            .expect("Should write number");
+        metadata_binary.extend(serialized_data);
+
+        serialized.extend(metadata_binary);
         Ok(serialized)
     }
 }
