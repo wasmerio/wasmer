@@ -2022,7 +2022,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
 
-            Operator::Select => {
+            // `TypedSelect` must be used for extern refs so ref counting should
+            // be done with TypedSelect. But otherwise they're the same.
+            Operator::TypedSelect { .. } | Operator::Select => {
                 let ((v1, i1), (v2, i2), (cond, _)) = self.state.pop3_extra()?;
                 // We don't bother canonicalizing 'cond' here because we only
                 // compare it to zero, and that's invariant under
