@@ -74,10 +74,13 @@ jobs:
           #  run_integration_tests: false
           - build: linux-musl-x64
             os: ubuntu-latest
-            container: alpine:latest
+            container:
+              image: alpine:latest
+              ports:
+                - 4226
             artifact_name: 'wasmer-linux-musl-amd64'
             run_integration_tests: true
-            use_sccache: false
+            use_sccache: true
     container: ${{ matrix.container }}
     env:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
@@ -101,8 +104,6 @@ jobs:
         with:
           target: ${{ matrix.target }}
           override: true
-      - uses: Swatinem/rust-cache@v1
-        if: matrix.use_sccache != true
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest' && !matrix.llvm_url
         shell: cmd
