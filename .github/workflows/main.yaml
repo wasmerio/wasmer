@@ -45,28 +45,40 @@ jobs:
             artifact_name: 'wasmer-linux-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_linux'
             run_integration_tests: true
+            use_sccache: true
           - build: macos-x64
             os: macos-latest
             llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/darwin-amd64.tar.gz'
             artifact_name: 'wasmer-darwin-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_mac'
             run_integration_tests: true
+            use_sccache: true
           - build: macos-arm64
             os: macos-11.0
             target: aarch64-apple-darwin
             artifact_name: 'wasmer-darwin-arm64'
+            use_sccache: true
           - build: windows-x64
             os: windows-latest
             # llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/windows-amd64.tar.gz'
             artifact_name: 'wasmer-windows-amd64'
             cross_compilation_artifact_name: 'cross_compiled_from_win'
             run_integration_tests: true
+            use_sccache: true
           #- build: linux-aarch64
           #  os: [self-hosted, linux, ARM64]
           #  random_sccache_port: true
+          #  use_sccache: true
           #  llvm_url: 'https://github.com/wasmerio/llvm-custom-builds/releases/download/11.x/linux-aarch64.tar.gz'
           #  artifact_name: 'wasmer-linux-aarch64'
           #  run_integration_tests: false
+          - build: linux-musl-x64
+            os: ubuntu-latest
+            container: alpine:latest
+            artifact_name: 'wasmer-linux-musl-amd64'
+            run_integration_tests: true
+            use_sccache: false
+    container: ${{ matrix.container }}
     env:
       CARGO_SCCACHE_VERSION: 0.2.14-alpha.0-parity
       SCCACHE_AZURE_BLOB_CONTAINER: wasmerstoragesccacheblob
@@ -80,11 +92,17 @@ jobs:
           sudo apt-get update -y
           sudo apt-get install -y --allow-downgrades libstdc++6=8.4.0-1ubuntu1~18.04
           sudo apt-get install --reinstall g++-8
+      - name: Set up base deps on musl
+        if: matrix.build == 'linux-musl-x64'
+        run: |
+            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git openssl-dev
       - name: Install Rust
         uses: actions-rs/toolchain@v1
         with:
           target: ${{ matrix.target }}
           override: true
+      - uses: Swatinem/rust-cache@v1
+        if: matrix.use_sccache != true
       - name: Install LLVM (Windows)
         if: matrix.os == 'windows-latest' && !matrix.llvm_url
         shell: cmd
@@ -120,13 +138,15 @@ jobs:
             ~/.cargo/git
           key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
       - uses: actions/cache@v2
+        if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
       - name: Install sccache
+        if: matrix.use_sccache
         run: |
           if [ ! -f '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' ]; then
-            cargo install sccache --git https://github.com/paritytech/sccache.git --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
+            cargo install sccache --git https://github.com/wasmerio/sccache.git --no-default-features --features=dist-client,azure --root '${{ runner.tool_cache }}/cargo-sccache'
           fi
         shell: bash
       - name: Setup Rust target
@@ -137,6 +157,7 @@ jobs:
           EOF
         if: matrix.target
       - name: Set sccache port
+        if: matrix.use_sccache && matrix.random_sccache_port
         run: |
           netstat -aln | awk '
             $6 == "LISTEN" {
@@ -154,9 +175,9 @@ jobs:
           ' >> $GITHUB_ENV
           # echo "SCCACHE_SERVER_PORT=9000"
           echo "Setting random sccache port to: $SCCACHE_SERVER_PORT"
-        if: matrix.random_sccache_port
         shell: bash
       - name: Start sccache
+        if: matrix.use_sccache
         run: |
           chmod +x '${{ runner.tool_cache }}/cargo-sccache/bin/sccache'
           '${{ runner.tool_cache }}/cargo-sccache/bin/sccache' --start-server
@@ -273,59 +294,6 @@ jobs:
           if-no-files-found: error
           retention-days: 1
 
-  test-docker:
-    name: Test on ${{ matrix.build }}
-    runs-on: ubuntu-latest
-    needs: setup
-    strategy:
-      fail-fast: false
-      matrix:
-        include:
-          - build: linux-musl-x64
-            image: alpine:latest
-            artifact_name: 'wasmer-linux-musl-amd64'
-    steps:
-      - uses: actions/checkout@v2
-
-      - uses: addnab/docker-run-action@v3
-        with:
-          image: ${{ matrix.image }}
-          options: -v ${{ github.workspace }}:/work
-          run: |
-            set -e
-
-            # Set up tools
-            apk add musl-dev curl make libtool libffi-dev gcc automake autoconf git
-
-            # Install Rustup
-            curl --proto '=https' --tlsv1.2 -sSf https://sh.rustup.rs > rustup.sh
-            sh ./rustup.sh -y
-            source ~/.cargo/env
-            rm -f ./rustup.sh
-
-            # Change working directory
-            cd /work
-
-            # Test
-            make test test-capi
-
-            # Build C API, Wasmer & Wapm
-            make build-capi build-wasmer build-wapm
-
-            # Dist
-            make distribution
-
-            # Run integration tests
-            export WASMER_DIR=`pwd`/package
-            make test-integration
-      - name: Upload Artifacts
-        uses: actions/upload-artifact@v2
-        with:
-          name: ${{ matrix.artifact_name }}
-          path: dist
-          if-no-files-found: error
-          retention-days: 1
-
   test-cross-compile-on-linux:
     name: Test cross-compile on linux
     needs: [setup, test]
@@ -376,7 +344,7 @@ jobs:
   #        wasmer run artifacts/cross/cross_compiled_from_mac/win_from_mac.wjit -- --eval "function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));"
 
   release:
-    needs: [setup, test, test-docker, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
+    needs: [setup, test, test-cross-compile-on-linux, test-cross-compile-on-mac] #, test-cross-compile-on-win]
     runs-on: ubuntu-latest
     if: needs.setup.outputs.DOING_RELEASE == '1'
     steps:
