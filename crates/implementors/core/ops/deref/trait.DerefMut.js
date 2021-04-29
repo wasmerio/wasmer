@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["wasmer_vm"] = [{"text":"impl DerefMut for VMFuncRef","synthetic":false,"types":[]}];
+implementors["wasmer_vm"] = [{"text":"impl <a class=\"trait\" href=\"https://doc.rust-lang.org/nightly/core/ops/deref/trait.DerefMut.html\" title=\"trait core::ops::deref::DerefMut\">DerefMut</a> for <a class=\"struct\" href=\"wasmer_vm/func_data_registry/struct.VMFuncRef.html\" title=\"struct wasmer_vm::func_data_registry::VMFuncRef\">VMFuncRef</a>","synthetic":false,"types":["wasmer_vm::func_data_registry::VMFuncRef"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

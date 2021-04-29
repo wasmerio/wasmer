@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["wasmer_types"] = [{"text":"impl Drop for ExternRef","synthetic":false,"types":[]}];
+implementors["wasmer_types"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_types/lib/std/ops/trait.Drop.html\" title=\"trait wasmer_types::lib::std::ops::Drop\">Drop</a> for <a class=\"struct\" href=\"wasmer_types/extern_ref/struct.ExternRef.html\" title=\"struct wasmer_types::extern_ref::ExternRef\">ExternRef</a>","synthetic":false,"types":["wasmer_types::extern_ref::ExternRef"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

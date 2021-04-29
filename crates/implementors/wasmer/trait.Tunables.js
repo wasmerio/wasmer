@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["wasmer"] = [{"text":"impl Tunables for BaseTunables","synthetic":false,"types":[]}];
+implementors["wasmer"] = [{"text":"impl <a class=\"trait\" href=\"wasmer/trait.Tunables.html\" title=\"trait wasmer::Tunables\">Tunables</a> for <a class=\"struct\" href=\"wasmer/tunables/struct.BaseTunables.html\" title=\"struct wasmer::tunables::BaseTunables\">BaseTunables</a>","synthetic":false,"types":["wasmer::tunables::BaseTunables"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

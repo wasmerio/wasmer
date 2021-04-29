@@ -609,6 +609,8 @@
 <span id="606">606</span>
 <span id="607">607</span>
 <span id="608">608</span>
+<span id="609">609</span>
+<span id="610">610</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -627,6 +629,8 @@
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">HashMap</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">iter</span>::<span class="ident">ExactSizeIterator</span>;
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;enable-rkyv&quot;</span>)]</span>
+<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">MaybeUninit</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">atomic</span>::{<span class="ident">AtomicUsize</span>, <span class="ident">Ordering</span>::<span class="ident">SeqCst</span>};
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
@@ -836,8 +840,8 @@
     <span class="kw">type</span> <span class="ident">Archived</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ArchivableModuleInfo</span> <span class="kw">as</span> <span class="ident">Archive</span><span class="op">&gt;</span>::<span class="ident">Archived</span>;
     <span class="kw">type</span> <span class="ident">Resolver</span> <span class="op">=</span> <span class="op">&lt;</span><span class="ident">ArchivableModuleInfo</span> <span class="kw">as</span> <span class="ident">Archive</span><span class="op">&gt;</span>::<span class="ident">Resolver</span>;
 
-    <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="self">Self</span>::<span class="ident">Resolver</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Archived</span> {
-        <span class="ident">ArchivableModuleInfo</span>::<span class="ident">from</span>(<span class="self">self</span>).<span class="ident">resolve</span>(<span class="ident">pos</span>, <span class="ident">resolver</span>)
+    <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="self">Self</span>::<span class="ident">Resolver</span>, <span class="ident">out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Archived</span><span class="op">&gt;</span>) {
+        <span class="ident">ArchivableModuleInfo</span>::<span class="ident">from</span>(<span class="self">self</span>).<span class="ident">resolve</span>(<span class="ident">pos</span>, <span class="ident">resolver</span>, <span class="ident">out</span>)
     }
 }
 
@@ -1219,4 +1223,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_vm";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_vm"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

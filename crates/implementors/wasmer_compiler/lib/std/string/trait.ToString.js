@@ -1,3 +1,3 @@
 (function() {var implementors = {};
-implementors["wasmer_compiler"] = [{"text":"impl ToString for CpuFeature","synthetic":false,"types":[]}];
+implementors["wasmer_compiler"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_compiler/lib/std/string/trait.ToString.html\" title=\"trait wasmer_compiler::lib::std::string::ToString\">ToString</a> for <a class=\"enum\" href=\"wasmer_compiler/target/enum.CpuFeature.html\" title=\"enum wasmer_compiler::target::CpuFeature\">CpuFeature</a>","synthetic":false,"types":["wasmer_compiler::target::CpuFeature"]}];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()

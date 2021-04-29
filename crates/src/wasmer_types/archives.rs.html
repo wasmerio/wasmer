@@ -90,12 +90,17 @@
 <span id="87">87</span>
 <span id="88">88</span>
 <span id="89">89</span>
+<span id="90">90</span>
+<span id="91">91</span>
+<span id="92">92</span>
+<span id="93">93</span>
+<span id="94">94</span>
+<span id="95">95</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">entity</span>::{<span class="ident">EntityRef</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">indexmap</span>::<span class="ident">IndexMap</span>;
 
 <span class="kw">use</span> <span class="ident">rkyv</span>::{
-    <span class="ident">offset_of</span>,
     <span class="ident">ser</span>::<span class="ident">Serializer</span>,
     <span class="ident">std_impl</span>::{<span class="ident">ArchivedVec</span>, <span class="ident">VecResolver</span>},
     <span class="ident">Archive</span>, <span class="ident">Archived</span>, <span class="ident">Deserialize</span>, <span class="ident">DeserializeUnsized</span>, <span class="ident">Fallible</span>, <span class="ident">MetadataResolver</span>, <span class="ident">Serialize</span>,
@@ -105,7 +110,7 @@
 <span class="kw">use</span> <span class="ident">core</span>::{<span class="ident">hash</span>::<span class="ident">Hash</span>, <span class="ident">marker</span>::<span class="ident">PhantomData</span>};
 
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;std&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">hash</span>::<span class="ident">Hash</span>, <span class="ident">marker</span>::<span class="ident">PhantomData</span>};
+<span class="kw">use</span> <span class="ident">std</span>::{<span class="ident">collections</span>::<span class="ident">HashMap</span>, <span class="ident">hash</span>::<span class="ident">Hash</span>, <span class="ident">marker</span>::<span class="ident">PhantomData</span>, <span class="ident">mem</span>::<span class="ident">MaybeUninit</span>};
 
 <span class="doccomment">/// PrimaryMap after archive</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ArchivedPrimaryMap</span><span class="op">&lt;</span><span class="ident">K</span>: <span class="ident">EntityRef</span>, <span class="ident">V</span><span class="op">&gt;</span>(<span class="ident">ArchivedVec</span><span class="op">&lt;</span><span class="ident">V</span><span class="op">&gt;</span>, <span class="ident">PhantomData</span><span class="op">&lt;</span><span class="ident">K</span><span class="op">&gt;</span>);
@@ -117,8 +122,15 @@
     <span class="kw">type</span> <span class="ident">Archived</span> <span class="op">=</span> <span class="ident">ArchivedPrimaryMap</span><span class="op">&lt;</span><span class="ident">K</span>::<span class="ident">Archived</span>, <span class="ident">V</span>::<span class="ident">Archived</span><span class="op">&gt;</span>;
     <span class="kw">type</span> <span class="ident">Resolver</span> <span class="op">=</span> <span class="ident">VecResolver</span><span class="op">&lt;</span><span class="ident">MetadataResolver</span><span class="op">&lt;</span>[<span class="ident">V</span>]<span class="op">&gt;</span><span class="op">&gt;</span>;
 
-    <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="self">Self</span>::<span class="ident">Resolver</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Archived</span> {
-        <span class="ident">ArchivedPrimaryMap</span>(<span class="ident">Vec</span>::<span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">elems</span>, <span class="ident">pos</span>, <span class="ident">resolver</span>), <span class="ident">PhantomData</span>)
+    <span class="kw">fn</span> <span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pos</span>: <span class="ident">usize</span>, <span class="ident">resolver</span>: <span class="self">Self</span>::<span class="ident">Resolver</span>, <span class="ident">out</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">MaybeUninit</span><span class="op">&lt;</span><span class="self">Self</span>::<span class="ident">Archived</span><span class="op">&gt;</span>) {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">vec</span> <span class="op">=</span> <span class="ident">MaybeUninit</span>::<span class="ident">uninit</span>();
+        <span class="ident">Vec</span>::<span class="ident">resolve</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">elems</span>, <span class="ident">pos</span>, <span class="ident">resolver</span>, <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">vec</span>);
+        <span class="comment">// This is correct because the `resolve` method can never fail [citation needed]</span>
+        <span class="kw">let</span> <span class="ident">vec</span> <span class="op">=</span> <span class="kw">unsafe</span> { <span class="ident">vec</span>.<span class="ident">assume_init</span>() };
+        <span class="kw">let</span> <span class="ident">archived_primary_map</span> <span class="op">=</span> <span class="ident">ArchivedPrimaryMap</span>(<span class="ident">vec</span>, <span class="ident">PhantomData</span>);
+        <span class="kw">unsafe</span> {
+            <span class="ident">out</span>.<span class="ident">as_mut_ptr</span>().<span class="ident">write</span>(<span class="ident">archived_primary_map</span>);
+        }
     }
 }
 
@@ -181,4 +193,5 @@
     }
 }
 </pre></div>
-</section><section id="search" class="content hidden"></section><section class="footer"></section><script>window.rootPath = "../../";window.currentCrate = "wasmer_types";</script><script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>
+</section><section id="search" class="content hidden"></section><section class="footer"></section><div id="rustdoc-vars" data-root-path="../../" data-current-crate="wasmer_types"></div>
+    <script src="../../main.js"></script><script src="../../source-script.js"></script><script src="../../source-files.js"></script><script defer src="../../search-index.js"></script></body></html>

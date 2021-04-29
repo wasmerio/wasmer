@@ -1,4 +1,4 @@
 (function() {var implementors = {};
-implementors["wasmer_c_api"] = [{"text":"impl Resolver for OrderedResolver","synthetic":false,"types":[]}];
+implementors["wasmer_c_api"] = [{"text":"impl <a class=\"trait\" href=\"wasmer_engine/resolver/trait.Resolver.html\" title=\"trait wasmer_engine::resolver::Resolver\">Resolver</a> for <a class=\"struct\" href=\"wasmer_c_api/ordered_resolver/struct.OrderedResolver.html\" title=\"struct wasmer_c_api::ordered_resolver::OrderedResolver\">OrderedResolver</a>","synthetic":false,"types":["wasmer_c_api::ordered_resolver::OrderedResolver"]}];
 implementors["wasmer_engine"] = [];
 if (window.register_implementors) {window.register_implementors(implementors);} else {window.pending_implementors = implementors;}})()
