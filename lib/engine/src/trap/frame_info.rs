@@ -158,15 +158,6 @@ impl GlobalFrameInfo {
         }
         Some(module_info)
     }
-
-    /// Gets a module given a pc
-    fn module_info_mut(&mut self, pc: usize) -> Option<&mut ModuleInfoFrameInfo> {
-        let (end, module_info) = self.ranges.range_mut(pc..).next()?;
-        if pc < module_info.start || *end < pc {
-            return None;
-        }
-        Some(module_info)
-    }
 }
 
 impl Drop for GlobalFrameInfoRegistration {
