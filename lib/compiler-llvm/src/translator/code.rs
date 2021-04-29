@@ -5370,7 +5370,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(v, self.intrinsics.i64_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
-            Operator::I16x8WidenLowI8x16S => {
+            Operator::I16x8ExtendLowI8x16S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5394,7 +5394,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenHighI8x16S => {
+            Operator::I16x8ExtendHighI8x16S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5418,7 +5418,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenLowI8x16U => {
+            Operator::I16x8ExtendLowI8x16U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5442,7 +5442,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenHighI8x16U => {
+            Operator::I16x8ExtendHighI8x16U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5466,7 +5466,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenLowI16x8S => {
+            Operator::I32x4ExtendLowI16x8S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5486,7 +5486,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenHighI16x8S => {
+            Operator::I32x4ExtendHighI16x8S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5506,7 +5506,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenLowI16x8U => {
+            Operator::I32x4ExtendLowI16x8U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5526,7 +5526,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenHighI16x8U => {
+            Operator::I32x4ExtendHighI16x8U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
