@@ -44,7 +44,7 @@ fn to_compile_error(err: impl std::error::Error) -> CompileError {
 
 pub struct FuncTranslator {
     ctx: Context,
-    target_machine: TargetMachine,
+    pub(crate) target_machine: TargetMachine,
     abi: Box<dyn Abi>,
 }
 

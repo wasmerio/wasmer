@@ -8,17 +8,41 @@ use crate::lib::std::sync::Arc;
 use crate::module::CompileModuleInfo;
 use crate::target::Target;
 use crate::translator::ModuleMiddleware;
+use crate::CompiledFunctionFrameInfo;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use loupe::MemoryUsage;
-use wasmer_types::entity::PrimaryMap;
+use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
 
-// pub type ExperimentalNativeMetadataSerializer<'a> = dyn Fn() -> Vec<u8> + 'a;
-/// The serializer for metadata
-pub type ExperimentalNativeMetadataSerializer = dyn Fn() -> Result<Vec<u8>, CompileError>;
+/// The output of the experimental native compilation
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub enum ExperimentalNativeObjectFileKind {
+    /// A local Function
+    LocalFunction {
+        /// The index of the function
+        index: LocalFunctionIndex,
+        /// The frame info, only needed for local functions
+        frame_info: CompiledFunctionFrameInfo,
+    },
+
+    /// The function call trampoline for a given signature.
+    FunctionCallTrampoline(SignatureIndex),
+
+    /// The dynamic function trampoline for a given function.
+    DynamicFunctionTrampoline(FunctionIndex),
+}
+
+/// The output of the experimental native compilation
+#[derive(Clone, Debug, PartialEq, Eq)]
+pub struct ExperimentalNativeObjectFile {
+    /// The kind of emitted object file
+    pub kind: ExperimentalNativeObjectFileKind,
+    /// The content of the object file
+    pub content: Vec<u8>,
+}
 
 /// The compiler configuration options.
 pub trait CompilerConfig {
@@ -116,9 +140,7 @@ pub trait Compiler: Send + MemoryUsage {
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         _symbol_registry: &dyn SymbolRegistry,
-        // The metadata to inject into the wasmer_metadata section of the object file.
-        _serializer: &ExperimentalNativeMetadataSerializer,
-    ) -> Option<Result<Vec<u8>, CompileError>> {
+    ) -> Option<Result<Vec<ExperimentalNativeObjectFile>, CompileError>> {
         None
     }
 
@@ -127,7 +149,7 @@ pub trait Compiler: Send + MemoryUsage {
 }
 
 /// The kinds of wasmer_types objects that might be found in a native object file.
-#[derive(Clone, Debug, PartialEq, Eq)]
+#[derive(Clone, Debug, PartialEq, Eq, Copy)]
 pub enum Symbol {
     /// A function defined in the wasm.
     LocalFunction(LocalFunctionIndex),

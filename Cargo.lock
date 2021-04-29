@@ -1339,6 +1339,7 @@ checksum = "a9a7ab5d64814df0fe4a4b5ead45ed6c5f181ee3ff04ba344313a6c80446c5d4"
 dependencies = [
  "crc32fast",
  "indexmap",
+ "wasmparser 0.57.0",
 ]
 
 [[package]]
@@ -2475,7 +2476,7 @@ dependencies = [
  "thiserror",
  "wasmer-types",
  "wasmer-vm",
- "wasmparser",
+ "wasmparser 0.74.0",
 ]
 
 [[package]]
@@ -2512,6 +2513,7 @@ dependencies = [
  "lazy_static",
  "libc",
  "loupe",
+ "object",
  "rayon",
  "regex",
  "rustc_version 0.2.3",
@@ -2794,6 +2796,12 @@ dependencies = [
  "wasmer-wasi",
  "wasmer-wast",
 ]
+
+[[package]]
+name = "wasmparser"
+version = "0.57.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "32fddd575d477c6e9702484139cf9f23dcd554b06d185ed0f56c857dd3a47aa6"
 
 [[package]]
 name = "wasmparser"

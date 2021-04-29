@@ -6,6 +6,7 @@
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
 use loupe::MemoryUsage;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,6 +14,10 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.

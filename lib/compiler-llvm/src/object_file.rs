@@ -37,10 +37,59 @@ fn map_goblin_err(error: goblin::error::Error) -> CompileError {
     CompileError::Codegen(format!("error parsing ELF file: {}", error))
 }
 
+fn map_object_err(error: object::read::Error) -> CompileError {
+    CompileError::Codegen(format!("error parsing object file: {}", error))
+}
+
 pub struct CompiledFunction {
     pub compiled_function: wasmer_compiler::CompiledFunction,
     pub custom_sections: CustomSections,
     pub eh_frame_section_indices: Vec<SectionIndex>,
+}
+
+pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
+    use object::Object;
+    use object::ObjectSection;
+
+    let in_object = object::File::parse(&data).map_err(map_object_err)?;
+    let section = in_object.section_by_name("wasmer_function");
+    match section {
+        Some(section) => Ok(section.size()),
+        None => Ok(0),
+    }
+}
+
+/// Get the frame information from an object file.
+pub fn get_frame_info(contents: &[u8]) -> Result<CompiledFunctionFrameInfo, CompileError> {
+    // let body_sizes = get_function_body_sizes(contents, &[root_section.to_owned()])?;
+    let function_length = get_function_body_size(contents)? as usize;
+    // let function_length = body_sizes[0] as usize;
+    let address_map = FunctionAddressMap {
+        instructions: vec![InstructionAddressMap {
+            srcloc: SourceLoc::default(),
+            code_offset: 0,
+            code_len: function_length,
+        }],
+        start_srcloc: SourceLoc::default(),
+        end_srcloc: SourceLoc::default(),
+        body_offset: 0,
+        body_len: function_length,
+    };
+
+    Ok(CompiledFunctionFrameInfo {
+        address_map,
+        traps: vec![],
+    })
+}
+
+fn section_bytes<'a>(
+    contents: &'a [u8],
+    elf: &goblin::elf::Elf,
+    elf_section_index: ElfSectionIndex,
+) -> &'a [u8] {
+    let elf_section_index = elf_section_index.as_usize();
+    let byte_range = elf.section_headers[elf_section_index].file_range();
+    &contents[byte_range.start..byte_range.end]
 }
 
 pub fn load_object_file<F>(
@@ -168,12 +217,6 @@ where
             next_custom_section += 1;
             target
         })
-    };
-
-    let section_bytes = |elf_section_index: ElfSectionIndex| {
-        let elf_section_index = elf_section_index.as_usize();
-        let byte_range = elf.section_headers[elf_section_index].file_range();
-        contents[byte_range.start..byte_range.end].to_vec()
     };
 
     // From elf section index to list of Relocations. Although we use a Vec,
@@ -308,7 +351,9 @@ where
                 custom_section_index,
                 CustomSection {
                     protection: CustomSectionProtection::Read,
-                    bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
+                    bytes: SectionBody::new_with_vec(
+                        section_bytes(contents, &elf, *elf_section_index).to_vec(),
+                    ),
                     relocations: relocations
                         .remove_entry(elf_section_index)
                         .map_or(vec![], |(_, v)| v),
@@ -323,7 +368,7 @@ where
         .collect::<PrimaryMap<SectionIndex, _>>();
 
     let function_body = FunctionBody {
-        body: section_bytes(root_section_index),
+        body: section_bytes(contents, &elf, root_section_index).to_vec(),
         unwind_info: None,
     };
 

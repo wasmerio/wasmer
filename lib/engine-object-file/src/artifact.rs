@@ -202,7 +202,7 @@ impl ObjectFileArtifact {
 
         let new_metadata = metadata.clone();
 
-        let metadata_serializer = move || {
+        let metadata_serializer = move || -> Result<Vec<u8>, CompileError> {
             let mut metadata_binary = vec![0; 10];
             let mut writable = &mut metadata_binary[..];
             let serialized_data = bincode::serialize(&new_metadata).map_err(to_compile_error)?;
@@ -220,12 +220,11 @@ impl ObjectFileArtifact {
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
-            &metadata_serializer,
         );
 
         let mut metadata_length = 0;
         let obj_bytes = if let Some(obj_bytes) = maybe_obj_bytes {
-            obj_bytes?
+            obj_bytes?[0].content.clone()
         } else {
             let compilation = compiler.compile_module(
                 &target,

@@ -19,7 +19,7 @@ use wasmer_types::{FunctionType, LocalFunctionIndex};
 
 pub struct FuncTrampoline {
     ctx: Context,
-    target_machine: TargetMachine,
+    pub(crate) target_machine: TargetMachine,
     abi: Box<dyn Abi>,
 }
 
