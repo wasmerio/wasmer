@@ -15,6 +15,8 @@ use serde::{Deserialize, Serialize};
 use std::collections::HashMap;
 use std::fmt;
 use std::iter::ExactSizeIterator;
+#[cfg(feature = "enable-rkyv")]
+use std::mem::MaybeUninit;
 use std::sync::atomic::{AtomicUsize, Ordering::SeqCst};
 use std::sync::Arc;
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -224,8 +226,8 @@ impl Archive for ModuleInfo {
     type Archived = <ArchivableModuleInfo as Archive>::Archived;
     type Resolver = <ArchivableModuleInfo as Archive>::Resolver;
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivableModuleInfo::from(self).resolve(pos, resolver)
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        ArchivableModuleInfo::from(self).resolve(pos, resolver, out)
     }
 }
 
