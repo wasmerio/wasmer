@@ -12,7 +12,7 @@ use rkyv::{
 use core::{hash::Hash, marker::PhantomData};
 
 #[cfg(feature = "std")]
-use std::{collections::HashMap, hash::Hash, marker::PhantomData};
+use std::{collections::HashMap, hash::Hash, marker::PhantomData, mem::MaybeUninit};
 
 /// PrimaryMap after archive
 pub struct ArchivedPrimaryMap<K: EntityRef, V>(ArchivedVec<V>, PhantomData<K>);
@@ -24,8 +24,15 @@ where
     type Archived = ArchivedPrimaryMap<K::Archived, V::Archived>;
     type Resolver = VecResolver<MetadataResolver<[V]>>;
 
-    fn resolve(&self, pos: usize, resolver: Self::Resolver) -> Self::Archived {
-        ArchivedPrimaryMap(Vec::resolve(&self.elems, pos, resolver), PhantomData)
+    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
+        let mut vec = MaybeUninit::uninit();
+        Vec::resolve(&self.elems, pos, resolver, &mut vec);
+        // This is correct because the `resolve` method can never fail [citation needed]
+        let vec = unsafe { vec.assume_init() };
+        let archived_primary_map = ArchivedPrimaryMap(vec, PhantomData);
+        unsafe {
+            out.as_mut_ptr().write(archived_primary_map);
+        }
     }
 }
 
