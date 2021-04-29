@@ -13,7 +13,7 @@ use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
 use loupe::MemoryUsage;
-use wasmer_types::entity::{EntityRef, PrimaryMap};
+use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
 

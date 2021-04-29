@@ -18,8 +18,8 @@ use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, Compiler, FunctionBodyData, ModuleEnvironment,
-    ModuleMiddlewareChain, ModuleTranslationState,
+    CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
