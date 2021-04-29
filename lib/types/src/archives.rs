@@ -2,7 +2,6 @@ use crate::entity::{EntityRef, PrimaryMap};
 use indexmap::IndexMap;
 
 use rkyv::{
-    offset_of,
     ser::Serializer,
     std_impl::{ArchivedVec, VecResolver},
     Archive, Archived, Deserialize, DeserializeUnsized, Fallible, MetadataResolver, Serialize,
