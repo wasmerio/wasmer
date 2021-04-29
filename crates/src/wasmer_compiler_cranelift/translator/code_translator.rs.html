@@ -2845,6 +2845,18 @@
 <span id="2842">2842</span>
 <span id="2843">2843</span>
 <span id="2844">2844</span>
+<span id="2845">2845</span>
+<span id="2846">2846</span>
+<span id="2847">2847</span>
+<span id="2848">2848</span>
+<span id="2849">2849</span>
+<span id="2850">2850</span>
+<span id="2851">2851</span>
+<span id="2852">2852</span>
+<span id="2853">2853</span>
+<span id="2854">2854</span>
+<span id="2855">2855</span>
+<span id="2856">2856</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -4644,35 +4656,35 @@
             <span class="kw">let</span> (<span class="ident">a</span>, <span class="ident">b</span>) <span class="op">=</span> <span class="ident">pop2_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I32X4</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">unarrow</span>(<span class="ident">a</span>, <span class="ident">b</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I16x8WidenLowI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I16x8ExtendLowI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">swiden_low</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I16x8WidenHighI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I16x8ExtendHighI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">swiden_high</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I16x8WidenLowI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I16x8ExtendLowI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uwiden_low</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I16x8WidenHighI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I16x8ExtendHighI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I8X16</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uwiden_high</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I32x4WidenLowI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I32x4ExtendLowI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I16X8</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">swiden_low</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I32x4WidenHighI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I32x4ExtendHighI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I16X8</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">swiden_high</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I32x4WidenLowI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I32x4ExtendLowI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I16X8</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uwiden_low</span>(<span class="ident">a</span>))
         }
-        <span class="ident">Operator</span>::<span class="ident">I32x4WidenHighI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
+        <span class="ident">Operator</span>::<span class="ident">I32x4ExtendHighI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">let</span> <span class="ident">a</span> <span class="op">=</span> <span class="ident">pop1_with_bitcast</span>(<span class="ident">state</span>, <span class="ident">I16X8</span>, <span class="ident">builder</span>);
             <span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">builder</span>.<span class="ident">ins</span>().<span class="ident">uwiden_high</span>(<span class="ident">a</span>))
         }
@@ -4701,14 +4713,24 @@
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(<span class="string">&quot;proposed tail-call operator {:?}&quot;</span>, <span class="ident">op</span>));
         }
 
-        <span class="ident">Operator</span>::<span class="ident">I64x2Eq</span>
+        <span class="ident">Operator</span>::<span class="ident">I64x2LtS</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2GtS</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2LeS</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2GeS</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I8x16Popcnt</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtAddPairwiseI8x16S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtAddPairwiseI8x16U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtAddPairwiseI16x8S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I32x4ExtAddPairwiseI16x8U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Abs</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Eq</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Ne</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2AllTrue</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2Bitmask</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenLowI32x4S</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenHighI32x4S</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenLowI32x4U</span>
-        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2WidenHighI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtendLowI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtendHighI32x4S</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtendLowI32x4U</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I64x2ExtendHighI32x4U</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulLowI8x16S</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulHighI8x16S</span>
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">I16x8ExtMulLowI8x16U</span>
@@ -4743,6 +4765,8 @@
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Catch</span> { .. }
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Throw</span> { .. }
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Rethrow</span> { .. }
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">CatchAll</span>
+        <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Delegate</span> { .. }
         <span class="op">|</span> <span class="ident">Operator</span>::<span class="ident">Unwind</span> <span class="op">=</span><span class="op">&gt;</span> {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="macro">wasm_unsupported</span><span class="macro">!</span>(<span class="string">&quot;proposed exception operator {:?}&quot;</span>, <span class="ident">op</span>));
         }

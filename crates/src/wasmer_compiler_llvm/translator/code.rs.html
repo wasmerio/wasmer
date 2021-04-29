@@ -15033,7 +15033,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                     .<span class="ident">build_int_z_extend</span>(<span class="ident">v</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i64_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1_extra</span>(<span class="ident">res</span>, <span class="ident">ExtraInfo</span>::<span class="ident">arithmetic_f64</span>());
             }
-            <span class="ident">Operator</span>::<span class="ident">I16x8WidenLowI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I16x8ExtendLowI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15057,7 +15057,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I16x8WidenHighI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I16x8ExtendHighI8x16S</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15081,7 +15081,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I16x8WidenLowI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I16x8ExtendLowI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15105,7 +15105,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I16x8WidenHighI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I16x8ExtendHighI8x16U</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i8x16</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15129,7 +15129,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32x4WidenLowI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32x4ExtendLowI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15149,7 +15149,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32x4WidenHighI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32x4ExtendHighI16x8S</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15169,7 +15169,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32x4WidenLowI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32x4ExtendLowI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
@@ -15189,7 +15189,7 @@ fn finalize_opcode_stack_map&lt;&#39;ctx&gt;(
                 <span class="kw">let</span> <span class="ident">res</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_bitcast</span>(<span class="ident">res</span>, <span class="self">self</span>.<span class="ident">intrinsics</span>.<span class="ident">i128_ty</span>, <span class="string">&quot;&quot;</span>);
                 <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">push1</span>(<span class="ident">res</span>);
             }
-            <span class="ident">Operator</span>::<span class="ident">I32x4WidenHighI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
+            <span class="ident">Operator</span>::<span class="ident">I32x4ExtendHighI16x8U</span> <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="ident">i</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">state</span>.<span class="ident">pop1_extra</span>()<span class="question-mark">?</span>;
                 <span class="kw">let</span> (<span class="ident">v</span>, <span class="kw">_</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">v128_into_i16x8</span>(<span class="ident">v</span>, <span class="ident">i</span>);
                 <span class="kw">let</span> <span class="ident">low</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">builder</span>.<span class="ident">build_shuffle_vector</span>(
