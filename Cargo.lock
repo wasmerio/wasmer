@@ -52,6 +52,12 @@ source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "afddf7f520a80dbf76e6f50a35bca42a2331ef227a28b3b6dc5c2e2338d114b1"
 
 [[package]]
+name = "ar"
+version = "0.8.0"
+source = "registry+https://github.com/rust-lang/crates.io-index"
+checksum = "450575f58f7bee32816abbff470cbc47797397c2a81e0eaced4b98436daf52e1"
+
+[[package]]
 name = "arrayref"
 version = "0.3.6"
 source = "registry+https://github.com/rust-lang/crates.io-index"
@@ -2646,11 +2652,13 @@ dependencies = [
 name = "wasmer-engine-object-file"
 version = "1.0.2"
 dependencies = [
+ "ar",
  "bincode",
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
  "loupe",
+ "rkyv",
  "serde",
  "tempfile",
  "tracing",

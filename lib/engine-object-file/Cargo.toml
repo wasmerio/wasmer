@@ -24,6 +24,8 @@ leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"
 loupe = "0.1"
+rkyv = "0.4.3"
+ar = "0.8"
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile

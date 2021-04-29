@@ -40,14 +40,15 @@ pub struct ModuleMetadata {
     pub frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
 }
 
-pub struct ModuleMetadataSymbolRegistry<'a> {
-    pub prefix: &'a String,
+#[derive(MemoryUsage)]
+pub struct ModuleMetadataSymbolRegistry {
+    pub prefix: String,
 }
 
 impl ModuleMetadata {
-    pub fn get_symbol_registry<'a>(&'a self) -> ModuleMetadataSymbolRegistry<'a> {
+    pub fn get_symbol_registry(&self) -> ModuleMetadataSymbolRegistry {
         ModuleMetadataSymbolRegistry {
-            prefix: &self.prefix,
+            prefix: self.prefix.clone(),
         }
     }
 
@@ -96,7 +97,7 @@ impl ModuleMetadata {
     }
 }
 
-impl<'a> SymbolRegistry for ModuleMetadataSymbolRegistry<'a> {
+impl SymbolRegistry for ModuleMetadataSymbolRegistry {
     fn symbol_to_name(&self, symbol: Symbol) -> String {
         match symbol {
             Symbol::LocalFunction(index) => {

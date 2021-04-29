@@ -69,8 +69,7 @@ mod sourceloc;
 pub use crate::address_map::{FunctionAddressMap, InstructionAddressMap};
 #[cfg(feature = "translator")]
 pub use crate::compiler::{
-    Compiler, CompilerConfig, ExperimentalNativeObjectFile, ExperimentalNativeObjectFileKind,
-    Symbol, SymbolRegistry,
+    Compiler, CompilerConfig, ExperimentalNativeCompilation, Symbol, SymbolRegistry,
 };
 pub use crate::error::{
     CompileError, MiddlewareError, ParseCpuFeatureError, WasmError, WasmResult,

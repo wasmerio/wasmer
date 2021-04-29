@@ -17,31 +17,15 @@ use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
 
-/// The output of the experimental native compilation
+/// The output of the experimental native compilation.
+/// It returns the object files that the linker will link together after
+/// along with the frame infos necessary for fully traps support.
 #[derive(Clone, Debug, PartialEq, Eq)]
-pub enum ExperimentalNativeObjectFileKind {
-    /// A local Function
-    LocalFunction {
-        /// The index of the function
-        index: LocalFunctionIndex,
-        /// The frame info, only needed for local functions
-        frame_info: CompiledFunctionFrameInfo,
-    },
-
-    /// The function call trampoline for a given signature.
-    FunctionCallTrampoline(SignatureIndex),
-
-    /// The dynamic function trampoline for a given function.
-    DynamicFunctionTrampoline(FunctionIndex),
-}
-
-/// The output of the experimental native compilation
-#[derive(Clone, Debug, PartialEq, Eq)]
-pub struct ExperimentalNativeObjectFile {
+pub struct ExperimentalNativeCompilation {
     /// The kind of emitted object file
-    pub kind: ExperimentalNativeObjectFileKind,
-    /// The content of the object file
-    pub content: Vec<u8>,
+    pub object_files: Vec<Vec<u8>>,
+    /// The frame infos of the files
+    pub frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,
 }
 
 /// The compiler configuration options.
@@ -140,7 +124,7 @@ pub trait Compiler: Send + MemoryUsage {
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         _symbol_registry: &dyn SymbolRegistry,
-    ) -> Option<Result<Vec<ExperimentalNativeObjectFile>, CompileError>> {
+    ) -> Option<Result<ExperimentalNativeCompilation, CompileError>> {
         None
     }
 

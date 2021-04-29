@@ -18,8 +18,8 @@ use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, CompiledFunctionFrameInfo, Compiler, ExperimentalNativeObjectFileKind,
-    FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain, ModuleTranslationState,
+    CompileModuleInfo, CompiledFunctionFrameInfo, Compiler, FunctionBodyData, ModuleEnvironment,
+    ModuleMiddlewareChain, ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -167,20 +167,6 @@ impl NativeArtifact {
             .into_boxed_slice();
 
         let target_triple = target.triple();
-
-        /*
-        // We construct the function body lengths
-        let function_body_lengths = compilation
-            .get_function_bodies()
-            .values()
-            .map(|function_body| function_body.body.len() as u64)
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-         */
-
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
         let frame_infos = PrimaryMap::new();
 
         let mut metadata = ModuleMetadata {
@@ -210,10 +196,12 @@ impl NativeArtifact {
         );
 
         let object_filepaths = match maybe_obj_bytes {
-            Some(native_objects) => {
-                let iterator = native_objects?
+            Some(native_compilation) => {
+                let native_compilation = native_compilation?;
+                let mut all_objects = native_compilation
+                    .object_files
                     .into_iter()
-                    .map(|native_object| {
+                    .map(|content| {
                         let file = tempfile::Builder::new()
                             .prefix("wasmer_native")
                             .suffix(".o")
@@ -222,31 +210,14 @@ impl NativeArtifact {
 
                         // Re-open it.
                         let (mut file, filepath) = file.keep().map_err(to_compile_error)?;
-                        file.write(&native_object.content)
-                            .map_err(to_compile_error)?;
-                        Ok((filepath, native_object.kind))
+                        file.write(&content).map_err(to_compile_error)?;
+                        Ok(filepath)
                     })
                     .collect::<Result<Vec<_>, CompileError>>()?;
 
-                let (mut all_objects, function_kinds): (
-                    Vec<PathBuf>,
-                    Vec<ExperimentalNativeObjectFileKind>,
-                ) = iterator.into_iter().unzip();
-
-                let compiled_function_infos = function_kinds
-                    .into_iter()
-                    .filter_map(|kind| match kind {
-                        ExperimentalNativeObjectFileKind::LocalFunction { index, frame_info } => {
-                            Some(frame_info)
-                        }
-                        _ => None,
-                    })
-                    .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>>();
-                // println!("FRAME INFOS DATA {:?}", compiled_function_infos);
-
                 // Constructing the metadata object
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-                metadata.frame_infos = compiled_function_infos;
+                metadata.frame_infos = native_compilation.frame_infos;
                 let metadata_binary = metadata_serializer(&metadata)?;
                 emit_data(
                     &mut obj,

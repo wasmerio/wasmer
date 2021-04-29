@@ -8,8 +8,8 @@ use rayon::iter::ParallelBridge;
 use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, ExperimentalNativeObjectFile, ExperimentalNativeObjectFileKind, FunctionBodyData,
+    Compilation, CompileError, CompileModuleInfo, CompiledFunctionFrameInfo, Compiler,
+    CustomSection, CustomSectionProtection, Dwarf, ExperimentalNativeCompilation, FunctionBodyData,
     ModuleMiddleware, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex, Symbol,
     SymbolRegistry, Target,
 };
@@ -77,43 +77,47 @@ impl LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
-    ) -> Result<Vec<ExperimentalNativeObjectFile>, CompileError> {
+    ) -> Result<ExperimentalNativeCompilation, CompileError> {
         // TODO: https:/github.com/rayon-rs/rayon/issues/822
 
-        let function_bodies = function_body_inputs.into_iter().par_bridge().map_init(
-            || {
-                let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine)
-            },
-            |func_translator, (i, input)| {
-                // let symbol = Symbol::LocalFunction(i);
-                let module = func_translator.translate_to_module(
-                    &compile_info.module,
-                    module_translation,
-                    &i,
-                    input,
-                    self.config(),
-                    &compile_info.memory_styles,
-                    &compile_info.table_styles,
-                    symbol_registry,
-                )?;
-                let memory_buffer = func_translator
-                    .target_machine
-                    .write_to_memory_buffer(&module, FileType::Object)
-                    .unwrap();
-                let memory_buffer = memory_buffer.as_slice().to_vec();
-                // let name = symbol_registry.symbol_to_name(symbol);
-                let frame_info = get_frame_info(&memory_buffer)?;
-                Ok(ExperimentalNativeObjectFile {
-                    kind: ExperimentalNativeObjectFileKind::LocalFunction {
-                        index: i,
-                        frame_info,
-                    },
-                    content: memory_buffer,
-                })
-            },
-        );
+        let function_bodies_and_frame_infos = function_body_inputs
+            .into_iter()
+            .par_bridge()
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTranslator::new(target_machine)
+                },
+                |func_translator, (i, input)| {
+                    // let symbol = Symbol::LocalFunction(i);
+                    let module = func_translator.translate_to_module(
+                        &compile_info.module,
+                        module_translation,
+                        &i,
+                        input,
+                        self.config(),
+                        &compile_info.memory_styles,
+                        &compile_info.table_styles,
+                        symbol_registry,
+                    )?;
+                    let memory_buffer = func_translator
+                        .target_machine
+                        .write_to_memory_buffer(&module, FileType::Object)
+                        .unwrap();
+                    let memory_buffer = memory_buffer.as_slice().to_vec();
+                    let frame_info = get_frame_info(&memory_buffer)?;
+                    Ok((memory_buffer, frame_info))
+                },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
+        let (function_bodies, frame_infos): (Vec<Vec<u8>>, Vec<CompiledFunctionFrameInfo>) =
+            function_bodies_and_frame_infos.into_iter().unzip();
+        let function_bodies = function_bodies.into_iter().par_bridge().map(|b| Ok(b));
+
+        let frame_infos = frame_infos
+            .into_iter()
+            .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>>();
         let trampolines = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
@@ -127,10 +131,7 @@ impl LLVMCompiler {
                     .target_machine
                     .write_to_memory_buffer(&module, FileType::Object)
                     .unwrap();
-                Ok(ExperimentalNativeObjectFile {
-                    kind: ExperimentalNativeObjectFileKind::FunctionCallTrampoline(i),
-                    content: memory_buffer.as_slice().to_vec(),
-                })
+                Ok(memory_buffer.as_slice().to_vec())
             },
         );
 
@@ -152,19 +153,19 @@ impl LLVMCompiler {
                     .target_machine
                     .write_to_memory_buffer(&module, FileType::Object)
                     .unwrap();
-                Ok(ExperimentalNativeObjectFile {
-                    kind: ExperimentalNativeObjectFileKind::DynamicFunctionTrampoline(i),
-                    content: memory_buffer.as_slice().to_vec(),
-                })
+                Ok(memory_buffer.as_slice().to_vec())
             },
         );
 
-        let all_chained_objects = function_bodies
+        let object_files = function_bodies
             .chain(trampolines)
             .chain(dynamic_trampolines)
             .collect::<Result<Vec<_>, CompileError>>()?;
 
-        Ok(all_chained_objects)
+        Ok(ExperimentalNativeCompilation {
+            object_files,
+            frame_infos,
+        })
     }
 }
 
@@ -182,7 +183,7 @@ impl Compiler for LLVMCompiler {
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
-    ) -> Option<Result<Vec<ExperimentalNativeObjectFile>, CompileError>> {
+    ) -> Option<Result<ExperimentalNativeCompilation, CompileError>> {
         Some(self.compile_native_object(
             target,
             compile_info,

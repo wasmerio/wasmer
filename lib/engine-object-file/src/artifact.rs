@@ -2,7 +2,7 @@
 //! done as separate steps.
 
 use crate::engine::{ObjectFileEngine, ObjectFileEngineInner};
-use crate::serialize::{ModuleMetadata, ModuleMetadataSymbolRegistry};
+use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata, ModuleMetadataSymbolRegistry};
 use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
@@ -36,7 +36,7 @@ use wasmer_vm::{
 #[derive(MemoryUsage)]
 pub struct ObjectFileArtifact {
     metadata: ModuleMetadata,
-    module_bytes: Vec<u8>,
+    object_files: Vec<Vec<u8>>,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
     #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
@@ -168,19 +168,13 @@ impl ObjectFileArtifact {
 
         let target_triple = target.triple();
 
-        // TODO: we currently supply all-zero function body lengths.
-        // We don't know the lengths until they're compiled, yet we have to
-        // supply the metadata as an input to the compile.
-        let function_body_lengths = function_body_inputs
-            .keys()
-            .map(|_function_body| 0u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
+        let frame_infos = PrimaryMap::new();
 
-        let metadata = ModuleMetadata {
+        let mut metadata = ModuleMetadata {
             compile_info,
             prefix: engine_inner.get_prefix(&data),
             data_initializers,
-            function_body_lengths,
+            frame_infos,
         };
 
         /*
@@ -198,14 +192,12 @@ impl ObjectFileArtifact {
         - LocalFunctionIndex -> FunctionBodyPtr // finished functions
         - FunctionIndex -> FunctionBodyPtr // finished dynamic function trampolines
         - SignatureIndex -> VMSharedSignatureindextureIndex // signatures
-         */
+        */
 
-        let new_metadata = metadata.clone();
-
-        let metadata_serializer = move || -> Result<Vec<u8>, CompileError> {
-            let mut metadata_binary = vec![0; 10];
+        let metadata_serializer = |metadata: &ModuleMetadata| -> Result<Vec<u8>, CompileError> {
+            let serialized_data = metadata.serialize()?;
+            let mut metadata_binary = vec![0; 16];
             let mut writable = &mut metadata_binary[..];
-            let serialized_data = bincode::serialize(&new_metadata).map_err(to_compile_error)?;
             leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
                 .expect("Should write number");
             metadata_binary.extend(serialized_data);
@@ -223,35 +215,59 @@ impl ObjectFileArtifact {
         );
 
         let mut metadata_length = 0;
-        let obj_bytes = if let Some(obj_bytes) = maybe_obj_bytes {
-            obj_bytes?[0].content.clone()
-        } else {
-            let compilation = compiler.compile_module(
-                &target,
-                &metadata.compile_info,
-                module_translation.as_ref().unwrap(),
-                function_body_inputs,
-            )?;
-            // there's an ordering issue, but we can update function_body_lengths here.
-            /*
-            // We construct the function body lengths
-            let function_body_lengths = compilation
-            .get_function_bodies()
-            .values()
-            .map(|function_body| function_body.body.len() as u64)
-            .collect::<PrimaryMap<LocalFunctionIndex, u64>>();
-             */
-            let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-            let metadata_binary = metadata_serializer()?;
-            metadata_length = metadata_binary.len();
-            emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary, 1)
+
+        let object_files = match maybe_obj_bytes {
+            Some(native_compilation) => {
+                let native_compilation = native_compilation?;
+                let mut all_objects = native_compilation.object_files;
+
+                // Constructing the metadata object
+                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                metadata.frame_infos = native_compilation.frame_infos;
+                let metadata_binary = metadata_serializer(&metadata)?;
+                metadata_length = metadata_binary.len();
+                emit_data(
+                    &mut obj,
+                    WASMER_METADATA_SYMBOL,
+                    &metadata_binary,
+                    std::mem::align_of::<ArchivedModuleMetadata>() as u64,
+                )
                 .map_err(to_compile_error)?;
-            emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
+
+                let obj_bytes = obj.write().map_err(to_compile_error)?;
+                all_objects.push(obj_bytes);
+                all_objects
+            }
+            None => {
+                let compilation = compiler.compile_module(
+                    &target,
+                    &metadata.compile_info,
+                    module_translation.as_ref().unwrap(),
+                    function_body_inputs,
+                )?;
+                let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
+                let compiled_function_infos = compilation.get_frame_info();
+                // .values()
+                // .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
+                // .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+                emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
+                    .map_err(to_compile_error)?;
+                metadata.frame_infos = compiled_function_infos;
+                let metadata_binary = metadata_serializer(&metadata)?;
+                metadata_length = metadata_binary.len();
+                emit_data(
+                    &mut obj,
+                    WASMER_METADATA_SYMBOL,
+                    &metadata_binary,
+                    std::mem::align_of::<ArchivedModuleMetadata>() as u64,
+                )
                 .map_err(to_compile_error)?;
-            obj.write().map_err(to_compile_error)?
+                let obj_bytes = obj.write().map_err(to_compile_error)?;
+                vec![obj_bytes]
+            }
         };
 
-        Self::from_parts_crosscompiled(&mut *engine_inner, metadata, obj_bytes, metadata_length)
+        Self::from_parts_crosscompiled(&mut *engine_inner, metadata, object_files, metadata_length)
     }
 
     /// Get the default extension when serializing this artifact
@@ -266,7 +282,7 @@ impl ObjectFileArtifact {
     pub fn from_parts_crosscompiled(
         engine_inner: &mut ObjectFileEngineInner,
         metadata: ModuleMetadata,
-        module_bytes: Vec<u8>,
+        object_files: Vec<Vec<u8>>,
         metadata_length: usize,
     ) -> Result<Self, CompileError> {
         let finished_functions: PrimaryMap<LocalFunctionIndex, FunctionBodyPtr> = PrimaryMap::new();
@@ -286,7 +302,7 @@ impl ObjectFileArtifact {
         let symbol_registry = metadata.get_symbol_registry();
         Ok(Self {
             metadata,
-            module_bytes,
+            object_files,
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
@@ -319,7 +335,8 @@ impl ObjectFileArtifact {
         let mut reader = bytes;
         let data_len = leb128::read::unsigned(&mut reader).unwrap() as usize;
 
-        let metadata: ModuleMetadata = bincode::deserialize(&bytes[10..(data_len + 10)]).unwrap();
+        let metadata: ModuleMetadata =
+            ModuleMetadata::deserialize(&bytes[16..(data_len + 16)]).unwrap();
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
         let mut byte_buffer = [0u8; WORD_SIZE];
@@ -406,7 +423,7 @@ impl ObjectFileArtifact {
         let symbol_registry = metadata.get_symbol_registry();
         Ok(Self {
             metadata,
-            module_bytes: bytes.to_owned(),
+            object_files: vec![],
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
@@ -489,6 +506,11 @@ impl Artifact for ObjectFileArtifact {
 
     /// Serialize a ObjectFileArtifact
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        Ok(self.module_bytes.clone())
+        unimplemented!();
+        // let mut builder = ar::Builder::new(Vec::new());
+        // let header = Header::new(format!(b"baz.txt").to_vec(), file_size)
+        // builder.append(&header, file_content).unwrap();
+
+        // Ok(self.module_bytes.clone())
     }
 }
