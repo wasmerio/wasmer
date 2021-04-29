@@ -1261,7 +1261,6 @@ name = "wasmer-engine"
 version = "1.0.2"
 dependencies = [
  "backtrace",
- "bincode",
  "lazy_static",
  "loupe",
  "memmap2",
@@ -1297,7 +1296,6 @@ dependencies = [
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
- "bincode",
  "cfg-if 0.1.10",
  "leb128",
  "libloading",

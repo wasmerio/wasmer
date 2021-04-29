@@ -2622,7 +2622,6 @@ dependencies = [
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
- "bincode",
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
