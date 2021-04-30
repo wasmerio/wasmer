@@ -280,6 +280,7 @@ comma := ,
 
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
+compiler_test_features := --features $(subst $(space),$(comma),$(addprefix test-,$(compilers)))
 
 # Define the compiler Cargo features for the C API. It always excludes
 # LLVM for the moment.
@@ -481,7 +482,15 @@ build-capi-headless-all: capi-setup
 # Testing #
 ###########
 
-test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
+test: test-engines test-packages test-examples test-deprecated
+
+test-engines: test-jit test-native
+
+test-jit:
+	cargo test --release --tests $(compiler_features) $(compiler_test_features) --features "test-jit"
+
+test-native:
+	cargo test --release --tests $(compiler_features) $(compiler_test_features) --features "test-native"
 
 test-singlepass-native:
 	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"
