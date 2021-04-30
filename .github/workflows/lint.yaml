@@ -19,7 +19,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: "1.50"
           override: true
           components: rustfmt, clippy
       - name: Install LLVM (Linux)
