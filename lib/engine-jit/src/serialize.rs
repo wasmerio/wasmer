@@ -44,6 +44,9 @@ fn to_serialize_error(err: impl std::error::Error) -> SerializeError {
 }
 
 impl SerializableModule {
+    /// Serialize a Module into bytes
+    /// The bytes will have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
         let mut serializer = SharedSerializerAdapter::new(WriteSerializer::new(vec![]));
         let pos = serializer
@@ -59,6 +62,13 @@ impl SerializableModule {
         Ok(serialized_data)
     }
 
+    /// Deserialize a Module from a slice.
+    /// The slice must have the following format:
+    /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
+    ///
+    /// # Safety
+    /// This method is highly unsafe since we are deserializing directly
+    /// from memory, without validating it first.
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
@@ -67,6 +77,11 @@ impl SerializableModule {
     unsafe fn archive_from_slice<'a>(
         metadata_slice: &'a [u8],
     ) -> Result<&'a ArchivedSerializableModule, DeserializeError> {
+        if metadata_slice.len() < 9 {
+            return Err(DeserializeError::Incompatible(
+                "invalid serialized data".into(),
+            ));
+        }
         let mut pos: [u8; 8] = Default::default();
         let endian = metadata_slice[metadata_slice.len() - 1];
         if (cfg!(target_endian = "big") && endian == b'l')

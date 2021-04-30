@@ -148,7 +148,6 @@ impl JITArtifact {
             ));
         }
 
-        println!("[DES] Total length: {}", bytes.len());
         let mut inner_bytes = &bytes[16..];
 
         let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
@@ -157,22 +156,7 @@ impl JITArtifact {
         let metadata_slice: &[u8] =
             std::slice::from_raw_parts(&bytes[32] as *const u8, metadata_len as usize);
 
-        println!("Pointer position {:?}", &bytes[32] as *const u8);
-        let length = metadata_slice.len();
-        println!(
-            "[DES] Metadata: First 16 bytes {:?}.\nLast 16 bytes: {:?}\nTotal length: {}",
-            &metadata_slice[..16],
-            &metadata_slice[length - 16..],
-            length
-        );
-        println!(
-            "[DES] First 50 bytes {:?}.\nLast 50 bytes: {:?}",
-            &bytes[..50],
-            &bytes[bytes.len() - 50..]
-        );
-
         let serializable = SerializableModule::deserialize(metadata_slice)?;
-        println!("[DES] success");
         Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
@@ -352,20 +336,9 @@ impl Artifact for JITArtifact {
         leb128::write::unsigned(&mut writable_leb, length as u64).expect("Should write number");
 
         let align = std::mem::align_of::<SerializableModule>() as u64;
-        println!("[SER] Metadata:\n   * First 16 bytes {:?}.\n   * Last 16 bytes: {:?}\n   * Total length: {}", &serialized_data[..16], &serialized_data[length-16..], length);
 
-        let _offset = pad_and_extend(&mut serialized, &serialized_data, align);
-        println!(
-            "[SER] First 50 bytes {:?}.\nAlign: {} - Offset: {}\nLast 50 bytes: {:?}",
-            &serialized[..50],
-            align,
-            _offset,
-            &serialized[serialized.len() - 50..]
-        );
-        println!("[SER] Total length: {}", serialized.len());
-
-        let deserialized = unsafe { SerializableModule::deserialize(&serialized_data) };
-        println!("DESERIALIZATION WORKS");
+        let offset = pad_and_extend(&mut serialized, &serialized_data, align);
+        assert_eq!(offset, 32);
 
         Ok(serialized)
     }
