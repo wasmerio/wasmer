@@ -359,3 +359,23 @@ pub fn pad_and_extend<T>(prev_data: &mut Vec<u8>, data: &[u8]) -> usize {
     prev_data.extend(data);
     offset
 }
+
+#[cfg(test)]
+mod tests {
+    use super::pad_and_extend;
+
+    #[test]
+    fn test_pad_and_extend() {
+        let mut data: Vec<u8> = vec![];
+        let offset = pad_and_extend::<i64>(&mut data, &[1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(offset, 0);
+        let offset = pad_and_extend::<i32>(&mut data, &[2, 0, 0, 0]);
+        assert_eq!(offset, 8);
+        let offset = pad_and_extend::<i64>(&mut data, &[3, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(offset, 16);
+        assert_eq!(
+            data,
+            &[1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
+        );
+    }
+}
