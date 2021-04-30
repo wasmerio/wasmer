@@ -224,9 +224,7 @@ impl Run {
         let module_result: Result<Module> = if !self.disable_cache && contents.len() > 0x1000 {
             self.get_module_from_cache(&store, &contents, &engine_type, &compiler_type)
         } else {
-            let module = Module::new(&store, &contents)?;
-            let _serialized = module.serialize()?;
-            Ok(module)
+            Module::new(&store, &contents).map_err(|e| e.into())
         };
         #[cfg(not(feature = "cache"))]
         let module_result = Module::new(&store, &contents);
