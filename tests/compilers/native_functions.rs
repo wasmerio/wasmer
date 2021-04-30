@@ -1,4 +1,4 @@
-use crate::utils::get_store;
+use crate::utils::{get_compilers, get_store};
 use anyhow::Result;
 use std::convert::Infallible;
 use std::sync::{Arc, Mutex};
@@ -35,8 +35,9 @@ fn long_f_dynamic(values: &[Value]) -> Result<Vec<Value>, RuntimeError> {
 
 #[test]
 fn native_function_works_for_wasm() -> Result<()> {
-    let store = get_store(false);
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let wat = r#"(module
         (func $multiply (import "env" "multiply") (param i32 i32) (result i32))
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
@@ -45,33 +46,34 @@ fn native_function_works_for_wasm() -> Result<()> {
            (i32.add (call $multiply (local.get 0) (i32.const 2))
                     (call $multiply (local.get 1) (i32.const 2))))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {
-        "env" => {
-            "multiply" => Function::new_native(&store, |a: i32, b: i32| a * b),
-        },
-    };
+        let import_object = imports! {
+            "env" => {
+                "multiply" => Function::new_native(&store, |a: i32, b: i32| a * b),
+            },
+        };
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    {
-        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-        let result = f.call(4, 6)?;
-        assert_eq!(result, 10);
-    }
+        {
+            let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+            let result = f.call(4, 6)?;
+            assert_eq!(result, 10);
+        }
 
-    {
-        let f: &Function = instance.exports.get("double_then_add")?;
-        let result = f.call(&[Val::I32(4), Val::I32(6)])?;
-        assert_eq!(result[0], Val::I32(20));
-    }
+        {
+            let f: &Function = instance.exports.get("double_then_add")?;
+            let result = f.call(&[Val::I32(4), Val::I32(6)])?;
+            assert_eq!(result[0], Val::I32(20));
+        }
 
-    {
-        let dyn_f: &Function = instance.exports.get("double_then_add")?;
-        let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
-        let result = f.call(4, 6)?;
-        assert_eq!(result, 20);
+        {
+            let dyn_f: &Function = instance.exports.get("double_then_add")?;
+            let f: NativeFunc<(i32, i32), i32> = dyn_f.native().unwrap();
+            let result = f.call(4, 6)?;
+            assert_eq!(result, 20);
+        }
     }
 
     Ok(())
@@ -82,11 +84,13 @@ fn native_function_works_for_wasm() -> Result<()> {
     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
 )]
 fn native_host_function_closure_panics() {
-    let store = get_store(false);
-    let state = 3;
-    Function::new_native(&store, move |_: i32| {
-        println!("{}", state);
-    });
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let state = 3;
+        Function::new_native(&store, move |_: i32| {
+            println!("{}", state);
+        });
+    }
 }
 
 #[test]
@@ -94,18 +98,21 @@ fn native_host_function_closure_panics() {
     expected = "Closures (functions with captured environments) are currently unsupported with native functions. See: https://github.com/wasmerio/wasmer/issues/1840"
 )]
 fn native_with_env_host_function_closure_panics() {
-    let store = get_store(false);
-    let state = 3;
-    let env = 4;
-    Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
-        println!("{}", state);
-    });
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let state = 3;
+        let env = 4;
+        Function::new_native_with_env(&store, env, move |_env: &i32, _: i32| {
+            println!("{}", state);
+        });
+    }
 }
 
 #[test]
 fn non_native_functions_and_closures_with_no_env_work() -> Result<()> {
-    let store = get_store(false);
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let wat = r#"(module
         (func $multiply1 (import "env" "multiply1") (param i32 i32) (result i32))
         (func $multiply2 (import "env" "multiply2") (param i32 i32) (result i32))
         (func $multiply3 (import "env" "multiply3") (param i32 i32) (result i32))
@@ -122,42 +129,43 @@ fn non_native_functions_and_closures_with_no_env_work() -> Result<()> {
                (local.get 3))
               (local.get 4)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
-    let env = 10;
-    let captured_by_closure = 20;
-    let import_object = imports! {
-        "env" => {
-            "multiply1" => Function::new(&store, &ty, move |args| {
-                if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
-                    Ok(vec![Value::I32(v1 * v2 * captured_by_closure)])
-                } else {
-                    panic!("Invalid arguments");
-                }
-            }),
-            "multiply2" => Function::new_with_env(&store, &ty, env, move |&env, args| {
-                if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
-                    Ok(vec![Value::I32(v1 * v2 * captured_by_closure * env)])
-                } else {
-                    panic!("Invalid arguments");
-                }
-            }),
-            "multiply3" => Function::new_native(&store, |arg1: i32, arg2: i32| -> i32
-                                                {arg1 * arg2 }),
-            "multiply4" => Function::new_native_with_env(&store, env, |&env: &i32, arg1: i32, arg2: i32| -> i32
-                                                         {arg1 * arg2 * env }),
-        },
-    };
+        let ty = FunctionType::new(vec![Type::I32, Type::I32], vec![Type::I32]);
+        let env = 10;
+        let captured_by_closure = 20;
+        let import_object = imports! {
+            "env" => {
+                "multiply1" => Function::new(&store, &ty, move |args| {
+                    if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
+                        Ok(vec![Value::I32(v1 * v2 * captured_by_closure)])
+                    } else {
+                        panic!("Invalid arguments");
+                    }
+                }),
+                "multiply2" => Function::new_with_env(&store, &ty, env, move |&env, args| {
+                    if let (Value::I32(v1), Value::I32(v2)) = (&args[0], &args[1]) {
+                        Ok(vec![Value::I32(v1 * v2 * captured_by_closure * env)])
+                    } else {
+                        panic!("Invalid arguments");
+                    }
+                }),
+                "multiply3" => Function::new_native(&store, |arg1: i32, arg2: i32| -> i32
+                                                    {arg1 * arg2 }),
+                "multiply4" => Function::new_native_with_env(&store, env, |&env: &i32, arg1: i32, arg2: i32| -> i32
+                                                             {arg1 * arg2 * env }),
+            },
+        };
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let test: NativeFunc<(i32, i32, i32, i32, i32), i32> =
-        instance.exports.get_native_function("test")?;
+        let test: NativeFunc<(i32, i32, i32, i32, i32), i32> =
+            instance.exports.get_native_function("test")?;
 
-    let result = test.call(2, 3, 4, 5, 6)?;
-    let manually_computed_result = 6 * (5 * (4 * (3 * 2 * 20) * 10 * 20)) * 10;
-    assert_eq!(result, manually_computed_result);
+        let result = test.call(2, 3, 4, 5, 6)?;
+        let manually_computed_result = 6 * (5 * (4 * (3 * 2 * 20) * 10 * 20)) * 10;
+        assert_eq!(result, manually_computed_result);
+    }
     Ok(())
 }
 
@@ -175,37 +183,39 @@ fn non_native_functions_and_closures_with_no_env_work() -> Result<()> {
     ignore
 )]
 fn native_function_works_for_wasm_function_manyparams() -> Result<()> {
-    let store = get_store(false);
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
         (func (export "longf_pure") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64)
            (call $longf (local.get 0) (local.get 1) (local.get 2) (local.get 3) (local.get 4) (local.get 5) (local.get 6) (local.get 7) (local.get 8) (local.get 9)))
         (func (export "longf") (result i64)
            (call $longf (i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4) (i32.const 5) (i32.const 6) (i64.const 7) (i64.const 8) (i32.const 9) (i32.const 0)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {
-        "env" => {
-            "longf" => Function::new_native(&store, long_f),
-        },
-    };
+        let import_object = imports! {
+            "env" => {
+                "longf" => Function::new_native(&store, long_f),
+            },
+        };
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    {
-        let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
-        let result = f.call()?;
-        assert_eq!(result, 1234567890);
-    }
+        {
+            let dyn_f: &Function = instance.exports.get("longf")?;
+            let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
+            let result = f.call()?;
+            assert_eq!(result, 1234567890);
+        }
 
-    {
-        let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
-            dyn_f.native().unwrap();
-        let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
-        assert_eq!(result, 1234567890);
+        {
+            let dyn_f: &Function = instance.exports.get("longf_pure")?;
+            let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+                dyn_f.native().unwrap();
+            let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+            assert_eq!(result, 1234567890);
+        }
     }
 
     Ok(())
@@ -213,37 +223,39 @@ fn native_function_works_for_wasm_function_manyparams() -> Result<()> {
 
 #[test]
 fn native_function_works_for_wasm_function_manyparams_dynamic() -> Result<()> {
-    let store = get_store(false);
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
+        let wat = r#"(module
         (func $longf (import "env" "longf") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64))
         (func (export "longf_pure") (param i32 i32 i32 i32 i32 i32 i64 i64 i32 i32) (result i64)
            (call $longf (local.get 0) (local.get 1) (local.get 2) (local.get 3) (local.get 4) (local.get 5) (local.get 6) (local.get 7) (local.get 8) (local.get 9)))
         (func (export "longf") (result i64)
            (call $longf (i32.const 1) (i32.const 2) (i32.const 3) (i32.const 4) (i32.const 5) (i32.const 6) (i64.const 7) (i64.const 8) (i32.const 9) (i32.const 0)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {
-        "env" => {
-            "longf" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I64 , ValType::I64 ,ValType::I32, ValType::I32], vec![ValType::I64]), long_f_dynamic),
-        },
-    };
+        let import_object = imports! {
+            "env" => {
+                "longf" => Function::new(&store, FunctionType::new(vec![ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I32, ValType::I64 , ValType::I64 ,ValType::I32, ValType::I32], vec![ValType::I64]), long_f_dynamic),
+            },
+        };
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    {
-        let dyn_f: &Function = instance.exports.get("longf")?;
-        let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
-        let result = f.call()?;
-        assert_eq!(result, 1234567890);
-    }
+        {
+            let dyn_f: &Function = instance.exports.get("longf")?;
+            let f: NativeFunc<(), i64> = dyn_f.native().unwrap();
+            let result = f.call()?;
+            assert_eq!(result, 1234567890);
+        }
 
-    {
-        let dyn_f: &Function = instance.exports.get("longf_pure")?;
-        let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
-            dyn_f.native().unwrap();
-        let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
-        assert_eq!(result, 1234567890);
+        {
+            let dyn_f: &Function = instance.exports.get("longf_pure")?;
+            let f: NativeFunc<(u32, u32, u32, u32, u32, u16, u64, u64, u16, u32), i64> =
+                dyn_f.native().unwrap();
+            let result = f.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+            assert_eq!(result, 1234567890);
+        }
     }
 
     Ok(())
@@ -251,60 +263,64 @@ fn native_function_works_for_wasm_function_manyparams_dynamic() -> Result<()> {
 
 #[test]
 fn static_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
 
-    fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        (d * 4.0, c * 3.0, b * 2, a * 1)
-    }
+        fn f(a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+            (d * 4.0, c * 3.0, b * 2, a * 1)
+        }
 
-    fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
-        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
-    }
+        fn f_ok(a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
+            Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+        }
 
-    fn long_f(
-        a: u32,
-        b: u32,
-        c: u32,
-        d: u32,
-        e: u32,
-        f: u16,
-        g: u64,
-        h: u64,
-        i: u16,
-        j: u32,
-    ) -> (u32, u64, u32) {
-        (
-            a + b * 10 + c * 100 + d * 1000 + e * 10000 + f as u32 * 100000,
-            g + h * 10,
-            i as u32 + j * 10,
-        )
-    }
+        fn long_f(
+            a: u32,
+            b: u32,
+            c: u32,
+            d: u32,
+            e: u32,
+            f: u16,
+            g: u64,
+            h: u64,
+            i: u16,
+            j: u32,
+        ) -> (u32, u64, u32) {
+            (
+                a + b * 10 + c * 100 + d * 1000 + e * 10000 + f as u32 * 100000,
+                g + h * 10,
+                i as u32 + j * 10,
+            )
+        }
 
-    // Native static host function that returns a tuple.
-    {
-        let f = Function::new_native(&store, f);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
-        let result = f_native.call(1, 3, 5.0, 7.0)?;
-        assert_eq!(result, (28.0, 15.0, 6, 1));
-    }
+        // Native static host function that returns a tuple.
+        {
+            let f = Function::new_native(&store, f);
+            let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+                f.native().unwrap();
+            let result = f_native.call(1, 3, 5.0, 7.0)?;
+            assert_eq!(result, (28.0, 15.0, 6, 1));
+        }
 
-    // Native static host function that returns a tuple.
-    {
-        let long_f = Function::new_native(&store, long_f);
-        let long_f_native: NativeFunc<
-            (u32, u32, u32, u32, u32, u16, u64, u64, u16, u32),
-            (u32, u64, u32),
-        > = long_f.native().unwrap();
-        let result = long_f_native.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
-        assert_eq!(result, (654321, 87, 09));
-    }
+        // Native static host function that returns a tuple.
+        {
+            let long_f = Function::new_native(&store, long_f);
+            let long_f_native: NativeFunc<
+                (u32, u32, u32, u32, u32, u16, u64, u64, u16, u32),
+                (u32, u64, u32),
+            > = long_f.native().unwrap();
+            let result = long_f_native.call(1, 2, 3, 4, 5, 6, 7, 8, 9, 0)?;
+            assert_eq!(result, (654321, 87, 09));
+        }
 
-    // Native static host function that returns a result of a tuple.
-    {
-        let f = Function::new_native(&store, f_ok);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
-        let result = f_native.call(1, 3, 5.0, 7.0)?;
-        assert_eq!(result, (28.0, 15.0, 6, 1));
+        // Native static host function that returns a result of a tuple.
+        {
+            let f = Function::new_native(&store, f_ok);
+            let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+                f.native().unwrap();
+            let result = f_native.call(1, 3, 5.0, 7.0)?;
+            assert_eq!(result, (28.0, 15.0, 6, 1));
+        }
     }
 
     Ok(())
@@ -312,62 +328,72 @@ fn static_host_function_without_env() -> anyhow::Result<()> {
 
 #[test]
 fn static_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
 
-    fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
-        let mut guard = env.0.lock().unwrap();
-        assert_eq!(*guard, 100);
-        *guard = 101;
+        fn f(env: &Env, a: i32, b: i64, c: f32, d: f64) -> (f64, f32, i64, i32) {
+            let mut guard = env.0.lock().unwrap();
+            assert_eq!(*guard, 100);
+            *guard = 101;
 
-        (d * 4.0, c * 3.0, b * 2, a * 1)
-    }
-
-    fn f_ok(env: &Env, a: i32, b: i64, c: f32, d: f64) -> Result<(f64, f32, i64, i32), Infallible> {
-        let mut guard = env.0.lock().unwrap();
-        assert_eq!(*guard, 100);
-        *guard = 101;
-
-        Ok((d * 4.0, c * 3.0, b * 2, a * 1))
-    }
-
-    #[derive(WasmerEnv, Clone)]
-    struct Env(Arc<Mutex<i32>>);
-
-    impl std::ops::Deref for Env {
-        type Target = Arc<Mutex<i32>>;
-        fn deref(&self) -> &Self::Target {
-            &self.0
+            (d * 4.0, c * 3.0, b * 2, a * 1)
         }
-    }
 
-    // Native static host function that returns a tuple.
-    {
-        let env = Env(Arc::new(Mutex::new(100)));
+        fn f_ok(
+            env: &Env,
+            a: i32,
+            b: i64,
+            c: f32,
+            d: f64,
+        ) -> Result<(f64, f32, i64, i32), Infallible> {
+            let mut guard = env.0.lock().unwrap();
+            assert_eq!(*guard, 100);
+            *guard = 101;
 
-        let f = Function::new_native_with_env(&store, env.clone(), f);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+            Ok((d * 4.0, c * 3.0, b * 2, a * 1))
+        }
 
-        assert_eq!(*env.0.lock().unwrap(), 100);
+        #[derive(WasmerEnv, Clone)]
+        struct Env(Arc<Mutex<i32>>);
 
-        let result = f_native.call(1, 3, 5.0, 7.0)?;
+        impl std::ops::Deref for Env {
+            type Target = Arc<Mutex<i32>>;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
+        }
 
-        assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.0.lock().unwrap(), 101);
-    }
+        // Native static host function that returns a tuple.
+        {
+            let env = Env(Arc::new(Mutex::new(100)));
 
-    // Native static host function that returns a result of a tuple.
-    {
-        let env = Env(Arc::new(Mutex::new(100)));
+            let f = Function::new_native_with_env(&store, env.clone(), f);
+            let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+                f.native().unwrap();
 
-        let f = Function::new_native_with_env(&store, env.clone(), f_ok);
-        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+            assert_eq!(*env.0.lock().unwrap(), 100);
 
-        assert_eq!(*env.0.lock().unwrap(), 100);
+            let result = f_native.call(1, 3, 5.0, 7.0)?;
 
-        let result = f_native.call(1, 3, 5.0, 7.0)?;
+            assert_eq!(result, (28.0, 15.0, 6, 1));
+            assert_eq!(*env.0.lock().unwrap(), 101);
+        }
 
-        assert_eq!(result, (28.0, 15.0, 6, 1));
-        assert_eq!(*env.0.lock().unwrap(), 101);
+        // Native static host function that returns a result of a tuple.
+        {
+            let env = Env(Arc::new(Mutex::new(100)));
+
+            let f = Function::new_native_with_env(&store, env.clone(), f_ok);
+            let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> =
+                f.native().unwrap();
+
+            assert_eq!(*env.0.lock().unwrap(), 100);
+
+            let result = f_native.call(1, 3, 5.0, 7.0)?;
+
+            assert_eq!(result, (28.0, 15.0, 6, 1));
+            assert_eq!(*env.0.lock().unwrap(), 101);
+        }
     }
 
     Ok(())
@@ -375,76 +401,80 @@ fn static_host_function_with_env() -> anyhow::Result<()> {
 
 #[test]
 fn dynamic_host_function_without_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
 
-    let f = Function::new(
-        &store,
-        FunctionType::new(
-            vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
-            vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
-        ),
-        |values| {
-            Ok(vec![
-                Value::F64(values[3].unwrap_f64() * 4.0),
-                Value::F32(values[2].unwrap_f32() * 3.0),
-                Value::I64(values[1].unwrap_i64() * 2),
-                Value::I32(values[0].unwrap_i32() * 1),
-            ])
-        },
-    );
-    let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
-    let result = f_native.call(1, 3, 5.0, 7.0)?;
+        let f = Function::new(
+            &store,
+            FunctionType::new(
+                vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
+                vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
+            ),
+            |values| {
+                Ok(vec![
+                    Value::F64(values[3].unwrap_f64() * 4.0),
+                    Value::F32(values[2].unwrap_f32() * 3.0),
+                    Value::I64(values[1].unwrap_i64() * 2),
+                    Value::I32(values[0].unwrap_i32() * 1),
+                ])
+            },
+        );
+        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+        let result = f_native.call(1, 3, 5.0, 7.0)?;
 
-    assert_eq!(result, (28.0, 15.0, 6, 1));
+        assert_eq!(result, (28.0, 15.0, 6, 1));
+    }
 
     Ok(())
 }
 
 #[test]
 fn dynamic_host_function_with_env() -> anyhow::Result<()> {
-    let store = get_store(false);
+    for compiler in get_compilers() {
+        let store = get_store(false, compiler);
 
-    #[derive(WasmerEnv, Clone)]
-    struct Env(Arc<Mutex<i32>>);
+        #[derive(WasmerEnv, Clone)]
+        struct Env(Arc<Mutex<i32>>);
 
-    impl std::ops::Deref for Env {
-        type Target = Arc<Mutex<i32>>;
-        fn deref(&self) -> &Self::Target {
-            &self.0
+        impl std::ops::Deref for Env {
+            type Target = Arc<Mutex<i32>>;
+            fn deref(&self) -> &Self::Target {
+                &self.0
+            }
         }
+
+        let env = Env(Arc::new(Mutex::new(100)));
+        let f = Function::new_with_env(
+            &store,
+            FunctionType::new(
+                vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
+                vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
+            ),
+            env.clone(),
+            |env, values| {
+                let mut guard = env.0.lock().unwrap();
+                assert_eq!(*guard, 100);
+
+                *guard = 101;
+
+                Ok(vec![
+                    Value::F64(values[3].unwrap_f64() * 4.0),
+                    Value::F32(values[2].unwrap_f32() * 3.0),
+                    Value::I64(values[1].unwrap_i64() * 2),
+                    Value::I32(values[0].unwrap_i32() * 1),
+                ])
+            },
+        );
+
+        let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
+
+        assert_eq!(*env.0.lock().unwrap(), 100);
+
+        let result = f_native.call(1, 3, 5.0, 7.0)?;
+
+        assert_eq!(result, (28.0, 15.0, 6, 1));
+        assert_eq!(*env.0.lock().unwrap(), 101);
     }
-
-    let env = Env(Arc::new(Mutex::new(100)));
-    let f = Function::new_with_env(
-        &store,
-        FunctionType::new(
-            vec![ValType::I32, ValType::I64, ValType::F32, ValType::F64],
-            vec![ValType::F64, ValType::F32, ValType::I64, ValType::I32],
-        ),
-        env.clone(),
-        |env, values| {
-            let mut guard = env.0.lock().unwrap();
-            assert_eq!(*guard, 100);
-
-            *guard = 101;
-
-            Ok(vec![
-                Value::F64(values[3].unwrap_f64() * 4.0),
-                Value::F32(values[2].unwrap_f32() * 3.0),
-                Value::I64(values[1].unwrap_i64() * 2),
-                Value::I32(values[0].unwrap_i32() * 1),
-            ])
-        },
-    );
-
-    let f_native: NativeFunc<(i32, i64, f32, f64), (f64, f32, i64, i32)> = f.native().unwrap();
-
-    assert_eq!(*env.0.lock().unwrap(), 100);
-
-    let result = f_native.call(1, 3, 5.0, 7.0)?;
-
-    assert_eq!(result, (28.0, 15.0, 6, 1));
-    assert_eq!(*env.0.lock().unwrap(), 101);
 
     Ok(())
 }

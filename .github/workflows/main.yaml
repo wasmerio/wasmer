@@ -136,12 +136,16 @@ jobs:
           path: |
             ~/.cargo/registry
             ~/.cargo/git
-          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('Cargo.lock') }}-v1
+          key: ${{ matrix.build }}-${{ matrix.target }}-cargo-${{ hashFiles('**/Cargo.lock') }}-v1
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.target }}-cargo-
       - uses: actions/cache@v2
         if: matrix.use_sccache
         with:
           path: ${{ runner.tool_cache }}/cargo-sccache
           key: ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-v1
+          restore-keys: |
+            ${{ matrix.build }}-${{ matrix.target }}-sccache-bin-${{ env.CARGO_SCCACHE_VERSION }}-
       - name: Install sccache
         if: matrix.use_sccache
         run: |

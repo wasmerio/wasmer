@@ -2,7 +2,7 @@
 //! This tests checks that the provided functions (both native and
 //! dynamic ones) work properly.
 
-use crate::utils::get_store;
+use crate::utils::{get_compilers, get_store};
 use wasmer::*;
 
 macro_rules! mvr_test {
@@ -37,23 +37,24 @@ macro_rules! mvr_test {
             }
 
             #[test]
-            #[cfg_attr(any(feature = "test-cranelift", feature="test-singlepass"), ignore)]
             fn native() -> anyhow::Result<()> {
-                let store = get_store(false);
-                let module = get_module(&store)?;
-                let instance = wasmer::Instance::new(
-                    &module,
-                    &wasmer::imports! {
-                        "host" => {
-                            "callback_fn" => wasmer::Function::new_native(&store, callback_fn)
+                for compiler in get_compilers().iter().filter(|&&c| !matches!(c, "cranelift" | "singlepass")) {
+                    let store = get_store(false, compiler);
+                    let module = get_module(&store)?;
+                    let instance = wasmer::Instance::new(
+                        &module,
+                        &wasmer::imports! {
+                            "host" => {
+                                "callback_fn" => wasmer::Function::new_native(&store, callback_fn)
+                            }
                         }
+                    )?;
+                    let expected_value = vec![ $( <$result_type>::expected_val(1) ),* ].into_boxed_slice();
+                    assert_eq!(instance.exports.get_function("test_call")?.call(&[wasmer::Val::I32(1)])?,
+                               expected_value);
+                    assert_eq!(instance.exports.get_function("test_call_indirect")?.call(&[wasmer::Val::I32(1)])?,
+                               expected_value);
                     }
-                )?;
-                let expected_value = vec![ $( <$result_type>::expected_val(1) ),* ].into_boxed_slice();
-                assert_eq!(instance.exports.get_function("test_call")?.call(&[wasmer::Val::I32(1)])?,
-                           expected_value);
-                assert_eq!(instance.exports.get_function("test_call_indirect")?.call(&[wasmer::Val::I32(1)])?,
-                           expected_value);
                 Ok(())
             }
 
@@ -63,24 +64,25 @@ macro_rules! mvr_test {
             }
 
             #[test]
-            #[cfg_attr(feature="test-singlepass", ignore)]
             fn dynamic() -> anyhow::Result<()> {
-                let store = get_store(false);
-                let module = get_module(&store)?;
-                let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
-                let instance = wasmer::Instance::new(
-                    &module,
-                    &wasmer::imports! {
-                        "host" => {
-                            "callback_fn" => callback_fn
+                for compiler in get_compilers().iter().filter(|&&c| !matches!(c, "singlepass")) {
+                    let store = get_store(false, compiler);
+                    let module = get_module(&store)?;
+                    let callback_fn = wasmer::Function::new(&store, &wasmer::FunctionType::new(vec![wasmer::ValType::I32], vec![ $( <$result_type>::expected_valtype() ),* ]), dynamic_callback_fn);
+                    let instance = wasmer::Instance::new(
+                        &module,
+                        &wasmer::imports! {
+                            "host" => {
+                                "callback_fn" => callback_fn
+                            }
                         }
-                    }
-                )?;
-                let expected_value = vec![ $( <$result_type>::expected_val(1) ),* ].into_boxed_slice();
-                assert_eq!(instance.exports.get_function("test_call")?.call(&[wasmer::Val::I32(1)])?,
-                           expected_value);
-                assert_eq!(instance.exports.get_function("test_call_indirect")?.call(&[wasmer::Val::I32(1)])?,
-                           expected_value);
+                    )?;
+                    let expected_value = vec![ $( <$result_type>::expected_val(1) ),* ].into_boxed_slice();
+                    assert_eq!(instance.exports.get_function("test_call")?.call(&[wasmer::Val::I32(1)])?,
+                               expected_value);
+                    assert_eq!(instance.exports.get_function("test_call_indirect")?.call(&[wasmer::Val::I32(1)])?,
+                               expected_value);
+                }
                 Ok(())
             }
         }

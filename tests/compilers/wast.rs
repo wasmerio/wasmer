@@ -29,8 +29,8 @@ fn _native_prefixer(bytes: &[u8]) -> String {
 }
 
 #[cfg(feature = "test-jit")]
-fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
-    let compiler_config = get_compiler(try_nan_canonicalization);
+fn get_store(features: Features, try_nan_canonicalization: bool, compiler: &str) -> Store {
+    let compiler_config = get_compiler(try_nan_canonicalization, compiler);
     Store::new(&JIT::new(compiler_config).features(features).engine())
 }
 
@@ -55,10 +55,10 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     if is_simd {
         features.simd(true);
     }
-    if cfg!(feature = "test-singlepass") {
+    if cfg!(feature = "test-singlepass") && compiler == "singlepass" {
         features.multi_value(false);
     }
-    let store = get_store(features, try_nan_canonicalization);
+    let store = get_store(features, try_nan_canonicalization, compiler);
     let mut wast = Wast::new_with_spectest(store);
     // `bulk-memory-operations/bulk.wast` checks for a message that
     // specifies which element is uninitialized, but our traps don't

@@ -1,4 +1,4 @@
-use crate::utils::get_store_with_middlewares;
+use crate::utils::{get_compilers, get_store_with_middlewares};
 use anyhow::Result;
 
 use loupe::MemoryUsage;
@@ -91,54 +91,62 @@ impl FunctionMiddleware for Fusion {
 
 #[test]
 fn middleware_basic() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>
-    ));
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    let result = f.call(4, 6)?;
-    assert_eq!(result, 24);
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        let result = f.call(4, 6)?;
+        assert_eq!(result, 24);
+    }
     Ok(())
 }
 
 #[test]
 fn middleware_one_to_multi() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn ModuleMiddleware>
-    ));
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(Arc::new(Add2MulGen { value_off: 1 }) as Arc<dyn ModuleMiddleware>),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    let result = f.call(4, 6)?;
-    assert_eq!(result, 25);
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        let result = f.call(4, 6)?;
+        assert_eq!(result, 25);
+    }
     Ok(())
 }
 
 #[test]
 fn middleware_multi_to_one() -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(
-        Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>
-    ));
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(Arc::new(FusionGen) as Arc<dyn ModuleMiddleware>),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "testfunc") (param i32 i32) (result i32)
            (local.get 0)
            (local.get 1)
@@ -146,66 +154,73 @@ fn middleware_multi_to_one() -> Result<()> {
            (i32.add)
            (i32.mul))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("testfunc")?;
-    let result = f.call(10, 20)?;
-    assert_eq!(result, 10);
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("testfunc")?;
+        let result = f.call(10, 20)?;
+        assert_eq!(result, 10);
+    }
     Ok(())
 }
 
 #[test]
 fn middleware_chain_order_1() -> Result<()> {
-    let store = get_store_with_middlewares(
-        vec![
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
-        ]
-        .into_iter(),
-    );
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            vec![
+                Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
+                Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
+            ]
+            .into_iter(),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    let result = f.call(4, 6)?;
-    assert_eq!(result, 24);
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        let result = f.call(4, 6)?;
+        assert_eq!(result, 24);
+    }
     Ok(())
 }
 
 #[test]
 fn middleware_chain_order_2() -> Result<()> {
-    let store = get_store_with_middlewares(
-        vec![
-            Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
-            Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
-        ]
-        .into_iter(),
-    );
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            vec![
+                Arc::new(Add2MulGen { value_off: 2 }) as Arc<dyn ModuleMiddleware>,
+                Arc::new(Add2MulGen { value_off: 0 }) as Arc<dyn ModuleMiddleware>,
+            ]
+            .into_iter(),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    let result = f.call(4, 6)?;
-    assert_eq!(result, 48);
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        let result = f.call(4, 6)?;
+        assert_eq!(result, 48);
+    }
     Ok(())
 }

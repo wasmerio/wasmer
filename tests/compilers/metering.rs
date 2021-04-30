@@ -1,4 +1,4 @@
-use crate::utils::get_store_with_middlewares;
+use crate::utils::{get_compilers, get_store_with_middlewares};
 use anyhow::Result;
 use wasmer_middlewares::Metering;
 
@@ -11,32 +11,39 @@ fn cost_always_one(_: &Operator) -> u64 {
 }
 
 fn run_add_with_limit(limit: u64) -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        limit,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(
+                Arc::new(Metering::new(limit, cost_always_one)) as Arc<dyn ModuleMiddleware>
+            ),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "add") (param i32 i32) (result i32)
            (i32.add (local.get 0)
                     (local.get 1)))
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
-    f.call(4, 6)?;
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add")?;
+        f.call(4, 6)?;
+    }
     Ok(())
 }
 
 fn run_loop(limit: u64, iter_count: i32) -> Result<()> {
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        limit,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
-    let wat = r#"(module
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(
+                Arc::new(Metering::new(limit, cost_always_one)) as Arc<dyn ModuleMiddleware>
+            ),
+            compiler,
+        );
+        let wat = r#"(module
         (func (export "test") (param i32)
            (local i32)
            (local.set 1 (i32.const 0))
@@ -51,14 +58,15 @@ fn run_loop(limit: u64, iter_count: i32) -> Result<()> {
            )
         )
 )"#;
-    let module = Module::new(&store, wat).unwrap();
+        let module = Module::new(&store, wat).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<i32, ()> = instance.exports.get_native_function("test")?;
-    f.call(iter_count)?;
+        let f: NativeFunc<i32, ()> = instance.exports.get_native_function("test")?;
+        f.call(iter_count)?;
+    }
     Ok(())
 }
 
@@ -149,20 +157,24 @@ fn complex_loop() -> Result<()> {
         (global $g0 i32 (i32.const 8))
         (elem (i32.const 0) $f1))
     "#;
-    let store = get_store_with_middlewares(std::iter::once(Arc::new(Metering::new(
-        100,
-        cost_always_one,
-    )) as Arc<dyn ModuleMiddleware>));
-    let module = Module::new(&store, WAT).unwrap();
+    for compiler in get_compilers() {
+        let store = get_store_with_middlewares(
+            std::iter::once(
+                Arc::new(Metering::new(100, cost_always_one)) as Arc<dyn ModuleMiddleware>
+            ),
+            compiler,
+        );
+        let module = Module::new(&store, WAT).unwrap();
 
-    let import_object = imports! {};
+        let import_object = imports! {};
 
-    let instance = Instance::new(&module, &import_object)?;
+        let instance = Instance::new(&module, &import_object)?;
 
-    let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add_to")?;
+        let f: NativeFunc<(i32, i32), i32> = instance.exports.get_native_function("add_to")?;
 
-    // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
-    // the error type. Fix this later.
-    f.call(10_000_000, 4).unwrap_err();
+        // FIXME: Since now a metering error is signaled with an `unreachable`, it is impossible to verify
+        // the error type. Fix this later.
+        f.call(10_000_000, 4).unwrap_err();
+    }
     Ok(())
 }

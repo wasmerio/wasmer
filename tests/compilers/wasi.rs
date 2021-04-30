@@ -22,7 +22,7 @@ pub fn run_wasi(wast_path: &str, base_dir: &str, compiler: &str) -> anyhow::Resu
         "Running wasi wast `{}` with the {} compiler",
         wast_path, compiler
     );
-    let store = get_store(true);
+    let store = get_store(true, compiler);
 
     let source = {
         let mut out = String::new();
