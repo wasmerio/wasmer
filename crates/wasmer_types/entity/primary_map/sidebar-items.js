@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["PrimaryMap","A primary mapping `K -> V` allocating dense entity references."]]});
+initSidebarItems({"struct":[["ArchivedPrimaryMap",""],["PrimaryMap","A primary mapping `K -> V` allocating dense entity references."],["PrimaryMapResolver",""]]});

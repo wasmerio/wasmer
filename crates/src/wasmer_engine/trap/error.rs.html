@@ -252,45 +252,12 @@
 <span id="249">249</span>
 <span id="250">250</span>
 <span id="251">251</span>
-<span id="252">252</span>
-<span id="253">253</span>
-<span id="254">254</span>
-<span id="255">255</span>
-<span id="256">256</span>
-<span id="257">257</span>
-<span id="258">258</span>
-<span id="259">259</span>
-<span id="260">260</span>
-<span id="261">261</span>
-<span id="262">262</span>
-<span id="263">263</span>
-<span id="264">264</span>
-<span id="265">265</span>
-<span id="266">266</span>
-<span id="267">267</span>
-<span id="268">268</span>
-<span id="269">269</span>
-<span id="270">270</span>
-<span id="271">271</span>
-<span id="272">272</span>
-<span id="273">273</span>
-<span id="274">274</span>
-<span id="275">275</span>
-<span id="276">276</span>
-<span id="277">277</span>
-<span id="278">278</span>
-<span id="279">279</span>
-<span id="280">280</span>
-<span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">frame_info</span>::{<span class="ident">FrameInfo</span>, <span class="ident">GlobalFrameInfo</span>, <span class="ident">FRAME_INFO</span>};
 <span class="kw">use</span> <span class="ident">backtrace</span>::<span class="ident">Backtrace</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">error</span>::<span class="ident">Error</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">fmt</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">RwLockReadGuard</span>;
 <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">Trap</span>, <span class="ident">TrapCode</span>};
 
 <span class="doccomment">/// A struct representing an aborted instruction execution, with a message</span>
@@ -343,7 +310,7 @@
         <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>();
         <span class="kw">let</span> <span class="ident">msg</span> <span class="op">=</span> <span class="ident">message</span>.<span class="ident">into</span>();
         <span class="self">Self</span>::<span class="ident">new_with_trace</span>(
-            <span class="ident">info</span>,
+            <span class="kw-2">&amp;</span><span class="ident">info</span>,
             <span class="prelude-val">None</span>,
             <span class="ident">RuntimeErrorSource</span>::<span class="ident">Generic</span>(<span class="ident">msg</span>),
             <span class="ident">Backtrace</span>::<span class="ident">new_unresolved</span>(),
@@ -359,7 +326,7 @@
                     <span class="comment">// The error is already a RuntimeError, we return it directly</span>
                     <span class="prelude-val">Ok</span>(<span class="ident">runtime_error</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">*</span><span class="ident">runtime_error</span>,
                     <span class="prelude-val">Err</span>(<span class="ident">e</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">new_with_trace</span>(
-                        <span class="ident">info</span>,
+                        <span class="kw-2">&amp;</span><span class="ident">info</span>,
                         <span class="prelude-val">None</span>,
                         <span class="ident">RuntimeErrorSource</span>::<span class="ident">User</span>(<span class="ident">e</span>),
                         <span class="ident">Backtrace</span>::<span class="ident">new_unresolved</span>(),
@@ -372,27 +339,18 @@
                 <span class="ident">signal_trap</span>,
                 <span class="ident">backtrace</span>,
             } <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">info</span>.<span class="ident">should_process_frame</span>(<span class="ident">pc</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>) {
-                    <span class="ident">drop</span>(<span class="ident">info</span>);
-                    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                    <span class="ident">info</span>.<span class="ident">maybe_process_frame</span>(<span class="ident">pc</span>).<span class="ident">unwrap</span>();
-                    <span class="ident">drop</span>(<span class="ident">info</span>);
-                    <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()
-                } <span class="kw">else</span> {
-                    <span class="ident">info</span>
-                };
                 <span class="kw">let</span> <span class="ident">code</span> <span class="op">=</span> <span class="ident">info</span>
                     .<span class="ident">lookup_trap_info</span>(<span class="ident">pc</span>)
                     .<span class="ident">map_or</span>(<span class="ident">signal_trap</span>.<span class="ident">unwrap_or</span>(<span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span>), <span class="op">|</span><span class="ident">info</span><span class="op">|</span> {
                         <span class="ident">info</span>.<span class="ident">trap_code</span>
                     });
-                <span class="self">Self</span>::<span class="ident">new_with_trace</span>(<span class="ident">info</span>, <span class="prelude-val">Some</span>(<span class="ident">pc</span>), <span class="ident">RuntimeErrorSource</span>::<span class="ident">Trap</span>(<span class="ident">code</span>), <span class="ident">backtrace</span>)
+                <span class="self">Self</span>::<span class="ident">new_with_trace</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>, <span class="prelude-val">Some</span>(<span class="ident">pc</span>), <span class="ident">RuntimeErrorSource</span>::<span class="ident">Trap</span>(<span class="ident">code</span>), <span class="ident">backtrace</span>)
             }
             <span class="comment">// A trap triggered manually from the Wasmer runtime</span>
             <span class="ident">Trap</span>::<span class="ident">Runtime</span> {
                 <span class="ident">trap_code</span>,
                 <span class="ident">backtrace</span>,
-            } <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">new_with_trace</span>(<span class="ident">info</span>, <span class="prelude-val">None</span>, <span class="ident">RuntimeErrorSource</span>::<span class="ident">Trap</span>(<span class="ident">trap_code</span>), <span class="ident">backtrace</span>),
+            } <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">new_with_trace</span>(<span class="kw-2">&amp;</span><span class="ident">info</span>, <span class="prelude-val">None</span>, <span class="ident">RuntimeErrorSource</span>::<span class="ident">Trap</span>(<span class="ident">trap_code</span>), <span class="ident">backtrace</span>),
         }
     }
 
@@ -402,7 +360,7 @@
     }
 
     <span class="kw">fn</span> <span class="ident">new_with_trace</span>(
-        <span class="ident">info</span>: <span class="ident">RwLockReadGuard</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfo</span><span class="op">&gt;</span>,
+        <span class="ident">info</span>: <span class="kw-2">&amp;</span><span class="ident">GlobalFrameInfo</span>,
         <span class="ident">trap_pc</span>: <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">usize</span><span class="op">&gt;</span>,
         <span class="ident">source</span>: <span class="ident">RuntimeErrorSource</span>,
         <span class="ident">native_trace</span>: <span class="ident">Backtrace</span>,
@@ -430,28 +388,6 @@
                 }
             })
             .<span class="ident">collect</span>();
-
-        <span class="comment">// If any of the frames is not processed, we adquire the lock to</span>
-        <span class="comment">// modify the GlobalFrameInfo module.</span>
-        <span class="kw">let</span> <span class="ident">info</span> <span class="op">=</span> <span class="kw">if</span> <span class="ident">frames</span>
-            .<span class="ident">iter</span>()
-            .<span class="ident">any</span>(<span class="op">|</span><span class="ident">pc</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">should_process_frame</span>(<span class="kw-2">*</span><span class="ident">pc</span>).<span class="ident">unwrap_or</span>(<span class="bool-val">false</span>))
-        {
-            <span class="comment">// We drop the read lock, to get a write one.</span>
-            <span class="comment">// Note: this is not guaranteed because it&#39;s a RwLock:</span>
-            <span class="comment">// the following code may cause deadlocks.</span>
-            <span class="comment">// TODO: clean up this code</span>
-            <span class="ident">drop</span>(<span class="ident">info</span>);
-            {
-                <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">info</span> <span class="op">=</span> <span class="ident">FRAME_INFO</span>.<span class="ident">write</span>().<span class="ident">unwrap</span>();
-                <span class="kw">for</span> <span class="ident">pc</span> <span class="kw">in</span> <span class="ident">frames</span>.<span class="ident">iter</span>() {
-                    <span class="ident">info</span>.<span class="ident">maybe_process_frame</span>(<span class="kw-2">*</span><span class="ident">pc</span>);
-                }
-            }
-            <span class="ident">FRAME_INFO</span>.<span class="ident">read</span>().<span class="ident">unwrap</span>()
-        } <span class="kw">else</span> {
-            <span class="ident">info</span>
-        };
 
         <span class="comment">// Let&#39;s construct the trace</span>
         <span class="kw">let</span> <span class="ident">wasm_trace</span> <span class="op">=</span> <span class="ident">frames</span>

@@ -48,8 +48,6 @@
 <span id="45">45</span>
 <span id="46">46</span>
 <span id="47">47</span>
-<span id="48">48</span>
-<span id="49">49</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Generic Engine abstraction for Wasmer Engines.</span>
 
@@ -78,7 +76,6 @@
 <span class="kw">mod</span> <span class="ident">error</span>;
 <span class="kw">mod</span> <span class="ident">export</span>;
 <span class="kw">mod</span> <span class="ident">resolver</span>;
-<span class="kw">mod</span> <span class="ident">serialize</span>;
 <span class="kw">mod</span> <span class="ident">trap</span>;
 <span class="kw">mod</span> <span class="ident">tunables</span>;
 
@@ -94,7 +91,6 @@
     <span class="ident">resolve_imports</span>, <span class="ident">ChainableNamedResolver</span>, <span class="ident">NamedResolver</span>, <span class="ident">NamedResolverChain</span>, <span class="ident">NullResolver</span>,
     <span class="ident">Resolver</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">serialize</span>::<span class="ident">SerializableFunctionFrameInfo</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">trap</span>::<span class="kw-2">*</span>;
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">tunables</span>::<span class="ident">Tunables</span>;
 

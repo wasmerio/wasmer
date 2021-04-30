@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["SourceLoc","A source location."]]});
+initSidebarItems({"struct":[["ArchivedSourceLoc",""],["SourceLoc","A source location."],["SourceLocResolver",""]]});

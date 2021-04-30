@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["TrapInformation","Information about trap."]]});
+initSidebarItems({"struct":[["ArchivedTrapInformation",""],["TrapInformation","Information about trap."],["TrapInformationResolver",""]]});

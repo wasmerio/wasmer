@@ -319,60 +319,6 @@
 <span id="316">316</span>
 <span id="317">317</span>
 <span id="318">318</span>
-<span id="319">319</span>
-<span id="320">320</span>
-<span id="321">321</span>
-<span id="322">322</span>
-<span id="323">323</span>
-<span id="324">324</span>
-<span id="325">325</span>
-<span id="326">326</span>
-<span id="327">327</span>
-<span id="328">328</span>
-<span id="329">329</span>
-<span id="330">330</span>
-<span id="331">331</span>
-<span id="332">332</span>
-<span id="333">333</span>
-<span id="334">334</span>
-<span id="335">335</span>
-<span id="336">336</span>
-<span id="337">337</span>
-<span id="338">338</span>
-<span id="339">339</span>
-<span id="340">340</span>
-<span id="341">341</span>
-<span id="342">342</span>
-<span id="343">343</span>
-<span id="344">344</span>
-<span id="345">345</span>
-<span id="346">346</span>
-<span id="347">347</span>
-<span id="348">348</span>
-<span id="349">349</span>
-<span id="350">350</span>
-<span id="351">351</span>
-<span id="352">352</span>
-<span id="353">353</span>
-<span id="354">354</span>
-<span id="355">355</span>
-<span id="356">356</span>
-<span id="357">357</span>
-<span id="358">358</span>
-<span id="359">359</span>
-<span id="360">360</span>
-<span id="361">361</span>
-<span id="362">362</span>
-<span id="363">363</span>
-<span id="364">364</span>
-<span id="365">365</span>
-<span id="366">366</span>
-<span id="367">367</span>
-<span id="368">368</span>
-<span id="369">369</span>
-<span id="370">370</span>
-<span id="371">371</span>
-<span id="372">372</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! This module is used for having backtraces in the Wasm runtime.</span>
 <span class="doccomment">//! Once the Compiler has compiled the ModuleInfo, and we have a set of</span>
@@ -386,7 +332,6 @@
 <span class="doccomment">//! let module: ModuleInfo = ...;</span>
 <span class="doccomment">//! FRAME_INFO.register(module, compiled_functions);</span>
 <span class="doccomment">//! ```</span>
-<span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">serialize</span>::<span class="ident">SerializableFunctionFrameInfo</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">cmp</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">collections</span>::<span class="ident">BTreeMap</span>;
@@ -432,37 +377,12 @@
     <span class="ident">start</span>: <span class="ident">usize</span>,
     <span class="ident">functions</span>: <span class="ident">BTreeMap</span><span class="op">&lt;</span><span class="ident">usize</span>, <span class="ident">FunctionInfo</span><span class="op">&gt;</span>,
     <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
-    <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">SerializableFunctionFrameInfo</span><span class="op">&gt;</span>,
+    <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
 }
 
 <span class="kw">impl</span> <span class="ident">ModuleInfoFrameInfo</span> {
-    <span class="kw">fn</span> <span class="ident">function_debug_info</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">SerializableFunctionFrameInfo</span> {
+    <span class="kw">fn</span> <span class="ident">function_debug_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">CompiledFunctionFrameInfo</span> {
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">frame_infos</span>.<span class="ident">get</span>(<span class="ident">local_index</span>).<span class="ident">unwrap</span>()
-    }
-
-    <span class="kw">fn</span> <span class="ident">process_function_debug_info</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>) {
-        <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">frame_infos</span>.<span class="ident">get_mut</span>(<span class="ident">local_index</span>).<span class="ident">unwrap</span>();
-        <span class="kw">let</span> <span class="ident">processed</span>: <span class="ident">CompiledFunctionFrameInfo</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">func</span> {
-            <span class="ident">SerializableFunctionFrameInfo</span>::<span class="ident">Processed</span>(<span class="kw">_</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="comment">// This should be a no-op on processed info</span>
-                <span class="kw">return</span>;
-            }
-            <span class="ident">SerializableFunctionFrameInfo</span>::<span class="ident">Unprocessed</span>(<span class="ident">unprocessed</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="ident">unprocessed</span>.<span class="ident">deserialize</span>(),
-        };
-        <span class="kw-2">*</span><span class="ident">func</span> <span class="op">=</span> <span class="ident">SerializableFunctionFrameInfo</span>::<span class="ident">Processed</span>(<span class="ident">processed</span>)
-    }
-
-    <span class="kw">fn</span> <span class="ident">processed_function_frame_info</span>(
-        <span class="kw-2">&amp;</span><span class="self">self</span>,
-        <span class="ident">local_index</span>: <span class="ident">LocalFunctionIndex</span>,
-    ) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">CompiledFunctionFrameInfo</span> {
-        <span class="kw">match</span> <span class="self">self</span>.<span class="ident">function_debug_info</span>(<span class="ident">local_index</span>) {
-            <span class="ident">SerializableFunctionFrameInfo</span>::<span class="ident">Processed</span>(<span class="ident">di</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">di</span>,
-            <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;frame info should already be processed&quot;</span>),
-        }
     }
 
     <span class="doccomment">/// Gets a function given a pc</span>
@@ -494,9 +414,7 @@
         <span class="comment">// machine instruction that corresponds to `pc`, which then allows us to</span>
         <span class="comment">// map that to a wasm original source location.</span>
         <span class="kw">let</span> <span class="ident">rel_pos</span> <span class="op">=</span> <span class="ident">pc</span> <span class="op">-</span> <span class="ident">func</span>.<span class="ident">start</span>;
-        <span class="kw">let</span> <span class="ident">instr_map</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>
-            .<span class="ident">processed_function_frame_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>)
-            .<span class="ident">address_map</span>;
+        <span class="kw">let</span> <span class="ident">instr_map</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">function_debug_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>).<span class="ident">address_map</span>;
         <span class="kw">let</span> <span class="ident">pos</span> <span class="op">=</span> <span class="kw">match</span> <span class="ident">instr_map</span>
             .<span class="ident">instructions</span>
             .<span class="ident">binary_search_by_key</span>(<span class="kw-2">&amp;</span><span class="ident">rel_pos</span>, <span class="op">|</span><span class="ident">map</span><span class="op">|</span> <span class="ident">map</span>.<span class="ident">code_offset</span>)
@@ -547,42 +465,16 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">lookup_trap_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">TrapInformation</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
         <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">processed_function_frame_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>).<span class="ident">traps</span>;
+        <span class="kw">let</span> <span class="ident">traps</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">function_debug_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>).<span class="ident">traps</span>;
         <span class="kw">let</span> <span class="ident">idx</span> <span class="op">=</span> <span class="ident">traps</span>
             .<span class="ident">binary_search_by_key</span>(<span class="kw-2">&amp;</span>((<span class="ident">pc</span> <span class="op">-</span> <span class="ident">func</span>.<span class="ident">start</span>) <span class="kw">as</span> <span class="ident">u32</span>), <span class="op">|</span><span class="ident">info</span><span class="op">|</span> <span class="ident">info</span>.<span class="ident">code_offset</span>)
             .<span class="ident">ok</span>()<span class="question-mark">?</span>;
         <span class="prelude-val">Some</span>(<span class="kw-2">&amp;</span><span class="ident">traps</span>[<span class="ident">idx</span>])
     }
 
-    <span class="doccomment">/// Should process the frame before anything?</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">should_process_frame</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">bool</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">extra_func_info</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_debug_info</span>(<span class="ident">func</span>.<span class="ident">local_index</span>);
-        <span class="prelude-val">Some</span>(<span class="ident">extra_func_info</span>.<span class="ident">is_unprocessed</span>())
-    }
-
-    <span class="doccomment">/// Process the frame info in case is not yet processed</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">maybe_process_frame</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span>()<span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">module</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">module_info_mut</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">func</span> <span class="op">=</span> <span class="ident">module</span>.<span class="ident">function_info</span>(<span class="ident">pc</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="ident">func_local_index</span> <span class="op">=</span> <span class="ident">func</span>.<span class="ident">local_index</span>;
-        <span class="ident">module</span>.<span class="ident">process_function_debug_info</span>(<span class="ident">func_local_index</span>);
-        <span class="prelude-val">Some</span>(())
-    }
-
     <span class="doccomment">/// Gets a module given a pc</span>
     <span class="kw">fn</span> <span class="ident">module_info</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span> {
         <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">module_info</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">ranges</span>.<span class="ident">range</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
-        <span class="kw">if</span> <span class="ident">pc</span> <span class="op">&lt;</span> <span class="ident">module_info</span>.<span class="ident">start</span> <span class="op">|</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">end</span> <span class="op">&lt;</span> <span class="ident">pc</span> {
-            <span class="kw">return</span> <span class="prelude-val">None</span>;
-        }
-        <span class="prelude-val">Some</span>(<span class="ident">module_info</span>)
-    }
-
-    <span class="doccomment">/// Gets a module given a pc</span>
-    <span class="kw">fn</span> <span class="ident">module_info_mut</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="self">self</span>, <span class="ident">pc</span>: <span class="ident">usize</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">ModuleInfoFrameInfo</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> (<span class="ident">end</span>, <span class="ident">module_info</span>) <span class="op">=</span> <span class="self">self</span>.<span class="ident">ranges</span>.<span class="ident">range_mut</span>(<span class="ident">pc</span>..).<span class="ident">next</span>()<span class="question-mark">?</span>;
         <span class="kw">if</span> <span class="ident">pc</span> <span class="op">&lt;</span> <span class="ident">module_info</span>.<span class="ident">start</span> <span class="op">|</span><span class="op">|</span> <span class="kw-2">*</span><span class="ident">end</span> <span class="op">&lt;</span> <span class="ident">pc</span> {
             <span class="kw">return</span> <span class="prelude-val">None</span>;
         }
@@ -619,7 +511,7 @@
 <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">register</span>(
     <span class="ident">module</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="ident">ModuleInfo</span><span class="op">&gt;</span>,
     <span class="ident">finished_functions</span>: <span class="kw-2">&amp;</span><span class="ident">BoxedSlice</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">FunctionExtent</span><span class="op">&gt;</span>,
-    <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">SerializableFunctionFrameInfo</span><span class="op">&gt;</span>,
+    <span class="ident">frame_infos</span>: <span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="ident">CompiledFunctionFrameInfo</span><span class="op">&gt;</span>,
 ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">GlobalFrameInfoRegistration</span><span class="op">&gt;</span> {
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">min</span> <span class="op">=</span> <span class="ident">usize</span>::<span class="ident">max_value</span>();
     <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">max</span> <span class="op">=</span> <span class="number">0</span>;

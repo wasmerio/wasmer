@@ -1,1 +1,0 @@
-initSidebarItems({"enum":[["SerializableFunctionFrameInfo","We hold the frame info in two states, mainly because we want to process it lazily to speed up execution."]],"struct":[["FunctionFrameInfoVisitor",""],["UnprocessedFunctionFrameInfo","This is the unserialized verison of `CompiledFunctionFrameInfo`."]]});

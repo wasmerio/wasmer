@@ -1,1 +1,1 @@
-initSidebarItems({"struct":[["FunctionAddressMap","Function and its instructions addresses mappings."],["InstructionAddressMap","Single source location to generated address mapping."]]});
+initSidebarItems({"struct":[["ArchivedFunctionAddressMap",""],["ArchivedInstructionAddressMap",""],["FunctionAddressMap","Function and its instructions addresses mappings."],["FunctionAddressMapResolver",""],["InstructionAddressMap","Single source location to generated address mapping."],["InstructionAddressMapResolver",""]]});

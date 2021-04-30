@@ -340,6 +340,48 @@
 <span id="337">337</span>
 <span id="338">338</span>
 <span id="339">339</span>
+<span id="340">340</span>
+<span id="341">341</span>
+<span id="342">342</span>
+<span id="343">343</span>
+<span id="344">344</span>
+<span id="345">345</span>
+<span id="346">346</span>
+<span id="347">347</span>
+<span id="348">348</span>
+<span id="349">349</span>
+<span id="350">350</span>
+<span id="351">351</span>
+<span id="352">352</span>
+<span id="353">353</span>
+<span id="354">354</span>
+<span id="355">355</span>
+<span id="356">356</span>
+<span id="357">357</span>
+<span id="358">358</span>
+<span id="359">359</span>
+<span id="360">360</span>
+<span id="361">361</span>
+<span id="362">362</span>
+<span id="363">363</span>
+<span id="364">364</span>
+<span id="365">365</span>
+<span id="366">366</span>
+<span id="367">367</span>
+<span id="368">368</span>
+<span id="369">369</span>
+<span id="370">370</span>
+<span id="371">371</span>
+<span id="372">372</span>
+<span id="373">373</span>
+<span id="374">374</span>
+<span id="375">375</span>
+<span id="376">376</span>
+<span id="377">377</span>
+<span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define `JITArtifact` to allow compiling and instantiating to be</span>
 <span class="doccomment">//! done as separate steps.</span>
@@ -359,7 +401,7 @@
     <span class="ident">SerializeError</span>,
 };
 <span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">feature</span> <span class="op">=</span> <span class="string">&quot;compiler&quot;</span>)]</span>
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Engine</span>, <span class="ident">SerializableFunctionFrameInfo</span>, <span class="ident">Tunables</span>};
+<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Engine</span>, <span class="ident">Tunables</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::<span class="ident">entity</span>::{<span class="ident">BoxedSlice</span>, <span class="ident">PrimaryMap</span>};
 <span class="kw">use</span> <span class="ident">wasmer_types</span>::{
     <span class="ident">FunctionIndex</span>, <span class="ident">LocalFunctionIndex</span>, <span class="ident">MemoryIndex</span>, <span class="ident">OwnedDataInitializer</span>, <span class="ident">SignatureIndex</span>,
@@ -369,6 +411,9 @@
     <span class="ident">FuncDataRegistry</span>, <span class="ident">FunctionBodyPtr</span>, <span class="ident">MemoryStyle</span>, <span class="ident">ModuleInfo</span>, <span class="ident">TableStyle</span>, <span class="ident">VMSharedSignatureIndex</span>,
     <span class="ident">VMTrampoline</span>,
 };
+
+<span class="kw">const</span> <span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">16</span>;
+<span class="kw">const</span> <span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>: <span class="ident">usize</span> <span class="op">=</span> <span class="number">32</span>;
 
 <span class="doccomment">/// A compiled wasm module, ready to be instantiated.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">MemoryUsage</span>)]</span>
@@ -385,7 +430,7 @@
 }
 
 <span class="kw">impl</span> <span class="ident">JITArtifact</span> {
-    <span class="kw">const</span> <span class="ident">MAGIC_HEADER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>] <span class="op">=</span> <span class="string">b&quot;\0wasmer-jit&quot;</span>;
+    <span class="kw">const</span> <span class="ident">MAGIC_HEADER</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;static</span> [<span class="ident">u8</span>; <span class="number">16</span>] <span class="op">=</span> <span class="string">b&quot;\0wasmer-jit\0\0\0\0\0&quot;</span>;
 
     <span class="doccomment">/// Check if the provided bytes look like a serialized `JITArtifact`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">is_deserializable</span>(<span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
@@ -450,11 +495,7 @@
             .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>()
             .<span class="ident">into_boxed_slice</span>();
 
-        <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="ident">compilation</span>
-            .<span class="ident">get_frame_info</span>()
-            .<span class="ident">values</span>()
-            .<span class="ident">map</span>(<span class="op">|</span><span class="ident">frame_info</span><span class="op">|</span> <span class="ident">SerializableFunctionFrameInfo</span>::<span class="ident">Processed</span>(<span class="ident">frame_info</span>.<span class="ident">clone</span>()))
-            .<span class="ident">collect</span>::<span class="op">&lt;</span><span class="ident">PrimaryMap</span><span class="op">&lt;</span><span class="ident">LocalFunctionIndex</span>, <span class="kw">_</span><span class="op">&gt;</span><span class="op">&gt;</span>();
+        <span class="kw">let</span> <span class="ident">frame_infos</span> <span class="op">=</span> <span class="ident">compilation</span>.<span class="ident">get_frame_info</span>();
 
         <span class="kw">let</span> <span class="ident">serializable_compilation</span> <span class="op">=</span> <span class="ident">SerializableCompilation</span> {
             <span class="ident">function_bodies</span>: <span class="ident">compilation</span>.<span class="ident">get_function_bodies</span>(),
@@ -484,21 +525,28 @@
     }
 
     <span class="doccomment">/// Deserialize a JITArtifact</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">jit</span>: <span class="kw-2">&amp;</span><span class="ident">JITEngine</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
+    <span class="doccomment">///</span>
+    <span class="doccomment">/// # Safety</span>
+    <span class="doccomment">/// This function is unsafe because rkyv reads directly without validating</span>
+    <span class="doccomment">/// the data.</span>
+    <span class="kw">pub</span> <span class="kw">unsafe</span> <span class="kw">fn</span> <span class="ident">deserialize</span>(<span class="ident">jit</span>: <span class="kw-2">&amp;</span><span class="ident">JITEngine</span>, <span class="ident">bytes</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="self">Self</span>, <span class="ident">DeserializeError</span><span class="op">&gt;</span> {
         <span class="kw">if</span> <span class="op">!</span><span class="self">Self</span>::<span class="ident">is_deserializable</span>(<span class="ident">bytes</span>) {
             <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">DeserializeError</span>::<span class="ident">Incompatible</span>(
                 <span class="string">&quot;The provided bytes are not wasmer-jit&quot;</span>.<span class="ident">to_string</span>(),
             ));
         }
 
-        <span class="kw">let</span> <span class="ident">inner_bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="self">Self</span>::<span class="ident">MAGIC_HEADER</span>.<span class="ident">len</span>()..];
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">inner_bytes</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>..];
 
-        <span class="comment">// let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!(&quot;{:?}&quot;, e)))?;</span>
-        <span class="comment">// let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!(&quot;{:?}&quot;, e)))?;</span>
+        <span class="kw">let</span> <span class="ident">metadata_len</span> <span class="op">=</span> <span class="ident">leb128</span>::<span class="ident">read</span>::<span class="ident">unsigned</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">inner_bytes</span>).<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">_e</span><span class="op">|</span> {
+            <span class="ident">DeserializeError</span>::<span class="ident">CorruptedBinary</span>(<span class="string">&quot;Can&#39;t read metadata size&quot;</span>.<span class="ident">to_string</span>())
+        })<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">metadata_slice</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>] <span class="op">=</span> <span class="ident">std</span>::<span class="ident">slice</span>::<span class="ident">from_raw_parts</span>(
+            <span class="kw-2">&amp;</span><span class="ident">bytes</span>[<span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>] <span class="kw">as</span> <span class="kw-2">*</span><span class="kw">const</span> <span class="ident">u8</span>,
+            <span class="ident">metadata_len</span> <span class="kw">as</span> <span class="ident">usize</span>,
+        );
 
-        <span class="kw">let</span> <span class="ident">serializable</span>: <span class="ident">SerializableModule</span> <span class="op">=</span> <span class="ident">bincode</span>::<span class="ident">deserialize</span>(<span class="ident">inner_bytes</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">DeserializeError</span>::<span class="ident">CorruptedBinary</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
-
+        <span class="kw">let</span> <span class="ident">serializable</span> <span class="op">=</span> <span class="ident">SerializableModule</span>::<span class="ident">deserialize</span>(<span class="ident">metadata_slice</span>)<span class="question-mark">?</span>;
         <span class="self">Self</span>::<span class="ident">from_parts</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">jit</span>.<span class="ident">inner_mut</span>(), <span class="ident">serializable</span>).<span class="ident">map_err</span>(<span class="ident">DeserializeError</span>::<span class="ident">Compiler</span>)
     }
 
@@ -668,16 +716,52 @@
         <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">func_data_registry</span>
     }
     <span class="kw">fn</span> <span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">SerializeError</span><span class="op">&gt;</span> {
-        <span class="comment">// let mut s = flexbuffers::FlexbufferSerializer::new();</span>
-        <span class="comment">// self.serializable.serialize(&amp;mut s).map_err(|e| SerializeError::Generic(format!(&quot;{:?}&quot;, e)));</span>
-        <span class="comment">// Ok(s.take_buffer())</span>
-        <span class="kw">let</span> <span class="ident">bytes</span> <span class="op">=</span> <span class="ident">bincode</span>::<span class="ident">serialize</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">serializable</span>)
-            .<span class="ident">map_err</span>(<span class="op">|</span><span class="ident">e</span><span class="op">|</span> <span class="ident">SerializeError</span>::<span class="ident">Generic</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;{:?}&quot;</span>, <span class="ident">e</span>)))<span class="question-mark">?</span>;
-
         <span class="comment">// Prepend the header.</span>
         <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">serialized</span> <span class="op">=</span> <span class="self">Self</span>::<span class="ident">MAGIC_HEADER</span>.<span class="ident">to_vec</span>();
-        <span class="ident">serialized</span>.<span class="ident">extend</span>(<span class="ident">bytes</span>);
+
+        <span class="ident">serialized</span>.<span class="ident">resize</span>(<span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>, <span class="number">0</span>);
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">writable_leb</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serialized</span>[<span class="ident">SERIALIZED_METADATA_LENGTH_OFFSET</span>..];
+        <span class="kw">let</span> <span class="ident">serialized_data</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">serializable</span>.<span class="ident">serialize</span>()<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">length</span> <span class="op">=</span> <span class="ident">serialized_data</span>.<span class="ident">len</span>();
+        <span class="ident">leb128</span>::<span class="ident">write</span>::<span class="ident">unsigned</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">writable_leb</span>, <span class="ident">length</span> <span class="kw">as</span> <span class="ident">u64</span>).<span class="ident">expect</span>(<span class="string">&quot;Should write number&quot;</span>);
+
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">SerializableModule</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">serialized</span>, <span class="kw-2">&amp;</span><span class="ident">serialized_data</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">offset</span>, <span class="ident">SERIALIZED_METADATA_CONTENT_OFFSET</span>);
+
         <span class="prelude-val">Ok</span>(<span class="ident">serialized</span>)
+    }
+}
+
+<span class="doccomment">/// It pads the data with the desired alignment</span>
+<span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">pad_and_extend</span><span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>(<span class="ident">prev_data</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span>, <span class="ident">data</span>: <span class="kw-2">&amp;</span>[<span class="ident">u8</span>]) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">usize</span> {
+    <span class="kw">let</span> <span class="ident">align</span> <span class="op">=</span> <span class="ident">std</span>::<span class="ident">mem</span>::<span class="ident">align_of</span>::<span class="op">&lt;</span><span class="ident">T</span><span class="op">&gt;</span>();
+
+    <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">prev_data</span>.<span class="ident">len</span>();
+    <span class="kw">if</span> <span class="ident">offset</span> <span class="op">&amp;</span> (<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>) <span class="op">!</span><span class="op">=</span> <span class="number">0</span> {
+        <span class="ident">offset</span> <span class="op">+</span><span class="op">=</span> <span class="ident">align</span> <span class="op">-</span> (<span class="ident">offset</span> <span class="op">&amp;</span> (<span class="ident">align</span> <span class="op">-</span> <span class="number">1</span>));
+        <span class="ident">prev_data</span>.<span class="ident">resize</span>(<span class="ident">offset</span>, <span class="number">0</span>);
+    }
+    <span class="ident">prev_data</span>.<span class="ident">extend</span>(<span class="ident">data</span>);
+    <span class="ident">offset</span>
+}
+
+<span class="attribute">#[<span class="ident">cfg</span>(<span class="ident">test</span>)]</span>
+<span class="kw">mod</span> <span class="ident">tests</span> {
+    <span class="kw">use</span> <span class="kw">super</span>::<span class="ident">pad_and_extend</span>;
+
+    <span class="attribute">#[<span class="ident">test</span>]</span>
+    <span class="kw">fn</span> <span class="ident">test_pad_and_extend</span>() {
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">data</span>: <span class="ident">Vec</span><span class="op">&lt;</span><span class="ident">u8</span><span class="op">&gt;</span> <span class="op">=</span> <span class="macro">vec</span><span class="macro">!</span>[];
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">offset</span>, <span class="number">0</span>);
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i32</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">offset</span>, <span class="number">8</span>);
+        <span class="kw">let</span> <span class="ident">offset</span> <span class="op">=</span> <span class="ident">pad_and_extend</span>::<span class="op">&lt;</span><span class="ident">i64</span><span class="op">&gt;</span>(<span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">data</span>, <span class="kw-2">&amp;</span>[<span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(<span class="ident">offset</span>, <span class="number">16</span>);
+        <span class="macro">assert_eq</span><span class="macro">!</span>(
+            <span class="ident">data</span>,
+            <span class="kw-2">&amp;</span>[<span class="number">1</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">2</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">3</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>, <span class="number">0</span>]
+        );
     }
 }
 </pre></div>
