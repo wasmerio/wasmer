@@ -6,7 +6,6 @@ use rkyv::{
     ser::{serializers::WriteSerializer, Serializer as RkyvSerializer},
     Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize,
 };
-use serde::{Deserialize, Serialize};
 use wasmer_compiler::{
     CompileModuleInfo, CompiledFunctionFrameInfo, CustomSection, Dwarf, FunctionBody,
     JumpTableOffsets, Relocation, SectionIndex,
@@ -16,7 +15,7 @@ use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
 /// The compilation related data for a serialized modules
-#[derive(Serialize, Deserialize, MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SerializableCompilation {
     pub function_bodies: PrimaryMap<LocalFunctionIndex, FunctionBody>,
     pub function_relocations: PrimaryMap<LocalFunctionIndex, Vec<Relocation>>,
@@ -32,7 +31,7 @@ pub struct SerializableCompilation {
 
 /// Serializable struct that is able to serialize from and to
 /// a `JITArtifactInfo`.
-#[derive(Serialize, Deserialize, MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
+#[derive(MemoryUsage, Archive, RkyvDeserialize, RkyvSerialize)]
 pub struct SerializableModule {
     pub compilation: SerializableCompilation,
     pub compile_info: CompileModuleInfo,

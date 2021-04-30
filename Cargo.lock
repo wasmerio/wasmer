@@ -2610,7 +2610,6 @@ dependencies = [
  "loupe",
  "region",
  "rkyv",
- "serde",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
