@@ -27,6 +27,9 @@ use wasmer_vm::{
     VMTrampoline,
 };
 
+const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 16;
+const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 32;
+
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
 pub struct JITArtifact {
@@ -148,13 +151,15 @@ impl JITArtifact {
             ));
         }
 
-        let mut inner_bytes = &bytes[16..];
+        let mut inner_bytes = &bytes[SERIALIZED_METADATA_LENGTH_OFFSET..];
 
         let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
-        let metadata_slice: &[u8] =
-            std::slice::from_raw_parts(&bytes[32] as *const u8, metadata_len as usize);
+        let metadata_slice: &[u8] = std::slice::from_raw_parts(
+            &bytes[SERIALIZED_METADATA_CONTENT_OFFSET] as *const u8,
+            metadata_len as usize,
+        );
 
         let serializable = SerializableModule::deserialize(metadata_slice)?;
         Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
@@ -329,31 +334,28 @@ impl Artifact for JITArtifact {
         // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
 
-        serialized.resize(32, 0);
-        let mut writable_leb = &mut serialized[16..];
+        serialized.resize(SERIALIZED_METADATA_CONTENT_OFFSET, 0);
+        let mut writable_leb = &mut serialized[SERIALIZED_METADATA_LENGTH_OFFSET..];
         let serialized_data = self.serializable.serialize()?;
         let length = serialized_data.len();
         leb128::write::unsigned(&mut writable_leb, length as u64).expect("Should write number");
 
-        let align = std::mem::align_of::<SerializableModule>() as u64;
-
-        let offset = pad_and_extend(&mut serialized, &serialized_data, align);
-        assert_eq!(offset, 32);
+        let offset = pad_and_extend::<SerializableModule>(&mut serialized, &serialized_data);
+        assert_eq!(offset, SERIALIZED_METADATA_CONTENT_OFFSET);
 
         Ok(serialized)
     }
 }
 
 /// It pads the data with the desired alignment
-pub fn pad_and_extend(prev_data: &mut Vec<u8>, data: &[u8], align: u64) -> u64 {
-    // We assert that align is a power of 2
-    debug_assert_eq!(align & (align - 1), 0);
-    let align = align as usize;
+pub fn pad_and_extend<T>(prev_data: &mut Vec<u8>, data: &[u8]) -> usize {
+    let align = std::mem::align_of::<T>();
+
     let mut offset = prev_data.len();
     if offset & (align - 1) != 0 {
         offset += align - (offset & (align - 1));
         prev_data.resize(offset, 0);
     }
     prev_data.extend(data);
-    offset as u64
+    offset
 }
