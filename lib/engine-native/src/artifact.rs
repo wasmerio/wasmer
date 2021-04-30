@@ -332,8 +332,7 @@ impl NativeArtifact {
         );
 
         let linker = engine_inner.linker().executable();
-        let mut command = Command::new(linker);
-        let output = command
+        let output = Command::new(linker)
             .args(&object_filepaths)
             .arg("-o")
             .arg(&shared_filepath)

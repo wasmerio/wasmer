@@ -8,7 +8,7 @@ use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
 use std::sync::Arc;
-use wasmer_compiler::{CompileError, Features, OperatingSystem, SymbolRegistry, Triple};
+use wasmer_compiler::{CompileError, Features, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
@@ -195,7 +195,9 @@ impl ObjectFileArtifact {
         */
 
         let metadata_serializer = |metadata: &ModuleMetadata| -> Result<Vec<u8>, CompileError> {
-            let serialized_data = metadata.serialize()?;
+            let serialized_data = metadata
+                .serialize()
+                .map_err(|e| CompileError::Codegen(format!("{:?}", e)))?;
             let mut metadata_binary = vec![0; 16];
             let mut writable = &mut metadata_binary[..];
             leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
@@ -214,9 +216,7 @@ impl ObjectFileArtifact {
             &symbol_registry,
         );
 
-        let mut metadata_length = 0;
-
-        let object_files = match maybe_obj_bytes {
+        let (object_files, metadata_length) = match maybe_obj_bytes {
             Some(native_compilation) => {
                 let native_compilation = native_compilation?;
                 let mut all_objects = native_compilation.object_files;
@@ -225,7 +225,7 @@ impl ObjectFileArtifact {
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
                 metadata.frame_infos = native_compilation.frame_infos;
                 let metadata_binary = metadata_serializer(&metadata)?;
-                metadata_length = metadata_binary.len();
+                let metadata_length = metadata_binary.len();
                 emit_data(
                     &mut obj,
                     WASMER_METADATA_SYMBOL,
@@ -236,7 +236,7 @@ impl ObjectFileArtifact {
 
                 let obj_bytes = obj.write().map_err(to_compile_error)?;
                 all_objects.push(obj_bytes);
-                all_objects
+                (all_objects, metadata_length)
             }
             None => {
                 let compilation = compiler.compile_module(
@@ -254,7 +254,7 @@ impl ObjectFileArtifact {
                     .map_err(to_compile_error)?;
                 metadata.frame_infos = compiled_function_infos;
                 let metadata_binary = metadata_serializer(&metadata)?;
-                metadata_length = metadata_binary.len();
+                let metadata_length = metadata_binary.len();
                 emit_data(
                     &mut obj,
                     WASMER_METADATA_SYMBOL,
@@ -263,7 +263,7 @@ impl ObjectFileArtifact {
                 )
                 .map_err(to_compile_error)?;
                 let obj_bytes = obj.write().map_err(to_compile_error)?;
-                vec![obj_bytes]
+                (vec![obj_bytes], metadata_length)
             }
         };
 
@@ -271,11 +271,8 @@ impl ObjectFileArtifact {
     }
 
     /// Get the default extension when serializing this artifact
-    pub fn get_default_extension(triple: &Triple) -> &'static str {
-        match triple.operating_system {
-            OperatingSystem::Windows => "obj",
-            _ => "o",
-        }
+    pub fn get_default_extension(_triple: &Triple) -> &'static str {
+        "a"
     }
 
     /// Construct a `ObjectFileArtifact` from component parts.
@@ -506,11 +503,14 @@ impl Artifact for ObjectFileArtifact {
 
     /// Serialize a ObjectFileArtifact
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        unimplemented!();
-        // let mut builder = ar::Builder::new(Vec::new());
-        // let header = Header::new(format!(b"baz.txt").to_vec(), file_size)
-        // builder.append(&header, file_content).unwrap();
-
-        // Ok(self.module_bytes.clone())
+        let mut builder = ar::Builder::new(Vec::new());
+        for (i, object_file_content) in self.object_files.iter().enumerate() {
+            let header = ar::Header::new(
+                format!("object_{}.o", i).into_bytes(),
+                object_file_content.len() as u64,
+            );
+            builder.append(&header, &**object_file_content).unwrap();
+        }
+        Ok(builder.into_inner()?)
     }
 }
