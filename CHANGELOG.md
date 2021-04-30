@@ -21,6 +21,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2251](https://github.com/wasmerio/wasmer/pull/2251) Wasmer CLI will now execute WASI modules with multiple WASI namespaces in them by default. Use `--allow-multiple-wasi-versions` to suppress the warning and use `--deny-multiple-wasi-versions` to make it an error.
 - [#2201](https://github.com/wasmerio/wasmer/pull/2201) Implement `loupe::MemoryUsage` for `wasmer::Instance`.
 - [#2200](https://github.com/wasmerio/wasmer/pull/2200) Implement `loupe::MemoryUsage` for `wasmer::Module`.
 - [#2199](https://github.com/wasmerio/wasmer/pull/2199) Implement `loupe::MemoryUsage` for `wasmer::Store`.
