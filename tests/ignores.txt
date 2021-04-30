@@ -98,9 +98,9 @@ wasitests::snapshot1::unix_open_special_files on windows
 # Updated spectests
 
 cranelift::spec::br_table
-cranelift::spec::data
 cranelift::spec::imports
 cranelift::spec::linking
+# new simd
 cranelift::spec::simd::simd_align
 cranelift::spec::simd::simd_conversions
 cranelift::spec::simd::simd_f32x4_pmin_pmax
@@ -136,13 +136,14 @@ cranelift::spec::simd::simd_store64_lane
 cranelift::spec::simd::simd_store8_lane
 
 llvm::spec::br_table
-llvm::spec::bulk
-llvm::spec::data
 llvm::spec::imports
 llvm::spec::linking
+# bulk memory
+llvm::spec::bulk
 llvm::spec::memory_copy
 llvm::spec::memory_fill
 llvm::spec::memory_init
+# new simd
 llvm::spec::simd::simd_align
 llvm::spec::simd::simd_conversions
 llvm::spec::simd::simd_f32x4_pmin_pmax
@@ -178,10 +179,10 @@ llvm::spec::simd::simd_store64_lane
 llvm::spec::simd::simd_store8_lane
 
 singlepass::spec::br_table
-singlepass::spec::bulk
-singlepass::spec::data
 singlepass::spec::imports
 singlepass::spec::linking
+# bulk memory
+singlepass::spec::bulk
 singlepass::spec::memory_copy
 singlepass::spec::memory_fill
 singlepass::spec::memory_init
