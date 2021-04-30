@@ -281,6 +281,9 @@ comma := ,
 # Define the compiler Cargo features for all crates.
 compiler_features := --features $(subst $(space),$(comma),$(compilers))
 compiler_test_features := --features $(subst $(space),$(comma),$(addprefix test-,$(compilers)))
+# Define the compiler Cargo test features when using the native engine
+# We exclude singlepass for now
+native_engine_compiler_test_features := --features $(subst $(space),$(comma),$(addprefix test-,$(filter-out singlepass, $(compilers))))
 
 # Define the compiler Cargo features for the C API. It always excludes
 # LLVM for the moment.
@@ -490,7 +493,7 @@ test-jit:
 	cargo test --release --tests $(compiler_features) $(compiler_test_features) --features "test-jit"
 
 test-native:
-	cargo test --release --tests $(compiler_features) $(compiler_test_features) --features "test-native"
+	cargo test --release --tests $(compiler_features) $(native_engine_compiler_test_features) --features "test-native"
 
 test-singlepass-native:
 	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"

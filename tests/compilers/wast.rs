@@ -35,8 +35,8 @@ fn get_store(features: Features, try_nan_canonicalization: bool, compiler: &str)
 }
 
 #[cfg(feature = "test-native")]
-fn get_store(features: Features, try_nan_canonicalization: bool) -> Store {
-    let compiler_config = get_compiler(try_nan_canonicalization);
+fn get_store(features: Features, try_nan_canonicalization: bool, compiler: &str) -> Store {
+    let compiler_config = get_compiler(try_nan_canonicalization, compiler);
     Store::new(&Native::new(compiler_config).features(features).engine())
 }
 
