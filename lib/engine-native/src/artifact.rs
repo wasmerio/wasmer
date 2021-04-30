@@ -11,7 +11,7 @@ use std::io::{Read, Write};
 use std::path::{Path, PathBuf};
 #[cfg(feature = "compiler")]
 use std::process::Command;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use tempfile::NamedTempFile;
 #[cfg(feature = "compiler")]
 use tracing::trace;
@@ -21,7 +21,10 @@ use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
     ModuleTranslationState,
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
+use wasmer_engine::{
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, SerializeError,
+};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -49,6 +52,7 @@ pub struct NativeArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -396,6 +400,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -463,20 +468,6 @@ impl NativeArtifact {
             }
         }
 
-        // Leaving frame infos from now, as they are not yet used
-        // however they might be useful for the future.
-        // let frame_infos = compilation
-        //     .get_frame_info()
-        //     .values()
-        //     .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-        //     .collect::<PrimaryMap<LocalFunctionIndex, _>>();
-        // Self::from_parts(&mut engine_inner, lib, metadata, )
-        // let frame_info_registration = register_frame_info(
-        //     serializable.module.clone(),
-        //     &finished_functions,
-        //     serializable.compilation.function_frame_info.clone(),
-        // );
-
         // Compute indices into the shared signature table.
         let signatures = {
             metadata
@@ -500,6 +491,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: engine_inner.func_data().clone(),
             signatures: signatures.into_boxed_slice(),
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -620,7 +612,30 @@ impl Artifact for NativeArtifact {
     }
 
     fn register_frame_info(&self) {
-        // Do nothing for now
+        let mut info = self.frame_info_registration.lock().unwrap();
+
+        if info.is_some() {
+            return;
+        }
+
+        let finished_function_extents = self
+            .finished_functions
+            .values()
+            .copied()
+            .zip(self.metadata.frame_infos.values())
+            .map(|(ptr, frame_info)| FunctionExtent {
+                ptr,
+                length: frame_info.address_map.body_len,
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        let frame_infos = &self.metadata.frame_infos;
+        *info = register_frame_info(
+            self.metadata.compile_info.module.clone(),
+            &finished_function_extents,
+            frame_infos.clone(),
+        );
     }
 
     fn features(&self) -> &Features {

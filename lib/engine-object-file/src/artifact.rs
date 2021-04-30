@@ -7,14 +7,17 @@ use loupe::MemoryUsage;
 use std::collections::BTreeMap;
 use std::error::Error;
 use std::mem;
-use std::sync::Arc;
+use std::sync::{Arc, Mutex};
 use wasmer_compiler::{CompileError, Features, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
     CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
     ModuleTranslationState,
 };
-use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
+use wasmer_engine::{
+    register_frame_info, Artifact, DeserializeError, FunctionExtent, GlobalFrameInfoRegistration,
+    InstantiationError, SerializeError,
+};
 #[cfg(feature = "compiler")]
 use wasmer_engine::{Engine, Tunables};
 #[cfg(feature = "compiler")]
@@ -46,6 +49,7 @@ pub struct ObjectFileArtifact {
     /// Length of the serialized metadata
     metadata_length: usize,
     symbol_registry: ModuleMetadataSymbolRegistry,
+    frame_info_registration: Mutex<Option<GlobalFrameInfoRegistration>>,
 }
 
 #[allow(dead_code)]
@@ -310,6 +314,7 @@ impl ObjectFileArtifact {
             func_data_registry: engine_inner.func_data().clone(),
             metadata_length,
             symbol_registry,
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -434,6 +439,7 @@ impl ObjectFileArtifact {
             func_data_registry,
             metadata_length: 0,
             symbol_registry,
+            frame_info_registration: Mutex::new(None),
         })
     }
 
@@ -462,7 +468,30 @@ impl Artifact for ObjectFileArtifact {
     }
 
     fn register_frame_info(&self) {
-        // Do nothing for now
+        let mut info = self.frame_info_registration.lock().unwrap();
+
+        if info.is_some() {
+            return;
+        }
+
+        let finished_function_extents = self
+            .finished_functions
+            .values()
+            .copied()
+            .zip(self.metadata.frame_infos.values())
+            .map(|(ptr, frame_info)| FunctionExtent {
+                ptr,
+                length: frame_info.address_map.body_len,
+            })
+            .collect::<PrimaryMap<LocalFunctionIndex, _>>()
+            .into_boxed_slice();
+
+        let frame_infos = &self.metadata.frame_infos;
+        *info = register_frame_info(
+            self.metadata.compile_info.module.clone(),
+            &finished_function_extents,
+            frame_infos.clone(),
+        );
     }
 
     fn features(&self) -> &Features {
