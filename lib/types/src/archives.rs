@@ -1,65 +1,9 @@
-use crate::entity::{EntityRef, PrimaryMap};
-use indexmap::IndexMap;
-
-use rkyv::{
-    ser::Serializer,
-    std_impl::{ArchivedVec, VecResolver},
-    Archive, Archived, Deserialize, DeserializeUnsized, Fallible, MetadataResolver, Serialize,
-};
-
 #[cfg(feature = "core")]
-use core::{hash::Hash, marker::PhantomData};
-
+use core::hash::Hash;
+use indexmap::IndexMap;
+use rkyv::{Archive, Deserialize, Serialize};
 #[cfg(feature = "std")]
-use std::{collections::HashMap, hash::Hash, marker::PhantomData, mem::MaybeUninit};
-
-/// PrimaryMap after archive
-pub struct ArchivedPrimaryMap<K: EntityRef, V>(ArchivedVec<V>, PhantomData<K>);
-
-impl<K: Archive + EntityRef, V: Archive> Archive for PrimaryMap<K, V>
-where
-    K::Archived: EntityRef,
-{
-    type Archived = ArchivedPrimaryMap<K::Archived, V::Archived>;
-    type Resolver = VecResolver<MetadataResolver<[V]>>;
-
-    fn resolve(&self, pos: usize, resolver: Self::Resolver, out: &mut MaybeUninit<Self::Archived>) {
-        let mut vec = MaybeUninit::uninit();
-        Vec::resolve(&self.elems, pos, resolver, &mut vec);
-        // This is correct because the `resolve` method can never fail [citation needed]
-        let vec = unsafe { vec.assume_init() };
-        let archived_primary_map = ArchivedPrimaryMap(vec, PhantomData);
-        unsafe {
-            out.as_mut_ptr().write(archived_primary_map);
-        }
-    }
-}
-
-impl<K: Serialize<S> + EntityRef, V: Serialize<S>, S: Serializer + ?Sized> Serialize<S>
-    for PrimaryMap<K, V>
-where
-    K::Archived: EntityRef,
-{
-    fn serialize(&self, serializer: &mut S) -> Result<Self::Resolver, S::Error> {
-        self.elems.serialize(serializer)
-    }
-}
-
-impl<K: Archive + EntityRef, V: Archive, D: Fallible + ?Sized> Deserialize<PrimaryMap<K, V>, D>
-    for Archived<PrimaryMap<K, V>>
-where
-    K::Archived: Deserialize<K, D> + EntityRef,
-    V::Archived: Deserialize<V, D>,
-    [V::Archived]: DeserializeUnsized<[V], D>,
-{
-    fn deserialize(&self, deserializer: &mut D) -> Result<PrimaryMap<K, V>, D::Error> {
-        let elems: Vec<_> = self.0.deserialize(deserializer)?;
-        Ok(PrimaryMap {
-            elems,
-            unused: PhantomData,
-        })
-    }
-}
+use std::{collections::HashMap, hash::Hash};
 
 #[derive(Serialize, Deserialize, Archive)]
 /// Rkyv Archivable IndexMap
