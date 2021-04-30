@@ -1,4 +1,5 @@
 use loupe::MemoryUsage;
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::de::{Deserializer, Visitor};
 use serde::ser::Serializer;
 use serde::{Deserialize, Serialize};
@@ -9,6 +10,7 @@ use wasmer_compiler::CompiledFunctionFrameInfo;
 #[derive(Clone, Serialize, Deserialize, MemoryUsage)]
 #[serde(transparent)]
 #[repr(transparent)]
+#[derive(RkyvSerialize, RkyvDeserialize, Archive)]
 pub struct UnprocessedFunctionFrameInfo {
     #[serde(with = "serde_bytes")]
     bytes: Vec<u8>,
@@ -45,7 +47,7 @@ impl UnprocessedFunctionFrameInfo {
 /// of compiling at the same time that emiting the JIT.
 /// In that case, we don't need to deserialize/process anything
 /// as the data is already in memory.
-#[derive(Clone, MemoryUsage)]
+#[derive(Clone, MemoryUsage, RkyvSerialize, RkyvDeserialize, Archive)]
 pub enum SerializableFunctionFrameInfo {
     /// The unprocessed frame info (binary)
     Unprocessed(UnprocessedFunctionFrameInfo),

@@ -23,6 +23,7 @@ more-asserts = "0.2"
 thiserror = "1.0"
 serde = { version = "1.0", features = ["derive", "rc"] }
 serde_bytes = { version = "0.11" }
+rkyv = "0.4.3"
 bincode = "1.3"
 lazy_static = "1.4"
 loupe = "0.1"

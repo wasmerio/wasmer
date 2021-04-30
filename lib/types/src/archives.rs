@@ -1,4 +1,4 @@
-use crate::entity::{EntityRef, PrimaryMap};
+use crate::entity::{EntityRef, PrimaryMap, SecondaryMap};
 use indexmap::IndexMap;
 
 use rkyv::{
