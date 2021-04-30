@@ -14,7 +14,7 @@ edition = "2018"
 anyhow = "1.0"
 wasmer = { path = "../../../lib/api", version = "1.0.2", default-features = false, features = ["experimental-reference-types-extern-ref"] }
 wasmer-wasi = { path = "../../../lib/wasi", version = "1.0.2" }
-wast = "24.0"
+wast = "35.0"
 serde = "1"
 tempfile = "3"
 thiserror = "1.0"
