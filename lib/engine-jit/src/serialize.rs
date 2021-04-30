@@ -74,8 +74,11 @@ impl SerializableModule {
     ///
     /// # Safety
     ///
-    /// This method is unsafe.
-    /// Please check `SerializableModule::archive_from_slice` for more details.
+    /// This method is unsafe since it deserializes data directly
+    /// from memory.
+    /// Right now we are not doing any extra work for validation, but
+    /// `rkyv` has an option to do bytecheck on the serialized data before
+    /// serializing (via `rkyv::check_archived_value`).
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
@@ -83,11 +86,8 @@ impl SerializableModule {
 
     /// # Safety
     ///
-    /// This method is unsafe since it deserializes data directly
-    /// from memory.
-    /// Right now we are not doing any extra work for validation, but
-    /// `rkyv` has an option to do bytecheck on the serialized data before
-    /// serializing (via `rkyv::check_archived_value`).
+    /// This method is unsafe.
+    /// Please check `SerializableModule::deserialize` for more details.
     unsafe fn archive_from_slice<'a>(
         metadata_slice: &'a [u8],
     ) -> Result<&'a ArchivedSerializableModule, DeserializeError> {
