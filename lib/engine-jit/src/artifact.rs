@@ -154,7 +154,7 @@ impl JITArtifact {
         let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
-        let metadata_slice: &'static [u8] =
+        let metadata_slice: &[u8] =
             std::slice::from_raw_parts(&bytes[32] as *const u8, metadata_len as usize);
 
         println!("Pointer position {:?}", &bytes[32] as *const u8);
