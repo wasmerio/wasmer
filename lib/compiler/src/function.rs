@@ -42,6 +42,10 @@ pub struct CompiledFunctionFrameInfo {
 
 /// The function body.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub struct FunctionBody {
     /// The function body bytes.
@@ -58,6 +62,10 @@ pub struct FunctionBody {
 /// (function bytecode body, relocations, traps, jump tables
 /// and unwind information).
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq)]
 pub struct CompiledFunction {
     /// The function body.
@@ -86,6 +94,10 @@ pub type CustomSections = PrimaryMap<SectionIndex, CustomSection>;
 /// In the future this structure may also hold other information useful
 /// for debugging.
 #[cfg_attr(feature = "enable-serde", derive(Deserialize, Serialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, PartialEq, Eq, Clone, MemoryUsage)]
 pub struct Dwarf {
     /// The section index in the [`Compilation`] that corresponds to the exception frames.

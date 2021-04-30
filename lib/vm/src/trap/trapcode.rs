@@ -6,6 +6,7 @@
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
 use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;

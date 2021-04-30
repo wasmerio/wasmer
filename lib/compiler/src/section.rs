@@ -8,21 +8,38 @@
 use crate::lib::std::vec::Vec;
 use crate::Relocation;
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use wasmer_types::entity::entity_impl;
 
 /// Index type of a Section defined inside a WebAssembly `Compilation`.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    archive(derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug))
+)]
 #[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug, MemoryUsage)]
 pub struct SectionIndex(u32);
 
 entity_impl!(SectionIndex);
 
+#[cfg(feature = "enable-rkyv")]
+entity_impl!(ArchivedSectionIndex);
+
 /// Custom section Protection.
 ///
 /// Determines how a custom section may be used.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub enum CustomSectionProtection {
     /// A custom section with read permission.
@@ -37,6 +54,10 @@ pub enum CustomSectionProtection {
 /// This is used so compilers can store arbitrary information
 /// in the emitted module.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, MemoryUsage)]
 pub struct CustomSection {
     /// Memory protection that applies to this section.
@@ -56,6 +77,10 @@ pub struct CustomSection {
 
 /// The bytes in the section.
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Debug, Clone, PartialEq, Eq, Default, MemoryUsage)]
 pub struct SectionBody(#[cfg_attr(feature = "enable-serde", serde(with = "serde_bytes"))] Vec<u8>);
 
