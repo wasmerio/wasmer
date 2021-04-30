@@ -22,7 +22,7 @@ use wasmparser::{Validator, WasmFeatures};
 /// along with the frame infos necessary for fully traps support.
 #[derive(Clone, Debug, PartialEq, Eq)]
 pub struct ExperimentalNativeCompilation {
-    /// The kind of emitted object file
+    /// The contents of emitted object files
     pub object_files: Vec<Vec<u8>>,
     /// The frame infos of the files
     pub frame_infos: PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>,

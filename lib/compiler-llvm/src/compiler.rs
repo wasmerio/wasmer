@@ -89,7 +89,6 @@ impl LLVMCompiler {
                     FuncTranslator::new(target_machine)
                 },
                 |func_translator, (i, input)| {
-                    // let symbol = Symbol::LocalFunction(i);
                     let module = func_translator.translate_to_module(
                         &compile_info.module,
                         module_translation,
