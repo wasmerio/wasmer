@@ -55,6 +55,7 @@ fn to_compile_error(err: impl Error) -> CompileError {
 
 #[allow(dead_code)]
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
+const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 16;
 
 impl ObjectFileArtifact {
     // Mach-O header in Mac
@@ -198,7 +199,7 @@ impl ObjectFileArtifact {
             let serialized_data = metadata
                 .serialize()
                 .map_err(|e| CompileError::Codegen(format!("{:?}", e)))?;
-            let mut metadata_binary = vec![0; 16];
+            let mut metadata_binary = vec![0; SERIALIZED_METADATA_CONTENT_OFFSET];
             let mut writable = &mut metadata_binary[..];
             leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
                 .expect("Should write number");
@@ -332,8 +333,11 @@ impl ObjectFileArtifact {
         let mut reader = bytes;
         let data_len = leb128::read::unsigned(&mut reader).unwrap() as usize;
 
-        let metadata: ModuleMetadata =
-            ModuleMetadata::deserialize(&bytes[16..(data_len + 16)]).unwrap();
+        let metadata: ModuleMetadata = ModuleMetadata::deserialize(
+            &bytes[SERIALIZED_METADATA_CONTENT_OFFSET
+                ..(data_len + SERIALIZED_METADATA_CONTENT_OFFSET)],
+        )
+        .unwrap();
 
         const WORD_SIZE: usize = mem::size_of::<usize>();
         let mut byte_buffer = [0u8; WORD_SIZE];

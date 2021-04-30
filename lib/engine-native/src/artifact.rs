@@ -56,6 +56,8 @@ fn to_compile_error(err: impl Error) -> CompileError {
 }
 
 const WASMER_METADATA_SYMBOL: &[u8] = b"WASMER_METADATA";
+const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 0;
+const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 16;
 
 impl NativeArtifact {
     // Mach-O header in Mac
@@ -177,9 +179,11 @@ impl NativeArtifact {
         };
 
         let metadata_serializer = |metadata: &ModuleMetadata| -> Result<Vec<u8>, CompileError> {
-            let serialized_data = metadata.serialize()?;
-            let mut metadata_binary = vec![0; 16];
-            let mut writable = &mut metadata_binary[..];
+            let serialized_data = metadata
+                .serialize()
+                .map_err(|e| CompileError::Codegen(format!("{:?}", e)))?;
+            let mut metadata_binary = vec![0; SERIALIZED_METADATA_CONTENT_OFFSET];
+            let mut writable = &mut metadata_binary[SERIALIZED_METADATA_LENGTH_OFFSET..];
             leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
                 .expect("Should write number");
             metadata_binary.extend(serialized_data);
@@ -583,8 +587,10 @@ impl NativeArtifact {
         let metadata_len = leb128::read::unsigned(&mut readable).map_err(|_e| {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
-        let metadata_slice: &'static [u8] =
-            slice::from_raw_parts(&size[16] as *const u8, metadata_len as usize);
+        let metadata_slice: &[u8] = slice::from_raw_parts(
+            &size[SERIALIZED_METADATA_CONTENT_OFFSET] as *const u8,
+            metadata_len as usize,
+        );
 
         let metadata = ModuleMetadata::deserialize(metadata_slice)?;
 

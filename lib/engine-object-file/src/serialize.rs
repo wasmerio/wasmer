@@ -15,6 +15,17 @@ use wasmer_engine::{DeserializeError, SerializeError};
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, OwnedDataInitializer, SignatureIndex};
 
+cfg_if::cfg_if! {
+    if #[cfg(target_endian = "big")] {
+        const HOST_ENDIAN: u8 = b'b';
+    } else if #[cfg(target_endian = "little")] {
+        const HOST_ENDIAN: u8 = b'l';
+    }
+    else {
+        compile_error!("Endian not supported by the host");
+    }
+}
+
 fn to_serialize_error(err: impl Error) -> SerializeError {
     SerializeError::Generic(format!("{}", err))
 }
@@ -51,7 +62,7 @@ impl ModuleMetadata {
         }
     }
 
-    /// Serialize a Module into bytes
+    /// Serialize the Metadata into bytes
     /// The bytes will have the following format:
     /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
     pub fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
@@ -61,26 +72,30 @@ impl ModuleMetadata {
             .map_err(to_serialize_error)? as u64;
         let mut serialized_data = serializer.into_inner().into_inner();
         serialized_data.extend_from_slice(&pos.to_le_bytes());
-        if cfg!(target_endian = "big") {
-            serialized_data.extend_from_slice(&[b'b']);
-        } else if cfg!(target_endian = "little") {
-            serialized_data.extend_from_slice(&[b'l']);
-        }
+        serialized_data.extend_from_slice(&[HOST_ENDIAN]);
         Ok(serialized_data)
     }
 
-    /// Deserialize a Module from a slice.
+    /// Deserialize the Metadata from a slice.
     /// The slice must have the following format:
     /// RKYV serialization (any length) + POS (8 bytes) + Endian (1 byte)
     ///
     /// # Safety
-    /// This method is highly unsafe since we are deserializing directly
-    /// from memory, without validating it first.
+    ///
+    /// This method is unsafe since it deserializes data directly
+    /// from memory.
+    /// Right now we are not doing any extra work for validation, but
+    /// `rkyv` has an option to do bytecheck on the serialized data before
+    /// serializing (via `rkyv::check_archived_value`).
     pub unsafe fn deserialize(metadata_slice: &[u8]) -> Result<Self, DeserializeError> {
         let archived = Self::archive_from_slice(metadata_slice)?;
         Self::deserialize_from_archive(archived)
     }
 
+    /// # Safety
+    ///
+    /// This method is unsafe.
+    /// Please check `ModuleMetadata::deserialize` for more details.
     unsafe fn archive_from_slice<'a>(
         metadata_slice: &'a [u8],
     ) -> Result<&'a ArchivedModuleMetadata, DeserializeError> {
@@ -91,10 +106,14 @@ impl ModuleMetadata {
         }
         let mut pos: [u8; 8] = Default::default();
         let endian = metadata_slice[metadata_slice.len() - 1];
-        if (cfg!(target_endian = "big") && endian == b'l')
-            || (cfg!(target_endian = "little") && endian == b'b')
-        {
-            return Err(DeserializeError::Incompatible("incompatible endian".into()));
+        if endian != HOST_ENDIAN {
+            return Err(DeserializeError::Incompatible(
+                format!(
+                    "incompatible endian. Received {} but expected {}",
+                    endian, HOST_ENDIAN
+                )
+                .into(),
+            ));
         }
         pos.copy_from_slice(&metadata_slice[metadata_slice.len() - 9..metadata_slice.len() - 1]);
         let pos: u64 = u64::from_le_bytes(pos);
