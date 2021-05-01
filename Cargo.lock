@@ -1723,9 +1723,9 @@ dependencies = [
 
 [[package]]
 name = "rkyv"
-version = "0.6.0"
+version = "0.6.1"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "0d683f1540522e9ad21b786d534b274ff49b0e974bf3af31d7a930a6c3e3599d"
+checksum = "533488e35e9756976c402485db01485a3d5f51b46dd85cca9211b57373581cfa"
 dependencies = [
  "memoffset",
  "ptr_meta",
@@ -2573,7 +2573,6 @@ name = "wasmer-engine"
 version = "1.0.2"
 dependencies = [
  "backtrace",
- "bincode",
  "lazy_static",
  "loupe",
  "memmap2",
@@ -2606,12 +2605,11 @@ dependencies = [
 name = "wasmer-engine-jit"
 version = "1.0.2"
 dependencies = [
- "bincode",
  "cfg-if 0.1.10",
+ "leb128",
  "loupe",
  "region",
- "serde",
- "serde_bytes",
+ "rkyv",
  "wasmer-compiler",
  "wasmer-engine",
  "wasmer-types",
@@ -2623,7 +2621,6 @@ dependencies = [
 name = "wasmer-engine-native"
 version = "1.0.2"
 dependencies = [
- "bincode",
  "cfg-if 0.1.10",
  "leb128",
  "libloading",
@@ -2797,9 +2794,9 @@ dependencies = [
 
 [[package]]
 name = "wasmparser"
-version = "0.74.0"
+version = "0.77.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "4a4d63608421d9a22d4bce220f2841f3b609a5aaabd3ed3aeeb5fed2702c3c78"
+checksum = "b35c86d22e720a07d954ebbed772d01180501afe7d03d464f413bb5f8914a8d6"
 
 [[package]]
 name = "wast"

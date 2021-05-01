@@ -25,7 +25,6 @@ mod engine;
 mod error;
 mod export;
 mod resolver;
-mod serialize;
 mod trap;
 mod tunables;
 
@@ -41,7 +40,6 @@ pub use crate::resolver::{
     resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
     Resolver,
 };
-pub use crate::serialize::SerializableFunctionFrameInfo;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 
