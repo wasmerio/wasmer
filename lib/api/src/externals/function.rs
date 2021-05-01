@@ -18,7 +18,7 @@ use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMExportFunction, VMFuncRef, VMFunctionBody,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunction, VMFuncRef, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
@@ -218,7 +218,7 @@ impl Function {
                         )
                     },
                 )),
-                vm_function: VMExportFunction {
+                vm_function: VMFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
@@ -311,7 +311,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
-                vm_function: VMExportFunction {
+                vm_function: VMFunction {
                     address,
                     kind: VMFunctionKind::Dynamic,
                     vmctx,
@@ -365,7 +365,7 @@ impl Function {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
                 metadata: None,
-                vm_function: VMExportFunction {
+                vm_function: VMFunction {
                     address,
                     vmctx,
                     signature,
@@ -424,7 +424,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
-                vm_function: VMExportFunction {
+                vm_function: VMFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,
@@ -472,7 +472,7 @@ impl Function {
             definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
-                vm_function: VMExportFunction {
+                vm_function: VMFunction {
                     address,
                     kind: VMFunctionKind::Static,
                     vmctx,

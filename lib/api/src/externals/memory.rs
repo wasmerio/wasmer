@@ -6,9 +6,9 @@ use loupe::MemoryUsage;
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportMemory};
+use wasmer_engine::Export;
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
+use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -221,10 +221,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),
-            memory: wasmer_export.vm_memory.from,
+            memory: vm_memory.from,
         }
     }
 
@@ -247,11 +247,9 @@ impl Memory {
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
-        ExportMemory {
-            vm_memory: VMExportMemory {
-                from: self.memory.clone(),
-                instance_ref: None,
-            },
+        VMMemory {
+            from: self.memory.clone(),
+            instance_ref: None,
         }
         .into()
     }

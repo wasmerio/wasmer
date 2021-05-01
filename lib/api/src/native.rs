@@ -63,7 +63,7 @@ where
 }
 
 /*
-impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMExportFunction
+impl<Args, Rets> From<&NativeFunc<Args, Rets>> for VMFunction
 where
     Args: WasmTypeList,
     Rets: WasmTypeList,
