@@ -47,10 +47,14 @@ pub fn run_wast(wast_path: &str, compiler: &str) -> anyhow::Result<()> {
     );
     let try_nan_canonicalization = wast_path.contains("nan-canonicalization");
     let mut features = Features::default();
+    let is_referencetypes = wast_path.contains("reference-types");
     let is_bulkmemory = wast_path.contains("bulk-memory");
     let is_simd = wast_path.contains("simd");
     if is_bulkmemory {
         features.bulk_memory(true);
+    }
+    if is_referencetypes {
+        features.reference_types(true);
     }
     if is_simd {
         features.simd(true);
