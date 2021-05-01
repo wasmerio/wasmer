@@ -1,6 +1,7 @@
 //! Native Engine.
 
 use crate::NativeArtifact;
+use libloading::Library;
 use loupe::MemoryUsage;
 use std::path::Path;
 use std::sync::Arc;
@@ -41,6 +42,7 @@ impl NativeEngine {
                 features,
                 is_cross_compiling,
                 linker,
+                libraries: vec![],
             })),
             target: Arc::new(target),
             engine_id: EngineId::default(),
@@ -72,6 +74,7 @@ impl NativeEngine {
                 prefixer: None,
                 is_cross_compiling: false,
                 linker: Linker::None,
+                libraries: vec![],
             })),
             target: Arc::new(Target::default()),
             engine_id: EngineId::default(),
@@ -256,6 +259,10 @@ pub struct NativeEngineInner {
 
     /// The linker to use.
     linker: Linker,
+
+    /// List of libraries loaded by this engine.
+    #[loupe(skip)]
+    libraries: Vec<Library>,
 }
 
 impl NativeEngineInner {
@@ -315,5 +322,9 @@ impl NativeEngineInner {
 
     pub(crate) fn linker(&self) -> Linker {
         self.linker
+    }
+
+    pub(crate) fn add_library(&mut self, library: Library) {
+        self.libraries.push(library);
     }
 }
