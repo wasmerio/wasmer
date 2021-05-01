@@ -49,6 +49,9 @@ pub struct NativeArtifact {
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
     func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
+    #[allow(dead_code)]
+    #[loupe(skip)]
+    library: Option<Library>,
 }
 
 fn to_compile_error(err: impl Error) -> CompileError {
@@ -371,6 +374,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
+            library: None,
         })
     }
 
@@ -463,11 +467,10 @@ impl NativeArtifact {
                 .collect::<PrimaryMap<_, _>>()
         };
 
-        engine_inner.add_library(lib);
-
         Ok(Self {
             sharedobject_path,
             metadata,
+            library: Some(lib),
             finished_functions: finished_functions.into_boxed_slice(),
             finished_function_call_trampolines: finished_function_call_trampolines
                 .into_boxed_slice(),
