@@ -1,9 +1,6 @@
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_vm::{
-    ImportInitializerFuncPtr, VMExport, VMFunction, VMGlobal, VMMemory,
-    VMTable,
-};
+use wasmer_vm::{ImportInitializerFuncPtr, VMExport, VMFunction, VMGlobal, VMMemory, VMTable};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]

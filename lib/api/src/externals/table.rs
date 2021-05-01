@@ -57,7 +57,7 @@ impl Table {
             vm_table: VMTable {
                 from: table,
                 instance_ref: None,
-            }
+            },
         })
     }
 
@@ -99,7 +99,8 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_table_reference(&self.store)?;
-        self.vm_table.from
+        self.vm_table
+            .from
             .grow(delta, item)
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }

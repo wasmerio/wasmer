@@ -18,7 +18,7 @@ use std::sync::Arc;
 use wasmer_engine::{Export, ExportFunction, ExportFunctionMetadata};
 use wasmer_vm::{
     raise_user_trap, resume_panic, wasmer_call_trampoline, ImportInitializerFuncPtr,
-    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFunction, VMFuncRef, VMFunctionBody,
+    VMCallerCheckedAnyfunc, VMDynamicFunctionContext, VMFuncRef, VMFunction, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 

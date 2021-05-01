@@ -391,7 +391,6 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
     Ok(())
 }
 
-
 #[test]
 fn instance_local_memory_lifetime() -> Result<()> {
     let store = get_store(false);

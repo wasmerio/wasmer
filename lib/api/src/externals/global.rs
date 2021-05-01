@@ -78,7 +78,7 @@ impl Global {
             vm_global: VMGlobal {
                 from: Arc::new(global),
                 instance_ref: None,
-            }
+            },
         })
     }
 
@@ -178,7 +178,8 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            self.vm_global.from
+            self.vm_global
+                .from
                 .set(val)
                 .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }

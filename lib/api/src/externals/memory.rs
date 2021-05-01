@@ -55,7 +55,7 @@ impl Memory {
                 from: memory,
                 // We are creating it from the host, and therefore there is no
                 // associated instance with this memory
-                instance_ref: None
+                instance_ref: None,
             },
         })
     }
