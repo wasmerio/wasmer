@@ -2,7 +2,10 @@
 
 use crate::emitter_x64::*;
 use dynasm::dynasm;
-use dynasmrt::{aarch64::Aarch64Relocation, VecAssembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
+use dynasmrt::{
+    aarch64::Aarch64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi,
+    VecAssembler,
+};
 
 type Assembler = VecAssembler<Aarch64Relocation>;
 
@@ -421,8 +424,9 @@ macro_rules! avx_fn_cvt {
 }
 
 impl Emitter for Assembler {
-    type Label = DynamicLabel;
-    type Offset = AssemblyOffset;
+    fn finalize_data(self) -> Vec<u8> {
+        self.finalize().unwrap()
+    }
 
     fn emit_bytes(&mut self, bytes: &[u8]) {
         for &b in bytes {
@@ -446,7 +450,7 @@ impl Emitter for Assembler {
         self.push_u64(x);
     }
 
-    fn emit_label(&mut self, label: Self::Label) {
+    fn emit_label(&mut self, label: DynamicLabel) {
         dynasm!(self ; .arch aarch64 ; => label);
     }
 
@@ -455,7 +459,7 @@ impl Emitter for Assembler {
     }
 
     fn emit_nop_n(&mut self, n: usize) {
-        for _ in 0..n {
+        for _ in 0..n / 4 {
             dynasm!(self ; .arch aarch64 ; nop);
         }
     }
@@ -665,7 +669,7 @@ impl Emitter for Assembler {
             _ => unreachable!(),
         }
     }
-    fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
+    fn emit_lea_label(&mut self, label: DynamicLabel, dst: Location) {
         match dst {
             Location::GPR(dst) => {
                 dynasm!(self ; .arch aarch64 ; adr X(map_gpr(dst).x()), =>label);
@@ -717,7 +721,7 @@ impl Emitter for Assembler {
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(eor, self, sz, src, dst, { unreachable!("xor") });
     }
-    fn emit_jmp(&mut self, condition: Condition, label: Self::Label) {
+    fn emit_jmp(&mut self, condition: Condition, label: DynamicLabel) {
         use Condition::*;
 
         match condition {
@@ -733,7 +737,7 @@ impl Emitter for Assembler {
             Equal => dynasm!(self ; .arch aarch64 ; b.eq =>label),
             NotEqual => dynasm!(self ; .arch aarch64 ; b.ne =>label),
             Signed => dynasm!(self ; .arch aarch64 ; b.vs =>label), // TODO: Review this
-            Carry => unimplemented!(), // dynasm!(self ; .arch aarch64 ; ?setc?? >set),
+            Carry => dynasm!(self ; .arch aarch64 ; b.cs =>label),
         }
     }
 
@@ -1463,6 +1467,10 @@ impl Emitter for Assembler {
         dynasm!(self ; .arch aarch64 ; ucvtf D(map_xmm(dst).v()), X(map_gpr(src).x()));
     }
 
+    fn arch_mov64_imm_offset(&self) -> usize {
+        2
+    }
+
     fn arch_has_fneg(&self) -> bool {
         true
     }
@@ -1529,7 +1537,7 @@ impl Emitter for Assembler {
             ; br x27
         );
     }
-    fn emit_call_label(&mut self, label: Self::Label) {
+    fn emit_call_label(&mut self, label: DynamicLabel) {
         dynasm!(self ; .arch aarch64
             ; b >after
             ; addr:
