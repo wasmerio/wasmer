@@ -22,30 +22,6 @@ use wasmer_vm::{
     VMFunctionEnvironment, VMFunctionKind, VMTrampoline,
 };
 
-/// A function defined in the Wasm module
-#[derive(Clone, PartialEq, MemoryUsage)]
-pub struct WasmFunctionDefinition {
-    // Address of the trampoline to do the call.
-    #[loupe(skip)]
-    pub(crate) trampoline: VMTrampoline,
-}
-
-/// A function defined in the Host
-#[derive(Clone, PartialEq, MemoryUsage)]
-pub struct HostFunctionDefinition {
-    /// If the host function has a custom environment attached
-    pub(crate) has_env: bool,
-}
-
-/// The inner helper
-#[derive(Clone, PartialEq, MemoryUsage)]
-pub enum FunctionDefinition {
-    /// A function defined in the Wasm side
-    Wasm(WasmFunctionDefinition),
-    /// A function defined in the Host side
-    Host(HostFunctionDefinition),
-}
-
 /// A WebAssembly `function` instance.
 ///
 /// A function instance is the runtime representation of a function.
@@ -66,7 +42,6 @@ pub enum FunctionDefinition {
 #[derive(Clone, PartialEq, MemoryUsage)]
 pub struct Function {
     pub(crate) store: Store,
-    pub(crate) definition: FunctionDefinition,
     pub(crate) exported: ExportFunction,
 }
 
@@ -203,7 +178,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(
                     // # Safety
@@ -308,7 +282,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
                 vm_function: VMFunction {
@@ -359,8 +332,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: false }),
-
             exported: ExportFunction {
                 // TODO: figure out what's going on in this function: it takes an `Env`
                 // param but also marks itself as not having an env
@@ -421,7 +392,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
                 vm_function: VMFunction {
@@ -469,7 +439,6 @@ impl Function {
 
         Self {
             store: store.clone(),
-            definition: FunctionDefinition::Host(HostFunctionDefinition { has_env: true }),
             exported: ExportFunction {
                 metadata: Some(Arc::new(metadata)),
                 vm_function: VMFunction {
@@ -512,7 +481,7 @@ impl Function {
 
     fn call_wasm(
         &self,
-        func: &WasmFunctionDefinition,
+        trampoline: VMTrampoline,
         params: &[Val],
         results: &mut [Val],
     ) -> Result<(), RuntimeError> {
@@ -560,7 +529,7 @@ impl Function {
         if let Err(error) = unsafe {
             wasmer_call_trampoline(
                 self.exported.vm_function.vmctx,
-                func.trampoline,
+                trampoline,
                 self.exported.vm_function.address,
                 values_vec.as_mut_ptr() as *mut u8,
             )
@@ -649,34 +618,19 @@ impl Function {
     /// assert_eq!(sum.call(&[Value::I32(1), Value::I32(2)]).unwrap().to_vec(), vec![Value::I32(3)]);
     /// ```
     pub fn call(&self, params: &[Val]) -> Result<Box<[Val]>, RuntimeError> {
-        let mut results = vec![Val::null(); self.result_arity()];
-
-        match &self.definition {
-            FunctionDefinition::Wasm(wasm) => {
-                self.call_wasm(&wasm, params, &mut results)?;
-            }
-            // TODO: we can trivially hit this, look into it
-            _ => unimplemented!("The function definition isn't supported for the moment"),
+        if let Some(trampoline) = self.exported.vm_function.call_trampoline {
+            let mut results = vec![Val::null(); self.result_arity()];
+            self.call_wasm(trampoline, params, &mut results)?;
+            return Ok(results.into_boxed_slice());
         }
 
-        Ok(results.into_boxed_slice())
+        unimplemented!("The function definition isn't supported for the moment");
     }
 
     pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportFunction) -> Self {
-        if let Some(trampoline) = wasmer_export.vm_function.call_trampoline {
-            Self {
-                store: store.clone(),
-                definition: FunctionDefinition::Wasm(WasmFunctionDefinition { trampoline }),
-                exported: wasmer_export,
-            }
-        } else {
-            Self {
-                store: store.clone(),
-                definition: FunctionDefinition::Host(HostFunctionDefinition {
-                    has_env: !wasmer_export.vm_function.vmctx.is_null(),
-                }),
-                exported: wasmer_export,
-            }
+        Self {
+            store: store.clone(),
+            exported: wasmer_export,
         }
     }
 
@@ -798,11 +752,7 @@ impl Function {
             }
         }
 
-        Ok(NativeFunc::new(
-            self.store.clone(),
-            self.exported.clone(),
-            self.definition.clone(),
-        ))
+        Ok(NativeFunc::new(self.store.clone(), self.exported.clone()))
     }
 
     #[track_caller]
