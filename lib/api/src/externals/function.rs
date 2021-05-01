@@ -151,9 +151,8 @@ impl Function {
         FT: Into<FunctionType>,
         F: Fn(&[Val]) -> Result<Vec<Val>, RuntimeError> + 'static + Send + Sync,
     {
-        let wrapped_func = move |_env: &WithoutEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> {
-            func(args)
-        };
+        let wrapped_func =
+            move |_env: &WithoutEnv, args: &[Val]| -> Result<Vec<Val>, RuntimeError> { func(args) };
         Self::new_with_env(store, ty, WithoutEnv, wrapped_func)
     }
 
