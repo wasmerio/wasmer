@@ -671,8 +671,7 @@ checksum = "9ea835d29036a4087793836fa931b08837ad5e957da9e23886b29586fb9b6650"
 [[package]]
 name = "dynasm"
 version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "3d7d1242462849390bb2ad38aeed769499f1afc7383affa2ab0c1baa894c0200"
+source = "git+https://github.com/wasmerio/dynasm-rs?branch=vecmachine-dynamiclabel#8d8c1495a7acc3de5b3184e0268d833645f6330d"
 dependencies = [
  "bitflags",
  "byteorder",
@@ -686,8 +685,7 @@ dependencies = [
 [[package]]
 name = "dynasmrt"
 version = "1.0.1"
-source = "registry+https://github.com/rust-lang/crates.io-index"
-checksum = "c1dd4d1d5ca12258cef339a57a7643e8b233a42dea9bb849630ddd9dd7726aa9"
+source = "git+https://github.com/wasmerio/dynasm-rs?branch=vecmachine-dynamiclabel#8d8c1495a7acc3de5b3184e0268d833645f6330d"
 dependencies = [
  "byteorder",
  "dynasm",
