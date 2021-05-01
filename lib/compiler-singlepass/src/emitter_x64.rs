@@ -5,15 +5,6 @@ use dynasmrt::{x64::X64Relocation, VecAssembler, AssemblyOffset, DynamicLabel, D
 type Assembler = VecAssembler<X64Relocation>;
 
 
-/// Dynasm proc-macro checks for an `.arch` expression in a source file to
-/// determine the architecture it should use.
-fn _dummy(_a: &Assembler) {
-    dynasm!(
-        _a
-        ; .arch x64
-    );
-}
-
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
     Imm8(u8),
@@ -316,10 +307,10 @@ macro_rules! unop_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         match ($sz, $loc) {
             (Size::S32, Location::GPR(loc)) => {
-                dynasm!($assembler ; $ins Rd(loc as u8));
+                dynasm!($assembler ; .arch x64 ; $ins Rd(loc as u8));
             },
             (Size::S64, Location::GPR(loc)) => {
-                dynasm!($assembler ; $ins Rq(loc as u8));
+                dynasm!($assembler ; .arch x64 ; $ins Rq(loc as u8));
             },
             _ => $otherwise
         }
@@ -330,10 +321,10 @@ macro_rules! unop_mem {
     ($ins:ident, $assembler:tt, $sz:expr, $loc:expr, $otherwise:block) => {
         match ($sz, $loc) {
             (Size::S32, Location::Memory(loc, disp)) => {
-                dynasm!($assembler ; $ins DWORD [Rq(loc as u8) + disp] );
+                dynasm!($assembler ; .arch x64 ; $ins DWORD [Rq(loc as u8) + disp] );
             },
             (Size::S64, Location::Memory(loc, disp)) => {
-                dynasm!($assembler ; $ins QWORD [Rq(loc as u8) + disp] );
+                dynasm!($assembler ; .arch x64 ; $ins QWORD [Rq(loc as u8) + disp] );
             },
             _ => $otherwise
         }
@@ -352,10 +343,10 @@ macro_rules! binop_imm32_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Imm32(src), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rd(dst as u8), src as i32); // IMM32_2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rd(dst as u8), src as i32); // IMM32_2GPR
             },
             (Size::S64, Location::Imm32(src), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), src as i32); // IMM32_2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), src as i32); // IMM32_2GPR
             },
             _ => $otherwise
         }
@@ -366,10 +357,10 @@ macro_rules! binop_imm32_mem {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], src as i32);
+                dynasm!($assembler ; .arch x64 ; $ins DWORD [Rq(dst as u8) + disp], src as i32);
             },
             (Size::S64, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], src as i32);
+                dynasm!($assembler ; .arch x64 ; $ins QWORD [Rq(dst as u8) + disp], src as i32);
             },
             _ => $otherwise
         }
@@ -380,7 +371,7 @@ macro_rules! binop_imm64_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S64, Location::Imm64(src), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), QWORD src as i64); // IMM32_2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), QWORD src as i64); // IMM32_2GPR
             },
             _ => $otherwise
         }
@@ -391,10 +382,10 @@ macro_rules! binop_gpr_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rd(dst as u8), Rd(src as u8)); // GPR2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rd(dst as u8), Rd(src as u8)); // GPR2GPR
             },
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), Rq(src as u8)); // GPR2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), Rq(src as u8)); // GPR2GPR
             },
             _ => $otherwise
         }
@@ -405,10 +396,10 @@ macro_rules! binop_gpr_mem {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins [Rq(dst as u8) + disp], Rd(src as u8)); // GPR2MEM
+                dynasm!($assembler ; .arch x64 ; $ins [Rq(dst as u8) + disp], Rd(src as u8)); // GPR2MEM
             },
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins [Rq(dst as u8) + disp], Rq(src as u8)); // GPR2MEM
+                dynasm!($assembler ; .arch x64 ; $ins [Rq(dst as u8) + disp], Rq(src as u8)); // GPR2MEM
             },
             _ => $otherwise
         }
@@ -419,10 +410,10 @@ macro_rules! binop_mem_gpr {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rd(dst as u8), [Rq(src as u8) + disp]); // MEM2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rd(dst as u8), [Rq(src as u8) + disp]); // MEM2GPR
             },
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), [Rq(src as u8) + disp]); // MEM2GPR
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), [Rq(src as u8) + disp]); // MEM2GPR
             },
             _ => $otherwise
         }
@@ -447,28 +438,28 @@ macro_rules! binop_shift {
     ($ins:ident, $assembler:tt, $sz:expr, $src:expr, $dst:expr, $otherwise:block) => {
         match ($sz, $src, $dst) {
             (Size::S32, Location::GPR(GPR::RCX), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rd(dst as u8), cl);
+                dynasm!($assembler ; .arch x64 ; $ins Rd(dst as u8), cl);
             },
             (Size::S32, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], cl);
+                dynasm!($assembler ; .arch x64 ; $ins DWORD [Rq(dst as u8) + disp], cl);
             },
             (Size::S32, Location::Imm8(imm), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rd(dst as u8), imm as i8);
+                dynasm!($assembler ; .arch x64 ; $ins Rd(dst as u8), imm as i8);
             },
             (Size::S32, Location::Imm8(imm), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins DWORD [Rq(dst as u8) + disp], imm as i8);
+                dynasm!($assembler ; .arch x64 ; $ins DWORD [Rq(dst as u8) + disp], imm as i8);
             },
             (Size::S64, Location::GPR(GPR::RCX), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), cl);
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), cl);
             },
             (Size::S64, Location::GPR(GPR::RCX), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], cl);
+                dynasm!($assembler ; .arch x64 ; $ins QWORD [Rq(dst as u8) + disp], cl);
             },
             (Size::S64, Location::Imm8(imm), Location::GPR(dst)) => {
-                dynasm!($assembler ; $ins Rq(dst as u8), imm as i8);
+                dynasm!($assembler ; .arch x64 ; $ins Rq(dst as u8), imm as i8);
             },
             (Size::S64, Location::Imm8(imm), Location::Memory(dst, disp)) => {
-                dynasm!($assembler ; $ins QWORD [Rq(dst as u8) + disp], imm as i8);
+                dynasm!($assembler ; .arch x64 ; $ins QWORD [Rq(dst as u8) + disp], imm as i8);
             },
             _ => $otherwise
         }
@@ -477,7 +468,7 @@ macro_rules! binop_shift {
 
 macro_rules! jmp_op {
     ($ins:ident, $assembler:tt, $label:ident) => {
-        dynasm!($assembler ; $ins =>$label);
+        dynasm!($assembler ; .arch x64 ; $ins =>$label);
     }
 }
 
@@ -487,40 +478,40 @@ macro_rules! avx_fn {
             // Dynasm bug: AVX instructions are not encoded correctly.
             match src2 {
                 XMMOrMemory::XMM(x) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rx((x as u8))),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rx((x as u8))),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rx((x as u8))),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rx((x as u8))),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rx((x as u8))),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rx((x as u8))),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rx((x as u8))),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rx((x as u8))),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rx((x as u8))),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rx((x as u8))),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rx((x as u8))),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rx((x as u8))),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rx((x as u8))),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, Rx((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, Rx((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, Rx((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, Rx((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, Rx((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, Rx((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, Rx((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, Rx((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, Rx((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, Rx((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, Rx((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, Rx((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, Rx((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, Rx((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, Rx((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, Rx((x as u8))),
                 },
                 XMMOrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, [Rq((base as u8)) + disp]),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -532,40 +523,40 @@ macro_rules! avx_i2f_64_fn {
         fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
             match src2 {
                 GPROrMemory::GPR(x) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rq((x as u8))),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rq((x as u8))),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rq((x as u8))),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rq((x as u8))),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rq((x as u8))),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rq((x as u8))),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rq((x as u8))),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rq((x as u8))),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rq((x as u8))),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rq((x as u8))),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rq((x as u8))),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rq((x as u8))),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rq((x as u8))),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, Rq((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, Rq((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, Rq((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, Rq((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, Rq((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, Rq((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, Rq((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, Rq((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, Rq((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, Rq((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, Rq((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, Rq((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, Rq((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, Rq((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, Rq((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, Rq((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, QWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, QWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -577,40 +568,40 @@ macro_rules! avx_i2f_32_fn {
         fn $name(&mut self, src1: XMM, src2: GPROrMemory, dst: XMM) {
             match src2 {
                 GPROrMemory::GPR(x) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, Rd((x as u8))),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, Rd((x as u8))),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, Rd((x as u8))),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, Rd((x as u8))),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, Rd((x as u8))),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, Rd((x as u8))),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, Rd((x as u8))),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, Rd((x as u8))),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, Rd((x as u8))),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, Rd((x as u8))),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, Rd((x as u8))),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, Rd((x as u8))),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, Rd((x as u8))),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, Rd((x as u8))),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, Rd((x as u8))),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, Rd((x as u8))),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, Rd((x as u8))),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, Rd((x as u8))),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, Rd((x as u8))),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, Rd((x as u8))),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, Rd((x as u8))),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, Rd((x as u8))),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, Rd((x as u8))),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, Rd((x as u8))),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, Rd((x as u8))),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, Rd((x as u8))),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, Rd((x as u8))),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, Rd((x as u8))),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, Rd((x as u8))),
                 },
                 GPROrMemory::Memory(base, disp) => match src1 {
-                    XMM::XMM0 => dynasm!(self ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM1 => dynasm!(self ; $ins Rx((dst as u8)), xmm1, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM2 => dynasm!(self ; $ins Rx((dst as u8)), xmm2, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM3 => dynasm!(self ; $ins Rx((dst as u8)), xmm3, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM4 => dynasm!(self ; $ins Rx((dst as u8)), xmm4, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM5 => dynasm!(self ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM6 => dynasm!(self ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM7 => dynasm!(self ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM8 => dynasm!(self ; $ins Rx((dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM9 => dynasm!(self ; $ins Rx((dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM10 => dynasm!(self ; $ins Rx((dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM11 => dynasm!(self ; $ins Rx((dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM12 => dynasm!(self ; $ins Rx((dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM13 => dynasm!(self ; $ins Rx((dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM14 => dynasm!(self ; $ins Rx((dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
-                    XMM::XMM15 => dynasm!(self ; $ins Rx((dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM0 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm0, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM1 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm1, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM2 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm2, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM3 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm3, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM4 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm4, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM5 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm5, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM6 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm6, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM7 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm7, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM8 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm8, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM9 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm9, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM10 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm10, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM11 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm11, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM12 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm12, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM13 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm13, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM14 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm14, DWORD [Rq((base as u8)) + disp]),
+                    XMM::XMM15 => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), xmm15, DWORD [Rq((base as u8)) + disp]),
                 },
             }
         }
@@ -621,8 +612,8 @@ macro_rules! avx_round_fn {
     ($ins:ident, $name:ident, $mode:expr) => {
         fn $name(&mut self, src1: XMM, src2: XMMOrMemory, dst: XMM) {
             match src2 {
-                XMMOrMemory::XMM(x) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8)), $mode),
-                XMMOrMemory::Memory(base, disp) => dynasm!(self ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode),
+                XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), Rx((src1 as u8)), Rx((x as u8)), $mode),
+                XMMOrMemory::Memory(base, disp) => dynasm!(self ; .arch x64 ; $ins Rx((dst as u8)), Rx((src1 as u8)), [Rq((base as u8)) + disp], $mode),
             }
         }
     }
@@ -667,11 +658,11 @@ impl Emitter for Assembler {
     }
 
     fn emit_label(&mut self, label: Self::Label) {
-        dynasm!(self ; => label);
+        dynasm!(self ; .arch x64 ; => label);
     }
 
     fn emit_nop(&mut self) {
-        dynasm!(self ; nop);
+        dynasm!(self ; .arch x64 ; nop);
     }
 
     fn emit_nop_n(&mut self, mut n: usize) {
@@ -709,7 +700,7 @@ impl Emitter for Assembler {
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location) {
         // fast path
         if let (Location::Imm32(0), Location::GPR(x)) = (src, dst) {
-            dynasm!(self ; xor Rd(x as u8), Rd(x as u8));
+            dynasm!(self ; .arch x64 ; xor Rd(x as u8), Rd(x as u8));
             return;
         }
 
@@ -717,74 +708,74 @@ impl Emitter for Assembler {
             binop_imm64_gpr!(mov, self, sz, src, dst, {
                 match (sz, src, dst) {
                     (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov [Rq(dst as u8) + disp], Rb(src as u8));
+                        dynasm!(self ; .arch x64 ; mov [Rq(dst as u8) + disp], Rb(src as u8));
                     }
                     (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
+                        dynasm!(self ; .arch x64 ; mov Rb(dst as u8), [Rq(src as u8) + disp]);
                     }
                     (Size::S8, Location::Imm32(src), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rb(dst as u8), src as i8);
+                        dynasm!(self ; .arch x64 ; mov Rb(dst as u8), src as i8);
                     }
                     (Size::S8, Location::Imm64(src), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rb(dst as u8), src as i8);
+                        dynasm!(self ; .arch x64 ; mov Rb(dst as u8), src as i8);
                     }
                     (Size::S8, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
+                        dynasm!(self ; .arch x64 ; mov BYTE [Rq(dst as u8) + disp], src as i8);
                     }
                     (Size::S8, Location::Imm64(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov BYTE [Rq(dst as u8) + disp], src as i8);
+                        dynasm!(self ; .arch x64 ; mov BYTE [Rq(dst as u8) + disp], src as i8);
                     }
                     (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov [Rq(dst as u8) + disp], Rw(src as u8));
+                        dynasm!(self ; .arch x64 ; mov [Rq(dst as u8) + disp], Rw(src as u8));
                     }
                     (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
+                        dynasm!(self ; .arch x64 ; mov Rw(dst as u8), [Rq(src as u8) + disp]);
                     }
                     (Size::S16, Location::Imm32(src), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rw(dst as u8), src as i16);
+                        dynasm!(self ; .arch x64 ; mov Rw(dst as u8), src as i16);
                     }
                     (Size::S16, Location::Imm64(src), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rw(dst as u8), src as i16);
+                        dynasm!(self ; .arch x64 ; mov Rw(dst as u8), src as i16);
                     }
                     (Size::S16, Location::Imm32(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
+                        dynasm!(self ; .arch x64 ; mov WORD [Rq(dst as u8) + disp], src as i16);
                     }
                     (Size::S16, Location::Imm64(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov WORD [Rq(dst as u8) + disp], src as i16);
+                        dynasm!(self ; .arch x64 ; mov WORD [Rq(dst as u8) + disp], src as i16);
                     }
                     (Size::S32, Location::Imm64(src), Location::GPR(dst)) => {
-                        dynasm!(self ; mov Rd(dst as u8), src as i32);
+                        dynasm!(self ; .arch x64 ; mov Rd(dst as u8), src as i32);
                     }
                     (Size::S32, Location::Imm64(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; mov DWORD [Rq(dst as u8) + disp], src as i32);
+                        dynasm!(self ; .arch x64 ; mov DWORD [Rq(dst as u8) + disp], src as i32);
                     }
                     (Size::S32, Location::GPR(src), Location::XMM(dst)) => {
-                        dynasm!(self ; movd Rx(dst as u8), Rd(src as u8));
+                        dynasm!(self ; .arch x64 ; movd Rx(dst as u8), Rd(src as u8));
                     }
                     (Size::S32, Location::XMM(src), Location::GPR(dst)) => {
-                        dynasm!(self ; movd Rd(dst as u8), Rx(src as u8));
+                        dynasm!(self ; .arch x64 ; movd Rd(dst as u8), Rx(src as u8));
                     }
                     (Size::S32, Location::Memory(src, disp), Location::XMM(dst)) => {
-                        dynasm!(self ; movd Rx(dst as u8), [Rq(src as u8) + disp]);
+                        dynasm!(self ; .arch x64 ; movd Rx(dst as u8), [Rq(src as u8) + disp]);
                     }
                     (Size::S32, Location::XMM(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; movd [Rq(dst as u8) + disp], Rx(src as u8));
+                        dynasm!(self ; .arch x64 ; movd [Rq(dst as u8) + disp], Rx(src as u8));
                     }
 
                     (Size::S64, Location::GPR(src), Location::XMM(dst)) => {
-                        dynasm!(self ; movq Rx(dst as u8), Rq(src as u8));
+                        dynasm!(self ; .arch x64 ; movq Rx(dst as u8), Rq(src as u8));
                     }
                     (Size::S64, Location::XMM(src), Location::GPR(dst)) => {
-                        dynasm!(self ; movq Rq(dst as u8), Rx(src as u8));
+                        dynasm!(self ; .arch x64 ; movq Rq(dst as u8), Rx(src as u8));
                     }
                     (Size::S64, Location::Memory(src, disp), Location::XMM(dst)) => {
-                        dynasm!(self ; movq Rx(dst as u8), [Rq(src as u8) + disp]);
+                        dynasm!(self ; .arch x64 ; movq Rx(dst as u8), [Rq(src as u8) + disp]);
                     }
                     (Size::S64, Location::XMM(src), Location::Memory(dst, disp)) => {
-                        dynasm!(self ; movq [Rq(dst as u8) + disp], Rx(src as u8));
+                        dynasm!(self ; .arch x64 ; movq [Rq(dst as u8) + disp], Rx(src as u8));
                     }
                     (_, Location::XMM(src), Location::XMM(dst)) => {
-                        dynasm!(self ; movq Rx(dst as u8), Rx(src as u8));
+                        dynasm!(self ; .arch x64 ; movq Rx(dst as u8), Rx(src as u8));
                     }
 
                     _ => panic!("singlepass can't emit MOV {:?} {:?} {:?}", sz, src, dst),
@@ -795,16 +786,16 @@ impl Emitter for Assembler {
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rd(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; lea Rd(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; lea Rq(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S32, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
+                dynasm!(self ; .arch x64 ; lea Rd(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
             }
             (Size::S64, Location::MemoryAddTriple(src1, src2, disp), Location::GPR(dst)) => {
-                dynasm!(self ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
+                dynasm!(self ; .arch x64 ; lea Rq(dst as u8), [Rq(src1 as u8) + Rq(src2 as u8) + disp]);
             }
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }
@@ -812,16 +803,16 @@ impl Emitter for Assembler {
     fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
         match dst {
             Location::GPR(x) => {
-                dynasm!(self ; lea Rq(x as u8), [=>label]);
+                dynasm!(self ; .arch x64 ; lea Rq(x as u8), [=>label]);
             }
             _ => panic!("singlepass can't emit LEA label={:?} {:?}", label, dst),
         }
     }
     fn emit_cdq(&mut self) {
-        dynasm!(self ; cdq);
+        dynasm!(self ; .arch x64 ; cdq);
     }
     fn emit_cqo(&mut self) {
-        dynasm!(self ; cqo);
+        dynasm!(self ; .arch x64 ; cqo);
     }
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location) {
         binop_all_nofp!(xor, self, sz, src, dst, {
@@ -847,43 +838,43 @@ impl Emitter for Assembler {
     }
     fn emit_jmp_location(&mut self, loc: Location) {
         match loc {
-            Location::GPR(x) => dynasm!(self ; jmp Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; jmp QWORD [Rq(base as u8) + disp]),
+            Location::GPR(x) => dynasm!(self ; .arch x64 ; jmp Rq(x as u8)),
+            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; jmp QWORD [Rq(base as u8) + disp]),
             _ => panic!("singlepass can't emit JMP {:?}", loc),
         }
     }
     fn emit_set(&mut self, condition: Condition, dst: GPR) {
         match condition {
-            Condition::Above => dynasm!(self ; seta Rb(dst as u8)),
-            Condition::AboveEqual => dynasm!(self ; setae Rb(dst as u8)),
-            Condition::Below => dynasm!(self ; setb Rb(dst as u8)),
-            Condition::BelowEqual => dynasm!(self ; setbe Rb(dst as u8)),
-            Condition::Greater => dynasm!(self ; setg Rb(dst as u8)),
-            Condition::GreaterEqual => dynasm!(self ; setge Rb(dst as u8)),
-            Condition::Less => dynasm!(self ; setl Rb(dst as u8)),
-            Condition::LessEqual => dynasm!(self ; setle Rb(dst as u8)),
-            Condition::Equal => dynasm!(self ; sete Rb(dst as u8)),
-            Condition::NotEqual => dynasm!(self ; setne Rb(dst as u8)),
-            Condition::Signed => dynasm!(self ; sets Rb(dst as u8)),
-            Condition::Carry => dynasm!(self ; setc Rb(dst as u8)),
+            Condition::Above => dynasm!(self ; .arch x64 ; seta Rb(dst as u8)),
+            Condition::AboveEqual => dynasm!(self ; .arch x64 ; setae Rb(dst as u8)),
+            Condition::Below => dynasm!(self ; .arch x64 ; setb Rb(dst as u8)),
+            Condition::BelowEqual => dynasm!(self ; .arch x64 ; setbe Rb(dst as u8)),
+            Condition::Greater => dynasm!(self ; .arch x64 ; setg Rb(dst as u8)),
+            Condition::GreaterEqual => dynasm!(self ; .arch x64 ; setge Rb(dst as u8)),
+            Condition::Less => dynasm!(self ; .arch x64 ; setl Rb(dst as u8)),
+            Condition::LessEqual => dynasm!(self ; .arch x64 ; setle Rb(dst as u8)),
+            Condition::Equal => dynasm!(self ; .arch x64 ; sete Rb(dst as u8)),
+            Condition::NotEqual => dynasm!(self ; .arch x64 ; setne Rb(dst as u8)),
+            Condition::Signed => dynasm!(self ; .arch x64 ; sets Rb(dst as u8)),
+            Condition::Carry => dynasm!(self ; .arch x64 ; setc Rb(dst as u8)),
             _ => panic!("singlepass can't emit SET {:?} {:?}", condition, dst),
         }
     }
     fn emit_push(&mut self, sz: Size, src: Location) {
         match (sz, src) {
-            (Size::S64, Location::Imm32(src)) => dynasm!(self ; push src as i32),
-            (Size::S64, Location::GPR(src)) => dynasm!(self ; push Rq(src as u8)),
+            (Size::S64, Location::Imm32(src)) => dynasm!(self ; .arch x64 ; push src as i32),
+            (Size::S64, Location::GPR(src)) => dynasm!(self ; .arch x64 ; push Rq(src as u8)),
             (Size::S64, Location::Memory(src, disp)) => {
-                dynasm!(self ; push QWORD [Rq(src as u8) + disp])
+                dynasm!(self ; .arch x64 ; push QWORD [Rq(src as u8) + disp])
             }
             _ => panic!("singlepass can't emit PUSH {:?} {:?}", sz, src),
         }
     }
     fn emit_pop(&mut self, sz: Size, dst: Location) {
         match (sz, dst) {
-            (Size::S64, Location::GPR(dst)) => dynasm!(self ; pop Rq(dst as u8)),
+            (Size::S64, Location::GPR(dst)) => dynasm!(self ; .arch x64 ; pop Rq(dst as u8)),
             (Size::S64, Location::Memory(dst, disp)) => {
-                dynasm!(self ; pop QWORD [Rq(dst as u8) + disp])
+                dynasm!(self ; .arch x64 ; pop QWORD [Rq(dst as u8) + disp])
             }
             _ => panic!("singlepass can't emit POP {:?} {:?}", sz, dst),
         }
@@ -903,9 +894,9 @@ impl Emitter for Assembler {
         use std::cmp::Ordering;
         match consts {
             Some((x, y)) => match x.cmp(&y) {
-                Ordering::Less => dynasm!(self ; cmp DWORD [>const_neg_one_32], 0),
-                Ordering::Equal => dynasm!(self ; cmp DWORD [>const_zero_32], 0),
-                Ordering::Greater => dynasm!(self ; cmp DWORD [>const_pos_one_32], 0),
+                Ordering::Less => dynasm!(self ; .arch x64 ; cmp DWORD [>const_neg_one_32], 0),
+                Ordering::Equal => dynasm!(self ; .arch x64 ; cmp DWORD [>const_zero_32], 0),
+                Ordering::Greater => dynasm!(self ; .arch x64 ; cmp DWORD [>const_pos_one_32], 0),
             },
             None => binop_all_nofp!(cmp, self, sz, left, right, {
                 panic!("singlepass can't emit CMP {:?} {:?} {:?}", sz, left, right);
@@ -932,21 +923,21 @@ impl Emitter for Assembler {
     }
     fn emit_neg(&mut self, sz: Size, value: Location) {
         match (sz, value) {
-            (Size::S8, Location::GPR(value)) => dynasm!(self ; neg Rb(value as u8)),
+            (Size::S8, Location::GPR(value)) => dynasm!(self ; .arch x64 ; neg Rb(value as u8)),
             (Size::S8, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
+                dynasm!(self ; .arch x64 ; neg [Rq(value as u8) + disp])
             }
-            (Size::S16, Location::GPR(value)) => dynasm!(self ; neg Rw(value as u8)),
+            (Size::S16, Location::GPR(value)) => dynasm!(self ; .arch x64 ; neg Rw(value as u8)),
             (Size::S16, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
+                dynasm!(self ; .arch x64 ; neg [Rq(value as u8) + disp])
             }
-            (Size::S32, Location::GPR(value)) => dynasm!(self ; neg Rd(value as u8)),
+            (Size::S32, Location::GPR(value)) => dynasm!(self ; .arch x64 ; neg Rd(value as u8)),
             (Size::S32, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
+                dynasm!(self ; .arch x64 ; neg [Rq(value as u8) + disp])
             }
-            (Size::S64, Location::GPR(value)) => dynasm!(self ; neg Rq(value as u8)),
+            (Size::S64, Location::GPR(value)) => dynasm!(self ; .arch x64 ; neg Rq(value as u8)),
             (Size::S64, Location::Memory(value, disp)) => {
-                dynasm!(self ; neg [Rq(value as u8) + disp])
+                dynasm!(self ; .arch x64 ; neg [Rq(value as u8) + disp])
             }
             _ => panic!("singlepass can't emit NEG {:?} {:?}", sz, value),
         }
@@ -959,7 +950,7 @@ impl Emitter for Assembler {
         });
     }
     fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR) {
-        dynasm!(self ; imul Rq(dst as u8), Rq(dst as u8), src as i32);
+        dynasm!(self ; .arch x64 ; imul Rq(dst as u8), Rq(dst as u8), src as i32);
     }
     fn emit_div(&mut self, sz: Size, divisor: Location) {
         unop_gpr_or_mem!(div, self, sz, divisor, {
@@ -1030,28 +1021,28 @@ impl Emitter for Assembler {
     fn emit_movzx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), Rb(src as u8));
+                dynasm!(self ; .arch x64 ; movzx Rd(dst as u8), Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), Rw(src as u8));
+                dynasm!(self ; .arch x64 ; movzx Rd(dst as u8), Rw(src as u8));
             }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movzx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movzx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
             }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), Rb(src as u8));
+                dynasm!(self ; .arch x64 ; movzx Rq(dst as u8), Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), Rw(src as u8));
+                dynasm!(self ; .arch x64 ; movzx Rq(dst as u8), Rw(src as u8));
             }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movzx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
             _ => {
                 panic!(
@@ -1064,34 +1055,34 @@ impl Emitter for Assembler {
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
         match (sz_src, src, sz_dst, dst) {
             (Size::S8, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), Rb(src as u8));
+                dynasm!(self ; .arch x64 ; movsx Rd(dst as u8), Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), Rw(src as u8));
+                dynasm!(self ; .arch x64 ; movsx Rd(dst as u8), Rw(src as u8));
             }
             (Size::S8, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movsx Rd(dst as u8), BYTE [Rq(src as u8) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S32, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movsx Rd(dst as u8), WORD [Rq(src as u8) + disp]);
             }
             (Size::S8, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rb(src as u8));
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rw(src as u8));
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), Rw(src as u8));
             }
             (Size::S32, Location::GPR(src), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), Rd(src as u8));
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), Rd(src as u8));
             }
             (Size::S8, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), BYTE [Rq(src as u8) + disp]);
             }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
-                dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
             _ => {
                 panic!(
@@ -1105,40 +1096,40 @@ impl Emitter for Assembler {
     fn emit_xchg(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rb(dst as u8), Rb(src as u8));
+                dynasm!(self ; .arch x64 ; xchg Rb(dst as u8), Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rw(dst as u8), Rw(src as u8));
+                dynasm!(self ; .arch x64 ; xchg Rw(dst as u8), Rw(src as u8));
             }
             (Size::S32, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rd(dst as u8), Rd(src as u8));
+                dynasm!(self ; .arch x64 ; xchg Rd(dst as u8), Rd(src as u8));
             }
             (Size::S64, Location::GPR(src), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rq(dst as u8), Rq(src as u8));
+                dynasm!(self ; .arch x64 ; xchg Rq(dst as u8), Rq(src as u8));
             }
             (Size::S8, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rb(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; xchg Rb(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rb(src as u8));
+                dynasm!(self ; .arch x64 ; xchg [Rq(dst as u8) + disp], Rb(src as u8));
             }
             (Size::S16, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rw(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; xchg Rw(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rw(src as u8));
+                dynasm!(self ; .arch x64 ; xchg [Rq(dst as u8) + disp], Rw(src as u8));
             }
             (Size::S32, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rd(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; xchg Rd(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rd(src as u8));
+                dynasm!(self ; .arch x64 ; xchg [Rq(dst as u8) + disp], Rd(src as u8));
             }
             (Size::S64, Location::Memory(src, disp), Location::GPR(dst)) => {
-                dynasm!(self ; xchg Rq(dst as u8), [Rq(src as u8) + disp]);
+                dynasm!(self ; .arch x64 ; xchg Rq(dst as u8), [Rq(src as u8) + disp]);
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; xchg [Rq(dst as u8) + disp], Rq(src as u8));
+                dynasm!(self ; .arch x64 ; xchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
             _ => panic!("singlepass can't emit XCHG {:?} {:?} {:?}", sz, src, dst),
         }
@@ -1147,16 +1138,16 @@ impl Emitter for Assembler {
     fn emit_lock_xadd(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rb(src as u8));
+                dynasm!(self ; .arch x64 ; lock xadd [Rq(dst as u8) + disp], Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rw(src as u8));
+                dynasm!(self ; .arch x64 ; lock xadd [Rq(dst as u8) + disp], Rw(src as u8));
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rd(src as u8));
+                dynasm!(self ; .arch x64 ; lock xadd [Rq(dst as u8) + disp], Rd(src as u8));
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
+                dynasm!(self ; .arch x64 ; lock xadd [Rq(dst as u8) + disp], Rq(src as u8));
             }
             _ => panic!(
                 "singlepass can't emit LOCK XADD {:?} {:?} {:?}",
@@ -1168,16 +1159,16 @@ impl Emitter for Assembler {
     fn emit_lock_cmpxchg(&mut self, sz: Size, src: Location, dst: Location) {
         match (sz, src, dst) {
             (Size::S8, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rb(src as u8));
+                dynasm!(self ; .arch x64 ; lock cmpxchg [Rq(dst as u8) + disp], Rb(src as u8));
             }
             (Size::S16, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rw(src as u8));
+                dynasm!(self ; .arch x64 ; lock cmpxchg [Rq(dst as u8) + disp], Rw(src as u8));
             }
             (Size::S32, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rd(src as u8));
+                dynasm!(self ; .arch x64 ; lock cmpxchg [Rq(dst as u8) + disp], Rd(src as u8));
             }
             (Size::S64, Location::GPR(src), Location::Memory(dst, disp)) => {
-                dynasm!(self ; lock cmpxchg [Rq(dst as u8) + disp], Rq(src as u8));
+                dynasm!(self ; .arch x64 ; lock cmpxchg [Rq(dst as u8) + disp], Rq(src as u8));
             }
             _ => panic!(
                 "singlepass can't emit LOCK CMPXCHG {:?} {:?} {:?}",
@@ -1187,34 +1178,34 @@ impl Emitter for Assembler {
     }
 
     fn emit_rep_stosq(&mut self) {
-        dynasm!(self ; rep stosq);
+        dynasm!(self ; .arch x64 ; rep stosq);
     }
     fn emit_btc_gpr_imm8_32(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; btc Rd(dst as u8), BYTE src as i8);
+        dynasm!(self ; .arch x64 ; btc Rd(dst as u8), BYTE src as i8);
     }
 
     fn emit_btc_gpr_imm8_64(&mut self, src: u8, dst: GPR) {
-        dynasm!(self ; btc Rq(dst as u8), BYTE src as i8);
+        dynasm!(self ; .arch x64 ; btc Rq(dst as u8), BYTE src as i8);
     }
 
     fn emit_cmovae_gpr_32(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; cmovae Rd(dst as u8), Rd(src as u8));
+        dynasm!(self ; .arch x64 ; cmovae Rd(dst as u8), Rd(src as u8));
     }
 
     fn emit_cmovae_gpr_64(&mut self, src: GPR, dst: GPR) {
-        dynasm!(self ; cmovae Rq(dst as u8), Rq(src as u8));
+        dynasm!(self ; .arch x64 ; cmovae Rq(dst as u8), Rq(src as u8));
     }
 
     fn emit_vmovaps(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
         match (src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
-                dynasm!(self ; movaps Rx(dst as u8), Rx(src as u8))
+                dynasm!(self ; .arch x64 ; movaps Rx(dst as u8), Rx(src as u8))
             }
             (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
-                dynasm!(self ; movaps Rx(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; movaps Rx(dst as u8), [Rq(base as u8) + disp])
             }
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
-                dynasm!(self ; movaps [Rq(base as u8) + disp], Rx(src as u8))
+                dynasm!(self ; .arch x64 ; movaps [Rq(base as u8) + disp], Rx(src as u8))
             }
             _ => panic!("singlepass can't emit VMOVAPS {:?} {:?}", src, dst),
         };
@@ -1223,13 +1214,13 @@ impl Emitter for Assembler {
     fn emit_vmovapd(&mut self, src: XMMOrMemory, dst: XMMOrMemory) {
         match (src, dst) {
             (XMMOrMemory::XMM(src), XMMOrMemory::XMM(dst)) => {
-                dynasm!(self ; movapd Rx(dst as u8), Rx(src as u8))
+                dynasm!(self ; .arch x64 ; movapd Rx(dst as u8), Rx(src as u8))
             }
             (XMMOrMemory::Memory(base, disp), XMMOrMemory::XMM(dst)) => {
-                dynasm!(self ; movapd Rx(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; movapd Rx(dst as u8), [Rq(base as u8) + disp])
             }
             (XMMOrMemory::XMM(src), XMMOrMemory::Memory(base, disp)) => {
-                dynasm!(self ; movapd [Rq(base as u8) + disp], Rx(src as u8))
+                dynasm!(self ; .arch x64 ; movapd [Rq(base as u8) + disp], Rx(src as u8))
             }
             _ => panic!("singlepass can't emit VMOVAPD {:?} {:?}", src, dst),
         };
@@ -1303,10 +1294,10 @@ impl Emitter for Assembler {
     fn emit_vblendvps(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
         match src2 {
             XMMOrMemory::XMM(src2) => {
-                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+                dynasm!(self ; .arch x64 ; vblendvps Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
             }
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+                dynasm!(self ; .arch x64 ; vblendvps Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
             }
         }
     }
@@ -1314,96 +1305,96 @@ impl Emitter for Assembler {
     fn emit_vblendvpd(&mut self, src1: XMM, src2: XMMOrMemory, mask: XMM, dst: XMM) {
         match src2 {
             XMMOrMemory::XMM(src2) => {
-                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
+                dynasm!(self ; .arch x64 ; vblendvpd Rx(dst as u8), Rx(mask as u8), Rx(src2 as u8), Rx(src1 as u8))
             }
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
+                dynasm!(self ; .arch x64 ; vblendvpd Rx(dst as u8), Rx(mask as u8), [Rq(base as u8) + disp], Rx(src1 as u8))
             }
         }
     }
 
     fn emit_ucomiss(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; ucomiss Rx(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; ucomiss Rx(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; ucomiss Rx(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_ucomisd(&mut self, src: XMMOrMemory, dst: XMM) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; ucomisd Rx(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; ucomisd Rx(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; ucomisd Rx(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_cvttss2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rd(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; cvttss2si Rd(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; cvttss2si Rd(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_cvttss2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; cvttss2si Rq(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; cvttss2si Rq(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; cvttss2si Rq(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_cvttsd2si_32(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; cvttsd2si Rd(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; cvttsd2si Rd(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_cvttsd2si_64(&mut self, src: XMMOrMemory, dst: GPR) {
         match src {
-            XMMOrMemory::XMM(x) => dynasm!(self ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
+            XMMOrMemory::XMM(x) => dynasm!(self ; .arch x64 ; cvttsd2si Rq(dst as u8), Rx(x as u8)),
             XMMOrMemory::Memory(base, disp) => {
-                dynasm!(self ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
+                dynasm!(self ; .arch x64 ; cvttsd2si Rq(dst as u8), [Rq(base as u8) + disp])
             }
         }
     }
 
     fn emit_test_gpr_64(&mut self, reg: GPR) {
-        dynasm!(self ; test Rq(reg as u8), Rq(reg as u8));
+        dynasm!(self ; .arch x64 ; test Rq(reg as u8), Rq(reg as u8));
     }
 
     fn emit_ud2(&mut self) {
-        dynasm!(self ; ud2);
+        dynasm!(self ; .arch x64 ; ud2);
     }
     fn emit_ret(&mut self) {
-        dynasm!(self ; ret);
+        dynasm!(self ; .arch x64 ; ret);
     }
 
     fn emit_call_label(&mut self, label: Self::Label) {
-        dynasm!(self ; call =>label);
+        dynasm!(self ; .arch x64 ; call =>label);
     }
     fn emit_call_location(&mut self, loc: Location) {
         match loc {
-            Location::GPR(x) => dynasm!(self ; call Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; call QWORD [Rq(base as u8) + disp]),
+            Location::GPR(x) => dynasm!(self ; .arch x64 ; call Rq(x as u8)),
+            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; call QWORD [Rq(base as u8) + disp]),
             _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
     }
 
     fn emit_call_register(&mut self, reg: GPR) {
-        dynasm!(self ; call Rq(reg as u8));
+        dynasm!(self ; .arch x64 ; call Rq(reg as u8));
     }
 
     fn emit_bkpt(&mut self) {
-        dynasm!(self ; int 0x3);
+        dynasm!(self ; .arch x64 ; int 0x3);
     }
 
     fn emit_host_redirection(&mut self, target: GPR) {
