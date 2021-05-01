@@ -116,7 +116,7 @@ impl From<VMTable> for VMExport {
 }
 
 /// A memory export value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct VMMemory {
     /// Pointer to the containing `Memory`.
     pub from: Arc<dyn Memory>,
