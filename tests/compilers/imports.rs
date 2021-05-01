@@ -390,3 +390,44 @@ fn multi_use_host_fn_manages_memory_correctly() -> Result<()> {
     drop(instance2);
     Ok(())
 }
+
+
+#[test]
+fn instance_local_memory_lifetime() -> Result<()> {
+    let store = get_store(false);
+
+    let memory: Memory = {
+        let wat = r#"(module
+    (memory $mem 1)
+    (export "memory" (memory $mem))
+)"#;
+        let module = Module::new(&store, wat)?;
+        let instance = Instance::new(&module, &imports! {})?;
+        instance.exports.get_memory("memory")?.clone()
+    };
+
+    let wat = r#"(module
+    (import "env" "memory" (memory $mem 1) )
+    (func $get_at (type $get_at_t) (param $idx i32) (result i32)
+      (i32.load (local.get $idx)))
+    (type $get_at_t (func (param i32) (result i32)))
+    (type $set_at_t (func (param i32) (param i32)))
+    (func $set_at (type $set_at_t) (param $idx i32) (param $val i32)
+      (i32.store (local.get $idx) (local.get $val)))
+    (export "get_at" (func $get_at))
+    (export "set_at" (func $set_at))
+)"#;
+    let module = Module::new(&store, wat)?;
+    let imports = imports! {
+        "env" => {
+            "memory" => memory,
+        },
+    };
+    let instance = Instance::new(&module, &imports)?;
+    let set_at: NativeFunc<(i32, i32), ()> = instance.exports.get_native_function("set_at")?;
+    let get_at: NativeFunc<i32, i32> = instance.exports.get_native_function("get_at")?;
+    set_at.call(200, 123)?;
+    assert_eq!(get_at.call(200)?, 123);
+
+    Ok(())
+}
