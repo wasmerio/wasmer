@@ -451,6 +451,11 @@ impl Machine {
             }
         }
 
+        // Initialize all normal locals to zero.
+        for i in n_params..n {
+            a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
+        }
+
         // Load vmctx into R15.
         a.emit_mov(
             Size::S64,
@@ -466,32 +471,32 @@ impl Machine {
             a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
         }
 
-        // Initialize all normal locals to zero.
-        let mut init_stack_loc_cnt = 0;
-        let mut last_stack_loc = Location::Memory(GPR::RBP, i32::MAX);
-        for i in n_params..n {
-            match locations[i] {
-                Location::Memory(_, _) => {
-                    init_stack_loc_cnt += 1;
-                    last_stack_loc = cmp::min(last_stack_loc, locations[i]);
-                }
-                Location::GPR(_) => {
-                    a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
-                }
-                _ => unreachable!(),
-            }
-        }
-        if init_stack_loc_cnt > 0 {
-            // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
-            a.emit_mov(
-                Size::S64,
-                Location::Imm64(init_stack_loc_cnt as u64),
-                Location::GPR(GPR::RCX),
-            );
-            a.emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
-            a.emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
-            a.emit_rep_stosq();
-        }
+        // // Initialize all normal locals to zero.
+        // let mut init_stack_loc_cnt = 0;
+        // let mut last_stack_loc = Location::Memory(GPR::RBP, i32::MAX);
+        // for i in n_params..n {
+        //     match locations[i] {
+        //         Location::Memory(_, _) => {
+        //             init_stack_loc_cnt += 1;
+        //             last_stack_loc = cmp::min(last_stack_loc, locations[i]);
+        //         }
+        //         Location::GPR(_) => {
+        //             a.emit_mov(Size::S64, Location::Imm32(0), locations[i]);
+        //         }
+        //         _ => unreachable!(),
+        //     }
+        // }
+        // if init_stack_loc_cnt > 0 {
+        //     // Since these assemblies take up to 24 bytes, if more than 2 slots are initialized, then they are smaller.
+        //     a.emit_mov(
+        //         Size::S64,
+        //         Location::Imm64(init_stack_loc_cnt as u64),
+        //         Location::GPR(GPR::RCX),
+        //     );
+        //     a.emit_xor(Size::S64, Location::GPR(GPR::RAX), Location::GPR(GPR::RAX));
+        //     a.emit_lea(Size::S64, last_stack_loc, Location::GPR(GPR::RDI));
+        //     a.emit_rep_stosq();
+        // }
 
         // Add the size of all locals allocated to stack.
         self.stack_offset.0 += static_area_size - callee_saved_regs_size;

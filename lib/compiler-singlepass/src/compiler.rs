@@ -7,6 +7,7 @@ use crate::codegen_x64::{
     CodegenError, FuncGen,
 };
 use crate::config::Singlepass;
+use dynasmrt::{aarch64::Aarch64Relocation, x64::X64Relocation, VecAssembler};
 use loupe::MemoryUsage;
 #[cfg(feature = "rayon")]
 use rayon::prelude::{IntoParallelIterator, ParallelIterator};
@@ -76,7 +77,13 @@ impl Compiler for SinglepassCompiler {
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
             .map(|i| {
-                gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
+                let emitter: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
+                gen_import_call_trampoline(
+                    emitter,
+                    &vmoffsets,
+                    i,
+                    &module.signatures[module.functions[i]],
+                )
             })
             .collect::<Vec<_>>()
             .into_iter()
@@ -103,8 +110,10 @@ impl Compiler for SinglepassCompiler {
                         locals.push(ty);
                     }
                 }
+                let emitter: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
 
                 let mut generator = FuncGen::new(
+                    emitter,
                     module,
                     &self.config,
                     &vmoffsets,
@@ -132,7 +141,10 @@ impl Compiler for SinglepassCompiler {
             .values()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(gen_std_trampoline)
+            .map(|d| {
+                let emitter: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
+                gen_std_trampoline(emitter, d)
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<_, _>>();
@@ -141,7 +153,10 @@ impl Compiler for SinglepassCompiler {
             .imported_function_types()
             .collect::<Vec<_>>()
             .into_par_iter_if_rayon()
-            .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
+            .map(|func_type| {
+                let emitter: VecAssembler<Aarch64Relocation> = VecAssembler::new(0);
+                gen_std_dynamic_import_trampoline(emitter, &vmoffsets, &func_type)
+            })
             .collect::<Vec<_>>()
             .into_iter()
             .collect::<PrimaryMap<FunctionIndex, FunctionBody>>();

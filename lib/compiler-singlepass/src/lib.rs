@@ -14,8 +14,8 @@ mod common_decl;
 mod compiler;
 mod config;
 mod emitter_x64;
-mod translator_aarch64;
 mod machine;
+mod translator_aarch64;
 mod x64_decl;
 
 pub use crate::compiler::SinglepassCompiler;

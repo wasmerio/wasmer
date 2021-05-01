@@ -1,9 +1,8 @@
 pub use crate::x64_decl::{GPR, XMM};
 use dynasm::dynasm;
-use dynasmrt::{x64::X64Relocation, VecAssembler, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi};
-
-type Assembler = VecAssembler<X64Relocation>;
-
+use dynasmrt::{
+    x64::X64Relocation, AssemblyOffset, DynamicLabel, DynasmApi, DynasmLabelApi, VecAssembler,
+};
 
 #[derive(Copy, Clone, Debug, Eq, PartialEq, Ord, PartialOrd, Hash)]
 pub enum Location {
@@ -57,19 +56,17 @@ pub enum GPROrMemory {
 }
 
 pub trait Emitter {
-    type Label;
-    type Offset;
-
-    fn get_label(&mut self) -> Self::Label;
-    fn get_offset(&self) -> Self::Offset;
+    fn get_label(&mut self) -> DynamicLabel;
+    fn get_offset(&self) -> AssemblyOffset;
     fn get_jmp_instr_size(&self) -> u8;
 
     fn finalize_function(&mut self) {}
+    fn finalize_data(self) -> Vec<u8>;
 
     fn emit_u64(&mut self, x: u64);
     fn emit_bytes(&mut self, bytes: &[u8]);
 
-    fn emit_label(&mut self, label: Self::Label);
+    fn emit_label(&mut self, label: DynamicLabel);
 
     fn emit_nop(&mut self);
 
@@ -79,11 +76,11 @@ pub trait Emitter {
 
     fn emit_mov(&mut self, sz: Size, src: Location, dst: Location);
     fn emit_lea(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_lea_label(&mut self, label: Self::Label, dst: Location);
+    fn emit_lea_label(&mut self, label: DynamicLabel, dst: Location);
     fn emit_cdq(&mut self);
     fn emit_cqo(&mut self);
     fn emit_xor(&mut self, sz: Size, src: Location, dst: Location);
-    fn emit_jmp(&mut self, condition: Condition, label: Self::Label);
+    fn emit_jmp(&mut self, condition: Condition, label: DynamicLabel);
     fn emit_jmp_location(&mut self, loc: Location);
     fn emit_set(&mut self, condition: Condition, dst: GPR);
     fn emit_push(&mut self, sz: Size, src: Location);
@@ -196,7 +193,7 @@ pub trait Emitter {
 
     fn emit_ud2(&mut self);
     fn emit_ret(&mut self);
-    fn emit_call_label(&mut self, label: Self::Label);
+    fn emit_call_label(&mut self, label: DynamicLabel);
     fn emit_call_location(&mut self, loc: Location);
 
     fn emit_call_register(&mut self, reg: GPR);
@@ -619,10 +616,7 @@ macro_rules! avx_round_fn {
     }
 }
 
-impl Emitter for Assembler {
-    type Label = DynamicLabel;
-    type Offset = AssemblyOffset;
-
+impl Emitter for VecAssembler<X64Relocation> {
     fn get_label(&mut self) -> DynamicLabel {
         self.new_dynamic_label()
     }
@@ -633,6 +627,10 @@ impl Emitter for Assembler {
 
     fn get_jmp_instr_size(&self) -> u8 {
         5
+    }
+
+    fn finalize_data(self) -> Vec<u8> {
+        self.finalize().unwrap()
     }
 
     fn finalize_function(&mut self) {
@@ -657,7 +655,7 @@ impl Emitter for Assembler {
         }
     }
 
-    fn emit_label(&mut self, label: Self::Label) {
+    fn emit_label(&mut self, label: DynamicLabel) {
         dynasm!(self ; .arch x64 ; => label);
     }
 
@@ -800,7 +798,7 @@ impl Emitter for Assembler {
             _ => panic!("singlepass can't emit LEA {:?} {:?} {:?}", sz, src, dst),
         }
     }
-    fn emit_lea_label(&mut self, label: Self::Label, dst: Location) {
+    fn emit_lea_label(&mut self, label: DynamicLabel, dst: Location) {
         match dst {
             Location::GPR(x) => {
                 dynasm!(self ; .arch x64 ; lea Rq(x as u8), [=>label]);
@@ -819,7 +817,7 @@ impl Emitter for Assembler {
             panic!("singlepass can't emit XOR {:?} {:?} {:?}", sz, src, dst)
         });
     }
-    fn emit_jmp(&mut self, condition: Condition, label: Self::Label) {
+    fn emit_jmp(&mut self, condition: Condition, label: DynamicLabel) {
         match condition {
             Condition::None => jmp_op!(jmp, self, label),
             Condition::Above => jmp_op!(ja, self, label),
@@ -839,7 +837,9 @@ impl Emitter for Assembler {
     fn emit_jmp_location(&mut self, loc: Location) {
         match loc {
             Location::GPR(x) => dynasm!(self ; .arch x64 ; jmp Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; jmp QWORD [Rq(base as u8) + disp]),
+            Location::Memory(base, disp) => {
+                dynasm!(self ; .arch x64 ; jmp QWORD [Rq(base as u8) + disp])
+            }
             _ => panic!("singlepass can't emit JMP {:?}", loc),
         }
     }
@@ -1378,13 +1378,15 @@ impl Emitter for Assembler {
         dynasm!(self ; .arch x64 ; ret);
     }
 
-    fn emit_call_label(&mut self, label: Self::Label) {
+    fn emit_call_label(&mut self, label: DynamicLabel) {
         dynasm!(self ; .arch x64 ; call =>label);
     }
     fn emit_call_location(&mut self, loc: Location) {
         match loc {
             Location::GPR(x) => dynasm!(self ; .arch x64 ; call Rq(x as u8)),
-            Location::Memory(base, disp) => dynasm!(self ; .arch x64 ; call QWORD [Rq(base as u8) + disp]),
+            Location::Memory(base, disp) => {
+                dynasm!(self ; .arch x64 ; call QWORD [Rq(base as u8) + disp])
+            }
             _ => panic!("singlepass can't emit CALL {:?}", loc),
         }
     }
