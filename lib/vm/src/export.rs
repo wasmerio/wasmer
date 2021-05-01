@@ -70,7 +70,7 @@ impl From<VMFunction> for VMExport {
 }
 
 /// A table export value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct VMTable {
     /// Pointer to the containing `Table`.
     pub from: Arc<dyn Table>,
