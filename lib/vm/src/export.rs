@@ -162,7 +162,7 @@ impl From<VMMemory> for VMExport {
 }
 
 /// A global export value.
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct VMGlobal {
     /// The global declaration, used for compatibility checking.
     pub from: Arc<Global>,
