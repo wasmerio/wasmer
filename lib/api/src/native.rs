@@ -9,9 +9,7 @@
 //! ```
 use std::marker::PhantomData;
 
-use crate::externals::function::{
-    DynamicFunctionWithEnv, DynamicFunctionWithoutEnv, VMDynamicFunction,
-};
+use crate::externals::function::{DynamicFunction, VMDynamicFunction};
 use crate::{FromToNativeWasmType, Function, RuntimeError, Store, WasmTypeList};
 use std::panic::{catch_unwind, AssertUnwindSafe};
 use wasmer_engine::ExportFunction;
@@ -40,10 +38,6 @@ where
             exported,
             _phantom: PhantomData,
         }
-    }
-
-    pub(crate) fn has_env(&self) -> bool {
-        !self.exported.vm_function.vmctx.is_null()
     }
 
     pub(crate) fn is_host(&self) -> bool {
@@ -180,16 +174,9 @@ macro_rules! impl_native_traits {
                             Ok(Rets::from_c_struct(results))
                         },
                         VMFunctionKind::Dynamic => {
-                            let has_env = self.has_env();
                             let params_list = [ $( $x.to_native().to_value() ),* ];
-                            let results = if !has_env {
-                                type VMContextWithoutEnv = VMDynamicFunctionContext<DynamicFunctionWithoutEnv>;
-                                unsafe {
-                                    let ctx = self.vmctx().host_env as *mut VMContextWithoutEnv;
-                                    (*ctx).ctx.call(&params_list)?
-                                }
-                            } else {
-                                type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunctionWithEnv<std::ffi::c_void>>;
+                            let results = {
+                                type VMContextWithEnv = VMDynamicFunctionContext<DynamicFunction<std::ffi::c_void>>;
                                 unsafe {
                                     let ctx = self.vmctx().host_env as *mut VMContextWithEnv;
                                     (*ctx).ctx.call(&params_list)?
