@@ -12,7 +12,7 @@ use wasmer_types::{FunctionType, MemoryType, TableType};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug)]
-pub enum VMExport {
+pub enum VMExtern {
     /// A function export value.
     Function(VMFunction),
 
@@ -63,7 +63,7 @@ unsafe impl Send for VMFunction {}
 /// The members of an VMFunction are immutable after construction.
 unsafe impl Sync for VMFunction {}
 
-impl From<VMFunction> for VMExport {
+impl From<VMFunction> for VMExtern {
     fn from(func: VMFunction) -> Self {
         Self::Function(func)
     }
@@ -109,7 +109,7 @@ impl VMTable {
     }
 }
 
-impl From<VMTable> for VMExport {
+impl From<VMTable> for VMExtern {
     fn from(table: VMTable) -> Self {
         Self::Table(table)
     }
@@ -155,7 +155,7 @@ impl VMMemory {
     }
 }
 
-impl From<VMMemory> for VMExport {
+impl From<VMMemory> for VMExtern {
     fn from(memory: VMMemory) -> Self {
         Self::Memory(memory)
     }
@@ -191,7 +191,7 @@ impl VMGlobal {
     }
 }
 
-impl From<VMGlobal> for VMExport {
+impl From<VMGlobal> for VMExtern {
     fn from(global: VMGlobal) -> Self {
         Self::Global(global)
     }

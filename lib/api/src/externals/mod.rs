@@ -47,7 +47,7 @@ impl Extern {
         }
     }
 
-    /// Create an `Extern` from an `wasmer_vm::Export`.
+    /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),

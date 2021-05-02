@@ -13,7 +13,7 @@ mod r#ref;
 pub use allocator::InstanceAllocator;
 pub use r#ref::InstanceRef;
 
-use crate::export::VMExport;
+use crate::export::VMExtern;
 use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 use crate::global::Global;
 use crate::imports::Imports;
@@ -1067,7 +1067,7 @@ impl InstanceHandle {
     }
 
     /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<VMExport> {
+    pub fn lookup(&self, field: &str) -> Option<VMExtern> {
         let export = self.module_ref().exports.get(field)?;
 
         Some(self.lookup_by_declaration(&export))
@@ -1075,7 +1075,7 @@ impl InstanceHandle {
 
     /// Lookup an export with the given export declaration.
     // TODO: maybe EngineExport
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
+    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExtern {
         let instance = self.instance().clone();
         let instance_ref = instance.as_ref();
 

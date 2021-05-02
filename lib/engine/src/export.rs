@@ -1,6 +1,6 @@
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_vm::{ImportInitializerFuncPtr, VMExport, VMFunction, VMGlobal, VMMemory, VMTable};
+use wasmer_vm::{ImportInitializerFuncPtr, VMExtern, VMFunction, VMGlobal, VMMemory, VMTable};
 
 /// The value of an export passed from one instance to another.
 #[derive(Debug, Clone)]
@@ -18,7 +18,7 @@ pub enum Export {
     Global(VMGlobal),
 }
 
-impl From<Export> for VMExport {
+impl From<Export> for VMExtern {
     fn from(other: Export) -> Self {
         match other {
             Export::Function(ExportFunction { vm_function, .. }) => Self::Function(vm_function),
@@ -29,16 +29,16 @@ impl From<Export> for VMExport {
     }
 }
 
-impl From<VMExport> for Export {
-    fn from(other: VMExport) -> Self {
+impl From<VMExtern> for Export {
+    fn from(other: VMExtern) -> Self {
         match other {
-            VMExport::Function(vm_function) => Self::Function(ExportFunction {
+            VMExtern::Function(vm_function) => Self::Function(ExportFunction {
                 vm_function,
                 metadata: None,
             }),
-            VMExport::Memory(vm_memory) => Self::Memory(vm_memory),
-            VMExport::Table(vm_table) => Self::Table(vm_table),
-            VMExport::Global(vm_global) => Self::Global(vm_global),
+            VMExtern::Memory(vm_memory) => Self::Memory(vm_memory),
+            VMExtern::Table(vm_table) => Self::Table(vm_table),
+            VMExtern::Global(vm_global) => Self::Global(vm_global),
         }
     }
 }
