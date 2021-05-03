@@ -171,37 +171,10 @@
 <span id="168">168</span>
 <span id="169">169</span>
 <span id="170">170</span>
-<span id="171">171</span>
-<span id="172">172</span>
-<span id="173">173</span>
-<span id="174">174</span>
-<span id="175">175</span>
-<span id="176">176</span>
-<span id="177">177</span>
-<span id="178">178</span>
-<span id="179">179</span>
-<span id="180">180</span>
-<span id="181">181</span>
-<span id="182">182</span>
-<span id="183">183</span>
-<span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-    <span class="ident">ImportInitializerFuncPtr</span>, <span class="ident">VMExport</span>, <span class="ident">VMExportFunction</span>, <span class="ident">VMExportGlobal</span>, <span class="ident">VMExportMemory</span>,
-    <span class="ident">VMExportTable</span>,
-};
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">ImportInitializerFuncPtr</span>, <span class="ident">VMExtern</span>, <span class="ident">VMFunction</span>, <span class="ident">VMGlobal</span>, <span class="ident">VMMemory</span>, <span class="ident">VMTable</span>};
 
 <span class="doccomment">/// The value of an export passed from one instance to another.</span>
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
@@ -210,36 +183,36 @@
     <span class="ident">Function</span>(<span class="ident">ExportFunction</span>),
 
     <span class="doccomment">/// A table export value.</span>
-    <span class="ident">Table</span>(<span class="ident">ExportTable</span>),
+    <span class="ident">Table</span>(<span class="ident">VMTable</span>),
 
     <span class="doccomment">/// A memory export value.</span>
-    <span class="ident">Memory</span>(<span class="ident">ExportMemory</span>),
+    <span class="ident">Memory</span>(<span class="ident">VMMemory</span>),
 
     <span class="doccomment">/// A global export value.</span>
-    <span class="ident">Global</span>(<span class="ident">ExportGlobal</span>),
+    <span class="ident">Global</span>(<span class="ident">VMGlobal</span>),
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExport</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">Export</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">VMExtern</span> {
     <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">Export</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
             <span class="ident">Export</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> { <span class="ident">vm_function</span>, .. }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>),
-            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>),
-            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>),
-            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>),
+            <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>),
+            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>),
+            <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>),
         }
     }
 }
 
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMExport</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">VMExport</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMExtern</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">other</span>: <span class="ident">VMExtern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="kw">match</span> <span class="ident">other</span> {
-            <span class="ident">VMExport</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> {
+            <span class="ident">VMExtern</span>::<span class="ident">Function</span>(<span class="ident">vm_function</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Function</span>(<span class="ident">ExportFunction</span> {
                 <span class="ident">vm_function</span>,
                 <span class="ident">metadata</span>: <span class="prelude-val">None</span>,
             }),
-            <span class="ident">VMExport</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">ExportMemory</span> { <span class="ident">vm_memory</span> }),
-            <span class="ident">VMExport</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">ExportTable</span> { <span class="ident">vm_table</span> }),
-            <span class="ident">VMExport</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">ExportGlobal</span> { <span class="ident">vm_global</span> }),
+            <span class="ident">VMExtern</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">vm_memory</span>),
+            <span class="ident">VMExtern</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">vm_table</span>),
+            <span class="ident">VMExtern</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">vm_global</span>),
         }
     }
 }
@@ -264,7 +237,7 @@
     <span class="doccomment">/// Thus, we only bother to store the master copy at all here so that</span>
     <span class="doccomment">/// we can free it.</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// See `wasmer_vm::export::VMExportFunction::vmctx` for the version of</span>
+    <span class="doccomment">/// See `wasmer_vm::export::VMFunction::vmctx` for the version of</span>
     <span class="doccomment">/// this pointer that is used by the VM when creating an `Instance`.</span>
     <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="ident">host_env</span>: <span class="kw-2">*</span><span class="kw-2">mut</span> <span class="ident">std</span>::<span class="ident">ffi</span>::<span class="ident">c_void</span>,
 
@@ -339,7 +312,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>, <span class="ident">PartialEq</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportFunction</span> {
     <span class="doccomment">/// The VM function, containing most of the data.</span>
-    <span class="kw">pub</span> <span class="ident">vm_function</span>: <span class="ident">VMExportFunction</span>,
+    <span class="kw">pub</span> <span class="ident">vm_function</span>: <span class="ident">VMFunction</span>,
     <span class="doccomment">/// Contains functions necessary to create and initialize host envs</span>
     <span class="doccomment">/// with each `Instance` as well as being responsible for the</span>
     <span class="doccomment">/// underlying memory of the host env.</span>
@@ -352,41 +325,20 @@
     }
 }
 
-<span class="doccomment">/// A table export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportTable</span> {
-    <span class="doccomment">/// The VM table, containing info about the table.</span>
-    <span class="kw">pub</span> <span class="ident">vm_table</span>: <span class="ident">VMExportTable</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExportTable</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">table</span>: <span class="ident">ExportTable</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMTable</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">table</span>: <span class="ident">VMTable</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">Table</span>(<span class="ident">table</span>)
     }
 }
 
-<span class="doccomment">/// A memory export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportMemory</span> {
-    <span class="doccomment">/// The VM memory, containing info about the table.</span>
-    <span class="kw">pub</span> <span class="ident">vm_memory</span>: <span class="ident">VMExportMemory</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExportMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">memory</span>: <span class="ident">ExportMemory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMMemory</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">memory</span>: <span class="ident">VMMemory</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">Memory</span>(<span class="ident">memory</span>)
     }
 }
 
-<span class="doccomment">/// A global export value.</span>
-<span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Debug</span>, <span class="ident">Clone</span>)]</span>
-<span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">ExportGlobal</span> {
-    <span class="doccomment">/// The VM global, containing info about the global.</span>
-    <span class="kw">pub</span> <span class="ident">vm_global</span>: <span class="ident">VMExportGlobal</span>,
-}
-
-<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">ExportGlobal</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
-    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">global</span>: <span class="ident">ExportGlobal</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+<span class="kw">impl</span> <span class="ident">From</span><span class="op">&lt;</span><span class="ident">VMGlobal</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Export</span> {
+    <span class="kw">fn</span> <span class="ident">from</span>(<span class="ident">global</span>: <span class="ident">VMGlobal</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span>::<span class="ident">Global</span>(<span class="ident">global</span>)
     }
 }

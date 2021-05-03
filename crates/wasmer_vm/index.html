@@ -63,21 +63,20 @@ state associated with the current instance.</p>
 functions will receive when called (rather than <code>vmctx</code>).
 A dynamic function is a function for which we don't know the signature
 until runtime.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMExportFunction.html" title="wasmer_vm::VMExportFunction struct">VMExportFunction</a></td><td class="docblock-short"><p>A function export value.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMExportGlobal.html" title="wasmer_vm::VMExportGlobal struct">VMExportGlobal</a></td><td class="docblock-short"><p>A global export value.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMExportMemory.html" title="wasmer_vm::VMExportMemory struct">VMExportMemory</a></td><td class="docblock-short"><p>A memory export value.</p>
-</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMExportTable.html" title="wasmer_vm::VMExportTable struct">VMExportTable</a></td><td class="docblock-short"><p>A table export value.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMExternRef.html" title="wasmer_vm::VMExternRef struct">VMExternRef</a></td><td class="docblock-short"><p>This type does not do reference counting automatically, reference counting can be done with
 <a href="../wasmer_vm/struct.VMExternRef.html#method.ref_clone" title="Self::ref_clone"><code>Self::ref_clone</code></a> and <a href="../wasmer_vm/struct.VMExternRef.html#method.ref_drop" title="Self::ref_drop"><code>Self::ref_drop</code></a>.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMFuncRef.html" title="wasmer_vm::VMFuncRef struct">VMFuncRef</a></td><td class="docblock-short"><p>A function reference. A single word that points to metadata about a function.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMFunction.html" title="wasmer_vm::VMFunction struct">VMFunction</a></td><td class="docblock-short"><p>A function export value.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMFunctionBody.html" title="wasmer_vm::VMFunctionBody struct">VMFunctionBody</a></td><td class="docblock-short"><p>A placeholder byte-sized type which is just used to provide some amount of type
 safety when dealing with pointers to JIT-compiled function bodies. Note that it's
 deliberately not Copy, as we shouldn't be carelessly copying function body bytes
 around.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMFunctionImport.html" title="wasmer_vm::VMFunctionImport struct">VMFunctionImport</a></td><td class="docblock-short"><p>An imported function.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMGlobal.html" title="wasmer_vm::VMGlobal struct">VMGlobal</a></td><td class="docblock-short"><p>A global export value.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMGlobalDefinition.html" title="wasmer_vm::VMGlobalDefinition struct">VMGlobalDefinition</a></td><td class="docblock-short"><p>The storage for a WebAssembly global defined within the instance.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMGlobalImport.html" title="wasmer_vm::VMGlobalImport struct">VMGlobalImport</a></td><td class="docblock-short"><p>The fields compiled code needs to access to utilize a WebAssembly global
 variable imported from another instance.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMMemory.html" title="wasmer_vm::VMMemory struct">VMMemory</a></td><td class="docblock-short"><p>A memory export value.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMMemoryDefinition.html" title="wasmer_vm::VMMemoryDefinition struct">VMMemoryDefinition</a></td><td class="docblock-short"><p>The fields compiled code needs to access to utilize a WebAssembly linear
 memory defined within the instance, namely the start address and the
 size in bytes.</p>
@@ -87,6 +86,7 @@ memory imported from another instance.</p>
 related structs that JIT code accesses directly.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMSharedSignatureIndex.html" title="wasmer_vm::VMSharedSignatureIndex struct">VMSharedSignatureIndex</a></td><td class="docblock-short"><p>An index into the shared signature registry, usable for checking signatures
 at indirect calls.</p>
+</td></tr><tr class="module-item"><td><a class="struct" href="struct.VMTable.html" title="wasmer_vm::VMTable struct">VMTable</a></td><td class="docblock-short"><p>A table export value.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMTableDefinition.html" title="wasmer_vm::VMTableDefinition struct">VMTableDefinition</a></td><td class="docblock-short"><p>The fields compiled code needs to access to utilize a WebAssembly table
 defined within the instance.</p>
 </td></tr><tr class="module-item"><td><a class="struct" href="struct.VMTableImport.html" title="wasmer_vm::VMTableImport struct">VMTableImport</a></td><td class="docblock-short"><p>The fields compiled code needs to access to utilize a WebAssembly table
@@ -100,7 +100,7 @@ imported from another instance.</p>
 </td></tr><tr class="module-item"><td><a class="enum" href="enum.TableStyle.html" title="wasmer_vm::TableStyle enum">TableStyle</a></td><td class="docblock-short"><p>Implementation styles for WebAssembly tables.</p>
 </td></tr><tr class="module-item"><td><a class="enum" href="enum.Trap.html" title="wasmer_vm::Trap enum">Trap</a></td><td class="docblock-short"><p>Stores trace message with backtrace.</p>
 </td></tr><tr class="module-item"><td><a class="enum" href="enum.TrapCode.html" title="wasmer_vm::TrapCode enum">TrapCode</a></td><td class="docblock-short"><p>A trap code describing the reason for a trap.</p>
-</td></tr><tr class="module-item"><td><a class="enum" href="enum.VMExport.html" title="wasmer_vm::VMExport enum">VMExport</a></td><td class="docblock-short"><p>The value of an export passed from one instance to another.</p>
+</td></tr><tr class="module-item"><td><a class="enum" href="enum.VMExtern.html" title="wasmer_vm::VMExtern enum">VMExtern</a></td><td class="docblock-short"><p>The value of an export passed from one instance to another.</p>
 </td></tr><tr class="module-item"><td><a class="enum" href="enum.VMFunctionKind.html" title="wasmer_vm::VMFunctionKind enum">VMFunctionKind</a></td><td class="docblock-short"><p>A function kind is a calling convention into and out of wasm code.</p>
 </td></tr></table><h2 id="constants" class="section-header"><a href="#constants">Constants</a></h2>
 <table><tr class="module-item"><td><a class="constant" href="constant.VERSION.html" title="wasmer_vm::VERSION constant">VERSION</a></td><td class="docblock-short"><p>Version number of this crate.</p>

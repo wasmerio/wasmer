@@ -431,6 +431,8 @@
 <span id="430">430</span>
 <span id="431">431</span>
 <span id="432">432</span>
+<span id="433">433</span>
+<span id="434">434</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">store</span>::<span class="ident">Store</span>;
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">types</span>::{<span class="ident">ExportType</span>, <span class="ident">ImportType</span>};
@@ -698,9 +700,11 @@
         <span class="ident">resolver</span>: <span class="kw-2">&amp;</span><span class="kw">dyn</span> <span class="ident">Resolver</span>,
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">InstanceHandle</span>, <span class="ident">InstantiationError</span><span class="op">&gt;</span> {
         <span class="kw">unsafe</span> {
-            <span class="kw">let</span> <span class="ident">instance_handle</span> <span class="op">=</span>
-                <span class="self">self</span>.<span class="ident">artifact</span>
-                    .<span class="ident">instantiate</span>(<span class="self">self</span>.<span class="ident">store</span>.<span class="ident">tunables</span>(), <span class="ident">resolver</span>, <span class="ident">Box</span>::<span class="ident">new</span>(()))<span class="question-mark">?</span>;
+            <span class="kw">let</span> <span class="ident">instance_handle</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">instantiate</span>(
+                <span class="self">self</span>.<span class="ident">store</span>.<span class="ident">tunables</span>(),
+                <span class="ident">resolver</span>,
+                <span class="ident">Box</span>::<span class="ident">new</span>((<span class="self">self</span>.<span class="ident">store</span>.<span class="ident">clone</span>(), <span class="self">self</span>.<span class="ident">artifact</span>.<span class="ident">clone</span>())),
+            )<span class="question-mark">?</span>;
 
             <span class="comment">// After the instance handle is created, we need to initialize</span>
             <span class="comment">// the data, call the start function and so. However, if any</span>

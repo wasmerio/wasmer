@@ -372,6 +372,7 @@
 <span id="371">371</span>
 <span id="372">372</span>
 <span id="373">373</span>
+<span id="374">374</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">doc</span>(
     <span class="ident">html_logo_url</span> <span class="op">=</span> <span class="string">&quot;https://github.com/wasmerio.png?size=200&quot;</span>,
@@ -697,12 +698,13 @@
 };
 
 <span class="comment">// TODO: should those be moved into wasmer::vm as well?</span>
-<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">MemoryError</span>, <span class="ident">VMExport</span>};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">raise_user_trap</span>, <span class="ident">MemoryError</span>};
 <span class="kw">pub</span> <span class="kw">mod</span> <span class="ident">vm</span> {
     <span class="doccomment">//! The vm module re-exports wasmer-vm types.</span>
 
     <span class="kw">pub</span> <span class="kw">use</span> <span class="ident">wasmer_vm</span>::{
-        <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMMemoryDefinition</span>, <span class="ident">VMTableDefinition</span>,
+        <span class="ident">Memory</span>, <span class="ident">MemoryError</span>, <span class="ident">MemoryStyle</span>, <span class="ident">Table</span>, <span class="ident">TableStyle</span>, <span class="ident">VMExtern</span>, <span class="ident">VMMemoryDefinition</span>,
+        <span class="ident">VMTableDefinition</span>,
     };
 }
 

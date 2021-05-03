@@ -46,8 +46,6 @@
 <span id="43">43</span>
 <span id="44">44</span>
 <span id="45">45</span>
-<span id="46">46</span>
-<span id="47">47</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Generic Engine abstraction for Wasmer Engines.</span>
 
@@ -84,9 +82,7 @@
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">error</span>::{
     <span class="ident">DeserializeError</span>, <span class="ident">ImportError</span>, <span class="ident">InstantiationError</span>, <span class="ident">LinkError</span>, <span class="ident">SerializeError</span>,
 };
-<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">export</span>::{
-    <span class="ident">Export</span>, <span class="ident">ExportFunction</span>, <span class="ident">ExportFunctionMetadata</span>, <span class="ident">ExportGlobal</span>, <span class="ident">ExportMemory</span>, <span class="ident">ExportTable</span>,
-};
+<span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">export</span>::{<span class="ident">Export</span>, <span class="ident">ExportFunction</span>, <span class="ident">ExportFunctionMetadata</span>};
 <span class="kw">pub</span> <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">resolver</span>::{
     <span class="ident">resolve_imports</span>, <span class="ident">ChainableNamedResolver</span>, <span class="ident">NamedResolver</span>, <span class="ident">NamedResolverChain</span>, <span class="ident">NullResolver</span>,
     <span class="ident">Resolver</span>,

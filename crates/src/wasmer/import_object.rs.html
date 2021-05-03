@@ -716,7 +716,7 @@
         <span class="kw">let</span> <span class="ident">happy_dog_entry</span> <span class="op">=</span> <span class="ident">resolver</span>.<span class="ident">resolve_by_name</span>(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).<span class="ident">unwrap</span>();
 
         <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">happy_dog_global</span>) <span class="op">=</span> <span class="ident">happy_dog_entry</span> {
-            <span class="ident">happy_dog_global</span>.<span class="ident">vm_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I64</span>
+            <span class="ident">happy_dog_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I64</span>
         } <span class="kw">else</span> {
             <span class="bool-val">false</span>
         });
@@ -742,7 +742,7 @@
         <span class="kw">let</span> <span class="ident">happy_dog_entry</span> <span class="op">=</span> <span class="ident">resolver</span>.<span class="ident">resolve_by_name</span>(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).<span class="ident">unwrap</span>();
 
         <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">happy_dog_global</span>) <span class="op">=</span> <span class="ident">happy_dog_entry</span> {
-            <span class="ident">happy_dog_global</span>.<span class="ident">vm_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>
+            <span class="ident">happy_dog_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>
         } <span class="kw">else</span> {
             <span class="bool-val">false</span>
         });
@@ -762,7 +762,7 @@
         <span class="kw">let</span> <span class="ident">happy_dog_entry</span> <span class="op">=</span> <span class="ident">imports1</span>.<span class="ident">resolve_by_name</span>(<span class="string">&quot;dog&quot;</span>, <span class="string">&quot;happy&quot;</span>).<span class="ident">unwrap</span>();
 
         <span class="macro">assert</span><span class="macro">!</span>(<span class="kw">if</span> <span class="kw">let</span> <span class="ident">Export</span>::<span class="ident">Global</span>(<span class="ident">happy_dog_global</span>) <span class="op">=</span> <span class="ident">happy_dog_entry</span> {
-            <span class="ident">happy_dog_global</span>.<span class="ident">vm_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>
+            <span class="ident">happy_dog_global</span>.<span class="ident">from</span>.<span class="ident">ty</span>().<span class="ident">ty</span> <span class="op">=</span><span class="op">=</span> <span class="ident">Type</span>::<span class="ident">I32</span>
         } <span class="kw">else</span> {
             <span class="bool-val">false</span>
         });

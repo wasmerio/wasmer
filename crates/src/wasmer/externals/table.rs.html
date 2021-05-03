@@ -161,8 +161,6 @@
 <span id="160">160</span>
 <span id="161">161</span>
 <span id="162">162</span>
-<span id="163">163</span>
-<span id="164">164</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">exports</span>::{<span class="ident">ExportError</span>, <span class="ident">Exportable</span>};
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">externals</span>::<span class="ident">Extern</span>;
@@ -172,8 +170,8 @@
 <span class="kw">use</span> <span class="kw">crate</span>::<span class="ident">TableType</span>;
 <span class="kw">use</span> <span class="ident">loupe</span>::<span class="ident">MemoryUsage</span>;
 <span class="kw">use</span> <span class="ident">std</span>::<span class="ident">sync</span>::<span class="ident">Arc</span>;
-<span class="kw">use</span> <span class="ident">wasmer_engine</span>::{<span class="ident">Export</span>, <span class="ident">ExportTable</span>};
-<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Table</span> <span class="kw">as</span> <span class="ident">RuntimeTable</span>, <span class="ident">TableElement</span>, <span class="ident">VMExportTable</span>};
+<span class="kw">use</span> <span class="ident">wasmer_engine</span>::<span class="ident">Export</span>;
+<span class="kw">use</span> <span class="ident">wasmer_vm</span>::{<span class="ident">Table</span> <span class="kw">as</span> <span class="ident">RuntimeTable</span>, <span class="ident">TableElement</span>, <span class="ident">VMTable</span>};
 
 <span class="doccomment">/// A WebAssembly `table` instance.</span>
 <span class="doccomment">///</span>
@@ -187,7 +185,7 @@
 <span class="attribute">#[<span class="ident">derive</span>(<span class="ident">Clone</span>, <span class="ident">MemoryUsage</span>)]</span>
 <span class="kw">pub</span> <span class="kw">struct</span> <span class="ident">Table</span> {
     <span class="ident">store</span>: <span class="ident">Store</span>,
-    <span class="ident">table</span>: <span class="ident">Arc</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">RuntimeTable</span><span class="op">&gt;</span>,
+    <span class="ident">vm_table</span>: <span class="ident">VMTable</span>,
 }
 
 <span class="kw">fn</span> <span class="ident">set_table_item</span>(
@@ -220,13 +218,16 @@
 
         <span class="prelude-val">Ok</span>(<span class="self">Self</span> {
             <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
-            <span class="ident">table</span>,
+            <span class="ident">vm_table</span>: <span class="ident">VMTable</span> {
+                <span class="ident">from</span>: <span class="ident">table</span>,
+                <span class="ident">instance_ref</span>: <span class="prelude-val">None</span>,
+            },
         })
     }
 
     <span class="doccomment">/// Returns the [`TableType`] of the `Table`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">TableType</span> {
-        <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">ty</span>()
+        <span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">ty</span>()
     }
 
     <span class="doccomment">/// Returns the [`Store`] where the `Table` belongs.</span>
@@ -236,19 +237,19 @@
 
     <span class="doccomment">/// Retrieves an element of the table at the provided `index`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">get</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Option</span><span class="op">&lt;</span><span class="ident">Val</span><span class="op">&gt;</span> {
-        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;
+        <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">get</span>(<span class="ident">index</span>)<span class="question-mark">?</span>;
         <span class="prelude-val">Some</span>(<span class="ident">ValFuncRef</span>::<span class="ident">from_table_reference</span>(<span class="ident">item</span>, <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>))
     }
 
     <span class="doccomment">/// Sets an element `val` in the Table at the provided `index`.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">set</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">index</span>: <span class="ident">u32</span>, <span class="ident">val</span>: <span class="ident">Val</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span>(), <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">val</span>.<span class="ident">into_table_reference</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>)<span class="question-mark">?</span>;
-        <span class="ident">set_table_item</span>(<span class="self">self</span>.<span class="ident">table</span>.<span class="ident">as_ref</span>(), <span class="ident">index</span>, <span class="ident">item</span>)
+        <span class="ident">set_table_item</span>(<span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">as_ref</span>(), <span class="ident">index</span>, <span class="ident">item</span>)
     }
 
     <span class="doccomment">/// Retrieves the size of the `Table` (in elements)</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">size</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">u32</span> {
-        <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">size</span>()
+        <span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">size</span>()
     }
 
     <span class="doccomment">/// Grows the size of the `Table` by `delta`, initializating</span>
@@ -262,7 +263,8 @@
     <span class="doccomment">/// Returns an error if the `delta` is out of bounds for the table.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">grow</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">delta</span>: <span class="ident">u32</span>, <span class="ident">init</span>: <span class="ident">Val</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">u32</span>, <span class="ident">RuntimeError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">item</span> <span class="op">=</span> <span class="ident">init</span>.<span class="ident">into_table_reference</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">store</span>)<span class="question-mark">?</span>;
-        <span class="self">self</span>.<span class="ident">table</span>
+        <span class="self">self</span>.<span class="ident">vm_table</span>
+            .<span class="ident">from</span>
             .<span class="ident">grow</span>(<span class="ident">delta</span>, <span class="ident">item</span>)
             .<span class="ident">ok_or_else</span>(<span class="op">|</span><span class="op">|</span> <span class="ident">RuntimeError</span>::<span class="ident">new</span>(<span class="macro">format</span><span class="macro">!</span>(<span class="string">&quot;failed to grow table by `{}`&quot;</span>, <span class="ident">delta</span>)))
     }
@@ -287,8 +289,8 @@
             ));
         }
         <span class="ident">RuntimeTable</span>::<span class="ident">copy</span>(
-            <span class="ident">dst_table</span>.<span class="ident">table</span>.<span class="ident">as_ref</span>(),
-            <span class="ident">src_table</span>.<span class="ident">table</span>.<span class="ident">as_ref</span>(),
+            <span class="ident">dst_table</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">as_ref</span>(),
+            <span class="ident">src_table</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>.<span class="ident">as_ref</span>(),
             <span class="ident">dst_index</span>,
             <span class="ident">src_index</span>,
             <span class="ident">len</span>,
@@ -297,28 +299,22 @@
         <span class="prelude-val">Ok</span>(())
     }
 
-    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_export</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">wasmer_export</span>: <span class="ident">ExportTable</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
+    <span class="kw">pub</span>(<span class="kw">crate</span>) <span class="kw">fn</span> <span class="ident">from_vm_export</span>(<span class="ident">store</span>: <span class="kw-2">&amp;</span><span class="ident">Store</span>, <span class="ident">vm_table</span>: <span class="ident">VMTable</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="self">Self</span> {
         <span class="self">Self</span> {
             <span class="ident">store</span>: <span class="ident">store</span>.<span class="ident">clone</span>(),
-            <span class="ident">table</span>: <span class="ident">wasmer_export</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>,
+            <span class="ident">vm_table</span>,
         }
     }
 
     <span class="doccomment">/// Returns whether or not these two tables refer to the same data.</span>
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">same</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">other</span>: <span class="kw-2">&amp;</span><span class="self">Self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">bool</span> {
-        <span class="ident">Arc</span>::<span class="ident">ptr_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">table</span>, <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">table</span>)
+        <span class="ident">Arc</span>::<span class="ident">ptr_eq</span>(<span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>, <span class="kw-2">&amp;</span><span class="ident">other</span>.<span class="ident">vm_table</span>.<span class="ident">from</span>)
     }
 }
 
 <span class="kw">impl</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="ident">Exportable</span><span class="op">&lt;</span><span class="lifetime">&#39;a</span><span class="op">&gt;</span> <span class="kw">for</span> <span class="ident">Table</span> {
     <span class="kw">fn</span> <span class="ident">to_export</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">Export</span> {
-        <span class="ident">ExportTable</span> {
-            <span class="ident">vm_table</span>: <span class="ident">VMExportTable</span> {
-                <span class="ident">from</span>: <span class="self">self</span>.<span class="ident">table</span>.<span class="ident">clone</span>(),
-                <span class="ident">instance_ref</span>: <span class="prelude-val">None</span>,
-            },
-        }
-        .<span class="ident">into</span>()
+        <span class="self">self</span>.<span class="ident">vm_table</span>.<span class="ident">clone</span>().<span class="ident">into</span>()
     }
 
     <span class="kw">fn</span> <span class="ident">get_self_from_extern</span>(<span class="ident">_extern</span>: <span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="ident">Extern</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="kw-2">&amp;</span><span class="lifetime">&#39;a</span> <span class="self">Self</span>, <span class="ident">ExportError</span><span class="op">&gt;</span> {
