@@ -8,8 +8,8 @@ use crate::RuntimeError;
 use loupe::MemoryUsage;
 use std::fmt;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportGlobal};
-use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
+use wasmer_engine::Export;
+use wasmer_vm::{Global as RuntimeGlobal, VMGlobal};
 
 /// A WebAssembly `global` instance.
 ///
@@ -20,7 +20,7 @@ use wasmer_vm::{Global as RuntimeGlobal, VMExportGlobal};
 #[derive(Clone, MemoryUsage)]
 pub struct Global {
     store: Store,
-    global: Arc<RuntimeGlobal>,
+    vm_global: VMGlobal,
 }
 
 impl Global {
@@ -75,7 +75,10 @@ impl Global {
 
         Ok(Self {
             store: store.clone(),
-            global: Arc::new(global),
+            vm_global: VMGlobal {
+                from: Arc::new(global),
+                instance_ref: None,
+            },
         })
     }
 
@@ -94,7 +97,7 @@ impl Global {
     /// assert_eq!(v.ty(), &GlobalType::new(Type::I64, Mutability::Var));
     /// ```
     pub fn ty(&self) -> &GlobalType {
-        self.global.ty()
+        self.vm_global.from.ty()
     }
 
     /// Returns the [`Store`] where the `Global` belongs.
@@ -126,7 +129,7 @@ impl Global {
     /// assert_eq!(g.get(), Value::I32(1));
     /// ```
     pub fn get(&self) -> Val {
-        self.global.get(&self.store)
+        self.vm_global.from.get(&self.store)
     }
 
     /// Sets a custom value [`Val`] to the runtime Global.
@@ -175,17 +178,18 @@ impl Global {
             return Err(RuntimeError::new("cross-`Store` values are not supported"));
         }
         unsafe {
-            self.global
+            self.vm_global
+                .from
                 .set(val)
                 .map_err(|e| RuntimeError::new(format!("{}", e)))?;
         }
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportGlobal) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_global: VMGlobal) -> Self {
         Self {
             store: store.clone(),
-            global: wasmer_export.vm_global.from,
+            vm_global,
         }
     }
 
@@ -202,7 +206,7 @@ impl Global {
     /// assert!(g.same(&g));
     /// ```
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.global, &other.global)
+        Arc::ptr_eq(&self.vm_global.from, &other.vm_global.from)
     }
 }
 
@@ -218,13 +222,7 @@ impl fmt::Debug for Global {
 
 impl<'a> Exportable<'a> for Global {
     fn to_export(&self) -> Export {
-        ExportGlobal {
-            vm_global: VMExportGlobal {
-                from: self.global.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        self.vm_global.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

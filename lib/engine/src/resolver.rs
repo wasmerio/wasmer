@@ -105,10 +105,10 @@ fn get_extern_from_import(module: &ModuleInfo, import_index: &ImportIndex) -> Ex
 fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.vm_function.signature.clone()),
-        Export::Table(ref t) => ExternType::Table(*t.vm_table.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.vm_memory.ty()),
+        Export::Table(ref t) => ExternType::Table(*t.ty()),
+        Export::Memory(ref m) => ExternType::Memory(*m.ty()),
         Export::Global(ref g) => {
-            let global = g.vm_global.from.ty();
+            let global = g.from.ty();
             ExternType::Global(*global)
         }
     }
@@ -223,8 +223,8 @@ pub fn resolve_imports(
             }
             Export::Table(ref t) => {
                 table_imports.push(VMTableImport {
-                    definition: t.vm_table.from.vmtable(),
-                    from: t.vm_table.from.clone(),
+                    definition: t.from.vmtable(),
+                    from: t.from.clone(),
                 });
             }
             Export::Memory(ref m) => {
@@ -232,7 +232,7 @@ pub fn resolve_imports(
                     ImportIndex::Memory(index) => {
                         // Sanity-check: Ensure that the imported memory has at least
                         // guard-page protections the importing module expects it to have.
-                        let export_memory_style = m.vm_memory.style();
+                        let export_memory_style = m.style();
                         let import_memory_style = &memory_styles[*index];
                         if let (
                             MemoryStyle::Static { bound, .. },
@@ -257,15 +257,15 @@ pub fn resolve_imports(
                 }
 
                 memory_imports.push(VMMemoryImport {
-                    definition: m.vm_memory.from.vmmemory(),
-                    from: m.vm_memory.from.clone(),
+                    definition: m.from.vmmemory(),
+                    from: m.from.clone(),
                 });
             }
 
             Export::Global(ref g) => {
                 global_imports.push(VMGlobalImport {
-                    definition: g.vm_global.from.vmglobal(),
-                    from: g.vm_global.from.clone(),
+                    definition: g.from.vmglobal(),
+                    from: g.from.clone(),
                 });
             }
         }
