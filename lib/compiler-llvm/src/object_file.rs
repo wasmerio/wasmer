@@ -48,8 +48,7 @@ pub struct CompiledFunction {
 }
 
 pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
-    use object::Object;
-    use object::ObjectSection;
+    use object::{Object, ObjectSection};
 
     let in_object = object::File::parse(&data).map_err(map_object_err)?;
     let section = in_object.section_by_name("wasmer_function");
