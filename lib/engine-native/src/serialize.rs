@@ -51,7 +51,7 @@ cfg_if::cfg_if! {
         const HOST_ENDIAN: u8 = b'l';
     }
     else {
-        compile_error!("Endian not supported by the host");
+        compile_error!("Endian isn't big or little?");
     }
 }
 
