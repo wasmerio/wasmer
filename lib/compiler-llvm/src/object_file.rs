@@ -61,7 +61,6 @@ pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
 /// Get the frame information from an object file.
 pub fn get_frame_info(contents: &[u8]) -> Result<CompiledFunctionFrameInfo, CompileError> {
     let function_length = get_function_body_size(contents)? as usize;
-    // let function_length = body_sizes[0] as usize;
     let address_map = FunctionAddressMap {
         instructions: vec![InstructionAddressMap {
             srcloc: SourceLoc::default(),
