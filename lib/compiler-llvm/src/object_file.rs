@@ -12,32 +12,6 @@ use wasmer_compiler::{
 use wasmer_types::entity::{PrimaryMap, SecondaryMap};
 use wasmer_vm::libcalls::LibCall;
 
-/*
-use wasmer_types::entity::entity_impl;
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct ElfSectionIndex(u32);
-entity_impl!(ElfSectionIndex);
-impl ElfSectionIndex {
-    pub fn is_undef(&self) -> bool {
-        self.as_u32() == object::elf::SHN_UNDEF
-    }
-
-    pub fn from_usize(value: usize) -> Result<Self, CompileError> {
-        match u32::try_from(value) {
-            Err(_) => Err(CompileError::Codegen(format!(
-                "elf section index {} does not fit in 32 bits",
-                value
-            ))),
-            Ok(value) => Ok(ElfSectionIndex::from_u32(value)),
-        }
-    }
-
-    pub fn as_usize(&self) -> usize {
-        self.as_u32() as usize
-    }
-}
- */
-
 fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
     CompileError::Codegen(format!("int doesn't fit: {}", error))
 }
