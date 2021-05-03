@@ -252,9 +252,6 @@ impl ObjectFileArtifact {
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
                 let compiled_function_infos = compilation.get_frame_info();
-                // .values()
-                // .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-                // .collect::<PrimaryMap<LocalFunctionIndex, _>>();
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 metadata.frame_infos = compiled_function_infos;
