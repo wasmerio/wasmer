@@ -165,7 +165,7 @@ where
         {
             let kind = match (reloc.kind(), reloc.size()) {
                 (object::RelocationKind::Absolute, 64) => RelocationKind::Abs8,
-                (object::RelocationKind::Elf(24), 0) => RelocationKind::X86PCRel8,
+                (object::RelocationKind::Elf(object::elf::R_X86_64_PC64), 0) => RelocationKind::X86PCRel8,
                 _ => {
                     return Err(CompileError::Codegen(format!(
                         "unknown relocation {:?}",
