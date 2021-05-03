@@ -36,6 +36,8 @@ use wasmer_types::{
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, VMOffsets};
 
+// Note: this variable needs to be in sync with `FUNCTION_SECTION`.
+pub const FUNCTION_SECTION_NAME: &str = "wasmer_function";
 const FUNCTION_SECTION: &str = "__TEXT,wasmer_function";
 
 fn to_compile_error(err: impl std::error::Error) -> CompileError {

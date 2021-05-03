@@ -1,6 +1,7 @@
 use std::collections::{HashMap, HashSet};
 use std::convert::TryFrom;
 
+use crate::translator::FUNCTION_SECTION_NAME;
 use wasmer_compiler::{
     CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
     CustomSections, FunctionAddressMap, FunctionBody, InstructionAddressMap, Relocation,
@@ -51,7 +52,7 @@ pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
     use object::{Object, ObjectSection};
 
     let in_object = object::File::parse(&data).map_err(map_object_err)?;
-    let section = in_object.section_by_name("wasmer_function");
+    let section = in_object.section_by_name(FUNCTION_SECTION_NAME);
     match section {
         Some(section) => Ok(section.size()),
         None => Ok(0),
