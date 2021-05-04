@@ -322,12 +322,13 @@ pub use wasmer_types::{
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
+pub use wasmer_vm::{raise_user_trap, MemoryError};
 pub mod vm {
     //! The vm module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition, VMTableDefinition,
+        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMExtern, VMMemoryDefinition,
+        VMTableDefinition,
     };
 }
 

@@ -13,7 +13,7 @@ mod r#ref;
 pub use allocator::InstanceAllocator;
 pub use r#ref::InstanceRef;
 
-use crate::export::VMExport;
+use crate::export::VMExtern;
 use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 use crate::global::Global;
 use crate::imports::Imports;
@@ -27,7 +27,7 @@ use crate::vmcontext::{
     VMTrampoline,
 };
 use crate::{FunctionBodyPtr, ModuleInfo, VMOffsets};
-use crate::{VMExportFunction, VMExportGlobal, VMExportMemory, VMExportTable};
+use crate::{VMFunction, VMGlobal, VMMemory, VMTable};
 use loupe::{MemoryUsage, MemoryUsageTracker};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
@@ -1067,7 +1067,7 @@ impl InstanceHandle {
     }
 
     /// Lookup an export with the given name.
-    pub fn lookup(&self, field: &str) -> Option<VMExport> {
+    pub fn lookup(&self, field: &str) -> Option<VMExtern> {
         let export = self.module_ref().exports.get(field)?;
 
         Some(self.lookup_by_declaration(&export))
@@ -1075,7 +1075,7 @@ impl InstanceHandle {
 
     /// Lookup an export with the given export declaration.
     // TODO: maybe EngineExport
-    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExport {
+    pub fn lookup_by_declaration(&self, export: &ExportIndex) -> VMExtern {
         let instance = self.instance().clone();
         let instance_ref = instance.as_ref();
 
@@ -1099,7 +1099,7 @@ impl InstanceHandle {
                 let call_trampoline = Some(instance_ref.function_call_trampolines[*sig_index]);
                 let signature = instance_ref.module.signatures[*sig_index].clone();
 
-                VMExportFunction {
+                VMFunction {
                     address,
                     // Any function received is already static at this point as:
                     // 1. All locally defined functions in the Wasm have a static signature.
@@ -1120,7 +1120,7 @@ impl InstanceHandle {
                     let import = instance_ref.imported_table(*index);
                     import.from.clone()
                 };
-                VMExportTable {
+                VMTable {
                     from,
                     instance_ref: Some(instance),
                 }
@@ -1133,7 +1133,7 @@ impl InstanceHandle {
                     let import = instance_ref.imported_memory(*index);
                     import.from.clone()
                 };
-                VMExportMemory {
+                VMMemory {
                     from,
                     instance_ref: Some(instance),
                 }
@@ -1148,7 +1148,7 @@ impl InstanceHandle {
                         import.from.clone()
                     }
                 };
-                VMExportGlobal {
+                VMGlobal {
                     from,
                     instance_ref: Some(instance),
                 }
