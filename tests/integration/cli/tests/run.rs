@@ -8,7 +8,7 @@ fn wasi_test_wasm_path() -> String {
     format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
 
-fn wasi_test_empty_wat_path() -> String {
+fn test_no_imports_wat_path() -> String {
     format!("{}/{}", ASSET_PATH, "fib.wat")
 }
 
@@ -39,10 +39,10 @@ fn run_wasi_works() -> anyhow::Result<()> {
 }
 
 #[test]
-fn run_empty_wasi_works() -> anyhow::Result<()> {
+fn run_no_imports_wasm_works() -> anyhow::Result<()> {
     let output = Command::new(WASMER_PATH)
         .arg("run")
-        .arg(wasi_test_empty_wat_path())
+        .arg(test_no_imports_wat_path())
         .output()?;
 
     if !output.status.success() {
