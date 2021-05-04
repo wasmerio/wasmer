@@ -638,7 +638,7 @@
             <span class="ident">mem_buf_slice</span>,
             <span class="ident">FUNCTION_SECTION</span>,
             <span class="ident">RelocationTarget</span>::<span class="ident">LocalFunc</span>(<span class="ident">LocalFunctionIndex</span>::<span class="ident">from_u32</span>(<span class="number">0</span>)),
-            <span class="op">|</span><span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">String</span><span class="op">|</span> {
+            <span class="op">|</span><span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span> {
                 <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;trampoline generation produced reference to unknown function {}&quot;</span>,
                     <span class="ident">name</span>
@@ -762,7 +762,7 @@
             <span class="ident">mem_buf_slice</span>,
             <span class="ident">FUNCTION_SECTION</span>,
             <span class="ident">RelocationTarget</span>::<span class="ident">LocalFunc</span>(<span class="ident">LocalFunctionIndex</span>::<span class="ident">from_u32</span>(<span class="number">0</span>)),
-            <span class="op">|</span><span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">String</span><span class="op">|</span> {
+            <span class="op">|</span><span class="ident">name</span>: <span class="kw-2">&amp;</span><span class="ident">str</span><span class="op">|</span> {
                 <span class="prelude-val">Err</span>(<span class="ident">CompileError</span>::<span class="ident">Codegen</span>(<span class="macro">format</span><span class="macro">!</span>(
                     <span class="string">&quot;trampoline generation produced reference to unknown function {}&quot;</span>,
                     <span class="ident">name</span>

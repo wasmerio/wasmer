@@ -1,1 +1,1 @@
-initSidebarItems({"fn":[["load_object_file",""],["map_goblin_err",""]],"struct":[["CompiledFunction",""],["ElfSectionIndex",""]]});
+initSidebarItems({"fn":[["load_object_file",""],["map_object_err",""],["map_tryfromint_err",""]],"struct":[["CompiledFunction",""]]});
