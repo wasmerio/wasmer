@@ -471,15 +471,37 @@ impl Artifact for ObjectFileArtifact {
             return;
         }
 
-        let finished_function_extents = self
-            .finished_functions
-            .values()
-            .copied()
-            .zip(self.metadata.frame_infos.values())
-            .map(|(ptr, frame_info)| FunctionExtent {
-                ptr,
-                length: frame_info.address_map.body_len,
+        // The function sizes migth not be completely accurate.
+        // Because of that, we (reverse) order all the functions by their pointer.
+        // [f9, f7, f6, f8...] and calculate their potential function body size by
+        // getting the diff in pointers between functions.
+        let mut prev_pointer = usize::MAX;
+
+        let fp = self.finished_functions.clone();
+        let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
+        // Sort the keys by the values in reverse order (function pointers)
+        // This way we can get the maximu function lengths (since functions can't collide in memory)
+        function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
+        let mut function_pointers = function_pointers
+            .into_iter()
+            .map(|(index, function_pointer)| {
+                let fp = **function_pointer as usize;
+                let current_size_by_ptr = prev_pointer - fp;
+                let frame_info = &self.metadata.frame_infos[index];
+                prev_pointer = fp;
+                // We choose the minimum between the function size given the pointer diff
+                // and the emitted size by the address map
+                let ptr = function_pointer;
+                let length = std::cmp::min(frame_info.address_map.body_len, current_size_by_ptr);
+                (index, FunctionExtent { ptr: *ptr, length })
             })
+            .collect::<Vec<_>>();
+        // We sort them by key, again.
+        function_pointers.sort_by(|(k1, _v1), (k2, _v2)| k1.cmp(k2));
+
+        let finished_function_extents = function_pointers
+            .into_iter()
+            .map(|(_, function_extent)| function_extent)
             .collect::<PrimaryMap<LocalFunctionIndex, _>>()
             .into_boxed_slice();
 
