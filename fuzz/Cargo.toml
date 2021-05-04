@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 anyhow = "1"
-wasm-smith = { git = "https://github.com/bytecodealliance/wasm-tools" }
+wasm-smith = "0.4.4"
 libfuzzer-sys = "0.4.0"
 wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
