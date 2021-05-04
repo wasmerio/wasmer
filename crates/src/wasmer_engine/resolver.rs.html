@@ -379,6 +379,21 @@
 <span id="376">376</span>
 <span id="377">377</span>
 <span id="378">378</span>
+<span id="379">379</span>
+<span id="380">380</span>
+<span id="381">381</span>
+<span id="382">382</span>
+<span id="383">383</span>
+<span id="384">384</span>
+<span id="385">385</span>
+<span id="386">386</span>
+<span id="387">387</span>
+<span id="388">388</span>
+<span id="389">389</span>
+<span id="390">390</span>
+<span id="391">391</span>
+<span id="392">392</span>
+<span id="393">393</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="doccomment">//! Define the `Resolver` trait, allowing custom resolution for external</span>
 <span class="doccomment">//! references.</span>
@@ -610,12 +625,27 @@
 
                 <span class="ident">host_function_env_initializers</span>.<span class="ident">push</span>(<span class="ident">import_function_env</span>);
             }
-            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="kw-2">ref</span> <span class="ident">t</span>) <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="ident">table_imports</span>.<span class="ident">push</span>(<span class="ident">VMTableImport</span> {
-                    <span class="ident">definition</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">vmtable</span>(),
-                    <span class="ident">from</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">clone</span>(),
-                });
-            }
+            <span class="ident">Export</span>::<span class="ident">Table</span>(<span class="kw-2">ref</span> <span class="ident">t</span>) <span class="op">=</span><span class="op">&gt;</span> <span class="kw">match</span> <span class="ident">import_index</span> {
+                <span class="ident">ImportIndex</span>::<span class="ident">Table</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="kw">let</span> <span class="ident">import_table_ty</span> <span class="op">=</span> <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">ty</span>();
+                    <span class="kw">let</span> <span class="ident">expected_table_ty</span> <span class="op">=</span> <span class="kw-2">&amp;</span><span class="ident">module</span>.<span class="ident">tables</span>[<span class="kw-2">*</span><span class="ident">index</span>];
+                    <span class="kw">if</span> <span class="ident">import_table_ty</span>.<span class="ident">ty</span> <span class="op">!</span><span class="op">=</span> <span class="ident">expected_table_ty</span>.<span class="ident">ty</span> {
+                        <span class="kw">return</span> <span class="prelude-val">Err</span>(<span class="ident">LinkError</span>::<span class="ident">Import</span>(
+                            <span class="ident">module_name</span>.<span class="ident">to_string</span>(),
+                            <span class="ident">field</span>.<span class="ident">to_string</span>(),
+                            <span class="ident">ImportError</span>::<span class="ident">IncompatibleType</span>(<span class="ident">import_extern</span>, <span class="ident">export_extern</span>),
+                        ));
+                    }
+
+                    <span class="ident">table_imports</span>.<span class="ident">push</span>(<span class="ident">VMTableImport</span> {
+                        <span class="ident">definition</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">vmtable</span>(),
+                        <span class="ident">from</span>: <span class="ident">t</span>.<span class="ident">from</span>.<span class="ident">clone</span>(),
+                    });
+                }
+                <span class="kw">_</span> <span class="op">=</span><span class="op">&gt;</span> {
+                    <span class="macro">unreachable</span><span class="macro">!</span>(<span class="string">&quot;Table resolution did not match&quot;</span>);
+                }
+            },
             <span class="ident">Export</span>::<span class="ident">Memory</span>(<span class="kw-2">ref</span> <span class="ident">m</span>) <span class="op">=</span><span class="op">&gt;</span> {
                 <span class="kw">match</span> <span class="ident">import_index</span> {
                     <span class="ident">ImportIndex</span>::<span class="ident">Memory</span>(<span class="ident">index</span>) <span class="op">=</span><span class="op">&gt;</span> {
