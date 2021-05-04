@@ -10,7 +10,7 @@ cargo-fuzz = true
 
 [dependencies]
 anyhow = "1"
-wasm-smith = { git = "https://github.com/bytecodealliance/wasm-tools" }
+wasm-smith = "0.4.4"
 libfuzzer-sys = "0.4.0"
 wasmer = { path = "../lib/api" }
 wasmer-compiler-cranelift = { path = "../lib/compiler-cranelift", optional = true }
@@ -19,6 +19,7 @@ wasmer-compiler-singlepass = { path = "../lib/compiler-singlepass", optional = t
 wasmer-engine-jit = { path = "../lib/engine-jit", optional = true }
 wasmer-engine-native = { path = "../lib/engine-native", optional = true }
 wasmer-middlewares = { path = "../lib/middlewares" }
+wasmprinter = "0.2"
 
 [features]
 cranelift = [ "wasmer-compiler-cranelift" ]
@@ -60,8 +61,3 @@ required-features = ["jit", "cranelift"]
 name = "native_cranelift"
 path = "fuzz_targets/native_cranelift.rs"
 required-features = ["native", "cranelift"]
-
-[[bin]]
-name = "validate"
-path = "fuzz_targets/validate.rs"
-required-features = ["jit", "cranelift"]

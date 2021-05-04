@@ -15,3 +15,15 @@ wasmer = { path = "../api", version = "1.0.2", default-features = false }
 hex = "0.4"
 thiserror = "1"
 blake3 = "0.3"
+
+[dev-dependencies]
+criterion = "0.3"
+tempfile = "3"
+rand = "0.8.3"
+wasmer-compiler-singlepass = { path = "../compiler-singlepass", version = "1.0.2" }
+wasmer-engine-jit = { path = "../engine-jit", version = "1.0.2" }
+wasmer-engine-native = { path = "../engine-native", version = "1.0.2" }
+
+[[bench]]
+name = "bench_filesystem_cache"
+harness = false

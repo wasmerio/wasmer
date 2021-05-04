@@ -5525,7 +5525,9 @@ impl<'a> FuncGen<'a> {
                     }
                 }
             }
-            Operator::Select => {
+            // `TypedSelect` must be used for extern refs so ref counting should
+            // be done with TypedSelect. But otherwise they're the same.
+            Operator::TypedSelect { .. } | Operator::Select => {
                 let cond = self.pop_value_released();
                 let v_b = self.pop_value_released();
                 let v_a = self.pop_value_released();

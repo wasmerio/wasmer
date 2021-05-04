@@ -13,6 +13,8 @@ use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
 use loupe::{MemoryUsage, MemoryUsageTracker};
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::mem;
@@ -34,12 +36,16 @@ use std::mem;
 /// `into_boxed_slice`.
 #[derive(Debug, Clone, Hash, PartialEq, Eq)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct PrimaryMap<K, V>
 where
     K: EntityRef,
 {
-    elems: Vec<V>,
-    unused: PhantomData<K>,
+    pub(crate) elems: Vec<V>,
+    pub(crate) unused: PhantomData<K>,
 }
 
 impl<K, V> PrimaryMap<K, V>

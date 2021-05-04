@@ -293,10 +293,12 @@ impl CompilerOptions {
                 Box::new(config)
             }
             #[cfg(not(all(feature = "singlepass", feature = "cranelift", feature = "llvm",)))]
-            compiler => bail!(
-                "The `{}` compiler is not included in this binary.",
-                compiler.to_string()
-            ),
+            compiler => {
+                bail!(
+                    "The `{}` compiler is not included in this binary.",
+                    compiler.to_string()
+                )
+            }
         };
 
         #[allow(unreachable_code)]

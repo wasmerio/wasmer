@@ -71,9 +71,9 @@ impl CreateExe {
         env::set_current_dir(&working_dir)?;
 
         #[cfg(not(windows))]
-        let wasm_object_path = PathBuf::from("wasm.o");
+        let wasm_object_path = PathBuf::from("wasm.a");
         #[cfg(windows)]
-        let wasm_object_path = PathBuf::from("wasm.obj");
+        let wasm_object_path = PathBuf::from("wasm.a");
 
         let wasm_module_path = starting_cd.join(&self.path);
 
@@ -284,23 +284,42 @@ impl LinkCode {
         } else {
             command
         };
+
         // Add libraries required per platform.
         // We need userenv, sockets (Ws2_32), advapi32 for some system calls and bcrypt for random numbers.
         #[cfg(windows)]
         let command = command
+            .arg("-Wl,--whole-archive")
             .arg("-luserenv")
             .arg("-lWs2_32")
             .arg("-ladvapi32")
             .arg("-lbcrypt");
         // On unix we need dlopen-related symbols, libmath for a few things, and pthreads.
+
+        cfg_if::cfg_if! {
+            if #[cfg(target_os = "macos")] {
+                let command = command.arg("-Wl,-all_load");
+            }
+            else if #[cfg(unix)] {
+                let command = command.arg("-Wl,--whole-archive");
+            }
+            else if #[cfg(windows)] {
+                let command = command.arg("-Wl,--whole-archive");
+            }
+        }
+
         #[cfg(not(windows))]
         let command = command.arg("-ldl").arg("-lm").arg("-pthread");
         let link_aganist_extra_libs = self
             .additional_libraries
             .iter()
             .map(|lib| format!("-l{}", lib));
-        let command = command.args(link_aganist_extra_libs);
-        let output = command.arg("-o").arg(&self.output_path).output()?;
+        let command = command
+            .args(link_aganist_extra_libs)
+            .arg("-o")
+            .arg(&self.output_path);
+        println!("COMMAND: {:?}", command);
+        let output = command.output()?;
 
         if !output.status.success() {
             bail!(

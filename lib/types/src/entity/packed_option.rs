@@ -168,7 +168,8 @@ mod tests {
     fn copies() {
         let x = Ent(2);
         let some: PackedOption<Ent> = x.into();
-        assert_eq!(some.expand(), x.into());
+        let some2: Option<Ent> = x.into();
+        assert_eq!(some.expand(), some2);
         assert_eq!(some, x.into());
     }
 }

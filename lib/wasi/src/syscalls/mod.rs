@@ -846,11 +846,13 @@ pub fn fd_pwrite(
                     return __WASI_EISDIR;
                 }
                 Kind::Symlink { .. } => unimplemented!("Symlinks in wasi::fd_pwrite"),
-                Kind::Buffer { buffer } => wasi_try!(write_bytes(
-                    &mut buffer[(offset as usize)..],
-                    memory,
-                    iovs_arr_cell
-                )),
+                Kind::Buffer { buffer } => {
+                    wasi_try!(write_bytes(
+                        &mut buffer[(offset as usize)..],
+                        memory,
+                        iovs_arr_cell
+                    ))
+                }
             }
         }
     };

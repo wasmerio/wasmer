@@ -8,12 +8,13 @@ use crate::codegen_x64::{
 };
 use crate::config::Singlepass;
 use loupe::MemoryUsage;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+#[cfg(feature = "rayon")]
+use rayon::prelude::{IntoParallelIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::TrapInformation;
 use wasmer_compiler::{
-    Architecture, CompileModuleInfo, CompilerConfig, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, OperatingSystem, Target,
+    Architecture, CompileModuleInfo, CompilerConfig, FunctionBinaryReader, MiddlewareBinaryReader,
+    ModuleMiddleware, ModuleMiddlewareChain, ModuleTranslationState, OperatingSystem, Target,
 };
 use wasmer_compiler::{Compilation, CompileError, CompiledFunction, Compiler, SectionIndex};
 use wasmer_compiler::{FunctionBody, FunctionBodyData};
@@ -41,12 +42,17 @@ impl SinglepassCompiler {
 }
 
 impl Compiler for SinglepassCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     /// Compile the module using Singlepass, producing a compilation result with
     /// associated relocations.
     fn compile_module(
         &self,
         target: &Target,
-        compile_info: &mut CompileModuleInfo,
+        compile_info: &CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'_>>,
     ) -> Result<Compilation, CompileError> {
@@ -63,15 +69,12 @@ impl Compiler for SinglepassCompiler {
         }
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let vmoffsets = VMOffsets::new(8, &compile_info.module);
         let module = &compile_info.module;
         let import_trampolines: PrimaryMap<SectionIndex, _> = (0..module.num_imported_functions)
             .map(FunctionIndex::new)
             .collect::<Vec<_>>()
-            .into_par_iter()
+            .into_par_iter_if_rayon()
             .map(|i| {
                 gen_import_call_trampoline(&vmoffsets, i, &module.signatures[module.functions[i]])
             })
@@ -81,12 +84,12 @@ impl Compiler for SinglepassCompiler {
         let functions = function_body_inputs
             .iter()
             .collect::<Vec<(LocalFunctionIndex, &FunctionBodyData<'_>)>>()
-            .par_iter()
+            .into_par_iter_if_rayon()
             .map(|(i, input)| {
                 let middleware_chain = self
                     .config
                     .middlewares
-                    .generate_function_middleware_chain(*i);
+                    .generate_function_middleware_chain(i);
                 let mut reader =
                     MiddlewareBinaryReader::new_with_offset(input.data, input.module_offset);
                 reader.set_middleware_chain(middleware_chain);
@@ -107,7 +110,7 @@ impl Compiler for SinglepassCompiler {
                     &vmoffsets,
                     &memory_styles,
                     &table_styles,
-                    *i,
+                    i,
                     &locals,
                 )
                 .map_err(to_compile_error)?;
@@ -128,8 +131,7 @@ impl Compiler for SinglepassCompiler {
             .signatures
             .values()
             .collect::<Vec<_>>()
-            .par_iter()
-            .cloned()
+            .into_par_iter_if_rayon()
             .map(gen_std_trampoline)
             .collect::<Vec<_>>()
             .into_iter()
@@ -138,7 +140,7 @@ impl Compiler for SinglepassCompiler {
         let dynamic_function_trampolines = module
             .imported_function_types()
             .collect::<Vec<_>>()
-            .par_iter()
+            .into_par_iter_if_rayon()
             .map(|func_type| gen_std_dynamic_import_trampoline(&vmoffsets, &func_type))
             .collect::<Vec<_>>()
             .into_iter()
@@ -166,6 +168,25 @@ impl ToCompileError for CodegenError {
 
 fn to_compile_error<T: ToCompileError>(x: T) -> CompileError {
     x.to_compile_error()
+}
+
+trait IntoParIterIfRayon {
+    type Output;
+    fn into_par_iter_if_rayon(self) -> Self::Output;
+}
+
+impl<T: Send> IntoParIterIfRayon for Vec<T> {
+    #[cfg(not(feature = "rayon"))]
+    type Output = std::vec::IntoIter<T>;
+    #[cfg(feature = "rayon")]
+    type Output = rayon::vec::IntoIter<T>;
+
+    fn into_par_iter_if_rayon(self) -> Self::Output {
+        #[cfg(not(feature = "rayon"))]
+        return self.into_iter();
+        #[cfg(feature = "rayon")]
+        return self.into_par_iter();
+    }
 }
 
 #[cfg(test)]

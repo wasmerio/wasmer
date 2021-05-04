@@ -1,20 +1,17 @@
 use crate::config::LLVM;
+use crate::object_file::get_frame_info;
 use crate::trampoline::FuncTrampoline;
 use crate::translator::FuncTranslator;
-use crate::CompiledKind;
-use inkwell::context::Context;
-use inkwell::memory_buffer::MemoryBuffer;
-use inkwell::module::{Linkage, Module};
 use inkwell::targets::FileType;
-use inkwell::DLLStorageClass;
 use loupe::MemoryUsage;
 use rayon::iter::ParallelBridge;
-use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIterator};
+use rayon::prelude::{IntoParallelRefIterator, ParallelIterator};
 use std::sync::Arc;
 use wasmer_compiler::{
-    Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
-    SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
+    Compilation, CompileError, CompileModuleInfo, CompiledFunctionFrameInfo, Compiler,
+    CustomSection, CustomSectionProtection, Dwarf, ExperimentalNativeCompilation, FunctionBodyData,
+    ModuleMiddleware, ModuleTranslationState, RelocationTarget, SectionBody, SectionIndex, Symbol,
+    SymbolRegistry, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
 use wasmer_types::{FunctionIndex, LocalFunctionIndex, SignatureIndex};
@@ -80,136 +77,118 @@ impl LLVMCompiler {
         module_translation: &ModuleTranslationState,
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
-        wasmer_metadata: &[u8],
-    ) -> Result<Vec<u8>, CompileError> {
-        let target_machine = self.config().target_machine(target);
-        let ctx = Context::create();
-
+    ) -> Result<ExperimentalNativeCompilation, CompileError> {
         // TODO: https:/github.com/rayon-rs/rayon/issues/822
 
-        let merged_bitcode = function_body_inputs.into_iter().par_bridge().map_init(
-            || {
-                let target_machine = self.config().target_machine(target);
-                FuncTranslator::new(target_machine)
-            },
-            |func_translator, (i, input)| {
-                let module = func_translator.translate_to_module(
-                    &compile_info.module,
-                    module_translation,
-                    &i,
-                    input,
-                    self.config(),
-                    &compile_info.memory_styles,
-                    &compile_info.table_styles,
-                    symbol_registry,
-                )?;
-                Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-            },
-        );
+        let function_bodies_and_frame_infos = function_body_inputs
+            .into_iter()
+            .par_bridge()
+            .map_init(
+                || {
+                    let target_machine = self.config().target_machine(target);
+                    FuncTranslator::new(target_machine)
+                },
+                |func_translator, (i, input)| {
+                    let module = func_translator.translate_to_module(
+                        &compile_info.module,
+                        module_translation,
+                        &i,
+                        input,
+                        self.config(),
+                        &compile_info.memory_styles,
+                        &compile_info.table_styles,
+                        symbol_registry,
+                    )?;
+                    let memory_buffer = func_translator
+                        .target_machine
+                        .write_to_memory_buffer(&module, FileType::Object)
+                        .unwrap();
+                    let memory_buffer = memory_buffer.as_slice().to_vec();
+                    let frame_info = get_frame_info(&memory_buffer)?;
+                    Ok((memory_buffer, frame_info))
+                },
+            )
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let trampolines_bitcode = compile_info.module.signatures.iter().par_bridge().map_init(
+        let (function_bodies, frame_infos): (Vec<Vec<u8>>, Vec<CompiledFunctionFrameInfo>) =
+            function_bodies_and_frame_infos.into_iter().unzip();
+        let function_bodies = function_bodies.into_iter().par_bridge().map(|b| Ok(b));
+
+        let frame_infos = frame_infos
+            .into_iter()
+            .collect::<PrimaryMap<LocalFunctionIndex, CompiledFunctionFrameInfo>>();
+        let trampolines = compile_info.module.signatures.iter().par_bridge().map_init(
             || {
                 let target_machine = self.config().target_machine(target);
                 FuncTrampoline::new(target_machine)
             },
             |func_trampoline, (i, sig)| {
-                let name = symbol_registry.symbol_to_name(Symbol::FunctionCallTrampoline(i));
+                let symbol = Symbol::FunctionCallTrampoline(i);
+                let name = symbol_registry.symbol_to_name(symbol);
                 let module = func_trampoline.trampoline_to_module(sig, self.config(), &name)?;
-                Ok(module.write_bitcode_to_memory().as_slice().to_vec())
+                let memory_buffer = func_trampoline
+                    .target_machine
+                    .write_to_memory_buffer(&module, FileType::Object)
+                    .unwrap();
+                Ok(memory_buffer.as_slice().to_vec())
             },
         );
 
-        let dynamic_trampolines_bitcode =
-            compile_info.module.functions.iter().par_bridge().map_init(
-                || {
-                    let target_machine = self.config().target_machine(target);
-                    (
-                        FuncTrampoline::new(target_machine),
-                        &compile_info.module.signatures,
-                    )
-                },
-                |(func_trampoline, signatures), (i, sig)| {
-                    let sig = &signatures[*sig];
-                    let name = symbol_registry.symbol_to_name(Symbol::DynamicFunctionTrampoline(i));
-                    let module =
-                        func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
-                    Ok(module.write_bitcode_to_memory().as_slice().to_vec())
-                },
-            );
-
-        let merged_bitcode = merged_bitcode
-            .chain(trampolines_bitcode)
-            .chain(dynamic_trampolines_bitcode)
-            .collect::<Result<Vec<_>, CompileError>>()?
-            .into_par_iter()
-            .reduce_with(|bc1, bc2| {
-                let ctx = Context::create();
-                let membuf = MemoryBuffer::create_from_memory_range(&bc1, "");
-                let m1 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                let membuf = MemoryBuffer::create_from_memory_range(&bc2, "");
-                let m2 = Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap();
-                m1.link_in_module(m2).unwrap();
-                m1.write_bitcode_to_memory().as_slice().to_vec()
-            });
-        let merged_module = if let Some(bc) = merged_bitcode {
-            let membuf = MemoryBuffer::create_from_memory_range(&bc, "");
-            Module::parse_bitcode_from_buffer(&membuf, &ctx).unwrap()
-        } else {
-            ctx.create_module("")
-        };
-
-        let i8_ty = ctx.i8_type();
-        let metadata_init = i8_ty.const_array(
-            wasmer_metadata
-                .iter()
-                .map(|v| i8_ty.const_int(*v as u64, false))
-                .collect::<Vec<_>>()
-                .as_slice(),
+        let dynamic_trampolines = compile_info.module.functions.iter().par_bridge().map_init(
+            || {
+                let target_machine = self.config().target_machine(target);
+                (
+                    FuncTrampoline::new(target_machine),
+                    &compile_info.module.signatures,
+                )
+            },
+            |(func_trampoline, signatures), (i, sig)| {
+                let sig = &signatures[*sig];
+                let symbol = Symbol::DynamicFunctionTrampoline(i);
+                let name = symbol_registry.symbol_to_name(symbol);
+                let module =
+                    func_trampoline.dynamic_trampoline_to_module(sig, self.config(), &name)?;
+                let memory_buffer = func_trampoline
+                    .target_machine
+                    .write_to_memory_buffer(&module, FileType::Object)
+                    .unwrap();
+                Ok(memory_buffer.as_slice().to_vec())
+            },
         );
-        let metadata_gv =
-            merged_module.add_global(metadata_init.get_type(), None, "WASMER_METADATA");
-        metadata_gv.set_initializer(&metadata_init);
-        metadata_gv.set_linkage(Linkage::DLLExport);
-        metadata_gv.set_dll_storage_class(DLLStorageClass::Export);
 
-        if self.config().enable_verifier {
-            merged_module.verify().unwrap();
-        }
+        let object_files = function_bodies
+            .chain(trampolines)
+            .chain(dynamic_trampolines)
+            .collect::<Result<Vec<_>, CompileError>>()?;
 
-        let memory_buffer = target_machine
-            .write_to_memory_buffer(&merged_module, FileType::Object)
-            .unwrap();
-        if let Some(ref callbacks) = self.config.callbacks {
-            callbacks.obj_memory_buffer(&CompiledKind::Module, &memory_buffer);
-        }
-
-        Ok(memory_buffer.as_slice().to_vec())
+        Ok(ExperimentalNativeCompilation {
+            object_files,
+            frame_infos,
+        })
     }
 }
 
 impl Compiler for LLVMCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module mut CompileModuleInfo,
+        compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
         symbol_registry: &dyn SymbolRegistry,
-        // The metadata to inject into the wasmer_metadata section of the object file.
-        wasmer_metadata: &[u8],
-    ) -> Option<Result<Vec<u8>, CompileError>> {
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
-
+    ) -> Option<Result<ExperimentalNativeCompilation, CompileError>> {
         Some(self.compile_native_object(
             target,
             compile_info,
             module_translation,
             function_body_inputs,
             symbol_registry,
-            wasmer_metadata,
         ))
     }
 
@@ -218,7 +197,7 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module mut CompileModuleInfo,
+        compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
@@ -226,9 +205,6 @@ impl Compiler for LLVMCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
 
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.

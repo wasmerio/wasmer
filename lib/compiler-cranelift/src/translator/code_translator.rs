@@ -1796,35 +1796,35 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             let (a, b) = pop2_with_bitcast(state, I32X4, builder);
             state.push1(builder.ins().unarrow(a, b))
         }
-        Operator::I16x8WidenLowI8x16S => {
+        Operator::I16x8ExtendLowI8x16S => {
             let a = pop1_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().swiden_low(a))
         }
-        Operator::I16x8WidenHighI8x16S => {
+        Operator::I16x8ExtendHighI8x16S => {
             let a = pop1_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().swiden_high(a))
         }
-        Operator::I16x8WidenLowI8x16U => {
+        Operator::I16x8ExtendLowI8x16U => {
             let a = pop1_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().uwiden_low(a))
         }
-        Operator::I16x8WidenHighI8x16U => {
+        Operator::I16x8ExtendHighI8x16U => {
             let a = pop1_with_bitcast(state, I8X16, builder);
             state.push1(builder.ins().uwiden_high(a))
         }
-        Operator::I32x4WidenLowI16x8S => {
+        Operator::I32x4ExtendLowI16x8S => {
             let a = pop1_with_bitcast(state, I16X8, builder);
             state.push1(builder.ins().swiden_low(a))
         }
-        Operator::I32x4WidenHighI16x8S => {
+        Operator::I32x4ExtendHighI16x8S => {
             let a = pop1_with_bitcast(state, I16X8, builder);
             state.push1(builder.ins().swiden_high(a))
         }
-        Operator::I32x4WidenLowI16x8U => {
+        Operator::I32x4ExtendLowI16x8U => {
             let a = pop1_with_bitcast(state, I16X8, builder);
             state.push1(builder.ins().uwiden_low(a))
         }
-        Operator::I32x4WidenHighI16x8U => {
+        Operator::I32x4ExtendHighI16x8U => {
             let a = pop1_with_bitcast(state, I16X8, builder);
             state.push1(builder.ins().uwiden_high(a))
         }
@@ -1853,14 +1853,24 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
             return Err(wasm_unsupported!("proposed tail-call operator {:?}", op));
         }
 
-        Operator::I64x2Eq
+        Operator::I64x2LtS
+        | Operator::I64x2GtS
+        | Operator::I64x2LeS
+        | Operator::I64x2GeS
+        | Operator::I8x16Popcnt
+        | Operator::I16x8ExtAddPairwiseI8x16S
+        | Operator::I16x8ExtAddPairwiseI8x16U
+        | Operator::I32x4ExtAddPairwiseI16x8S
+        | Operator::I32x4ExtAddPairwiseI16x8U
+        | Operator::I64x2Abs
+        | Operator::I64x2Eq
         | Operator::I64x2Ne
         | Operator::I64x2AllTrue
         | Operator::I64x2Bitmask
-        | Operator::I64x2WidenLowI32x4S
-        | Operator::I64x2WidenHighI32x4S
-        | Operator::I64x2WidenLowI32x4U
-        | Operator::I64x2WidenHighI32x4U
+        | Operator::I64x2ExtendLowI32x4S
+        | Operator::I64x2ExtendHighI32x4S
+        | Operator::I64x2ExtendLowI32x4U
+        | Operator::I64x2ExtendHighI32x4U
         | Operator::I16x8ExtMulLowI8x16S
         | Operator::I16x8ExtMulHighI8x16S
         | Operator::I16x8ExtMulLowI8x16U
@@ -1895,6 +1905,8 @@ pub fn translate_operator<FE: FuncEnvironment + ?Sized>(
         | Operator::Catch { .. }
         | Operator::Throw { .. }
         | Operator::Rethrow { .. }
+        | Operator::CatchAll
+        | Operator::Delegate { .. }
         | Operator::Unwind => {
             return Err(wasm_unsupported!("proposed exception operator {:?}", op));
         }

@@ -373,14 +373,14 @@ mod test {
         assert_c_type!(
             CType::Function {
                 arguments: vec![CType::U8, CType::ISize],
-                return_value: None,
+                return_value: None
             },
             "void (*)(unsigned char, size_t)"
         );
         assert_c_type!(
             CType::Function {
                 arguments: vec![],
-                return_value: Some(Box::new(CType::ISize)),
+                return_value: Some(Box::new(CType::ISize))
             },
             "size_t (*)()"
         );
@@ -389,7 +389,7 @@ mod test {
                 is_const: true,
                 inner: Box::new(CType::PointerTo {
                     is_const: false,
-                    inner: Box::new(CType::U32),
+                    inner: Box::new(CType::U32)
                 })
             },
             "const unsigned int**"
@@ -429,7 +429,7 @@ mod test {
         assert_c_type!(
             CType::Function {
                 arguments: vec![CType::U8, CType::ISize],
-                return_value: None,
+                return_value: None
             },
             "my_func",
             "void my_func(unsigned char, size_t)"
@@ -437,7 +437,7 @@ mod test {
         assert_c_type!(
             CType::Function {
                 arguments: vec![],
-                return_value: Some(Box::new(CType::ISize)),
+                return_value: Some(Box::new(CType::ISize))
             },
             "my_func",
             "size_t my_func()"
@@ -447,7 +447,7 @@ mod test {
                 is_const: true,
                 inner: Box::new(CType::PointerTo {
                     is_const: false,
-                    inner: Box::new(CType::U32),
+                    inner: Box::new(CType::U32)
                 })
             },
             "data",
@@ -469,7 +469,7 @@ mod test {
 
         assert_c_expr!(
             CStatement::LiteralConstant {
-                value: "\"Hello, world!\"".to_string(),
+                value: "\"Hello, world!\"".to_string()
             },
             "\"Hello, world!\""
         );
@@ -506,7 +506,7 @@ mod test {
                 is_extern: false,
                 is_const: true,
                 ctype: CType::Array {
-                    inner: Box::new(CType::I32),
+                    inner: Box::new(CType::I32)
                 },
                 definition: Some(Box::new(CStatement::LiteralArray {
                     items: vec![
@@ -530,7 +530,7 @@ mod test {
                 is_extern: true,
                 is_const: true,
                 ctype: CType::Array {
-                    inner: Box::new(CType::I32),
+                    inner: Box::new(CType::I32)
                 },
                 definition: None,
             },
