@@ -21,10 +21,6 @@ fn map_object_err(error: object::read::Error) -> CompileError {
     CompileError::Codegen(format!("error parsing object file: {}", error))
 }
 
-fn map_object_err(error: object::read::Error) -> CompileError {
-    CompileError::Codegen(format!("error parsing object file: {}", error))
-}
-
 pub struct CompiledFunction {
     pub compiled_function: wasmer_compiler::CompiledFunction,
     pub custom_sections: CustomSections,
@@ -32,8 +28,6 @@ pub struct CompiledFunction {
 }
 
 pub fn get_function_body_size(data: &[u8]) -> Result<u64, CompileError> {
-    use object::{Object, ObjectSection};
-
     let in_object = object::File::parse(&data).map_err(map_object_err)?;
     let section = in_object.section_by_name(FUNCTION_SECTION_NAME);
     match section {
