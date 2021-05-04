@@ -6,9 +6,9 @@ use loupe::MemoryUsage;
 use std::convert::TryInto;
 use std::slice;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportMemory};
+use wasmer_engine::Export;
 use wasmer_types::{Pages, ValueType};
-use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
+use wasmer_vm::{MemoryError, VMMemory};
 
 /// A WebAssembly `memory` instance.
 ///
@@ -27,7 +27,7 @@ use wasmer_vm::{Memory as RuntimeMemory, MemoryError, VMExportMemory};
 #[derive(Debug, Clone, MemoryUsage)]
 pub struct Memory {
     store: Store,
-    memory: Arc<dyn RuntimeMemory>,
+    vm_memory: VMMemory,
 }
 
 impl Memory {
@@ -51,7 +51,12 @@ impl Memory {
 
         Ok(Self {
             store: store.clone(),
-            memory,
+            vm_memory: VMMemory {
+                from: memory,
+                // We are creating it from the host, and therefore there is no
+                // associated instance with this memory
+                instance_ref: None,
+            },
         })
     }
 
@@ -69,7 +74,7 @@ impl Memory {
     /// assert_eq!(m.ty(), &mt);
     /// ```
     pub fn ty(&self) -> &MemoryType {
-        self.memory.ty()
+        self.vm_memory.from.ty()
     }
 
     /// Returns the [`Store`] where the `Memory` belongs.
@@ -110,21 +115,21 @@ impl Memory {
     /// by resizing this Memory.
     #[allow(clippy::mut_from_ref)]
     pub unsafe fn data_unchecked_mut(&self) -> &mut [u8] {
-        let definition = self.memory.vmmemory();
+        let definition = self.vm_memory.from.vmmemory();
         let def = definition.as_ref();
         slice::from_raw_parts_mut(def.base, def.current_length.try_into().unwrap())
     }
 
     /// Returns the pointer to the raw bytes of the `Memory`.
     pub fn data_ptr(&self) -> *mut u8 {
-        let definition = self.memory.vmmemory();
+        let definition = self.vm_memory.from.vmmemory();
         let def = unsafe { definition.as_ref() };
         def.base
     }
 
     /// Returns the size (in bytes) of the `Memory`.
     pub fn data_size(&self) -> u64 {
-        let definition = self.memory.vmmemory();
+        let definition = self.vm_memory.from.vmmemory();
         let def = unsafe { definition.as_ref() };
         def.current_length.into()
     }
@@ -142,7 +147,7 @@ impl Memory {
     /// assert_eq!(m.size(), Pages(1));
     /// ```
     pub fn size(&self) -> Pages {
-        self.memory.size()
+        self.vm_memory.from.size()
     }
 
     /// Grow memory by the specified amount of WebAssembly [`Pages`] and return
@@ -179,7 +184,7 @@ impl Memory {
     where
         IntoPages: Into<Pages>,
     {
-        self.memory.grow(delta.into())
+        self.vm_memory.from.grow(delta.into())
     }
 
     /// Return a "view" of the currently accessible memory. By
@@ -221,10 +226,10 @@ impl Memory {
         unsafe { MemoryView::new(base as _, length as u32) }
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportMemory) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_memory: VMMemory) -> Self {
         Self {
             store: store.clone(),
-            memory: wasmer_export.vm_memory.from,
+            vm_memory,
         }
     }
 
@@ -241,19 +246,13 @@ impl Memory {
     /// assert!(m.same(&m));
     /// ```
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.memory, &other.memory)
+        Arc::ptr_eq(&self.vm_memory.from, &other.vm_memory.from)
     }
 }
 
 impl<'a> Exportable<'a> for Memory {
     fn to_export(&self) -> Export {
-        ExportMemory {
-            vm_memory: VMExportMemory {
-                from: self.memory.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        self.vm_memory.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

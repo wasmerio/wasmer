@@ -1,10 +1,11 @@
 use std::env;
 use std::path::PathBuf;
 
-pub const ASSET_PATH: &str = concat!(
+pub const C_ASSET_PATH: &str = concat!(
     env!("CARGO_MANIFEST_DIR"),
     "/../../../lib/c-api/tests/assets"
 );
+pub const ASSET_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../tests/examples");
 
 pub const WASMER_INCLUDE_PATH: &str = concat!(env!("CARGO_MANIFEST_DIR"), "/../../../lib/c-api");
 

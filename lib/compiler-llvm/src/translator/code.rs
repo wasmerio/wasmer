@@ -304,7 +304,7 @@ impl FuncTranslator {
             mem_buf_slice,
             FUNCTION_SECTION,
             RelocationTarget::LocalFunc(*local_func_index),
-            |name: &String| {
+            |name: &str| {
                 Ok(
                     if let Some(Symbol::LocalFunction(local_func_index)) =
                         symbol_registry.name_to_symbol(name)
