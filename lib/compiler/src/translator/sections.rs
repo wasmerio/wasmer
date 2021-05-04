@@ -445,6 +445,7 @@ pub fn parse_name_section<'data>(
                 }
             }
             wasmparser::Name::Local(_) => {}
+            wasmparser::Name::Unknown { .. } => {}
         };
     }
     Ok(())

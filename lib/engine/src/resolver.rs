@@ -228,12 +228,27 @@ pub fn resolve_imports(
 
                 host_function_env_initializers.push(import_function_env);
             }
-            Export::Table(ref t) => {
-                table_imports.push(VMTableImport {
-                    definition: t.from.vmtable(),
-                    from: t.from.clone(),
-                });
-            }
+            Export::Table(ref t) => match import_index {
+                ImportIndex::Table(index) => {
+                    let import_table_ty = t.from.ty();
+                    let expected_table_ty = &module.tables[*index];
+                    if import_table_ty.ty != expected_table_ty.ty {
+                        return Err(LinkError::Import(
+                            module_name.to_string(),
+                            field.to_string(),
+                            ImportError::IncompatibleType(import_extern, export_extern),
+                        ));
+                    }
+
+                    table_imports.push(VMTableImport {
+                        definition: t.from.vmtable(),
+                        from: t.from.clone(),
+                    });
+                }
+                _ => {
+                    unreachable!("Table resolution did not match");
+                }
+            },
             Export::Memory(ref m) => {
                 match import_index {
                     ImportIndex::Memory(index) => {
