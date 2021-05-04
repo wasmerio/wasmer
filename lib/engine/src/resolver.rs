@@ -70,7 +70,14 @@ impl NamedResolver for Box<dyn NamedResolver> {
     }
 }
 
-/// `Resolver` implementation that always resolves to `None`.
+impl NamedResolver for () {
+    /// Always returns `None`.
+    fn resolve_by_name(&self, _module: &str, _field: &str) -> Option<Export> {
+        None
+    }
+}
+
+/// `Resolver` implementation that always resolves to `None`. Equivalent to `()`.
 pub struct NullResolver {}
 
 impl Resolver for NullResolver {
