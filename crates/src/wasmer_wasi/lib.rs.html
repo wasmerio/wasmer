@@ -280,13 +280,6 @@
 <span id="279">279</span>
 <span id="280">280</span>
 <span id="281">281</span>
-<span id="282">282</span>
-<span id="283">283</span>
-<span id="284">284</span>
-<span id="285">285</span>
-<span id="286">286</span>
-<span id="287">287</span>
-<span id="288">288</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="attribute">#![<span class="ident">deny</span>(<span class="ident">unused_mut</span>)]</span>
 <span class="attribute">#![<span class="ident">doc</span>(<span class="ident">html_favicon_url</span> <span class="op">=</span> <span class="string">&quot;https://wasmer.io/images/icons/favicon-32x32.png&quot;</span>)]</span>
@@ -378,16 +371,9 @@
     ) <span class="op">-</span><span class="op">&gt;</span> <span class="prelude-ty">Result</span><span class="op">&lt;</span><span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span><span class="op">&gt;</span>, <span class="ident">WasiError</span><span class="op">&gt;</span> {
         <span class="kw">let</span> <span class="ident">wasi_versions</span> <span class="op">=</span>
             <span class="ident">get_wasi_versions</span>(<span class="ident">module</span>, <span class="bool-val">false</span>).<span class="ident">ok_or</span>(<span class="ident">WasiError</span>::<span class="ident">UnknownWasiVersion</span>)<span class="question-mark">?</span>;
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">version_iter</span> <span class="op">=</span> <span class="ident">wasi_versions</span>.<span class="ident">iter</span>();
-        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resolver</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span><span class="op">&gt;</span> <span class="op">=</span> {
-            <span class="kw">let</span> <span class="ident">version</span> <span class="op">=</span> <span class="ident">version_iter</span>.<span class="ident">next</span>().<span class="ident">ok_or</span>(<span class="ident">WasiError</span>::<span class="ident">UnknownWasiVersion</span>)<span class="question-mark">?</span>;
-            <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">generate_import_object_from_env</span>(
-                <span class="ident">module</span>.<span class="ident">store</span>(),
-                <span class="self">self</span>.<span class="ident">clone</span>(),
-                <span class="kw-2">*</span><span class="ident">version</span>,
-            ))
-        };
-        <span class="kw">for</span> <span class="ident">version</span> <span class="kw">in</span> <span class="ident">version_iter</span> {
+
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">resolver</span>: <span class="ident">Box</span><span class="op">&lt;</span><span class="kw">dyn</span> <span class="ident">NamedResolver</span><span class="op">&gt;</span> <span class="op">=</span> { <span class="ident">Box</span>::<span class="ident">new</span>(()) };
+        <span class="kw">for</span> <span class="ident">version</span> <span class="kw">in</span> <span class="ident">wasi_versions</span>.<span class="ident">iter</span>() {
             <span class="kw">let</span> <span class="ident">new_import_object</span> <span class="op">=</span>
                 <span class="ident">generate_import_object_from_env</span>(<span class="ident">module</span>.<span class="ident">store</span>(), <span class="self">self</span>.<span class="ident">clone</span>(), <span class="kw-2">*</span><span class="ident">version</span>);
             <span class="ident">resolver</span> <span class="op">=</span> <span class="ident">Box</span>::<span class="ident">new</span>(<span class="ident">new_import_object</span>.<span class="ident">chain_front</span>(<span class="ident">resolver</span>));
