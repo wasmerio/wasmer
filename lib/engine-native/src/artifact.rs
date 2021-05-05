@@ -624,7 +624,7 @@ impl Artifact for NativeArtifact {
         let fp = self.finished_functions.clone();
         let mut function_pointers = fp.into_iter().collect::<Vec<_>>();
         // Sort the keys by the values in reverse order (function pointers)
-        // This way we can get the maximu function lengths (since functions can't collide in memory)
+        // This way we can get the maximum function lengths (since functions can't collide in memory)
         function_pointers.sort_by(|(_k1, v1), (_k2, v2)| v2.cmp(v1));
         let mut function_pointers = function_pointers
             .into_iter()
