@@ -14,6 +14,38 @@ static mut PREV_SIGBUS: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 static mut PREV_SIGFPE: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
 
+
+#[cfg_attr(not(target_os = "macos"), allow(unused_variables))]
+unsafe fn set_pc(cx: *mut libc::c_void, pc: usize, arg1: usize) {
+    cfg_if::cfg_if! {
+        if #[cfg(not(target_os = "macos"))] {
+            unreachable!(); // not used on these platforms
+        } else if #[cfg(target_arch = "x86_64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__rip = pc as u64;
+            (*cx.uc_mcontext).__ss.__rdi = arg1 as u64;
+            // We're simulating a "pseudo-call" so we need to ensure
+            // stack alignment is properly respected, notably that on a
+            // `call` instruction the stack is 8/16-byte aligned, then
+            // the function adjusts itself to be 16-byte aligned.
+            //
+            // Most of the time the stack pointer is 16-byte aligned at
+            // the time of the trap but for more robust-ness with JIT
+            // code where it may ud2 in a prologue check before the
+            // stack is aligned we double-check here.
+            if (*cx.uc_mcontext).__ss.__rsp % 16 == 0 {
+                (*cx.uc_mcontext).__ss.__rsp -= 8;
+            }
+        } else if #[cfg(target_arch = "aarch64")] {
+            let cx = &mut *(cx as *mut libc::ucontext_t);
+            (*cx.uc_mcontext).__ss.__pc = pc as u64;
+            (*cx.uc_mcontext).__ss.__x[0] = arg1 as u64;
+        } else {
+            compile_error!("unsupported macos target architecture");
+        }
+    }
+}
+
 pub unsafe fn platform_init() {
     let register = |slot: &mut MaybeUninit<libc::sigaction>, signal: i32| {
         let mut handler: libc::sigaction = mem::zeroed();
@@ -101,7 +133,50 @@ unsafe extern "C" fn trap_handler(
             return true;
         }
         info.capture_backtrace(pc);
-        do_unwind(jmp_buf)
+
+        // On macOS this is a bit special. If we were to
+        // `siglongjmp` out of the signal handler that notably
+        // does *not* reset the sigaltstack state of our
+        // signal handler. This seems to trick the kernel into
+        // thinking that the sigaltstack is still in use upon
+        // delivery of the next signal, meaning that the
+        // sigaltstack is not ever used again if we
+        // immediately call `unwind` here.
+        //
+        // Note that if we use `longjmp` instead of
+        // `siglongjmp` then the problem is fixed. The problem
+        // with that, however, is that `setjmp` is much slower
+        // than `sigsetjmp` due to the preservation of the
+        // proceses signal mask. The reason `longjmp` appears
+        // to work is that it seems to call a function
+        // (according to published macOS sources) called
+        // `_sigunaltstack` which updates the kernel to say
+        // the sigaltstack is no longer in use. We ideally
+        // want to call that here but it's unlikely there's a
+        // stable way for us to call that.
+        //
+        // Given all that, on macOS only, we do the next best
+        // thing. We return from the signal handler after
+        // updating the register context. This will cause
+        // control to return to our `unwind_shim` function
+        // defined here which will perform the `unwind`
+        // (`siglongjmp`) for us. The reason this works is
+        // that by returning from the signal handler we'll
+        // trigger all the normal machinery for "the signal
+        // handler is done running" which will clear the
+        // sigaltstack flag and allow reusing it for the next
+        // signal. Then upon resuming in our custom code we
+        // blow away the stack anyway with a `longjmp`.
+        if cfg!(target_os = "macos") {
+            unsafe extern "C" fn unwind_shim(jmp_buf: *const libc::c_void) {
+                do_unwind(jmp_buf as _)
+            }
+            set_pc(context, unwind_shim as usize, jmp_buf as usize);
+
+            true
+        } else {
+            do_unwind(jmp_buf)
+        }
     });
 
     if handled {
