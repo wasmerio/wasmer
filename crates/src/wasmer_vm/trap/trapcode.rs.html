@@ -205,6 +205,8 @@
 <span id="202">202</span>
 <span id="203">203</span>
 <span id="204">204</span>
+<span id="205">205</span>
+<span id="206">206</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -238,6 +240,8 @@
     <span class="doccomment">/// Memory data doesn&#39;t fit the memory size.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// This only can happen during instantiation.</span>
+    <span class="comment">// TODO(bulk_memory): this is currently unused, if it&#39;s not used by the bulk</span>
+    <span class="comment">// memory spectests then we should remove it from Wasmer.</span>
     <span class="ident">HeapSetterOutOfBounds</span> <span class="op">=</span> <span class="number">1</span>,
 
     <span class="doccomment">/// A `heap_addr` instruction detected an out-of-bounds error.</span>

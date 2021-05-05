@@ -337,9 +337,9 @@
     <span class="doccomment">/// let mt = MemoryType::new(1, None, false);</span>
     <span class="doccomment">/// let m = Memory::new(&amp;store, mt).unwrap();</span>
     <span class="doccomment">///</span>
-    <span class="doccomment">/// assert_eq!(m.ty(), &amp;mt);</span>
+    <span class="doccomment">/// assert_eq!(m.ty(), mt);</span>
     <span class="doccomment">/// ```</span>
-    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">MemoryType</span> {
+    <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryType</span> {
         <span class="self">self</span>.<span class="ident">vm_memory</span>.<span class="ident">from</span>.<span class="ident">ty</span>()
     }
 

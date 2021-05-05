@@ -422,6 +422,10 @@
 <span id="419">419</span>
 <span id="420">420</span>
 <span id="421">421</span>
+<span id="422">422</span>
+<span id="423">423</span>
+<span id="424">424</span>
+<span id="425">425</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -530,7 +534,7 @@
 <span class="doccomment">/// Trait for implementing Wasm Memory used by Wasmer.</span>
 <span class="kw">pub</span> <span class="kw">trait</span> <span class="ident">Memory</span>: <span class="ident">fmt</span>::<span class="ident">Debug</span> <span class="op">+</span> <span class="ident">Send</span> <span class="op">+</span> <span class="ident">Sync</span> <span class="op">+</span> <span class="ident">MemoryUsage</span> {
     <span class="doccomment">/// Returns the memory type for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">MemoryType</span>;
+    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryType</span>;
 
     <span class="doccomment">/// Returns the memory style for this memory.</span>
     <span class="kw">fn</span> <span class="ident">style</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">MemoryStyle</span>;
@@ -735,8 +739,12 @@
 
 <span class="kw">impl</span> <span class="ident">Memory</span> <span class="kw">for</span> <span class="ident">LinearMemory</span> {
     <span class="doccomment">/// Returns the type for this memory.</span>
-    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">MemoryType</span> {
-        <span class="kw-2">&amp;</span><span class="self">self</span>.<span class="ident">memory</span>
+    <span class="kw">fn</span> <span class="ident">ty</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">MemoryType</span> {
+        <span class="kw">let</span> <span class="ident">minimum</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">size</span>();
+        <span class="kw">let</span> <span class="kw-2">mut</span> <span class="ident">out</span> <span class="op">=</span> <span class="self">self</span>.<span class="ident">memory</span>.<span class="ident">clone</span>();
+        <span class="ident">out</span>.<span class="ident">minimum</span> <span class="op">=</span> <span class="ident">minimum</span>;
+
+        <span class="ident">out</span>
     }
 
     <span class="doccomment">/// Returns the memory style for this memory.</span>
