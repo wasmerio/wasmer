@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer = { path = "../api", version = "1.0.2" }
+wasmer = { path = "../api", version = "1.0.2", default-features = false, features = ["compiler"] }
 wasmer-types = { path = "../types", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 loupe = "0.1"
