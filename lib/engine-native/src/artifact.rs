@@ -615,7 +615,7 @@ impl Artifact for NativeArtifact {
             return;
         }
 
-        // The function sizes migth not be completely accurate.
+        // The function sizes might not be completely accurate.
         // Because of that, we (reverse) order all the functions by their pointer.
         // [f9, f7, f6, f8...] and calculate their potential function body size by
         // getting the diff in pointers between functions.
