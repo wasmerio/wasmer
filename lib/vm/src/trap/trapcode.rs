@@ -30,6 +30,8 @@ pub enum TrapCode {
     /// Memory data doesn't fit the memory size.
     ///
     /// This only can happen during instantiation.
+    // TODO(bulk_memory): this is currently unused, if it's not used by the bulk
+    // memory spectests then we should remove it from Wasmer.
     HeapSetterOutOfBounds = 1,
 
     /// A `heap_addr` instruction detected an out-of-bounds error.

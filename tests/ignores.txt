@@ -94,3 +94,88 @@ wasitests::unstable::mapdir_with_leading_slash on windows
 # This test is meant to only run on Unix
 wasitests::unstable::unix_open_special_files on windows
 wasitests::snapshot1::unix_open_special_files on windows
+
+# Updated spectests
+
+# bulk memory
+cranelift::spec::bulk
+# new simd
+cranelift::spec::simd::simd_align
+cranelift::spec::simd::simd_conversions
+cranelift::spec::simd::simd_f32x4_pmin_pmax
+cranelift::spec::simd::simd_f32x4_rounding
+cranelift::spec::simd::simd_f64x2_pmin_pmax
+cranelift::spec::simd::simd_f64x2_rounding
+cranelift::spec::simd::simd_i16x8_extadd_pairwise_i8x16
+cranelift::spec::simd::simd_i16x8_extmul_i8x16
+cranelift::spec::simd::simd_i16x8_q15mulr_sat_s
+cranelift::spec::simd::simd_i16x8_sat_arith
+cranelift::spec::simd::simd_i32x4_dot_i16x8
+cranelift::spec::simd::simd_i32x4_extadd_pairwise_i16x8
+cranelift::spec::simd::simd_i32x4_extmul_i16x8
+cranelift::spec::simd::simd_i32x4_trunc_sat_f64x2
+cranelift::spec::simd::simd_i64x2_arith2
+cranelift::spec::simd::simd_i64x2_cmp
+cranelift::spec::simd::simd_i64x2_extmul_i32x4
+cranelift::spec::simd::simd_i8x16_arith2
+cranelift::spec::simd::simd_i8x16_sat_arith
+cranelift::spec::simd::simd_int_to_int_extend
+cranelift::spec::simd::simd_load
+cranelift::spec::simd::simd_load16_lane
+cranelift::spec::simd::simd_load32_lane
+cranelift::spec::simd::simd_load64_lane
+cranelift::spec::simd::simd_load8_lane
+cranelift::spec::simd::simd_load_extend
+cranelift::spec::simd::simd_load_splat
+cranelift::spec::simd::simd_load_zero
+cranelift::spec::simd::simd_splat
+cranelift::spec::simd::simd_store16_lane
+cranelift::spec::simd::simd_store32_lane
+cranelift::spec::simd::simd_store64_lane
+cranelift::spec::simd::simd_store8_lane
+
+# bulk memory
+llvm::spec::bulk
+llvm::spec::memory_copy
+llvm::spec::memory_fill
+llvm::spec::memory_init
+# new simd
+llvm::spec::simd::simd_align
+llvm::spec::simd::simd_conversions
+llvm::spec::simd::simd_f32x4_pmin_pmax
+llvm::spec::simd::simd_f32x4_rounding
+llvm::spec::simd::simd_f64x2_pmin_pmax
+llvm::spec::simd::simd_f64x2_rounding
+llvm::spec::simd::simd_i16x8_extadd_pairwise_i8x16
+llvm::spec::simd::simd_i16x8_extmul_i8x16
+llvm::spec::simd::simd_i16x8_q15mulr_sat_s
+llvm::spec::simd::simd_i16x8_sat_arith
+llvm::spec::simd::simd_i32x4_dot_i16x8
+llvm::spec::simd::simd_i32x4_extadd_pairwise_i16x8
+llvm::spec::simd::simd_i32x4_extmul_i16x8
+llvm::spec::simd::simd_i32x4_trunc_sat_f64x2
+llvm::spec::simd::simd_i64x2_arith2
+llvm::spec::simd::simd_i64x2_cmp
+llvm::spec::simd::simd_i64x2_extmul_i32x4
+llvm::spec::simd::simd_i8x16_arith2
+llvm::spec::simd::simd_i8x16_sat_arith
+llvm::spec::simd::simd_int_to_int_extend
+llvm::spec::simd::simd_load
+llvm::spec::simd::simd_load16_lane
+llvm::spec::simd::simd_load32_lane
+llvm::spec::simd::simd_load64_lane
+llvm::spec::simd::simd_load8_lane
+llvm::spec::simd::simd_load_extend
+llvm::spec::simd::simd_load_splat
+llvm::spec::simd::simd_load_zero
+llvm::spec::simd::simd_splat
+llvm::spec::simd::simd_store16_lane
+llvm::spec::simd::simd_store32_lane
+llvm::spec::simd::simd_store64_lane
+llvm::spec::simd::simd_store8_lane
+
+# bulk memory
+singlepass::spec::bulk
+singlepass::spec::memory_copy
+singlepass::spec::memory_fill
+singlepass::spec::memory_init

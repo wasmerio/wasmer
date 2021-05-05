@@ -1026,8 +1026,6 @@ impl InstanceHandle {
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance().as_ref();
-        check_table_init_bounds(instance)?;
-        check_memory_init_bounds(instance, data_initializers)?;
 
         // Apply the initializers.
         initialize_tables(instance)?;
@@ -1300,21 +1298,6 @@ cfg_if::cfg_if! {
     }
 }
 
-fn check_table_init_bounds(instance: &Instance) -> Result<(), Trap> {
-    let module = Arc::clone(&instance.module);
-    for init in &module.table_initializers {
-        let start = get_table_init_start(init, instance);
-        let table = instance.get_table(init.table_index);
-
-        let size = usize::try_from(table.size()).unwrap();
-        if size < start + init.elements.len() {
-            return Err(Trap::new_from_runtime(TrapCode::TableSetterOutOfBounds));
-        }
-    }
-
-    Ok(())
-}
-
 /// Compute the offset for a memory data initializer.
 fn get_memory_init_start(init: &DataInitializer<'_>, instance: &Instance) -> usize {
     let mut start = init.location.offset;
@@ -1349,23 +1332,6 @@ unsafe fn get_memory_slice<'instance>(
         *import.definition.as_ref()
     };
     slice::from_raw_parts_mut(memory.base, memory.current_length.try_into().unwrap())
-}
-
-fn check_memory_init_bounds(
-    instance: &Instance,
-    data_initializers: &[DataInitializer<'_>],
-) -> Result<(), Trap> {
-    for init in data_initializers {
-        let start = get_memory_init_start(init, instance);
-        unsafe {
-            let mem_slice = get_memory_slice(init, instance);
-            if mem_slice.get_mut(start..start + init.data.len()).is_none() {
-                return Err(Trap::new_from_runtime(TrapCode::HeapSetterOutOfBounds));
-            }
-        }
-    }
-
-    Ok(())
 }
 
 /// Compute the offset for a table element initializer.

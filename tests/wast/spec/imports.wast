@@ -97,6 +97,26 @@
   "unknown type"
 )
 
+;; Export sharing name with import
+(module
+  (import "spectest" "print_i32" (func $imported_print (param i32)))
+  (func (export "print_i32") (param $i i32)
+    (call $imported_print (local.get $i))
+  )
+)
+
+(assert_return (invoke "print_i32" (i32.const 13)))
+
+;; Export sharing name with import
+(module
+  (import "spectest" "print_i32" (func $imported_print (param i32)))
+  (func (export "print_i32") (param $i i32) (param $j i32) (result i32)
+    (i32.add (local.get $i) (local.get $j))
+  )
+)
+
+(assert_return (invoke "print_i32" (i32.const 5) (i32.const 11)) (i32.const 16))
+
 (module (import "test" "func" (func)))
 (module (import "test" "func-i32" (func (param i32))))
 (module (import "test" "func-f32" (func (param f32))))
@@ -556,6 +576,26 @@
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 2))
 (assert_return (invoke "grow" (i32.const 1)) (i32.const -1))
 (assert_return (invoke "grow" (i32.const 0)) (i32.const 2))
+
+(module $Mgm
+  (memory (export "memory") 1) ;; initial size is 1
+  (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+)
+(register "grown-memory" $Mgm)
+(assert_return (invoke $Mgm "grow") (i32.const 1)) ;; now size is 2
+(module $Mgim1
+  ;; imported memory limits should match, because external memory size is 2 now
+  (memory (export "memory") (import "grown-memory" "memory") 2) 
+  (func (export "grow") (result i32) (memory.grow (i32.const 1)))
+)
+(register "grown-imported-memory" $Mgim1)
+(assert_return (invoke $Mgim1 "grow") (i32.const 2)) ;; now size is 3
+(module $Mgim2
+  ;; imported memory limits should match, because external memory size is 3 now
+  (import "grown-imported-memory" "memory" (memory 3))
+  (func (export "size") (result i32) (memory.size))
+)
+(assert_return (invoke $Mgim2 "size") (i32.const 3))
 
 
 ;; Syntax errors

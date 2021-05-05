@@ -188,7 +188,7 @@
   (func (export "as-f32x4_extract_lane_s-operand-last") (param f32) (result f32)
     (f32x4.extract_lane 3 (f32x4.splat (local.get 0))))
   (func (export "as-v8x16_swizzle-operands") (param i32) (param i32) (result v128)
-    (v8x16.swizzle (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
+    (i8x16.swizzle (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
   (func (export "as-i64x2_extract_lane-operand-first") (param i64) (result i64)
     (i64x2.extract_lane 0 (i64x2.splat (local.get 0))))
   (func (export "as-i64x2_extract_lane-operand-last") (param i64) (result i64)
@@ -221,14 +221,14 @@
         (f64x2.mul (f64x2.splat (local.get 2)) (f64x2.splat (local.get 3))))))
 
   ;; Saturating integer arithmetic
-  (func (export "as-i8x16_add_saturate_s-operands") (param i32 i32) (result v128)
-    (i8x16.add_saturate_s (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
-  (func (export "as-i16x8_add_saturate_s-operands") (param i32 i32) (result v128)
-    (i16x8.add_saturate_s (i16x8.splat (local.get 0)) (i16x8.splat (local.get 1))))
-  (func (export "as-i8x16_sub_saturate_u-operands") (param i32 i32) (result v128)
-    (i8x16.sub_saturate_u (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
-  (func (export "as-i16x8_sub_saturate_u-operands") (param i32 i32) (result v128)
-    (i16x8.sub_saturate_u (i16x8.splat (local.get 0)) (i16x8.splat (local.get 1))))
+  (func (export "as-i8x16_add_sat_s-operands") (param i32 i32) (result v128)
+    (i8x16.add_sat_s (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
+  (func (export "as-i16x8_add_sat_s-operands") (param i32 i32) (result v128)
+    (i16x8.add_sat_s (i16x8.splat (local.get 0)) (i16x8.splat (local.get 1))))
+  (func (export "as-i8x16_sub_sat_u-operands") (param i32 i32) (result v128)
+    (i8x16.sub_sat_u (i8x16.splat (local.get 0)) (i8x16.splat (local.get 1))))
+  (func (export "as-i16x8_sub_sat_u-operands") (param i32 i32) (result v128)
+    (i16x8.sub_sat_u (i16x8.splat (local.get 0)) (i16x8.splat (local.get 1))))
 
   ;; Bit shifts
   (func (export "as-i8x16_shr_s-operand") (param i32 i32) (result v128)
@@ -309,10 +309,10 @@
 (assert_return (invoke "as-i64x2_add_sub_mul-operands" (i64.const 0x7fffffff) (i64.const 0x1_0000_0001) (i64.const 65536) (i64.const 65536)) (v128.const i64x2 0x8000_0000 0x8000_0000))
 (assert_return (invoke "as-f64x2_add_sub_mul-operands" (f64.const 0x1p-1) (f64.const 0.75) (f64.const 0x1p-1) (f64.const 0.5)) (v128.const f64x2 0x1p+0 0x1p+0))
 
-(assert_return (invoke "as-i8x16_add_saturate_s-operands" (i32.const 0x7f) (i32.const 1)) (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
-(assert_return (invoke "as-i16x8_add_saturate_s-operands" (i32.const 0x7fff) (i32.const 1)) (v128.const i16x8 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff))
-(assert_return (invoke "as-i8x16_sub_saturate_u-operands" (i32.const 0x7f) (i32.const 0xff)) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
-(assert_return (invoke "as-i16x8_sub_saturate_u-operands" (i32.const 0x7fff) (i32.const 0xffff)) (v128.const i16x8 0 0 0 0 0 0 0 0))
+(assert_return (invoke "as-i8x16_add_sat_s-operands" (i32.const 0x7f) (i32.const 1)) (v128.const i8x16 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f 0x7f))
+(assert_return (invoke "as-i16x8_add_sat_s-operands" (i32.const 0x7fff) (i32.const 1)) (v128.const i16x8 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff 0x7fff))
+(assert_return (invoke "as-i8x16_sub_sat_u-operands" (i32.const 0x7f) (i32.const 0xff)) (v128.const i8x16 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0 0))
+(assert_return (invoke "as-i16x8_sub_sat_u-operands" (i32.const 0x7fff) (i32.const 0xffff)) (v128.const i16x8 0 0 0 0 0 0 0 0))
 
 (assert_return (invoke "as-i8x16_shr_s-operand" (i32.const 0xf0) (i32.const 3)) (v128.const i8x16 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2 -2))
 (assert_return (invoke "as-i16x8_shr_s-operand" (i32.const 0x100) (i32.const 4)) (v128.const i16x8 16 16 16 16 16 16 16 16))
@@ -342,7 +342,7 @@
 (assert_return (invoke "as-i32x4_trunc_s_f32x4_sat-operand" (f32.const 1.1)) (v128.const i32x4 1 1 1 1))
 
 
-;; As the argument of control constructs and Wasm instructions
+;; As the argument of control constructs and WASM instructions
 
 (module
   (global $g (mut v128) (v128.const f32x4 0.0 0.0 0.0 0.0))
