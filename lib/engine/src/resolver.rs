@@ -113,7 +113,7 @@ fn get_extern_from_export(_module: &ModuleInfo, export: &Export) -> ExternType {
     match export {
         Export::Function(ref f) => ExternType::Function(f.vm_function.signature.clone()),
         Export::Table(ref t) => ExternType::Table(*t.ty()),
-        Export::Memory(ref m) => ExternType::Memory(*m.ty()),
+        Export::Memory(ref m) => ExternType::Memory(m.ty()),
         Export::Global(ref g) => {
             let global = g.from.ty();
             ExternType::Global(*global)
