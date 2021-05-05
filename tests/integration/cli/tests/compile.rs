@@ -12,7 +12,7 @@ const OBJECT_FILE_ENGINE_TEST_C_SOURCE: &[u8] =
     include_bytes!("object_file_engine_test_c_source.c");
 
 fn object_file_engine_test_wasm_path() -> String {
-    format!("{}/{}", ASSET_PATH, "qjs.wasm")
+    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
 
 /// Data used to run the `wasmer compile` command.

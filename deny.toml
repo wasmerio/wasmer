@@ -175,6 +175,7 @@ skip = [
     { name = "semver-parser", version = "=0.7.0" },
     { name = "rustc_version", version = "=0.2.3" },
     { name = "itertools", version = "0.9.0" },
+    { name = "wasmparser", version = "0.57.0" },
     { name = "wast", version = "=24.0.0" },
 ]
 # Similarly to `skip` allows you to skip certain crates during duplicate 

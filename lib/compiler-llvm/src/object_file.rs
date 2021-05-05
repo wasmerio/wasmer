@@ -1,5 +1,8 @@
+use object::{Object, ObjectSection, ObjectSymbol};
+
 use std::collections::{HashMap, HashSet};
-use std::convert::TryFrom;
+use std::convert::TryInto;
+use std::num::TryFromIntError;
 
 use wasmer_compiler::{
     CompileError, CompiledFunctionFrameInfo, CustomSection, CustomSectionProtection,
@@ -9,32 +12,12 @@ use wasmer_compiler::{
 use wasmer_types::entity::{PrimaryMap, SecondaryMap};
 use wasmer_vm::libcalls::LibCall;
 
-use wasmer_types::entity::entity_impl;
-#[derive(Copy, Clone, PartialEq, Eq, Hash, PartialOrd, Ord, Debug)]
-pub struct ElfSectionIndex(u32);
-entity_impl!(ElfSectionIndex);
-impl ElfSectionIndex {
-    pub fn is_undef(&self) -> bool {
-        self.as_u32() == goblin::elf::section_header::SHN_UNDEF
-    }
-
-    pub fn from_usize(value: usize) -> Result<Self, CompileError> {
-        match u32::try_from(value) {
-            Err(_) => Err(CompileError::Codegen(format!(
-                "elf section index {} does not fit in 32 bits",
-                value
-            ))),
-            Ok(value) => Ok(ElfSectionIndex::from_u32(value)),
-        }
-    }
-
-    pub fn as_usize(&self) -> usize {
-        self.as_u32() as usize
-    }
+fn map_tryfromint_err(error: TryFromIntError) -> CompileError {
+    CompileError::Codegen(format!("int doesn't fit: {}", error))
 }
 
-fn map_goblin_err(error: goblin::error::Error) -> CompileError {
-    CompileError::Codegen(format!("error parsing ELF file: {}", error))
+fn map_object_err(error: object::read::Error) -> CompileError {
+    CompileError::Codegen(format!("error parsing object file: {}", error))
 }
 
 pub struct CompiledFunction {
@@ -50,7 +33,7 @@ pub fn load_object_file<F>(
     mut symbol_name_to_relocation_target: F,
 ) -> Result<CompiledFunction, CompileError>
 where
-    F: FnMut(&String) -> Result<Option<RelocationTarget>, CompileError>,
+    F: FnMut(&str) -> Result<Option<RelocationTarget>, CompileError>,
 {
     // TODO: use perfect hash function?
     let mut libcalls = HashMap::new();
@@ -115,52 +98,23 @@ where
     libcalls.insert("wasmer_vm_raise_trap".to_string(), LibCall::RaiseTrap);
     libcalls.insert("wasmer_vm_probestack".to_string(), LibCall::Probestack);
 
-    let elf = goblin::elf::Elf::parse(&contents).map_err(map_goblin_err)?;
-    let get_section_name = |section: &goblin::elf::section_header::SectionHeader| {
-        if section.sh_name == goblin::elf::section_header::SHN_UNDEF as _ {
-            return None;
-        }
-        elf.strtab.get(section.sh_name)?.ok()
-    };
+    let elf = object::File::parse(contents).map_err(map_object_err)?;
 
-    // Build up a mapping from a section to its relocation sections.
-    let reloc_sections = elf.shdr_relocs.iter().fold(
-        HashMap::new(),
-        |mut map: HashMap<_, Vec<_>>, (section_index, reloc_section)| {
-            let target_section = elf.section_headers[*section_index].sh_info as usize;
-            let target_section = ElfSectionIndex::from_usize(target_section).unwrap();
-            map.entry(target_section).or_default().push(reloc_section);
-            map
-        },
-    );
-
-    let mut visited: HashSet<ElfSectionIndex> = HashSet::new();
-    let mut worklist: Vec<ElfSectionIndex> = Vec::new();
-    let mut section_targets: HashMap<ElfSectionIndex, RelocationTarget> = HashMap::new();
+    let mut visited: HashSet<object::read::SectionIndex> = HashSet::new();
+    let mut worklist: Vec<object::read::SectionIndex> = Vec::new();
+    let mut section_targets: HashMap<object::read::SectionIndex, RelocationTarget> = HashMap::new();
 
     let root_section_index = elf
-        .section_headers
-        .iter()
-        .enumerate()
-        .filter(|(_, section)| get_section_name(section) == Some(root_section))
-        .map(|(index, _)| index)
-        .collect::<Vec<_>>();
-    if root_section_index.len() != 1 {
-        return Err(CompileError::Codegen(format!(
-            "found {} sections named {}",
-            root_section_index.len(),
-            root_section
-        )));
-    }
-    let root_section_index = root_section_index[0];
-    let root_section_index = ElfSectionIndex::from_usize(root_section_index)?;
+        .section_by_name(root_section)
+        .ok_or_else(|| CompileError::Codegen(format!("no section named {}", root_section)))?
+        .index();
 
     let mut section_to_custom_section = HashMap::new();
 
     section_targets.insert(root_section_index, root_section_reloc_target);
 
     let mut next_custom_section: u32 = 0;
-    let mut elf_section_to_target = |elf_section_index: ElfSectionIndex| {
+    let mut elf_section_to_target = |elf_section_index: object::read::SectionIndex| {
         *section_targets.entry(elf_section_index).or_insert_with(|| {
             let next = SectionIndex::from_u32(next_custom_section);
             section_to_custom_section.insert(elf_section_index, next);
@@ -170,15 +124,9 @@ where
         })
     };
 
-    let section_bytes = |elf_section_index: ElfSectionIndex| {
-        let elf_section_index = elf_section_index.as_usize();
-        let byte_range = elf.section_headers[elf_section_index].file_range();
-        contents[byte_range.start..byte_range.end].to_vec()
-    };
-
     // From elf section index to list of Relocations. Although we use a Vec,
     // the order of relocations is not important.
-    let mut relocations: HashMap<ElfSectionIndex, Vec<Relocation>> = HashMap::new();
+    let mut relocations: HashMap<object::read::SectionIndex, Vec<Relocation>> = HashMap::new();
 
     // Each iteration of this loop pulls a section and the relocations
     // relocations that apply to it. We begin with the ".root_section"
@@ -198,11 +146,9 @@ where
 
     // Also add any .eh_frame sections.
     let mut eh_frame_section_indices = vec![];
-    // TODO: this constant has been added to goblin, now waiting for release
-    const SHT_X86_64_UNWIND: u32 = 0x7000_0001;
-    for (index, shdr) in elf.section_headers.iter().enumerate() {
-        if shdr.sh_type == SHT_X86_64_UNWIND {
-            let index = ElfSectionIndex::from_usize(index)?;
+    for section in elf.sections() {
+        if section.kind() == object::SectionKind::Elf(object::elf::SHT_X86_64_UNWIND) {
+            let index = section.index();
             worklist.push(index);
             visited.insert(index);
             eh_frame_section_indices.push(index);
@@ -212,75 +158,88 @@ where
     }
 
     while let Some(section_index) = worklist.pop() {
-        for reloc in reloc_sections
-            .get(&section_index)
-            .iter()
-            .flat_map(|inner| inner.iter().flat_map(|inner2| inner2.iter()))
+        for (offset, reloc) in elf
+            .section_by_index(section_index)
+            .map_err(map_object_err)?
+            .relocations()
         {
-            let kind = match reloc.r_type {
-                // TODO: these constants are not per-arch, we'll need to
-                // make the whole match per-arch.
-                goblin::elf::reloc::R_X86_64_64 => RelocationKind::Abs8,
-                goblin::elf::reloc::R_X86_64_PC64 => RelocationKind::X86PCRel8,
-                goblin::elf::reloc::R_X86_64_GOT64 => {
-                    return Err(CompileError::Codegen(
-                        "unimplemented PIC relocation R_X86_64_GOT64".into(),
-                    ));
-                }
-                goblin::elf::reloc::R_X86_64_GOTPC64 => {
-                    return Err(CompileError::Codegen(
-                        "unimplemented PIC relocation R_X86_64_GOTPC64".into(),
-                    ));
+            let kind = match (reloc.kind(), reloc.size()) {
+                (object::RelocationKind::Absolute, 64) => RelocationKind::Abs8,
+                (object::RelocationKind::Elf(object::elf::R_X86_64_PC64), 0) => {
+                    RelocationKind::X86PCRel8
                 }
                 _ => {
                     return Err(CompileError::Codegen(format!(
-                        "unknown ELF relocation {}",
-                        reloc.r_type
+                        "unknown relocation {:?}",
+                        reloc
                     )));
                 }
             };
-            let offset = reloc.r_offset as u32;
-            let addend = reloc.r_addend.unwrap_or(0);
-            let target = reloc.r_sym;
-            let elf_target = elf.syms.get(target).ok_or_else(|| {
-                CompileError::Codegen(format!(
-                    "relocation refers to symbol {} past end of symbol table (len={})",
-                    target,
-                    elf.syms.len()
-                ))
-            })?;
-            let elf_target_section = ElfSectionIndex::from_usize(elf_target.st_shndx)?;
-            let reloc_target = if elf_target_section == root_section_index {
-                root_section_reloc_target
-            } else if elf_target.st_type() == goblin::elf::sym::STT_SECTION {
-                if visited.insert(elf_target_section) {
-                    worklist.push(elf_target_section);
+            let addend = reloc.addend();
+            let target = match reloc.target() {
+                object::read::RelocationTarget::Symbol(index) => {
+                    let symbol = elf.symbol_by_index(index).map_err(map_object_err)?;
+                    let symbol_name = symbol.name().map_err(map_object_err)?;
+                    if symbol.kind() == object::SymbolKind::Section {
+                        match symbol.section() {
+                            object::SymbolSection::Section(section_index) => {
+                                if section_index == root_section_index {
+                                    root_section_reloc_target
+                                } else {
+                                    if visited.insert(section_index) {
+                                        worklist.push(section_index);
+                                    }
+                                    elf_section_to_target(section_index)
+                                }
+                            }
+                            _ => {
+                                return Err(CompileError::Codegen(format!(
+                                    "relocation targets unknown section {:?}",
+                                    reloc
+                                )));
+                            }
+                        }
+                        // Maybe a libcall then?
+                    } else if let Some(libcall) = libcalls.get(symbol_name) {
+                        RelocationTarget::LibCall(*libcall)
+                    } else if let Some(reloc_target) =
+                        symbol_name_to_relocation_target(symbol_name)?
+                    {
+                        reloc_target
+                    } else {
+                        return Err(CompileError::Codegen(format!(
+                            "relocation targets unknown symbol {:?}",
+                            reloc
+                        )));
+                    }
                 }
-                elf_section_to_target(elf_target_section)
-            } else if elf_target.st_type() == goblin::elf::sym::STT_NOTYPE
-                && elf_target_section.is_undef()
-            {
-                // Not defined in this .o file. Maybe another local function?
-                let name = elf_target.st_name;
-                let name = elf.strtab.get(name).unwrap().unwrap().into();
-                if let Some(reloc_target) = symbol_name_to_relocation_target(&name)? {
-                    reloc_target
-                // Maybe a libcall then?
-                } else if let Some(libcall) = libcalls.get(&name) {
-                    RelocationTarget::LibCall(*libcall)
-                } else {
-                    unimplemented!("reference to unknown symbol {}", name);
+                object::read::RelocationTarget::Section(index) => {
+                    if index == root_section_index {
+                        root_section_reloc_target
+                    } else {
+                        if visited.insert(index) {
+                            worklist.push(index);
+                        }
+                        elf_section_to_target(index)
+                    }
                 }
-            } else {
-                unimplemented!("unknown relocation {:?} with target {:?}", reloc, target);
+                object::read::RelocationTarget::Absolute => {
+                    // Wasm-produced object files should never have absolute
+                    // addresses in them because none of the parts of the wasm
+                    // VM, nor the generated code are loaded at fixed addresses.
+                    return Err(CompileError::Codegen(format!(
+                        "relocation targets absolute address {:?}",
+                        reloc
+                    )));
+                }
             };
             relocations
                 .entry(section_index)
                 .or_default()
                 .push(Relocation {
                     kind,
-                    reloc_target,
-                    offset,
+                    reloc_target: target,
+                    offset: offset.try_into().map_err(map_tryfromint_err)?,
                     addend,
                 });
         }
@@ -308,7 +267,13 @@ where
                 custom_section_index,
                 CustomSection {
                     protection: CustomSectionProtection::Read,
-                    bytes: SectionBody::new_with_vec(section_bytes(*elf_section_index)),
+                    bytes: SectionBody::new_with_vec(
+                        elf.section_by_index(*elf_section_index)
+                            .unwrap()
+                            .data()
+                            .unwrap()
+                            .to_vec(),
+                    ),
                     relocations: relocations
                         .remove_entry(elf_section_index)
                         .map_or(vec![], |(_, v)| v),
@@ -323,7 +288,12 @@ where
         .collect::<PrimaryMap<SectionIndex, _>>();
 
     let function_body = FunctionBody {
-        body: section_bytes(root_section_index),
+        body: elf
+            .section_by_index(root_section_index)
+            .unwrap()
+            .data()
+            .unwrap()
+            .to_vec(),
         unwind_info: None,
     };
 

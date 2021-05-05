@@ -25,7 +25,6 @@ mod engine;
 mod error;
 mod export;
 mod resolver;
-mod serialize;
 mod trap;
 mod tunables;
 
@@ -34,14 +33,11 @@ pub use crate::engine::{Engine, EngineId};
 pub use crate::error::{
     DeserializeError, ImportError, InstantiationError, LinkError, SerializeError,
 };
-pub use crate::export::{
-    Export, ExportFunction, ExportFunctionMetadata, ExportGlobal, ExportMemory, ExportTable,
-};
+pub use crate::export::{Export, ExportFunction, ExportFunctionMetadata};
 pub use crate::resolver::{
     resolve_imports, ChainableNamedResolver, NamedResolver, NamedResolverChain, NullResolver,
     Resolver,
 };
-pub use crate::serialize::SerializableFunctionFrameInfo;
 pub use crate::trap::*;
 pub use crate::tunables::Tunables;
 

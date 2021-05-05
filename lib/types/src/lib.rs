@@ -90,7 +90,7 @@ pub use types::{
 };
 
 #[cfg(feature = "enable-rkyv")]
-pub use archives::{ArchivableIndexMap, ArchivedPrimaryMap};
+pub use archives::ArchivableIndexMap;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
