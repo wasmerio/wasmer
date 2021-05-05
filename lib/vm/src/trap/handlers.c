@@ -30,11 +30,11 @@ int register_setjmp(
     return 0;
   }
 
-  printf("Setmp 0\n");
+  printf("Setjmp 0\n");
 
   *buf_storage = &buf;
   body(payload);
-  printf("Setmp 1\n");
+  printf("Setjmp 1\n");
 
   return 1;
 }
