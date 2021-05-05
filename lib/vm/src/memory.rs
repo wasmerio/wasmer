@@ -105,7 +105,7 @@ impl MemoryStyle {
 /// Trait for implementing Wasm Memory used by Wasmer.
 pub trait Memory: fmt::Debug + Send + Sync + MemoryUsage {
     /// Returns the memory type for this memory.
-    fn ty(&self) -> &MemoryType;
+    fn ty(&self) -> MemoryType;
 
     /// Returns the memory style for this memory.
     fn style(&self) -> &MemoryStyle;
@@ -310,8 +310,12 @@ impl LinearMemory {
 
 impl Memory for LinearMemory {
     /// Returns the type for this memory.
-    fn ty(&self) -> &MemoryType {
-        &self.memory
+    fn ty(&self) -> MemoryType {
+        let minimum = self.size();
+        let mut out = self.memory.clone();
+        out.minimum = minimum;
+
+        out
     }
 
     /// Returns the memory style for this memory.

@@ -73,7 +73,7 @@ impl Memory {
     ///
     /// assert_eq!(m.ty(), &mt);
     /// ```
-    pub fn ty(&self) -> &MemoryType {
+    pub fn ty(&self) -> MemoryType {
         self.vm_memory.from.ty()
     }
 
