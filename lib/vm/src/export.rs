@@ -140,7 +140,7 @@ unsafe impl Sync for VMMemory {}
 
 impl VMMemory {
     /// Get the type for this exported memory
-    pub fn ty(&self) -> &MemoryType {
+    pub fn ty(&self) -> MemoryType {
         self.from.ty()
     }
 
