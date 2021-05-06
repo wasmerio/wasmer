@@ -38,7 +38,9 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        init_traps(is_wasm_pc).expect("Failed to initialize trap handling");
+        // Make sure the signal handlers are installed.
+        // This is required for handling traps.
+        init_traps(is_wasm_pc);
         Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
