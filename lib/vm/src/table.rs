@@ -87,7 +87,7 @@ pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
         }
 
         if dst_index.checked_add(len).map_or(true, |m| m > self.size()) {
-            return Err(Trap::new_from_runtime(TrapCode::TableSetterOutOfBounds));
+            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
         let srcs = src_index..src_index + len;
