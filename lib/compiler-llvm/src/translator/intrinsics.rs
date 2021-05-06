@@ -181,8 +181,15 @@ pub struct Intrinsics<'ctx> {
     pub imported_table_set: FunctionValue<'ctx>,
     pub table_grow: FunctionValue<'ctx>,
     pub imported_table_grow: FunctionValue<'ctx>,
+    pub memory_init: FunctionValue<'ctx>,
+    pub data_drop: FunctionValue<'ctx>,
     pub func_ref: FunctionValue<'ctx>,
     pub elem_drop: FunctionValue<'ctx>,
+    pub memory_copy: FunctionValue<'ctx>,
+    pub imported_memory_copy: FunctionValue<'ctx>,
+    pub memory_fill: FunctionValue<'ctx>,
+    pub imported_memory_fill: FunctionValue<'ctx>,
+
     pub throw_trap: FunctionValue<'ctx>,
 
     // VM builtins.
@@ -592,6 +599,82 @@ impl<'ctx> Intrinsics<'ctx> {
                     ],
                     false,
                 ),
+                None,
+            ),
+            memory_init: module.add_function(
+                "wasmer_vm_memory32_init",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_copy: module.add_function(
+                "wasmer_vm_memory32_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_copy: module.add_function(
+                "wasmer_vm_imported_memory32_copy",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            memory_fill: module.add_function(
+                "wasmer_vm_memory32_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            imported_memory_fill: module.add_function(
+                "wasmer_vm_imported_memory32_fill",
+                void_ty.fn_type(
+                    &[
+                        ctx_ptr_ty.as_basic_type_enum(),
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                        i32_ty_basic,
+                    ],
+                    false,
+                ),
+                None,
+            ),
+            data_drop: module.add_function(
+                "wasmer_vm_data_drop",
+                void_ty.fn_type(&[ctx_ptr_ty.as_basic_type_enum(), i32_ty_basic], false),
                 None,
             ),
             func_ref: module.add_function(

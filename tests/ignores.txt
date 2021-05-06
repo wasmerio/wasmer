@@ -97,8 +97,6 @@ wasitests::snapshot1::unix_open_special_files on windows
 
 # Updated spectests
 
-# bulk memory
-cranelift::spec::bulk
 # new simd
 cranelift::spec::simd::simd_align
 cranelift::spec::simd::simd_conversions
@@ -134,11 +132,6 @@ cranelift::spec::simd::simd_store32_lane
 cranelift::spec::simd::simd_store64_lane
 cranelift::spec::simd::simd_store8_lane
 
-# bulk memory
-llvm::spec::bulk
-llvm::spec::memory_copy
-llvm::spec::memory_fill
-llvm::spec::memory_init
 # new simd
 llvm::spec::simd::simd_align
 llvm::spec::simd::simd_conversions
