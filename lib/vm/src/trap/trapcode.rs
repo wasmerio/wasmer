@@ -27,61 +27,54 @@ pub enum TrapCode {
     /// stack guard page.
     StackOverflow = 0,
 
-    /// Memory data doesn't fit the memory size.
-    ///
-    /// This only can happen during instantiation.
-    // TODO(bulk_memory): this is currently unused, if it's not used by the bulk
-    // memory spectests then we should remove it from Wasmer.
-    HeapSetterOutOfBounds = 1,
-
     /// A `heap_addr` instruction detected an out-of-bounds error.
     ///
     /// Note that not all out-of-bounds heap accesses are reported this way;
     /// some are detected by a segmentation fault on the heap unmapped or
     /// offset-guard pages.
-    HeapAccessOutOfBounds = 2,
+    HeapAccessOutOfBounds = 1,
 
     /// A `heap_addr` instruction was misaligned.
-    HeapMisaligned = 3,
+    HeapMisaligned = 2,
 
     /// Table Elements doesn't fit the table size.
     ///
     /// This only can happen during instantiation.
-    TableSetterOutOfBounds = 4,
+    TableSetterOutOfBounds = 3,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
-    TableAccessOutOfBounds = 5,
+    TableAccessOutOfBounds = 4,
 
     /// Other bounds checking error.
-    OutOfBounds = 6,
+    OutOfBounds = 5,
 
     /// Indirect call to a null table entry.
-    IndirectCallToNull = 7,
+    IndirectCallToNull = 6,
 
     /// Signature mismatch on indirect call.
-    BadSignature = 8,
+    BadSignature = 7,
 
     /// An integer arithmetic operation caused an overflow.
-    IntegerOverflow = 9,
+    IntegerOverflow = 8,
 
     /// An integer division by zero.
-    IntegerDivisionByZero = 10,
+    IntegerDivisionByZero = 9,
 
     /// Failed float-to-int conversion.
-    BadConversionToInteger = 11,
+    BadConversionToInteger = 10,
 
     /// Code that was supposed to have been unreachable was reached.
-    UnreachableCodeReached = 12,
+    UnreachableCodeReached = 11,
 
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
-    Interrupt = 13,
+    Interrupt = 12,
 
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 14,
+    UnalignedAtomic = 13,
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    VMOutOfMemory = 15,
+    VMOutOfMemory = 14,
     // /// A user-defined trap code.
     // User(u16),
 }
@@ -91,7 +84,6 @@ impl TrapCode {
     pub fn message(&self) -> &str {
         match self {
             Self::StackOverflow => "call stack exhausted",
-            Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
             Self::HeapMisaligned => "misaligned heap",
             Self::TableSetterOutOfBounds => {
@@ -117,7 +109,6 @@ impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let identifier = match *self {
             Self::StackOverflow => "stk_ovf",
-            Self::HeapSetterOutOfBounds => "heap_set_oob",
             Self::HeapAccessOutOfBounds => "heap_get_oob",
             Self::HeapMisaligned => "heap_misaligned",
             Self::TableSetterOutOfBounds => "table_set_oob",
@@ -145,7 +136,6 @@ impl FromStr for TrapCode {
         use self::TrapCode::*;
         match s {
             "stk_ovf" => Ok(StackOverflow),
-            "heap_set_oob" => Ok(HeapSetterOutOfBounds),
             "heap_get_oob" => Ok(HeapAccessOutOfBounds),
             "heap_misaligned" => Ok(HeapMisaligned),
             "table_set_oob" => Ok(TableSetterOutOfBounds),
@@ -173,7 +163,6 @@ mod tests {
     // Everything but user-defined codes.
     const CODES: [TrapCode; 15] = [
         TrapCode::StackOverflow,
-        TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
         TrapCode::HeapMisaligned,
         TrapCode::TableSetterOutOfBounds,
