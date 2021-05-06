@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 use super::{tls, unwind as do_unwind, Trap};
 use std::io;
 use winapi::um::errhandlingapi::*;

@@ -1,3 +1,6 @@
+// This file contains code from external sources.
+// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md
+
 use super::{tls, unwind as do_unwind, Trap};
 use std::cell::RefCell;
 use std::convert::TryInto;
@@ -79,8 +82,8 @@ pub unsafe fn platform_init() {
     // Handle `unreachable` instructions which execute `ud2` right now
     register(&mut PREV_SIGILL, libc::SIGILL);
 
-    // x86 uses SIGFPE to report division by zero
-    if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") {
+    // x86 and s390x use SIGFPE to report division by zero
+    if cfg!(target_arch = "x86") || cfg!(target_arch = "x86_64") || cfg!(target_arch = "s390x") {
         register(&mut PREV_SIGFPE, libc::SIGFPE);
     }
 
@@ -119,9 +122,9 @@ unsafe extern "C" fn trap_handler(
         // Otherwise flag ourselves as handling a trap, do the trap
         // handling, and reset our trap handling flag. Then we figure
         // out what to do based on the result of the trap handling.
-        let pc = get_pc(context);
+        let pc = get_pc(context, signum);
         let jmp_buf = info.jmp_buf_if_trap(pc, |handler| handler(signum, siginfo, context));
-
+        println!("JUMP BUF: {:?}", jmp_buf);
         // Figure out what to do based on the result of this handling of
         // the trap. Note that our sentinel value of 1 means that the
         // exception was handled by a custom exception handler, so we
@@ -132,7 +135,9 @@ unsafe extern "C" fn trap_handler(
         if jmp_buf as usize == 1 {
             return true;
         }
+        println!("Capturing backtrace");
         info.capture_backtrace(pc);
+        println!("Backtrace captured");
 
         // On macOS this is a bit special. If we were to
         // `siglongjmp` out of the signal handler that notably
@@ -166,18 +171,22 @@ unsafe extern "C" fn trap_handler(
         // handler is done running" which will clear the
         // sigaltstack flag and allow reusing it for the next
         // signal. Then upon resuming in our custom code we
-        // blow away the stack anyway with a `longjmp`.
         if cfg!(target_os = "macos") {
-            unsafe extern "C" fn unwind_shim(jmp_buf: *const libc::c_void) {
+            unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
                 do_unwind(jmp_buf as _)
             }
             set_pc(context, unwind_shim as usize, jmp_buf as usize);
-
-            true
+            do_unwind(jmp_buf)
+            // unwind_shim(jmp_buf as _)
+            // true
         } else {
             do_unwind(jmp_buf)
         }
+
+        // do_unwind(jmp_buf)
     });
+
+    println!(" -> Handled {:?}", handled);
 
     if handled {
         return;
@@ -204,7 +213,7 @@ unsafe extern "C" fn trap_handler(
     }
 }
 
-unsafe fn get_pc(cx: *mut libc::c_void) -> *const u8 {
+unsafe fn get_pc(cx: *mut libc::c_void, _signum: libc::c_int) -> *const u8 {
     cfg_if::cfg_if! {
         if #[cfg(all(target_os = "linux", target_arch = "x86_64"))] {
             let cx = &*(cx as *const libc::ucontext_t);
@@ -221,6 +230,23 @@ unsafe fn get_pc(cx: *mut libc::c_void) -> *const u8 {
         } else if #[cfg(all(target_os = "macos", target_arch = "aarch64"))] {
             let cx = &*(cx as *const libc::ucontext_t);
             (*cx.uc_mcontext).__ss.__pc as *const u8
+        } else if #[cfg(all(target_os = "linux", target_arch = "s390x"))] {
+            // On s390x, SIGILL and SIGFPE are delivered with the PSW address
+            // pointing *after* the faulting instruction, while SIGSEGV and
+            // SIGBUS are delivered with the PSW address pointing *to* the
+            // faulting instruction.  To handle this, the code generator registers
+            // any trap that results in one of "late" signals on the last byte
+            // of the instruction, and any trap that results in one of the "early"
+            // signals on the first byte of the instruction (as usual).  This
+            // means we simply need to decrement the reported PSW address by
+            // one in the case of a "late" signal here to ensure we always
+            // correctly find the associated trap handler.
+            let trap_offset = match _signum {
+                libc::SIGILL | libc::SIGFPE => 1,
+                _ => 0,
+            };
+            let cx = &*(cx as *const libc::ucontext_t);
+            (cx.uc_mcontext.psw.addr - trap_offset) as *const u8
         } else if #[cfg(all(target_os = "freebsd", target_arch = "x86_64"))] {
             let cx = &*(cx as *const libc::ucontext_t);
             cx.uc_mcontext.mc_rip as *const u8
@@ -237,41 +263,35 @@ unsafe fn get_pc(cx: *mut libc::c_void) -> *const u8 {
 /// and registering our own alternate stack that is large enough and has a guard
 /// page.
 pub fn lazy_per_thread_init() -> Result<(), Trap> {
+    // This thread local is purely used to register a `Stack` to get deallocated
+    // when the thread exists. Otherwise this function is only ever called at
+    // most once per-thread.
     thread_local! {
-        /// Thread-local state is lazy-initialized on the first time it's used,
-        /// and dropped when the thread exits.
-        static TLS: RefCell<Tls> = RefCell::new(Tls::None);
+        static STACK: RefCell<Option<Stack>> = RefCell::new(None);
     }
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
     const MIN_STACK_SIZE: usize = 16 * 4096;
 
-    enum Tls {
-        None,
-        Allocated {
-            mmap_ptr: *mut libc::c_void,
-            mmap_size: usize,
-        },
-        BigEnough,
+    struct Stack {
+        mmap_ptr: *mut libc::c_void,
+        mmap_size: usize,
     }
 
-    return TLS.with(|slot| unsafe {
-        let mut slot = slot.borrow_mut();
-        match *slot {
-            Tls::None => {}
-            // already checked
-            _ => return Ok(()),
-        }
+    return STACK.with(|s| {
+        *s.borrow_mut() = unsafe { allocate_sigaltstack()? };
+        Ok(())
+    });
 
+    unsafe fn allocate_sigaltstack() -> Result<Option<Stack>, Trap> {
         // Check to see if the existing sigaltstack, if it exists, is big
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
         let r = libc::sigaltstack(ptr::null(), &mut old_stack);
         assert_eq!(r, 0, "learning about sigaltstack failed");
         if old_stack.ss_flags & libc::SS_DISABLE == 0 && old_stack.ss_size >= MIN_STACK_SIZE {
-            *slot = Tls::BigEnough;
-            return Ok(());
+            return Ok(None);
         }
 
         // ... but failing that we need to allocate our own, so do all that
@@ -309,25 +329,17 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
         let r = libc::sigaltstack(&new_stack, ptr::null_mut());
         assert_eq!(r, 0, "registering new sigaltstack failed");
 
-        *slot = Tls::Allocated {
+        Ok(Some(Stack {
             mmap_ptr: ptr,
             mmap_size: alloc_size,
-        };
-        Ok(())
-    });
+        }))
+    }
 
-    impl Drop for Tls {
+    impl Drop for Stack {
         fn drop(&mut self) {
-            let (ptr, size) = match self {
-                Tls::Allocated {
-                    mmap_ptr,
-                    mmap_size,
-                } => (*mmap_ptr, *mmap_size),
-                _ => return,
-            };
             unsafe {
                 // Deallocate the stack memory.
-                let r = libc::munmap(ptr, size);
+                let r = libc::munmap(self.mmap_ptr, self.mmap_size);
                 debug_assert_eq!(r, 0, "munmap failed during thread shutdown");
             }
         }
