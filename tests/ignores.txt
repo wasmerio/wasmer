@@ -134,11 +134,6 @@ cranelift::spec::simd::simd_store32_lane
 cranelift::spec::simd::simd_store64_lane
 cranelift::spec::simd::simd_store8_lane
 
-# bulk memory
-llvm::spec::bulk
-llvm::spec::memory_copy
-llvm::spec::memory_fill
-llvm::spec::memory_init
 # new simd
 llvm::spec::simd::simd_align
 llvm::spec::simd::simd_conversions
@@ -174,8 +169,3 @@ llvm::spec::simd::simd_store32_lane
 llvm::spec::simd::simd_store64_lane
 llvm::spec::simd::simd_store8_lane
 
-# bulk memory
-singlepass::spec::bulk
-singlepass::spec::memory_copy
-singlepass::spec::memory_fill
-singlepass::spec::memory_init

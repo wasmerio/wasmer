@@ -5679,6 +5679,160 @@ impl<'a> FuncGen<'a> {
                 self.assembler
                     .emit_mov(Size::S64, Location::GPR(GPR::RAX), ret);
             }
+            Operator::MemoryInit { segment, mem } => {
+                let len = self.value_stack.pop().unwrap();
+                let src = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, src, dst]);
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_memory_init_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, segment_index, dst, src, len]
+                    [
+                        Location::Imm32(mem),
+                        Location::Imm32(segment),
+                        dst,
+                        src,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst, src, len]);
+            }
+            Operator::DataDrop { segment } => {
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets
+                            .vmctx_builtin_function(VMBuiltinFunctionIndex::get_data_drop_index())
+                            as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, segment_index]
+                    iter::once(Location::Imm32(segment)),
+                )?;
+            }
+            Operator::MemoryCopy { src, dst } => {
+                // ignore until we support multiple memories
+                let _dst = dst;
+                let len = self.value_stack.pop().unwrap();
+                let src_pos = self.value_stack.pop().unwrap();
+                let dst_pos = self.value_stack.pop().unwrap();
+                self.machine
+                    .release_locations_only_regs(&[len, src_pos, dst_pos]);
+
+                let memory_index = MemoryIndex::new(src as usize);
+                let (memory_copy_index, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_copy_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_copy_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_copy_index) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, dst, src, len]
+                    [
+                        Location::Imm32(memory_index.index() as u32),
+                        dst_pos,
+                        src_pos,
+                        len,
+                    ]
+                    .iter()
+                    .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst_pos, src_pos, len]);
+            }
+            Operator::MemoryFill { mem } => {
+                let len = self.value_stack.pop().unwrap();
+                let val = self.value_stack.pop().unwrap();
+                let dst = self.value_stack.pop().unwrap();
+                self.machine.release_locations_only_regs(&[len, val, dst]);
+
+                let memory_index = MemoryIndex::new(mem as usize);
+                let (memory_fill_index, memory_index) =
+                    if self.module.local_memory_index(memory_index).is_some() {
+                        (
+                            VMBuiltinFunctionIndex::get_memory_fill_index(),
+                            memory_index,
+                        )
+                    } else {
+                        (
+                            VMBuiltinFunctionIndex::get_imported_memory_fill_index(),
+                            memory_index,
+                        )
+                    };
+
+                self.assembler.emit_mov(
+                    Size::S64,
+                    Location::Memory(
+                        Machine::get_vmctx_reg(),
+                        self.vmoffsets.vmctx_builtin_function(memory_fill_index) as i32,
+                    ),
+                    Location::GPR(GPR::RAX),
+                );
+
+                // TODO: should this be 3?
+                self.machine.release_locations_only_osr_state(1);
+
+                self.emit_call_sysv(
+                    |this| {
+                        this.assembler.emit_call_register(GPR::RAX);
+                    },
+                    // [vmctx, memory_index, dst, src, len]
+                    [Location::Imm32(memory_index.index() as u32), dst, val, len]
+                        .iter()
+                        .cloned(),
+                )?;
+                self.machine
+                    .release_locations_only_stack(&mut self.assembler, &[dst, val, len]);
+            }
             Operator::MemoryGrow { mem, mem_byte: _ } => {
                 let memory_index = MemoryIndex::new(mem as usize);
                 let param_pages = self.value_stack.pop().unwrap();
