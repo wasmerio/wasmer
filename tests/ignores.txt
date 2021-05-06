@@ -169,8 +169,3 @@ llvm::spec::simd::simd_store32_lane
 llvm::spec::simd::simd_store64_lane
 llvm::spec::simd::simd_store8_lane
 
-# bulk memory
-singlepass::spec::bulk
-singlepass::spec::memory_copy
-singlepass::spec::memory_fill
-singlepass::spec::memory_init
