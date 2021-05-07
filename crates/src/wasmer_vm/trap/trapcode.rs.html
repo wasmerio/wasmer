@@ -185,28 +185,6 @@
 <span id="182">182</span>
 <span id="183">183</span>
 <span id="184">184</span>
-<span id="185">185</span>
-<span id="186">186</span>
-<span id="187">187</span>
-<span id="188">188</span>
-<span id="189">189</span>
-<span id="190">190</span>
-<span id="191">191</span>
-<span id="192">192</span>
-<span id="193">193</span>
-<span id="194">194</span>
-<span id="195">195</span>
-<span id="196">196</span>
-<span id="197">197</span>
-<span id="198">198</span>
-<span id="199">199</span>
-<span id="200">200</span>
-<span id="201">201</span>
-<span id="202">202</span>
-<span id="203">203</span>
-<span id="204">204</span>
-<span id="205">205</span>
-<span id="206">206</span>
 </pre><div class="example-wrap"><pre class="rust ">
 <span class="comment">// This file contains code from external sources.</span>
 <span class="comment">// Attributions: https://github.com/wasmerio/wasmer/blob/master/ATTRIBUTIONS.md</span>
@@ -237,61 +215,49 @@
     <span class="doccomment">/// stack guard page.</span>
     <span class="ident">StackOverflow</span> <span class="op">=</span> <span class="number">0</span>,
 
-    <span class="doccomment">/// Memory data doesn&#39;t fit the memory size.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This only can happen during instantiation.</span>
-    <span class="comment">// TODO(bulk_memory): this is currently unused, if it&#39;s not used by the bulk</span>
-    <span class="comment">// memory spectests then we should remove it from Wasmer.</span>
-    <span class="ident">HeapSetterOutOfBounds</span> <span class="op">=</span> <span class="number">1</span>,
-
     <span class="doccomment">/// A `heap_addr` instruction detected an out-of-bounds error.</span>
     <span class="doccomment">///</span>
     <span class="doccomment">/// Note that not all out-of-bounds heap accesses are reported this way;</span>
     <span class="doccomment">/// some are detected by a segmentation fault on the heap unmapped or</span>
     <span class="doccomment">/// offset-guard pages.</span>
-    <span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span> <span class="number">2</span>,
+    <span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span> <span class="number">1</span>,
 
     <span class="doccomment">/// A `heap_addr` instruction was misaligned.</span>
-    <span class="ident">HeapMisaligned</span> <span class="op">=</span> <span class="number">3</span>,
-
-    <span class="doccomment">/// Table Elements doesn&#39;t fit the table size.</span>
-    <span class="doccomment">///</span>
-    <span class="doccomment">/// This only can happen during instantiation.</span>
-    <span class="ident">TableSetterOutOfBounds</span> <span class="op">=</span> <span class="number">4</span>,
+    <span class="ident">HeapMisaligned</span> <span class="op">=</span> <span class="number">2</span>,
 
     <span class="doccomment">/// A `table_addr` instruction detected an out-of-bounds error.</span>
-    <span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span> <span class="number">5</span>,
+    <span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span> <span class="number">3</span>,
 
     <span class="doccomment">/// Other bounds checking error.</span>
-    <span class="ident">OutOfBounds</span> <span class="op">=</span> <span class="number">6</span>,
+    <span class="ident">OutOfBounds</span> <span class="op">=</span> <span class="number">4</span>,
 
     <span class="doccomment">/// Indirect call to a null table entry.</span>
-    <span class="ident">IndirectCallToNull</span> <span class="op">=</span> <span class="number">7</span>,
+    <span class="ident">IndirectCallToNull</span> <span class="op">=</span> <span class="number">5</span>,
 
     <span class="doccomment">/// Signature mismatch on indirect call.</span>
-    <span class="ident">BadSignature</span> <span class="op">=</span> <span class="number">8</span>,
+    <span class="ident">BadSignature</span> <span class="op">=</span> <span class="number">6</span>,
 
     <span class="doccomment">/// An integer arithmetic operation caused an overflow.</span>
-    <span class="ident">IntegerOverflow</span> <span class="op">=</span> <span class="number">9</span>,
+    <span class="ident">IntegerOverflow</span> <span class="op">=</span> <span class="number">7</span>,
 
     <span class="doccomment">/// An integer division by zero.</span>
-    <span class="ident">IntegerDivisionByZero</span> <span class="op">=</span> <span class="number">10</span>,
+    <span class="ident">IntegerDivisionByZero</span> <span class="op">=</span> <span class="number">8</span>,
 
     <span class="doccomment">/// Failed float-to-int conversion.</span>
-    <span class="ident">BadConversionToInteger</span> <span class="op">=</span> <span class="number">11</span>,
+    <span class="ident">BadConversionToInteger</span> <span class="op">=</span> <span class="number">9</span>,
 
     <span class="doccomment">/// Code that was supposed to have been unreachable was reached.</span>
-    <span class="ident">UnreachableCodeReached</span> <span class="op">=</span> <span class="number">12</span>,
+    <span class="ident">UnreachableCodeReached</span> <span class="op">=</span> <span class="number">10</span>,
 
     <span class="doccomment">/// Execution has potentially run too long and may be interrupted.</span>
     <span class="doccomment">/// This trap is resumable.</span>
-    <span class="ident">Interrupt</span> <span class="op">=</span> <span class="number">13</span>,
+    <span class="ident">Interrupt</span> <span class="op">=</span> <span class="number">11</span>,
 
     <span class="doccomment">/// An atomic memory access was attempted with an unaligned pointer.</span>
-    <span class="ident">UnalignedAtomic</span> <span class="op">=</span> <span class="number">14</span>,
+    <span class="ident">UnalignedAtomic</span> <span class="op">=</span> <span class="number">12</span>,
 
     <span class="doccomment">/// A trap indicating that the runtime was unable to allocate sufficient memory.</span>
-    <span class="ident">VMOutOfMemory</span> <span class="op">=</span> <span class="number">15</span>,
+    <span class="ident">VMOutOfMemory</span> <span class="op">=</span> <span class="number">13</span>,
     <span class="comment">// /// A user-defined trap code.</span>
     <span class="comment">// User(u16),</span>
 }
@@ -301,12 +267,8 @@
     <span class="kw">pub</span> <span class="kw">fn</span> <span class="ident">message</span>(<span class="kw-2">&amp;</span><span class="self">self</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="kw-2">&amp;</span><span class="ident">str</span> {
         <span class="kw">match</span> <span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">StackOverflow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;call stack exhausted&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">HeapSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;memory out of bounds: data segment does not fit&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;out of bounds memory access&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapMisaligned</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;misaligned heap&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> {
-                <span class="string">&quot;out of bounds table access: elements segment does not fit&quot;</span>
-            }
             <span class="self">Self</span>::<span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;undefined element: out of bounds table access&quot;</span>,
             <span class="self">Self</span>::<span class="ident">OutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;out of bounds&quot;</span>,
             <span class="self">Self</span>::<span class="ident">IndirectCallToNull</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;uninitialized element&quot;</span>,
@@ -327,10 +289,8 @@
     <span class="kw">fn</span> <span class="ident">fmt</span>(<span class="kw-2">&amp;</span><span class="self">self</span>, <span class="ident">f</span>: <span class="kw-2">&amp;</span><span class="kw-2">mut</span> <span class="ident">Formatter</span>) <span class="op">-</span><span class="op">&gt;</span> <span class="ident">fmt</span>::<span class="prelude-ty">Result</span> {
         <span class="kw">let</span> <span class="ident">identifier</span> <span class="op">=</span> <span class="kw">match</span> <span class="kw-2">*</span><span class="self">self</span> {
             <span class="self">Self</span>::<span class="ident">StackOverflow</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;stk_ovf&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">HeapSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;heap_set_oob&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;heap_get_oob&quot;</span>,
             <span class="self">Self</span>::<span class="ident">HeapMisaligned</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;heap_misaligned&quot;</span>,
-            <span class="self">Self</span>::<span class="ident">TableSetterOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;table_set_oob&quot;</span>,
             <span class="self">Self</span>::<span class="ident">TableAccessOutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;table_get_oob&quot;</span>,
             <span class="self">Self</span>::<span class="ident">OutOfBounds</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;oob&quot;</span>,
             <span class="self">Self</span>::<span class="ident">IndirectCallToNull</span> <span class="op">=</span><span class="op">&gt;</span> <span class="string">&quot;icall_null&quot;</span>,
@@ -355,10 +315,8 @@
         <span class="kw">use</span> <span class="self">self</span>::<span class="ident">TrapCode</span>::<span class="kw-2">*</span>;
         <span class="kw">match</span> <span class="ident">s</span> {
             <span class="string">&quot;stk_ovf&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">StackOverflow</span>),
-            <span class="string">&quot;heap_set_oob&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">HeapSetterOutOfBounds</span>),
             <span class="string">&quot;heap_get_oob&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">HeapAccessOutOfBounds</span>),
             <span class="string">&quot;heap_misaligned&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">HeapMisaligned</span>),
-            <span class="string">&quot;table_set_oob&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">TableSetterOutOfBounds</span>),
             <span class="string">&quot;table_get_oob&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">TableAccessOutOfBounds</span>),
             <span class="string">&quot;oob&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">OutOfBounds</span>),
             <span class="string">&quot;icall_null&quot;</span> <span class="op">=</span><span class="op">&gt;</span> <span class="prelude-val">Ok</span>(<span class="ident">IndirectCallToNull</span>),
@@ -381,12 +339,10 @@
     <span class="kw">use</span> <span class="kw">super</span>::<span class="kw-2">*</span>;
 
     <span class="comment">// Everything but user-defined codes.</span>
-    <span class="kw">const</span> <span class="ident">CODES</span>: [<span class="ident">TrapCode</span>; <span class="number">15</span>] <span class="op">=</span> [
+    <span class="kw">const</span> <span class="ident">CODES</span>: [<span class="ident">TrapCode</span>; <span class="number">13</span>] <span class="op">=</span> [
         <span class="ident">TrapCode</span>::<span class="ident">StackOverflow</span>,
-        <span class="ident">TrapCode</span>::<span class="ident">HeapSetterOutOfBounds</span>,
         <span class="ident">TrapCode</span>::<span class="ident">HeapAccessOutOfBounds</span>,
         <span class="ident">TrapCode</span>::<span class="ident">HeapMisaligned</span>,
-        <span class="ident">TrapCode</span>::<span class="ident">TableSetterOutOfBounds</span>,
         <span class="ident">TrapCode</span>::<span class="ident">TableAccessOutOfBounds</span>,
         <span class="ident">TrapCode</span>::<span class="ident">OutOfBounds</span>,
         <span class="ident">TrapCode</span>::<span class="ident">IndirectCallToNull</span>,
