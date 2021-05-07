@@ -56,7 +56,9 @@ fuzz_target!(|module: WasmSmithModule| {
         Ok(_) => {}
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message.contains("RuntimeError: ") && error_message.contains("out of bounds") {
+            if error_message.starts_with("RuntimeError: ")
+                && error_message.contains("out of bounds")
+            {
                 return;
             }
             panic!("{}", e);
