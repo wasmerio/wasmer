@@ -243,7 +243,7 @@ unsafe fn handler_thread() {
 }
 
 unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
-    println!("Handle exception");
+    println!("HANDLE EXCEPTION");
     // First make sure that this exception is one that we actually expect to
     // get raised by wasm code. All other exceptions we safely ignore.
     match request.body.exception as u32 {
@@ -363,18 +363,20 @@ unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
     if !super::IS_WASM_PC(pc as usize) {
         return false;
     }
-
+    println!("Before resuming");
     // We have determined that this is a wasm trap and we need to actually
     // force the thread itself to trap. The thread's register state is
     // configured to resume in the `unwind` function below, we update the
     // thread's register state, and then we're off to the races.
     resume(&mut thread_state, pc as usize);
+    println!("Before thread_set_state");
     let kret = thread_set_state(
         origin_thread,
         thread_state_flavor,
         &mut thread_state as *mut ThreadState as *mut u32,
         thread_state_count,
     );
+    println!("After thread_set_state");
     kret == KERN_SUCCESS
 }
 
@@ -387,7 +389,9 @@ unsafe fn handle_exception(request: &mut ExceptionRequest) -> bool {
 /// of the wasm code.
 unsafe extern "C" fn unwind(wasm_pc: *const u8) -> ! {
     let jmp_buf = tls::with(|state| {
+        println!("Unwrapping TLS State");
         let state = state.unwrap();
+        println!("CAPTURING BACKTRACE");
         state.capture_backtrace(wasm_pc);
         state.jmp_buf.get()
     });
@@ -427,26 +431,16 @@ impl Drop for ClosePort {
 /// task-level port which is where we'd expected things like breakpad/crashpad
 /// exception handlers to get registered.
 pub fn lazy_per_thread_init() -> Result<(), Trap> {
-    thread_local! {
-        static PORTS_SET: Cell<bool> = Cell::new(false);
+    unsafe {
+        assert!(WASMER_PORT != MACH_PORT_NULL);
+        let kret = thread_set_exception_ports(
+            MY_PORT.with(|p| p.0),
+            EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION,
+            WASMER_PORT,
+            EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
+            mach_addons::THREAD_STATE_NONE,
+        );
+        assert_eq!(kret, KERN_SUCCESS, "failed to set thread exception port");
     }
-
-    PORTS_SET.with(|ports| {
-        if ports.replace(true) {
-            return;
-        }
-
-        unsafe {
-            assert!(WASMER_PORT != MACH_PORT_NULL);
-            let kret = thread_set_exception_ports(
-                MY_PORT.with(|p| p.0),
-                EXC_MASK_BAD_ACCESS | EXC_MASK_BAD_INSTRUCTION,
-                WASMER_PORT,
-                EXCEPTION_DEFAULT | MACH_EXCEPTION_CODES,
-                mach_addons::THREAD_STATE_NONE,
-            );
-            assert_eq!(kret, KERN_SUCCESS, "failed to set thread exception port");
-        }
-    });
     Ok(())
 }

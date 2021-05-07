@@ -9,7 +9,7 @@ fn main() {
         .warnings(true)
         .define(
             &format!(
-                "TARGET_OS_{}",
+                "CFG_TARGET_OS_{}",
                 env::var("CARGO_CFG_TARGET_OS").unwrap().to_uppercase()
             ),
             None,

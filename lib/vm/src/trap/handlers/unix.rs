@@ -94,12 +94,34 @@ pub unsafe fn platform_init() {
     }
 }
 
+#[cfg(target_os = "macos")]
+unsafe fn thread_stack() -> (usize, usize) {
+    let this_thread = libc::pthread_self();
+    let stackaddr = libc::pthread_get_stackaddr_np(this_thread);
+    let stacksize = libc::pthread_get_stacksize_np(this_thread);
+    (stackaddr as usize - stacksize, stacksize)
+}
+
+#[cfg(not(target_os = "macos"))]
+unsafe fn thread_stack() -> (usize, usize) {
+    let this_thread = libc::pthread_self();
+    let mut thread_attrs: libc::pthread_attr_t = mem::zeroed();
+    #[cfg(not(target_os = "freebsd"))]
+    libc::pthread_getattr_np(this_thread, &mut thread_attrs);
+    #[cfg(target_os = "freebsd")]
+    libc::pthread_attr_get_np(this_thread, &mut thread_attrs);
+    let mut stackaddr: *mut libc::c_void = ptr::null_mut();
+    let mut stacksize: libc::size_t = 0;
+    libc::pthread_attr_getstack(&thread_attrs, &mut stackaddr, &mut stacksize);
+    (stackaddr as usize, stacksize)
+}
+
 unsafe extern "C" fn trap_handler(
     signum: libc::c_int,
     siginfo: *mut libc::siginfo_t,
     context: *mut libc::c_void,
 ) {
-    println!("traphandler called");
+    println!("traphandler called with signum {}", signum);
     let previous = match signum {
         libc::SIGSEGV => &PREV_SIGSEGV,
         libc::SIGBUS => &PREV_SIGBUS,
@@ -107,6 +129,22 @@ unsafe extern "C" fn trap_handler(
         libc::SIGILL => &PREV_SIGILL,
         _ => panic!("unknown signal: {}", signum),
     };
+    let is_stack_overflow = match signum {
+        libc::SIGSEGV | libc::SIGBUS => {
+            let addr = (*siginfo).si_addr() as usize;
+            let (stackaddr, stacksize) = thread_stack();
+            // The stack and its guard page covers the
+            // range [stackaddr - guard pages .. stackaddr + stacksize).
+            // We assume the guard page is 1 page, and pages are 4KiB (or 16KiB in Apple Silicon)
+            if stackaddr - region::page::size() <= addr && addr < stackaddr + stacksize {
+                true
+            } else {
+                false
+            }
+        }
+        _ => false,
+    };
+    println!("Is stackoverflow: {}", is_stack_overflow);
     let handled = tls::with(|info| {
         // If no wasm code is executing, we don't handle this as a wasm
         // trap.
@@ -171,19 +209,19 @@ unsafe extern "C" fn trap_handler(
         // handler is done running" which will clear the
         // sigaltstack flag and allow reusing it for the next
         // signal. Then upon resuming in our custom code we
-        if cfg!(target_os = "macos") {
-            unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
-                do_unwind(jmp_buf as _)
-            }
-            set_pc(context, unwind_shim as usize, jmp_buf as usize);
-            do_unwind(jmp_buf)
-            // unwind_shim(jmp_buf as _)
-            // true
-        } else {
-            do_unwind(jmp_buf)
-        }
+        // if cfg!(target_os = "macos") {
+        //     unsafe extern "C" fn unwind_shim(jmp_buf: *const u8) -> ! {
+        //         println!("UNWIND SHIM CALLED");
+        //         do_unwind(jmp_buf as _)
+        //     }
+        //     set_pc(context, unwind_shim as usize, jmp_buf as usize);
+        //     // do_unwind(jmp_buf as _)
+        //     true
+        // } else {
+        //     do_unwind(jmp_buf)
+        // }
 
-        // do_unwind(jmp_buf)
+        do_unwind(jmp_buf)
     });
 
     println!(" -> Handled {:?}", handled);
@@ -192,6 +230,7 @@ unsafe extern "C" fn trap_handler(
         return;
     }
 
+    println!("ANYTHING AFTER HANDLED");
     // This signal is not for any compiled wasm code we expect, so we
     // need to forward the signal to the next handler. If there is no
     // next handler (SIG_IGN or SIG_DFL), then it's time to crash. To do
@@ -272,7 +311,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
 
     /// The size of the sigaltstack (not including the guard, which will be
     /// added). Make this large enough to run our signal handlers.
-    const MIN_STACK_SIZE: usize = 16 * 4096;
+    const MIN_STACK_SIZE: usize = 16 * 4096 * 4;
 
     struct Stack {
         mmap_ptr: *mut libc::c_void,
@@ -285,6 +324,7 @@ pub fn lazy_per_thread_init() -> Result<(), Trap> {
     });
 
     unsafe fn allocate_sigaltstack() -> Result<Option<Stack>, Trap> {
+        println!("ALLOCATE SIGALTSTACK");
         // Check to see if the existing sigaltstack, if it exists, is big
         // enough. If so we don't need to allocate our own.
         let mut old_stack = mem::zeroed();
