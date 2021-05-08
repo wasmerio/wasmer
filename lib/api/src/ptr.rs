@@ -38,7 +38,7 @@ pub struct Item;
 /// ```
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
-/// 
+///
 /// #[derive(Copy, Clone, Default)]
 /// #[repr(C)]
 /// struct V3 {
