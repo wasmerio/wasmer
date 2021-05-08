@@ -36,6 +36,9 @@ pub struct Item;
 /// This type can also be used with primitive-filled structs, but be careful of
 /// guarantees required by `ValueType`.
 /// ```
+/// # use wasmer::Memory;
+/// # use wasmer::WasmPtr;
+/// 
 /// #[derive(Copy, Clone, Default)]
 /// #[repr(C)]
 /// struct V3 {
