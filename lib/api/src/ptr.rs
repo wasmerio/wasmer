@@ -38,8 +38,9 @@ pub struct Item;
 /// ```
 /// # use wasmer::Memory;
 /// # use wasmer::WasmPtr;
+/// # use wasmer::ValueType;
 ///
-/// #[derive(Copy, Clone, Default)]
+/// #[derive(Copy, Clone, Debug)]
 /// #[repr(C)]
 /// struct V3 {
 ///     x: f32,
