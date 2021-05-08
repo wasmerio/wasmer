@@ -16,7 +16,7 @@ use wasmer_engine::{
     SerializeError,
 };
 #[cfg(feature = "compiler")]
-use wasmer_engine::{Engine, SerializableFunctionFrameInfo, Tunables};
+use wasmer_engine::{Engine, Tunables};
 use wasmer_types::entity::{BoxedSlice, PrimaryMap};
 use wasmer_types::{
     FunctionIndex, LocalFunctionIndex, MemoryIndex, OwnedDataInitializer, SignatureIndex,
@@ -26,6 +26,9 @@ use wasmer_vm::{
     FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMSharedSignatureIndex,
     VMTrampoline,
 };
+
+const SERIALIZED_METADATA_LENGTH_OFFSET: usize = 16;
+const SERIALIZED_METADATA_CONTENT_OFFSET: usize = 32;
 
 /// A compiled wasm module, ready to be instantiated.
 #[derive(MemoryUsage)]
@@ -42,7 +45,7 @@ pub struct JITArtifact {
 }
 
 impl JITArtifact {
-    const MAGIC_HEADER: &'static [u8] = b"\0wasmer-jit";
+    const MAGIC_HEADER: &'static [u8; 16] = b"\0wasmer-jit\0\0\0\0\0";
 
     /// Check if the provided bytes look like a serialized `JITArtifact`.
     pub fn is_deserializable(bytes: &[u8]) -> bool {
@@ -107,11 +110,7 @@ impl JITArtifact {
             .collect::<Vec<_>>()
             .into_boxed_slice();
 
-        let frame_infos = compilation
-            .get_frame_info()
-            .values()
-            .map(|frame_info| SerializableFunctionFrameInfo::Processed(frame_info.clone()))
-            .collect::<PrimaryMap<LocalFunctionIndex, _>>();
+        let frame_infos = compilation.get_frame_info();
 
         let serializable_compilation = SerializableCompilation {
             function_bodies: compilation.get_function_bodies(),
@@ -141,21 +140,28 @@ impl JITArtifact {
     }
 
     /// Deserialize a JITArtifact
-    pub fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
+    ///
+    /// # Safety
+    /// This function is unsafe because rkyv reads directly without validating
+    /// the data.
+    pub unsafe fn deserialize(jit: &JITEngine, bytes: &[u8]) -> Result<Self, DeserializeError> {
         if !Self::is_deserializable(bytes) {
             return Err(DeserializeError::Incompatible(
                 "The provided bytes are not wasmer-jit".to_string(),
             ));
         }
 
-        let inner_bytes = &bytes[Self::MAGIC_HEADER.len()..];
+        let mut inner_bytes = &bytes[SERIALIZED_METADATA_LENGTH_OFFSET..];
 
-        // let r = flexbuffers::Reader::get_root(bytes).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-        // let serializable = SerializableModule::deserialize(r).map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+        let metadata_len = leb128::read::unsigned(&mut inner_bytes).map_err(|_e| {
+            DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
+        })?;
+        let metadata_slice: &[u8] = std::slice::from_raw_parts(
+            &bytes[SERIALIZED_METADATA_CONTENT_OFFSET] as *const u8,
+            metadata_len as usize,
+        );
 
-        let serializable: SerializableModule = bincode::deserialize(inner_bytes)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
-
+        let serializable = SerializableModule::deserialize(metadata_slice)?;
         Self::from_parts(&mut jit.inner_mut(), serializable).map_err(DeserializeError::Compiler)
     }
 
@@ -325,15 +331,51 @@ impl Artifact for JITArtifact {
         &self.func_data_registry
     }
     fn serialize(&self) -> Result<Vec<u8>, SerializeError> {
-        // let mut s = flexbuffers::FlexbufferSerializer::new();
-        // self.serializable.serialize(&mut s).map_err(|e| SerializeError::Generic(format!("{:?}", e)));
-        // Ok(s.take_buffer())
-        let bytes = bincode::serialize(&self.serializable)
-            .map_err(|e| SerializeError::Generic(format!("{:?}", e)))?;
-
         // Prepend the header.
         let mut serialized = Self::MAGIC_HEADER.to_vec();
-        serialized.extend(bytes);
+
+        serialized.resize(SERIALIZED_METADATA_CONTENT_OFFSET, 0);
+        let mut writable_leb = &mut serialized[SERIALIZED_METADATA_LENGTH_OFFSET..];
+        let serialized_data = self.serializable.serialize()?;
+        let length = serialized_data.len();
+        leb128::write::unsigned(&mut writable_leb, length as u64).expect("Should write number");
+
+        let offset = pad_and_extend::<SerializableModule>(&mut serialized, &serialized_data);
+        assert_eq!(offset, SERIALIZED_METADATA_CONTENT_OFFSET);
+
         Ok(serialized)
+    }
+}
+
+/// It pads the data with the desired alignment
+pub fn pad_and_extend<T>(prev_data: &mut Vec<u8>, data: &[u8]) -> usize {
+    let align = std::mem::align_of::<T>();
+
+    let mut offset = prev_data.len();
+    if offset & (align - 1) != 0 {
+        offset += align - (offset & (align - 1));
+        prev_data.resize(offset, 0);
+    }
+    prev_data.extend(data);
+    offset
+}
+
+#[cfg(test)]
+mod tests {
+    use super::pad_and_extend;
+
+    #[test]
+    fn test_pad_and_extend() {
+        let mut data: Vec<u8> = vec![];
+        let offset = pad_and_extend::<i64>(&mut data, &[1, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(offset, 0);
+        let offset = pad_and_extend::<i32>(&mut data, &[2, 0, 0, 0]);
+        assert_eq!(offset, 8);
+        let offset = pad_and_extend::<i64>(&mut data, &[3, 0, 0, 0, 0, 0, 0, 0]);
+        assert_eq!(offset, 16);
+        assert_eq!(
+            data,
+            &[1, 0, 0, 0, 0, 0, 0, 0, 2, 0, 0, 0, 0, 0, 0, 0, 3, 0, 0, 0, 0, 0, 0, 0]
+        );
     }
 }

@@ -74,7 +74,7 @@ impl ValFuncRef for Val {
             // TODO:
             // figure out if we ever need a value here: need testing with complicated import patterns
             metadata: None,
-            vm_function: wasmer_vm::VMExportFunction {
+            vm_function: wasmer_vm::VMFunction {
                 address: item.func_ptr,
                 signature,
                 // TODO: review this comment (unclear if it's still correct):
