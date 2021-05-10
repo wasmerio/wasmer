@@ -8,7 +8,9 @@
 //! and tracing errors.
 
 use crate::lib::std::fmt;
-
+use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 
@@ -21,8 +23,12 @@ use serde::{Deserialize, Serialize};
     derive(Serialize, Deserialize),
     serde(transparent)
 )]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[repr(transparent)]
-#[derive(Debug, Clone, Copy, PartialEq, Eq)]
+#[derive(Debug, Clone, Copy, PartialEq, Eq, MemoryUsage)]
 pub struct SourceLoc(u32);
 
 impl SourceLoc {

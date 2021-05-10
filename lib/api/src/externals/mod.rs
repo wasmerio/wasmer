@@ -16,6 +16,7 @@ pub use self::table::Table;
 use crate::exports::{ExportError, Exportable};
 use crate::store::{Store, StoreObject};
 use crate::ExternType;
+use loupe::MemoryUsage;
 use std::fmt;
 use wasmer_engine::Export;
 
@@ -23,7 +24,7 @@ use wasmer_engine::Export;
 /// can be imported or exported.
 ///
 /// Spec: <https://webassembly.github.io/spec/core/exec/runtime.html#external-values>
-#[derive(Clone)]
+#[derive(Clone, MemoryUsage)]
 pub enum Extern {
     /// A external [`Function`].
     Function(Function),
@@ -40,13 +41,13 @@ impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Self::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty()),
             Self::Table(tt) => ExternType::Table(*tt.ty()),
             Self::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
-    /// Create an `Extern` from an `wasmer_vm::Export`.
+    /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),

@@ -14,8 +14,8 @@ edition = "2018"
 [dependencies]
 wasmer-compiler = { path = "../compiler", version = "1.0.2", features = ["translator"], default-features = false }
 wasmer-vm = { path = "../vm", version = "1.0.2", default-features = false }
-wasmer-types = { path = "../wasmer-types", version = "1.0.2", default-features = false }
-rayon = "1.5"
+wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
+rayon = { version = "1.5", optional = true }
 hashbrown = { version = "0.9", optional = true }
 serde = { version = "1.0", features = ["derive"] }
 more-asserts = "0.2"
@@ -24,6 +24,7 @@ dynasmrt = "1.0"
 lazy_static = "1.4"
 byteorder = "1.3"
 smallvec = "1.6"
+loupe = "0.1"
 
 [dev-dependencies]
 target-lexicon = { version = "0.11", default-features = false }
@@ -32,7 +33,7 @@ target-lexicon = { version = "0.11", default-features = false }
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "enable-serde"]
+default = ["std", "enable-serde", "rayon"]
 enable-serde = ["wasmer-compiler/enable-serde", "wasmer-types/enable-serde"]
 std = ["wasmer-compiler/std", "wasmer-types/std", "wasmer-vm/std"]
 core = ["hashbrown", "wasmer-compiler/core", "wasmer-types/core", "wasmer-vm/core"]

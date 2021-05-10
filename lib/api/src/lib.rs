@@ -1,6 +1,6 @@
 #![doc(
     html_logo_url = "https://github.com/wasmerio.png?size=200",
-    html_favicon_url = "https://wasmer.io/static/icons/favicon.ico"
+    html_favicon_url = "https://wasmer.io/images/icons/favicon-32x32.png"
 )]
 #![deny(
     missing_docs,
@@ -244,13 +244,13 @@
 //! [wasmer-examples]: https://github.com/wasmerio/wasmer/tree/master/examples
 //! [wasmer-cache]: https://docs.rs/wasmer-cache/*/wasmer_cache/
 //! [wasmer-compiler]: https://docs.rs/wasmer-compiler/*/wasmer_compiler/
-//! [wasmer-cranelift]: https://docs.rs/wasmer-cranelift/*/wasmer_cranelift/
+//! [wasmer-cranelift]: https://docs.rs/wasmer-compiler-cranelift/*/wasmer_compiler_cranelift/
 //! [wasmer-emscripten]: https://docs.rs/wasmer-emscripten/*/wasmer_emscripten/
 //! [wasmer-engine]: https://docs.rs/wasmer-engine/*/wasmer_engine/
-//! [wasmer-jit]: https://docs.rs/wasmer-jit/*/wasmer_jit/
-//! [wasmer-native]: https://docs.rs/wasmer-native/*/wasmer_native/
-//! [wasmer-singlepass]: https://docs.rs/wasmer-singlepass/*/wasmer_singlepass/
-//! [wasmer-llvm]: https://docs.rs/wasmer-llvm/*/wasmer_llvm/
+//! [wasmer-jit]: https://docs.rs/wasmer-engine-jit/*/wasmer_engine_jit/
+//! [wasmer-native]: https://docs.rs/wasmer-engine-native/*/wasmer_engine_native/
+//! [wasmer-singlepass]: https://docs.rs/wasmer-compiler-singlepass/*/wasmer_compiler_singlepass/
+//! [wasmer-llvm]: https://docs.rs/wasmer-compiler-llvm/*/wasmer_compiler_llvm/
 //! [wasmer-wasi]: https://docs.rs/wasmer-wasi/*/wasmer_wasi/
 
 mod env;
@@ -296,8 +296,8 @@ pub use crate::ptr::{Array, Item, WasmPtr};
 pub use crate::store::{Store, StoreObject};
 pub use crate::tunables::BaseTunables;
 pub use crate::types::{
-    ExportType, ExternRef, ExternType, FunctionType, GlobalType, HostInfo, HostRef, ImportType,
-    MemoryType, Mutability, TableType, Val, ValType,
+    ExportType, ExternType, FunctionType, GlobalType, ImportType, MemoryType, Mutability,
+    TableType, Val, ValType,
 };
 pub use crate::types::{Val as Value, ValType as Type};
 pub use crate::utils::is_wasm;
@@ -314,18 +314,21 @@ pub use wasmer_engine::{
     ChainableNamedResolver, DeserializeError, Engine, Export, FrameInfo, LinkError, NamedResolver,
     NamedResolverChain, Resolver, RuntimeError, SerializeError, Tunables,
 };
+#[cfg(feature = "experimental-reference-types-extern-ref")]
+pub use wasmer_types::ExternRef;
 pub use wasmer_types::{
     Atomically, Bytes, ExportIndex, GlobalInit, LocalFunctionIndex, MemoryView, Pages, ValueType,
     WASM_MAX_PAGES, WASM_MIN_PAGES, WASM_PAGE_SIZE,
 };
 
 // TODO: should those be moved into wasmer::vm as well?
-pub use wasmer_vm::{raise_user_trap, MemoryError, VMExport};
+pub use wasmer_vm::{raise_user_trap, MemoryError};
 pub mod vm {
     //! The vm module re-exports wasmer-vm types.
 
     pub use wasmer_vm::{
-        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMMemoryDefinition, VMTableDefinition,
+        Memory, MemoryError, MemoryStyle, Table, TableStyle, VMExtern, VMMemoryDefinition,
+        VMTableDefinition,
     };
 }
 

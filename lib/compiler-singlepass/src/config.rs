@@ -6,10 +6,11 @@ use crate::lib::std::boxed::Box;
 use crate::lib::std::sync::Arc;
 use crate::lib::std::vec;
 use crate::lib::std::vec::Vec;
+use loupe::MemoryUsage;
 use wasmer_compiler::{Compiler, CompilerConfig, CpuFeature, ModuleMiddleware, Target};
 use wasmer_types::Features;
 
-#[derive(Debug, Clone)]
+#[derive(Debug, Clone, MemoryUsage)]
 pub struct Singlepass {
     pub(crate) enable_nan_canonicalization: bool,
     pub(crate) enable_stack_check: bool,

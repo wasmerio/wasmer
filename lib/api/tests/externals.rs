@@ -9,7 +9,7 @@ fn global_new() -> Result<()> {
         *global.ty(),
         GlobalType {
             ty: Type::I32,
-            mutability: Mutability::Const,
+            mutability: Mutability::Const
         }
     );
 
@@ -18,7 +18,7 @@ fn global_new() -> Result<()> {
         *global_mut.ty(),
         GlobalType {
             ty: Type::I32,
-            mutability: Mutability::Var,
+            mutability: Mutability::Var
         }
     );
 
@@ -67,7 +67,7 @@ fn table_new() -> Result<()> {
         maximum: None,
     };
     let f = Function::new_native(&store, || {});
-    let table = Table::new(&store, table_type, Value::FuncRef(f))?;
+    let table = Table::new(&store, table_type, Value::FuncRef(Some(f)))?;
     assert_eq!(*table.ty(), table_type);
 
     // Anyrefs not yet supported
@@ -92,7 +92,7 @@ fn table_get() -> Result<()> {
         maximum: Some(1),
     };
     let f = Function::new_native(&store, |num: i32| num + 1);
-    let table = Table::new(&store, table_type, Value::FuncRef(f.clone()))?;
+    let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     assert_eq!(*table.ty(), table_type);
     let _elem = table.get(0).unwrap();
     // assert_eq!(elem.funcref().unwrap(), f);
@@ -115,13 +115,13 @@ fn table_grow() -> Result<()> {
         maximum: Some(10),
     };
     let f = Function::new_native(&store, |num: i32| num + 1);
-    let table = Table::new(&store, table_type, Value::FuncRef(f.clone()))?;
+    let table = Table::new(&store, table_type, Value::FuncRef(Some(f.clone())))?;
     // Growing to a bigger maximum should return None
-    let old_len = table.grow(12, Value::FuncRef(f.clone()));
+    let old_len = table.grow(12, Value::FuncRef(Some(f.clone())));
     assert!(old_len.is_err());
 
     // Growing to a bigger maximum should return None
-    let old_len = table.grow(5, Value::FuncRef(f.clone()))?;
+    let old_len = table.grow(5, Value::FuncRef(Some(f.clone())))?;
     assert_eq!(old_len, 0);
 
     Ok(())
@@ -144,7 +144,7 @@ fn memory_new() -> Result<()> {
     };
     let memory = Memory::new(&store, memory_type)?;
     assert_eq!(memory.size(), Pages(0));
-    assert_eq!(*memory.ty(), memory_type);
+    assert_eq!(memory.ty(), memory_type);
     Ok(())
 }
 
@@ -165,7 +165,7 @@ fn memory_grow() -> Result<()> {
         result,
         Err(MemoryError::CouldNotGrow {
             current: 12.into(),
-            attempted_delta: 10.into(),
+            attempted_delta: 10.into()
         })
     );
 
@@ -209,7 +209,7 @@ fn function_new() -> Result<()> {
 fn function_new_env() -> Result<()> {
     let store = Store::default();
     #[derive(Clone, WasmerEnv)]
-    struct MyEnv {};
+    struct MyEnv {}
 
     let my_env = MyEnv {};
     let function = Function::new_native_with_env(&store, my_env.clone(), |_env: &MyEnv| {});
@@ -281,7 +281,7 @@ fn function_new_dynamic() -> Result<()> {
 fn function_new_dynamic_env() -> Result<()> {
     let store = Store::default();
     #[derive(Clone, WasmerEnv)]
-    struct MyEnv {};
+    struct MyEnv {}
     let my_env = MyEnv {};
 
     // Using &FunctionType signature

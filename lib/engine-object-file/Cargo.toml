@@ -11,7 +11,7 @@ readme = "README.md"
 edition = "2018"
 
 [dependencies]
-wasmer-types = { path = "../wasmer-types", version = "1.0.2" }
+wasmer-types = { path = "../types", version = "1.0.2" }
 wasmer-compiler = { path = "../compiler", version = "1.0.2" }
 wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-engine = { path = "../engine", version = "1.0.2" }
@@ -23,6 +23,7 @@ bincode = "1.3"
 leb128 = "0.2"
 libloading = "0.7"
 tempfile = "3.1"
+loupe = "0.1"
 
 [features]
 # Enable the `compiler` feature if you want the engine to compile

@@ -1050,10 +1050,12 @@ impl Emitter for Assembler {
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
             }
-            _ => panic!(
-                "singlepass can't emit MOVZX {:?} {:?} {:?} {:?}",
-                sz_src, src, sz_dst, dst
-            ),
+            _ => {
+                panic!(
+                    "singlepass can't emit MOVZX {:?} {:?} {:?} {:?}",
+                    sz_src, src, sz_dst, dst
+                )
+            }
         }
     }
     fn emit_movsx(&mut self, sz_src: Size, src: Location, sz_dst: Size, dst: Location) {
@@ -1088,10 +1090,12 @@ impl Emitter for Assembler {
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
             }
-            _ => panic!(
-                "singlepass can't emit MOVSX {:?} {:?} {:?} {:?}",
-                sz_src, src, sz_dst, dst
-            ),
+            _ => {
+                panic!(
+                    "singlepass can't emit MOVSX {:?} {:?} {:?} {:?}",
+                    sz_src, src, sz_dst, dst
+                )
+            }
         }
     }
 

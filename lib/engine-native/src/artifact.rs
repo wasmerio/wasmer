@@ -2,8 +2,9 @@
 //! done as separate steps.
 
 use crate::engine::{NativeEngine, NativeEngineInner};
-use crate::serialize::ModuleMetadata;
+use crate::serialize::{ArchivedModuleMetadata, ModuleMetadata};
 use libloading::{Library, Symbol as LibrarySymbol};
+use loupe::MemoryUsage;
 use std::error::Error;
 use std::fs::File;
 use std::io::{Read, Write};
@@ -17,7 +18,8 @@ use tracing::trace;
 use wasmer_compiler::{CompileError, Features, OperatingSystem, Symbol, SymbolRegistry, Triple};
 #[cfg(feature = "compiler")]
 use wasmer_compiler::{
-    CompileModuleInfo, FunctionBodyData, ModuleEnvironment, ModuleTranslationState,
+    CompileModuleInfo, Compiler, FunctionBodyData, ModuleEnvironment, ModuleMiddlewareChain,
+    ModuleTranslationState,
 };
 use wasmer_engine::{Artifact, DeserializeError, InstantiationError, SerializeError};
 #[cfg(feature = "compiler")]
@@ -32,17 +34,20 @@ use wasmer_types::{
     TableIndex,
 };
 use wasmer_vm::{
-    FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody, VMSharedSignatureIndex,
-    VMTrampoline,
+    FuncDataRegistry, FunctionBodyPtr, MemoryStyle, ModuleInfo, TableStyle, VMFunctionBody,
+    VMSharedSignatureIndex, VMTrampoline,
 };
 
 /// A compiled wasm module, ready to be instantiated.
+#[derive(MemoryUsage)]
 pub struct NativeArtifact {
     sharedobject_path: PathBuf,
     metadata: ModuleMetadata,
     finished_functions: BoxedSlice<LocalFunctionIndex, FunctionBodyPtr>,
+    #[loupe(skip)]
     finished_function_call_trampolines: BoxedSlice<SignatureIndex, VMTrampoline>,
     finished_dynamic_function_trampolines: BoxedSlice<FunctionIndex, FunctionBodyPtr>,
+    func_data_registry: Arc<FuncDataRegistry>,
     signatures: BoxedSlice<SignatureIndex, VMSharedSignatureIndex>,
 }
 
@@ -98,6 +103,7 @@ impl NativeArtifact {
     fn generate_metadata<'data>(
         data: &'data [u8],
         features: &Features,
+        compiler: &dyn Compiler,
         tunables: &dyn Tunables,
     ) -> Result<
         (
@@ -110,21 +116,25 @@ impl NativeArtifact {
     > {
         let environ = ModuleEnvironment::new();
         let translation = environ.translate(data).map_err(CompileError::Wasm)?;
-        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = translation
-            .module
+
+        // We try to apply the middleware first
+        let mut module = translation.module;
+        let middlewares = compiler.get_middlewares();
+        middlewares.apply_on_module_info(&mut module);
+
+        let memory_styles: PrimaryMap<MemoryIndex, MemoryStyle> = module
             .memories
             .values()
             .map(|memory_type| tunables.memory_style(memory_type))
             .collect();
-        let table_styles: PrimaryMap<TableIndex, TableStyle> = translation
-            .module
+        let table_styles: PrimaryMap<TableIndex, TableStyle> = module
             .tables
             .values()
             .map(|table_type| tunables.table_style(table_type))
             .collect();
 
         let compile_info = CompileModuleInfo {
-            module: Arc::new(translation.module),
+            module: Arc::new(module),
             features: features.clone(),
             memory_styles,
             table_styles,
@@ -148,7 +158,7 @@ impl NativeArtifact {
         let target = engine.target();
         let compiler = engine_inner.compiler()?;
         let (compile_info, function_body_inputs, data_initializers, module_translation) =
-            Self::generate_metadata(data, engine_inner.features(), tunables)?;
+            Self::generate_metadata(data, engine_inner.features(), compiler, tunables)?;
 
         let data_initializers = data_initializers
             .iter()
@@ -183,17 +193,19 @@ impl NativeArtifact {
             function_body_lengths,
         };
 
-        let serialized_data = bincode::serialize(&metadata).map_err(to_compile_error)?;
-        let mut metadata_binary = vec![0; 10];
+        let serialized_data = metadata.serialize()?;
+
+        let mut metadata_binary = vec![0; 12];
         let mut writable = &mut metadata_binary[..];
         leb128::write::unsigned(&mut writable, serialized_data.len() as u64)
             .expect("Should write number");
         metadata_binary.extend(serialized_data);
 
-        let (mut compile_info, symbol_registry) = metadata.split();
+        let (compile_info, symbol_registry) = metadata.split();
+
         let maybe_obj_bytes = compiler.experimental_native_compile_module(
             &target,
-            &mut compile_info,
+            &compile_info,
             module_translation.as_ref().unwrap(),
             &function_body_inputs,
             &symbol_registry,
@@ -217,13 +229,18 @@ impl NativeArtifact {
             None => {
                 let compilation = compiler.compile_module(
                     &target,
-                    &mut compile_info,
+                    &compile_info,
                     module_translation.as_ref().unwrap(),
                     function_body_inputs,
                 )?;
                 let mut obj = get_object_for_target(&target_triple).map_err(to_compile_error)?;
-                emit_data(&mut obj, WASMER_METADATA_SYMBOL, &metadata_binary)
-                    .map_err(to_compile_error)?;
+                emit_data(
+                    &mut obj,
+                    WASMER_METADATA_SYMBOL,
+                    &metadata_binary,
+                    std::mem::align_of::<ArchivedModuleMetadata>() as u64,
+                )
+                .map_err(to_compile_error)?;
                 emit_compilation(&mut obj, compilation, &symbol_registry, &target_triple)
                     .map_err(to_compile_error)?;
                 let file = tempfile::Builder::new()
@@ -352,6 +369,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
+            func_data_registry: Arc::new(FuncDataRegistry::new()),
             signatures: signatures.into_boxed_slice(),
         })
     }
@@ -455,6 +473,7 @@ impl NativeArtifact {
                 .into_boxed_slice(),
             finished_dynamic_function_trampolines: finished_dynamic_function_trampolines
                 .into_boxed_slice(),
+            func_data_registry: engine_inner.func_data().clone(),
             signatures: signatures.into_boxed_slice(),
         })
     }
@@ -524,11 +543,11 @@ impl NativeArtifact {
             DeserializeError::CorruptedBinary(format!("Library loading failed: {}", e))
         })?;
         let shared_path: PathBuf = PathBuf::from(path);
-        // We use 10 + 1, as the length of the module will take 10 bytes
+        // We use 12 + 1, as the length of the module will take 12 bytes
         // (we construct it like that in `metadata_length`) and we also want
         // to take the first element of the data to construct the slice from
         // it.
-        let symbol: LibrarySymbol<*mut [u8; 10 + 1]> =
+        let symbol: LibrarySymbol<*mut [u8; 12 + 1]> =
             lib.get(WASMER_METADATA_SYMBOL).map_err(|e| {
                 DeserializeError::CorruptedBinary(format!(
                     "The provided object file doesn't seem to be generated by Wasmer: {}",
@@ -544,13 +563,19 @@ impl NativeArtifact {
             DeserializeError::CorruptedBinary("Can't read metadata size".to_string())
         })?;
         let metadata_slice: &'static [u8] =
-            slice::from_raw_parts(&size[10] as *const u8, metadata_len as usize);
-        let metadata: ModuleMetadata = bincode::deserialize(metadata_slice)
-            .map_err(|e| DeserializeError::CorruptedBinary(format!("{:?}", e)))?;
+            slice::from_raw_parts(&size[12] as *const u8, metadata_len as usize);
+
+        let metadata = ModuleMetadata::deserialize(metadata_slice)?;
+
         let mut engine_inner = engine.inner_mut();
 
         Self::from_parts(&mut engine_inner, metadata, shared_path, lib)
             .map_err(DeserializeError::Compiler)
+    }
+
+    /// Used in test deserialize metadata is correct
+    pub fn metadata(&self) -> &ModuleMetadata {
+        &self.metadata
     }
 }
 
@@ -601,6 +626,10 @@ impl Artifact for NativeArtifact {
 
     fn signatures(&self) -> &BoxedSlice<SignatureIndex, VMSharedSignatureIndex> {
         &self.signatures
+    }
+
+    fn func_data_registry(&self) -> &FuncDataRegistry {
+        &self.func_data_registry
     }
 
     fn preinstantiate(&self) -> Result<(), InstantiationError> {

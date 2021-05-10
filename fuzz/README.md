@@ -36,17 +36,12 @@ You should see output that looks something like this:
 #1409042        NEW    cov: 115073 ft: 503951 corp: 4667/1814Kb lim: 4096 exec/s: 884 rss: 857Mb L: 174/4096 MS: 2 ChangeByte-ChangeASCIIInt-
 ```
 
-It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/jit_cranelift` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run jit_cranelift my_testcase.wasm`.
+It will continue to generate random inputs forever, until it finds a bug or is terminated. The testcases for bugs it finds go into `fuzz/artifacts/jit_cranelift` and you can rerun the fuzzer on a single input by passing it on the command line `cargo fuzz run jit_cranelift /path/to/testcase`.
 
-## Seeding the corpus, optional
+## The corpus
 
-The fuzzer works best when it has examples of small Wasm files to start with. Using `wast2json` from [wabt](https://github.com/WebAssembly/wabt), we can easily produce `.wasm` files out of the WebAssembly spec tests.
+Each fuzzer has an individual corpus under fuzz/corpus/test_name, created on first run if not already present. The fuzzers use `wasm-smith` which means that the testcase files are random number seeds input to the wasm generator, not `.wasm` files themselves. In order to debug a testcase, you may find that you need to convert it into a `.wasm` file. Using the standalone `wasm-smith` tool doesn't work for this purpose because we use a custom configuration to our `wasm_smith::Module`. Instead, our fuzzers use an environment variable `DUMP_TESTCASE=path`. For example:
 
-```sh
-mkdir spec-test-corpus
-for i in `find tests/ -name "*.wast"`; do wast2json --enable-all $i -o spec-test-corpus/$(basename $i).json; done
-mv spec-test-corpus/*.wasm fuzz/corpus/validate/
-rm -r spec-test-corpus
 ```
-
-The corpus directory is created on the first run of the fuzzer. If it doesn't exist, run it first and then seed the corpus. The fuzzer will pick up new files added to the corpus while it is running.
+DUMP_TESTCASE=/tmp/crash.wasm cargo fuzz run --features=jit,singlepass jit_singlepass fuzz/artifacts/jit_singlepass/crash-0966412eab4f89c52ce5d681807c8030349470f6
+```

@@ -14,6 +14,7 @@ use crate::translator::ModuleMiddleware;
 use crate::FunctionBodyData;
 use crate::ModuleTranslationState;
 use crate::SectionIndex;
+use loupe::MemoryUsage;
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{Features, FunctionIndex, LocalFunctionIndex, SignatureIndex};
 use wasmparser::{Validator, WasmFeatures};
@@ -61,7 +62,7 @@ where
 }
 
 /// An implementation of a Compiler from parsed WebAssembly module to Compiled native code.
-pub trait Compiler: Send {
+pub trait Compiler: Send + MemoryUsage {
     /// Validates a module.
     ///
     /// It returns the a succesful Result in case is valid, `CompileError` in case is not.
@@ -97,7 +98,7 @@ pub trait Compiler: Send {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        module: &'module mut CompileModuleInfo,
+        module: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -109,7 +110,7 @@ pub trait Compiler: Send {
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         _target: &Target,
-        _module: &'module mut CompileModuleInfo,
+        _module: &'module CompileModuleInfo,
         _module_translation: &ModuleTranslationState,
         // The list of function bodies
         _function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -119,6 +120,9 @@ pub trait Compiler: Send {
     ) -> Option<Result<Vec<u8>, CompileError>> {
         None
     }
+
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>];
 }
 
 /// The kinds of wasmer_types objects that might be found in a native object file.

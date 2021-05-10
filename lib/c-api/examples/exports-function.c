@@ -15,6 +15,7 @@ int main(int argc, const char* argv[]) {
     wasm_byte_vec_new(&wat, strlen(wat_string), wat_string);
     wasm_byte_vec_t wasm_bytes;
     wat2wasm(&wat, &wasm_bytes);
+    wasm_byte_vec_delete(&wat);
 
     printf("Creating the store...\n");
     wasm_engine_t* engine = wasm_engine_new();
@@ -76,9 +77,9 @@ int main(int argc, const char* argv[]) {
 
     printf("Results of `sum`: %d\n", results_val[0].of.i32);
 
-    wasm_func_delete(sum_func);
     wasm_module_delete(module);
     wasm_instance_delete(instance);
+    wasm_extern_vec_delete(&exports);
     wasm_store_delete(store);
     wasm_engine_delete(engine);
 }

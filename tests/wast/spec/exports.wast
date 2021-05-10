@@ -25,6 +25,16 @@
 (module $Other1)
 (assert_return (invoke $Func "e" (i32.const 42)) (i32.const 43))
 
+(module
+  (type (;0;) (func (result i32)))
+  (func (;0;) (type 0) (result i32) i32.const 42)
+  (export "a" (func 0))
+  (export "b" (func 0))
+  (export "c" (func 0)))
+(assert_return (invoke "a") (i32.const 42))
+(assert_return (invoke "b") (i32.const 42))
+(assert_return (invoke "c") (i32.const 42))
+
 (assert_invalid
   (module (export "a" (func 0)))
   "unknown function"
@@ -120,8 +130,7 @@
 
 (module (table 0 funcref) (export "a" (table 0)))
 (module (table 0 funcref) (export "a" (table 0)) (export "b" (table 0)))
-;; No multiple tables yet.
-;; (module (table 0 funcref) (table 0 funcref) (export "a" (table 0)) (export "b" (table 1)))
+(module (table 0 funcref) (table 0 funcref) (export "a" (table 0)) (export "b" (table 1)))
 
 (module (table (export "a") 0 funcref))
 (module (table (export "a") 0 1 funcref))
@@ -154,11 +163,10 @@
   (module (table 0 funcref) (export "a" (table 0)) (export "a" (table 0)))
   "duplicate export name"
 )
-;; No multiple tables yet.
-;; (assert_invalid
-;;   (module (table 0 funcref) (table 0 funcref) (export "a" (table 0)) (export "a" (table 1)))
-;;   "duplicate export name"
-;; )
+(assert_invalid
+  (module (table 0 funcref) (table 0 funcref) (export "a" (table 0)) (export "a" (table 1)))
+  "duplicate export name"
+)
 (assert_invalid
   (module (table 0 funcref) (func) (export "a" (table 0)) (export "a" (func 0)))
   "duplicate export name"

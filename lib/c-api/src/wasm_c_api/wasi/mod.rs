@@ -6,7 +6,7 @@ mod capture_files;
 
 pub use super::unstable::wasi::wasi_get_unordered_imports;
 use super::{
-    externals::{wasm_extern_t, wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
+    externals::{wasm_extern_vec_t, wasm_func_t, wasm_memory_t},
     instance::wasm_instance_t,
     module::wasm_module_t,
     store::wasm_store_t,
@@ -390,10 +390,7 @@ fn wasi_get_imports_inner(
                 }));
             let inner = Extern::from_vm_export(store, export);
 
-            Some(Box::new(wasm_extern_t {
-                instance: None,
-                inner,
-            }))
+            Some(Box::new(inner.into()))
         })
         .collect::<Option<Vec<_>>>()?
         .into();
@@ -407,10 +404,7 @@ pub unsafe extern "C" fn wasi_get_start_function(
 ) -> Option<Box<wasm_func_t>> {
     let start = c_try!(instance.inner.exports.get_function("_start"));
 
-    Some(Box::new(wasm_func_t {
-        inner: start.clone(),
-        instance: Some(instance.inner.clone()),
-    }))
+    Some(Box::new(wasm_func_t::new(start.clone())))
 }
 
 #[cfg(test)]

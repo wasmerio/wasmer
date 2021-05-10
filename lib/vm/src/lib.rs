@@ -1,6 +1,7 @@
 //! Runtime library support for Wasmer.
 
 #![deny(missing_docs, trivial_numeric_casts, unused_extern_crates)]
+#![deny(trivial_numeric_casts, unused_extern_crates)]
 #![warn(unused_import_braces)]
 #![cfg_attr(
     feature = "cargo-clippy",
@@ -21,6 +22,7 @@
 )]
 
 mod export;
+mod func_data_registry;
 mod global;
 mod imports;
 mod instance;
@@ -37,6 +39,7 @@ mod vmoffsets;
 pub mod libcalls;
 
 pub use crate::export::*;
+pub use crate::func_data_registry::{FuncDataRegistry, VMFuncRef};
 pub use crate::global::*;
 pub use crate::imports::Imports;
 pub use crate::instance::{
@@ -47,7 +50,7 @@ pub use crate::mmap::Mmap;
 pub use crate::module::{ExportsIterator, ImportsIterator, ModuleInfo};
 pub use crate::probestack::PROBESTACK;
 pub use crate::sig_registry::SignatureRegistry;
-pub use crate::table::{LinearTable, Table, TableStyle};
+pub use crate::table::{LinearTable, Table, TableElement, TableStyle};
 pub use crate::trap::*;
 pub use crate::vmcontext::{
     VMBuiltinFunctionIndex, VMCallerCheckedAnyfunc, VMContext, VMDynamicFunctionContext,
@@ -56,12 +59,14 @@ pub use crate::vmcontext::{
     VMTableImport, VMTrampoline,
 };
 pub use crate::vmoffsets::{TargetSharedSignatureIndex, VMOffsets};
+use loupe::MemoryUsage;
+pub use wasmer_types::VMExternRef;
 
 /// Version number of this crate.
 pub const VERSION: &str = env!("CARGO_PKG_VERSION");
 
 /// A safe wrapper around `VMFunctionBody`.
-#[derive(Clone, Copy, Debug)]
+#[derive(Clone, Copy, Debug, MemoryUsage)]
 #[repr(transparent)]
 pub struct FunctionBodyPtr(pub *const VMFunctionBody);
 

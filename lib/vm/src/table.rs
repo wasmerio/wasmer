@@ -5,8 +5,13 @@
 //!
 //! `Table` is to WebAssembly tables what `LinearMemory` is to WebAssembly linear memories.
 
+use crate::func_data_registry::VMFuncRef;
 use crate::trap::{Trap, TrapCode};
-use crate::vmcontext::{VMCallerCheckedAnyfunc, VMTableDefinition};
+use crate::vmcontext::VMTableDefinition;
+use crate::VMExternRef;
+use loupe::{MemoryUsage, MemoryUsageTracker};
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{Deserialize, Serialize};
 use std::borrow::{Borrow, BorrowMut};
@@ -15,10 +20,14 @@ use std::convert::TryFrom;
 use std::fmt;
 use std::ptr::NonNull;
 use std::sync::Mutex;
-use wasmer_types::{TableType, Type as ValType};
+use wasmer_types::{ExternRef, TableType, Type as ValType};
 
 /// Implementation styles for WebAssembly tables.
-#[derive(Debug, Clone, Hash)]
+#[derive(Debug, Clone, Hash, PartialEq, Eq, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[cfg_attr(feature = "enable-serde", derive(Serialize, Deserialize))]
 pub enum TableStyle {
     /// Signatures are stored in the table and checked in the caller.
@@ -26,7 +35,7 @@ pub enum TableStyle {
 }
 
 /// Trait for implementing the interface of a Wasm table.
-pub trait Table: fmt::Debug + Send + Sync {
+pub trait Table: fmt::Debug + Send + Sync + MemoryUsage {
     /// Returns the style for this Table.
     fn style(&self) -> &TableStyle;
 
@@ -40,19 +49,19 @@ pub trait Table: fmt::Debug + Send + Sync {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32) -> Option<u32>;
+    fn grow(&self, delta: u32, init_value: TableElement) -> Option<u32>;
 
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<VMCallerCheckedAnyfunc>;
+    fn get(&self, index: u32) -> Option<TableElement>;
 
     /// Set reference to the specified element.
     ///
     /// # Errors
     ///
     /// Returns an error if the index is out of bounds.
-    fn set(&self, index: u32, func: VMCallerCheckedAnyfunc) -> Result<(), Trap>;
+    fn set(&self, index: u32, reference: TableElement) -> Result<(), Trap>;
 
     /// Return a `VMTableDefinition` for exposing the table to compiled wasm code.
     fn vmtable(&self) -> NonNull<VMTableDefinition>;
@@ -80,7 +89,7 @@ pub trait Table: fmt::Debug + Send + Sync {
         }
 
         if dst_index.checked_add(len).map_or(true, |m| m > self.size()) {
-            return Err(Trap::new_from_runtime(TrapCode::TableSetterOutOfBounds));
+            return Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds));
         }
 
         let srcs = src_index..src_index + len;
@@ -104,11 +113,74 @@ pub trait Table: fmt::Debug + Send + Sync {
     }
 }
 
+/// A reference stored in a table. Can be either an externref or a funcref.
+#[derive(Debug, Clone)]
+pub enum TableElement {
+    /// Opaque pointer to arbitrary host data.
+    // Note: we use `ExternRef` instead of `VMExternRef` here to ensure that we don't
+    // leak by not dec-refing on failure types.
+    ExternRef(ExternRef),
+    /// Pointer to function: contains enough information to call it.
+    FuncRef(VMFuncRef),
+}
+
+impl From<TableElement> for RawTableElement {
+    fn from(other: TableElement) -> Self {
+        match other {
+            TableElement::ExternRef(extern_ref) => Self {
+                extern_ref: extern_ref.into(),
+            },
+            TableElement::FuncRef(func_ref) => Self { func_ref },
+        }
+    }
+}
+
+#[repr(C)]
+#[derive(Clone, Copy)]
+pub union RawTableElement {
+    pub(crate) extern_ref: VMExternRef,
+    pub(crate) func_ref: VMFuncRef,
+}
+
+#[cfg(test)]
+#[test]
+fn table_element_size_test() {
+    use std::mem::size_of;
+    assert_eq!(size_of::<RawTableElement>(), size_of::<VMExternRef>());
+    assert_eq!(size_of::<RawTableElement>(), size_of::<VMFuncRef>());
+}
+
+impl MemoryUsage for RawTableElement {
+    fn size_of_val(&self, _: &mut dyn MemoryUsageTracker) -> usize {
+        std::mem::size_of_val(self)
+    }
+}
+
+impl fmt::Debug for RawTableElement {
+    fn fmt(&self, f: &mut fmt::Formatter) -> fmt::Result {
+        f.debug_struct("RawTableElement").finish()
+    }
+}
+
+impl Default for RawTableElement {
+    fn default() -> Self {
+        Self {
+            func_ref: VMFuncRef::null(),
+        }
+    }
+}
+
+impl Default for TableElement {
+    fn default() -> Self {
+        Self::FuncRef(VMFuncRef::null())
+    }
+}
+
 /// A table instance.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 pub struct LinearTable {
     // TODO: we can remove the mutex by using atomic swaps and preallocating the max table size
-    vec: Mutex<Vec<VMCallerCheckedAnyfunc>>,
+    vec: Mutex<Vec<RawTableElement>>,
     maximum: Option<u32>,
     /// The WebAssembly table description.
     table: TableType,
@@ -119,7 +191,7 @@ pub struct LinearTable {
 
 /// A type to help manage who is responsible for the backing table of the
 /// `VMTableDefinition`.
-#[derive(Debug)]
+#[derive(Debug, MemoryUsage)]
 enum VMTableDefinitionOwnership {
     /// The `VMTableDefinition` is owned by the `Instance` and we should use
     /// its table. This is how a local table that's exported should be stored.
@@ -166,8 +238,13 @@ impl LinearTable {
         vm_table_location: Option<NonNull<VMTableDefinition>>,
     ) -> Result<Self, String> {
         match table.ty {
-            ValType::FuncRef => (),
-            ty => return Err(format!("tables of types other than anyfunc ({})", ty)),
+            ValType::FuncRef | ValType::ExternRef => (),
+            ty => {
+                return Err(format!(
+                    "tables of types other than funcref or externref ({})",
+                    ty
+                ))
+            }
         };
         if let Some(max) = table.maximum {
             if max < table.minimum {
@@ -179,7 +256,7 @@ impl LinearTable {
         }
         let table_minimum = usize::try_from(table.minimum)
             .map_err(|_| "Table minimum is bigger than usize".to_string())?;
-        let mut vec = vec![VMCallerCheckedAnyfunc::default(); table_minimum];
+        let mut vec = vec![RawTableElement::default(); table_minimum];
         let base = vec.as_mut_ptr();
         match style {
             TableStyle::CallerChecksSignature => Ok(Self {
@@ -247,7 +324,7 @@ impl Table for LinearTable {
     ///
     /// Returns `None` if table can't be grown by the specified amount
     /// of elements, otherwise returns the previous size of the table.
-    fn grow(&self, delta: u32) -> Option<u32> {
+    fn grow(&self, delta: u32, init_value: TableElement) -> Option<u32> {
         let mut vec_guard = self.vec.lock().unwrap();
         let vec = vec_guard.borrow_mut();
         let size = self.size();
@@ -255,10 +332,26 @@ impl Table for LinearTable {
         if self.maximum.map_or(false, |max| new_len > max) {
             return None;
         }
-        vec.resize(
-            usize::try_from(new_len).unwrap(),
-            VMCallerCheckedAnyfunc::default(),
-        );
+        if new_len == size {
+            debug_assert_eq!(delta, 0);
+            return Some(size);
+        }
+
+        // Update the ref count
+        let element = match init_value {
+            TableElement::ExternRef(extern_ref) => {
+                let extern_ref: VMExternRef = extern_ref.into();
+                // We reduce the amount we increment by because `into` prevents
+                // dropping `init_value` (which is a caller-inc'd ref).
+                (new_len as usize)
+                    .checked_sub(size as usize + 1)
+                    .map(|val| extern_ref.ref_inc_by(val));
+                RawTableElement { extern_ref }
+            }
+            TableElement::FuncRef(func_ref) => RawTableElement { func_ref },
+        };
+
+        vec.resize(usize::try_from(new_len).unwrap(), element);
 
         // update table definition
         unsafe {
@@ -273,9 +366,16 @@ impl Table for LinearTable {
     /// Get reference to the specified element.
     ///
     /// Returns `None` if the index is out of bounds.
-    fn get(&self, index: u32) -> Option<VMCallerCheckedAnyfunc> {
+    fn get(&self, index: u32) -> Option<TableElement> {
         let vec_guard = self.vec.lock().unwrap();
-        vec_guard.borrow().get(index as usize).cloned()
+        let raw_data = vec_guard.borrow().get(index as usize).cloned()?;
+        Some(match self.table.ty {
+            ValType::ExternRef => {
+                TableElement::ExternRef(unsafe { raw_data.extern_ref.ref_clone() }.into())
+            }
+            ValType::FuncRef => TableElement::FuncRef(unsafe { raw_data.func_ref }),
+            _ => todo!("getting invalid type from table, handle this error"),
+        })
     }
 
     /// Set reference to the specified element.
@@ -283,12 +383,34 @@ impl Table for LinearTable {
     /// # Errors
     ///
     /// Returns an error if the index is out of bounds.
-    fn set(&self, index: u32, func: VMCallerCheckedAnyfunc) -> Result<(), Trap> {
+    fn set(&self, index: u32, reference: TableElement) -> Result<(), Trap> {
         let mut vec_guard = self.vec.lock().unwrap();
         let vec = vec_guard.borrow_mut();
         match vec.get_mut(index as usize) {
             Some(slot) => {
-                *slot = func;
+                match (self.table.ty, reference) {
+                    (ValType::ExternRef, TableElement::ExternRef(extern_ref)) => {
+                        let extern_ref = extern_ref.into();
+                        unsafe {
+                            let elem = &mut *slot;
+                            elem.extern_ref.ref_drop();
+                            elem.extern_ref = extern_ref
+                        }
+                    }
+                    (ValType::FuncRef, r @ TableElement::FuncRef(_)) => {
+                        let element_data = r.into();
+                        *slot = element_data;
+                    }
+                    // This path should never be hit by the generated code due to Wasm
+                    // validation.
+                    (ty, v) => {
+                        panic!(
+                            "Attempted to set a table of type {} with the value {:?}",
+                            ty, v
+                        )
+                    }
+                };
+
                 Ok(())
             }
             None => Err(Trap::new_from_runtime(TrapCode::TableAccessOutOfBounds)),

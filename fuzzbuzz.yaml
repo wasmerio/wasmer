@@ -1,0 +1,9 @@
+wasmer:
+  language: rust
+  features:
+    - jit
+    - cranelift
+    - singlepass
+  deps:
+    - run: apt update
+    - run: apt install -y zlib1g-dev libffi-dev build-essential

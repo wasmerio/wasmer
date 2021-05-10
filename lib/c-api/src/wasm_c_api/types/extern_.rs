@@ -85,12 +85,12 @@ impl From<&ExternType> for wasm_externtype_t {
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_type(r#extern: &wasm_extern_t) -> Box<wasm_externtype_t> {
-    Box::new(wasm_externtype_t::new(r#extern.inner.ty()))
+    Box::new(wasm_externtype_t::new(r#extern.ty()))
 }
 
 #[no_mangle]
 pub unsafe extern "C" fn wasm_extern_kind(r#extern: &wasm_extern_t) -> wasm_externkind_t {
-    wasm_externkind_enum::from(r#extern.inner.ty()) as wasm_externkind_t
+    wasm_externkind_enum::from(r#extern.ty()) as wasm_externkind_t
 }
 
 #[no_mangle]
