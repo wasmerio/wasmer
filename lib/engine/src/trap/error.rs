@@ -78,7 +78,7 @@ impl RuntimeError {
                     ),
                 }
             }
-            Trap::OOM { backtrace } => {
+            Trap::OOM { backtrace: _ } => {
                 unimplemented!("OOM memory errors are not yet handled");
                 // match error.downcast::<Self>() {
                 //     // The error is already a RuntimeError, we return it directly

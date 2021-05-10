@@ -14,6 +14,7 @@ use std::io;
 use std::mem;
 use std::ptr;
 use std::sync::Once;
+pub use tls::TlsRestore;
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
@@ -639,7 +640,7 @@ impl<'a> CallThreadState<'a> {
         }
     }
 
-    fn with(mut self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
+    fn with(self, closure: impl FnOnce(&CallThreadState) -> i32) -> Result<(), Trap> {
         let ret = tls::set(&self, || closure(&self))?;
         if ret != 0 {
             return Ok(());

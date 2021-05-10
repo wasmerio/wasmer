@@ -19,7 +19,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::{Table, TableElement};
-use crate::trap::{catch_traps, init_traps, Trap, TrapCode, TrapInfo};
+use crate::trap::{catch_traps, Trap, TrapCode, TrapInfo};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
@@ -32,7 +32,7 @@ use loupe::{MemoryUsage, MemoryUsageTracker};
 use memoffset::offset_of;
 use more_asserts::assert_lt;
 use std::any::Any;
-use std::cell::{Cell, RefCell};
+use std::cell::RefCell;
 use std::collections::HashMap;
 use std::convert::{TryFrom, TryInto};
 use std::ffi;

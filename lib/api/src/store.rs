@@ -77,7 +77,7 @@ unsafe impl TrapInfo for Store {
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool {
+    fn custom_signal_handler(&self, _call: &dyn Fn(&SignalHandler) -> bool) -> bool {
         // if let Some(handler) = &*self.inner.signal_handler.borrow() {
         //     return call(handler);
         // }
