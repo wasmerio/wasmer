@@ -3,7 +3,7 @@
 
 #include <setjmp.h>
 
-int RegisterSetjmp(
+int register_setjmp(
     void **buf_storage,
     void (*body)(void*),
     void *payload) {
@@ -16,7 +16,7 @@ int RegisterSetjmp(
   return 1;
 }
 
-void Unwind(void *JmpBuf) {
+void unwind(void *JmpBuf) {
   jmp_buf *buf = (jmp_buf*) JmpBuf;
   longjmp(*buf, 1);
 }

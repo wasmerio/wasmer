@@ -1,10 +1,12 @@
 use crate::tunables::BaseTunables;
 use loupe::MemoryUsage;
+use std::any::Any;
 use std::fmt;
 use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
-use wasmer_engine::{Engine, Tunables};
+use wasmer_engine::{is_wasm_pc, Engine, Tunables};
+use wasmer_vm::{init_traps, SignalHandler, TrapInfo};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -28,10 +30,7 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
-        Self {
-            engine: engine.cloned(),
-            tunables: Arc::new(BaseTunables::for_target(engine.target())),
-        }
+        Self::new_with_tunables(engine, BaseTunables::for_target(engine.target()))
     }
 
     /// Creates a new `Store` with a specific [`Engine`] and [`Tunables`].
@@ -39,6 +38,10 @@ impl Store {
     where
         E: Engine + ?Sized,
     {
+        // Make sure the signal handlers are installed.
+        // This is required for handling traps.
+        init_traps(is_wasm_pc);
+
         Self {
             engine: engine.cloned(),
             tunables: Arc::new(tunables),
@@ -66,6 +69,19 @@ impl Store {
 impl PartialEq for Store {
     fn eq(&self, other: &Self) -> bool {
         Self::same(self, other)
+    }
+}
+
+unsafe impl TrapInfo for Store {
+    #[inline]
+    fn as_any(&self) -> &dyn Any {
+        self
+    }
+    fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool {
+        // if let Some(handler) = &*self.inner.signal_handler.borrow() {
+        //     return call(handler);
+        // }
+        false
     }
 }
 
