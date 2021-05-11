@@ -6,12 +6,14 @@ use smallvec::SmallVec;
 // use std::cmp;
 // use std::collections::HashSet;
 use wasmer_compiler::wasmparser::Type as WpType;
+use wasmer::Value;
 
 // const NATIVE_PAGE_SIZE: usize = 4096;
 
 // struct MachineStackOffset(usize);
 
 use std::{collections::BTreeMap};
+use std::fmt::Debug;
 
 // pub struct Machine {
 //     used_gprs: HashSet<GPR>,
@@ -26,26 +28,32 @@ use std::{collections::BTreeMap};
 //     fn immediate32(n: u32) -> Self;
 // }
 
+pub trait MaybeImmediate {
+    fn imm_value(&self) -> Option<Value>;
+}
+
 pub trait Machine {
-    type Location: Copy;
+    type Location: MaybeImmediate + Copy + Debug;
     type Emitter: Emitter<Location = Self::Location>;
 
     fn new_state() -> MachineState;
 
     fn get_state(&mut self) -> &mut MachineState;
 
-    fn do_return(&mut self, a: &mut Self::Emitter, loc: Option<Self::Location>);
+    // fn do_return(&mut self, a: &mut Self::Emitter, loc: Option<Self::Location>);
 
-    fn imm32(&mut self, a: &mut Self::Emitter, n: u32) -> Self::Location;
+    fn imm32(&mut self, a: &mut Self::Emitter, n: u32) -> Local<Self::Location>;
 
-    fn acquire_locations(
-        &mut self,
-        assembler: &mut Self::Emitter,
-        tys: &[(WpType, MachineValue)],
-        zeroed: bool,
-    ) -> SmallVec<[Self::Location; 1]>;
+    // fn acquire_locations(
+    //     &mut self,
+    //     assembler: &mut Self::Emitter,
+    //     tys: &[(WpType, MachineValue)],
+    //     zeroed: bool,
+    // ) -> SmallVec<[Self::Location; 1]>;
 
-    fn release_locations(&mut self, assembler: &mut Self::Emitter, locs: &[Self::Location]);
+    // fn release_locations(&mut self, assembler: &mut Self::Emitter, locs: &[Self::Location]);
+
+    fn release_location(&mut self, loc: Local<Self::Location>);
 
     // fn get_stack_offset(&self) -> usize {
     //     self.stack_offset.0
@@ -228,9 +236,17 @@ pub trait Machine {
     //     }
     // }
 
-    fn init_locals(&mut self, a: &mut Self::Emitter, n_locals: usize, n_params: usize) -> Vec<Self::Location>;
+    fn init_locals(&mut self, a: &mut Self::Emitter, n_locals: usize, n_params: usize) -> Vec<Local<Self::Location>>;
 
-    fn finalize_stack(&mut self, a: &mut Self::Emitter, locations: &[Self::Location]);
+    fn finalize_stack(&mut self, a: &mut Self::Emitter, locations: &[Local<Self::Location>]);
+
+
+
+
+    fn emit_add_i32(&mut self, a: &mut Self::Emitter, sz: Size,
+        src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
+    fn emit_sub_i32(&mut self, a: &mut Self::Emitter, sz: Size,
+        src1: Local<Self::Location>, src2: Local<Self::Location>) -> Local<Self::Location>;
 }
 
 // #[cfg(test)]

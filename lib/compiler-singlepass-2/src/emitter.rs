@@ -112,8 +112,8 @@ pub trait Emitter {
     // fn emit_push(&mut self, sz: Size, src: Self::Location);
     // fn emit_pop(&mut self, sz: Size, dst: Self::Location);
     // fn emit_cmp(&mut self, sz: Size, left: Self::Location, right: Self::Location);
-    fn emit_add(&mut self, sz: Size, src: Self::Location, dst: Self::Location);
-    // fn emit_sub(&mut self, sz: Size, src: Self::Location, dst: Self::Location);
+    fn emit_add_i32(&mut self, sz: Size, src1: Self::Location, src2: Self::Location, dst: Self::Location);
+    fn emit_sub_i32(&mut self, sz: Size, src1: Self::Location, src2: Self::Location, dst: Self::Location);
     // fn emit_neg(&mut self, sz: Size, value: Self::Location);
     // fn emit_imul(&mut self, sz: Size, src: Self::Location, dst: Self::Location);
     // fn emit_imul_imm32_gpr64(&mut self, src: u32, dst: GPR);
@@ -218,9 +218,9 @@ pub trait Emitter {
     // fn emit_test_gpr_64(&mut self, reg: GPR);
 
     // fn emit_ud2(&mut self);
-    fn emit_return(&mut self);
+    fn emit_return(&mut self, loc: Option<Self::Location>);
     // fn emit_call_label(&mut self, label: Self::Label);
-    // fn emit_call_location(&mut self, loc: Self::Location);
+    fn emit_call_location(&mut self, loc: Self::Location);
 
     // fn emit_call_register(&mut self, reg: GPR);
 

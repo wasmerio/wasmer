@@ -1,5 +1,5 @@
 use crate::emitter::{Emitter, Size};
-use crate::machine_aarch64::{Aarch64Machine as Machine, Location, Reg};
+use crate::machine_aarch64::{Aarch64Machine as Machine, Location, Reg, X0, X1, X2, X19, X20, X30, SP};
 use crate::common_decl::*;
 use crate::codegen::CodegenError;
 
@@ -19,128 +19,82 @@ impl Emitter for Assembler {
     //     Assembler::new().unwrap()
     // }
     
-    fn emit_prologue(&mut self) {}
+    fn emit_prologue(&mut self) {
+        // save LR and FP
+        dynasm!(self
+            ; .arch aarch64
+            // ; ldr x7, [x7]
+            ; sub sp, sp, 16
+            ; stp x29, x30, [sp]
+            ; mov x29, sp);
+    }
 
     fn get_offset(&self) -> AssemblyOffset {
         self.offset()
     }
 
-    fn gen_std_trampoline(
-        sig: &FunctionType) -> Vec<u8> {
+    fn gen_std_trampoline(sig: &FunctionType) -> Vec<u8> {
         let mut a = Self::new().unwrap();
 
+        let mut stack_offset: i32 = (3 + sig.params().len().saturating_sub(8)) as i32 * 8;
+        if stack_offset % 16 != 0 {
+            stack_offset += 8;
+            assert!(stack_offset % 16 == 0);
+        }
 
+        let x19_save = Location::Memory(SP, stack_offset     );
+        let x20_save = Location::Memory(SP, stack_offset -  8);
+        let x30_save = Location::Memory(SP, stack_offset - 16);
 
-
-
+        dynasm!(a ; .arch aarch64 ; sub sp, sp, stack_offset as u32);
+        a.emit_move(Size::S64, Location::Reg(X19), x19_save);
+        a.emit_move(Size::S64, Location::Reg(X20), x20_save);
+        a.emit_move(Size::S64, Location::Reg(X30), x30_save);
         
-        // Calculate stack offset.
-        let mut stack_offset: u32 = 0;
+        let fptr_loc = Location::Reg(X19);
+        let args_reg = X20;
+        let args_loc = Location::Reg(args_reg);
+
+        a.emit_move(Size::S64, Location::Reg(X1), fptr_loc);
+        a.emit_move(Size::S64, Location::Reg(X2), args_loc);
+
+        // Move arguments to their locations.
+        // `callee_vmctx` is already in the first argument register, so no need to move.
         for (i, _param) in sig.params().iter().enumerate() {
-            if let Location::Memory(_, _) = Machine::get_param_location(1 + i) {
-                unimplemented!();
-                stack_offset += 8;
-            }
+            let src = Location::Memory(args_reg, (i * 16) as _); // args_rets[i]
+            
+            let dst = match i {
+                0..=6 => Location::Reg(Reg::X(1 + i as u32)),
+                _ =>     Location::Memory(SP, (i as i32 - 7) * 8),
+            };
+
+            a.emit_move(Size::S64, src, dst);
         }
 
-        // Align to 16 bytes. We push two 8-byte registers below, so here we need to ensure stack_offset % 16 == 8.
-        // if stack_offset % 16 != 8 {
-        //     stack_offset += 8;
-        // }
-        
-        dynasm!(a
-            ; sub sp, sp, #32
-            ; str x19, [sp, #8]
-            ; str x20, [sp, #16]
-            ; str x30, [sp, #24]
-            ; mov x19, x1
-            ; mov x20, x2);
-        // // Used callee-saved registers
-        // a.emit_push(Size::S64, Location::GPR(GPR::R15));
-        // a.emit_push(Size::S64, Location::GPR(GPR::R14));
-
-        // // Prepare stack space.
-        // a.emit_sub(
-        //     Size::S64,
-        //     Location::Imm32(stack_offset),
-        //     Location::GPR(GPR::RSP),
-        // );
-
-        // // Arguments
-        // a.emit_move(
-        //     Size::S64,
-        //     Machine::get_param_location(1),
-        //     Location::GPR(GPR::R15),
-        // ); // func_ptr
-        // a.emit_mov(
-        //     Size::S64,
-        //     Machine::get_param_location(2),
-        //     Location::GPR(GPR::R14),
-        // ); // args_rets
-
-        // // Move arguments to their locations.
-        // // `callee_vmctx` is already in the first argument register, so no need to move.
-        {
-        //     let mut n_stack_args: usize = 0;
-            for (i, _param) in sig.params().iter().enumerate() {
-                let src = Location::Memory(Reg::X(20), (i * 16) as _); // args_rets[i]
-                let dst = Machine::get_param_location(1 + i);
-                a.emit_move(Size::S64, src, dst);
-                // match dst_loc {
-                //     Location::GPR(_) => {
-                //         a.emit_mov(Size::S64, src_loc, dst_loc);
-                //     }
-                //     Location::Memory(_, _) => {
-                //         // This location is for reading arguments but we are writing arguments here.
-                //         // So recalculate it.
-                //         a.emit_mov(Size::S64, src_loc, Location::GPR(GPR::RAX));
-                //         a.emit_mov(
-                //             Size::S64,
-                //             Location::GPR(GPR::RAX),
-                //             Location::Memory(GPR::RSP, (n_stack_args * 8) as _),
-                //         );
-                //         n_stack_args += 1;
-                //     }
-                //     _ => unreachable!(),
-                // }
-            }
-        }
-
-        // // Call.
-        // a.emit_call_location(Location::GPR(GPR::R15));
-        dynasm!(a ; blr x19);
-
-        // // Restore stack.
-        // a.emit_add(
-        //     Size::S64,
-        //     Location::Imm32(stack_offset),
-        //     Location::GPR(GPR::RSP),
-        // );
+        a.emit_call_location(fptr_loc);
 
         // Write return value.
         if !sig.results().is_empty() {
-            // a.emit_move(
-            //     Size::S64,
-            //     M::get_return_location(),
-            //     Location::Memory(GPR::R14, 0),
-            // );
-            dynasm!(a ; str x0, [x20]);
+            a.emit_move(
+                Size::S64,
+                Location::Reg(X0),
+                Location::Memory(args_reg, 0),
+            );
         }
 
-        // // Restore callee-saved registers.
-        // a.emit_pop(Size::S64, Location::GPR(GPR::R14));
-        // a.emit_pop(Size::S64, Location::GPR(GPR::R15));
+        a.emit_move(Size::S64, x19_save, Location::Reg(X19));
+        a.emit_move(Size::S64, x20_save, Location::Reg(X20));
+        a.emit_move(Size::S64, x30_save, Location::Reg(X30));
 
-        // a.emit_ret();
-
+        // Restore stack.
         dynasm!(a
-            ; ldr x19, [sp, #8]
-            ; ldr x20, [sp, #16]
-            ; ldr x30, [sp, #24]
-            ; add sp, sp, #32
+            ; .arch aarch64
+            ; add sp, sp, stack_offset as u32
             ; ret);
+        
         a.finalize().unwrap().to_vec()
     }
+
     fn gen_std_dynamic_import_trampoline(
         vmoffsets: &VMOffsets,
         sig: &FunctionType) -> Vec<u8> {
@@ -165,28 +119,127 @@ impl Emitter for Assembler {
         self.new_dynamic_label()
     }
 
-    fn emit_return(&mut self) {
-        dynasm!(self ; .arch aarch64 ; ret);
+    fn emit_return(&mut self, loc: Option<Location>) {
+        if let Some(loc) = loc {
+            match loc {
+                Location::Reg(X0) => {}
+                _ => {
+                    self.emit_move(Size::S64, loc, Location::Reg(X0));
+                }
+            }
+        }
+
+        // restore LR and FP
+        dynasm!(self
+            ; .arch aarch64
+            ; ldp x29, x30, [sp]
+            ; add sp, sp, 16
+            ; ret);
     }
 
     fn emit_move(&mut self, sz: Size, src: Location, dst: Location) {
-        if let (Location::Reg(Reg::X(src)), Location::Reg(Reg::X(dst))) = (src, dst) {
-            dynasm!(self ; .arch aarch64 ; mov X(dst), X(src));
-        } else if let (Location::Imm32(src), Location::Reg(Reg::X(dst))) = (src, dst) {
-            dynasm!(self ; .arch aarch64 ; mov X(dst), src as u64);
-        } else if let (Location::Memory(Reg::X(reg), idx), Location::Reg(Reg::X(dst))) = (src, dst) {
-            /*if idx > 0 {
-            } else*/ {
-                dynasm!(self ; .arch aarch64 ; ldur X(dst), [X(reg), idx]);
-            }
-        } else {
-            unimplemented!();
+        match (src, dst) {
+            // reg -> reg
+            (Location::Reg(src), Location::Reg(dst)) => {
+                match (src, dst) {
+                    (Reg::X(src), Reg::X(dst)) => {
+                        dynasm!(self ; .arch aarch64 ; mov X(dst), X(src));
+                    },
+                    (Reg::XZR, Reg::X(dst)) => {
+                        dynasm!(self ; .arch aarch64 ; mov X(dst), xzr);
+                    },
+                    (Reg::SP, Reg::X(dst)) => {
+                        dynasm!(self ; .arch aarch64 ; mov X(dst), sp);
+                    },
+                    (Reg::X(src), Reg::SP) => {
+                        dynasm!(self ; .arch aarch64 ; mov sp, X(src));
+                    },
+                    _ => unreachable!()
+                }
+            },
+            // imm -> reg
+            (Location::Imm32(src), Location::Reg(dst)) => {
+                match dst {
+                    Reg::X(dst) => {
+                        dynasm!(self ; .arch aarch64 ; mov X(dst), src as u64);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            // mem -> reg
+            (Location::Memory(reg, idx), Location::Reg(dst)) => {
+                match (reg, dst) {
+                    (Reg::X(reg), Reg::X(dst)) => {
+                        dynasm!(self ; .arch aarch64 ; ldur X(dst), [X(reg), idx]);
+                    },
+                    (Reg::SP, Reg::X(dst)) => {
+                        dynasm!(self ; .arch aarch64 ; mov X(dst), sp);
+                        dynasm!(self ; .arch aarch64 ; ldur X(dst), [sp, idx]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            // reg -> mem
+            (Location::Reg(src), Location::Memory(reg, idx)) => {
+                match (src, reg) {
+                    (Reg::X(src), Reg::X(reg)) => {
+                        dynasm!(self ; .arch aarch64 ; stur X(src), [X(reg), idx]);
+                    },
+                    (Reg::X(src), Reg::SP) => {
+                        dynasm!(self ; .arch aarch64 ; stur X(src), [sp, idx]);
+                    },
+                    (Reg::XZR, Reg::X(reg)) => {
+                        dynasm!(self ; .arch aarch64 ; stur xzr, [X(reg), idx]);
+                    },
+                    (Reg::XZR, Reg::SP) => {
+                        dynasm!(self ; .arch aarch64 ; stur xzr, [sp, idx]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            // imm -> mem
+            (Location::Imm32(src), Location::Memory(reg, idx)) => {
+                dynasm!(self ; .arch aarch64 ; mov x18, src as u64);
+                match reg {
+                    Reg::X(reg) => {
+                        dynasm!(self ; .arch aarch64 ; stur x18, [X(reg), idx]);
+                    },
+                    Reg::SP => {
+                        dynasm!(self ; .arch aarch64 ; stur x18, [sp, idx]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            // mem -> mem
+            (Location::Memory(src, src_idx), Location::Memory(dst, dst_idx)) => {
+                match src {
+                    Reg::X(src) => {
+                        dynasm!(self ; .arch aarch64 ; ldur x18, [X(src), src_idx]);
+                    },
+                    Reg::SP => {
+                        dynasm!(self ; .arch aarch64 ; ldur x18, [sp, src_idx]);
+                    },
+                    _ => unreachable!()
+                }
+                match dst {
+                    Reg::X(dst) => {
+                        dynasm!(self ; .arch aarch64 ; stur x18, [X(dst), dst_idx]);
+                    },
+                    Reg::SP => {
+                        dynasm!(self ; .arch aarch64 ; stur x18, [sp, dst_idx]);
+                    },
+                    _ => unreachable!()
+                }
+            },
+            _ => {
+                unreachable!();
+            },
         }
     }
 
-    fn emit_add(&mut self, sz: Size, src: Self::Location, dst: Self::Location) {
-        if let (Location::Reg(Reg::X(src)), Location::Reg(Reg::X(dst))) = (src, dst) {
-            dynasm!(self ; .arch aarch64 ; add X(dst), X(dst), X(src));
+    fn emit_add_i32(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        if let (Location::Reg(Reg::X(src1)), Location::Reg(Reg::X(src2)), Location::Reg(Reg::X(dst))) = (src1, src2, dst) {
+            dynasm!(self ; .arch aarch64 ; add X(dst), X(src1), X(src2));
         // } else if let (Location::Imm32(src), Location::Reg(Reg::X(dst))) = (src, dst) {
         //     dynasm!(self ; .arch aarch64 ; mov X(dst), src as u64);
         // } else if let (Location::Memory(Reg::X(reg), idx), Location::Reg(Reg::X(dst))) = (src, dst) {
@@ -198,8 +251,34 @@ impl Emitter for Assembler {
             unimplemented!();
         }
     }
+
+    fn emit_sub_i32(&mut self, sz: Size, src1: Location, src2: Location, dst: Location) {
+        if let (Location::Reg(Reg::X(src1)), Location::Reg(Reg::X(src2)), Location::Reg(Reg::X(dst))) = (src1, src2, dst) {
+            dynasm!(self ; .arch aarch64 ; sub X(dst), X(src1), X(src2));
+        } else if let (Location::Reg(Reg::X(src1)), Location::Imm32(src2), Location::Reg(Reg::X(dst))) = (src1, src2, dst) {
+            dynasm!(self ; .arch aarch64 ; sub X(dst), X(src1), src2);
+        } else if let (Location::Reg(Reg::SP), Location::Imm32(src2), Location::Reg(Reg::SP)) = (src1, src2, dst) {
+            dynasm!(self ; .arch aarch64 ; sub sp, sp, src2);
+        // } else if let (Location::Imm32(src), Location::Reg(Reg::X(dst))) = (src, dst) {
+        //     dynasm!(self ; .arch aarch64 ; mov X(dst), src as u64);
+        // } else if let (Location::Memory(Reg::X(reg), idx), Location::Reg(Reg::X(dst))) = (src, dst) {
+        //     /*if idx > 0 {
+        //     } else*/ {
+        //         dynasm!(self ; .arch aarch64 ; ldur X(dst), [X(reg), idx]);
+        //     }
+        } else {
+            unimplemented!();
+        }
+    }
+
+    fn emit_call_location(&mut self, loc: Location) {
+        match loc {
+            Location::Reg(Reg::X(x)) => dynasm!(self ; .arch aarch64 ; blr X(x)),
+            _ => unimplemented!()
+        }
+    }
     
-    fn finalize(mut self) -> Vec<u8> {
+    fn finalize(self) -> Vec<u8> {
         // Generate actual code for special labels.
         // self.assembler
         //     .emit_label(self.special_labels.integer_division_by_zero);
