@@ -397,7 +397,6 @@ dependencies = [
  "hashbrown",
  "log",
  "regalloc",
- "serde",
  "smallvec",
  "target-lexicon",
  "thiserror",
@@ -424,9 +423,6 @@ name = "cranelift-entity"
 version = "0.70.0"
 source = "registry+https://github.com/rust-lang/crates.io-index"
 checksum = "e55e9043403f0dec775f317280015150e78b2352fb947d2f37407fd4ce6311c7"
-dependencies = [
- "serde",
-]
 
 [[package]]
 name = "cranelift-frontend"
@@ -1652,7 +1648,6 @@ checksum = "571f7f397d61c4755285cd37853fe8e03271c243424a907415909379659381c5"
 dependencies = [
  "log",
  "rustc-hash",
- "serde",
  "smallvec",
 ]
 
@@ -2436,7 +2431,6 @@ dependencies = [
  "loupe",
  "more-asserts",
  "rayon",
- "serde",
  "smallvec",
  "target-lexicon",
  "tracing",
@@ -2480,7 +2474,6 @@ dependencies = [
  "loupe",
  "more-asserts",
  "rayon",
- "serde",
  "smallvec",
  "target-lexicon",
  "wasmer-compiler",
