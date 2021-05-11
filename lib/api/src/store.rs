@@ -6,7 +6,7 @@ use std::sync::Arc;
 #[cfg(all(feature = "compiler", feature = "engine"))]
 use wasmer_compiler::CompilerConfig;
 use wasmer_engine::{is_wasm_pc, Engine, Tunables};
-use wasmer_vm::{init_traps, SignalHandler, TrapInfo};
+use wasmer_vm::{init_traps, TrapHandler, TrapHandlerFn};
 
 /// The store represents all global state that can be manipulated by
 /// WebAssembly programs. It consists of the runtime representation
@@ -72,12 +72,12 @@ impl PartialEq for Store {
     }
 }
 
-unsafe impl TrapInfo for Store {
+unsafe impl TrapHandler for Store {
     #[inline]
     fn as_any(&self) -> &dyn Any {
         self
     }
-    fn custom_signal_handler(&self, _call: &dyn Fn(&SignalHandler) -> bool) -> bool {
+    fn custom_trap_handler(&self, _call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool {
         // Setting a custom handler is implemented for now, please open an issue
         // in the Wasmer Github repo if you are interested in this.
         false

@@ -19,10 +19,10 @@ pub use tls::TlsRestore;
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
         /// Function which may handle custom signals while processing traps.
-        pub type SignalHandler = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
+        pub type TrapHandlerFn = dyn Fn(libc::c_int, *const libc::siginfo_t, *const libc::c_void) -> bool;
     } else if #[cfg(target_os = "windows")] {
         /// Function which may handle custom signals while processing traps.
-        pub type SignalHandler = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
+        pub type TrapHandlerFn = dyn Fn(winapi::um::winnt::PEXCEPTION_POINTERS) -> bool;
     }
 }
 
@@ -525,13 +525,13 @@ impl Trap {
 /// Wildly unsafe because it calls raw function pointers and reads/writes raw
 /// function pointers.
 pub unsafe fn wasmer_call_trampoline(
-    trap_info: &impl TrapInfo,
+    trap_handler: &impl TrapHandler,
     vmctx: VMFunctionEnvironment,
     trampoline: VMTrampoline,
     callee: *const VMFunctionBody,
     values_vec: *mut u8,
 ) -> Result<(), Trap> {
-    catch_traps(trap_info, || {
+    catch_traps(trap_handler, || {
         mem::transmute::<_, extern "C" fn(VMFunctionEnvironment, *const VMFunctionBody, *mut u8)>(
             trampoline,
         )(vmctx, callee, values_vec);
@@ -542,11 +542,11 @@ pub unsafe fn wasmer_call_trampoline(
 /// returning them as a `Result`.
 ///
 /// Highly unsafe since `closure` won't have any dtors run.
-pub unsafe fn catch_traps<F>(trap_info: &dyn TrapInfo, mut closure: F) -> Result<(), Trap>
+pub unsafe fn catch_traps<F>(trap_handler: &dyn TrapHandler, mut closure: F) -> Result<(), Trap>
 where
     F: FnMut(),
 {
-    return CallThreadState::new(trap_info).with(|cx| {
+    return CallThreadState::new(trap_handler).with(|cx| {
         wasmer_register_setjmp(
             cx.jmp_buf.as_ptr(),
             call_closure::<F>,
@@ -572,14 +572,14 @@ where
 ///
 /// Check [`catch_traps`].
 pub unsafe fn catch_traps_with_result<F, R>(
-    trap_info: &dyn TrapInfo,
+    trap_handler: &dyn TrapHandler,
     mut closure: F,
 ) -> Result<R, Trap>
 where
     F: FnMut() -> R,
 {
     let mut global_results = MaybeUninit::<R>::uninit();
-    catch_traps(trap_info, || {
+    catch_traps(trap_handler, || {
         global_results.as_mut_ptr().write(closure());
     })?;
     Ok(global_results.assume_init())
@@ -592,7 +592,7 @@ pub struct CallThreadState<'a> {
     jmp_buf: Cell<*const u8>,
     reset_guard_page: Cell<bool>,
     prev: Cell<tls::Ptr>,
-    trap_info: &'a (dyn TrapInfo + 'a),
+    trap_handler: &'a (dyn TrapHandler + 'a),
     handling_trap: Cell<bool>,
 }
 
@@ -602,14 +602,14 @@ pub struct CallThreadState<'a> {
 /// Note that this is an `unsafe` trait at least because it's being run in the
 /// context of a synchronous signal handler, so it needs to be careful to not
 /// access too much state in answering these queries.
-pub unsafe trait TrapInfo {
+pub unsafe trait TrapHandler {
     /// Converts this object into an `Any` to dynamically check its type.
     fn as_any(&self) -> &dyn Any;
 
     /// Uses `call` to call a custom signal handler, if one is specified.
     ///
     /// Returns `true` if `call` returns true, otherwise returns `false`.
-    fn custom_signal_handler(&self, call: &dyn Fn(&SignalHandler) -> bool) -> bool;
+    fn custom_trap_handler(&self, call: &dyn Fn(&TrapHandlerFn) -> bool) -> bool;
 }
 
 enum UnwindReason {
@@ -629,13 +629,13 @@ enum UnwindReason {
 
 impl<'a> CallThreadState<'a> {
     #[inline]
-    fn new(trap_info: &'a (dyn TrapInfo + 'a)) -> CallThreadState<'a> {
+    fn new(trap_handler: &'a (dyn TrapHandler + 'a)) -> CallThreadState<'a> {
         Self {
             unwind: UnsafeCell::new(MaybeUninit::uninit()),
             jmp_buf: Cell::new(ptr::null()),
             reset_guard_page: Cell::new(false),
             prev: Cell::new(ptr::null()),
-            trap_info,
+            trap_handler,
             handling_trap: Cell::new(false),
         }
     }
@@ -695,7 +695,7 @@ impl<'a> CallThreadState<'a> {
         pc: *const u8,
         reset_guard_page: bool,
         signal_trap: Option<TrapCode>,
-        call_handler: impl Fn(&SignalHandler) -> bool,
+        call_handler: impl Fn(&TrapHandlerFn) -> bool,
     ) -> *const u8 {
         // If we hit a fault while handling a previous trap, that's quite bad,
         // so bail out and let the system handle this recursive segfault.
@@ -709,7 +709,7 @@ impl<'a> CallThreadState<'a> {
         // First up see if we have a custom trap handler,
         // in which case run it. If anything handles the trap then we
         // return that the trap was handled.
-        if self.trap_info.custom_signal_handler(&call_handler) {
+        if self.trap_handler.custom_trap_handler(&call_handler) {
             return 1 as *const _;
         }
 

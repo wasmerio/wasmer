@@ -19,7 +19,7 @@ use crate::global::Global;
 use crate::imports::Imports;
 use crate::memory::{Memory, MemoryError};
 use crate::table::{Table, TableElement};
-use crate::trap::{catch_traps, Trap, TrapCode, TrapInfo};
+use crate::trap::{catch_traps, Trap, TrapCode, TrapHandler};
 use crate::vmcontext::{
     VMBuiltinFunctionsArray, VMCallerCheckedAnyfunc, VMContext, VMFunctionBody,
     VMFunctionEnvironment, VMFunctionImport, VMFunctionKind, VMGlobalDefinition, VMGlobalImport,
@@ -393,7 +393,7 @@ impl Instance {
     }
 
     /// Invoke the WebAssembly start function of the instance, if one is present.
-    fn invoke_start_function(&self, trap_info: &dyn TrapInfo) -> Result<(), Trap> {
+    fn invoke_start_function(&self, trap_handler: &dyn TrapHandler) -> Result<(), Trap> {
         let start_index = match self.module.start_function {
             Some(idx) => idx,
             None => return Ok(()),
@@ -422,7 +422,7 @@ impl Instance {
 
         // Make the call.
         unsafe {
-            catch_traps(trap_info, || {
+            catch_traps(trap_handler, || {
                 mem::transmute::<*const VMFunctionBody, unsafe extern "C" fn(VMFunctionEnvironment)>(
                     callee_address,
                 )(callee_vmctx)
@@ -1015,7 +1015,7 @@ impl InstanceHandle {
     /// Only safe to call immediately after instantiation.
     pub unsafe fn finish_instantiation(
         &self,
-        trap_info: &dyn TrapInfo,
+        trap_handler: &dyn TrapHandler,
         data_initializers: &[DataInitializer<'_>],
     ) -> Result<(), Trap> {
         let instance = self.instance().as_ref();
@@ -1026,7 +1026,7 @@ impl InstanceHandle {
 
         // The WebAssembly spec specifies that the start function is
         // invoked automatically at instantiation time.
-        instance.invoke_start_function(trap_info)?;
+        instance.invoke_start_function(trap_handler)?;
         Ok(())
     }
 
