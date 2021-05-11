@@ -484,22 +484,22 @@ build-capi-headless-all: capi-setup
 test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass-native:
-	cargo test --release $(compiler_features) --features "test-singlepass test-native"
+	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"
 
 test-singlepass-jit:
-	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-singlepass test-jit"
 
 test-cranelift-native:
-	cargo test --release $(compiler_features) --features "test-cranelift test-native"
+	cargo test --release --tests $(compiler_features) --features "test-cranelift test-native"
 
 test-cranelift-jit:
-	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-cranelift test-jit"
 
 test-llvm-native:
-	cargo test --release $(compiler_features) --features "test-llvm test-native"
+	cargo test --release --tests $(compiler_features) --features "test-llvm test-native"
 
 test-llvm-jit:
-	cargo test --release $(compiler_features) --features "test-llvm test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-llvm test-jit"
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 

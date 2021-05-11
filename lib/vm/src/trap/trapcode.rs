@@ -6,6 +6,8 @@
 use core::fmt::{self, Display, Formatter};
 use core::str::FromStr;
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use thiserror::Error;
 
@@ -13,6 +15,10 @@ use thiserror::Error;
 ///
 /// All trap instructions have an explicit trap code.
 #[derive(Clone, Copy, PartialEq, Eq, Debug, Hash, Serialize, Deserialize, Error, MemoryUsage)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[repr(u32)]
 pub enum TrapCode {
     /// The current stack space was exhausted.
@@ -21,59 +27,49 @@ pub enum TrapCode {
     /// stack guard page.
     StackOverflow = 0,
 
-    /// Memory data doesn't fit the memory size.
-    ///
-    /// This only can happen during instantiation.
-    HeapSetterOutOfBounds = 1,
-
     /// A `heap_addr` instruction detected an out-of-bounds error.
     ///
     /// Note that not all out-of-bounds heap accesses are reported this way;
     /// some are detected by a segmentation fault on the heap unmapped or
     /// offset-guard pages.
-    HeapAccessOutOfBounds = 2,
+    HeapAccessOutOfBounds = 1,
 
     /// A `heap_addr` instruction was misaligned.
-    HeapMisaligned = 3,
-
-    /// Table Elements doesn't fit the table size.
-    ///
-    /// This only can happen during instantiation.
-    TableSetterOutOfBounds = 4,
+    HeapMisaligned = 2,
 
     /// A `table_addr` instruction detected an out-of-bounds error.
-    TableAccessOutOfBounds = 5,
+    TableAccessOutOfBounds = 3,
 
     /// Other bounds checking error.
-    OutOfBounds = 6,
+    OutOfBounds = 4,
 
     /// Indirect call to a null table entry.
-    IndirectCallToNull = 7,
+    IndirectCallToNull = 5,
 
     /// Signature mismatch on indirect call.
-    BadSignature = 8,
+    BadSignature = 6,
 
     /// An integer arithmetic operation caused an overflow.
-    IntegerOverflow = 9,
+    IntegerOverflow = 7,
 
     /// An integer division by zero.
-    IntegerDivisionByZero = 10,
+    IntegerDivisionByZero = 8,
 
     /// Failed float-to-int conversion.
-    BadConversionToInteger = 11,
+    BadConversionToInteger = 9,
 
     /// Code that was supposed to have been unreachable was reached.
-    UnreachableCodeReached = 12,
+    UnreachableCodeReached = 10,
 
     /// Execution has potentially run too long and may be interrupted.
     /// This trap is resumable.
-    Interrupt = 13,
+    Interrupt = 11,
 
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 14,
+    UnalignedAtomic = 12,
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
-    VMOutOfMemory = 15,
+    VMOutOfMemory = 13,
     // /// A user-defined trap code.
     // User(u16),
 }
@@ -83,12 +79,8 @@ impl TrapCode {
     pub fn message(&self) -> &str {
         match self {
             Self::StackOverflow => "call stack exhausted",
-            Self::HeapSetterOutOfBounds => "memory out of bounds: data segment does not fit",
             Self::HeapAccessOutOfBounds => "out of bounds memory access",
             Self::HeapMisaligned => "misaligned heap",
-            Self::TableSetterOutOfBounds => {
-                "out of bounds table access: elements segment does not fit"
-            }
             Self::TableAccessOutOfBounds => "undefined element: out of bounds table access",
             Self::OutOfBounds => "out of bounds",
             Self::IndirectCallToNull => "uninitialized element",
@@ -109,10 +101,8 @@ impl Display for TrapCode {
     fn fmt(&self, f: &mut Formatter) -> fmt::Result {
         let identifier = match *self {
             Self::StackOverflow => "stk_ovf",
-            Self::HeapSetterOutOfBounds => "heap_set_oob",
             Self::HeapAccessOutOfBounds => "heap_get_oob",
             Self::HeapMisaligned => "heap_misaligned",
-            Self::TableSetterOutOfBounds => "table_set_oob",
             Self::TableAccessOutOfBounds => "table_get_oob",
             Self::OutOfBounds => "oob",
             Self::IndirectCallToNull => "icall_null",
@@ -137,10 +127,8 @@ impl FromStr for TrapCode {
         use self::TrapCode::*;
         match s {
             "stk_ovf" => Ok(StackOverflow),
-            "heap_set_oob" => Ok(HeapSetterOutOfBounds),
             "heap_get_oob" => Ok(HeapAccessOutOfBounds),
             "heap_misaligned" => Ok(HeapMisaligned),
-            "table_set_oob" => Ok(TableSetterOutOfBounds),
             "table_get_oob" => Ok(TableAccessOutOfBounds),
             "oob" => Ok(OutOfBounds),
             "icall_null" => Ok(IndirectCallToNull),
@@ -163,12 +151,10 @@ mod tests {
     use super::*;
 
     // Everything but user-defined codes.
-    const CODES: [TrapCode; 15] = [
+    const CODES: [TrapCode; 13] = [
         TrapCode::StackOverflow,
-        TrapCode::HeapSetterOutOfBounds,
         TrapCode::HeapAccessOutOfBounds,
         TrapCode::HeapMisaligned,
-        TrapCode::TableSetterOutOfBounds,
         TrapCode::TableAccessOutOfBounds,
         TrapCode::OutOfBounds,
         TrapCode::IndirectCallToNull,

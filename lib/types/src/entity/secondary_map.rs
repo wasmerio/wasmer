@@ -12,6 +12,8 @@ use crate::lib::std::ops::{Index, IndexMut};
 use crate::lib::std::slice;
 use crate::lib::std::vec::Vec;
 use loupe::{MemoryUsage, MemoryUsageTracker};
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 #[cfg(feature = "enable-serde")]
 use serde::{
     de::{Deserializer, SeqAccess, Visitor},
@@ -29,14 +31,18 @@ use std::mem;
 /// The map does not track if an entry for a key has been inserted or not. Instead it behaves as if
 /// all keys have a default entry from the beginning.
 #[derive(Debug, Clone)]
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 pub struct SecondaryMap<K, V>
 where
     K: EntityRef,
     V: Clone,
 {
-    elems: Vec<V>,
-    default: V,
-    unused: PhantomData<K>,
+    pub(crate) elems: Vec<V>,
+    pub(crate) default: V,
+    pub(crate) unused: PhantomData<K>,
 }
 
 /// Shared `SecondaryMap` implementation for all value types.

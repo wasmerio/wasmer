@@ -53,13 +53,8 @@ fuzz_target!(|module: WasmSmithModule| {
         Ok(_) => {}
         Err(e) => {
             let error_message = format!("{}", e);
-            if error_message
-                .contains("RuntimeError: memory out of bounds: data segment does not fit")
-                || error_message
-                    .contains("RuntimeError: table out of bounds: elements segment does not fit")
-                || error_message.contains(
-                    "RuntimeError: out of bounds table access: elements segment does not fit",
-                )
+            if error_message.starts_with("RuntimeError: ")
+                && error_message.contains("out of bounds")
             {
                 return;
             }

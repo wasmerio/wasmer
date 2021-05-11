@@ -45,6 +45,9 @@
     (v128.store offset=65520 align=1 (i32.const 0) (v128.const i32x4 0 1 2 3))
     (v128.load offset=65520 (i32.const 0))
   )
+  (func (export "store_data_6") (param $i i32)
+    (v128.store offset=1 align=1 (local.get $i) (v128.const i32x4 0 1 2 3))
+  )
 )
 
 (assert_return (invoke "load_data_1" (i32.const 0)) (v128.const i32x4 0x03020100 0x07060504 0x11100908 0x15141312))
@@ -83,6 +86,7 @@
 (assert_return (invoke "load_data_4" (i32.const 65505)) (v128.const i8x16 0x18 0x19 0x20 0x21 0x22 0x23 0x24 0x25 0x26 0x27 0x28 0x29 0x30 0x31 0x00 0x00))
 (assert_return (invoke "load_data_5" (i32.const 65505)) (v128.const i8x16 0x31 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00 0x00))
 
+(assert_trap (invoke "load_data_3" (i32.const -1)) "out of bounds memory access")
 (assert_trap (invoke "load_data_5" (i32.const 65506)) "out of bounds memory access")
 
 (assert_return (invoke "store_data_0") (v128.const f32x4 0 1 2 3))
@@ -92,6 +96,8 @@
 (assert_return (invoke "store_data_4") (v128.const i32x4 0 1 2 3))
 (assert_return (invoke "store_data_5") (v128.const i32x4 0 1 2 3))
 
+(assert_trap (invoke "store_data_6" (i32.const -1)) "out of bounds memory access")
+(assert_trap (invoke "store_data_6" (i32.const 65535)) "out of bounds memory access")
 
 ;; Load/Store v128 data with invalid offset
 

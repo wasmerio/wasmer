@@ -13,7 +13,7 @@ use rayon::prelude::{IntoParallelIterator, IntoParallelRefIterator, ParallelIter
 use std::sync::Arc;
 use wasmer_compiler::{
     Compilation, CompileError, CompileModuleInfo, Compiler, CustomSection, CustomSectionProtection,
-    Dwarf, FunctionBodyData, ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget,
+    Dwarf, FunctionBodyData, ModuleMiddleware, ModuleTranslationState, RelocationTarget,
     SectionBody, SectionIndex, Symbol, SymbolRegistry, Target,
 };
 use wasmer_types::entity::{EntityRef, PrimaryMap};
@@ -188,10 +188,15 @@ impl LLVMCompiler {
 }
 
 impl Compiler for LLVMCompiler {
+    /// Get the middlewares for this compiler
+    fn get_middlewares(&self) -> &[Arc<dyn ModuleMiddleware>] {
+        &self.config.middlewares
+    }
+
     fn experimental_native_compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module mut CompileModuleInfo,
+        compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         // The list of function bodies
         function_body_inputs: &PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
@@ -199,10 +204,6 @@ impl Compiler for LLVMCompiler {
         // The metadata to inject into the wasmer_metadata section of the object file.
         wasmer_metadata: &[u8],
     ) -> Option<Result<Vec<u8>, CompileError>> {
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
-
         Some(self.compile_native_object(
             target,
             compile_info,
@@ -218,7 +219,7 @@ impl Compiler for LLVMCompiler {
     fn compile_module<'data, 'module>(
         &self,
         target: &Target,
-        compile_info: &'module mut CompileModuleInfo,
+        compile_info: &'module CompileModuleInfo,
         module_translation: &ModuleTranslationState,
         function_body_inputs: PrimaryMap<LocalFunctionIndex, FunctionBodyData<'data>>,
     ) -> Result<Compilation, CompileError> {
@@ -226,9 +227,6 @@ impl Compiler for LLVMCompiler {
         let memory_styles = &compile_info.memory_styles;
         let table_styles = &compile_info.table_styles;
 
-        let mut module = (*compile_info.module).clone();
-        self.config.middlewares.apply_on_module_info(&mut module);
-        compile_info.module = Arc::new(module);
         let module = &compile_info.module;
 
         // TODO: merge constants in sections.

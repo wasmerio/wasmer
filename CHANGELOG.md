@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **[Unreleased]**
 
 ### Added
+- [#2296](https://github.com/wasmerio/wasmer/pull/2296) Add support for the bulk memory proposal in compiler Singlepass and compiler LLVM.
 - [#2208](https://github.com/wasmerio/wasmer/pull/2208) Add a new CHANGELOG.md specific to our C API to make it easier for users primarily consuming our C API to keep up to date with changes that affect them.
 - [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.
 - [#2003](https://github.com/wasmerio/wasmer/pull/2003) Wasmer works with musl, and is built, tested and packaged for musl.
@@ -21,6 +22,9 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 - [#2135](https://github.com/wasmerio/wasmer/pull/2135) [Documentation](./PACKAGING.md) for linux distribution maintainers
 
 ### Changed
+- [#2299](https://github.com/wasmerio/wasmer/pull/2299) Unused trap codes (due to Wasm spec changes), `HeapSetterOutOfBounds` and `TableSetterOutOfBounds` were removed from `wasmer_vm::TrapCode` and the numbering of the remaining variants has been adjusted.
+- [#2293](https://github.com/wasmerio/wasmer/pull/2293) The `Memory::ty` trait method now returns `MemoryType` by value. `wasmer_vm::LinearMemory` now recomputes `MemoryType`'s `minimum` field when accessing its type. This behavior is what's expected by the latest spectests. `wasmer::Memory::ty` has also been updated to follow suit, it now returns `MemoryType` by value.
+- [#2251](https://github.com/wasmerio/wasmer/pull/2251) Wasmer CLI will now execute WASI modules with multiple WASI namespaces in them by default. Use `--allow-multiple-wasi-versions` to suppress the warning and use `--deny-multiple-wasi-versions` to make it an error.
 - [#2201](https://github.com/wasmerio/wasmer/pull/2201) Implement `loupe::MemoryUsage` for `wasmer::Instance`.
 - [#2200](https://github.com/wasmerio/wasmer/pull/2200) Implement `loupe::MemoryUsage` for `wasmer::Module`.
 - [#2199](https://github.com/wasmerio/wasmer/pull/2199) Implement `loupe::MemoryUsage` for `wasmer::Store`.
