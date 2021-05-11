@@ -11,7 +11,7 @@ use std::any::Any;
 use std::cell::{Cell, UnsafeCell};
 use std::error::Error;
 use std::io;
-use std::mem;
+use std::mem::{self, MaybeUninit};
 use std::ptr;
 use std::sync::Once;
 pub use tls::TlsRestore;
@@ -37,8 +37,6 @@ extern "C" {
 
 cfg_if::cfg_if! {
     if #[cfg(unix)] {
-        use std::mem::MaybeUninit;
-
         static mut PREV_SIGSEGV: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGBUS: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
         static mut PREV_SIGILL: MaybeUninit<libc::sigaction> = MaybeUninit::uninit();
@@ -765,7 +763,7 @@ mod tls {
     // thread local variable and has functions to access the variable.
     //
     // Note that this is specially done to fully encapsulate that the accessors
-    // for tls must not be inlined. Wasmtime's async support employs stack
+    // for tls must not be inlined. Wasmer's async support will employ stack
     // switching which can resume execution on different OS threads. This means
     // that borrows of our TLS pointer must never live across accesses because
     // otherwise the access may be split across two threads and cause unsafety.
@@ -835,7 +833,7 @@ mod tls {
         /// Restores a previous tls state back into this thread's TLS.
         ///
         /// This is unsafe because it's intended to only be used within the
-        /// context of stack switching within wasmtime.
+        /// context of stack switching within wasmer.
         pub unsafe fn replace(self) -> Result<(), super::Trap> {
             // We need to configure our previous TLS pointer to whatever is in
             // TLS at this time, and then we set the current state to ourselves.
