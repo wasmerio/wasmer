@@ -6612,11 +6612,11 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let ((min, max), (cmp_min, cmp_max)) = match o {
                     Operator::I32x4TruncSatF64x2SZero => (
                         (std::i32::MIN as u64, std::i32::MAX as u64),
-                        (LEF32_GEQ_I32_MIN, GEF32_LEQ_I32_MAX),
+                        (LEF64_GEQ_I32_MIN, GEF64_LEQ_I32_MAX),
                     ),
                     Operator::I32x4TruncSatF64x2UZero => (
                         (std::u32::MIN as u64, std::u32::MAX as u64),
-                        (LEF32_GEQ_U32_MIN, GEF32_LEQ_U32_MAX),
+                        (LEF64_GEQ_U32_MIN, GEF64_LEQ_U32_MAX),
                     ),
                     _ => unreachable!("Unhandled internal variant"),
                 };
