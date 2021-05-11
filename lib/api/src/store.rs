@@ -78,9 +78,8 @@ unsafe impl TrapInfo for Store {
         self
     }
     fn custom_signal_handler(&self, _call: &dyn Fn(&SignalHandler) -> bool) -> bool {
-        // if let Some(handler) = &*self.inner.signal_handler.borrow() {
-        //     return call(handler);
-        // }
+        // Setting a custom handler is implemented for now, please open an issue
+        // in the Wasmer Github repo if you are interested in this.
         false
     }
 }
