@@ -78,15 +78,23 @@ pub struct Intrinsics<'ctx> {
 
     pub ceil_f32: FunctionValue<'ctx>,
     pub ceil_f64: FunctionValue<'ctx>,
+    pub ceil_f32x4: FunctionValue<'ctx>,
+    pub ceil_f64x2: FunctionValue<'ctx>,
 
     pub floor_f32: FunctionValue<'ctx>,
     pub floor_f64: FunctionValue<'ctx>,
+    pub floor_f32x4: FunctionValue<'ctx>,
+    pub floor_f64x2: FunctionValue<'ctx>,
 
     pub trunc_f32: FunctionValue<'ctx>,
     pub trunc_f64: FunctionValue<'ctx>,
+    pub trunc_f32x4: FunctionValue<'ctx>,
+    pub trunc_f64x2: FunctionValue<'ctx>,
 
     pub nearbyint_f32: FunctionValue<'ctx>,
     pub nearbyint_f64: FunctionValue<'ctx>,
+    pub nearbyint_f32x4: FunctionValue<'ctx>,
+    pub nearbyint_f64x2: FunctionValue<'ctx>,
 
     pub fabs_f32: FunctionValue<'ctx>,
     pub fabs_f64: FunctionValue<'ctx>,
@@ -118,6 +126,8 @@ pub struct Intrinsics<'ctx> {
 
     pub void_ty: VoidType<'ctx>,
     pub i1_ty: IntType<'ctx>,
+    pub i2_ty: IntType<'ctx>,
+    pub i4_ty: IntType<'ctx>,
     pub i8_ty: IntType<'ctx>,
     pub i16_ty: IntType<'ctx>,
     pub i32_ty: IntType<'ctx>,
@@ -216,6 +226,8 @@ impl<'ctx> Intrinsics<'ctx> {
     pub fn declare(module: &Module<'ctx>, context: &'ctx Context) -> Self {
         let void_ty = context.void_type();
         let i1_ty = context.bool_type();
+        let i2_ty = context.custom_width_int_type(2);
+        let i4_ty = context.custom_width_int_type(4);
         let i8_ty = context.i8_type();
         let i16_ty = context.i16_type();
         let i32_ty = context.i32_type();
@@ -317,15 +329,31 @@ impl<'ctx> Intrinsics<'ctx> {
 
             ceil_f32: module.add_function("llvm.ceil.f32", ret_f32_take_f32, None),
             ceil_f64: module.add_function("llvm.ceil.f64", ret_f64_take_f64, None),
+            ceil_f32x4: module.add_function("llvm.ceil.v4f32", ret_f32x4_take_f32x4, None),
+            ceil_f64x2: module.add_function("llvm.ceil.v2f64", ret_f64x2_take_f64x2, None),
 
             floor_f32: module.add_function("llvm.floor.f32", ret_f32_take_f32, None),
             floor_f64: module.add_function("llvm.floor.f64", ret_f64_take_f64, None),
+            floor_f32x4: module.add_function("llvm.floor.v4f32", ret_f32x4_take_f32x4, None),
+            floor_f64x2: module.add_function("llvm.floor.v2f64", ret_f64x2_take_f64x2, None),
 
             trunc_f32: module.add_function("llvm.trunc.f32", ret_f32_take_f32, None),
             trunc_f64: module.add_function("llvm.trunc.f64", ret_f64_take_f64, None),
+            trunc_f32x4: module.add_function("llvm.trunc.v4f32", ret_f32x4_take_f32x4, None),
+            trunc_f64x2: module.add_function("llvm.trunc.v2f64", ret_f64x2_take_f64x2, None),
 
             nearbyint_f32: module.add_function("llvm.nearbyint.f32", ret_f32_take_f32, None),
             nearbyint_f64: module.add_function("llvm.nearbyint.f64", ret_f64_take_f64, None),
+            nearbyint_f32x4: module.add_function(
+                "llvm.nearbyint.v4f32",
+                ret_f32x4_take_f32x4,
+                None,
+            ),
+            nearbyint_f64x2: module.add_function(
+                "llvm.nearbyint.v2f64",
+                ret_f64x2_take_f64x2,
+                None,
+            ),
 
             fabs_f32: module.add_function("llvm.fabs.f32", ret_f32_take_f32, None),
             fabs_f64: module.add_function("llvm.fabs.f64", ret_f64_take_f64, None),
@@ -401,6 +429,8 @@ impl<'ctx> Intrinsics<'ctx> {
 
             void_ty,
             i1_ty,
+            i2_ty,
+            i4_ty,
             i8_ty,
             i16_ty,
             i32_ty,
