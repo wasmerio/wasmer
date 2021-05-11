@@ -18,7 +18,7 @@
 #define platform_jmp_buf sigjmp_buf
 #endif
 
-int register_setjmp(
+int wasmer_register_setjmp(
     void **buf_storage,
     void (*body)(void*),
     void *payload) {
@@ -31,7 +31,7 @@ int register_setjmp(
   return 1;
 }
 
-void unwind(void *JmpBuf) {
+void wasmer_unwind(void *JmpBuf) {
   platform_jmp_buf *buf = (platform_jmp_buf*) JmpBuf;
   platform_longjmp(*buf, 1);
 }

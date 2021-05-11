@@ -27,12 +27,12 @@ cfg_if::cfg_if! {
 }
 
 extern "C" {
-    fn register_setjmp(
+    fn wasmer_register_setjmp(
         jmp_buf: *mut *const u8,
         callback: extern "C" fn(*mut u8),
         payload: *mut u8,
     ) -> i32;
-    fn unwind(jmp_buf: *const u8) -> !;
+    fn wasmer_unwind(jmp_buf: *const u8) -> !;
 }
 
 cfg_if::cfg_if! {
@@ -168,7 +168,7 @@ cfg_if::cfg_if! {
                 } else if jmp_buf as usize == 1 {
                     true
                 } else {
-                    unwind(jmp_buf)
+                    wasmer_unwind(jmp_buf)
                 }
             });
 
@@ -346,7 +346,7 @@ cfg_if::cfg_if! {
                 } else if jmp_buf as usize == 1 {
                     EXCEPTION_CONTINUE_EXECUTION
                 } else {
-                    unwind(jmp_buf)
+                    wasmer_unwind(jmp_buf)
                 }
             })
         }
@@ -390,8 +390,9 @@ pub fn init_traps(is_wasm_pc: fn(usize) -> bool) {
 /// # Safety
 ///
 /// Only safe to call when wasm code is on the stack, aka `catch_traps` must
-/// have been previously called. Additionally no Rust destructors can be on the
-/// stack. They will be skipped and not executed.
+/// have been previous called and not yet returned.
+/// Additionally no Rust destructors may be on the stack.
+/// They will be skipped and not executed.
 pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
     tls::with(|info| info.unwrap().unwind_with(UnwindReason::UserTrap(data)))
 }
@@ -404,8 +405,9 @@ pub unsafe fn raise_user_trap(data: Box<dyn Error + Send + Sync>) -> ! {
 /// # Safety
 ///
 /// Only safe to call when wasm code is on the stack, aka `catch_traps` must
-/// have been previously called. Additionally no Rust destructors can be on the
-/// stack. They will be skipped and not executed.
+/// have been previous called and not yet returned.
+/// Additionally no Rust destructors may be on the stack.
+/// They will be skipped and not executed.
 pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
     tls::with(|info| info.unwrap().unwind_with(UnwindReason::LibTrap(trap)))
 }
@@ -448,7 +450,7 @@ pub enum Trap {
     ///
     /// Note: this trap is deterministic (assuming a deterministic host implementation)
     Wasm {
-        /// The program counter in JIT code where this trap happened.
+        /// The program counter in generated code where this trap happened.
         pc: usize,
         /// Native stack backtrace at the time the trap occurred
         backtrace: Backtrace,
@@ -468,7 +470,7 @@ pub enum Trap {
 
     /// A trap indicating that the runtime was unable to allocate sufficient memory.
     ///
-    /// Note: this trap is undeterministic, since it depends on the host system.
+    /// Note: this trap is nondeterministic, since it depends on the host system.
     OOM {
         /// Native stack backtrace at the time the OOM occurred
         backtrace: Backtrace,
@@ -545,7 +547,7 @@ where
     F: FnMut(),
 {
     return CallThreadState::new(trap_info).with(|cx| {
-        register_setjmp(
+        wasmer_register_setjmp(
             cx.jmp_buf.as_ptr(),
             call_closure::<F>,
             &mut closure as *mut F as *mut u8,
@@ -667,7 +669,7 @@ impl<'a> CallThreadState<'a> {
     fn unwind_with(&self, reason: UnwindReason) -> ! {
         unsafe {
             (*self.unwind.get()).as_mut_ptr().write(reason);
-            unwind(self.jmp_buf.get());
+            wasmer_unwind(self.jmp_buf.get());
         }
     }
 
@@ -815,6 +817,8 @@ mod tls {
         /// Takes the TLS state that is currently configured and returns a
         /// token that is used to replace it later.
         ///
+        /// # Safety
+        ///
         /// This is not a safe operation since it's intended to only be used
         /// with stack switching found with fibers and async wasmer.
         pub unsafe fn take() -> Result<TlsRestore, Trap> {
@@ -831,6 +835,8 @@ mod tls {
         }
 
         /// Restores a previous tls state back into this thread's TLS.
+        ///
+        /// # Safety
         ///
         /// This is unsafe because it's intended to only be used within the
         /// context of stack switching within wasmer.
@@ -862,9 +868,7 @@ mod tls {
         // Note that this extension of the lifetime to `'static` should be
         // safe because we only ever access it below with an anonymous
         // lifetime, meaning `'static` never leaks out of this module.
-        let ptr = unsafe {
-            mem::transmute::<*const CallThreadState<'_>, *const CallThreadState<'static>>(state)
-        };
+        let ptr = unsafe { mem::transmute::<*const CallThreadState<'_>, _>(state) };
         let prev = raw::replace(ptr)?;
         state.prev.set(prev);
         let _reset = Reset(state);

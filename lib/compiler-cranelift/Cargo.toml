@@ -36,7 +36,7 @@ lazy_static = "1.4"
 maintenance = { status = "actively-developed" }
 
 [features]
-default = ["std", "enable-serde"]
+default = ["std", "enable-serde", "unwind"]
 unwind = ["cranelift-codegen/unwind", "gimli"]
 enable-serde = ["wasmer-compiler/enable-serde", "wasmer-types/enable-serde", "cranelift-entity/enable-serde"]
 std = ["cranelift-codegen/std", "cranelift-frontend/std", "wasmer-compiler/std", "wasmer-types/std"]

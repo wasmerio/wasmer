@@ -45,10 +45,9 @@ pub struct GlobalFrameInfo {
 /// Returns whether the `pc`, according to globally registered information,
 /// is a wasm trap or not.
 pub fn is_wasm_pc(pc: usize) -> bool {
-    let frame_info = FRAME_INFO.read().unwrap();
+    let frame_info = FRAME_INFO.read().expect("can't acquire the FrameInfo lock");
     let module_info = frame_info.module_info(pc);
-    let is_wasm_pc = module_info.is_some();
-    is_wasm_pc
+    module_info.is_some()
 }
 
 /// An RAII structure used to unregister a module's frame information when the

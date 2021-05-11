@@ -62,7 +62,7 @@ pub enum TrapCode {
     UnreachableCodeReached = 10,
 
     /// An atomic memory access was attempted with an unaligned pointer.
-    UnalignedAtomic = 12,
+    UnalignedAtomic = 11,
 }
 
 impl TrapCode {
