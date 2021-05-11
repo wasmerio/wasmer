@@ -2834,6 +2834,58 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
+            Operator::I16x8Q15MulrSatS => {
+                let ((v1, i1), (v2, i2)) = self.state.pop2_extra()?;
+                let (v1, _) = self.v128_into_i16x8(v1, i1);
+                let (v2, _) = self.v128_into_i16x8(v2, i2);
+
+                let max_value = self
+                    .intrinsics
+                    .i16_ty
+                    .const_int(i16::max_value() as u64, false);
+                let max_values = VectorType::const_vector(&[max_value; 8]);
+
+                let v1 = self
+                    .builder
+                    .build_int_s_extend(v1, self.intrinsics.i32x8_ty, "");
+
+                let v2 = self
+                    .builder
+                    .build_int_s_extend(v2, self.intrinsics.i32x8_ty, "");
+
+                let res = self.builder.build_int_mul(v1, v2, "");
+
+                // magic number specified by the spec
+                let bit = self.intrinsics.i32_ty.const_int(0x4000, false);
+                let bits = VectorType::const_vector(&[bit; 8]);
+
+                let res = self.builder.build_int_add(res, bits, "");
+
+                let fifteen = self.intrinsics.i32_ty.const_int(15, false);
+                let fifteens = VectorType::const_vector(&[fifteen; 8]);
+
+                let res = self.builder.build_right_shift(res, fifteens, true, "");
+                let saturate_up = {
+                    let max_values =
+                        self.builder
+                            .build_int_s_extend(max_values, self.intrinsics.i32x8_ty, "");
+                    let saturate_up =
+                        self.builder
+                            .build_int_compare(IntPredicate::SGT, res, max_values, "");
+                    saturate_up
+                };
+
+                let res = self
+                    .builder
+                    .build_int_truncate(res, self.intrinsics.i16x8_ty, "");
+
+                let res = self
+                    .builder
+                    .build_select(saturate_up, max_values, res, "")
+                    .into_vector_value();
+                let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
+                self.state.push1(res);
+            }
             o @ Operator::I16x8ExtMulLowI8x16S
             | o @ Operator::I16x8ExtMulLowI8x16U
             | o @ Operator::I16x8ExtMulHighI8x16S

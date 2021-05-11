@@ -123,7 +123,6 @@ cranelift::spec::simd::simd_store64_lane
 cranelift::spec::simd::simd_store8_lane
 
 # new simd
-llvm::spec::simd::simd_i16x8_q15mulr_sat_s
 # Almost passing, just failing one edge case:
 llvm::spec::simd::simd_i32x4_trunc_sat_f64x2
 

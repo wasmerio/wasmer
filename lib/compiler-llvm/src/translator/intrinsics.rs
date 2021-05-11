@@ -143,6 +143,7 @@ pub struct Intrinsics<'ctx> {
     pub i64x2_ty: VectorType<'ctx>,
     pub f32x4_ty: VectorType<'ctx>,
     pub f64x2_ty: VectorType<'ctx>,
+    pub i32x8_ty: VectorType<'ctx>,
 
     pub i8_ptr_ty: PointerType<'ctx>,
     pub i16_ptr_ty: PointerType<'ctx>,
@@ -243,6 +244,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let i64x2_ty = i64_ty.vec_type(2);
         let f32x4_ty = f32_ty.vec_type(4);
         let f64x2_ty = f64_ty.vec_type(2);
+        let i32x8_ty = i32_ty.vec_type(8);
 
         let i8_ptr_ty = i8_ty.ptr_type(AddressSpace::Generic);
         let i16_ptr_ty = i16_ty.ptr_type(AddressSpace::Generic);
@@ -446,6 +448,7 @@ impl<'ctx> Intrinsics<'ctx> {
             i64x2_ty,
             f32x4_ty,
             f64x2_ty,
+            i32x8_ty,
 
             i8_ptr_ty,
             i16_ptr_ty,
