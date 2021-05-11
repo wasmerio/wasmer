@@ -126,14 +126,7 @@ cranelift::spec::simd::simd_store8_lane
 llvm::spec::simd::simd_boolean
 llvm::spec::simd::simd_f32x4_rounding
 llvm::spec::simd::simd_f64x2_rounding
-llvm::spec::simd::simd_i16x8_extadd_pairwise_i8x16
-llvm::spec::simd::simd_i16x8_extmul_i8x16
 llvm::spec::simd::simd_i16x8_q15mulr_sat_s
-llvm::spec::simd::simd_i32x4_dot_i16x8
-llvm::spec::simd::simd_i32x4_extadd_pairwise_i16x8
-llvm::spec::simd::simd_i32x4_extmul_i16x8
+# Almost passing, just failing one edge case:
 llvm::spec::simd::simd_i32x4_trunc_sat_f64x2
-llvm::spec::simd::simd_i64x2_arith2
-llvm::spec::simd::simd_i64x2_extmul_i32x4
-llvm::spec::simd::simd_i8x16_arith2
 

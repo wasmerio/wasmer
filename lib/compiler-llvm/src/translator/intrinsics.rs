@@ -69,6 +69,7 @@ pub struct Intrinsics<'ctx> {
 
     pub ctpop_i32: FunctionValue<'ctx>,
     pub ctpop_i64: FunctionValue<'ctx>,
+    pub ctpop_i8x16: FunctionValue<'ctx>,
 
     pub sqrt_f32: FunctionValue<'ctx>,
     pub sqrt_f64: FunctionValue<'ctx>,
@@ -277,6 +278,7 @@ impl<'ctx> Intrinsics<'ctx> {
         let externref_ty = funcref_ty;
         let anyref_ty = i8_ptr_ty;
 
+        let ret_i8x16_take_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic], false);
         let ret_i8x16_take_i8x16_i8x16 = i8x16_ty.fn_type(&[i8x16_ty_basic, i8x16_ty_basic], false);
         let ret_i16x8_take_i16x8_i16x8 = i16x8_ty.fn_type(&[i16x8_ty_basic, i16x8_ty_basic], false);
 
@@ -306,6 +308,7 @@ impl<'ctx> Intrinsics<'ctx> {
 
             ctpop_i32: module.add_function("llvm.ctpop.i32", ret_i32_take_i32, None),
             ctpop_i64: module.add_function("llvm.ctpop.i64", ret_i64_take_i64, None),
+            ctpop_i8x16: module.add_function("llvm.ctpop.v16i8", ret_i8x16_take_i8x16, None),
 
             sqrt_f32: module.add_function("llvm.sqrt.f32", ret_f32_take_f32, None),
             sqrt_f64: module.add_function("llvm.sqrt.f64", ret_f64_take_f64, None),
