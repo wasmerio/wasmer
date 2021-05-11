@@ -25,6 +25,8 @@ use wasmer_types::{
 };
 use wasmer_vm::{MemoryStyle, ModuleInfo, TableStyle, TrapCode, VMBuiltinFunctionIndex, VMOffsets};
 
+use wasmer::Value;
+
 /// The singlepass per-function code generator.
 pub struct FuncGen<'a, M: Machine> {
     // Immutable properties assigned at creation time.
@@ -53,7 +55,7 @@ pub struct FuncGen<'a, M: Machine> {
     pub(crate) assembler: M::Emitter,
 
     /// Memory locations of local variables.
-    locals: Vec<M::Location>,
+    locals_: Vec<M::Location>,
 
     /// Types of local variables, including arguments.
     local_types: Vec<WpType>,
@@ -92,6 +94,9 @@ pub struct FuncGen<'a, M: Machine> {
     ///
     // Ordered by increasing InstructionAddressMap::srcloc.
     instructions_address_map: Vec<InstructionAddressMap>,
+
+    locals: Vec<Local<M::Location>>,
+    stack: Vec<Local<M::Location>>,
 }
 
 pub struct SpecialLabelSet {
@@ -275,18 +280,18 @@ pub struct CodegenError {
 // }
 
 impl <'a, M: Machine> FuncGen<'a, M> {
-    fn get_location_released(&mut self, loc: M::Location) -> M::Location {
-        self.machine.release_locations(&mut self.assembler, &[loc]);
-        loc
-    }
+    // fn get_location_released(&mut self, loc: M::Location) -> M::Location {
+    //     self.machine.release_locations(&mut self.assembler, &[loc]);
+    //     loc
+    // }
 
-    fn pop_value_released(&mut self) -> M::Location {
-        let loc = self
-            .value_stack
-            .pop()
-            .expect("pop_value_released: value stack is empty");
-        self.get_location_released(loc)
-    }
+    // fn pop_value_released(&mut self) -> M::Location {
+    //     let loc = self
+    //         .value_stack
+    //         .pop()
+    //         .expect("pop_value_released: value stack is empty");
+    //     self.get_location_released(loc)
+    // }
 
     pub fn new(
         mut assembler: M::Emitter,
@@ -335,7 +340,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             // table_styles,
             signature,
             assembler,
-            locals: vec![], // initialization deferred to emit_head
+            locals_: vec![], // initialization deferred to emit_head
             local_types,
             value_stack: vec![],
             fp_stack: vec![],
@@ -348,6 +353,9 @@ impl <'a, M: Machine> FuncGen<'a, M> {
             special_labels,
             src_loc: 0,
             instructions_address_map: vec![],
+
+            locals: vec![],
+            stack: vec![],
         };
         fg.begin()?;
         Ok(fg)
@@ -365,104 +373,168 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     pub fn feed_operator(&mut self, op: Operator) -> Result<(), CodegenError> {
         println!("{:?}", op);
         match op {
+            Operator::Call { function_index } => {
+                let function_index = function_index as usize;
+            
+                let sig_index = *self
+                    .module
+                    .functions
+                    .get(FunctionIndex::new(function_index))
+                    .unwrap();
+                let sig = self.module.signatures.get(sig_index).unwrap();
+                let param_types: SmallVec<[WpType; 8]> =
+                    sig.params().iter().cloned().map(type_to_wp_type).collect();
+                let return_types: SmallVec<[WpType; 1]> =
+                    sig.results().iter().cloned().map(type_to_wp_type).collect();
+            
+                let params: SmallVec<[_; 8]> = self
+                    .stack
+                    .drain(self.stack.len() - param_types.len()..)
+                    .collect();
+                println!("{:?}, {:?}", params, return_types);
+            },
             Operator::I32Const { value } => {
                 let imm = self.machine.imm32(&mut self.assembler, value as u32);
-                self.value_stack.push(imm);
-                self.machine
-                    .get_state()
-                    .wasm_stack
-                    .push(WasmAbstractValue::Const(value as u32 as u64));
+                imm.inc_ref();
+                self.stack.push(imm);
             },
             Operator::LocalGet { local_index } => {
-                let local_index = local_index as usize;
-                let ret = self.machine.acquire_locations(
-                    &mut self.assembler,
-                    &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
-                    false,
-                )[0];
-                self.assembler.emit_move(Size::S64, self.locals[local_index], ret);
-                // self.emit_relaxed_binop(
-                //     Assembler::emit_mov,
-                //     Size::S64,
-                //     self.locals[local_index],
-                //     ret,
-                // );
-                self.value_stack.push(ret);
-                // if self.local_types[local_index].is_float() {
-                //     self.fp_stack
-                //         .push(FloatValue::new(self.value_stack.len() - 1));
-                // }
+                let local = self.locals[local_index as usize].clone();
+                local.inc_ref();
+                self.stack.push(local);
+                // let ret = self.machine.acquire_locations(
+                //     &mut self.assembler,
+                //     &[(WpType::I64, MachineValue::WasmStack(self.value_stack.len()))],
+                //     false,
+                // )[0];
+                // self.assembler.emit_move(Size::S64, self.locals[local_index], ret);
+                // // self.emit_relaxed_binop(
+                // //     Assembler::emit_mov,
+                // //     Size::S64,
+                // //     self.locals[local_index],
+                // //     ret,
+                // // );
+                // self.value_stack.push(ret);
+                // // if self.local_types[local_index].is_float() {
+                // //     self.fp_stack
+                // //         .push(FloatValue::new(self.value_stack.len() - 1));
+                // // }
             },
             Operator::LocalSet { local_index } => {
-                let local_index = local_index as usize;
-                let loc = self.pop_value_released();
+                let from_stack = self.stack.pop().unwrap();
 
-                // if self.local_types[local_index].is_float() {
-                //     let fp = self.fp_stack.pop1()?;
-                //     if self.assembler.arch_supports_canonicalize_nan()
-                //         && self.config.enable_nan_canonicalization
-                //         && fp.canonicalization.is_some()
-                //     {
-                //         self.canonicalize_nan(
-                //             match self.local_types[local_index] {
-                //                 WpType::F32 => Size::S32,
-                //                 WpType::F64 => Size::S64,
-                //                 _ => unreachable!(),
-                //             },
-                //             loc,
-                //             self.locals[local_index],
-                //         );
-                //     } else {
-                //         self.emit_relaxed_binop(
-                //             Assembler::emit_mov,
-                //             Size::S64,
-                //             loc,
-                //             self.locals[local_index],
-                //         );
-                //     }
-                // } else {
-                    self.assembler.emit_move(Size::S64, loc, self.locals[local_index]);
-                // }
+                let local = self.locals[local_index as usize].clone();
+                local.dec_ref();
+                if local.ref_ct() < 1 {
+                    self.machine.release_location(local);
+                }
+
+                self.locals[local_index as usize] = from_stack;
+
+                // let loc = self.pop_value_released();
+
+                // // if self.local_types[local_index].is_float() {
+                // //     let fp = self.fp_stack.pop1()?;
+                // //     if self.assembler.arch_supports_canonicalize_nan()
+                // //         && self.config.enable_nan_canonicalization
+                // //         && fp.canonicalization.is_some()
+                // //     {
+                // //         self.canonicalize_nan(
+                // //             match self.local_types[local_index] {
+                // //                 WpType::F32 => Size::S32,
+                // //                 WpType::F64 => Size::S64,
+                // //                 _ => unreachable!(),
+                // //             },
+                // //             loc,
+                // //             self.locals[local_index],
+                // //         );
+                // //     } else {
+                // //         self.emit_relaxed_binop(
+                // //             Assembler::emit_mov,
+                // //             Size::S64,
+                // //             loc,
+                // //             self.locals[local_index],
+                // //         );
+                // //     }
+                // // } else {
+                //     self.assembler.emit_move(Size::S64, loc, self.locals[local_index]);
+                // // }
+            },
+            Operator::I32Add => {
+                let r = self.stack.pop().unwrap();
+                let l = self.stack.pop().unwrap();
+
+                l.dec_ref();
+                r.dec_ref();
+
+                let imm_result = match (l.location().imm_value(), r.location().imm_value()) {
+                    (Some(Value::I32(l)), Some(Value::I32(r))) => {
+                        Some(self.machine.imm32(&mut self.assembler, (l + r) as u32))
+                    },
+                    (Some(_), Some(_)) => {
+                        unreachable!();
+                    },
+                    _ => {
+                        None
+                    }
+                };
+
+                if let Some(imm_result) = imm_result {
+                    imm_result.inc_ref();
+                    self.stack.push(imm_result);
+                } else {
+                    let result_loc = self.machine.emit_add_i32(&mut self.assembler, Size::S64, l.clone(), r.clone());
+                    result_loc.inc_ref();
+                    self.stack.push(result_loc);
+                }
+
+                if l.ref_ct() < 1 {
+                    self.machine.release_location(l);
+                }
+                if r.ref_ct() < 1 {
+                    self.machine.release_location(r);
+                }
             },
             Operator::End => {
                 let frame = self.control_stack.pop().unwrap();
 
-                let loc = if /* !was_unreachable &&*/ !frame.returns.is_empty() {
-                    Some(*self.value_stack.last().unwrap())
-                //     if frame.returns[0].is_float() {
-                //         let fp = self.fp_stack.peek1()?;
-                //         if self.assembler.arch_supports_canonicalize_nan()
-                //             && self.config.enable_nan_canonicalization
-                //             && fp.canonicalization.is_some()
-                //         {
-                //             self.canonicalize_nan(
-                //                 match frame.returns[0] {
-                //                     WpType::F32 => Size::S32,
-                //                     WpType::F64 => Size::S64,
-                //                     _ => unreachable!(),
-                //                 },
-                //                 loc,
-                //                 Location::GPR(GPR::RAX),
-                //             );
-                //         } else {
-                //             self.emit_relaxed_binop(
-                //                 Assembler::emit_mov,
-                //                 Size::S64,
-                //                 loc,
-                //                 Location::GPR(GPR::RAX),
-                //             );
-                //         }
-                //     } else {
-                //         self.emit_relaxed_binop(
-                //             Assembler::emit_mov,
-                //             Size::S64,
-                //             loc,
-                //             Location::GPR(GPR::RAX),
-                //         );
-                //     }
-                } else {
-                    None
-                };
+                let loc = self.stack.pop();
+                // let loc = if /* !was_unreachable &&*/ !frame.returns.is_empty() {
+                //     Some(*self.value_stack.last().unwrap())
+                // //     if frame.returns[0].is_float() {
+                // //         let fp = self.fp_stack.peek1()?;
+                // //         if self.assembler.arch_supports_canonicalize_nan()
+                // //             && self.config.enable_nan_canonicalization
+                // //             && fp.canonicalization.is_some()
+                // //         {
+                // //             self.canonicalize_nan(
+                // //                 match frame.returns[0] {
+                // //                     WpType::F32 => Size::S32,
+                // //                     WpType::F64 => Size::S64,
+                // //                     _ => unreachable!(),
+                // //                 },
+                // //                 loc,
+                // //                 Location::GPR(GPR::RAX),
+                // //             );
+                // //         } else {
+                // //             self.emit_relaxed_binop(
+                // //                 Assembler::emit_mov,
+                // //                 Size::S64,
+                // //                 loc,
+                // //                 Location::GPR(GPR::RAX),
+                // //             );
+                // //         }
+                // //     } else {
+                // //         self.emit_relaxed_binop(
+                // //             Assembler::emit_mov,
+                // //             Size::S64,
+                // //             loc,
+                // //             Location::GPR(GPR::RAX),
+                // //         );
+                // //     }
+                // } else {
+                //     None
+                // };
 
                 if self.control_stack.is_empty() {
                     self.assembler.emit_label(frame.label);
@@ -485,7 +557,7 @@ impl <'a, M: Machine> FuncGen<'a, M> {
                     //     }
                     //     _ => {}
                     // }
-                    self.machine.do_return(&mut self.assembler, loc);
+                    self.assembler.emit_return(loc.map(|loc| loc.location()));
                 } else {
                     // let released = &self.value_stack[frame.value_stack_depth..];
                     // self.machine
@@ -534,10 +606,10 @@ impl <'a, M: Machine> FuncGen<'a, M> {
     pub fn begin(&mut self) -> Result<(), CodegenError> {
         self.assembler.emit_prologue();
         self.locals = self.machine.init_locals(
-            &mut self.assembler,
-            self.local_types.len(),
-            self.signature.params().len(),
-        );
+                &mut self.assembler,
+                self.local_types.len(),
+                self.signature.params().len(),
+            );
 
         // // Mark vmctx register. The actual loading of the vmctx value is handled by init_local.
         // self.machine.state.register_values

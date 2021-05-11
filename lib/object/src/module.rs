@@ -255,6 +255,25 @@ pub fn emit_compilation(
         obj.add_symbol_data(symbol_id, section_id, &function.body, align);
     }
 
+    // Add relocations (function and sections)
+    let (relocation_size, relocation_kind, relocation_encoding) = match triple.architecture {
+        Architecture::X86_64 => (
+            32,
+            RelocationKind::PltRelative,
+            RelocationEncoding::X86Branch,
+        ),
+        // Object doesn't fully support it yet
+        Architecture::Aarch64(_) => (
+            32,
+            RelocationKind::PltRelative,
+            RelocationEncoding::Generic,
+        ),
+        architecture => {
+            return Err(ObjectError::UnsupportedArchitecture(
+                architecture.to_string(),
+            ))
+        }
+    };
     let mut all_relocations = Vec::new();
 
     for (function_local_index, relocations) in function_relocations.into_iter() {

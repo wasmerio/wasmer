@@ -1050,15 +1050,12 @@ impl Emitter for Assembler {
             }
             (Size::S16, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; .arch x64 ; movzx Rq(dst as u8), WORD [Rq(src as u8) + disp]);
-<<<<<<< HEAD
             }
             _ => {
                 panic!(
                     "singlepass can't emit MOVZX {:?} {:?} {:?} {:?}",
                     sz_src, src, sz_dst, dst
                 )
-=======
->>>>>>> Upload current state to public repo
             }
         }
     }
@@ -1093,15 +1090,12 @@ impl Emitter for Assembler {
             }
             (Size::S32, Location::Memory(src, disp), Size::S64, Location::GPR(dst)) => {
                 dynasm!(self ; .arch x64 ; movsx Rq(dst as u8), DWORD [Rq(src as u8) + disp]);
-<<<<<<< HEAD
             }
             _ => {
                 panic!(
                     "singlepass can't emit MOVSX {:?} {:?} {:?} {:?}",
                     sz_src, src, sz_dst, dst
                 )
-=======
->>>>>>> Upload current state to public repo
             }
         }
     }

@@ -106,6 +106,70 @@ pub struct FunctionStateMap {
     pub trappable_offsets: BTreeMap<usize, OffsetInfo>, /* suspend_offset -> info */
 }
 
+pub use std::rc::{Rc, Weak};
+use std::cell::Cell;
+
+#[derive(Debug)]
+struct LocalImpl<T: Copy> {
+    loc: Cell<T>,
+    ref_ct: Cell<u32>,
+}
+
+#[derive(Debug)]
+pub struct Local<T: Copy>(Rc<LocalImpl<T>>);
+
+#[derive(Debug)]
+pub struct WeakLocal<T: Copy>(Weak<LocalImpl<T>>);
+
+impl<T: Copy> Local<T> {
+    pub fn new(loc: T) -> Self {
+        Self(Rc::new(LocalImpl {
+            loc: Cell::new(loc),
+            ref_ct: Cell::new(0),
+        }))
+    }
+
+    pub fn inc_ref(&self) {
+        self.0.ref_ct.replace(self.0.ref_ct.get() + 1);
+    }
+
+    pub fn dec_ref(&self) {
+        self.0.ref_ct.replace(self.0.ref_ct.get() - 1);
+    }
+
+    pub fn ref_ct(&self) -> u32 {
+        self.0.ref_ct.get()
+    }
+
+    pub fn location(&self) -> T {
+        self.0.loc.get()
+    }
+
+    pub fn replace_location(&self, loc: T) -> T {
+        self.0.loc.replace(loc)
+    }
+
+    pub fn downgrade(&self) -> WeakLocal<T> {
+        WeakLocal(Rc::downgrade(&self.0))
+    }
+}
+
+impl<T: Copy> WeakLocal<T> {
+    pub fn new() -> Self {
+        Self(Weak::new())
+    }
+    
+    pub fn upgrade(&self) -> Option<Local<T>> {
+        self.0.upgrade().map(|rc| Local(rc))
+    }
+}
+
+impl<T: Copy> Clone for Local<T> {
+    fn clone(&self) -> Self {
+        Self(self.0.clone())
+    }
+}
+
 /// A kind of suspend offset.
 #[derive(Clone, Copy, Debug)]
 pub enum SuspendOffset {
