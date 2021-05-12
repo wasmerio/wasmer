@@ -10,6 +10,7 @@ Looking for changes that affect our C API? See the [C API Changelog](lib/c-api/C
 ## **[Unreleased]**
 
 ### Added
+- [#2306](https://github.com/wasmerio/wasmer/pull/2306) Add support for the latest version of the Wasm SIMD proposal to compiler LLVM.
 - [#2296](https://github.com/wasmerio/wasmer/pull/2296) Add support for the bulk memory proposal in compiler Singlepass and compiler LLVM.
 - [#2208](https://github.com/wasmerio/wasmer/pull/2208) Add a new CHANGELOG.md specific to our C API to make it easier for users primarily consuming our C API to keep up to date with changes that affect them.
 - [#2103](https://github.com/wasmerio/wasmer/pull/2103) Add middleware (incl. metering) in the C API.

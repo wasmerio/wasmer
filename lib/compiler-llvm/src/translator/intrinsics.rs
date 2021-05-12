@@ -168,6 +168,7 @@ pub struct Intrinsics<'ctx> {
     pub f64_zero: FloatValue<'ctx>,
     pub f32x4_zero: VectorValue<'ctx>,
     pub f64x2_zero: VectorValue<'ctx>,
+    pub i32_consts: [IntValue<'ctx>; 16],
 
     pub trap_unreachable: BasicValueEnum<'ctx>,
     pub trap_call_indirect_null: BasicValueEnum<'ctx>,
@@ -263,6 +264,24 @@ impl<'ctx> Intrinsics<'ctx> {
         let f64_zero = f64_ty.const_float(0.0);
         let f32x4_zero = f32x4_ty.const_zero();
         let f64x2_zero = f64x2_ty.const_zero();
+        let i32_consts = [
+            i32_ty.const_int(0, false),
+            i32_ty.const_int(1, false),
+            i32_ty.const_int(2, false),
+            i32_ty.const_int(3, false),
+            i32_ty.const_int(4, false),
+            i32_ty.const_int(5, false),
+            i32_ty.const_int(6, false),
+            i32_ty.const_int(7, false),
+            i32_ty.const_int(8, false),
+            i32_ty.const_int(9, false),
+            i32_ty.const_int(10, false),
+            i32_ty.const_int(11, false),
+            i32_ty.const_int(12, false),
+            i32_ty.const_int(13, false),
+            i32_ty.const_int(14, false),
+            i32_ty.const_int(15, false),
+        ];
 
         let i1_ty_basic = i1_ty.as_basic_type_enum();
         let i32_ty_basic = i32_ty.as_basic_type_enum();
@@ -473,6 +492,7 @@ impl<'ctx> Intrinsics<'ctx> {
             f64_zero,
             f32x4_zero,
             f64x2_zero,
+            i32_consts,
 
             trap_unreachable: i32_ty
                 .const_int(TrapCode::UnreachableCodeReached as _, false)
