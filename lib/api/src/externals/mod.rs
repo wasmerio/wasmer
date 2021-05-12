@@ -41,13 +41,13 @@ impl Extern {
     pub fn ty(&self) -> ExternType {
         match self {
             Self::Function(ft) => ExternType::Function(ft.ty().clone()),
-            Self::Memory(ft) => ExternType::Memory(*ft.ty()),
+            Self::Memory(ft) => ExternType::Memory(ft.ty()),
             Self::Table(tt) => ExternType::Table(*tt.ty()),
             Self::Global(gt) => ExternType::Global(*gt.ty()),
         }
     }
 
-    /// Create an `Extern` from an `wasmer_vm::Export`.
+    /// Create an `Extern` from an `wasmer_engine::Export`.
     pub fn from_vm_export(store: &Store, export: Export) -> Self {
         match export {
             Export::Function(f) => Self::Function(Function::from_vm_export(store, f)),

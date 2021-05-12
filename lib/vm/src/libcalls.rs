@@ -35,6 +35,8 @@
 //!   }
 //!   ```
 
+#![allow(missing_docs)] // For some reason lint fails saying that `LibCall` is not documented, when it actually is
+
 use crate::func_data_registry::VMFuncRef;
 use crate::probestack::PROBESTACK;
 use crate::table::{RawTableElement, TableElement};
@@ -42,6 +44,8 @@ use crate::trap::{raise_lib_trap, Trap, TrapCode};
 use crate::vmcontext::VMContext;
 use crate::VMExternRef;
 use loupe::MemoryUsage;
+#[cfg(feature = "enable-rkyv")]
+use rkyv::{Archive, Deserialize as RkyvDeserialize, Serialize as RkyvSerialize};
 use serde::{Deserialize, Serialize};
 use std::fmt;
 use wasmer_types::{
@@ -680,6 +684,10 @@ pub static wasmer_vm_probestack: unsafe extern "C" fn() = PROBESTACK;
 /// The name of a runtime library routine.
 ///
 /// This list is likely to grow over time.
+#[cfg_attr(
+    feature = "enable-rkyv",
+    derive(RkyvSerialize, RkyvDeserialize, Archive)
+)]
 #[derive(Copy, Clone, Debug, PartialEq, Eq, Hash, Serialize, Deserialize, MemoryUsage)]
 pub enum LibCall {
     /// ceil.f32

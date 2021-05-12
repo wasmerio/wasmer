@@ -93,6 +93,7 @@ pub fn translate_module<'data>(
                 name: "name",
                 data,
                 data_offset,
+                ..
             } => parse_name_section(NameSectionReader::new(data, data_offset)?, environ)?,
 
             Payload::CustomSection { name, data, .. } => environ.custom_section(name, data)?,

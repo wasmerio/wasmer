@@ -484,22 +484,22 @@ build-capi-headless-all: capi-setup
 test: $(foreach compiler,$(compilers),test-$(compiler)) test-packages test-examples test-deprecated
 
 test-singlepass-native:
-	cargo test --release $(compiler_features) --features "test-singlepass test-native"
+	cargo test --release --tests $(compiler_features) --features "test-singlepass test-native"
 
 test-singlepass-jit:
-	cargo test --release $(compiler_features) --features "test-singlepass test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-singlepass test-jit"
 
 test-cranelift-native:
-	cargo test --release $(compiler_features) --features "test-cranelift test-native"
+	cargo test --release --tests $(compiler_features) --features "test-cranelift test-native"
 
 test-cranelift-jit:
-	cargo test --release $(compiler_features) --features "test-cranelift test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-cranelift test-jit"
 
 test-llvm-native:
-	cargo test --release $(compiler_features) --features "test-llvm test-native"
+	cargo test --release --tests $(compiler_features) --features "test-llvm test-native"
 
 test-llvm-jit:
-	cargo test --release $(compiler_features) --features "test-llvm test-jit"
+	cargo test --release --tests $(compiler_features) --features "test-llvm test-jit"
 
 test-singlepass: $(foreach singlepass_engine,$(filter singlepass-%,$(compilers_engines)),test-$(singlepass_engine))
 
@@ -516,6 +516,8 @@ test-packages:
 	cargo test -p wasmer-engine-native --release --no-default-features
 	cargo test -p wasmer-engine-jit --release --no-default-features
 	cargo test -p wasmer-compiler --release
+	cargo test --manifest-path lib/compiler-cranelift/Cargo.toml --release --no-default-features --features=std
+	cargo test --manifest-path lib/compiler-singlepass/Cargo.toml --release --no-default-features --features=std
 	cargo test --manifest-path lib/cli/Cargo.toml $(compiler_features) --release
 	cargo test -p wasmer-cache --release
 	cargo test -p wasmer-engine --release

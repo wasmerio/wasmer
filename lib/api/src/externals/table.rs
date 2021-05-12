@@ -6,8 +6,8 @@ use crate::RuntimeError;
 use crate::TableType;
 use loupe::MemoryUsage;
 use std::sync::Arc;
-use wasmer_engine::{Export, ExportTable};
-use wasmer_vm::{Table as RuntimeTable, TableElement, VMExportTable};
+use wasmer_engine::Export;
+use wasmer_vm::{Table as RuntimeTable, TableElement, VMTable};
 
 /// A WebAssembly `table` instance.
 ///
@@ -21,7 +21,7 @@ use wasmer_vm::{Table as RuntimeTable, TableElement, VMExportTable};
 #[derive(Clone, MemoryUsage)]
 pub struct Table {
     store: Store,
-    table: Arc<dyn RuntimeTable>,
+    vm_table: VMTable,
 }
 
 fn set_table_item(
@@ -54,13 +54,16 @@ impl Table {
 
         Ok(Self {
             store: store.clone(),
-            table,
+            vm_table: VMTable {
+                from: table,
+                instance_ref: None,
+            },
         })
     }
 
     /// Returns the [`TableType`] of the `Table`.
     pub fn ty(&self) -> &TableType {
-        self.table.ty()
+        self.vm_table.from.ty()
     }
 
     /// Returns the [`Store`] where the `Table` belongs.
@@ -70,19 +73,19 @@ impl Table {
 
     /// Retrieves an element of the table at the provided `index`.
     pub fn get(&self, index: u32) -> Option<Val> {
-        let item = self.table.get(index)?;
+        let item = self.vm_table.from.get(index)?;
         Some(ValFuncRef::from_table_reference(item, &self.store))
     }
 
     /// Sets an element `val` in the Table at the provided `index`.
     pub fn set(&self, index: u32, val: Val) -> Result<(), RuntimeError> {
         let item = val.into_table_reference(&self.store)?;
-        set_table_item(self.table.as_ref(), index, item)
+        set_table_item(self.vm_table.from.as_ref(), index, item)
     }
 
     /// Retrieves the size of the `Table` (in elements)
     pub fn size(&self) -> u32 {
-        self.table.size()
+        self.vm_table.from.size()
     }
 
     /// Grows the size of the `Table` by `delta`, initializating
@@ -96,7 +99,8 @@ impl Table {
     /// Returns an error if the `delta` is out of bounds for the table.
     pub fn grow(&self, delta: u32, init: Val) -> Result<u32, RuntimeError> {
         let item = init.into_table_reference(&self.store)?;
-        self.table
+        self.vm_table
+            .from
             .grow(delta, item)
             .ok_or_else(|| RuntimeError::new(format!("failed to grow table by `{}`", delta)))
     }
@@ -121,8 +125,8 @@ impl Table {
             ));
         }
         RuntimeTable::copy(
-            dst_table.table.as_ref(),
-            src_table.table.as_ref(),
+            dst_table.vm_table.from.as_ref(),
+            src_table.vm_table.from.as_ref(),
             dst_index,
             src_index,
             len,
@@ -131,28 +135,22 @@ impl Table {
         Ok(())
     }
 
-    pub(crate) fn from_vm_export(store: &Store, wasmer_export: ExportTable) -> Self {
+    pub(crate) fn from_vm_export(store: &Store, vm_table: VMTable) -> Self {
         Self {
             store: store.clone(),
-            table: wasmer_export.vm_table.from,
+            vm_table,
         }
     }
 
     /// Returns whether or not these two tables refer to the same data.
     pub fn same(&self, other: &Self) -> bool {
-        Arc::ptr_eq(&self.table, &other.table)
+        Arc::ptr_eq(&self.vm_table.from, &other.vm_table.from)
     }
 }
 
 impl<'a> Exportable<'a> for Table {
     fn to_export(&self) -> Export {
-        ExportTable {
-            vm_table: VMExportTable {
-                from: self.table.clone(),
-                instance_ref: None,
-            },
-        }
-        .into()
+        self.vm_table.clone().into()
     }
 
     fn get_self_from_extern(_extern: &'a Extern) -> Result<&'a Self, ExportError> {

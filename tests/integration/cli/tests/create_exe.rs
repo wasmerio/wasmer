@@ -8,7 +8,7 @@ use std::process::Command;
 use wasmer_integration_tests_cli::*;
 
 fn create_exe_test_wasm_path() -> String {
-    format!("{}/{}", ASSET_PATH, "qjs.wasm")
+    format!("{}/{}", C_ASSET_PATH, "qjs.wasm")
 }
 const JS_TEST_SRC_CODE: &[u8] =
     b"function greet(name) { return JSON.stringify('Hello, ' + name); }; print(greet('World'));\n";

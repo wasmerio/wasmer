@@ -26,8 +26,8 @@ use crate::config::{CompiledKind, LLVM};
 use crate::object_file::{load_object_file, CompiledFunction};
 use wasmer_compiler::wasmparser::{MemoryImmediate, Operator};
 use wasmer_compiler::{
-    wptype_to_type, CompileError, FunctionBodyData, MiddlewareBinaryReader, ModuleMiddlewareChain,
-    ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
+    wptype_to_type, CompileError, FunctionBinaryReader, FunctionBodyData, MiddlewareBinaryReader,
+    ModuleMiddlewareChain, ModuleTranslationState, RelocationTarget, Symbol, SymbolRegistry,
 };
 use wasmer_types::entity::PrimaryMap;
 use wasmer_types::{
@@ -302,7 +302,7 @@ impl FuncTranslator {
             mem_buf_slice,
             FUNCTION_SECTION,
             RelocationTarget::LocalFunc(*local_func_index),
-            |name: &String| {
+            |name: &str| {
                 Ok(
                     if let Some(Symbol::LocalFunction(local_func_index)) =
                         symbol_registry.name_to_symbol(name)
@@ -2022,7 +2022,9 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 }
             }
 
-            Operator::Select => {
+            // `TypedSelect` must be used for extern refs so ref counting should
+            // be done with TypedSelect. But otherwise they're the same.
+            Operator::TypedSelect { .. } | Operator::Select => {
                 let ((v1, i1), (v2, i2), (cond, _)) = self.state.pop3_extra()?;
                 // We don't bother canonicalizing 'cond' here because we only
                 // compare it to zero, and that's invariant under
@@ -5368,7 +5370,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                     .build_int_z_extend(v, self.intrinsics.i64_ty, "");
                 self.state.push1_extra(res, ExtraInfo::arithmetic_f64());
             }
-            Operator::I16x8WidenLowI8x16S => {
+            Operator::I16x8ExtendLowI8x16S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5392,7 +5394,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenHighI8x16S => {
+            Operator::I16x8ExtendHighI8x16S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5416,7 +5418,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenLowI8x16U => {
+            Operator::I16x8ExtendLowI8x16U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5440,7 +5442,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I16x8WidenHighI8x16U => {
+            Operator::I16x8ExtendHighI8x16U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i8x16(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5464,7 +5466,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenLowI16x8S => {
+            Operator::I32x4ExtendLowI16x8S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5484,7 +5486,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenHighI16x8S => {
+            Operator::I32x4ExtendHighI16x8S => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5504,7 +5506,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenLowI16x8U => {
+            Operator::I32x4ExtendLowI16x8U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -5524,7 +5526,7 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 let res = self.builder.build_bitcast(res, self.intrinsics.i128_ty, "");
                 self.state.push1(res);
             }
-            Operator::I32x4WidenHighI16x8U => {
+            Operator::I32x4ExtendHighI16x8U => {
                 let (v, i) = self.state.pop1_extra()?;
                 let (v, _) = self.v128_into_i16x8(v, i);
                 let low = self.builder.build_shuffle_vector(
@@ -9385,6 +9387,88 @@ impl<'ctx, 'a> LLVMFunctionCodeGenerator<'ctx, 'a> {
                 );
                 size.add_attribute(AttributeLoc::Function, self.intrinsics.readonly);
                 self.state.push1(size.try_as_basic_value().left().unwrap());
+            }
+            Operator::MemoryInit { segment, mem } => {
+                let (dest, src, len) = self.state.pop3()?;
+                let mem = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(mem.into(), false)
+                    .as_basic_value_enum();
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.memory_init,
+                    &[vmctx.as_basic_value_enum(), mem, segment, dest, src, len],
+                    "",
+                );
+            }
+            Operator::DataDrop { segment } => {
+                let segment = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(segment.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    self.intrinsics.data_drop,
+                    &[vmctx.as_basic_value_enum(), segment],
+                    "",
+                );
+            }
+            Operator::MemoryCopy { src, dst } => {
+                // ignored until we support multiple memories
+                let _dst = dst;
+                let (memory_copy, src) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(src))
+                {
+                    (self.intrinsics.memory_copy, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_copy, src)
+                };
+
+                let (dest_pos, src_pos, len) = self.state.pop3()?;
+                let src_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(src.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    memory_copy,
+                    &[
+                        vmctx.as_basic_value_enum(),
+                        src_index,
+                        dest_pos,
+                        src_pos,
+                        len,
+                    ],
+                    "",
+                );
+            }
+            Operator::MemoryFill { mem } => {
+                let (memory_fill, mem) = if let Some(local_memory_index) = self
+                    .wasm_module
+                    .local_memory_index(MemoryIndex::from_u32(mem))
+                {
+                    (self.intrinsics.memory_fill, local_memory_index.as_u32())
+                } else {
+                    (self.intrinsics.imported_memory_fill, mem)
+                };
+
+                let (dst, val, len) = self.state.pop3()?;
+                let mem_index = self
+                    .intrinsics
+                    .i32_ty
+                    .const_int(mem.into(), false)
+                    .as_basic_value_enum();
+                self.builder.build_call(
+                    memory_fill,
+                    &[vmctx.as_basic_value_enum(), mem_index, dst, val, len],
+                    "",
+                );
             }
             /***************************
              * Reference types.

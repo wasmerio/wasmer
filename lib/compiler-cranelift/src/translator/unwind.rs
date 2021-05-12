@@ -1,17 +1,19 @@
 //! A `Compilation` contains the compiled function bodies for a WebAssembly
 //! module.
 
-use cranelift_codegen::isa::unwind::systemv::UnwindInfo as DwarfFDE;
-use cranelift_codegen::isa::unwind::UnwindInfo;
+#[cfg(feature = "unwind")]
+use cranelift_codegen::isa::unwind::{systemv::UnwindInfo as DwarfFDE, UnwindInfo};
 use cranelift_codegen::print_errors::pretty_error;
 use cranelift_codegen::{isa, Context};
 use wasmer_compiler::{CompileError, CompiledFunctionUnwindInfo};
 
 /// Cranelift specific unwind info
 pub(crate) enum CraneliftUnwindInfo {
+    #[cfg(feature = "unwind")]
     /// Windows Unwind info
     WindowsX64(Vec<u8>),
     /// Dwarf FDE
+    #[cfg(feature = "unwind")]
     FDE(DwarfFDE),
     /// No Unwind info attached
     None,
@@ -24,6 +26,7 @@ impl CraneliftUnwindInfo {
     /// main users of this function)
     pub fn maybe_into_to_windows_unwind(self) -> Option<CompiledFunctionUnwindInfo> {
         match self {
+            #[cfg(feature = "unwind")]
             Self::WindowsX64(unwind_info) => {
                 Some(CompiledFunctionUnwindInfo::WindowsX64(unwind_info))
             }
@@ -32,6 +35,7 @@ impl CraneliftUnwindInfo {
     }
 }
 
+#[cfg(feature = "unwind")]
 /// Constructs unwind info object from Cranelift IR
 pub(crate) fn compiled_function_unwind_info(
     isa: &dyn isa::TargetIsa,
@@ -51,4 +55,13 @@ pub(crate) fn compiled_function_unwind_info(
         Some(UnwindInfo::SystemV(unwind)) => Ok(CraneliftUnwindInfo::FDE(unwind)),
         Some(_) | None => Ok(CraneliftUnwindInfo::None),
     }
+}
+
+#[cfg(not(feature = "unwind"))]
+/// Constructs unwind info object from Cranelift IR
+pub(crate) fn compiled_function_unwind_info(
+    isa: &dyn isa::TargetIsa,
+    context: &Context,
+) -> Result<CraneliftUnwindInfo, CompileError> {
+    Ok(CraneliftUnwindInfo::None)
 }

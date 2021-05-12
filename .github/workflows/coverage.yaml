@@ -22,7 +22,6 @@ jobs:
         uses: actions-rs/toolchain@v1
         with:
           profile: minimal
-          toolchain: 1.46.0
           override: true
       - name: Install LLVM (Linux)
         run: |
