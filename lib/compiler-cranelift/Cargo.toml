@@ -17,7 +17,7 @@ wasmer-vm = { path = "../vm", version = "1.0.2" }
 wasmer-types = { path = "../types", version = "1.0.2", default-features = false, features = ["std"] }
 cranelift-entity = { version = "0.70", default-features = false }
 cranelift-codegen = { version = "0.70", default-features = false, features = ["x86", "arm64"] }
-cranelift-frontend = { version = "0.70", default-features = false }
+cranelift-frontend = { version = "0.73", default-features = false }
 tracing = "0.1"
 hashbrown = { version = "0.9", optional = true }
 rayon = "1.5"
