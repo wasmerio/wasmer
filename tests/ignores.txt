@@ -93,35 +93,17 @@ wasitests::snapshot1::unix_open_special_files on windows
 
 # Updated spectests
 
-# bulk memory
-cranelift::spec::bulk on native
 # new simd
-cranelift::spec::simd::simd_boolean
 cranelift::spec::simd::simd_conversions
-cranelift::spec::simd::simd_f32x4_pmin_pmax
-cranelift::spec::simd::simd_f64x2_pmin_pmax
 cranelift::spec::simd::simd_i16x8_extadd_pairwise_i8x16
 cranelift::spec::simd::simd_i16x8_extmul_i8x16
 cranelift::spec::simd::simd_i16x8_q15mulr_sat_s
-cranelift::spec::simd::simd_i32x4_dot_i16x8
 cranelift::spec::simd::simd_i32x4_extadd_pairwise_i16x8
 cranelift::spec::simd::simd_i32x4_extmul_i16x8
 cranelift::spec::simd::simd_i32x4_trunc_sat_f64x2
-cranelift::spec::simd::simd_i64x2_arith2
-cranelift::spec::simd::simd_i64x2_cmp
 cranelift::spec::simd::simd_i64x2_extmul_i32x4
 cranelift::spec::simd::simd_i8x16_arith2
 cranelift::spec::simd::simd_int_to_int_extend
-cranelift::spec::simd::simd_lane
-cranelift::spec::simd::simd_load16_lane
-cranelift::spec::simd::simd_load32_lane
-cranelift::spec::simd::simd_load64_lane
-cranelift::spec::simd::simd_load8_lane
-cranelift::spec::simd::simd_load_zero
-cranelift::spec::simd::simd_store16_lane
-cranelift::spec::simd::simd_store32_lane
-cranelift::spec::simd::simd_store64_lane
-cranelift::spec::simd::simd_store8_lane
 
 # new simd
 llvm::spec::simd::simd_conversions
