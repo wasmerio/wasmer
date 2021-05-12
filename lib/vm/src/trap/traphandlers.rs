@@ -418,7 +418,7 @@ pub unsafe fn raise_lib_trap(trap: Trap) -> ! {
 /// # Safety
 ///
 /// Only safe to call when wasm code is on the stack, aka `catch_traps` must
-/// have been previously called. Additionally no Rust destructors can be on the
+/// have been previously called and not returned. Additionally no Rust destructors can be on the
 /// stack. They will be skipped and not executed.
 pub unsafe fn resume_panic(payload: Box<dyn Any + Send>) -> ! {
     tls::with(|info| info.unwrap().unwind_with(UnwindReason::Panic(payload)))
@@ -876,7 +876,7 @@ mod tls {
     }
 
     /// Returns the last pointer configured with `set` above. Panics if `set`
-    /// has not been previously called.
+    /// has not been previously called and not returned.
     pub fn with<R>(closure: impl FnOnce(Option<&CallThreadState<'_>>) -> R) -> R {
         let p = raw::get();
         unsafe { closure(if p.is_null() { None } else { Some(&*p) }) }
