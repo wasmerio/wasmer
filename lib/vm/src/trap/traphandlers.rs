@@ -645,9 +645,12 @@ impl<'a> CallThreadState<'a> {
         if ret != 0 {
             return Ok(());
         }
+        // We will only reach this path if ret == 0. And that will
+        // only happen if a trap did happen. As such, it's safe to
+        // assume that the `unwind` field is already initialized
+        // at this moment.
         match unsafe { (*self.unwind.get()).as_ptr().read() } {
             UnwindReason::UserTrap(data) => {
-                debug_assert_eq!(ret, 0);
                 Err(Trap::User(data))
             }
             UnwindReason::LibTrap(trap) => Err(trap),
@@ -656,11 +659,9 @@ impl<'a> CallThreadState<'a> {
                 pc,
                 signal_trap,
             } => {
-                debug_assert_eq!(ret, 0);
                 Err(Trap::wasm(pc, backtrace, signal_trap))
             }
             UnwindReason::Panic(panic) => {
-                debug_assert_eq!(ret, 0);
                 std::panic::resume_unwind(panic)
             }
         }
